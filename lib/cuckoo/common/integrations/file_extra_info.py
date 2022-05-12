@@ -214,7 +214,6 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
         vbe_extract,
         batch_extract,
         UnAutoIt_extract,
-        RarSFX_extract,
         UPX_unpack,
         SevenZip_unpack,
         Inno_extract,
@@ -424,44 +423,6 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
         data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
 
 
-def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
-    if (
-        all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
-        and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", {}))
-        and "RAR self-extracting archive" not in data_dictionary.get("type", "")
-    ):
-        return
-
-    metadata = []
-
-    with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
-        try:
-
-            if HAVE_SFLOCK:
-                unpacked = unpack(file.encode(), password=options.get("password"))
-                for child in unpacked.children:
-                    with open(os.path.join(tempdir, child["filename"].decode()), "wb") as f:
-                        f.write(child.contents)
-                files = [
-                    os.path.join(tempdir, extracted_file)
-                    for extracted_file in tempdir
-                    if os.path.isfile(os.path.join(tempdir, extracted_file))
-                ]
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
-
-        except subprocess.CalledProcessError:
-            logging.error("Can't unpack SFX for %s", file)
-        except Exception as e:
-            logging.error(e, exc_info=True)
-
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", "UnRarSFX")
-
-
 def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     # TODO: maybe check yara for UPX?
     # hit["name"] == "UPX":
@@ -507,6 +468,17 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
         tool = "7Zip"
         prefix = "7zip_"
 
+    elif any("Microsoft Cabinet" in string for string in data_dictionary.get("die", {})):
+        tool = "UnCab"
+        prefix = "cab_"
+    elif (
+        all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
+        and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", {}))
+        and "RAR self-extracting archive" not in data_dictionary.get("type", "")
+    ):
+        tool = "UnRarSFX"
+        prefix = "unrar_"
+
     else:
         return
 
@@ -514,24 +486,17 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
 
     with tempfile.TemporaryDirectory(prefix=prefix) as tempdir:
         try:
-            output = subprocess.check_output(
-                [
-                    "7z",
-                    "e",
-                    file,
-                    f"-o{tempdir}",
-                ],
-                universal_newlines=True,
-            )
-            if output:
+             if HAVE_SFLOCK:
+                unpacked = unpack(file.encode(), password=options.get("password"))
+                for child in unpacked.children:
+                    with open(os.path.join(tempdir, child["filename"].decode()), "wb") as f:
+                        f.write(child.contents)
                 files = [
                     os.path.join(tempdir, extracted_file)
                     for extracted_file in tempdir
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
-        except subprocess.CalledProcessError:
-            logging.error("Can't unpack with 7Zip for %s", file)
         except Exception as e:
             logging.error(e, exc_info=True)
 

@@ -197,6 +197,8 @@ def get_analysis_info(db, id=-1, task=None):
         machine = os.path.basename(machine)
         new.update({"machine": machine})
 
+    rtmp = False
+
     if enabledconf["mongodb"]:
         rtmp = mongo_find_one(
             "analysis",

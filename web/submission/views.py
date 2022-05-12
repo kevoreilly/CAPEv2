@@ -280,7 +280,7 @@ def index(request, resubmit_hash=False):
                     details["task_ids"] = task_ids_tmp
                     if web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", hash, search_limit=5)
-                        for record in records:
+                        for record in records or []:
                             existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
 
         elif "sample" in request.FILES:

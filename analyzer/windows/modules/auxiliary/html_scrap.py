@@ -32,13 +32,27 @@ class HtmlScrap(Thread, Auxiliary):
     def __init__(self, options=None, config=None):
         Thread.__init__(self)
         Auxiliary.__init__(self, options, config)
-        self.config = Config(cfg="analysis.conf")
-        self.enabled = options.get('html_scrape', False)
+        self.config = Config(cfg='analysis.conf')
+
+        self.enabled = True
+        if 'html_scrap' in options:
+            self.enabled = options['html_scrap']
+
         self.driver_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'bin',
                                         'geckodriver.exe')
-        self.dump_path = 'C:\\html-scrape.dump'
 
-    def scrape_html(self):
+    @staticmethod
+    def upload_to_htmlscrap_folder(file_name: str, content: bytes):
+        tmpio = BytesIO(content)
+
+        nf = NetlogFile()
+        nf.init(f'htmlscrap/{file_name}')
+        # now upload to host from the StringIO
+        for chunk in tmpio:
+            nf.sock.send(chunk)
+        nf.close()
+
+    def scrap_html(self):
         if not HAVE_SELENIUM:
             log.debug('Selenium not installed on machine, not scraping', self.driver_path)
             return
@@ -47,8 +61,12 @@ class HtmlScrap(Thread, Auxiliary):
             log.debug('Web driver not found in path %s, not scraping', self.driver_path)
             return
 
-        if self.config.category != 'file':
-            log.debug('Category is %s, not scraping', self.config.category)
+        if not hasattr(self.config, "category") or self.config.category != 'file':
+            log.debug('Category is not file, not scraping', self.config.category)
+            return
+
+        if not hasattr(self.config, "file_type") or 'HTML' not in self.config.file_type:
+            log.debug('File is not html, not scraping', self.config.category)
             return
 
         try:
@@ -70,17 +88,14 @@ class HtmlScrap(Thread, Auxiliary):
             time.sleep(3)
 
             log.debug('Starting upload')
+            self.upload_to_htmlscrap_folder('scrap.dump', browser.page_source.encode())
 
-            tmpio = BytesIO(browser.page_source.encode())
+            if not browser.current_url.startswith('file://'):
+                self.upload_to_htmlscrap_folder('scrap.dump', browser.current_url.encode())
+                nf = NetlogFile()
+                nf.init('htmlscrap/last_url.dump')
 
-            nf = NetlogFile()
-            nf.init('htmlscrape/scrape.dump')
-            # now upload to host from the StringIO
-            for chunk in tmpio:
-                nf.sock.send(chunk)
-            nf.close()
-
-            log.debug('HTML scraped successfully')
+            log.debug('HTML scrapped successfully')
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -88,7 +103,7 @@ class HtmlScrap(Thread, Auxiliary):
         if not self.enabled:
             return False
 
-        self.scrape_html()
+        self.scrap_html()
         return True
 
     def stop(self):

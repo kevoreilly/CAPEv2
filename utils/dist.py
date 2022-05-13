@@ -1141,11 +1141,11 @@ class NodeBaseApi(RestResource):
         RestResource.__init__(self, *args, **kwargs)
 
         self._parser = reqparse.RequestParser()
-        self._parser.add_argument("name", type=str, location='form')
-        self._parser.add_argument("url", type=str, location='form')
-        self._parser.add_argument("apikey", type=str, default="", location='form')
-        self._parser.add_argument("exitnodes", type=distutils.util.strtobool, default=None, location='form')
-        self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None, location='form')
+        self._parser.add_argument("name", type=str, location="form")
+        self._parser.add_argument("url", type=str, location="form")
+        self._parser.add_argument("apikey", type=str, default="", location="form")
+        self._parser.add_argument("exitnodes", type=distutils.util.strtobool, default=None, location="form")
+        self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None, location="form")
 
 
 class NodeRootApi(NodeBaseApi):
@@ -1251,17 +1251,17 @@ class TaskBaseApi(RestResource):
         RestResource.__init__(self, *args, **kwargs)
 
         self._parser = reqparse.RequestParser()
-        self._parser.add_argument("package", type=str, default="", location='form')
-        self._parser.add_argument("timeout", type=int, default=0, location='form')
-        self._parser.add_argument("priority", type=int, default=1, location='form')
-        self._parser.add_argument("options", type=str, default="", location='form')
-        self._parser.add_argument("machine", type=str, default="", location='form')
-        self._parser.add_argument("platform", type=str, default="windows", location='form')
-        self._parser.add_argument("tags", type=str, default="", location='form')
-        self._parser.add_argument("custom", type=str, default="", location='form')
-        self._parser.add_argument("memory", type=str, default="0", location='form')
-        self._parser.add_argument("clock", type=int, location='form')
-        self._parser.add_argument("enforce_timeout", type=bool, default=False, location='form')
+        self._parser.add_argument("package", type=str, default="", location="form")
+        self._parser.add_argument("timeout", type=int, default=0, location="form")
+        self._parser.add_argument("priority", type=int, default=1, location="form")
+        self._parser.add_argument("options", type=str, default="", location="form")
+        self._parser.add_argument("machine", type=str, default="", location="form")
+        self._parser.add_argument("platform", type=str, default="windows", location="form")
+        self._parser.add_argument("tags", type=str, default="", location="form")
+        self._parser.add_argument("custom", type=str, default="", location="form")
+        self._parser.add_argument("memory", type=str, default="0", location="form")
+        self._parser.add_argument("clock", type=int, location="form")
+        self._parser.add_argument("enforce_timeout", type=bool, default=False, location="form")
 
 
 class TaskInfo(RestResource):

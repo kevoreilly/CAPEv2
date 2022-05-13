@@ -183,7 +183,7 @@ def node_get_report_nfs(task_id, worker_name, main_task_id):
     worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
     if not os.path.exists(worker_path):
         log.error(f"File on destiny doesn't exist: {worker_path}")
-        return False
+        return True
 
     analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(main_task_id))
     if not os.path.exists(analyses_path):
@@ -1141,11 +1141,11 @@ class NodeBaseApi(RestResource):
         RestResource.__init__(self, *args, **kwargs)
 
         self._parser = reqparse.RequestParser()
-        self._parser.add_argument("name", type=str)
-        self._parser.add_argument("url", type=str)
-        self._parser.add_argument("apikey", type=str, default="")
-        self._parser.add_argument("exitnodes", type=distutils.util.strtobool, default=None)
-        self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None)
+        self._parser.add_argument("name", type=str, location='form')
+        self._parser.add_argument("url", type=str, location='form')
+        self._parser.add_argument("apikey", type=str, default="", location='form')
+        self._parser.add_argument("exitnodes", type=distutils.util.strtobool, default=None, location='form')
+        self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None, location='form')
 
 
 class NodeRootApi(NodeBaseApi):
@@ -1251,17 +1251,17 @@ class TaskBaseApi(RestResource):
         RestResource.__init__(self, *args, **kwargs)
 
         self._parser = reqparse.RequestParser()
-        self._parser.add_argument("package", type=str, default="")
-        self._parser.add_argument("timeout", type=int, default=0)
-        self._parser.add_argument("priority", type=int, default=1)
-        self._parser.add_argument("options", type=str, default="")
-        self._parser.add_argument("machine", type=str, default="")
-        self._parser.add_argument("platform", type=str, default="windows")
-        self._parser.add_argument("tags", type=str, default="")
-        self._parser.add_argument("custom", type=str, default="")
-        self._parser.add_argument("memory", type=str, default="0")
-        self._parser.add_argument("clock", type=int)
-        self._parser.add_argument("enforce_timeout", type=bool, default=False)
+        self._parser.add_argument("package", type=str, default="", location='form')
+        self._parser.add_argument("timeout", type=int, default=0, location='form')
+        self._parser.add_argument("priority", type=int, default=1, location='form')
+        self._parser.add_argument("options", type=str, default="", location='form')
+        self._parser.add_argument("machine", type=str, default="", location='form')
+        self._parser.add_argument("platform", type=str, default="windows", location='form')
+        self._parser.add_argument("tags", type=str, default="", location='form')
+        self._parser.add_argument("custom", type=str, default="", location='form')
+        self._parser.add_argument("memory", type=str, default="0", location='form')
+        self._parser.add_argument("clock", type=int, location='form')
+        self._parser.add_argument("enforce_timeout", type=bool, default=False, location='form')
 
 
 class TaskInfo(RestResource):

@@ -23,7 +23,11 @@ class JsonDump(Report):
 
     def default(self, obj):
         if isinstance(obj, bytes):
-            return obj.decode()
+            try:
+                result = obj.decode()
+            except UnicodeDecodeError:
+                result = f"UnicodeDecodeError, bytes hex str: {obj.hex()}"
+            return result
         raise TypeError
 
     def run(self, results):

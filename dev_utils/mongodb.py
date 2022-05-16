@@ -45,6 +45,7 @@ def connect_to_mongo() -> MongoClient:
             username=repconf.mongodb.get("username"),
             password=repconf.mongodb.get("password"),
             authSource=repconf.mongodb.get("authsource", "cuckoo"),
+            connect=False,
         )
     except (ConnectionFailure, ServerSelectionTimeoutError):
         log.error("Cannot connect to MongoDB")

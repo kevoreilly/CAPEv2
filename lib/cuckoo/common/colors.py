@@ -7,7 +7,7 @@ import os
 import sys
 
 
-def color(text, color_code):
+def color(text: str, color_code: int) -> str:
     """Colorize text.
     @param text: text.
     @param color_code: color.
@@ -22,37 +22,37 @@ def color(text, color_code):
     return "\x1b[{}m{}\x1b[0m".format(color_code, text)
 
 
-def black(text):
+def black(text: str) -> str:
     return color(text, 30)
 
 
-def red(text):
+def red(text: str) -> str:
     return color(text, 31)
 
 
-def green(text):
+def green(text: str) -> str:
     return color(text, 32)
 
 
-def yellow(text):
+def yellow(text: str) -> str:
     return color(text, 33)
 
 
-def blue(text):
+def blue(text: str) -> str:
     return color(text, 34)
 
 
-def magenta(text):
+def magenta(text: str) -> str:
     return color(text, 35)
 
 
-def cyan(text):
+def cyan(text: str) -> str:
     return color(text, 36)
 
 
-def white(text):
+def white(text: str) -> str:
     return color(text, 37)
 
 
-def bold(text):
+def bold(text: str) -> str:
     return color(text, 1)

@@ -34,7 +34,7 @@ if sf_version:
         print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
         sys.exit()
     # Latest release
-    if int(sf_version_splited[-1]) < 34:
+    if int(sf_version_splited[-1]) < 33:
         print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
 
 log = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ def options2passwd(options: str) -> str:
     return password
 
 
-def demux_office(filename: bytes, password: str | None) -> List[bytes]:
+def demux_office(filename: bytes, password: str) -> List[bytes]:
     retlist = []
     basename = os.path.basename(filename)
     target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")

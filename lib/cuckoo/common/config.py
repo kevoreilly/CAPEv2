@@ -99,11 +99,11 @@ class ConfigMeta(type):
 
     configs = {}
 
-    @classmethod
-    def __call__(cls, fname_base: str = "cuckoo"):
-        if fname_base not in cls.configs:
-            cls.configs[fname_base] = super(ConfigMeta, cls)(fname_base=fname_base)
-        return cls.configs[fname_base]
+    def __call__(self, fname_base: str = "cuckoo"):
+        if fname_base not in self.configs:
+            self.configs[fname_base] = super(ConfigMeta, self).__call__(fname_base=fname_base)
+
+        return self.configs[fname_base]
 
     @classmethod
     def reset(cls):

@@ -16,16 +16,16 @@ HAVE_SELENIUM = False
 
 try:
     from selenium import webdriver
-    from selenium.webdriver.firefox.options import Options
+    from selenium.webdriver.firefox.service import Service
 
     HAVE_SELENIUM = True
 except Exception as ex:
     log.error(ex)
 
-__author__ = "Jonathan Abrahamy"
-__email__ = "jonathan@intezer.com"
-__version__ = "0.0.1"
-__date__ = "03MAY2022"
+__author__ = 'Jonathan Abrahamy'
+__email__ = 'jonathan@intezer.com'
+__version__ = '0.0.1'
+__date__ = '03MAY2022'
 
 
 class HtmlScrap(Thread, Auxiliary):
@@ -64,27 +64,27 @@ class HtmlScrap(Thread, Auxiliary):
             log.debug('Web driver not found in path %s, not scraping', self.driver_path)
             return
 
-        if not hasattr(self.config, "category") or self.config.category != 'file':
+        if not hasattr(self.config, 'category') or self.config.category != 'file':
             log.debug('Category is not file, not scraping', self.config.category)
             return
 
-        if not hasattr(self.config, "file_type") or 'HTML' not in self.config.file_type:
+        if not hasattr(self.config, 'file_type') or 'HTML' not in self.config.file_type:
             log.debug('File is not html, not scraping', self.config.category)
             return
 
         try:
-            file_path = os.path.join(os.environ["TEMP"] + os.sep, str(self.config.file_name))
+            file_path = os.path.join(os.environ['TEMP'] + os.sep, str(self.config.file_name))
 
-            opts = Options()
-            opts.headless = True
+            service = Service(self.driver_path)
 
-            # Set fake proxy to prevent internet connectivity
-            opts.set_preference('network.proxy.type', 1)
-            opts.set_preference('network.proxy.socks', '127.0.0.1')
-            opts.set_preference('network.proxy.socks_port', 9050)
-            opts.set_preference('network.proxy.socks_remote_dns', False)
+            # This flag ensures that gecko driver will run without opening a cmd window
+            service.creationflags = 0x08000000
 
-            self.browser = webdriver.Firefox(options=opts, executable_path=self.driver_path)
+            firefox_options = webdriver.FirefoxOptions()
+            firefox_options.add_argument('--disable-gpu')
+            firefox_options.headless = True
+
+            self.browser = webdriver.Firefox(options=firefox_options, service=service)
 
             sample_url = 'file:///{}'.format(os.path.abspath(file_path))
             self.browser.get(sample_url)

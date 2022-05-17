@@ -9,7 +9,7 @@ from urlextract import URLExtract
 
 from lib.cuckoo.common.abstracts import Processing
 
-url_whitelist = (
+safe_url_list = (
     'aadcdn.msftauth.net',
     'https://aadcdn.msauth.net',
     'https://aadcdn.msftauth.net',
@@ -71,7 +71,7 @@ class HtmlScrap(Processing):
         last_url_path = os.path.join(self.analysis_path, 'htmlscrap', 'last_url.dump')
         if not os.path.isfile(html_scrap_path):
             log.info('scrap File not found, nothing to process')
-            return None
+            return {}
 
         try:
             with open(html_scrap_path, 'r') as f:
@@ -99,7 +99,7 @@ class HtmlScrap(Processing):
                 with open(last_url_path, 'r') as f:
                     addresses_in_html.add(f.read())
 
-            filtered_addresses = {url for url in addresses_in_html if not url.startswith(url_whitelist)}
+            filtered_addresses = {url for url in addresses_in_html if not url.startswith(safe_url_list)}
 
             log.info('Finished html scrap processing')
 
@@ -108,4 +108,4 @@ class HtmlScrap(Processing):
             }
         except Exception:
             log.exception('Html scrap processing failed')
-            return None
+            return {}

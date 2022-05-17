@@ -12,6 +12,7 @@ AUTHOR = "threathive,sysopfb,kevoreilly"
 import logging
 import re
 import string
+import base64
 from collections import OrderedDict
 
 import pefile
@@ -78,9 +79,9 @@ idx_list = {
     53: "Unknown53",
     54: "Keylog file max size",
     55: "Unknown55",
-    56: "Unknown56",
-    57: "Unknown57",
-    58: "Unknown58",
+    56: "TLS client certificate",
+    57: "TLS client private key",
+    58: "TLS server certificate",
     59: "Unknown59",
     60: "Unknown60",
     61: "Unknown61",
@@ -174,6 +175,8 @@ def extract_config(filebuf):
                     p_data[idx_list[i]] = FLAG[cont]
                 elif i in (9, 16, 25, 37):
                     p_data[idx_list[i]] = setup_list[int(cont)]
+                elif i in (56, 57, 58):
+                    p_data[idx_list[i]] = base64.b64encode(cont)
                 elif i == 0:
                     host, port, password = cont.split(b"|", 1)[0].split(b":")
                     p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"

@@ -41,6 +41,9 @@ class HtmlScrap(Thread, Auxiliary):
         self.driver_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'bin',
                                         'geckodriver.exe')
 
+        self.browser = None
+        self.browser_runtime = options.get('browser_runtime', 3)
+
     @staticmethod
     def upload_to_htmlscrap_folder(file_name: str, content: bytes):
         tmpio = BytesIO(content)
@@ -81,19 +84,17 @@ class HtmlScrap(Thread, Auxiliary):
             opts.set_preference('network.proxy.socks_port', 9050)
             opts.set_preference('network.proxy.socks_remote_dns', False)
 
-            browser = webdriver.Firefox(options=opts, executable_path=self.driver_path)
+            self.browser = webdriver.Firefox(options=opts, executable_path=self.driver_path)
 
             sample_url = 'file:///{}'.format(os.path.abspath(file_path))
-            browser.get(sample_url)
-            time.sleep(3)
+            self.browser.get(sample_url)
+            time.sleep(self.browser_runtime)
 
             log.debug('Starting upload')
-            self.upload_to_htmlscrap_folder('scrap.dump', browser.page_source.encode())
+            self.upload_to_htmlscrap_folder('scrap.dump', self.browser.page_source.encode())
 
-            if not browser.current_url.startswith('file://'):
-                self.upload_to_htmlscrap_folder('scrap.dump', browser.current_url.encode())
-                nf = NetlogFile()
-                nf.init('htmlscrap/last_url.dump')
+            if not self.browser.current_url.startswith('file://'):
+                self.upload_to_htmlscrap_folder('last_url.dump', self.browser.current_url.encode())
 
             log.debug('HTML scrapped successfully')
         except Exception as e:
@@ -108,5 +109,7 @@ class HtmlScrap(Thread, Auxiliary):
 
     def stop(self):
         if self.enabled:
+            if self.browser:
+                self.browser.quit()
             return True
         return False

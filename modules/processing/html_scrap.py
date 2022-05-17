@@ -34,6 +34,7 @@ url_whitelist = (
 
 log = logging.getLogger(__name__)
 
+
 def try_base64_decode(text: str, validate: bool = True) -> Optional[bytes]:
     try:
         result = base64.b64decode(text, validate=validate)
@@ -42,19 +43,23 @@ def try_base64_decode(text: str, validate: bool = True) -> Optional[bytes]:
         return None
 
 
-def force_decode(text: str) -> Optional[str]:
-    base64_decoded_text = try_base64_decode(text, validate=True)
-    if base64_decoded_text:
-        if not base64_decoded_text.isascii():
-            return None
+def force_decode(text: str, max_decode_depth: int) -> Optional[str]:
+    for current_depth in range(max_decode_depth):
+        new_text = text
+        base64_decoded_text = try_base64_decode(text, validate=True)
+        if base64_decoded_text:
+            if not base64_decoded_text.isascii():
+                return None
 
-        return force_decode(base64_decoded_text.decode())
+            new_text = base64_decoded_text.decode()
 
-    result = urllib.parse.unquote(text)
-    if len(result) != len(text):
-        return force_decode(result)
+        new_text = urllib.parse.unquote(new_text)
+        if new_text == text:
+            break
 
-    return result
+        text = new_text
+
+    return text
 
 
 class HtmlScrap(Processing):
@@ -64,7 +69,7 @@ class HtmlScrap(Processing):
 
         html_scrap_path = os.path.join(self.analysis_path, 'htmlscrap', 'scrap.dump')
         last_url_path = os.path.join(self.analysis_path, 'htmlscrap', 'last_url.dump')
-        if not os.path.exists(html_scrap_path):
+        if not os.path.isfile(html_scrap_path):
             log.info('scrap File not found, nothing to process')
             return None
 
@@ -77,7 +82,7 @@ class HtmlScrap(Processing):
             decoded_strings = []
             potential_javascript_strings = html_scrap.split("'")[1::2]
             for string in potential_javascript_strings:
-                decoded_string = force_decode(string)
+                decoded_string = force_decode(string, max_decode_depth=5)
 
                 if not decoded_string:
                     continue

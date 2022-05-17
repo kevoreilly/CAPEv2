@@ -50,8 +50,8 @@ if repconf.mongodb.enabled:
         mongo_delete_data,
         mongo_drop_database,
         mongo_find,
-        mongo_is_cluster,
         mongo_update_one,
+        mongo_is_cluster,
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index

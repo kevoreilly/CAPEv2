@@ -155,6 +155,7 @@ def mongo_delete_data(task_ids: Iterable[int]):  #  | int
     except Exception as e:
         log.error(e, exc_info=True)
 
+
 def mongo_is_cluster():
     # This is only useful at the moment for clean to prevent destruction of cluster database
     try:

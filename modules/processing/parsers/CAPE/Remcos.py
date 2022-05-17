@@ -9,10 +9,10 @@
 DESCRIPTION = "Remcos config extractor."
 AUTHOR = "threathive,sysopfb,kevoreilly"
 
+import base64
 import logging
 import re
 import string
-import base64
 from collections import OrderedDict
 
 import pefile

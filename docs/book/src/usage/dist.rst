@@ -543,6 +543,9 @@ CAPE worker(s) (NFS calls it servers)::
     Example:
         /opt/CAPEv2 192.168.1.1(rw,no_subtree_check,all_squash,anonuid=997,anongid=1005)
 
+    Run command on worker:
+        exportfs -rav
+
 On CAPE main server run:
     Run `mount -a` to mount all NFS
     Edit `conf/reporting.conf` -> distributed -> nfs=yes

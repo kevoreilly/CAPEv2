@@ -44,7 +44,15 @@ atexit.register(resolver_pool.close)
 db = Database()
 if repconf.mongodb.enabled:
     mdb = repconf.mongodb.get("db", "cuckoo")
-    from dev_utils.mongodb import connect_to_mongo, mdb, mongo_delete_data, mongo_drop_database, mongo_find, mongo_update_one, mongo_is_cluster
+    from dev_utils.mongodb import (
+        connect_to_mongo,
+        mdb,
+        mongo_delete_data,
+        mongo_drop_database,
+        mongo_find,
+        mongo_update_one,
+        mongo_is_cluster,
+    )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
 

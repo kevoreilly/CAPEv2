@@ -220,6 +220,19 @@ shavar\.services\.mozilla\.com
 shavar\.prod\.mozaws.net
 push\.services\.mozilla\.com
 autopush\.prod\.mozaws\.net
+tracking-protection\.cdn\.mozilla.net
+getpocket\.cdn\.mozilla\.net
+snippets\.cdn\.mozilla\.net
+img-getpocket\.cdn\.mozilla.net
+www\.mozilla\.org
+firefox-settings-attachments\.cdn\.mozilla\.net
+fennec-catalog-cdn\.prod\.mozaws\.net
+content-signature-2\.cdn\.mozilla\.net
+d2nxq2uap88usk\.cloudfront\.net
+d1zkz3k4cclnv6\.cloudfront\.net
+example\.org
+ipv4only\.arpa
+cs9\.wac\.phicdn\.net
 
 # digicert
 \.digicert\.com$

@@ -3,11 +3,10 @@ import logging
 import time
 
 import boto3
-from sqlalchemy.exc import SQLAlchemyError
-
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+from sqlalchemy.exc import SQLAlchemyError
 
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
@@ -126,28 +125,39 @@ class AWS(Machinery):
         self.dynamic_machines_sequence += 1
         self.dynamic_machines_count += 1
         new_machine_name = "cuckoo_autoscale_%03d" % self.dynamic_machines_sequence
+
         instance = self._create_instance(
             tags=[{"Key": "Name", "Value": new_machine_name}, {"Key": self.AUTOSCALE_CUCKOO, "Value": "True"}]
         )
+        attempts = 0
+        while attempts < 30:
+            try:
+                time.sleep(2)
+                self.ec2_machines[instance.id] = instance
+                #  sets "new_machine" object in configuration object to avoid raising an exception
+                setattr(self.options, new_machine_name, {})
+                # add machine to DB
+                self.db.add_machine(
+                    name=new_machine_name,
+                    label=instance.id,
+                    ip=instance.private_ip_address,
+                    arch=autoscale_options["arch"],
+                    platform=autoscale_options["platform"],
+                    tags=autoscale_options["tags"],
+                    interface=interface,
+                    snapshot=None,
+                    resultserver_ip=resultserver_ip,
+                    resultserver_port=resultserver_port,
+                )
+                break
+            except Exception as e:
+                attempts += 1
+                log.warning('Failed while creating new instance {e}. Trying again.')
+                instance = None
+
         if instance is None:
             return False
 
-        self.ec2_machines[instance.id] = instance
-        #  sets "new_machine" object in configuration object to avoid raising an exception
-        setattr(self.options, new_machine_name, {})
-        # add machine to DB
-        self.db.add_machine(
-            name=new_machine_name,
-            label=instance.id,
-            ip=instance.private_ip_address,
-            arch=autoscale_options["arch"],
-            platform=autoscale_options["platform"],
-            tags=autoscale_options["tags"],
-            interface=interface,
-            snapshot=None,
-            resultserver_ip=resultserver_ip,
-            resultserver_port=resultserver_port,
-        )
         return True
 
     """override Machinery method"""
@@ -293,13 +303,21 @@ class AWS(Machinery):
                 {
                     "DeviceIndex": 0,
                     "SubnetId": autoscale_options["subnet_id"],
-                    "Groups": autoscale_options["security_groups"].split(","),
+                    "Groups": autoscale_options["security_groups"].split(','),
                 }
             ],
             TagSpecifications=[{"ResourceType": "instance", "Tags": tags}],
         )
         new_instance = response[0]
-        new_instance.modify_attribute(SourceDestCheck={"Value": False})
+        attempts = 0
+        while attempts < 30:
+            time.sleep(2)
+            try:
+                new_instance.modify_attribute(SourceDestCheck={"Value": False})
+                break
+            except Exception as e:
+                attempts += 1
+                log.warning('Failed while modifying new instance attribute. Trying again.')
         log.debug("Created %s\n%s", new_instance.id, repr(response))
         return new_instance
 

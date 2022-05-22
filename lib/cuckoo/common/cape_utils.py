@@ -2,9 +2,10 @@ from __future__ import absolute_import
 import hashlib
 import logging
 import os
-import subprocess
 import tempfile
 from collections.abc import Iterable, Mapping
+from types import ModuleType
+from typing import Dict, Tuple
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -44,7 +45,7 @@ except ImportError:
     HAVE_PEFILE = False
 
 
-def load_mwcp_parsers():
+def load_mwcp_parsers() -> Tuple[Dict[str, str], ModuleType]:
     if not process_cfg.mwcp.enabled:
         return {}, False
     # Import All config parsers
@@ -65,7 +66,7 @@ malware_parsers, mwcp = load_mwcp_parsers()
 HAS_MWCP = bool(malware_parsers)
 
 
-def load_malwareconfig_parsers():
+def load_malwareconfig_parsers() -> Tuple[bool, dict, ModuleType]:
     if not process_cfg.ratdecoders.enabled:
         return False, False, False
     try:
@@ -177,19 +178,17 @@ def init_yara():
             except yara.SyntaxError as e:
                 bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
                 log.debug("Trying to delete bad rule: %s", bad_rule)
-                if os.path.basename(bad_rule) in indexed:
-                    for k, v in rules.items():
-                        if v == bad_rule:
-                            del rules[k]
-                            indexed.remove(os.path.basename(bad_rule))
-                            print(f"Deleted broken yara rule: {bad_rule}")
-                            break
-                else:
+                if os.path.basename(bad_rule) not in indexed:
                     break
+                for k, v in rules.items():
+                    if v == bad_rule:
+                        del rules[k]
+                        indexed.remove(os.path.basename(bad_rule))
+                        print(f"Deleted broken yara rule: {bad_rule}")
+                        break
             except yara.Error as e:
                 log.error("There was a syntax error in one or more Yara rules: %s", e)
                 break
-
         if category == "memory":
             try:
                 mem_rules = yara.compile(filepaths=rules, externals=externals)
@@ -239,8 +238,7 @@ def static_config_parsers(yara_hit, file_data):
     """Process CAPE Yara hits"""
 
     cape_name = yara_hit.replace("_", " ")
-    cape_config = {}
-    cape_config[cape_name] = {}
+    cape_config = {cape_name: {}}
     parser_loaded = False
     # CAPE - pure python parsers
     # MWCP
@@ -418,7 +416,7 @@ def static_extraction(path):
 def cape_name_from_yara(details, pid, results):
     for hit in details.get("cape_yara", []) or []:
         if "meta" in hit and any(
-            [file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")]
+            file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")
         ):
             if "detections2pid" not in results:
                 results.setdefault("detections2pid", {})

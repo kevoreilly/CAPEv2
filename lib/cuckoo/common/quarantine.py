@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import, print_function
+import contextlib
 import hashlib
 import logging
 import os
@@ -102,10 +103,10 @@ def read_sep_tag(data, offset):
     retdata = ""
     length = 0
 
-    if code == 1 or code == 10:
+    if code in {1, 10}:
         length = 2
         codeval = struct.unpack("B", data[offset + 1 : offset + 2])[0]
-    elif code == 3 or code == 6:
+    elif code in {3, 6}:
         length = 5
         codeval = struct.unpack("<I", data[offset + 1 : offset + 5])[0]
     elif code == 4:
@@ -161,10 +162,7 @@ def sep_unquarantine(f):
                     headerlen = 12 + struct.unpack_from("<I", data[offset + 5 + 8 : offset + 5 + 12])[0] + 28
                     binsize = struct.unpack_from("<I", data[offset + 5 + headerlen - 12 : offset + 5 + headerlen - 8])[0]
                     collectedsize += len(tagdata) - headerlen
-                    if collectedsize > binsize:
-                        binlen = binsize
-                    else:
-                        binlen = collectedsize
+                    binlen = binsize if collectedsize > binsize else collectedsize
                     bindata += data[offset + 5 + headerlen : offset + 5 + headerlen + binlen]
                     has_header = False
                 else:
@@ -173,17 +171,16 @@ def sep_unquarantine(f):
                     if collectedsize > binsize:
                         binlen -= collectedsize - binsize
                     bindata += data[offset + 5 : offset + 5 + binlen]
-            else:
-                if decode_next_container:
-                    extralen = 0
-                    decode_next_container = False
-                elif codeval == 0x10 or codeval == 0x8:
-                    if codeval == 0x8:
-                        xor_next_container = True
-                        lastlen = struct.unpack_from("<Q", data[offset + 5 : offset + 5 + 8])[0]
-                    else:
-                        xor_next_container = False
-                    decode_next_container = True
+            elif decode_next_container:
+                extralen = 0
+                decode_next_container = False
+            elif codeval in [0x10, 0x8]:
+                if codeval == 0x8:
+                    xor_next_container = True
+                    lastlen = struct.unpack_from("<Q", data[offset + 5 : offset + 5 + 8])[0]
+                else:
+                    xor_next_container = False
+                decode_next_container = True
         elif code == 4:
             if xor_next_container and lastlen == codeval:
                 binsize = codeval
@@ -559,7 +556,7 @@ def kav_unquarantine(file):
         data = bytearray(quarfile.read())
 
     # check for KLQB header
-    magic = struct.unpack("<I", data[0:4])[0]
+    magic = struct.unpack("<I", data[:4])[0]
     if magic != 0x42514C4B:
         return None
 
@@ -627,7 +624,7 @@ def trend_unquarantine(f):
 
     dataoffset += 10
     offset = 10
-    for i in range(numtags):
+    for _ in range(numtags):
         code, tagdata = read_trend_tag(data, offset)
         if code == 1:  # original pathname
             origpath = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
@@ -693,26 +690,21 @@ def mcafee_unquarantine(f):
             details = bytearray_xor(bytearray(oledata.openstream("Details").read()), 0x6A)
         else:
             # Parse for quarantine files
-            for fileobj in item:
-                if "File_" in fileobj:
-                    quarfiles.append(fileobj)
+            quarfiles.extend(fileobj for fileobj in item if "File_" in fileobj)
             decoded = {}
             # Try and decode quarantine files (sometimes there are none)
             for item in quarfiles:
-                try:
+                with contextlib.suppress(Exception):
                     decoded[item] = bytearray_xor(bytearray(oledata.openstream(item).read()), 0x6A)
-                except Exception:
-                    pass
             # Try and get original file name from details
             if list(decoded.keys()):
                 config = details.splitlines()
                 malname = ""
-                for item in decoded.keys():
+                for item, value in decoded.items():
                     parseit = False
                     for check in config:
-                        if check.startswith("["):
-                            if item in check:
-                                parseit = True
+                        if check.startswith("[") and item in check:
+                            parseit = True
                         if check == "":
                             parseit = False
                         if parseit and check.startswith("OriginalName="):
@@ -720,7 +712,7 @@ def mcafee_unquarantine(f):
                     if not malname:
                         malname = "McAfeeDequarantineFile"
                     # currently we're only returning the first found file in the quarantine file
-                    return store_temp_file(decoded[item], malname)
+                    return store_temp_file(value, malname)
 
 
 def xorff_unquarantine(f):
@@ -752,11 +744,8 @@ def unquarantine(f):
     if not HAVE_OLEFILE:
         log.info("Missed olefile dependency: pip3 install olefile")
     if ext.lower() == ".bup" or (HAVE_OLEFILE and olefile.isOleFile(f)):
-        try:
+        with contextlib.suppress(Exception):
             return mcafee_unquarantine(f)
-        except Exception:
-            pass
-
     if ext.lower() in func_map:
         try:
             return func_map[ext.lower()](f)
@@ -764,9 +753,7 @@ def unquarantine(f):
             print(e)
 
     for func in (kav_unquarantine, trend_unquarantine, sep_unquarantine, mse_unquarantine, xorff_unquarantine):
-        try:
+        with contextlib.suppress(Exception):
             quarfile = func(f)
             if quarfile:
                 return quarfile
-        except Exception:
-            pass

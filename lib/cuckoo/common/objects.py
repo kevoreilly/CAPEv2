@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import binascii
+import contextlib
 import copy
 import hashlib
 import logging
@@ -187,10 +188,7 @@ class File:
         """Get file name.
         @return: file name.
         """
-        if self.file_name:
-            return self.file_name
-        file_name = os.path.basename(self.file_path)
-        return file_name
+        return self.file_name or os.path.basename(self.file_path)
 
     def valid(self):
         return os.path.exists(self.file_path) and os.path.isfile(self.file_path) and os.path.getsize(self.file_path) != 0
@@ -240,12 +238,9 @@ class File:
         self._sha512 = sha512.hexdigest()
         self._sha3_384 = sha3_384.hexdigest()
         if HAVE_TLSH:
-            try:
+            with contextlib.suppress(ValueError):
                 tlsh_hash.final()
                 self._tlsh_hash = tlsh_hash.hexdigest()
-            except ValueError:
-                pass
-                # print("TLSH: less than 50 of input, ignoring")
 
     @property
     def file_data(self):
@@ -257,10 +252,7 @@ class File:
         """Get file size.
         @return: file size.
         """
-        if os.path.exists(self.file_path):
-            return os.path.getsize(self.file_path)
-        else:
-            return 0
+        return os.path.getsize(self.file_path) if os.path.exists(self.file_path) else 0
 
     def get_crc32(self):
         """Get CRC32.
@@ -369,11 +361,7 @@ class File:
             try:
                 if IsPEImage(self.file_data):
                     self._pefile = True
-                    if not HAVE_PEFILE:
-                        if not File.notified_pefile:
-                            File.notified_pefile = True
-                            log.warning("Unable to import pefile (install with `pip3 install pefile`)")
-                    else:
+                    if HAVE_PEFILE:
                         try:
                             self.pe = pefile.PE(data=self.file_data, fast_load=True)
                         except pefile.PEFormatError:
@@ -392,9 +380,11 @@ class File:
                                 self.file_type = f"PE32+ executable ({gui_type}) x86-64, for MS Windows"
                             else:
                                 self.file_type = f"PE32 executable ({gui_type}) Intel 80386, for MS Windows"
+                    elif not File.notified_pefile:
+                        File.notified_pefile = True
+                        log.warning("Unable to import pefile (install with `pip3 install pefile`)")
             except Exception as e:
                 log.error(e, exc_info=True)
-
             if not self.file_type:
                 self.file_type = self.get_content_type()
 
@@ -404,7 +394,7 @@ class File:
         # Beware, spaghetti code ahead.
         try:
             new = yara_string.decode()
-        except UnicodeDecodeError as e:
+        except UnicodeDecodeError:
             # yara_string = binascii.hexlify(yara_string.lstrip("uU")).upper()
             yara_string = binascii.hexlify(yara_string).upper()
             yara_string = b" ".join(yara_string[i : i + 2] for i in range(0, len(yara_string), 2))
@@ -433,14 +423,8 @@ class File:
             else:
                 path = self.file_path
             for match in rule.match(path, externals=externals):
-                strings = set()
-                for s in match.strings:
-                    strings.add(self._yara_encode_string(s[2]))
-
-                addresses = {}
-                for s in match.strings:
-                    addresses[s[1].strip("$")] = s[0]
-
+                strings = {self._yara_encode_string(s[2]) for s in match.strings}
+                addresses = {s[1].strip("$"): s[0] for s in match.strings}
                 results.append(
                     {
                         "name": match.rule,
@@ -453,6 +437,7 @@ class File:
             errcode = str(e).rsplit(maxsplit=1)[-1]
             if errcode in yara_error:
                 log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
+
             else:
                 log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
 
@@ -479,7 +464,7 @@ class File:
                     for entry in results[self.file_path]:
                         if entry[0] == "FOUND" and entry[1] not in matches:
                             matches.append(entry[1])
-            except ConnectionError as e:
+            except ConnectionError:
                 log.warning("failed to connect to clamd socket")
             except Exception as e:
                 log.warning("failed to scan file with clamav %s", e)
@@ -492,12 +477,11 @@ class File:
         Get TLSH.
         @return: TLSH.
         """
-        if hasattr(self, "_tlsh_hash"):
-            if not self._tlsh_hash:
-                self.calc_hashes()
-            return self._tlsh_hash
-        else:
+        if not hasattr(self, "_tlsh_hash"):
             return False
+        if not self._tlsh_hash:
+            self.calc_hashes()
+        return self._tlsh_hash
 
     def get_rh_hash(self):
         if not self.pe:
@@ -549,24 +533,25 @@ class File:
         @return: information dict.
         """
 
-        infos = {}
-        infos["name"] = self.get_name()
-        infos["path"] = self.file_path
-        infos["guest_paths"] = self.guest_paths
-        infos["size"] = self.get_size()
-        infos["crc32"] = self.get_crc32()
-        infos["md5"] = self.get_md5()
-        infos["sha1"] = self.get_sha1()
-        infos["sha256"] = self.get_sha256()
-        infos["sha512"] = self.get_sha512()
-        infos["rh_hash"] = self.get_rh_hash()
-        infos["ssdeep"] = self.get_ssdeep()
-        infos["type"] = self.get_content_type()
-        infos["yara"] = self.get_yara()
-        infos["cape_yara"] = self.get_yara(category="CAPE")
-        infos["clamav"] = self.get_clamav()
-        infos["tlsh"] = self.get_tlsh()
-        infos["sha3_384"] = self.get_sha3_384()
+        infos = {
+            "name": self.get_name(),
+            "path": self.file_path,
+            "guest_paths": self.guest_paths,
+            "size": self.get_size(),
+            "crc32": self.get_crc32(),
+            "md5": self.get_md5(),
+            "sha1": self.get_sha1(),
+            "sha256": self.get_sha256(),
+            "sha512": self.get_sha512(),
+            "rh_hash": self.get_rh_hash(),
+            "ssdeep": self.get_ssdeep(),
+            "type": self.get_content_type(),
+            "yara": self.get_yara(),
+            "cape_yara": self.get_yara(category="CAPE"),
+            "clamav": self.get_clamav(),
+            "tlsh": self.get_tlsh(),
+            "sha3_384": self.get_sha3_384(),
+        }
 
         return infos, self.pe
 
@@ -644,21 +629,23 @@ class ProcDump:
             data = f.read(24)
             if data == b"":
                 break
-            alloc = {}
             addr, size, mem_state, mem_type, mem_prot = struct.unpack("QIIII", data)
             offset = f.tell()
             if addr != lastend and len(curchunk):
                 address_space.append(self._coalesce_chunks(curchunk))
                 curchunk = []
             lastend = addr + size
-            alloc["start"] = addr
-            alloc["end"] = addr + size
-            alloc["size"] = size
-            alloc["prot"] = mem_prot
-            alloc["state"] = mem_state
-            alloc["type"] = mem_type
-            alloc["offset"] = offset
-            alloc["PE"] = False
+            alloc = {
+                "start": addr,
+                "end": addr + size,
+                "size": size,
+                "prot": mem_prot,
+                "state": mem_state,
+                "type": mem_type,
+                "offset": offset,
+                "PE": False,
+            }
+
             try:
                 if f.read(2) == b"MZ":
                     alloc["PE"] = True
@@ -688,21 +675,18 @@ class ProcDump:
 
     def search(self, regex, flags=0, all=False):
         if all:
-            result = {}
-            result["detail"] = []
+            result = {"detail": []}
             matches = []
             for map in self.address_space:
                 for chunk in map["chunks"]:
                     self.dumpfile.seek(chunk["offset"])
                     match = re.finditer(regex, self.dumpfile.read(chunk["end"] - chunk["start"]), flags)
                     thismatch = []
-                    try:
+                    with contextlib.suppress(StopIteration):
                         while True:
                             m = next(match)
                             thismatch.append(m)
                             matches.append(m.group(0))
-                    except StopIteration:
-                        pass
                     if thismatch:
                         result["detail"].append({"match": thismatch, "chunk": chunk})
             result["matches"] = matches
@@ -713,7 +697,4 @@ class ProcDump:
                     self.dumpfile.seek(chunk["offset"])
                     match = re.search(regex, self.dumpfile.read(chunk["end"] - chunk["start"]), flags)
                     if match:
-                        result = {}
-                        result["match"] = match
-                        result["chunk"] = chunk
-                        return result
+                        return {"match": match, "chunk": chunk}

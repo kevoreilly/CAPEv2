@@ -13,10 +13,8 @@ except ImportError:
 _root = CUCKOO_ROOT
 
 
-def getuser():
-    if HAVE_PWD:
-        return pwd.getpwuid(os.getuid())[0]
-    return ""
+def getuser() -> str:
+    return pwd.getpwuid(os.getuid())[0] if HAVE_PWD else ""
 
 
 def cwd(*args, **kwargs):

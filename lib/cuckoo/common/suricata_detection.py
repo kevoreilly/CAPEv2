@@ -95,7 +95,7 @@ def get_suricata_family(signature):
     if "/" in famcheck:
         famcheck_list = famcheck.split("/")  # [-1]
         for fam_name in famcheck_list:
-            if not any([block in fam_name.lower() for block in suricata_blocklist]):
+            if all(block not in fam_name.lower() for block in suricata_blocklist):
                 famcheck = fam_name
                 break
     famchecklower = famcheck.lower()
@@ -114,13 +114,13 @@ def get_suricata_family(signature):
     if "/" in famchecklower:
         famcheck_list = famchecklower.split("/")  # [-1]
         for fam_name in famcheck_list:
-            if not any([block in fam_name.lower() for block in suricata_blocklist]):
+            if all(block not in fam_name.lower() for block in suricata_blocklist):
                 famcheck = fam_name
                 break
-    isbad = any([block in famchecklower for block in suricata_blocklist])
+    isbad = any(block in famchecklower for block in suricata_blocklist)
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()
-    isgood = any([allow in famchecklower for allow in suricata_passlist])
+    isgood = any(allow in famchecklower for allow in suricata_passlist)
     if isgood and len(famcheck) >= 4:
         family = famcheck.title()
     return family

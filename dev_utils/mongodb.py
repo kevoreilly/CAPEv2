@@ -13,7 +13,7 @@ mdb = repconf.mongodb.get("db", "cuckoo")
 
 if repconf.mongodb.enabled:
     from pymongo import MongoClient, version_tuple
-    from pymongo.errors import AutoReconnect, ConnectionFailure, ServerSelectionTimeoutError
+    from pymongo.errors import AutoReconnect, ConnectionFailure, OperationFailure, ServerSelectionTimeoutError
 
     if version_tuple[0] < 4:
         log.warning("You using old version of PyMongo, upgrade: pip3 install pymongo -U")
@@ -45,6 +45,7 @@ def connect_to_mongo() -> MongoClient:
             username=repconf.mongodb.get("username"),
             password=repconf.mongodb.get("password"),
             authSource=repconf.mongodb.get("authsource", "cuckoo"),
+            connect=False,
         )
     except (ConnectionFailure, ServerSelectionTimeoutError):
         log.error("Cannot connect to MongoDB")
@@ -153,3 +154,12 @@ def mongo_delete_data(task_ids: Iterable[int]):  #  | int
             mongo_delete_many("analysis", {"_id": {"$in": analyses_tmp}})
     except Exception as e:
         log.error(e, exc_info=True)
+
+
+def mongo_is_cluster():
+    # This is only useful at the moment for clean to prevent destruction of cluster database
+    try:
+        conn.admin.command("listShards")
+        return True
+    except OperationFailure:
+        return False

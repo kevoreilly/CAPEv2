@@ -312,7 +312,9 @@ def node_submit_task(task_id, node_id):
                 task.task_id = r.json()["task_id"]
                 check = True
             else:
-                log.debug("Failed to submit task {} to node: {}, code: {}".format(task_id, node.name, r.status_code))
+                log.debug(
+                    "Failed to submit task {} to node: {}, code: {}, msg: {}".format(task_id, node.name, r.status_code, r.content)
+                )
 
             log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
 

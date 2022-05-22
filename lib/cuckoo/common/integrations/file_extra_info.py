@@ -489,7 +489,7 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
             if HAVE_SFLOCK:
                 unpacked = unpack(file.encode(), password=options.get("password"))
                 for child in unpacked.children:
-                    with open(os.path.join(tempdir, child["filename"].decode()), "wb") as f:
+                    with open(os.path.join(tempdir, child.filename.decode()), "wb") as f:
                         f.write(child.contents)
                 files = [
                     os.path.join(tempdir, extracted_file)

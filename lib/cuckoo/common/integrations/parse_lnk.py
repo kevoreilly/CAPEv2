@@ -90,7 +90,7 @@ class LnkShortcut:
                     data = LnkParse3.lnk_file(f).get_json(get_all=True)
                 except struct.error as e:
                     log.error("Parse LNK error: %s", str(e))
-                    return data
+                    return {}
                 # breaks json due to datetime objects
                 if "target" in data:
                     del data["target"]

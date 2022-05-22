@@ -57,7 +57,7 @@ def parse_config(data):
                 config[CONFIG.get(k, k)] = datetime.datetime.fromtimestamp(int(v)).strftime("%H:%M:%S %d-%m-%Y")
             else:
                 k = k[-2:]
-                config[CONFIG.get(k, k)] = v
+                config[CONFIG.get(k, k)] = v.decode()
         except Exception:
             log.info("Failed to parse config entry: %s", entry)
 
@@ -211,36 +211,25 @@ def extract_config(filebuf):
                     elif str(entry.name) == "311":
                         dec_bytes = decrypt_data(res_data)
                         controllers = parse_binary_c2(dec_bytes)
-                    elif str(entry.name) == "118":
+                    elif str(entry.name) in ("118", "3719"):
                         dec_bytes = decrypt_data2(res_data)
                         controllers = parse_binary_c2_2(dec_bytes)
-                    elif str(entry.name) == "3719":
-                        dec_bytes = decrypt_data2(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes)
-                    elif str(entry.name) == "26F517AB":
-                        dec_bytes = decrypt_data3(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes)
-                    elif str(entry.name) == "524":
+                    elif str(entry.name) in ("524", "5812"):
                         dec_bytes = decrypt_data2(res_data)
                         config = parse_config(dec_bytes)
-                    elif str(entry.name) == "5812":
-                        dec_bytes = decrypt_data2(res_data)
-                        config = parse_config(dec_bytes)
-                    elif str(entry.name) in ("18270D2E", "BABA"):
+                    elif str(entry.name) in ("18270D2E", "BABA", "103"):
                         dec_bytes = decrypt_data3(res_data)
                         config = parse_config(dec_bytes)
-                    elif str(entry.name) == "EBBA":
+                    elif str(entry.name) in ("26F517AB", "EBBA", "102"):
                         dec_bytes = decrypt_data3(res_data)
                         controllers = parse_binary_c2_2(dec_bytes)
                     end_config["Loader Build"] = parse_build(pe).decode()
                     for k, v in config.items():
-                        # log.info({ k.decode(): v.decode() })
+                        # log.info({ k: v })
                         end_config.setdefault(k, v)
                     # log.info("controllers: %s", controllers)
                     for controller in controllers:
                         end_config.setdefault("address", []).append(controller)
-                    # log.info("meta data: %s", self.reporter.metadata)
-
     except Exception as e:
         log.warning(e)
 

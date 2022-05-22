@@ -273,6 +273,7 @@ def index(request, resubmit_hash=False):
                 path = store_temp_file(content, filename)
                 details["path"] = path
                 details["content"] = content
+                details["filename"] = os.path.basename(filename)
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(filename): task_ids_tmp})
@@ -322,6 +323,7 @@ def index(request, resubmit_hash=False):
 
                 details["path"] = path
                 details["content"] = get_file_content(path)
+                details["filename"] = sample.name
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(path): task_ids_tmp})
@@ -368,6 +370,7 @@ def index(request, resubmit_hash=False):
 
                 details["path"] = path
                 details["content"] = get_file_content(path)
+                details["filename"] = sample.name
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({sample.name: task_ids_tmp})
@@ -393,7 +396,7 @@ def index(request, resubmit_hash=False):
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), sample.name)
 
-                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+                task_id = db.add_static(file_path=path, filename=sample.name, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
@@ -430,7 +433,7 @@ def index(request, resubmit_hash=False):
                     else:
                         return render(request, "error.html", {"error": "Conversion from SAZ to PCAP failed."})
 
-                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+                task_id = db.add_pcap(file_path=path, filename=sample.name, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if task_id:
                     details["task_ids"].append(task_id)
 
@@ -500,6 +503,7 @@ def index(request, resubmit_hash=False):
             details["content"] = get_file_content(path)
             details["service"] = "DLnExec"
             details["source_url"] = url
+            details["filename"] = name
             status, task_ids_tmp = download_file(**details)
             if status == "error":
                 details["errors"].append({name: task_ids_tmp})

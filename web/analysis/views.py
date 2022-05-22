@@ -186,7 +186,7 @@ def get_analysis_info(db, id=-1, task=None):
     new = task.to_dict()
     if new["category"] in ("file", "pcap", "static") and new["sample_id"] is not None:
         new["sample"] = db.view_sample(new["sample_id"]).to_dict()
-        filename = os.path.basename(new["target"])
+        filename = new["filename"]
         new.update({"filename": filename})
 
     new.update({"user_task_tags": get_tags_tasks([new["id"]])})

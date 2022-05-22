@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from typing import Callable
 import select
 import socket
 import threading
+from typing import Callable
 
 try:
     import pycares

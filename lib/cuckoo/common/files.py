@@ -51,7 +51,7 @@ class Storage:
         @return: filename.
         """
         dirpath, filename = ntpath.split(path)
-        return filename if filename else ntpath.basename(dirpath)
+        return filename or ntpath.basename(dirpath)
 
 
 class Folders(Storage):
@@ -80,7 +80,7 @@ class Folders(Storage):
                     if e.errno == errno.EEXIST:
                         # Race condition, ignore
                         continue
-                    raise CuckooOperationalError(f"Unable to create folder: {folder_path}")
+                    raise CuckooOperationalError(f"Unable to create folder: {folder_path}") from e
 
     @staticmethod
     def copy(src, dest):
@@ -102,8 +102,8 @@ class Folders(Storage):
         if os.path.exists(folder):
             try:
                 shutil.rmtree(folder)
-            except OSError:
-                raise CuckooOperationalError(f"Unable to delete folder: {folder}")
+            except OSError as e:
+                raise CuckooOperationalError(f"Unable to delete folder: {folder}") from e
 
 
 class Files(Storage):
@@ -172,14 +172,12 @@ class Files(Storage):
         @param path: file path
         @return: computed hash string
         """
-        f = open(filepath, "rb")
-        h = method()
-        while True:
+        with open(filepath, "rb") as f:
+            h = method()
             buf = f.read(1024 * 1024)
-            if not buf:
-                break
-            h.update(buf)
-        f.close()
+            while buf:
+                h.update(buf)
+                buf = f.read(1024 * 1024)
         return h.hexdigest()
 
     @staticmethod

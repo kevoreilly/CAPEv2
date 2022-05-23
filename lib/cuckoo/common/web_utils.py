@@ -644,9 +644,8 @@ def download_file(**kwargs):
             if retrieved_hash != kwargs["fhash"].lower():
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
         if not os.path.exists(kwargs.get("path")):
-            f = open(kwargs["path"], "wb")
-            f.write(kwargs["content"])
-            f.close()
+            with open(kwargs["path"], "wb") as f:
+                f.write(kwargs["content"])
     except Exception as e:
         print(e)
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}

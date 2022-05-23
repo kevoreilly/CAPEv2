@@ -18,7 +18,7 @@ def test_free_space_monitor(mocker):
 
 
 def test_get_memdump_path(mocker):
-    ret_path = utils.get_memdump_path(id=123)
+    ret_path = utils.get_memdump_path(memdump_id=123)
     assert ret_path.rsplit("/", 4)[-4:] == "storage/analyses/123/memory.dmp".split("/")
 
 

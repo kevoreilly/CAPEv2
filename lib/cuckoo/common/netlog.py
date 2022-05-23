@@ -66,9 +66,7 @@ def default_converter_64bit(v):
     # return v % 2**64
 
     # Try to avoid various unicode issues through usage of latin-1 encoding.
-    if isinstance(v, str):
-        return v.decode("latin-1")
-    return v
+    return v.decode("latin-1") if isinstance(v, str) else v
 
 
 def check_names_for_typeinfo(arginfo):
@@ -271,7 +269,7 @@ class BsonParser:
                     log.warning("Inconsistent arg count (compared to arg names) on %s: %s names %s", dec, argnames, apiname)
                     continue
 
-                argdict = dict((argnames[i], converters[i](arg)) for i, arg in enumerate(args))
+                argdict = {argnames[i]: converters[i](arg) for i, arg in enumerate(args)}
 
                 if apiname == "__process__":
                     # Special new process message from cuckoomon.

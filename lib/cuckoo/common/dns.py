@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import select
 import socket
 import threading
+from typing import Callable
 
 try:
     import pycares
@@ -25,19 +26,19 @@ DNS_TIMEOUT = 5
 DNS_TIMEOUT_VALUE = ""
 
 
-def set_timeout(value):
+def set_timeout(value: int):
     global DNS_TIMEOUT
     DNS_TIMEOUT = value
 
 
-def set_timeout_value(value):
+def set_timeout_value(value: str):
     global DNS_TIMEOUT_VALUE
     DNS_TIMEOUT_VALUE = value
 
 
 # standard gethostbyname in thread
 # http://code.activestate.com/recipes/473878/
-def with_timeout(func, args=(), kwargs={}):
+def with_timeout(func: Callable, args=(), kwargs={}):
     """This function will spawn a thread and run the given function
     using the args, kwargs and return the given default value if the
     timeout_duration is exceeded.
@@ -67,11 +68,11 @@ def with_timeout(func, args=(), kwargs={}):
         return it.result
 
 
-def resolve_thread(name):
+def resolve_thread(name: str) -> str:
     return with_timeout(gethostbyname, (name,))
 
 
-def gethostbyname(name):
+def gethostbyname(name: str) -> str:
     try:
         ip = socket.gethostbyname(name)
     except socket.gaierror:
@@ -80,7 +81,7 @@ def gethostbyname(name):
 
 
 # C-ARES (http://c-ares.haxx.se/)
-def resolve_cares(name):
+def resolve_cares(name: str) -> str:
     # create new c-ares channel
     careschan = pycares.Channel(timeout=DNS_TIMEOUT, tries=1)
 
@@ -98,7 +99,7 @@ def resolve_cares(name):
 
     # now do the actual work
     readfds, writefds = careschan.getsock()
-    canreadfds, canwritefds, _ = select.select(readfds, writefds, [], DNS_TIMEOUT)
+    canreadfds, _, _ = select.select(readfds, writefds, [], DNS_TIMEOUT)
     for rfd in canreadfds:
         careschan.process_fd(rfd, -1)
 
@@ -115,7 +116,7 @@ class Resultholder:
 
 """
 # gevent based resolver with timeout
-def resolve_gevent(name):
+def resolve_gevent(name: str):
     result = resolve_gevent_real(name)
     # if it failed, do this a second time because of strange libevent behavior
     # basically sometimes the Timeout fires immediately instead of after
@@ -138,14 +139,10 @@ def resolve_gevent_real(name):
 
 
 # choose resolver automatically
-def resolve(name):
+def resolve(name: str) -> str:
     if HAVE_CARES:
         return resolve_cares(name)
     # elif HAVE_GEVENT:
     #    return resolve_gevent(name)
     else:
         return resolve_thread(name)
-
-
-# another alias
-resolve_best = resolve

@@ -148,12 +148,11 @@ class Task(Base):
         self.route = route
 
 
-def create_session(db_connectionn, echo=False):
-    # ToDo add chema version check
+def create_session(db_connectionn: str, echo=False) -> sessionmaker:
+    # ToDo add schema version check
     try:
         engine = create_engine(db_connectionn, echo=echo)  # pool_size=40, max_overflow=0,
         Base.metadata.create_all(engine)
-        session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
-        return session
+        return sessionmaker(autocommit=False, autoflush=True, bind=engine)
     except OperationalError as e:
         sys.exit(e)

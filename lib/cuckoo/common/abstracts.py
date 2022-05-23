@@ -75,7 +75,7 @@ if repconf.mitre.enabled:
             )
             HAVE_MITRE = True
 
-    except (ImportError, ModuleNotFoundError):
+    except ImportError:
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
 
 log = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class Machinery:
         # at each start.
         self.db.clean_machines()
 
-    def set_options(self, options):
+    def set_options(self, options: dict):
         """Set machine manager options.
         @param options: machine manager options dict.
         """
@@ -245,7 +245,7 @@ class Machinery:
                 self.stop(machine.label)
             except CuckooMachineError as e:
                 msg = f"Please update your configuration. Unable to shut '{machine.label}' down or find the machine in its proper state: {e}"
-                raise CuckooCriticalError(msg)
+                raise CuckooCriticalError(msg) from e
 
         if not cfg.timeouts.vm_state:
             raise CuckooCriticalError("Virtual machine state change timeout setting not found, please add it to the config file")
@@ -425,9 +425,9 @@ class LibVirtMachinery(Machinery):
                 vm = self.vms[label]
                 snapshot = vm.snapshotLookupByName(vm_info.snapshot, flags=0)
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
-            except libvirt.libvirtError:
+            except libvirt.libvirtError as e:
                 msg = f"Unable to restore snapshot {vm_info.snapshot} on virtual machine {label}"
-                raise CuckooMachineError(msg)
+                raise CuckooMachineError(msg) from e
             finally:
                 self._disconnect(conn)
         elif self._get_snapshot(label):
@@ -435,8 +435,8 @@ class LibVirtMachinery(Machinery):
             log.debug("Using snapshot %s for virtual machine %s", snapshot.getName(), label)
             try:
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
-            except libvirt.libvirtError:
-                raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}")
+            except libvirt.libvirtError as e:
+                raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}") from e
             finally:
                 self._disconnect(conn)
         else:
@@ -464,7 +464,7 @@ class LibVirtMachinery(Machinery):
             else:
                 self.vms[label].destroy()  # Machete's way!
         except libvirt.libvirtError as e:
-            raise CuckooMachineError(f"Error stopping virtual machine {label}: {e}")
+            raise CuckooMachineError(f"Error stopping virtual machine {label}: {e}") from e
         finally:
             self._disconnect(conn)
         # Check state.
@@ -491,7 +491,7 @@ class LibVirtMachinery(Machinery):
             fd.close()
             self.vms[label].coreDump(path, flags=libvirt.VIR_DUMP_MEMORY_ONLY)
         except libvirt.libvirtError as e:
-            raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}")
+            raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}") from e
         finally:
             self._disconnect(conn)
 
@@ -517,7 +517,7 @@ class LibVirtMachinery(Machinery):
         try:
             state = self.vms[label].state(flags=0)
         except libvirt.libvirtError as e:
-            raise CuckooMachineError(f"Error getting status for virtual machine {label}: {e}")
+            raise CuckooMachineError(f"Error getting status for virtual machine {label}: {e}") from e
         finally:
             self._disconnect(conn)
 
@@ -526,7 +526,7 @@ class LibVirtMachinery(Machinery):
                 status = self.RUNNING
             elif state[0] == 3:
                 status = self.PAUSED
-            elif state[0] == 4 or state[0] == 5:
+            elif state[0] in {4, 5}:
                 status = self.POWEROFF
             else:
                 status = self.ERROR
@@ -548,8 +548,8 @@ class LibVirtMachinery(Machinery):
 
         try:
             return libvirt.open(self.dsn)
-        except libvirt.libvirtError:
-            raise CuckooMachineError("Cannot connect to libvirt")
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError("Cannot connect to libvirt") from e
 
     def _disconnect(self, conn):
         """Disconnects to libvirt subsystem.
@@ -557,17 +557,14 @@ class LibVirtMachinery(Machinery):
         """
         try:
             conn.close()
-        except libvirt.libvirtError:
-            raise CuckooMachineError("Cannot disconnect from libvirt")
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError("Cannot disconnect from libvirt") from e
 
     def _fetch_machines(self):
         """Fetch machines handlers.
         @return: dict with machine label as key and handle as value.
         """
-        vms = {}
-        for vm in self.machines():
-            vms[vm.label] = self._lookup(vm.label)
-        return vms
+        return {vm.label: self._lookup(vm.label) for vm in self.machines()}
 
     def _lookup(self, label):
         """Search for a virtual machine.
@@ -578,8 +575,8 @@ class LibVirtMachinery(Machinery):
         conn = self._connect(label)
         try:
             vm = conn.lookupByName(label)
-        except libvirt.libvirtError:
-            raise CuckooMachineError(f"Cannot find machine {label}")
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError(f"Cannot find machine {label}") from e
         finally:
             self._disconnect(conn)
         return vm
@@ -591,8 +588,8 @@ class LibVirtMachinery(Machinery):
         conn = self._connect()
         try:
             names = conn.listDefinedDomains()
-        except libvirt.libvirtError:
-            raise CuckooMachineError("Cannot list domains")
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError("Cannot list domains") from e
         finally:
             self._disconnect(conn)
         return names
@@ -601,10 +598,7 @@ class LibVirtMachinery(Machinery):
         """Check if libvirt release supports snapshots.
         @return: True or false.
         """
-        if libvirt.getVersion() >= 8000:
-            return True
-        else:
-            return False
+        return libvirt.getVersion() >= 8000
 
     def _get_snapshot(self, label):
         """Get current snapshot for virtual machine
@@ -760,9 +754,8 @@ class Signature:
         @param extracted: conf extraction from inside signature to count success extraction vs sig run
         """
         timediff = datetime.datetime.now() - pretime
-        self.results["custom_statistics"] = {}
-        self.results["custom_statistics"][self.name] = {}
-        self.results["custom_statistics"][self.name]["time"] = float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")
+        self.results["custom_statistics"] = {self.name: {"time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")}}
+
         if extracted:
             self.results["custom_statistics"][self.name]["extracted"] = 1
 
@@ -890,10 +883,14 @@ class Signature:
             log.info("missed tldextract dependency")
 
     def _get_ip_by_host(self, hostname):
-        for data in self.results.get("network", {}).get("hosts", []):
-            if data.get("hostname", "") == hostname:
-                return [data.get("ip", "")]
-        return []
+        return next(
+            (
+                [data.get("ip", "")]
+                for data in self.results.get("network", {}).get("hosts", [])
+                if data.get("hostname", "") == hostname
+            ),
+            [],
+        )
 
     def _get_ip_by_host_dns(self, hostname):
 
@@ -905,8 +902,7 @@ class Signature:
                 n = dns.reversename.from_address(rdata.address)
                 try:
                     answers_inv = myresolver.query(n, "PTR")
-                    for rdata_inv in answers_inv:
-                        ips.append(rdata.address)
+                    ips.extend(rdata.address for _ in answers_inv)
                 except dns.resolver.NoAnswer:
                     ips.append(rdata.address)
                 except dns.resolver.NXDOMAIN:
@@ -977,12 +973,11 @@ class Signature:
                             retset.add(item)
                         else:
                             return item
-            else:
-                if exp.match(subject):
-                    if all:
-                        retset.add(subject)
-                    else:
-                        return subject
+            elif exp.match(subject):
+                if all:
+                    retset.add(subject)
+                else:
+                    return subject
             if all and len(retset) > 0:
                 return retset
         elif ignorecase:
@@ -991,17 +986,14 @@ class Signature:
                 for item in subject:
                     if item.lower() == lowerpattern:
                         return item
-            else:
-                if subject.lower() == lowerpattern:
-                    return subject
-        else:
-            if isinstance(subject, list):
-                for item in subject:
-                    if item == pattern:
-                        return item
-            else:
-                if subject == pattern:
-                    return subject
+            elif subject.lower() == lowerpattern:
+                return subject
+        elif isinstance(subject, list):
+            for item in subject:
+                if item == pattern:
+                    return item
+        elif subject == pattern:
+            return subject
 
         return None
 
@@ -1009,10 +1001,7 @@ class Signature:
         if "behavior" in self.results and "processes" in self.results["behavior"]:
             for process in self.results["behavior"]["processes"]:
                 if re.findall(pattern, process["process_name"], re.I):
-                    if all:
-                        return process
-                    else:
-                        return True
+                    return process if all else True
         return False
 
     def check_file(self, pattern, regex=False, all=False):
@@ -1189,9 +1178,8 @@ class Signature:
             retset = set()
         for item in self.results["behavior"]["processes"]:
             # Check if there's a process name filter.
-            if process:
-                if item["process_name"] != process:
-                    continue
+            if process and item["process_name"] != process:
+                continue
 
             # Loop through API calls.
             for call in item["calls"]:
@@ -1203,10 +1191,7 @@ class Signature:
                     else:
                         return call["api"]
 
-        if all and len(retset) > 0:
-            return retset
-
-        return None
+        return retset if all and len(retset) > 0 else None
 
     def check_argument_call(self, call, pattern, name=None, api=None, category=None, regex=False, all=False, ignorecase=False):
         """Checks for a specific argument of an invoked API.
@@ -1228,21 +1213,18 @@ class Signature:
             retset = set()
 
         # Check if there's an API name filter.
-        if api:
-            if call["api"] != api:
-                return False
+        if api and call["api"] != api:
+            return False
 
         # Check if there's a category filter.
-        if category:
-            if call["category"] != category:
-                return False
+        if category and call["category"] != category:
+            return False
 
         # Loop through arguments.
         for argument in call["arguments"]:
             # Check if there's an argument name filter.
-            if name:
-                if argument["name"] != name:
-                    continue
+            if name and argument["name"] != name:
+                continue
 
             # Check if the argument value matches.
             ret = self._check_value(pattern=pattern, subject=argument["value"], regex=regex, all=all, ignorecase=ignorecase)
@@ -1279,9 +1261,8 @@ class Signature:
         # Loop through processes.
         for item in self.results["behavior"]["processes"]:
             # Check if there's a process name filter.
-            if process:
-                if item["process_name"] != process:
-                    continue
+            if process and item["process_name"] != process:
+                continue
 
             # Loop through API calls.
             for call in item["calls"]:
@@ -1311,7 +1292,7 @@ class Signature:
         if all:
             retset = set()
 
-        if not "network" in self.results:
+        if "network" not in self.results:
             return None
 
         hosts = self.results["network"].get("hosts")
@@ -1345,7 +1326,7 @@ class Signature:
         if all:
             retset = set()
 
-        if not "network" in self.results:
+        if "network" not in self.results:
             return None
 
         domains = self.results["network"].get("domains")
@@ -1379,7 +1360,7 @@ class Signature:
         if all:
             retset = set()
 
-        if not "network" in self.results:
+        if "network" not in self.results:
             return None
 
         httpitems = self.results["network"].get("http")
@@ -1404,8 +1385,8 @@ class Signature:
         """
 
         if (
-            not "behavior" in self.results
-            or not "processes" in self.results["behavior"]
+            "behavior" not in self.results
+            or "processes" not in self.results["behavior"]
             or not len(self.results["behavior"]["processes"])
         ):
             return None
@@ -1418,7 +1399,7 @@ class Signature:
         @param env_name: Name of environment entry
         @return: value of environment entry or None
         """
-        if not proc or not "environ" in proc or not env_name in proc["environ"]:
+        if not proc or env_name not in proc.get("environ", {}):
             return None
 
         return proc["environ"][env_name]
@@ -1433,10 +1414,7 @@ class Signature:
         # If not, we can start caching it and store a copy converted to a dict.
         if call is not self._current_call_cache:
             self._current_call_cache = call
-            self._current_call_dict = {}
-
-            for argument in call["arguments"]:
-                self._current_call_dict[argument["name"]] = argument["value"]
+            self._current_call_dict = {argument["name"]: argument["value"] for argument in call["arguments"]}
 
         # Return the required argument.
         if name in self._current_call_dict:
@@ -1469,10 +1447,7 @@ class Signature:
         # If not, we can start caching it and store a copy converted to a dict.
         if call is not self._current_call_raw_cache:
             self._current_call_raw_cache = call
-            self._current_call_raw_dict = {}
-
-            for argument in call["arguments"]:
-                self._current_call_raw_dict[argument["name"]] = argument["raw_value"]
+            self._current_call_raw_dict = {argument["name"]: argument["raw_value"] for argument in call["arguments"]}
 
         # Return the required argument.
         if name in self._current_call_raw_dict:
@@ -1480,11 +1455,13 @@ class Signature:
 
         return None
 
-    def check_suricata_alerts(self, pattern, blacklist=[]):
+    def check_suricata_alerts(self, pattern, blacklist=None):
         """Check for pattern in Suricata alert signature
         @param pattern: string or expression to check for.
         @return: True/False
         """
+        if blacklist is None:
+            blacklist = []
         res = False
         if isinstance(self.results.get("suricata", {}), dict):
             for alert in self.results.get("suricata", {}).get("alerts", []):
@@ -1504,20 +1481,17 @@ class Signature:
         """
         signs = []
         if isinstance(match, list):
-            for item in match:
-                signs.append({"type": type, "value": item})
+            signs.extend({"type": type, "value": item} for item in match)
         else:
             signs.append({"type": type, "value": match})
 
         process_summary = None
         if process:
-            process_summary = {}
-            process_summary["process_name"] = process["process_name"]
-            process_summary["process_id"] = process["process_id"]
+            process_summary = {"process_name": process["process_name"], "process_id": process["process_id"]}
 
         self.new_data.append({"process": process_summary, "signs": signs})
 
-    def has_matches(self):
+    def has_matches(self) -> bool:
         """Returns true if there is matches (data is not empty)
         @return: boolean indicating if there is any match registered
         """
@@ -1636,7 +1610,7 @@ class Feed:
         self.frequency = 24
         self.updatefeed = False
 
-    def update(self):
+    def update(self) -> bool:
         """Determine if the feed needs to be updated based on the configured
         frequency and update if it we have passed that time threshold.
         """
@@ -1647,10 +1621,7 @@ class Feed:
         if os.path.isfile(self.feedpath):
             mtime = os.path.getmtime(self.feedpath)
             # Check if feed file is older than configured update frequency
-            if time.time() - mtime > freq:
-                self.updatefeed = True
-            else:
-                self.updatefeed = False
+            self.updatefeed = time.time() - mtime > freq
         else:
             self.updatefeed = True
 
@@ -1670,7 +1641,7 @@ class Feed:
 
         return False
 
-    def get_feedpath(self):
+    def get_feedpath(self) -> str:
         return self.feedpath
 
     def modify(self):
@@ -1679,7 +1650,7 @@ class Feed:
         """
         raise NotImplementedError
 
-    def run(self, modified=False):
+    def run(self, modified: bool = False):
         if self.updatefeed:
             lock = threading.Lock()
             with lock:

@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import configparser
 import glob
 import os
+from typing import Dict, Iterable
 
 from lib.cuckoo.common.colors import bold, red
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUSTOM_CONF_DIR
@@ -22,7 +23,7 @@ class Dictionary(dict):
     __delattr__ = dict.__delitem__
 
 
-def parse_options(options):
+def parse_options(options: str) -> Dict[str, str]:
     """Parse the analysis options field to a dictionary."""
     ret = {}
     for field in options.split(","):
@@ -32,11 +33,6 @@ def parse_options(options):
         key, value = field.split("=", 1)
         ret[key.strip()] = value.strip()
     return ret
-
-
-def emit_options(options):
-    """Emit the analysis options from a dictionary to a string."""
-    return ",".join(f"{k}={v}" for k, v in sorted(options.items()))
 
 
 class _BaseConfig:
@@ -51,17 +47,16 @@ class _BaseConfig:
         try:
             return getattr(self, section)
         except AttributeError as e:
-            raise CuckooOperationalError(f"Option {section} is not found in configuration, error: {e}")
+            raise CuckooOperationalError(f"Option {section} is not found in configuration, error: {e}") from e
 
     def get_config(self):
         return self.fullconfig
 
-    def _read_files(self, files):
-        config = configparser.ConfigParser(
-            # Escape the percent signs so that ConfigParser doesn't try to do
-            # interpolation of the value as well.
-            dict((f"ENV:{key}", val.replace("%", "%%")) for key, val in os.environ.items())
-        )
+    def _read_files(self, files: Iterable[str]):
+        # Escape the percent signs so that ConfigParser doesn't try to do
+        # interpolation of the value as well.
+        config = configparser.ConfigParser({f"ENV:{key}": val.replace("%", "%%") for key, val in os.environ.items()})
+
         try:
             config.read(files)
         except UnicodeDecodeError as e:
@@ -73,19 +68,19 @@ class _BaseConfig:
                     )
                 )
             )
-            raise UnicodeDecodeError
+            raise
 
         self.fullconfig = config._sections
 
         for section in config.sections():
             dct = Dictionary()
-            for name, _ in config.items(section):
+            for name, value in config.items(section):
                 if name.startswith("env:"):
                     continue
                 try:
                     # Ugly fix to avoid '0' and '1' to be parsed as a boolean value.
-                    # We raise an exception to goto fail^w parse it as integer.
-                    if config.get(section, name) in ["0", "1"]:
+                    # We raise an exception to parse it as an integer.
+                    if value in {"0", "1"}:
                         raise ValueError
 
                     value = config.getboolean(section, name)
@@ -104,10 +99,11 @@ class ConfigMeta(type):
 
     configs = {}
 
-    def __call__(cls, fname_base="cuckoo"):
-        if fname_base not in cls.configs:
-            cls.configs[fname_base] = super(ConfigMeta, cls).__call__(fname_base=fname_base)
-        return cls.configs[fname_base]
+    def __call__(self, fname_base: str = "cuckoo"):
+        if fname_base not in self.configs:
+            self.configs[fname_base] = super(ConfigMeta, self).__call__(fname_base=fname_base)
+
+        return self.configs[fname_base]
 
     @classmethod
     def reset(cls):
@@ -116,7 +112,7 @@ class ConfigMeta(type):
 
 
 class Config(_BaseConfig, metaclass=ConfigMeta):
-    def __init__(self, fname_base="cuckoo"):
+    def __init__(self, fname_base: str = "cuckoo"):
         files = self._get_files_to_read(fname_base)
         self._read_files(files)
 

@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import contextlib
 import errno
 import fcntl
 import inspect
@@ -101,7 +102,7 @@ texttypes = [
 def is_text_file(file_info, destination_folder, buf, file_data=False):
 
     # print(file_info, any([file_type in file_info.get("type", "") for file_type in texttypes]))
-    if any([file_type in file_info.get("type", "") for file_type in texttypes]):
+    if any(file_type in file_info.get("type", "") for file_type in texttypes):
 
         extracted_path = os.path.join(
             destination_folder,
@@ -202,17 +203,17 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             break
 
 
-def get_memdump_path(id, analysis_folder=False):
+def get_memdump_path(memdump_id, analysis_folder=False):
     """
     Get the path of memdump to store
     analysis_folder: force to return default analysis folder
     """
-    id = str(id)
-    if HAVE_TMPFS and tmpfs.enabled and not analysis_folder:
-        memdump_path = os.path.join(tmpfs.path, f"{id}.dmp")
-    else:
-        memdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "memory.dmp")
-    return memdump_path
+    memdump_id = str(memdump_id)
+    return (
+        os.path.join(tmpfs.path, f"{memdump_id}.dmp")
+        if HAVE_TMPFS and tmpfs.enabled and not analysis_folder
+        else os.path.join(CUCKOO_ROOT, "storage", "analyses", memdump_id, "memory.dmp")
+    )
 
 
 def validate_referrer(url):
@@ -225,12 +226,14 @@ def validate_referrer(url):
     return url
 
 
-def create_folders(root=".", folders=[]):
+def create_folders(root=".", folders=None):
     """Create directories.
     @param root: root path.
     @param folders: folders list to be created.
     @raise CuckooOperationalError: if fails to create folder.
     """
+    if folders is None:
+        folders = []
     for folder in folders:
         create_folder(root, folder)
 
@@ -250,7 +253,7 @@ def create_folder(root=".", folder=None):
         except OSError as e:
             print(e)
             if e.errno != errno.EEXIST:
-                raise CuckooOperationalError(f"Unable to create folder: {folder_path}")
+                raise CuckooOperationalError(f"Unable to create folder: {folder_path}") from e
         except Exception as e:
             print(e)
 
@@ -263,8 +266,8 @@ def delete_folder(folder):
     if os.path.exists(folder):
         try:
             shutil.rmtree(folder)
-        except OSError:
-            raise CuckooOperationalError(f"Unable to delete folder: {folder}")
+        except OSError as e:
+            raise CuckooOperationalError(f"Unable to delete folder: {folder}") from e
 
 
 # Don't allow all characters in "string.printable", as newlines, carriage
@@ -282,10 +285,7 @@ def convert_char(c):
     """
     if isinstance(c, int):
         c = chr(c)
-    if c in PRINTABLE_CHARACTERS:
-        return c
-    else:
-        return f"\\x{ord(c):02x}"
+    return c if c in PRINTABLE_CHARACTERS else f"\\x{ord(c):02x}"
 
 
 def is_printable(s):
@@ -362,7 +362,7 @@ def convert_to_printable(s: str, cache=None):
 
     if cache is None:
         return "".join(convert_char(c) for c in s)
-    elif not s in cache:
+    elif s not in cache:
         cache[s] = "".join(convert_char(c) for c in s)
     return cache[s]
 
@@ -378,10 +378,7 @@ def convert_filename_char(c):
     """
     if isinstance(c, int):
         c = chr(c)
-    if c in FILENAME_CHARACTERS:
-        return c
-    else:
-        return f"\\x{ord(c):02x}"
+    return c if c in FILENAME_CHARACTERS else f"\\x{ord(c):02x}"
 
 
 def is_sane_filename(s):
@@ -402,21 +399,17 @@ def wide2str(string: Tuple[str, bytes]):
         ccharted
     Do you have better solution?
     """
-    null_byte = "\x00"
-    if isinstance(string, bytes):
-        null_byte = 0
-
+    null_byte = 0 if isinstance(string, bytes) else "\x00"
     if (
-        len(string) >= 11
-        and all([string[char] == null_byte for char in (1, 3, 5, 7, 9, 11)])
-        and all([string[char] != null_byte for char in (0, 2, 4, 6, 8, 10)])
+        len(string) < 11
+        or any(string[char] != null_byte for char in (1, 3, 5, 7, 9, 11))
+        or any(string[char] == null_byte for char in (0, 2, 4, 6, 8, 10))
     ):
-        if isinstance(string, bytes):
-            return string.decode("utf-16")
-        else:
-            return string.encode().decode("utf-16")
-    else:
         return string
+    if isinstance(string, bytes):
+        return string.decode("utf-16")
+    else:
+        return string.encode().decode("utf-16")
 
 
 def sanitize_pathname(s: str):
@@ -528,7 +521,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         return pp_funcs.systeminformationclass(arg_val)
     elif category == "registry" and arg_name == "Type":
         return pp_funcs.category_registry_arg_name_type(arg_val)
-    elif (api_name == "OpenSCManagerA" or api_name == "OpenSCManagerW") and arg_name == "DesiredAccess":
+    elif api_name in {"OpenSCManagerA", "OpenSCManagerW"} and arg_name == "DesiredAccess":
         return pp_funcs.api_name_opensc_arg_name_desiredaccess(arg_val)
     elif category == "services" and arg_name == "ControlCode":
         return pp_funcs.category_services_arg_name_controlcode(arg_val)
@@ -540,32 +533,24 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         return pp_funcs.category_services_arg_name_servicetype(arg_val)
     elif category == "services" and arg_name == "DesiredAccess":
         return pp_funcs.category_services_arg_name_desiredaccess(arg_val)
-    elif category == "registry" and (arg_name == "Access" or arg_name == "DesiredAccess"):
+    elif category == "registry" and arg_name in {"Access", "DesiredAccess"}:
         return pp_funcs.category_registry_arg_name_access_desired_access(arg_val)
     elif arg_name == "IoControlCode":
         return pp_funcs.arg_name_iocontrolcode(arg_val)
-    elif (
-        arg_name == "Protection"
-        or arg_name == "Win32Protect"
-        or arg_name == "NewAccessProtection"
-        or arg_name == "OldAccessProtection"
-        or arg_name == "OldProtection"
-    ):
+    elif arg_name in {"Protection", "Win32Protect", "NewAccessProtection", "OldAccessProtection", "OldProtection"}:
         return pp_funcs.arg_name_protection_and_others(arg_val)
     elif (
         api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"] and arg_name == "CreationFlags"
     ):
         return pp_funcs.api_name_in_creation(arg_val)
-    elif (api_name == "MoveFileWithProgressW" or api_name == "MoveFileWithProgressTransactedW") and arg_name == "Flags":
+    elif api_name in {"MoveFileWithProgressW", "MoveFileWithProgressTransactedW"} and arg_name == "Flags":
         return pp_funcs.api_name_move_arg_name_flags(arg_val)
     elif arg_name == "FileAttributes":
         return pp_funcs.arg_name_fileattributes(arg_val)
     elif (
-        api_name == "NtCreateFile"
-        or api_name == "NtOpenFile"
-        or api_name == "NtCreateDirectoryObject"
-        or api_name == "NtOpenDirectoryObject"
-    ) and arg_name == "DesiredAccess":
+        api_name in {"NtCreateFile", "NtOpenFile", "NtCreateDirectoryObject", "NtOpenDirectoryObject"}
+        and arg_name == "DesiredAccess"
+    ):
         return pp_funcs.api_name_nt_arg_name_desiredaccess(arg_val)
     elif api_name == "NtOpenProcess" and arg_name == "DesiredAccess":
         return pp_funcs.api_name_ntopenprocess_arg_name_desiredaccess(arg_val)
@@ -610,7 +595,7 @@ def get_filename_from_path(path):
     @return: filename.
     """
     dirpath, filename = ntpath.split(path)
-    return filename if filename else ntpath.basename(dirpath)
+    return filename or ntpath.basename(dirpath)
 
 
 def store_temp_file(filedata, filename, path=None):
@@ -712,10 +697,10 @@ class Singleton(type):
 
     _instances = {}
 
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+    def __call__(self, *args, **kwargs):
+        if self not in self._instances:
+            self._instances[self] = super(Singleton, self).__call__(*args, **kwargs)
+        return self._instances[self]
 
 
 def logtime(dt):
@@ -725,8 +710,7 @@ def logtime(dt):
     @return: time string
     """
     t = time.strftime("%Y-%m-%d %H:%M:%S", dt.timetuple())
-    s = f"{t},{dt.microsecond // 1000:03d}"
-    return s
+    return f"{t},{dt.microsecond // 1000:03d}"
 
 
 def time_from_cuckoomon(s):
@@ -747,20 +731,16 @@ def to_unicode(s):
         """Trying to decode via simple brute forcing."""
         encodings = ("ascii", "utf8", "latin1")
         for enc in encodings:
-            try:
+            with contextlib.suppress(UnicodeDecodeError):
                 return s2.decode(enc)
-            except UnicodeDecodeError:
-                pass
         return None
 
     def chardet_enc(s2):
         """Guess encoding via chardet."""
         enc = chardet.detect(s2)["encoding"]
 
-        try:
+        with contextlib.suppress(UnicodeDecodeError):
             return s2.decode(enc)
-        except UnicodeDecodeError:
-            pass
         return None
 
     # If already in unicode, skip.
@@ -799,10 +779,9 @@ def get_user_filename(options, customs):
 
 
 def generate_fake_name():
-    out = "".join(
-        random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(5, 15))
+    return "".join(
+        random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(random.randint(5, 15))
     )
-    return out
 
 
 MAX_FILENAME_LEN = 24
@@ -827,12 +806,7 @@ def truncate_filename(x):
 def sanitize_filename(x):
     """Kind of awful but necessary sanitizing of filenames to
     get rid of unicode problems."""
-    out = ""
-    for c in x:
-        if c in string.ascii_letters + string.digits + " _-.":
-            out += c
-        else:
-            out += "_"
+    out = "".join(c if c in string.ascii_letters + string.digits + " _-." else "_" for c in x)
 
     """Prevent long filenames such as files named by hash
     as some malware checks for this."""
@@ -849,10 +823,7 @@ def default_converter(v):
     # Need to account for subclasses since pymongo's bson module
     # uses 'bson.int64.Int64' class for 64-bit values.
     elif issubclass(type(v), int):
-        if v & 0xFFFFFFFF00000000:
-            return v & 0xFFFFFFFFFFFFFFFF
-        else:
-            return v & 0xFFFFFFFF
+        return v & 0xFFFFFFFFFFFFFFFF if v & 0xFFFFFFFF00000000 else v & 0xFFFFFFFF
     return v
 
 
@@ -888,7 +859,7 @@ class SuperLock:
         self.tlock.release()
 
 
-def get_options(optstring):
+def get_options(optstring: str):
     """Get analysis options.
     @return: options dict.
     """
@@ -896,10 +867,11 @@ def get_options(optstring):
     #   option1=value1,option2=value2,option3=value3
     #
     # Here we parse such options and provide a dictionary that will be made accessible to the analysis package.
-    if not optstring:
-        return {}
-
-    return dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
+    return (
+        dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
+        if optstring
+        else {}
+    )
 
 
 # get iface ip

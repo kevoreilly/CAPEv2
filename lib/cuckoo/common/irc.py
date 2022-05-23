@@ -93,10 +93,10 @@ class ircMessage:
 
         logirc = False
         for element in lines:
-            if not re.match(b"^:", element) is None:
+            if re.match(b"^:", element) is not None:
                 command = "([a-zA-Z]+|[0-9]{3})"
                 params = "(\x20.+)"
-                irc_server_msg = re.findall("(^:[\w+.{}!@|()]+\x20)" + command + params, element)
+                irc_server_msg = re.findall(r"(^:[\w+.{}!@|()]+\x20)" + command + params, element)
                 if irc_server_msg:
                     self._sc["prefix"] = convert_to_printable(irc_server_msg[0][0].strip())
                     self._sc["command"] = convert_to_printable(irc_server_msg[0][1].strip())
@@ -126,12 +126,7 @@ class ircMessage:
         except Exception:
             return None
 
-        entry_cc = []
-        for msg in self._messages:
-            if msg["type"] == "client":
-                entry_cc.append(msg)
-
-        return entry_cc
+        return [msg for msg in self._messages if msg["type"] == "client"]
 
     def getClientMessagesFilter(self, buf, filters):
         """Get irc client commands of tcp streams.
@@ -143,13 +138,7 @@ class ircMessage:
         except Exception:
             return None
 
-        entry_cc = []
-
-        for msg in self._messages:
-            if msg["type"] == "client" and msg["command"] not in filters:
-                entry_cc.append(msg)
-
-        return entry_cc
+        return [msg for msg in self._messages if msg["type"] == "client" and msg["command"] not in filters]
 
     def getServerMessages(self, buf):
         """Get irc server commands of tcp streams.
@@ -162,13 +151,7 @@ class ircMessage:
         except Exception:
             return None
 
-        entry_sc = []
-
-        for msg in self._messages:
-            if msg["type"] == "server":
-                entry_sc.append(msg)
-
-        return entry_sc
+        return [msg for msg in self._messages if msg["type"] == "server"]
 
     def getServerMessagesFilter(self, buf, filters):
         """Get irc server commands of tcp streams.
@@ -180,12 +163,7 @@ class ircMessage:
         except Exception:
             return None
 
-        entry_sc = []
-        for msg in self._messages:
-            if msg["type"] == "server" and msg["command"] not in filters:
-                entry_sc.append(msg)
-
-        return entry_sc
+        return [msg for msg in self._messages if msg["type"] == "server" and msg["command"] not in filters]
 
     def isthereIRC(self, buf):
         """Check if there is irc messages in a stream TCP.
@@ -195,9 +173,6 @@ class ircMessage:
 
         try:
             self._unpack(buf)
-            if self._messages:
-                return True
-            else:
-                return False
+            return bool(self._messages)
         except Exception:
             return False

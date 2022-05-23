@@ -807,12 +807,6 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         row = None
         arch_cond = False
-        if machine:
-            # set filter to get tasks with acceptable arch
-            if "x64" in machine.arch:
-                arch_cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
-            else:
-                arch_cond = or_(*[Task.tags.any(name=machine.arch)])
         try:
             row = (
                 session.query(Task)
@@ -822,7 +816,12 @@ class Database(object, metaclass=Singleton):
                 .filter(not_(Task.options.contains("node=")))
             )
 
-            if arch_cond:
+            if machine:
+                # set filter to get tasks with acceptable arch
+                if "x64" in machine.arch:
+                    arch_cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
+                else:
+                    arch_cond = or_(*[Task.tags.any(name=machine.arch)])
                 row = row.filter(arch_cond)
 
             if categories:

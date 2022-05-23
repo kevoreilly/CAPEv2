@@ -47,7 +47,12 @@ class AWS(Machinery):
 
         # Iterate over all instances with tag that has a key of AUTOSCALE_CUCKOO
         for instance in self.ec2_resource.instances.filter(
-            Filters=[{"Name": "instance-state-name", "Values": ["running", "stopped", "stopping"]}]
+            Filters=[
+                {
+                    "Name": "instance-state-name",
+                    "Values": ["running", "stopped", "stopping"],
+                }
+            ]
         ):
             if self._is_autoscaled(instance):
                 log.info("Terminating autoscaled instance %s" % instance.id)
@@ -75,7 +80,9 @@ class AWS(Machinery):
             if num_of_machines_to_start <= 0:
                 break
             if self._status(machine.label) in [AWS.POWEROFF, AWS.STOPPING]:
-                self.ec2_machines[machine.label].start()  # not using self.start() to avoid _wait_ method
+                self.ec2_machines[
+                    machine.label
+                ].start()  # not using self.start() to avoid _wait_ method
                 num_of_machines_to_start -= 1
 
     def _delete_machine_form_db(self, label):
@@ -107,9 +114,15 @@ class AWS(Machinery):
         autoscale_options = self.options.get("autoscale")
         # If configured, use specific network interface for this
         # machine, else use the default value.
-        interface = autoscale_options["interface"] if autoscale_options.get("interface") else machinery_options.get("interface")
+        interface = (
+            autoscale_options["interface"]
+            if autoscale_options.get("interface")
+            else machinery_options.get("interface")
+        )
         resultserver_ip = (
-            autoscale_options["resultserver_ip"] if autoscale_options.get("resultserver_ip") else Config("cuckoo:resultserver:ip")
+            autoscale_options["resultserver_ip"]
+            if autoscale_options.get("resultserver_ip")
+            else Config("cuckoo:resultserver:ip")
         )
         if autoscale_options.get("resultserver_port"):
             resultserver_port = autoscale_options["resultserver_port"]
@@ -127,7 +140,10 @@ class AWS(Machinery):
         new_machine_name = "cuckoo_autoscale_%03d" % self.dynamic_machines_sequence
 
         instance = self._create_instance(
-            tags=[{"Key": "Name", "Value": new_machine_name}, {"Key": self.AUTOSCALE_CUCKOO, "Value": "True"}]
+            tags=[
+                {"Key": "Name", "Value": new_machine_name},
+                {"Key": self.AUTOSCALE_CUCKOO, "Value": "True"},
+            ]
         )
         attempts = 0
         while attempts < 30:
@@ -152,7 +168,7 @@ class AWS(Machinery):
                 break
             except Exception as e:
                 attempts += 1
-                log.warning('Failed while creating new instance {e}. Trying again.')
+                log.warning(f"Failed while creating new instance {e}. Trying again.")
                 instance = None
 
         if instance is None:
@@ -185,11 +201,21 @@ class AWS(Machinery):
         running_machines_gap = machinery_options.get("running_machines_gap", 0)
         dynamic_machines_limit = autoscale_options["dynamic_machines_limit"]
 
-        self._start_next_machines(num_of_machines_to_start=min(current_available_machines, running_machines_gap))
+        self._start_next_machines(
+            num_of_machines_to_start=min(
+                current_available_machines, running_machines_gap
+            )
+        )
         #  if no sufficient machines left  -> launch a new machines
-        while autoscale_options["autoscale"] and current_available_machines < running_machines_gap:
+        while (
+            autoscale_options["autoscale"]
+            and current_available_machines < running_machines_gap
+        ):
             if self.dynamic_machines_count >= dynamic_machines_limit:
-                log.debug("Reached dynamic machines limit - %d machines" % dynamic_machines_limit)
+                log.debug(
+                    "Reached dynamic machines limit - %d machines"
+                    % dynamic_machines_limit
+                )
                 break
             if not self._allocate_new_machine():
                 break
@@ -202,7 +228,12 @@ class AWS(Machinery):
         :return: A list of all instance ids under the AWS account
         """
         instances = self.ec2_resource.instances.filter(
-            Filters=[{"Name": "instance-state-name", "Values": ["running", "stopped", "stopping"]}]
+            Filters=[
+                {
+                    "Name": "instance-state-name",
+                    "Values": ["running", "stopped", "stopping"],
+                }
+            ]
         )
         return [instance.id for instance in instances]
 
@@ -294,7 +325,12 @@ class AWS(Machinery):
 
         autoscale_options = self.options.get("autoscale")
         response = self.ec2_resource.create_instances(
-            BlockDeviceMappings=[{"DeviceName": "/dev/sda1", "Ebs": {"DeleteOnTermination": True, "VolumeType": "gp2"}}],
+            BlockDeviceMappings=[
+                {
+                    "DeviceName": "/dev/sda1",
+                    "Ebs": {"DeleteOnTermination": True, "VolumeType": "gp2"},
+                }
+            ],
             ImageId=autoscale_options["image_id"],
             InstanceType=autoscale_options["instance_type"],
             MaxCount=1,
@@ -303,7 +339,7 @@ class AWS(Machinery):
                 {
                     "DeviceIndex": 0,
                     "SubnetId": autoscale_options["subnet_id"],
-                    "Groups": autoscale_options["security_groups"].split(','),
+                    "Groups": autoscale_options["security_groups"].split(","),
                 }
             ],
             TagSpecifications=[{"ResourceType": "instance", "Tags": tags}],
@@ -317,7 +353,9 @@ class AWS(Machinery):
                 break
             except Exception as e:
                 attempts += 1
-                log.warning('Failed while modifying new instance attribute. Trying again.')
+                log.warning(
+                    "Failed while modifying new instance attribute. Trying again."
+                )
         log.debug("Created %s\n%s", new_instance.id, repr(response))
         return new_instance
 
@@ -345,10 +383,14 @@ class AWS(Machinery):
         instance = self.ec2_machines[label]
         state = self._status(label)
         if state != AWS.POWEROFF:
-            raise CuckooMachineError("Instance '%s' state '%s' is not poweroff" % (label, state))
+            raise CuckooMachineError(
+                "Instance '%s' state '%s' is not poweroff" % (label, state)
+            )
         volumes = list(instance.volumes.all())
         if len(volumes) != 1:
-            raise CuckooMachineError("Instance '%s' has wrong number of volumes %d" % (label, len(volumes)))
+            raise CuckooMachineError(
+                "Instance '%s' has wrong number of volumes %d" % (label, len(volumes))
+            )
         old_volume = volumes[0]
 
         log.debug("Detaching %s", old_volume.id)
@@ -362,14 +404,19 @@ class AWS(Machinery):
 
         log.debug("Old volume %s in state %s", old_volume.id, old_volume.state)
         if old_volume.state != "available":
-            raise CuckooMachineError("Old volume turned into state %s instead of 'available'" % old_volume.state)
+            raise CuckooMachineError(
+                "Old volume turned into state %s instead of 'available'"
+                % old_volume.state
+            )
         log.debug("Deleting old volume")
         volume_type = old_volume.volume_type
         old_volume.delete()
 
         log.debug("Creating new volume")
         new_volume = self.ec2_resource.create_volume(
-            SnapshotId=snap_id, AvailabilityZone=instance.placement["AvailabilityZone"], VolumeType=volume_type
+            SnapshotId=snap_id,
+            AvailabilityZone=instance.placement["AvailabilityZone"],
+            VolumeType=volume_type,
         )
         log.debug("Created new volume %s", new_volume.id)
         while True:
@@ -381,7 +428,9 @@ class AWS(Machinery):
         if new_volume.state != "available":
             state = new_volume.state
             new_volume.delete()
-            raise CuckooMachineError("New volume turned into state %s instead of 'available'" % state)
+            raise CuckooMachineError(
+                "New volume turned into state %s instead of 'available'" % state
+            )
 
         log.debug("Attaching new volume")
         resp = instance.attach_volume(VolumeId=new_volume.id, Device="/dev/sda1")
@@ -394,4 +443,6 @@ class AWS(Machinery):
         log.debug("new volume %s in state %s", new_volume.id, new_volume.state)
         if new_volume.state != "in-use":
             new_volume.delete()
-            raise CuckooMachineError("New volume turned into state %s instead of 'in-use'" % old_volume.state)
+            raise CuckooMachineError(
+                "New volume turned into state %s instead of 'in-use'" % old_volume.state
+            )

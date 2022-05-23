@@ -183,13 +183,11 @@
                 <ul style="margin-bottom: 0;">
                 {% for sign in sub_file.cape_yara %}
                     <li>
-                    {% if sign.meta.cape_type %}
-                        {{sign.meta.cape_type}}
+                    {{sign.name}}
+                    {% if sign.meta.cape_type %} - {{sign.meta.cape_type}}
+                    {% elif sign.meta.description %} - {{sign.meta.description}}
                     {% endif %}
-                    {{sign.meta.name}} {% if sign.meta.description %} - {{sign.meta.description}} {% endif %}
-                    {% if sign.meta.author %}
-                        - Author: {{sign.meta.author}}
-                    {% endif %}
+                    {% if sign.meta.author %} - Author: {{sign.meta.author}}{% endif %}
                     </li>
                 {% endfor %}
                 </ul>

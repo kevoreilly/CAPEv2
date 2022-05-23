@@ -93,18 +93,15 @@
                 <th>CAPE Yara</th>
                 <td>
                     <ul style="margin-top: 0;margin-bottom: 0;">
-                        {% for sig in results.target.file.cape_yara %}
+                    {% for sig in results.target.file.cape_yara %}
                         <li>
-                            {% if sig.meta.cape_type %}
-                                {{sig.meta.cape_type}}
-                            {% elif sig.meta.description %}
-                                {{sig.meta.description}}
-                            {% endif %}
-                            {% if sig.meta.author %}
-                                - Author: {{sig.meta.author}}
-                            {% endif %}
-                            </li>
-                        {% endfor %}
+                        {{sig.name}}
+                        {% if sig.meta.cape_type %} - {{sig.meta.cape_type}}
+                        {% elif sig.meta.description %} - {{sig.meta.description}}
+                        {% endif %}
+                        {% if sig.meta.author %} - Author: {{sig.meta.author}}{% endif %}
+                        </li>
+                    {% endfor %}
                     </ul>
                 </td>
             </tr>

@@ -236,7 +236,7 @@ class Office:
             dde = extract_dde(filepath)
             if dde:
                 results["office_dde"] = convert_to_printable(dde)
-        except csv_error:
+        except (csv_error, UnicodeDecodeError):
             pass
         except AttributeError:
             log.warning("OleFile library bug: AttributeError! fix: pip3 install -U olefile")

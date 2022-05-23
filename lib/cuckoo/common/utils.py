@@ -87,6 +87,12 @@ if not isinstance(zippwd, bytes):
     zippwd = zippwd.encode()
 
 
+def load_categories():
+    analyzing_categories = [category.strip() for category in config.cuckoo.categories.split(",")]
+    needs_VM = any([category in analyzing_categories for category in ("file", "url")])
+    return analyzing_categories, needs_VM
+
+
 texttypes = [
     "ASCII",
     "Windows Registry text",

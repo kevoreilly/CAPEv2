@@ -106,6 +106,7 @@ class ProcDump(Processing):
                 self.task.get("package", ""),
                 self.task.get("options", ""),
                 self.dropped_path,
+                self.results,
             )
 
             procdump_files.append(file_info)

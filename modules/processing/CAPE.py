@@ -132,6 +132,7 @@ class CAPE(Processing):
             self.task.get("package", ""),
             self.task.get("options", ""),
             self.dropped_path,
+            self.results,
         )
 
         # Get the file data

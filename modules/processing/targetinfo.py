@@ -40,6 +40,7 @@ class TargetInfo(Processing):
                     self.task.get("package", ""),
                     self.task.get("options", ""),
                     self.analysis_path,
+                    self.results,
                 )
 
             target_info["file"]["name"] = File(self.task["target"]).get_name()

@@ -30,6 +30,7 @@ try:
 except ImportError:
     HAVE_SFLOCK = False
 
+
 log = logging.getLogger(__name__)
 
 logging.getLogger("Kixtart-Detokenizer").setLevel(logging.CRITICAL)
@@ -68,7 +69,9 @@ if processing_conf.trid.enabled:
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
 
-def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
+def static_file_info(
+    data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str, results: dict
+):
     if (
         not HAVE_OLETOOLS
         and "Zip archive data, at least v2.0" in data_dictionary["type"]
@@ -117,7 +120,7 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
     if processing_conf.die.enabled:
         detect_it_easy_info(file_path, data_dictionary)
 
-    generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary, options_dict)
+    generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary, options_dict, results)
 
 
 def detect_it_easy_info(file_path: str, data_dictionary: dict):
@@ -197,7 +200,7 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
     return metadata
 
 
-def generic_file_extractors(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def generic_file_extractors(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     """
     file - path to binary
     destination_folder - where to move extracted files
@@ -223,7 +226,7 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
             continue
 
         try:
-            funcname(file, destination_folder, filetype, data_dictionary, options)
+            funcname(file, destination_folder, filetype, data_dictionary, options, results)
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -242,7 +245,7 @@ def _generic_post_extraction_process(file: str, decoded: str, destination_folder
     data_dictionary.setdefault("decoded_files_tool", tool_name)
 
 
-def batch_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def batch_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     # https://github.com/DissectMalware/batch_deobfuscator
     # https://www.fireeye.com/content/dam/fireeye-www/blog/pdfs/dosfuscation-report.pdf
 
@@ -266,7 +269,7 @@ def batch_extract(file: str, destination_folder: str, filetype: str, data_dictio
     _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Batch")
 
 
-def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
 
     if not HAVE_VBE_DECODER:
         log.debug("Missed VBE decoder")
@@ -292,7 +295,7 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
     _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Vbe")
 
 
-def msi_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def msi_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     """Work on MSI Installers"""
 
     if "MSI Installer" not in filetype:
@@ -327,7 +330,7 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
     data_dictionary.setdefault("extracted_files_tool", "MsiExtract")
 
 
-def Inno_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def Inno_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     """Work on Inno Installers"""
 
     if all("Inno Setup" not in string for string in data_dictionary.get("die", {})):
@@ -357,7 +360,9 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
         data_dictionary.setdefault("extracted_files_tool", "InnoExtract")
 
 
-def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def kixtart_extract(
+    file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict, results: dict
+):
     """
     https://github.com/jhumble/Kixtart-Detokenizer/blob/main/detokenize.py
     """
@@ -386,7 +391,9 @@ def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dict
         data_dictionary.setdefault("extracted_files_tool", "Kixtart")
 
 
-def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def UnAutoIt_extract(
+    file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict, results: dict
+):
     if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
         return
 
@@ -423,7 +430,7 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
         data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
 
 
-def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     # TODO: maybe check yara for UPX?
     # hit["name"] == "UPX":
     if "UPX compressed" not in filetype:
@@ -458,7 +465,7 @@ def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionar
         data_dictionary.setdefault("extracted_files_tool", "UnUPX")
 
 
-def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     tool = False
     if "Nullsoft Installer self-extracting archive" in filetype:
         tool = "UnNSIS"

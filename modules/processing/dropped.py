@@ -56,6 +56,7 @@ class Dropped(Processing):
                     self.task.get("package", ""),
                     self.task.get("options", ""),
                     self.dropped_path,
+                    self.results,
                 )
 
                 file_info.update(meta.get(file_info["path"][0], {}))

@@ -41,15 +41,20 @@
                         <tr>
                             <th>CAPE Yara</th>
                             <td>
-                                {% for match in proc.cape_yara %}
-                                <li>Match: {{match.name}} - {{match.meta.description}} - Author: {{match.meta.author}}
-                                    <!--
-                                    {% for key, value in match.memblocks.items %}
-                                        <div span style="padding-left: 16px;">'{{key}}' in address space {{value}}</div>
-                                    {% endfor %}
-                                    -->
-                                </li>
+                            {% for match in proc.cape_yara %}
+                                <li>
+                                Match: {{sign.name}}
+                                {% if sign.meta.cape_type %} - {{sign.meta.cape_type}}
+                                {% elif sign.meta.description %} - {{sign.meta.description}}
+                                {% endif %}
+                                {% if sign.meta.author %} - Author: {{sign.meta.author}}{% endif %}
+                                <!--
+                                {% for key, value in match.memblocks.items %}
+                                    <div span style="padding-left: 16px;">'{{key}}' in address space {{value}}</div>
                                 {% endfor %}
+                                -->
+                                </li>
+                            {% endfor %}
                             </td>
                         </tr>
                         {% endif %}

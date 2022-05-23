@@ -23,11 +23,13 @@ from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalE
 from lib.cuckoo.common.files import open_exclusive
 
 # from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.utils import Singleton, create_folder
+from lib.cuckoo.common.utils import Singleton, create_folder, load_categories
 from lib.cuckoo.core.log import task_log_start, task_log_stop
 
 log = logging.getLogger(__name__)
 cfg = Config()
+
+_, categories_need_VM = load_categories()
 
 # Maximum line length to read for netlog messages, to avoid memory exhaustion
 MAX_NETLOG_LINE = 4 * 1024
@@ -429,6 +431,9 @@ class ResultServer(metaclass=Singleton):
     """Manager for the ResultServer worker and task state."""
 
     def __init__(self):
+        if not categories_need_VM:
+            return
+
         ip = cfg.resultserver.ip
         port = cfg.resultserver.port
         pool_size = cfg.resultserver.pool_size

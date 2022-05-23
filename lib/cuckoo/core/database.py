@@ -800,17 +800,19 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def fetch(self, machine):
+    def fetch(self, machine, categories: list = [], need_VM: bool = True):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
         session = self.Session()
         row = None
-        # set filter to get tasks with acceptable arch
-        if "x64" in machine.arch:
-            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
-        else:
-            cond = or_(*[Task.tags.any(name=machine.arch)])
+        arch_cond = False
+        if machine:
+            # set filter to get tasks with acceptable arch
+            if "x64" in machine.arch:
+                arch_cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
+            else:
+                arch_cond = or_(*[Task.tags.any(name=machine.arch)])
         try:
             row = (
                 session.query(Task)
@@ -818,20 +820,28 @@ class Database(object, metaclass=Singleton):
                 .order_by(Task.priority.desc(), Task.added_on)
                 # distributed cape
                 .filter(not_(Task.options.contains("node=")))
-                .filter(cond)
-                .first()
             )
 
+            if arch_cond:
+                row = row.filter(arch_cond)
+
+            if categories:
+                row = row.filter(Task.category.in_(categories))
+
+            row = row.first()
+
             if row:
-                if row.machine and row.machine != machine.label:
+                if need_VM and row.machine and row.machine != machine.label:
                     log.debug("Task id %d - needs VM: %s - %s", row.id, row.machine, machine.label)
                     return None
             else:
-                log.debug("No task for machine with arch: %s", machine.arch)
+                if need_VM:
+                    log.debug("No task for machine with arch: %s", machine.arch)
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)
-            self.set_task_vm(task_id=row.id, vmname=machine.label, vm_id=machine.id)
+            if need_VM:
+                self.set_task_vm(task_id=row.id, vmname=machine.label, vm_id=machine.id)
             session.refresh(row)
 
             return row

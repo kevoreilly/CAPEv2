@@ -22,7 +22,7 @@ from lib.cuckoo.common.exceptions import (
 )
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path
+from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
 from lib.cuckoo.core.database import TASK_COMPLETED, Database
 from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
@@ -215,25 +215,21 @@ class AnalysisManager(threading.Thread):
         """Generate analysis options.
         @return: options dict.
         """
-        options = {}
-
-        options["id"] = self.task.id
-        options["ip"] = self.machine.resultserver_ip
-        options["port"] = self.machine.resultserver_port
-        options["category"] = self.task.category
-        options["target"] = self.task.target
-        options["package"] = self.task.package
-        options["options"] = self.task.options
-        options["enforce_timeout"] = self.task.enforce_timeout
-        options["clock"] = self.task.clock
-        options["terminate_processes"] = self.cfg.cuckoo.terminate_processes
-        options["upload_max_size"] = self.cfg.resultserver.upload_max_size
-        options["do_upload_max_size"] = int(self.cfg.resultserver.do_upload_max_size)
-
-        if not self.task.timeout or self.task.timeout == 0:
-            options["timeout"] = self.cfg.timeouts.default
-        else:
-            options["timeout"] = self.task.timeout
+        options = {
+            "id": self.task.id,
+            "ip": self.machine.resultserver_ip,
+            "port": self.machine.resultserver_port,
+            "category": self.task.category,
+            "target": self.task.target,
+            "package": self.task.package,
+            "options": self.task.options,
+            "enforce_timeout": self.task.enforce_timeout,
+            "clock": self.task.clock,
+            "terminate_processes": self.cfg.cuckoo.terminate_processes,
+            "upload_max_size": self.cfg.resultserver.upload_max_size,
+            "do_upload_max_size": int(self.cfg.resultserver.do_upload_max_size),
+            "timeout": self.task.timeout or self.cfg.timeouts.default,
+        }
 
         if self.task.category == "file":
             file_obj = File(self.task.target)
@@ -275,8 +271,8 @@ class AnalysisManager(threading.Thread):
             for dirname in dirnames:
                 try:
                     os.makedirs(os.path.join(self.storage, dirname))
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.debug("Failed to create folder %s", dirname)
             return True
 
     def launch_analysis(self):
@@ -647,6 +643,7 @@ class Scheduler:
         self.db = Database()
         self.maxcount = maxcount
         self.total_analysis_count = 0
+        self.analyzing_categories, self.categories_need_VM = load_categories()
 
     def set_stop_analyzing(self, signum, stack):
         self.running = False
@@ -657,6 +654,8 @@ class Scheduler:
         global machinery, machine_lock
 
         machinery_name = self.cfg.cuckoo.machinery
+        if not self.categories_need_VM:
+            return
 
         max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
         if max_vmstartup_count:
@@ -741,7 +740,8 @@ class Scheduler:
         """Stop scheduler."""
         self.running = False
         # Shutdown machine manager (used to kill machines that still alive).
-        machinery.shutdown()
+        if self.categories_need_VM:
+            machinery.shutdown()
 
     def start(self):
         """Start scheduler."""
@@ -767,9 +767,10 @@ class Scheduler:
             # or still busy starting. This way we won't have race conditions
             # with finding out there are no available machines in the analysis
             # manager or having two analyses pick the same machine.
-            if not machine_lock.acquire(False):
-                continue
-            machine_lock.release()
+            if self.categories_need_VM:
+                if not machine_lock.acquire(False):
+                    continue
+                machine_lock.release()
 
             # If not enough free disk space is available, then we print an
             # error message and wait another round (this check is ignored
@@ -787,14 +788,15 @@ class Scheduler:
                     continue
 
             # Have we limited the number of concurrently executing machines?
-            if self.cfg.cuckoo.max_machines_count > 0:
+            if self.cfg.cuckoo.max_machines_count > 0 and self.categories_need_VM:
                 # Are too many running?
                 if len(machinery.running()) >= self.cfg.cuckoo.max_machines_count:
                     continue
 
-            # If no machines are available, it's pointless to fetch for
-            # pending tasks. Loop over.
-            if not machinery.availables():
+            # If no machines are available, it's pointless to fetch for pending tasks. Loop over.
+            # But if we analyze pcaps/static only it's fine
+            # ToDo verify that it works with static and file/url
+            if self.categories_need_VM and not machinery.availables():
                 continue
             # Exits if max_analysis_count is defined in the configuration
             # file and has been reached.
@@ -804,10 +806,13 @@ class Scheduler:
             else:
                 # Fetch a pending analysis task.
                 # TODO: this fixes only submissions by --machine, need to add other attributes (tags etc.)
-                for machine in self.db.get_available_machines():
-                    task = self.db.fetch(machine)
-                    if task:
-                        break
+                if self.categories_need_VM:
+                    for machine in self.db.get_available_machines():
+                        task = self.db.fetch(machine, self.analyzing_categories)
+                        if task:
+                            break
+                else:
+                    task = self.db.fetch(False, categories=self.analyzing_categories, need_VM=False)
                 if task:
                     log.debug("Task #%s: Processing task", task.id)
                     self.total_analysis_count += 1

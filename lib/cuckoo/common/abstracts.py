@@ -26,7 +26,7 @@ from lib.cuckoo.common.exceptions import (
 )
 from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.url_validate import url as url_validator
-from lib.cuckoo.common.utils import create_folder, get_memdump_path
+from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
 from lib.cuckoo.core.database import Database
 
 try:
@@ -50,7 +50,7 @@ except ImportError:
     HAVE_TLDEXTRACT = False
 
 repconf = Config("reporting")
-
+_, categories_need_VM = load_categories()
 HAVE_MITRE = False
 
 if repconf.mitre.enabled:
@@ -373,6 +373,10 @@ class LibVirtMachinery(Machinery):
     ABORTED = "abort"
 
     def __init__(self):
+
+        if not categories_need_VM:
+            return
+
         if not HAVE_LIBVIRT:
             raise CuckooDependencyError("Unable to import libvirt")
 

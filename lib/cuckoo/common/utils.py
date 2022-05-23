@@ -89,7 +89,7 @@ if not isinstance(zippwd, bytes):
 
 def load_categories():
     if config.cuckoo.categories.lower() == "all":
-        config.cuckoo.categories = ["static", "url", "pcap", "file"]
+        analyzing_categories = config.cuckoo.categories = ["static", "url", "pcap", "file"]
     else:
         analyzing_categories = [category.strip() for category in config.cuckoo.categories.split(",")]
 

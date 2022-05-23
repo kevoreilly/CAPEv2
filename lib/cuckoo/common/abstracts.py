@@ -783,6 +783,8 @@ class Signature:
 
     def yara_detected(self, name):
 
+        analysis_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]))
+
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for keyword in ("cape_yara", "yara"):
@@ -794,7 +796,8 @@ class Signature:
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in block[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", os.path.join(self.dropped_path, block["sha256"]), block
+                            # we can't use here values from set_path
+                            yield "sample", os.path.join(analysis_folder, "files", block["sha256"]), block
 
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
             for sub_keyword in ("cape_yara", "yara"):
@@ -806,7 +809,7 @@ class Signature:
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in subblock[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", os.path.join(self.dropped_path, subblock["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "files", block["sha256"]), block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if self.results.get(keyword) is not None:
@@ -829,7 +832,18 @@ class Signature:
                         for keyword in ("cape_yara", "yara"):
                             for yara_block in subblock[keyword]:
                                 if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", os.path.join(self.dropped_path, subblock["sha256"]), block
+                                    yield "sample", os.path.join(analysis_folder, "files", subblock["sha256"]), block
+
+        for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
+            for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
+                for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
+                    if re.findall(name, sub_block["name"], re.I):
+                        yield "macro", os.path.join(analysis_folder, "macro", macroname), sub_block
+
+        if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
+            for sub_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
+                if re.findall(name, sub_block["name"], re.I):
+                    yield "macro", os.path.join(analysis_folder, "macro", "xlm_macro"), sub_block
 
         macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:

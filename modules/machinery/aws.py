@@ -48,7 +48,12 @@ class AWS(Machinery):
 
         # Iterate over all instances with tag that has a key of AUTOSCALE_CUCKOO
         for instance in self.ec2_resource.instances.filter(
-            Filters=[{"Name": "instance-state-name", "Values": ["running", "stopped", "stopping"]}]
+            Filters=[
+                {
+                    "Name": "instance-state-name",
+                    "Values": ["running", "stopped", "stopping"],
+                }
+            ]
         ):
             if self._is_autoscaled(instance):
                 log.info("Terminating autoscaled instance %s" % instance.id)
@@ -126,28 +131,42 @@ class AWS(Machinery):
         self.dynamic_machines_sequence += 1
         self.dynamic_machines_count += 1
         new_machine_name = "cuckoo_autoscale_%03d" % self.dynamic_machines_sequence
+
         instance = self._create_instance(
-            tags=[{"Key": "Name", "Value": new_machine_name}, {"Key": self.AUTOSCALE_CUCKOO, "Value": "True"}]
+            tags=[
+                {"Key": "Name", "Value": new_machine_name},
+                {"Key": self.AUTOSCALE_CUCKOO, "Value": "True"},
+            ]
         )
+        attempts = 0
+        while attempts < 30:
+            try:
+                time.sleep(2)
+                self.ec2_machines[instance.id] = instance
+                #  sets "new_machine" object in configuration object to avoid raising an exception
+                setattr(self.options, new_machine_name, {})
+                # add machine to DB
+                self.db.add_machine(
+                    name=new_machine_name,
+                    label=instance.id,
+                    ip=instance.private_ip_address,
+                    arch=autoscale_options["arch"],
+                    platform=autoscale_options["platform"],
+                    tags=autoscale_options["tags"],
+                    interface=interface,
+                    snapshot=None,
+                    resultserver_ip=resultserver_ip,
+                    resultserver_port=resultserver_port,
+                )
+                break
+            except Exception as e:
+                attempts += 1
+                log.warning(f"Failed while creating new instance {e}. Trying again.")
+                instance = None
+
         if instance is None:
             return False
 
-        self.ec2_machines[instance.id] = instance
-        #  sets "new_machine" object in configuration object to avoid raising an exception
-        setattr(self.options, new_machine_name, {})
-        # add machine to DB
-        self.db.add_machine(
-            name=new_machine_name,
-            label=instance.id,
-            ip=instance.private_ip_address,
-            arch=autoscale_options["arch"],
-            platform=autoscale_options["platform"],
-            tags=autoscale_options["tags"],
-            interface=interface,
-            snapshot=None,
-            resultserver_ip=resultserver_ip,
-            resultserver_port=resultserver_port,
-        )
         return True
 
     """override Machinery method"""
@@ -192,7 +211,12 @@ class AWS(Machinery):
         :return: A list of all instance ids under the AWS account
         """
         instances = self.ec2_resource.instances.filter(
-            Filters=[{"Name": "instance-state-name", "Values": ["running", "stopped", "stopping"]}]
+            Filters=[
+                {
+                    "Name": "instance-state-name",
+                    "Values": ["running", "stopped", "stopping"],
+                }
+            ]
         )
         return [instance.id for instance in instances]
 
@@ -284,7 +308,12 @@ class AWS(Machinery):
 
         autoscale_options = self.options.get("autoscale")
         response = self.ec2_resource.create_instances(
-            BlockDeviceMappings=[{"DeviceName": "/dev/sda1", "Ebs": {"DeleteOnTermination": True, "VolumeType": "gp2"}}],
+            BlockDeviceMappings=[
+                {
+                    "DeviceName": "/dev/sda1",
+                    "Ebs": {"DeleteOnTermination": True, "VolumeType": "gp2"},
+                }
+            ],
             ImageId=autoscale_options["image_id"],
             InstanceType=autoscale_options["instance_type"],
             MaxCount=1,
@@ -299,7 +328,15 @@ class AWS(Machinery):
             TagSpecifications=[{"ResourceType": "instance", "Tags": tags}],
         )
         new_instance = response[0]
-        new_instance.modify_attribute(SourceDestCheck={"Value": False})
+        attempts = 0
+        while attempts < 30:
+            time.sleep(2)
+            try:
+                new_instance.modify_attribute(SourceDestCheck={"Value": False})
+                break
+            except Exception as e:
+                attempts += 1
+                log.warning("Failed while modifying new instance attribute. Trying again.")
         log.debug("Created %s\n%s", new_instance.id, repr(response))
         return new_instance
 
@@ -351,7 +388,9 @@ class AWS(Machinery):
 
         log.debug("Creating new volume")
         new_volume = self.ec2_resource.create_volume(
-            SnapshotId=snap_id, AvailabilityZone=instance.placement["AvailabilityZone"], VolumeType=volume_type
+            SnapshotId=snap_id,
+            AvailabilityZone=instance.placement["AvailabilityZone"],
+            VolumeType=volume_type,
         )
         log.debug("Created new volume %s", new_volume.id)
         while True:

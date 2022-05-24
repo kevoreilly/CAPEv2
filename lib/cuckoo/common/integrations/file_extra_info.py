@@ -360,8 +360,7 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
         data_dictionary.setdefault("extracted_files_tool", "InnoExtract")
 
 
-def kixtart_extract(
-    file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     """
     https://github.com/jhumble/Kixtart-Detokenizer/blob/main/detokenize.py
     """
@@ -390,8 +389,7 @@ def kixtart_extract(
         data_dictionary.setdefault("extracted_files_tool", "Kixtart")
 
 
-def UnAutoIt_extract(
-    file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
         return
 

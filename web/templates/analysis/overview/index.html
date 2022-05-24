@@ -35,7 +35,7 @@
         {% if analysis.info.parent_sample %}
         <div class="form-group">
             <div id="parent_file" class="collapse">
-                {% for file in analysis.info.parent_sample|dict2list %}
+                {% for file in analysis.info.parent_sample|parentfixup|dict2list %}
                     {% include "analysis/generic/_file_info.html" %}
                 {% endfor %}
             </div>

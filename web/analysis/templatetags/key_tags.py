@@ -24,9 +24,10 @@ def dict2list(value):
         return [value]
     return value
 
+
 @register.filter(name="parentfixup")
 def parentfixup(value):
-    if "file_size" in  value:
+    if "file_size" in value:
         value["size"] = value["file_size"]
     if "name" not in value:
         value["name"] = value["sha256"]

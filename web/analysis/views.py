@@ -1517,9 +1517,7 @@ def file(request, category, task_id, dlfile):
     if category in zip_categories and not HAVE_PYZIPPER:
         return render(request, "error.html", {"error": "Missed pyzipper library"})
 
-    if category == "sample":
-        path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
-    elif category in ("static", "staticzip"):
+    if category in ("sample", "static", "staticzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
     elif category in ("dropped", "droppedzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
@@ -2129,14 +2127,18 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in (
-        "bingraph",
-        "flare_capa",
-        "vba2graph",
-        "virustotal",
-        "xlsdeobf",
-        "strings",
-    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    if (
+        service
+        not in (
+            "bingraph",
+            "flare_capa",
+            "vba2graph",
+            "virustotal",
+            "xlsdeobf",
+            "strings",
+        )
+        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
+    ):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

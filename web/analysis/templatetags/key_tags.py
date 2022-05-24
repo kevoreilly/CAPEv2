@@ -16,3 +16,10 @@ def str2list(value):
     if isinstance(value, str):
         return [value]
     return value
+
+
+@register.filter(name="dict2list")
+def dict2list(value):
+    if isinstance(value, dict):
+        return [value]
+    return value

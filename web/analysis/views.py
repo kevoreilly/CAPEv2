@@ -2053,7 +2053,7 @@ def vtupload(request, category, task_id, filename, dlfile):
         try:
             folder_name = False
             path = False
-            if category == "sample":
+            if category in ("sample", "static"):
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
                 folder_name = "files"

@@ -10,8 +10,10 @@ import hashlib
 import logging
 import mmap
 import os
+import re
 import struct
 import subprocess
+from typing import Any, Dict
 
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,
@@ -442,6 +444,28 @@ class File:
                 log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
 
         return results
+
+    cape_name_regex = re.compile(r" (?:payload|config|loader)$", re.I)
+
+    @classmethod
+    def yara_hit_provides_detection(cls, hit: Dict[str, Any]) -> bool:
+        cape_type = hit["meta"].get("cape_type", "")
+        return bool(cls.cape_name_regex.search(cape_type))
+
+    @classmethod
+    def get_cape_name_from_yara_hit(cls, hit: Dict[str, Any]) -> str:
+        """Use the cape_type as defined in the metadata for the yara hit
+        (e.g. "SocGholish Payload") and return the part before
+        "Loader", "Payload", or "Config".
+        """
+        return cls.get_cape_name_from_cape_type(hit["meta"].get("cape_type", ""))
+
+    @classmethod
+    def get_cape_name_from_cape_type(cls, cape_type: str) -> str:
+        """Return the part of the cape_type (e.g. "SocGholish Payload") preceding
+        " Payload", " Config", or " Loader".
+        """
+        return cls.cape_name_regex.sub("", cape_type)
 
     def get_clamav(self):
         """Get ClamAV signatures matches.

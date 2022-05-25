@@ -41,6 +41,11 @@ def cape_load_decoders(CUCKOO_ROOT):
 
     for name in CAPE_DECODERS:
         try:
+            # The name of the module must match what's given as the cape_type for yara
+            # hits with the " Config", " Payload", or " Loader" ending removed and with
+            # spaces replaced with underscores.
+            # For example, a cape_type of "Emotet Payload" would trigger a config parser
+            # named "Emotet.py".
             cape_modules[name.replace("_", " ")] = importlib.import_module(f"modules.processing.parsers.CAPE.{name}")
         except (ImportError, IndexError) as e:
             if "datadirs" in str(e):

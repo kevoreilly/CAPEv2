@@ -3,7 +3,7 @@ rule BumbleBeeLoader
     meta:
         author = "enzo & kevoreilly"
         description = "BumbleBee Loader"
-        cape_type = "BumbleBee Loader"
+        cape_type = "BumbleBeeLoader Payload"
     strings:
         $str_set = {C7 ?? 53 65 74 50}
         $str_path = {C7 4? 04 61 74 68 00}

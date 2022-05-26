@@ -88,6 +88,7 @@ def mitre():
 def install(enabled, force, rewrite, filepath):
     if filepath and os.path.exists(filepath):
         data = open(filepath, "rb").read()
+        t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
     else:
         print("Downloading modules from {0}".format(URL))
         try:

@@ -1545,7 +1545,7 @@ class Database(object, metaclass=Singleton):
                     task_ids.append(config["id"])
                 else:
                     config = static_extraction(file)
-                if config or static_extraction:
+                if config or only_extraction:
                     task_ids += self.add_static(
                         file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
                     )

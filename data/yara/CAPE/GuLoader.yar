@@ -1,8 +1,9 @@
-rule Guloader
+rule GuLoader
 {
     meta:
         author = "kevoreilly"
         description = "Shellcode injector and downloader"
+        cape_type = "GuLoader Payload"
     strings:
         $trap0 = {0F 85 [2] FF FF 81 BD ?? 00 00 00 [2] 00 00 0F 8F [2] FF FF 39 D2 83 FF 00}
         $trap1 = {49 83 F9 00 75 [1-20] 83 FF 00 [2-6] 81 FF}

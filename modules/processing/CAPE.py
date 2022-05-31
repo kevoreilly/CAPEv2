@@ -248,15 +248,15 @@ class CAPE(Processing):
                 append_file = True
 
         # Process CAPE Yara hits
+
+        executed_config_parsers = set()
         for hit in file_info["cape_yara"]:
 
             # Check for a payload or config hit
-            extraction_types = ("payload", "config", "loader")
-
             try:
-                if any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in extraction_types]):
+                if File.yara_hit_provides_detection(hit):
                     file_info["cape_type"] = hit["meta"]["cape_type"]
-                    cape_name = hit["name"].replace("_", " ")
+                    cape_name = File.get_cape_name_from_yara_hit(hit)
             except Exception as e:
                 print(f"Cape type error: {e}")
             type_strings = file_info["type"].split()
@@ -265,21 +265,20 @@ class CAPE(Processing):
                     file_info["cape_type"] += pe_map[type_strings[0]]
                     file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
-            if hit["name"] == "GuLoader":
-                self.detect2pid(str(file_info["pid"]), "GuLoader")
-
-            cape_name = hit["name"].replace("_", " ")
-            tmp_config = static_config_parsers(hit["name"], file_data)
-            if tmp_config and tmp_config.get(cape_name):
-                config.setdefault(cape_name, {}).update(tmp_config[cape_name])
+            if cape_name and cape_name not in executed_config_parsers:
+                tmp_config = static_config_parsers(cape_name, file_data)
+                config.update(tmp_config)
+                executed_config_parsers.add(cape_name)
 
         if type_string:
             log.info("CAPE: type_string: %s", type_string)
-            tmp_config = static_config_parsers(type_string.split(" ", 1)[0], file_data)
-            if tmp_config:
-                cape_name = type_string.split(" ", 1)[0]
-                log.info("CAPE: config returned for: %s", cape_name)
-                config.update(tmp_config)
+            tmp_cape_name = File.get_cape_name_from_cape_type(type_string)
+            if tmp_cape_name and tmp_cape_name not in executed_config_parsers:
+                tmp_config = static_config_parsers(tmp_cape_name, file_data)
+                if tmp_config:
+                    cape_name = tmp_cape_name
+                    log.info("CAPE: config returned for: %s", cape_name)
+                    config.update(tmp_config)
 
         if cape_name:
             if cape_name != "UPX" and cape_name:

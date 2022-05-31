@@ -3,7 +3,7 @@ rule IcedIDLoader
     meta:
         author = "kevoreilly, threathive, enzo"
         description = "IcedID Loader"
-        cape_type = "IcedID Loader"
+        cape_type = "IcedIDLoader Payload"
     strings:
         $crypt1 = {8A 04 ?? D1 C? F7 D? D1 C? 81 E? 20 01 00 00 D1 C? F7 D? 81 E? 01 91 00 00 32 C? 88}
         $crypt2 = {8B 44 24 04 D1 C8 F7 D0 D1 C8 2D 20 01 00 00 D1 C0 F7 D0 2D 01 91 00 00 C3}

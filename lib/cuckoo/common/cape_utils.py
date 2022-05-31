@@ -234,10 +234,8 @@ def convert(data):
         return data
 
 
-def static_config_parsers(yara_hit, file_data):
+def static_config_parsers(cape_name, file_data):
     """Process CAPE Yara hits"""
-
-    cape_name = yara_hit.replace("_", " ")
     cape_config = {cape_name: {}}
     parser_loaded = False
     # CAPE - pure python parsers
@@ -403,7 +401,8 @@ def static_extraction(path):
         with open(path, "rb") as file_open:
             file_data = file_open.read()
         for hit in hits:
-            config = static_config_parsers(hit["name"], file_data)
+            cape_name = File.get_cape_name_from_yara_hit(hit)
+            config = static_config_parsers(cape_name, file_data)
             if config:
                 return config
         return False
@@ -415,13 +414,11 @@ def static_extraction(path):
 
 def cape_name_from_yara(details, pid, results):
     for hit in details.get("cape_yara", []) or []:
-        if "meta" in hit and any(
-            file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")
-        ):
+        if File.yara_hit_provides_detection(hit):
             if "detections2pid" not in results:
                 results.setdefault("detections2pid", {})
             results["detections2pid"].setdefault(str(pid), [])
-            name = hit["name"].replace("_", " ")
+            name = File.get_cape_name_from_yara_hit(hit)
             if name not in results["detections2pid"][str(pid)]:
                 results["detections2pid"][str(pid)].append(name)
             return name

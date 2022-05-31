@@ -57,7 +57,7 @@ def parse_config(data):
                 config[CONFIG.get(k, k)] = datetime.datetime.fromtimestamp(int(v)).strftime("%H:%M:%S %d-%m-%Y")
             else:
                 k = k[-2:]
-                config[CONFIG.get(k, k)] = v.decode()
+                config[CONFIG.get(k, f"ukn_{k.decode()}")] = v
         except Exception:
             log.info("Failed to parse config entry: %s", entry)
 

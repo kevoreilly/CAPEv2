@@ -31,10 +31,6 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     es = elastic_handler
 
 
-def delete_elastic_data(curtask, tid):
-    delete_analysis_and_related_calls(tid)
-
-
 def delete_files(curtask, delfiles, target_id):
     delfiles_list = delfiles
     if not isinstance(delfiles, list):
@@ -78,7 +74,6 @@ class Retention(Report):
         # process.py manually, the directiry structure is created in the
         # startup of cuckoo.py
         retPath = os.path.join(CUCKOO_ROOT, "storage", "retention")
-
         confPath = os.path.join(CUCKOO_ROOT, "conf", "reporting.conf")
 
         if not os.path.isdir(retPath):
@@ -138,14 +133,14 @@ class Retention(Report):
                     # We need to delete some data
                     for tid in buf:
                         lastTask = tid.to_dict()["id"]
-                        if item != "mongo" and item != "elastic":
+                        if item not in ("mongo", "elastic"):
                             delete_files(curtask, delLocations[item], lastTask)
                         elif item == "mongo":
                             if repconf.mongodb.enabled:
-                                mongo_delete_data(curtask, lastTask)
+                                mongo_delete_data([lastTask])
                         elif item == "elastic":
                             if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-                                delete_elastic_data(curtask, lastTask)
+                                delete_analysis_and_related_calls(lastTask)
                     saveTaskLogged[item] = int(lastTask)
                 else:
                     saveTaskLogged[item] = 0

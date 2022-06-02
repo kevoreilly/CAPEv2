@@ -74,10 +74,12 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 
 ## Installation recommendations and scripts for optimal performance
 0. Become familiar with [documentation](https://capev2.readthedocs.io/en/latest/installation/guest/network.html#virtual-networking) for proper configuration
-1. For best compability we strongly suggest installing on [Ubuntu 20.04 LTS](https://ubuntu.com/#download)
-2. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor, replace `<W00T>` to real pattern
+    * DO NOT FOLLOW BLOGS LIKE Those - they suggest things that are against what we suggest:  
+        * https://notes.netbytesec.com/2020/12/cape-sandbox-installation-from-0-to-hero.html
+2. For best compability we strongly suggest installing on [Ubuntu 20.04 LTS](https://ubuntu.com/#download)
+3. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor, replace `<W00T>` to real pattern
  * `sudo ./kvm-qemu.sh all <username> | tee kvm-qemu.log`
-3. To install CAPE itself, [cape2.sh](https://github.com/doomedraven/Tools/blob/master/Sandbox/cape2.sh) with all optimizations
+4. To install CAPE itself, [cape2.sh](https://github.com/doomedraven/Tools/blob/master/Sandbox/cape2.sh) with all optimizations
     * `sudo ./cape2.sh base cape | tee cape.log`
     * CAPE Services
         * cape.service

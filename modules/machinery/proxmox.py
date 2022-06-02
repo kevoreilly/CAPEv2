@@ -176,8 +176,15 @@ class Proxmox(Machinery):
         if not task:
             raise CuckooMachineError(f"Timeout expired while rolling back to snapshot {snapshot}")
         if task["exitstatus"] != "OK":
-            raise CuckooMachineError(f"Rollback to snapshot {snapshot} failed: {task['exitstatus']}")
-
+            if task["exitstatus"] == "timeout waiting on systemd":
+                if retry > retry_index:
+                    time.sleep(5)
+                    self.rollback(label, vm, node, retry, retry_index+1)
+                else:
+                    raise CuckooMachineError(f"Rollback to snapshot {snapshot} failed: {task['exitstatus']} - Proxmox may be overwhelmed")
+            else:
+                raise CuckooMachineError(f"Rollback to snapshot {snapshot} failed: {task['exitstatus']}")
+                
     def start(self, label):
         """Roll back VM to known-pristine snapshot and optionally start it if
         not already running after reverting to the snapshot.

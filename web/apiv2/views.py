@@ -745,7 +745,7 @@ def ext_tasks_search(request):
             elif term == "ttp":
                 records = perform_ttps_search(value)
             else:
-                records = perform_search(term, value)
+                records = perform_search(term, value, user_id=request.user.id)
         except ValueError:
             if not term:
                 resp = {"error": True, "error_value": "No option provided."}

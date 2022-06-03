@@ -246,33 +246,41 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
 
 
 # ToDo extend this to directly extract per day
-def get_stats_per_category(date_since, date_to, category):
+def get_stats_per_category(category: str, date_since):
     aggregation_command = [
         {
             "$match": {
                 "info.started": {
                     "$gte": date_since.isoformat(),
-                    "$lt": date_to.isoformat(),
                 },
-                f"statistics.{category}": {"$exists": True},
+                f"{category}": {"$exists": True},
             }
         },
-        {"$unwind": f"$statistics.{category}"},
+        {"$unwind": f"${category}"},
         {
             "$group": {
-                "_id": f"$statistics.{category}.name",
-                "total_time": {"$sum": f"$statistics.{category}.time"},
-                "total_run": {"$sum": 1},
+                "_id": f"${category}.name",
+                "total_time": {"$sum": {"$cond": [{"$eq": [f"${category}.time", 0]}, 0, {"$divide": [f"${category}.time", 60]}]}},
+                "successful": {"$sum": {"$cond": [{"$eq": [f"${category}.extracted", 0]}, 0, 1]}},
+                "runs": {"$sum": 1},
             }
         },
         {"$addFields": {"name": "$_id"}},
         {"$project": {"_id": 0}},
-        {"day": {"$dayOfMonth": "$info.started"}},
         {"$sort": {"total_time": -1}},
+        {
+            "$project": {
+                "name": 1,
+                "successful": 1,
+                "runs": 1,
+                "average": 1,
+                "total": {"$round": ["$total_time", 2]},
+                "average": {"$round": [{"$divide": [f"$total_time", "$runs"]}, 2]},
+            }
+        },
+        {"$limit": 20},
     ]
-    data = mongo_aggregate("analysis", aggregation_command)
-    if data:
-        return data
+    return mongo_aggregate("analysis", aggregation_command)
 
 
 def statistics(s_days: int) -> dict:
@@ -285,17 +293,16 @@ def statistics(s_days: int) -> dict:
         "reporting": {},
         "top_samples": {},
         "detections": {},
+        "custom_statistics": {},
     }
 
-    tmp_custom = {}
-    tmp_data = {}
     if repconf.mongodb.enabled:
-        data = mongo_find(
-            "analysis",
-            {"statistics": {"$exists": True}, "info.started": {"$gte": date_since.isoformat()}},
-            {"statistics": 1, "_id": 0},
-        )
+        data = True
+
     elif repconf.elasticsearchdb.enabled:
+        # ToDo need proper query upgrade as in mongo
+        data = False
+        """
         q = {
             "query": {
                 "bool": {
@@ -304,75 +311,18 @@ def statistics(s_days: int) -> dict:
             }
         }
         data = [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=["statistics"])["hits"]["hits"]]
+        """
     else:
         data = None
-
-    for analysis in data or []:
-        for type_entry in analysis.get("statistics", []) or []:
-            if type_entry not in tmp_data:
-                tmp_data.setdefault(type_entry, {})
-            for entry in analysis["statistics"][type_entry]:
-                if entry["name"] in analysis.get("custom_statistics", {}):
-                    if entry["name"] not in tmp_custom:
-                        tmp_custom.setdefault(entry["name"], {})
-                        if isinstance(analysis["custom_statistics"][entry["name"]], float):
-                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
-                            tmp_custom[entry["name"]]["successful"] = 0
-                        else:
-                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]["time"]
-                            tmp_custom[entry["name"]]["successful"] = analysis["custom_statistics"][entry["name"]].get(
-                                "extracted", 0
-                            )
-                        tmp_custom[entry["name"]]["runs"] = 1
-
-                    else:
-                        tmp_custom.setdefault(entry["name"], {})
-                        if isinstance(analysis["custom_statistics"][entry["name"]], float):
-                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
-                            tmp_custom[entry["name"]]["successful"] += 0
-                        else:
-                            tmp_custom[entry["name"]]["time"] += analysis["custom_statistics"][entry["name"]]["time"]
-                            tmp_custom[entry["name"]]["successful"] += analysis["custom_statistics"][entry["name"]].get(
-                                "extracted", 0
-                            )
-                        tmp_custom[entry["name"]]["runs"] += 1
-                if entry["name"] not in tmp_data[type_entry]:
-                    tmp_data[type_entry].setdefault(entry["name"], {})
-                    tmp_data[type_entry][entry["name"]]["time"] = entry["time"]
-                    tmp_data[type_entry][entry["name"]]["runs"] = 1
-                else:
-                    tmp_data[type_entry][entry["name"]]["time"] += entry["time"]
-                    tmp_data[type_entry][entry["name"]]["runs"] += 1
 
     if not data:
         return details
 
-    for module_name in ["signatures", "processing", "reporting"]:
-        if module_name not in tmp_data:
-            continue
-        # module_data = get_stats_per_category(module_name)
-        s = sorted(tmp_data[module_name].items(), key=lambda x: x[1].get("time"), reverse=True)[:20]
-
-        for entry in s:
-            entry = entry[0]
-            times_in_mins = tmp_data[module_name][entry]["time"] / 60
-            if not times_in_mins:
-                continue
-            details[module_name].setdefault(entry, {})
-            details[module_name][entry]["total"] = float(f"{round(times_in_mins, 2):.2f}")
-            details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
-            details[module_name][entry]["average"] = float(f"{round(times_in_mins / tmp_data[module_name][entry]['runs'], 2):.2f}")
-        details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
-
-    # custom average
-    for entry in tmp_custom:
-        times_in_mins = tmp_custom[entry]["time"] / 60
-        if not times_in_mins:
-            continue
-        tmp_custom[entry]["total"] = float(f"{round(times_in_mins, 2):.2f}")
-        tmp_custom[entry]["average"] = float(f"{round(times_in_mins / tmp_custom[entry]['runs'], 2):.2f}")
-
-    details["custom_signatures"] = OrderedDict(sorted(tmp_custom.items(), key=lambda x: x[1].get("total", "average"), reverse=True))
+    for module_name in ("statistics.signatures", "statistics.processing", "statistics.reporting", "custom_statistics"):
+        module_data = get_stats_per_category(module_name, date_since)
+        for entry in module_data or []:
+            name = entry["name"]
+            details[module_name.split(".")[-1]].setdefault(name, entry)
 
     top_samples = {}
     session = db.Session()

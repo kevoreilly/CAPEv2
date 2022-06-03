@@ -965,7 +965,7 @@ def perform_malscore_search(value):
         return es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]
 
 
-def perform_search(term, value, search_limit=False, user_id=False):
+def perform_search(term, value, search_limit=False, user_id=False, privs=False):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
@@ -997,6 +997,7 @@ def perform_search(term, value, search_limit=False, user_id=False):
                 if not user_id:
                     ids = 0
                 else:
+                    # ToDo allow to admin search by user tasks
                     ids = [int(v.id) for v in db.list_tasks(user_id=user_id)]
             else:
                 ids = [int(v.id) for v in db.list_tasks(options_like=value)]

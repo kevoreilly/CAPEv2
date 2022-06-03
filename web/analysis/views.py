@@ -1858,7 +1858,7 @@ def search(request, searched=False):
             elif term == "ttp":
                 records = perform_ttps_search(value)
             else:
-                records = perform_search(term, value)
+                records = perform_search(term, value, user_id=request.user.id)
         except ValueError:
             if term:
                 return render(
@@ -2127,14 +2127,18 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in (
-        "bingraph",
-        "flare_capa",
-        "vba2graph",
-        "virustotal",
-        "xlsdeobf",
-        "strings",
-    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    if (
+        service
+        not in (
+            "bingraph",
+            "flare_capa",
+            "vba2graph",
+            "virustotal",
+            "xlsdeobf",
+            "strings",
+        )
+        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
+    ):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

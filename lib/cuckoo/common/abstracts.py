@@ -758,10 +758,12 @@ class Signature:
         @param extracted: conf extraction from inside signature to count success extraction vs sig run
         """
         timediff = datetime.datetime.now() - pretime
-        self.results["custom_statistics"] = {self.name: {"time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")}}
+        tmp_dict = {"name": self.name, "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")}
 
         if extracted:
-            self.results["custom_statistics"][self.name]["extracted"] = 1
+            tmp_dict["extracted"] = 1
+
+        self.results["custom_statistics"] = tmp_dict
 
     def set_path(self, analysis_path):
         """Set analysis folder path.

@@ -851,6 +851,7 @@ search_term_map = {
     "id": "info.id",
     "ids": "info.id",
     "tags_tasks": "info.id",
+    "user_tasks": True,
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
@@ -964,7 +965,7 @@ def perform_malscore_search(value):
         return es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]
 
 
-def perform_search(term, value, search_limit=False):
+def perform_search(term, value, search_limit=False, user_id=False):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
@@ -985,20 +986,25 @@ def perform_search(term, value, search_limit=False):
             query_val = int(value)
         except Exception:
             pass
-    elif term in ("ids", "options", "tags_tasks"):
+    elif term in ("ids", "options", "tags_tasks", "user_tasks"):
         try:
             ids = []
             if term == "ids":
                 ids = value
             elif term == "tags_tasks":
                 ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value)]
+            elif term == "user_tasks":
+                if not user_id:
+                    ids = 0
+                else:
+                    ids = [int(v.id) for v in db.list_tasks(user_id=user_id)]
             else:
                 ids = [int(v.id) for v in db.list_tasks(options_like=value)]
             if ids:
+                term = "id"
                 if len(ids) > 1:
                     query_val = {"$in": ids}
                 else:
-                    term = "id"
                     if isinstance(value, list):
                         value = value[0]
                     query_val = int(value)

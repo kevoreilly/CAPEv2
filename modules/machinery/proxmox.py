@@ -153,7 +153,7 @@ class Proxmox(Machinery):
 
         return snapshot
 
-    def rollback(self, label, vm, node):
+    def rollback(self, label, vm, node, retry=5, retry_index=0):
         """Roll back a VM's status to a statically configured or the most recent
         snapshot.
 

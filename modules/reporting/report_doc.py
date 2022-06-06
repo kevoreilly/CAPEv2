@@ -102,7 +102,11 @@ def insert_calls(report, elastic_db=None, mongodb=False):
             if len(chunk) == 100:
                 to_insert = {"pid": process["process_id"], "calls": chunk}
                 if mongodb:
-                    chunk_id = mongo_insert_one("calls", to_insert).inserted_id
+                    try:
+                        chunk_id = mongo_insert_one("calls", to_insert).inserted_id
+                    except Exception as e:
+                        chunk_id = None
+                        pass
                 elif elastic_db is not None:
                     chunk_id = elastic_db.index(index=get_daily_calls_index(), body=to_insert)["_id"]
                 else:

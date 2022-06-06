@@ -229,6 +229,8 @@ class Office:
         else:
             try:
                 vba = VBA_Parser(filepath)
+            except ValueError as e:
+                log.error("Error VBA_Parser: %s", str(e))
             except Exception:
                 return results
         try:

@@ -45,7 +45,7 @@
 
 <hr />
 
-  {% if statistics.custom_signatures %}
+  {% if statistics.custom_statistics %}
   <h4>Custom Signatures data only for Volatility/static extraction</h4>
   <table class="table table-striped table-hover">
     <thead>
@@ -58,7 +58,7 @@
       </tr>
     </thead>
     <tbody>
-    {% for name, time in statistics.custom_signatures.items %}
+    {% for name, time in statistics.custom_statistics.items %}
         <tr>
             <td>{{name}}</td>
             <td>{{time.total}}</td>

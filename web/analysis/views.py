@@ -1858,7 +1858,7 @@ def search(request, searched=False):
             elif term == "ttp":
                 records = perform_ttps_search(value)
             else:
-                records = perform_search(term, value)
+                records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_stuff)
         except ValueError:
             if term:
                 return render(

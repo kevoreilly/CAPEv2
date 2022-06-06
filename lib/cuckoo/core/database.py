@@ -826,12 +826,11 @@ class Database(object, metaclass=Singleton):
 
             if categories:
                 row = row.filter(Task.category.in_(categories))
-
             row = row.first()
 
             if row:
                 if need_VM and row.machine and row.machine != machine.label:
-                    log.debug("Task id %d - needs VM: %s - %s", row.id, row.machine, machine.label)
+                    log.debug("Task id %d - needs VM: %s. %s - %s", row.id, need_VM, row.machine, machine.label)
                     return None
             else:
                 if need_VM:
@@ -2006,6 +2005,7 @@ class Database(object, metaclass=Singleton):
         tags_tasks_like=False,
         task_ids=False,
         inclide_hashes=False,
+        user_id=False,
     ):
         """Retrieve list of task.
         @param limit: specify a limit of entries.
@@ -2024,6 +2024,7 @@ class Database(object, metaclass=Singleton):
         @param tags_tasks_like: filter tasks by specific tag
         @param task_ids: list of task_id
         @param inclide_hashes: return task+samples details
+        @param user_id: list of tasks submitted by user X
         @return: list of tasks.
         """
         session = self.Session()
@@ -2055,6 +2056,8 @@ class Database(object, metaclass=Singleton):
                 search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
             if task_ids:
                 search = search.filter(Task.id.in_(task_ids))
+            if user_id:
+                search = search.filter(Task.user_id == user_id)
             if order_by is not None:
                 search = search.order_by(order_by)
             else:

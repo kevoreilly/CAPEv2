@@ -93,13 +93,14 @@ class HtmlScrap(Processing):
 
             extractor = URLExtract()
             text_to_search = f'{decoded_strings_text}\n{html_scrap}'
-            addresses_in_html = set(extractor.find_urls(text_to_search, only_unique=True))
+            addresses_in_html = set(extractor.find_urls(text_to_search, only_unique=True, with_schema_only=True))
 
             if os.path.exists(last_url_path):
                 with open(last_url_path, 'r') as f:
                     addresses_in_html.add(f.read())
 
-            filtered_addresses = {url for url in addresses_in_html if not url.startswith(safe_url_list)}
+            filtered_addresses = {url.strip('\\x27') for url in addresses_in_html if
+                                  not url.startswith(safe_url_list)}
 
             log.info('Finished html scrap processing')
 

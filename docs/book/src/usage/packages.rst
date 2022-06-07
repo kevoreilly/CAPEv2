@@ -3,11 +3,11 @@ Analysis Packages
 =================
 
 The **analysis packages** are a core component of CAPE Sandbox.
-They consist in structured Python classes which, when executed in the guest machines,
+They consist of structured Python classes that, when executed in the guest machines,
 describe how CAPE's analyzer component should conduct the analysis.
 
-CAPE provides some default analysis packages that you can use, but you are
-able to create your own or modify the existing ones.
+CAPE provides some default analysis packages that you can use, but you can 
+create your own or modify the existing ones.
 You can find them at *analyzer/windows/modules/packages/*.
 
 As described in :doc:`../usage/submit`, you can specify some options to the
@@ -22,7 +22,7 @@ Following is the list of existing packages in alphabetical order:
 
         **Options**:
             * ``free`` *[yes/no]*: if enabled, no behavioral logs will be produced and the malware will be executed freely.
-            * ``class``: specify the name of the class to be executed. This option is mandatory for a correct execution.
+            * ``class``: specify the name of the class to be executed. This option is mandatory for correct execution.
             * ``procmemdump`` *[yes/no]*: if enabled, take memory dumps of all actively monitored processes.
             * ``dll``: specify the name of an optional DLL to be used as a replacement for capemon.dll.
 
@@ -129,7 +129,7 @@ Following is the list of existing packages in alphabetical order:
             * ``procmemdump`` *[yes/no]*: if enabled, take memory dumps of all actively monitored processes.
             * ``dll``: specify the name of an optional DLL to be used as a replacement for capemon.dll.
 
-    * ``vbs``: used to run and analysis **VBScript files**.
+    * ``vbs``: used to run and analyze **VBScript files**.
 
         **Options**:
             * ``free`` *[yes/no]*: if enabled, no behavioral logs will be produced and the malware will be executed freely.
@@ -166,7 +166,7 @@ the correct analysis package accordingly. If the file type is not supported by
 default the analysis will be aborted, therefore we encourage to
 specify the package name whenever possible.
 
-For example, to launch a malware and specify some options you can do::
+For example, to launch a malware sample and specify some options you can do::
 
     $ ./utils/submit.py --package dll --options function=FunctionName,loader=explorer.exe /path/to/malware.dll
 

@@ -2,7 +2,7 @@
 Network Configuration
 =====================
 
-Now it's time to setup the network for your physical machine.
+Now it's time to set up the network for your physical machine.
 
 Windows Settings
 ================
@@ -10,7 +10,7 @@ Windows Settings
 Before configuring the underlying networking of the sandbox, you might
 want to tweak some settings inside Windows itself.
 
-One of the most important things to do is **disabling** *Windows Firewall* and the
+One of the most important things to do is **disable** *Windows Firewall* and the
 *Automatic Updates*. The reason behind this is that they can affect the behavior
 of the malware under normal circumstances and that they can pollute the network
 analysis performed by CAPE, by dropping connections or including irrelevant
@@ -22,11 +22,11 @@ You can do so from Windows' Control Panel as shown in the picture:
         :align: center
 
 Using a physical machine manager requires a few more configuration options than
-the virtual machine managers in order to run properly.  In addition to the steps
+the virtual machine managers to run properly.  In addition to the steps
 laid out in the regular Preparing the Guest section, some settings need to be changed
 for physical machines to work properly.
 
-    - Enable auto-logon (Allows for the agent to start upon reboot)
+    - Enable auto-login (Allows for the agent to start upon reboot)
     - Enable Remote RPC (Allows for CAPE to reboot the sandbox using RPC)
     - Turn off paging (Optional)
     - Disable Screen Saver (Optional)
@@ -45,17 +45,17 @@ In Windows 7 the following commands can be entered into an Administrative comman
 Networking
 ==========
 
-Now you need to decide how to make your physical machine able to access Internet
+Now you need to decide how to make your physical machine able to access the Internet
 or your local network.
 
-In order to make it work properly you'll have to configure your machine's
+To make it work properly you'll have to configure your machine's
 network so that the Host and the Guest can communicate.
 Testing the network access by pinging a guest is a good practice, to make sure the
 virtual network was set up correctly.
-Use only static IP addresses for your guest, as today CAPE doesn't support DHCP
+Use only static IP addresses for your guest, as today CAPE doesn't support DHCP,
 and using it will break your setup.
 
-This stage is very much up to your own requirements and to the
+This stage is very much up to your requirements and the
 characteristics of your virtualization software.
 
 For physical machines, make sure when setting the IP address of the guest to also set

@@ -53,10 +53,10 @@ command-line utility. It currently has the following options available::
       --unique             Only submit new samples, ignore duplicates
       --quiet              Only print text on failure
 
-If you specify a directory as path, all the files contained in it will be
+If you specify a directory as a path, all the files contained in it will be
 submitted for analysis.
 
-The concept of analysis packages will be dealt later in this documentation (at
+The concept of analysis packages will be dealt with later in this documentation (at
 :doc:`packages`). Following are some usage examples:
 
 *Example*: submit a local binary::
@@ -101,7 +101,7 @@ some options (in this case a command line argument for the malware)::
 
     $ ./utils/submit.py --enforce-timeout /path/to/binary
 
-*Example*: submit a local binary and set virtual machine clock. Format is %m-%d-%Y %H:%M:%S. If not specified, the current time is used. For example if we want run a sample the 24 january 2001 at 14:41:20::
+*Example*: submit a local binary and set virtual machine clock. The format is %m-%d-%Y %H:%M:%S. If not specified, the current time is used. For example, if we want to run a sample on January 24th, 2001, at 14:41:20::
 
     $ ./utils/submit.py --clock "01-24-2001 14:41:20" /path/to/binary
 
@@ -131,14 +131,14 @@ Detailed usage of the Distributed CAPE API interface is described in
 Python Functions
 ================
 
-In order to keep track of submissions, samples and overall execution, CAPE
+To keep track of submissions, samples, and overall execution, CAPE
 uses a popular Python ORM called `SQLAlchemy`_ that allows you to make the sandbox
-use PostgreSQL, SQLite, MySQL and several other SQL database systems.
+use PostgreSQL, SQLite, MySQL, and several other SQL database systems.
 
-CAPE is designed to be easily integrated in larger solutions and to be fully
-automated. In order to automate analysis submission we suggest to use the REST
-API interface described in :doc:`api`, but in case you want to write your
-own Python submission script, you can also use the ``add_path()`` and ``add_url()`` functions.
+CAPE is designed to be easily integrated into larger solutions and to be fully
+automated. To automate analysis submission we suggest using the REST
+API interface described in :doc:`api`, but in case you want to write a 
+Python submission script, you can also use the ``add_path()`` and ``add_url()`` functions.
 
 .. function:: add_path(file_path[, timeout=0[, package=None[, options=None[, priority=1[, custom=None[, machine=None[, platform=None[, memory=False[, enforce_timeout=False], clock=None[]]]]]]]]])
 

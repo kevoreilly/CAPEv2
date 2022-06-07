@@ -9,7 +9,7 @@ Box-js
 
 .. _installation:
 
-* Quick and dirty notes how to integrate box-js to CAPE::
+* Quick and dirty notes on how to integrate box-js to CAPE::
 
     $ curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
     $ sudo apt install docker.io nodejs git
@@ -25,7 +25,7 @@ Box-js
 
 Preparation
 ===========
-* We will leave ``fixing and hardening of box-js for you``, here are just few examples::
+* We will leave ``fixing and hardening of box-js for you``, here are just a few examples::
 
     USERNAME="CAPE"
     IP="0.0.0.0"
@@ -46,7 +46,7 @@ Preparation
 
     $ cd integrations/api/
 
-* replace Dockerfile with this content, required to run fixed/patched box-js inside of th docker::
+* replace Dockerfile with this content, required to run fixed/patched box-js inside of the Docker::
 
     FROM node:10-alpine
     #ENV http_proxy http://PROXY_IP:PORT
@@ -65,7 +65,7 @@ Preparation
 
 Starting box-js rest-api
 ========================
-* Default port is ``9000`` you can change it inside of api.py
+* The default port is ``9000`` you can change it inside of api.py
 
     $ node api.js
 

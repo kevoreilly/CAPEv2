@@ -106,6 +106,10 @@ no_lines_before = ["FUTURE", "STDLIB"]
 line_length = 132
 supported_extensions = ["py", "py_disabled"]
 
+[tool.flake8]
+max-line-length = 132
+exclude = ".git,__pycache__,.cache,.venv"
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "web.settings"
 python_paths = "web"

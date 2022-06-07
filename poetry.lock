@@ -592,6 +592,14 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "func-timeout"
+version = "4.3.5"
+description = "Python module which allows you to specify timeouts when calling any existing function. Also provides support for stoppable-threads"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "funcy"
 version = "1.16"
 description = "A fancy and practical functional tools"
@@ -1033,7 +1041,7 @@ scipy = ["scipy"]
 name = "nose"
 version = "1.3.7"
 description = "nose extends unittest to make testing easier"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "*"
 
@@ -2230,7 +2238,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "2c1c8f0327b564e820517d7eaa533d8f41c28f5c8497a6f2f2f1825bf211f27b"
+content-hash = "db98de491a897a13be5d6d27fbbd7c7165bdde6527be1b2116f610d58a58de8b"
 
 [metadata.files]
 altgraph = [
@@ -2636,6 +2644,9 @@ flare-capa = [
 flor = [
     {file = "Flor-1.1.3-py3-none-any.whl", hash = "sha256:b332f6f78c9c99833c2d35012cee1cdb8ebb309fdc71d20fbc9f692479083f78"},
     {file = "Flor-1.1.3.tar.gz", hash = "sha256:1fac101e161446dbb2ee5379d5b950bb015fe6d90568385a549b538ca12fe942"},
+]
+func-timeout = [
+    {file = "func_timeout-4.3.5.tar.gz", hash = "sha256:74cd3c428ec94f4edfba81f9b2f14904846d5ffccc27c92433b8b5939b5575dd"},
 ]
 funcy = [
     {file = "funcy-1.16-py2.py3-none-any.whl", hash = "sha256:1d3fc5d42cf7564a6b2be04042d0df7a50c77903cf760a34786d0c9ebd659b25"},

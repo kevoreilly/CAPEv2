@@ -3,16 +3,16 @@ Signatures
 ==========
 
 With CAPE you're able to create some customized signatures that you can run against
-the analysis results in order to identify some predefined pattern that might
+the analysis results to identify some predefined pattern that might
 represent a particular malicious behavior or an indicator you're interested in.
 
-These signatures are very useful to give a context to the analyses: both because they
+These signatures are very useful to give context to the analyses: both because they
 simplify the interpretation of the results as well as for automatically identifying
 malware samples of interest.
 
 Some examples of what you can use CAPE's signatures for:
     * Identify a particular malware family you're interested in by isolating some unique behaviors (like file names or mutexes).
-    * Spot interesting modifications the malware performs on the system, such as installation of device drivers.
+    * Spot interesting modifications the malware performs on the system, such as the installation of device drivers.
     * Identify particular malware categories, such as Banking Trojans or Ransomware by isolating typical actions commonly performed by those.
 
 You can find signatures created by us and by other CAPE users on our `Community`_ repository.
@@ -22,7 +22,7 @@ You can find signatures created by us and by other CAPE users on our `Community`
 Getting started
 ===============
 
-Creation of signatures is a very simple process and requires just a decent
+The creation of signatures is a very simple process and requires just a decent
 understanding of Python programming.
 
 First things first, all signatures must be located inside *modules/signatures/*.
@@ -47,12 +47,12 @@ The following is a basic example signature:
                                        regex=True)
 
 As you can see the structure is really simple and consistent with the other
-modules. We're going to get into details later, but as you can see at line **12**
+modules. We're going to get into details later, but as you can see in line **12**
 from version 0.5 CAPE provides some helper functions that make the process of
 creating signatures much easier.
 
 In this example we just walk through all the accessed files in the summary and check
-if there is anything ending with "*.exe*": in that case it will return ``True``, meaning that
+if there anything is ending with "*.exe*": in that case, it will return ``True``, meaning that
 the signature matched, otherwise return ``False``.
 
 In case the signature gets matched, a new entry in the "signatures" section will be added to
@@ -96,19 +96,19 @@ directly:
 
                 return False
 
-This obviously requires you to know the structure of the **global container**,
+This requires you to know the structure of the **global container**,
 which you can observe represented in the JSON report of your analyses.
 
 Creating your new signature
 ===========================
 
-In order to make you better understand the process of creating a signature, we
+To make you better understand the process of creating a signature, we
 are going to create a very simple one together and walk through the steps and
 the available options. For this purpose, we're simply going to create a
 signature that checks whether the malware analyzed opened a mutex named
 "i_am_a_malware".
 
-The first thing to do is import the dependencies, create a skeleton and define
+The first thing to do is import the dependencies, create a skeleton, and define
 some initial attributes. These are the ones you can currently set:
 
     * ``name``: an identifier for the signature.
@@ -142,7 +142,7 @@ In our example, we would create the following skeleton:
         def run(self):
             return
 
-This is a perfectly valid signature. It doesn't really do anything yet,
+This is a perfectly valid signature. It doesn't do anything yet,
 so now we need to define the conditions for the signature to be matched.
 
 As we said, we want to match a particular mutex name, so we proceed as follows:
@@ -195,9 +195,9 @@ Evented Signatures
 ==================
 
 Since version 1.0, CAPE provides a way to write more high-performance signatures.
-In the past every signature was required to loop through the whole collection of API calls
+In the past, every signature was required to loop through the whole collection of API calls
 collected during the analysis. This was necessarily causing some performance issues when such
-collection would be of a large size.
+a collection would be large.
 
 CAPE now supports both the old model as well as what we call "evented signatures".
 The main difference is that with this new format, all the signatures will be executed in parallel
@@ -257,18 +257,18 @@ An example signature using this technique is the following:
                 return None
 
 The inline comments are already self-explanatory.
-You can find many more example of both evented and traditional signatures in our `community repository`_.
+You can find many more examples of both evented and traditional signatures in our `community repository`_.
 
 .. _`community repository`:https://github.com/kevoreilly/community
 
 Matches
 =======
 
-Starting from version 1.2, signatures are able to log exactly what triggered
+Starting from version 1.2, signatures can log exactly what triggered
 the signature. This allows users to better understand why this signature is
 present in the log, and to be able to better focus malware analysis.
 
-Two helpers have been included in order to specify matching data.
+Two helpers have been included to specify matching data.
 
 .. function:: Signature.add_match(process, type, match)
 

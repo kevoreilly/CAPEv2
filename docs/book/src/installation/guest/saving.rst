@@ -7,7 +7,7 @@ Now you should be ready to save the virtual machine to a snapshot state.
 Before doing this **make sure you rebooted it softly and that it's currently
 running, with CAPE's agent running and with Windows fully booted**.
 
-Now you can proceed saving the machine. The way to do it obviously depends on
+Now you can proceed with saving the machine. The way to do it depends on
 the virtualization software you decided to use.
 
 If you follow all the below steps properly, your virtual machine should be ready
@@ -16,19 +16,19 @@ to be used by CAPE.
 KVM
 ===
 
-You can check here how to simple create virtual machine with virt-manager
+You can check here how to simply create a virtual machine with ``virt-manager``:
 
 * `Create virtual machine with virt-manager aka GUI client`_
 * `Advanced KVM preparation for malware analysis`_
 
-.. _`Create virtual machine with virt-manager aka GUI client`: https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html
+.. _`Create a virtual machine with virt-manager aka GUI client`: https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html
 .. _`Prepare KVM for malware analysis`: https://www.doomedraven.com/2016/05/kvm.html#modifying-kvm-qemu-kvm-settings-for-malware-analysis
 
 If decided to adopt KVM, you must first of all be sure to use a disk format for
 your virtual machines which supports snapshots.
-By default libvirt tools create RAW virtual disks, and since we need snapshots
-you'll either have to use QCOW2 or LVM. For the scope of this guide we adopt QCOW2,
-which is easier to setup than LVM.
+By default, libvirt tools create RAW virtual disks, and since we need snapshots
+you'll either have to use QCOW2 or LVM. For the scope of this guide, we adopt QCOW2,
+which is easier to set up than LVM.
 
 The easiest way to create such a virtual disk correctly is using the tools
 provided by the libvirt suite. You can either use ``virsh`` if you prefer
@@ -79,7 +79,7 @@ Then within the domain element, add the following::
       <qemu:arg value='host,-hypervisor'/>
     </qemu:commandline>
 
-Instead of using "host", you can also choose a number of other CPU models from the
+Instead of using "host", you can also choose from multiple other CPU models from the
 list displayed with the "qemu-system-i386 -cpu help" command (SandyBridge, Haswell, etc).
 
 Now test your virtual machine, if everything works prepare it for snapshotting while
@@ -104,7 +104,7 @@ VirtualBox
 ==========
 
 If you are going for VirtualBox you can take the snapshot from the graphical user
-interface or from the command line::
+interface or the command line::
 
     $ VBoxManage snapshot "<Name of VM>" take "<Name of snapshot>" --pause
 
@@ -118,12 +118,12 @@ VMware Workstation
 ==================
 
 If you decided to adopt VMware Workstation, you can take the snapshot from the graphical user
-interface or from the command line::
+interface or the command line::
 
     $ vmrun snapshot "/your/disk/image/path/wmware_image_name.vmx" your_snapshot_name
 
 Where your_snapshot_name is the name you choose for the snapshot.
-After that power off the machine from the GUI or from the command line::
+After that power off the machine from the GUI or the command line::
 
     $ vmrun stop "/your/disk/image/path/wmware_image_name.vmx" hard
 
@@ -160,7 +160,7 @@ The snapshot UUID is printed to the screen once the command completes.
 
 Regardless of how the snapshot was created, save the UUID in the virtual
 machine's configuration section. Once the snapshot has been created, you can
-shutdown the virtual machine.
+shut down the virtual machine.
 
 Booting from Disk
 -----------------
@@ -181,7 +181,7 @@ the following command::
     $ xe vm-disk-list vm="vm_name_or_uuid"
 
 Ignoring all CD-ROM and read-only disks, run the following command for each
-remaining disk to change it's behavior to reset on boot::
+remaining disk to change its behavior to reset on boot::
 
     $ xe vdi-param-set uuid="vdi_uuid" on-boot=reset
 

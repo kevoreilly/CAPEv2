@@ -2,7 +2,7 @@
 Network Configuration
 =====================
 
-Now it's time to setup the network for your virtual machine.
+Now it's time to set up the network for your virtual machine.
 
 Windows Settings
 ================
@@ -10,7 +10,7 @@ Windows Settings
 Before configuring the underlying networking of the virtual machine, you might
 want to tweak some settings inside Windows itself.
 
-One of the most important things to do is **disabling** *Windows Firewall* and the
+One of the most important things to do is **disable** *Windows Firewall* and the
 *Automatic Updates*. The reason behind this is that they can affect the behavior
 of the malware under normal circumstances and that they can pollute the network
 analysis performed by CAPE, by dropping connections or including irrelevant
@@ -24,21 +24,21 @@ You can do so from Windows' Control Panel as shown in the picture:
 Virtual Networking
 ==================
 
-Now you need to decide how to make your virtual machine able to access Internet
+Now you need to decide how to make your virtual machine able to access the Internet
 or your local network.
 
-In order to make it work properly you'll have to configure your machine's
+To make it work properly you'll have to configure your machine's
 network so that the Host and the Guest can communicate.
 Testing the network access by pinging a guest is a good practice, to make sure the
 virtual network was set up correctly.
-Use only static IP addresses for your guest, as today CAPE doesn't support DHCP
+Use only static IP addresses for your guest, as today CAPE doesn't support DHCP,
 and using it will break your setup.
 
-This stage is very much up to your own requirements and to the
+This stage is very much up to your requirements and the
 characteristics of your virtualization software.
 
     .. warning:: Virtual networking errors!
-        Virtual networking is a vital component for CAPE, you must be really
+        Virtual networking is a vital component for CAPE, you must be
         sure to get connectivity between host and guest.
         Most of the issues reported by users are related to a wrong setup of
         their networking.
@@ -55,7 +55,7 @@ We have automated this for you with:
 Disable Noisy Network Services
 ==============================
 
-Windows 7 introduced new network services that create a lot of noise, and can hinder PCAP processing.
+Windows 7 introduced new network services that create a lot of noise and can hinder PCAP processing.
 Where's how to disable them:
 
 Teredo

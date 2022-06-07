@@ -2,12 +2,12 @@
 Upgrade from a previous release
 ===============================
 
-CAPE Sandbox grows really fast and in every release new features are added and
+CAPE Sandbox grows fast and in every release, new features are added and
 some others are fixed or removed.
 There are two ways to upgrade your CAPE: start from scratch or migrate your
 "old" setup.
 The suggested way to upgrade CAPE is to start from a fresh setup because it's
-easier and faster than migrate your old setup.
+easier and faster than migrating your old setup.
 
 Upgrade starting from scratch
 =============================
@@ -15,7 +15,7 @@ Upgrade starting from scratch
 To start from scratch you have to perform a fresh setup as described in :doc:`index`.
 The following steps are suggested:
 
-1. Backup your installation.
+1. Back up your installation.
 2. Read the documentation shipped with the new release.
 3. Make sure to have installed all required dependencies, otherwise install them.
 4. Do a CAPE fresh installation of the Host components.
@@ -35,7 +35,7 @@ release files, as it might raise some problems because:
 
 * You are overwriting Python source files (.py) but Python bytecode files (.pyc)
   are still in place.
-* There are configuration files changes across the two versions, check our
+* There are configuration file changes across the two versions, check our
   CHANGELOG file for added or removed configuration options.
 * The part of CAPE which runs inside guests (agent.py) may change.
 * If you are using an external database like the reporting module for MongoDb a
@@ -44,14 +44,14 @@ release files, as it might raise some problems because:
 Migrate your CAPE
 ===================
 
-The following steps are suggested as requirement to migrate your data:
+The following steps are suggested as a requirement to migrate your data:
 
-1. Backup your installation.
+1. Back up your installation.
 2. Read the documentation shipped with the new release.
 3. Make sure to have installed all required dependencies, otherwise install them.
 4. Download and extract the latest CAPE.
 5. Reconfigure CAPE as explained in this book (copying old configuration files
-   is not safe because options can change between releases), and update agent in
+   is not safe because options can change between releases), and update the agent in
    your virtual machines.
 6. Copy from your backup "storage" and "db" folders. (Reports and analyses
    already present in "storage" folder will keep the old format.)
@@ -69,7 +69,7 @@ Before starting the migration script you must set your database connection in "c
 if you are using a custom one. Alembic migration script will use the database
 connection parameters configured in cuckoo.conf.
 
-Again, please remember to backup before launching migration tool! A wrong
+Again, please remember to backup before launching the migration tool! A wrong
 configuration may corrupt your data, backup should save kittens!
 
 Run the database migrations with::

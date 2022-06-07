@@ -9,10 +9,10 @@ as search across all the analysis results.
 Configuration
 =============
 
-The web interface pulls data from a Mongo database or from ElasticSearch, so having
+The web interface pulls data from a Mongo database or ElasticSearch, so having
 either the MongoDB or ElasticSearchDB reporting modules enabled in ``reporting.conf``
 is mandatory for this interface. If that's not the case, the application won't start
-and it will raise an exception. Also, currently Django only supports having one of
+and it will raise an exception. Also, currently, Django only supports having one of
 the database modules enabled at a time.
 
 The interface can be configured by editing ``local_settings.py`` under ``web/web/``::
@@ -61,7 +61,7 @@ The interface can be configured by editing ``local_settings.py`` under ``web/web
 Usage
 =====
 
-In order to start the web interface, you can simply run the following command
+To start the web interface, you can simply run the following command
 from the ``web/`` directory::
 
     $ python3 manage.py runserver
@@ -73,7 +73,7 @@ with the desired port number)::
     $ python3 manage.py runserver 0.0.0.0:PORT
 
 You can serve CAPE's web interface using WSGI interface with common web servers:
-Apache, Nginx, Unicorn and so on.
+Apache, Nginx, Unicorn, and so on.
 Please refer both to the documentation of the web server of your choice as well as `Django documentation`_.
 
 .. _`Django documentation`: https://docs.djangoproject.com/
@@ -81,12 +81,12 @@ Please refer both to the documentation of the web server of your choice as well 
 Exposed to internet
 ===================
 
-To get rid of many bots/scrappers so we suggest to deploy this amazing project `Nginx Ultimate bad bot blocker`_, follow readme for installation steps
+To get rid of many bots/scrappers so we suggest deploying this amazing project `Nginx Ultimate bad bot blocker`_, follow the README for installation steps
 
-* Enable web auth with captcha in `conf/web.conf` preferly to avoid any bruteforce.
+* Enable web auth with captcha in `conf/web.conf` properly to avoid any brute force.
 * Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/settings.py``
-* You might need to "Verify" and set as "Stuff user" to your admin in Django admin panel and add your domain to Sites in Django admin too
-* `AllAuth`_ aka SSO autentification with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
+* You might need to "Verify" and set as "Stuff user" to your admin in the Django admin panel and add your domain to Sites in Django admin too
+* `AllAuth`_ aka SSO authentication with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
     * Note ``SITE_ID=1`` in django admin is ``example.com`` rename it to your domain to get it working
 
 .. _`AllAuth`: https://django-allauth.readthedocs.io/

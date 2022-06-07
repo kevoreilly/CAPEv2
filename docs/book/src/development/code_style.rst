@@ -2,7 +2,7 @@
 Coding Style
 ============
 
-In order to contribute code to the project, you must diligently follow the
+To contribute code to the project, you must diligently follow the
 style rules describe in this chapter. Having a clean and structured code is
 very important for our development lifecycle, and not compliant code will
 most likely be rejected.
@@ -27,7 +27,7 @@ Indentation
 -----------
 
 The code must have a 4-spaces-tabs indentation.
-Since Python enforce the indentation, make sure to configure your editor
+Since Python enforces the indentation, make sure to configure your editor
 properly or your code might cause malfunctioning.
 
 Maximum Line Length
@@ -38,7 +38,7 @@ Limit all lines to a maximum of 79 characters.
 Blank Lines
 -----------
 
-Separate the class definition and the top level function with one blank line.
+Separate the class definition and the top-level function with one blank line.
 Methods definitions inside a class are separated by a single blank line::
 
     class MyClass:
@@ -98,7 +98,7 @@ In your module add::
 
 And use the ``log`` handle, for more details refer to the Python documentation.
 
-In case you really need to print a string to standard output, use the
+In case you need to print a string to standard output, use the
 ``print()`` function::
 
     print("foo")
@@ -110,7 +110,7 @@ In case you really need to print a string to standard output, use the
 Checking for keys in data structures
 ------------------------------------
 
-When checking for a key in a data structure use the clause "in" for example::
+When checking for a key in a data structure, use the clause "in" for example::
 
     if "bar" in foo:
         do_something(foo["bar"])
@@ -119,7 +119,7 @@ Exceptions
 ==========
 
 Custom exceptions must be defined in the *lib/cuckoo/common/exceptions.py* file
-or in the local module if the exception should not be global.
+or the local module if the exception should not be global.
 
 The following is the current CAPE exceptions chain::
 
@@ -160,7 +160,7 @@ When catching an exception and accessing its handle, use ``as e``::
     except Exception, something:
         bar()
 
-It's a good practice use "e" instead of "e.message".
+It's a good practice to use "e" instead of "e.message".
 
 Documentation
 =============
@@ -172,11 +172,11 @@ Additional comments may be added in logical blocks to make the code easier to un
 Automated testing
 =================
 
-We believe in automated testing to provide high quality code and avoid dumb
+We believe in automated testing to provide high-quality code and avoid dumb
 bugs.
 When possible, all code must be committed with proper unit tests. Particular
 attention must be placed when fixing bugs: it's good practice to write unit
 tests to reproduce the bug.
 All unit tests and fixtures are placed in the tests folder in the CAPE
 root.
-We adopted `Nose <http://nose.readthedocs.org/en/latest/>`_ as unit testing framework.
+We adopted `Nose <http://nose.readthedocs.org/en/latest/>`_ as the unit testing framework.

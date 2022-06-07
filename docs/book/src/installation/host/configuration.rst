@@ -7,13 +7,13 @@ CAPE relies on six main configuration files:
     * :ref:`cuckoo_conf`: for configuring general behavior and analysis options.
     * :ref:`auxiliary_conf`: for enabling and configuring auxiliary modules.
     * :ref:`machinery_conf`: for defining the options for your virtualization software
-        (the file has the same name of the machinery module you choose in cuckoo.conf).
+        (the file has the same name as the machinery module you choose in cuckoo.conf).
     * :ref:`memory_conf`: Volatility configuration.
     * :ref:`processing_conf`: for enabling and configuring processing modules.
     * :ref:`reporting_conf`: for enabling or disabling report formats.
 
-To get CAPE working you have to edit :ref:`auxiliary_conf`, :ref:`cuckoo_conf` and :ref:`machinery_conf` at least.
-We suggest you to check all configs before starting, to be familiar with possibilities that you have and what you want to be done.
+To get CAPE working you have to edit :ref:`auxiliary_conf`, :ref:`cuckoo_conf`, and :ref:`machinery_conf` at least.
+We suggest you check all configs before starting, to be familiar with the possibilities that you have and what you want to be done.
 
 Alternatively, you may create a `custom/conf/` directory and put files in there
 whose names are the same as those in the top-level `conf/` directory. These
@@ -36,14 +36,14 @@ The file is largely commented and self-explaining, but some of the options you m
 want to pay more attention to are:
 
     * ``machinery`` in ``[cuckoo]``: this defines which Machinery module you want CAPE to use to interact with your analysis machines. The value must be the name of the module without extension.
-    * ``ip`` and ``port`` in ``[resultserver]``: defines the local IP address and port that CAPE is going to use to bind the result server on. Make sure this matches the network configuration of your analysis machines, or they won't be able to return the collected results.
+    * ``ip`` and ``port`` in ``[resultserver]``: defines the local IP address and port that CAPE is going to use to bind the result server to. Make sure this matches the network configuration of your analysis machines, or they won't be able to return the collected results.
     * ``connection`` in ``[database]``: defines how to connect to the internal database. You can use any DBMS supported by `SQLAlchemy`_ using a valid `Database Urls`_ syntax.
 
 .. _`SQLAlchemy`: http://www.sqlalchemy.org/
 .. _`Database Urls`: http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls
 
 .. warning:: Check your interface for resultserver IP! Some virtualization software (for example Virtualbox)
-    don't bring up the virtual networking interfaces until a virtual machine is started.
+    doesn't bring up the virtual networking interfaces until a virtual machine is started.
     CAPE needs to have the interface where you bind the resultserver up before the start, so please
     check your network setup. If you are not sure about how to get the interface up, a good trick is to manually start
     and stop an analysis virtual machine, this will bring virtual networking up.
@@ -58,7 +58,7 @@ auxiliary.conf
 ==============
 
 Auxiliary modules are scripts that run concurrently with malware analysis, this file defines
-their options. Please see latest version here
+their options. Please see the latest version here
 .. _ `auxiliary.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/auxiliary.conf
 
 
@@ -70,17 +70,17 @@ their options. Please see latest version here
 Machinery modules are scripts that define how Cuckoo should interact with
 your virtualization software of choice.
 
-Every module should have a dedicated configuration file which defines the
-details on the available machines. For example, if you created a *kvm.py*
+Every module should have a dedicated configuration file that defines the
+details f the available machines. For example, if you created a *kvm.py*
 machinery module, you should specify *kvm* in *conf/cuckoo.conf*
 and have a *conf/kvm.conf* file.
 
 CAPE provides some modules by default and for the sake of this guide, we'll
-assume you're going to use KVM. Please see latest version here
+assume you're going to use KVM. Please see the latest version here
 
 .. _ `<machinery>.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/machinery.conf
 
-The comments for the options are self-explainatory.
+The comments for the options are self-explanatory.
 
 You can use this same configuration structure for any other machinery module, although
 existing ones might have some variations or additional configuration options.
@@ -92,10 +92,10 @@ memory.conf
 ===========
 
 The Volatility tool offers a large set of plugins for memory dump analysis. Some of them are quite slow.
-In volatility.conf lets you to enable or disable the plugins of your choice.
+In volatility.conf lets you enable or disable the plugins of your choice.
 To use Volatility you have to follow two steps:
 
- * Enable it before in processing.conf
+ * Enable it in processing.conf
  * Enable memory_dump in cuckoo.conf
 
 In the memory.conf's basic section you can configure the Volatility profile and
@@ -158,11 +158,11 @@ reporting.conf
 ==============
 
 The *conf/reporting.conf* file contains information on the automated reports generation.
-Please see latest version here:
+Please see the latest version here:
 
 .. _ `<reporting>.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/reporting.conf
 
-By setting those option to *on* or *off* you enable or disable the generation
+By setting these options to *on* or *off* you enable or disable the generation
 of such reports.
 
 Using environment variables in config files

@@ -8,30 +8,30 @@ CAPE's debugger
 
 Breakpoints: bp0, bp1, bp2, bp3
 ===============================
-* Perhaps the simplest of the debugger options is bp to set one of three cpu breakpoints. (In order for instruction traces to function properly, bp3 should be reserved for the debugger to maintain the ability to step-over certain instructions during tracing.)
+* Perhaps the simplest of the debugger options is bp to set one of three CPU breakpoints. (For instruction traces to function properly, bp3 should be reserved for the debugger to maintain the ability to step over certain instructions during tracing.)
 * The simplest form of this option is to set it to 'ep': ``bp0=ep``
 
-* This will instruct the debugger to break on the entry point of the main executable of each process and begin tracing. (In the case of a DLL, this breakpoint will also be set on the entrypoint of the DLL). When the breakpoint hits, any corresponding actions will be performed (see later) and the instruction broken upon will be output to the log. As long as the count (see later) hasn't been set to zero, the debugger will then proceed to trace the instruction flow in single-step mode.
-* To target specific code regions more accurately, breakpoints on specific addresses can be used. These values are interpreted as RVA values unless they are above a hardcoded value (0x200000) in which case they are interpreted as VA values. This allows both RVAs and VAs to be used interchangeably, in most cases the debugger will recognise due to its size that a value is a VA not an RVA and set the breakpoint appropriately.
-* There are four breakpoints in the Intel CPU to make use of, so we could in theory use all four directly. However, the debugger in CAPE exposes only the first three. The fourth (bp3) is kept free so that it can be used in stepping over calls. There is no help from the hardware for a debugger feature like stepping over, so a breakpoint is needed to implement the depth feature but is also required for calls that CAPE debugger *must* step over, such as calls into kernel mode for example.
+* This will instruct the debugger to break on the entry point of the main executable of each process and begin tracing. (In the case of a DLL, this breakpoint will also be set on the entry point of the DLL). When the breakpoint hits, any corresponding actions will be performed (see later) and the instruction broken upon will be output to the log. As long as the count (see later) hasn't been set to zero, the debugger will then proceed to trace the instruction flow in single-step mode.
+* To target specific code regions more accurately, breakpoints on specific addresses can be used. These values are interpreted as RVA values unless they are above a hardcoded value (0x200000) in which case they are interpreted as VA values. This allows both RVAs and VAs to be used interchangeably, in most cases the debugger will recognise due to its size that a value is a VA, not an RVA, and set the breakpoint appropriately.
+* There are four breakpoints in the Intel CPU to make use of, so we could in theory use all four directly. However, the debugger in CAPE exposes only the first three. The fourth (bp3) is kept free so that it can be used in stepping-over calls. There is no help from the hardware for a debugger feature like stepping over, so a breakpoint is needed to implement the depth feature but is also required for calls that CAPE debugger *must* step over, such as calls into kernel mode for example.
 * We set and use bp0 through bp2 as follows. These breakpoints will be applied to each thread of each process in the analysis:
     * bp0=ep,bp1=0x1234,bp2=0x5678
 
 Depth
 =====
-* The behaviour of the instruction trace in single-step mode can be characterised in terms of whether it will step into a call, or over it. From this comes the concept of depth - the debugger will trace at the same depth in a trace by stepping over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behaviour will be to step over all the subsequent calls (at least until a ret is encountered):
+* The behaviour of the instruction trace in single-step mode can be characterised in terms of whether it will step into a call, or over it. From this comes the concept of depth - the debugger will trace at the same depth in a trace by stepping-over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behaviour will be to step over all the subsequent calls (at least until a ret is encountered):
     * depth=0
 * If we set a depth of, say, three, then the debugger will step into calls into further levels of depth three times:
     * depth=3
 
 Count
 =====
-* The other obvious characteristic of our trace is its length, or count of instructions. This is set with the count option, for example:
+* The other obvious characteristic of our trace is its length or count of instructions. This is set with the count option, for example:
     * count=10000
-* The count may also be specified as a hexadecimal:
+* The count may also be specified as hexadecimal:
     * count=0xff00
 
-* In order to limit the size of the output, the debugger starts with some default values for some important parameters which are worth understanding to enable more advanced use. The first two parameters that are really important are count and depth. As mentioned above, the default depth is zero and the default count is 0x4000.
+* To limit the size of the output, the debugger starts with some default values for some important parameters which are worth understanding to enable more advanced use. The first two parameters that are important are count and depth. As mentioned above, the default depth is zero and the default count is 0x4000.
 
 Break-on-return
 ===============
@@ -47,13 +47,13 @@ Base-on-api
 
 Base-on-alloc
 =============
-* An obvious restriction using this method is that the API call from which the image base is determined must be made before the code we wish to put a breakpoint on is executed. For this reason there exists an alternative option, base-on-alloc, which will attempt to set the breakpoint RVA relative to every newly executable region (whether through allocation or protection). The advantage with this method is that the breakpoint will always be set before the code can execute, but the downside is that breakpoints may repeatedly be set needlessly with allocations that are not of interest. This is simply set by the option:
+* An obvious restriction using this method is that the API call from which the image base is determined must be made before the code we wish to put a breakpoint on is executed. For this reason, there exists an alternative option, base-on-alloc, which will attempt to set the breakpoint RVA relative to every newly executable region (whether through allocation or protection). The advantage of this method is that the breakpoint will always be set before the code can execute, but the downside is that breakpoints may repeatedly be set needlessly with allocations that are not of interest. This is simply set by the option:
     * base-on-alloc=1
 
 Actions
 =======
-* Often we might wish to perform an action when a breakpoint is hit. These actions can be defined by the actions: action0, action1, action2 and action3, each corresponding to a respective breakpoint. The action is specified by a simple string (not case sensitive). The list of actions is constantly growing, so if need arises for further actions, they can be simply added.
-* To divert the execution flow upon a conditional jump JZ - 'flip' the direction of a branch. Since this is one of the most useful actions, there are a number of actions to choose from.
+* Often we might wish to perform an action when a breakpoint is hit. These actions can be defined by the actions: action0, action1, action2, and action3, each corresponding to a respective breakpoint. The action is specified by a simple string (not case sensitive). The list of actions is constantly growing, so if the need arises for further actions, they can be simply added.
+* To divert the execution flow upon a conditional jump JZ - 'flip' the direction of a branch. Since this is one of the most useful actions, there are many actions to choose from.
 * For direct control over the instruction pointer:
     * Skip
     * Jmp
@@ -66,16 +66,16 @@ Actions
 * The carry flag:
     * SetCarryFlag, ClearCarryFlag & FlipCarryFlag
 
-* The 'skip' action is equivalent to 'nopping out' the instruction. The Jmp action results in the jump always being taken, no matter what the state of the flags or the condition. The remaiining options set, clear or flip the relevant flags. For example:
+* The 'skip' action is equivalent to 'nopping out' the instruction. The Jmp action results in the jump always being taken, no matter what the state of the flags or the condition. The remaining options set, clear, or flip the relevant flags. For example:
     * bp0=0x1234,action0=skip
 
-* Here upon breaking on the instruction at 0x1234, the instruction will be skipped.
+* Hereupon breaking on the instruction at 0x1234, the instruction will be skipped.
 
 * Instruction traces can grow to be huge so often it's important to be able to stop at a chosen point. To stop the trace at a given breakpoint, the action is simply:
     * Stop
 Type
 ====
-* Although the debugger defaults to execution breakpoints, it is also possible to set data breakpoints either for read only, or both read & write. This is specified with the options: type0, type1, type2 and type3 for the corresponding breakpoint. The type option uses the following values:
+* Although the debugger defaults to execution breakpoints, it is also possible to set data breakpoints either for read-only, or both read & write. This is specified with the options: type0, type1, type2, and type3 for the corresponding breakpoint. The type option uses the following values:
 
 * r - read only
 * w - write and read
@@ -86,15 +86,15 @@ Type
 
 br0, br1, br2, br3
 ==================
-* Sometimes it may be convenient to set a breakpoint on the return address of a function, for example when it might be easier to write a YARA signature to detect a function but when you wish to break after it has executed.
-* For this the br options exist, where br0 will set a breakpoint on the return address of the function at the supplied address.
+* Sometimes it may be convenient to set a breakpoint on the return address of a function, for example when it might be easier to write a YARA signature to detect a function but when you wish to break after it has been executed.
+* For this, the br options exist, where br0 will set a breakpoint on the return address of the function at the supplied address.
 * For example:
     * br0=0x4567
-* Since the return address (for the breakpoint) is fetched from the top of the stack, the addresses supplied must either be the very first instruction of the function, or certainly must come before any instruction that modifies the stack pointer such as push or pop.
+* Since the return address (for the breakpoint) is fetched from the top of the stack, the addresses supplied must either be the very first instruction of the function or certainly must come before any instruction that modifies the stack pointer such as push or pop.
 
 Fake-rdtsc
 ==========
-* In order to 'emulate' (skip and fake) the rdtsc instruction, the option fake-rdtsc=1 may be set. This will only have an effect on rdtsc instructions that are traced over by the debugger. If the debugger is not tracing at the time the CPU executes the instruction, it cannot of course fake the return value.
+* To 'emulate' (skip and fake) the rdtsc instruction, the option fake-rdtsc=1 may be set. This will only have an affect on rdtsc instructions that are traced over by the debugger. If the debugger is not tracing at the time the CPU executes the instruction, it cannot of course fake the return value.
 * The effect of this setting is to allow the first traced rdtsc instruction to execute normally, but thereafter to fake the return value with the original return value plus whatever value is specified in the option. For example:
     * rdtsc=0x1000
 * This will result in each subsequent rdtsc instruction after the first being faked with a value that has incremented by 0x1000.

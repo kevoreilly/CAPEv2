@@ -3,7 +3,7 @@ Creation of the Physical Machine
 ================================
 
 Once you have :doc:`properly installed <../host/requirements>` your imaging
-software, you can proceed on creating all the physical machines you need.
+software, you can proceed with creating all the physical machines you need.
 
 Using and configuring your imaging software is out of the scope of this
 guide, so please refer to the official documentation.
@@ -15,7 +15,7 @@ guide, so please refer to the official documentation.
         chapter.
 
     .. note::
-        For analysis purposes you are recommended to use Windows 7 with User
+        For analysis purposes, you are recommended to use Windows 7 with User
         Access Control disabled.
 
 

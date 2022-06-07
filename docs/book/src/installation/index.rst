@@ -7,7 +7,7 @@ This chapter explains how to install CAPE.
 
 .. note::
 
-    This documentation refers to *Host* as the underlying operating systems on
+    This documentation refers to *Host* as the underlying operating system on
     which you are running CAPE (generally being a GNU/Linux distribution) and
     to *Guest* as the Windows virtual machine used to run the isolated analysis.
 

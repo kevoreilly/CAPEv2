@@ -3,7 +3,7 @@ Creation of the Virtual Machine
 ===============================
 
 Once you have :doc:`properly installed <../host/requirements>` your virtualization
-software, you can proceed on creating all the virtual machines you need.
+software, you can proceed with creating all the virtual machines you need.
 
 Using and configuring your virtualization software is out of the scope of this
 guide, so please refer to the official documentation.
@@ -16,7 +16,7 @@ guide, so please refer to the official documentation.
 
     .. note::
 
-        For analysis purposes you are recommended  Windows 7 with User
+        For analysis purposes, you are recommended  Windows 7 with User
         Access Control disabled. CAPE supports Windows 10 too
 
     .. note::

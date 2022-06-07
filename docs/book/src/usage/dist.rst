@@ -2,9 +2,9 @@
 Distributed CAPE
 ==================
 
-This works under the main server web interface, so everything is transparent for end user, even if they were analyzer on another server(s)
+This works under the main server web interface, so everything is transparent for the end user, even if they were analyzed on another server(s).
 
-Deploy each server as normal serve and later just register it as worker on master server where dist.py is running
+Deploy each server as a normal server and later just register it as a worker on the master server where dist.py is running.
 
 Dependencies
 ============
@@ -25,7 +25,7 @@ The Distributed REST API requires a few commandline options in order to run.
 RESTful resources
 =================
 
-Following are all RESTful resources. Also make sure to check out the
+Following are all RESTful resources. Also, make sure to check out the
 :ref:`quick-usage` section which documents the most commonly used commands.
 
 +-----------------------------------+---------------------------------------------------------------+
@@ -162,7 +162,7 @@ or::
     $ ./dist.py --node NAME --disable
 
 Submit a new analysis task
-    The method of submission is always the same: by rest api or via web-gui , both only pointing on the "master node".
+    The method of submission is always the same: by REST API or via web GUI, both only pointing to the "master node".
 
 Get the report of a task should be requested throw master node integrated /api/
 
@@ -170,13 +170,13 @@ Proposed setup
 ==============
 
 The following description depicts a Distributed CAPE setup with two CAPE
-machines, **master** and **worker**. In this setup the first machine,
-master, also hosts the Distributed CAPE REST API.
+machines, a **master** and a **worker**. In this setup the first machine,
+the master, also hosts the Distributed CAPE REST API.
 
 Configuration settings
 ----------------------
 
-Our setup will require a couple of updates with regards to the configuration
+Our setup will require a couple of updates about the configuration
 files.
 
 Note about VMs tags in hypervisor conf as kvm.conf::
@@ -190,14 +190,14 @@ Note about VMs tags in hypervisor conf as kvm.conf::
 conf/cuckoo.conf
 ^^^^^^^^^^^^^^^^
 
-Update ``process_results`` to ``off`` as we will be running our own results
+Update ``process_results`` to ``off`` as we will be running our results
 processing script (for performance reasons).
 
 Update ``tmppath`` to something that holds enough storage to store a few
 hundred binaries. On some servers or setups ``/tmp`` may have a limited amount
 of space and thus this wouldn't suffice.
 
-Update ``connection`` to use something *not* sqlite3. Preferably PostgreSQL or
+Update ``connection`` to use something that is *not* sqlite3. Preferably PostgreSQL or
 MySQL. SQLite3 doesn't support multi-threaded applications that well and this
 will give errors at random if used.
 
@@ -213,8 +213,8 @@ Depending on which report(s) are required for integration with your system it
 might make sense to only make those report(s) that you're going to use. Thus
 disable the other ones.
 
-Check also "[distributed]" section, where you can set database, path for samples,
-and few more values.
+Check also "[distributed]" section, where you can set the database, path for samples,
+and a few more values.
 *Do not* use sqlite3! Use PostgreSQL database for performance and thread safe.
 
 Register CAPE nodes
@@ -239,25 +239,25 @@ found in the :ref:`quick-usage` section.
 VM Maintenance
 --------------
 
-Ocasionally you might want to perform maintenance on VM's without shutting down your whole node.
+Occasionally you might want to perform maintenance on VMs without shutting down your whole node.
 To do this, you need to remove the VM from being used by CAPE in its execution, preferably without
 having to restart the ``./cuckoo.py`` daemon.
 
-First get a list of available VM's that are running on the worker::
+First, get a list of available VMs that are running on the worker::
 
    $ ./dist.py --node NAME
 
-Secondly you can remove VM's from being used by CAPE with::
+Secondly, you can remove VMs from being used by CAPE with::
 
    $ ./dist.py --node NAME --delete-vm VM_NAME
 
-When you are done editing your VM's you need to add them back to be used by cuckoo. The easiest
-way to do that, is to disable the node, so no more tasks get submitted to it::
+When you are done editing your VMs you need to add them back to be used by ``cuckoo``. The easiest
+way to do that is to disable the node, so no more tasks get submitted to it::
 
    $ ./dist.py --node NAME --disable
 
-Wait for all running VM's to finish their tasks, and then restart the workers ``./cuckoo.py``, this will
-re-insert the previously deleted VM's into the Database from ``conf/virtualbox.conf``.
+Wait for all running VMs to finish their tasks, and then restart the workers ``./cuckoo.py``, this will
+re-insert the previously deleted VMs into the Database from ``conf/virtualbox.conf``.
 
 Update the VM list on the master::
 
@@ -271,11 +271,11 @@ And enable the worker again::
 Good practice for production
 ---------------------
 
-Number of retrieved threads can be configured in reporting.conf
+The number of retrieved threads can be configured in reporting.conf
 
 Installation of "uwsgi"::
     # apt-get install uwsgi uwsgi-plugin-python nginx
-    # nginx is only required if you want use basic web auth
+    # nginx is only required if you want to use basic web auth
 
 Is better if you run "web" and "dist.py" as uwsgi application
 
@@ -336,16 +336,16 @@ Optimizations::
 Distributed Mongo setup::
 
 Set one mongo as master and the rest just point to it, in this example cuckoo_dist.fe is our master server.
-Depend of your hardware you may prepend next command before mongod
+Depending on your hardware you may prepend the next command before mongod
 
     $ numactl --interleave=all
 
 This execute on all nodes, master included:
-    * Very important, before creation or recreation of cluster, all /data should be removed to avoid problems with metadata
+    * Very important, before the creation or recreation of the cluster, all /data should be removed to avoid problems with metadata
 
     $ mkdir -p /data/{config,}db
 
-This commands should be executed only on master::
+These commands should be executed only on the master::
 
     # create config server instance with the "cuckoo_config" replica set
     # Preferly to execute few config servers on different shards
@@ -514,7 +514,7 @@ NFS data fetching::
     Nice comparision between NFS, SSHFS, SMB
     https://blog.ja-ke.tech/2019/08/27/nas-performance-sshfs-nfs-smb.html
 
-To configure NFS on main server (NFS calls it client)
+To configure NFS on the main server (NFS calls it client)
 
     Install NFS client:
         *  sudo apt install nfs-common

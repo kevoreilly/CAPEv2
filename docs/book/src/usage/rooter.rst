@@ -9,7 +9,7 @@ commands to CAPE (which itself generally speaking runs as non-root). This
 command is currently only available for Ubuntu and Debian-like systems.
 
 In particular, the ``rooter`` helps CAPE out with running network-related
-commands in order to provide **per-analysis routing** options. For more
+commands to provide **per-analysis routing** options. For more
 information on that, please refer to the :ref:`routing` document. CAPE and
 the ``rooter`` communicate through a UNIX socket for which the ``rooter``
 makes sure that CAPE can reach it.
@@ -36,7 +36,7 @@ Its usage is as follows::
     --ip IP               Path to ip
     -v, --verbose         Enable verbose logging
 
-By default the ``rooter`` will default to ``chown``'ing the ``cape`` user as
+By default, the ``rooter`` will default to ``chown``'ing the ``cape`` user as
 user and group for the UNIX socket, as recommended when :ref:`installing`.
 If you're running CAPE under a user other than ``cape``, you will have to
 specify this to the ``rooter`` as follows::
@@ -44,14 +44,14 @@ specify this to the ``rooter`` as follows::
     $ sudo python3 utils/rooter.py -g <user>
 
 The other options are fairly straightforward - you can specify the paths to
-specific Linux commands. By default one shouldn't have to do this though, as
+specific Linux commands. By default, one shouldn't have to do this though, as
 the ``rooter`` takes the default paths for the various utilities as per a
 default setup.
 
 Virtualenv
 ==========
 
-Due to the fact that the ``rooter`` must be run as ``root`` user, there are
+Since the ``rooter`` must be run as ``root`` user, there are
 some slight complications when using a ``virtualenv`` to run CAPE. More
 specifically, when running ``sudo python3 utils/rooter.py``, the ``$VIRTUAL_ENV``
 environment variable will not be passed along, due to which Python will not be
@@ -68,8 +68,8 @@ To resolve this one simply has to execute the ``cape`` binary from the
 CAPE Rooter Usage
 =================
 
-Using the ``CAPE Rooter`` is actually pretty easy. If you know how to start
-it, you're basically good to go. Even though CAPE talks with the CAPE
+Using the ``CAPE Rooter`` is pretty easy. If you know how to start
+it, you're good to go. Even though CAPE talks with the CAPE
 Rooter for each analysis with a routing option other than :ref:`routing_none`,
 the CAPE Rooter does not keep any state or attach to any CAPE instance in
 particular.

@@ -18,5 +18,5 @@ To sum up, this command does the following:
 
 .. warning::
    If you use this command you will delete permanently all data stored by CAPE in all
-   storages: file system, SQL database and MongoDB/ElasticSearch database. Use it only
+   storages: file system, SQL database, and MongoDB/ElasticSearch database. Use it only
    if you are sure you would clean up all the data.

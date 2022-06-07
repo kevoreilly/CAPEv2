@@ -7,20 +7,20 @@ There are several ways to tune the CAPE performance
 Processing
 ==========
 
-Processing are the three steps after the malware executed in a VM. Those are
+"Processing" consists of three steps after the malware is executed in a VM. Those are
 
 * processing of raw data
 * signature matching
 * reporting
 
 Processing can take up to 30 minutes if the original raw log is large. This is caused by many API calls in that log. Several
-steps will iterate through that API list which causes a slow down. There are several ways to mitigate the impact:
+steps will iterate through that API list which causes a slowdown. There are several ways to mitigate the impact:
 
 Evented signatures
 ------------------
 
-Evented signatures have a common loop through the api calls. Use them wherever possible and either switch of the
-old-style signatures with their own api-call loop or convert them to event based signatures
+Evented signatures have a common loop through the API calls. Use them wherever possible and either switch the
+old-style signatures with their api-call loop or convert them to event based signatures
 
 Reporting
 ---------

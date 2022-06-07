@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     strategy:
       matrix:
         python-version: ["3.9"]
@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev
+          sudo apt install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt-dev
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
@@ -58,7 +58,7 @@ jobs:
 
   format:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     strategy:
       matrix:
         python-version: [3.8]
@@ -66,8 +66,6 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
@@ -76,7 +74,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev
+          sudo apt install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt-dev
 
       - name: Install Poetry
         uses: snok/install-poetry@v1

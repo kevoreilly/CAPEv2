@@ -7,7 +7,6 @@
 
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 
-from __future__ import absolute_import
 import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union

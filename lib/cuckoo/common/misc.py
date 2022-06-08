@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import os
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT

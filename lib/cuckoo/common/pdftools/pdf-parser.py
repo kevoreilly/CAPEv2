@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, print_function
-
 __description__ = "pdf-parser, use it to parse a PDF document"
 __author__ = "Didier Stevens"
 __version__ = "0.7.5"

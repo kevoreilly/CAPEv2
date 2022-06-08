@@ -1,6 +1,5 @@
 # Andriy :P
 
-from __future__ import absolute_import
 import os
 import shutil
 from subprocess import call

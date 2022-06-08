@@ -2,8 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-
 from analysis import views as analysis_views
 from dashboard import views as dashboard_views
 from django.conf import settings

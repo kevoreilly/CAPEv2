@@ -4,7 +4,6 @@
 
 # https://qemu.readthedocs.io/en/latest/
 
-from __future__ import absolute_import
 import logging
 import os
 import os.path

@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 # https://github.com/cuckoosandbox/cuckoo/blob/master/cuckoo/core/guest.py
 
-from __future__ import absolute_import
 import datetime
 import json
 import logging

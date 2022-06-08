@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, print_function
-
 __description__ = "Tool to test a PDF file"
 __author__ = "Didier Stevens"
 __version__ = "0.2.7"

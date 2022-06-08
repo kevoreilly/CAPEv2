@@ -11,8 +11,6 @@ Create Date: 2015-02-28 19:08:29.284111
 # Spaghetti as a way of life.
 
 # Revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
-
 revision = "495d5a6edef3"
 down_revision = "18eee46c6f81"
 

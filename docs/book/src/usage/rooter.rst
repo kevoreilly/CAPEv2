@@ -10,7 +10,7 @@ command is currently only available for Ubuntu and Debian-like systems.
 
 In particular, the ``rooter`` helps CAPE out with running network-related
 commands to provide **per-analysis routing** options. For more
-information on that, please refer to the :ref:`routing` document. CAPE and
+information on that, please refer to the :ref:`../installation/host/routing` document. CAPE and
 the ``rooter`` communicate through a UNIX socket for which the ``rooter``
 makes sure that CAPE can reach it.
 
@@ -37,7 +37,7 @@ Its usage is as follows::
     -v, --verbose         Enable verbose logging
 
 By default, the ``rooter`` will default to ``chown``'ing the ``cape`` user as
-user and group for the UNIX socket, as recommended when :ref:`installing`.
+user and group for the UNIX socket, as recommended when :ref:`../installation/host/installation`.
 If you're running CAPE under a user other than ``cape``, you will have to
 specify this to the ``rooter`` as follows::
 

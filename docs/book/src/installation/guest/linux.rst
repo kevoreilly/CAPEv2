@@ -1,6 +1,6 @@
-=========================
-Installing the Linux host
-=========================
+==========================
+Installing the Linux guest
+==========================
 
 First, prepare the networking for your machinery platform on the host side.
 
@@ -63,11 +63,11 @@ Disable NTP inside of the VM::
 Disable auto-update for noise reduction::
 
     $ sudo tee /etc/apt/apt.conf.d/20auto-upgrades << EOF
-APT::Periodic::Update-Package-Lists "0";
-APT::Periodic::Download-Upgradeable-Packages "0";
-APT::Periodic::AutocleanInterval "0";
-APT::Periodic::Unattended-Upgrade "0";
-    EOF
+    APT::Periodic::Update-Package-Lists "0";
+    APT::Periodic::Download-Upgradeable-Packages "0";
+    APT::Periodic::AutocleanInterval "0";
+    APT::Periodic::Unattended-Upgrade "0";
+        EOF
 
     $ sudo systemctl stop snapd.service && sudo systemctl mask snapd.service
 

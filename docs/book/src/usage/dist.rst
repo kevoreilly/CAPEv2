@@ -17,7 +17,7 @@ through the following command (on Debian/Ubuntu)::
 Starting the Distributed REST API
 =================================
 
-The Distributed REST API requires a few commandline options in order to run.
+The Distributed REST API requires a few commandline options in order to run::
 
     $ cd /opt/CAPEv2/web && python3 manage.py runserver 0.0.0.0:8000
 
@@ -269,7 +269,7 @@ And enable the worker again::
 
 
 Good practice for production
----------------------
+----------------------------
 
 The number of retrieved threads can be configured in reporting.conf
 

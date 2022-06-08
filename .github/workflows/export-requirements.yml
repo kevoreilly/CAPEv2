@@ -1,0 +1,49 @@
+name: Update requirements.txt file
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - "pyproject.toml"
+      - "poetry.lock"
+  pull_request:
+    branches: [ master ]
+    paths:
+      - "pyproject.toml"
+      - "poetry.lock"
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        python-version: ["3.8"]
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Export requirements.txt
+        run: poetry export --format requirements.txt --output requirements.txt
+
+      - name: Commit changes if any
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "action@github.com"
+          if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+            git commit -m "ci: Update requirements.txt" -a
+            git push
+          fi

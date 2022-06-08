@@ -5,7 +5,6 @@
 #
 # Credit to JPCERT - this is derived from https://github.com/JPCERTCC/aa-tools/blob/master/tscookie_decode.py
 
-from __future__ import absolute_import
 import collections
 import re
 import sys

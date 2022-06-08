@@ -4,7 +4,6 @@
 # TODO
 #  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
 
-from __future__ import absolute_import
 import hashlib
 import logging
 import os

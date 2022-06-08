@@ -5,7 +5,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 # ToDo
 # https://github.com/cuckoosandbox/cuckoo/pull/1694/files
-from __future__ import absolute_import, print_function
 import argparse
 import distutils.util
 import hashlib

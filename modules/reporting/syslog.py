@@ -14,7 +14,6 @@ logname = syslog.log  # if yes, what logname? [Default: syslog.txt]
 -KillerInstinct
 """
 
-from __future__ import absolute_import
 import os
 import socket
 

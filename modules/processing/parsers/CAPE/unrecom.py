@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import string
 import xml.etree.ElementTree as ET
 from io import StringIO

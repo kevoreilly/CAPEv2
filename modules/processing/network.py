@@ -6,7 +6,6 @@
 # http://stackoverflow.com/questions/10665925/how-to-sort-huge-files-with-python
 # http://code.activestate.com/recipes/576755/
 
-from __future__ import absolute_import
 import binascii
 import heapq
 import logging

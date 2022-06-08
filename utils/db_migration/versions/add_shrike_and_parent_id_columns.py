@@ -10,8 +10,6 @@ Create Date: 2015-03-29 08:43:11.468664
 
 """
 # revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
-
 revision = "f111620bb8"
 down_revision = "4b09c454108c"
 

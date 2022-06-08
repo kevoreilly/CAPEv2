@@ -1,3 +1,101 @@
+[tool.poetry]
+name = "CAPEv2"
+version = "0.1.0"
+description = "CAPE: Malware Configuration And Payload Extraction"
+authors = ["Kevin O'Reilly <kevoreilly@gmail.com>", "doomedraven <doommedraven@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+boto3 = "1.15.3"
+Flor = "1.1.3"
+Pebble = "4.6.3"
+pymisp = "2.4.144"
+cryptography = "3.3.2"
+requests = {version = "2.27.1", extras = ["security", "socks"]}
+pyOpenSSL = "20.0.1"
+pefile = "2021.9.3"
+tldextract = "3.1.0"
+oletools = "0.60"
+olefile = "0.46"
+mixbox = "1.0.5"
+capstone = "4.0.2"
+pycryptodomex = "3.14.0"
+voluptuous = "0.12.1"
+xmltodict = "0.12.0"
+requests-file = "1.5.1"
+# On ubuntu 22 you need -> gevent = "21.12.0"
+gevent = "20.4.0"
+orjson = "3.6.0"
+pyinstaller = "4.4"
+maec = "4.1.0.17"
+regex = "2021.7.6"
+SFlock2 = "0.3.33"
+pyattck = "5.2.0"
+# distorm3 = "3.5.2"
+openpyxl = "3.0.7"
+volatility3 = "2.0.0"
+XLMMacroDeobfuscator = "0.2.5"
+pyzipper = "0.3.5"
+flare-capa = "3.2.0"
+greenlet = "0.4.16"
+Cython = "0.29.24"
+pyre2 = "0.3.6"
+Django = "4.0.4"
+SQLAlchemy = "1.4.22"
+SQLAlchemy-Utils = "0.37.8"
+Jinja2 = "^3.1.2"
+chardet = "4.0.0"
+pygal = "2.4.0"
+jsbeautifier = "1.14.0"
+dpkt = "1.9.6"
+dnspython = "2.1.0"
+pytz = "2021.1"
+GeoIP = "1.3.2"
+Pillow = ">=8.2.0"
+python-whois = "0.7.3"
+bs4 = "0.0.1"
+pydeep = "0.4"
+django-recaptcha = "3.0.0"  # https://pypi.org/project/django-recaptcha/
+django-crispy-forms = "1.14.0"
+django-settings-export = "1.2.1"
+django-csp = "3.7"
+# django-otp = "1.0.6"
+django-extensions = "3.1.5"
+django-ratelimit = "3.0.1"
+# qrcode = "7.2"
+python-tlsh = "4.5.0"
+djangorestframework = "3.12.4"
+yara-python = ">=4.1.0"
+netstruct = "1.1.2"
+pymongo = ">=4.0.1"
+psutil = "5.8.0"
+matplotlib = "3.3.0"
+ImageHash = "4.2.1"
+LnkParse3 = "1.2.0"
+django-allauth = "0.50.0"  # https://django-allauth.readthedocs.io/en/latest/configuration.html
+enum34 = "1.1.10"
+socks5man = {git = "https://github.com/doomedraven/socks5man.git", rev = "7b335d027297b67abdf28f38cc7d5d42c9d810b5"}
+batch-deobfuscator = {git = "https://github.com/DissectMalware/batch_deobfuscator.git", rev = "a0d9d51e28cf519a42b35587fde7f8df09c78be3"}
+httpreplay = {git = "https://github.com/CAPESandbox/httpreplay.git", rev = "0d5a5b3144ab15f93189b83ca8188afde43db134"}
+bingraph = {git = "https://github.com/CAPESandbox/binGraph.git", rev = "552d1210ac6770f8b202d0d1fc4610cc14d878ec"}
+psycopg2 = "^2.9.3"
+libvirt-python = "^8.4.0"
+
+[tool.poetry.dev-dependencies]
+black = "^22.3.0"
+isort = "^5.10.1"
+flake8 = "^4.0.1"
+pyproject-flake8 = "^0.0.1-alpha.4"
+pytest = "6.2.4"
+pytest-cov = "2.11.1"
+pytest-mock = "2.0.0"
+pytest-django = "4.5.2"
+pytest-pythonpath = "0.7.4"
+httpretty = "^1.1.4"
+func-timeout = "^4.3.5"
+nose = "^1.3.7"
+
 [tool.black]
 line-length = 132
 include = "\\.py(_disabled)?$"
@@ -7,3 +105,15 @@ profile = "black"
 no_lines_before = ["FUTURE", "STDLIB"]
 line_length = 132
 supported_extensions = ["py", "py_disabled"]
+
+[tool.flake8]
+max-line-length = 132
+exclude = ".git,__pycache__,.cache,.venv"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "web.settings"
+python_paths = "web"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

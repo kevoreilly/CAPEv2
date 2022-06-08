@@ -1065,9 +1065,9 @@ python-flirt==0.7.0; python_version >= "3.6" \
     --hash=sha256:4a9cee70af0af75831a14ee700a80ff679e4efea7322fe17adf804c504b40931 \
     --hash=sha256:ead3ea3c7475acd8d03281a9d35781458722cc9aacc0077d8abbbfdfb47503cc \
     --hash=sha256:f72f25203ae59caea53c1062045b314ff41103a1db62519a667d626a92dd3e51
-python-magic==0.4.26; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" \
-    --hash=sha256:8262c13001f904ad5b724d38b5e5b5f17ec0450ae249def398a62e4e33108a50 \
-    --hash=sha256:b978c4b69a20510d133a7f488910c2f07e7796f1f31703e61c241973f2bbf5fb
+python-magic==0.4.27; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" \
+    --hash=sha256:c1ba14b08e4a5f5c31a302b7721239695b2f0f058d125bd5ce1ee36b9d9d3c3b \
+    --hash=sha256:c212960ad306f700aa0d01e5d7a325d20548ff97eb9920dcd29513174f0294d3
 python-tlsh==4.5.0; python_version >= "3.6" \
     --hash=sha256:55e3df72cabdf48bf576b4580d7fa2feba9c14aacde0a8bd7b1ef40b03cb7969
 python-whois==0.7.3 \

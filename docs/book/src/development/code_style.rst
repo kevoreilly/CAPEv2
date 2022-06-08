@@ -180,3 +180,14 @@ tests to reproduce the bug.
 All unit tests and fixtures are placed in the tests folder in the CAPE
 root.
 We adopted `Nose <http://nose.readthedocs.org/en/latest/>`_ as the unit testing framework.
+
+Poetry and pre-commit hooks
+===========================
+
+After cloning the git repository, the first commands that you should do:
+```bash
+poetry install
+poetry run pre-commit install
+```
+This will install the pre-commit hooks, ensuring that all files have to conform
+to black and isort.

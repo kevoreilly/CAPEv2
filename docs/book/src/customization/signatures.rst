@@ -259,7 +259,7 @@ An example signature using this technique is the following:
 The inline comments are already self-explanatory.
 You can find many more examples of both evented and traditional signatures in our `community repository`_.
 
-.. _`community repository`:https://github.com/kevoreilly/community
+.. _`community repository`: https://github.com/kevoreilly/community
 
 Matches
 =======

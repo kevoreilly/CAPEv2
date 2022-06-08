@@ -111,6 +111,11 @@ some options (in this case a command line argument for the malware)::
 
 .. _webpy:
 
+Web Interface
+=============
+
+Detailed usage of the web interface is described in :doc:`web`.
+
 .. _apipy:
 
 API

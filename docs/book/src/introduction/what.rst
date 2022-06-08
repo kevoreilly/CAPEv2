@@ -148,7 +148,7 @@ repository`_.
 
     .. warning::
 
-    It is very likely that documentation is not up-to-date, but for that we try to keep a `changelog`_.
+        It is very likely that documentation is not up-to-date, but for that we try to keep a `changelog`_.
 
 .. _`official git repository`: https://github.com/kevoreilly/CAPEv2
 .. _`changelog`: https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md

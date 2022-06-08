@@ -2,11 +2,13 @@
 Starting CAPE
 ===============
 
-To start CAPE use the command::
+Make sure to run it inside CAPE's root directory::
+    
+    $ cd /opt/CAPEv2
+
+To start CAPE, use the command::
 
     $ python3 cuckoo.py
-
-Make sure to run it inside CAPE's root directory.
 
 You will get an output similar to this::
 

@@ -32,9 +32,11 @@ crl\.microsoft\.com
 \.microsoft\.com\.nsatc\.net$
 
 kms8\.msguides\.com
+outlook\.office365\.com
 
 # Google
 update\.googleapis\.com$
+pki-goog\.l\.google\.com
 
 # https://github.com/threatstop/crl-ocsp-whitelist
 aces\.ocsp\.identrust\.com
@@ -239,3 +241,10 @@ cs9\.wac\.phicdn\.net
 ocsp\.digicert\.com
 crl3\.digicert\.com
 crl4\.digicert\.com
+
+# misc
+code\.jquery\.com
+use\.fontawesome\.com
+aadcdn\.msauth\.net
+code\.jquery\.com
+use\.fontawesome\.com\.cdn\.cloudflare\.net

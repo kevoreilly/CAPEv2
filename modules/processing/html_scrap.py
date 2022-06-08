@@ -1,5 +1,4 @@
 import base64
-import binascii
 import logging
 import os
 import urllib.parse
@@ -29,7 +28,14 @@ safe_url_list = (
     'https://cdnjs.cloudflare.com',
     'https://getbootstrap.com',
     'https://use.fontawesome.com',
-    'https://www.office.com'
+    'https://www.office.com',
+    'https://github.com/twbs/bootstrap',
+    'http://fonts.cdnfonts.com',
+    'https://www.google.com/',
+    'https://www.gstatic.com',
+    'https://stackpath.bootstrapcdn.com',
+    'https://ka-f.fontawesome.com',
+    'https://fontawesome.com'
 )
 
 log = logging.getLogger(__name__)
@@ -39,7 +45,7 @@ def try_base64_decode(text: str, validate: bool = True) -> Optional[bytes]:
     try:
         result = base64.b64decode(text, validate=validate)
         return result
-    except binascii.Error:
+    except Exception:
         return None
 
 

@@ -85,15 +85,21 @@ def mitre():
     mitre.update()
 
 
-def install(enabled, force, rewrite, filepath):
+def install(enabled, force, rewrite, filepath, access_token=None):
     if filepath and os.path.exists(filepath):
-        data = open(filepath, "rb").read()
-        t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
+        t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:
         print("Downloading modules from {0}".format(URL))
         try:
             http = urllib3.PoolManager()
-            data = http.request("GET", URL).data
+            if access_token is None:
+                data = http.request("GET", URL).data
+            elif "github" in URL:
+                data = http.request(
+                    "GET", URL, headers={"Authorization": f"token {access_token}", "User-Agent": "CAPEv2_sandbox"}
+                ).data
+            else:
+                data = http.request("GET", URL, headers={"PRIVATE-TOKEN": access_token}).data
             t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
         except Exception as e:
             print("ERROR: Unable to download archive: %s" % e)
@@ -126,7 +132,7 @@ def install(enabled, force, rewrite, filepath):
                 continue
 
             filepath = os.path.join(CUCKOO_ROOT, folder, member.name[len(name_start) + 1 :])
-            if member.name in {".gitignore", "pyproject.toml", "poetry.lock"}:
+            if member.name.lower().endswith((".gitignore", "readme.md", "-ci.yml")):
                 continue
 
             if member.isdir():
@@ -186,9 +192,15 @@ def main():
         "-cr", "--capa-rules", help="Download capa rules and signatures", action="store_true", default=False, required=False
     )
     parser.add_argument("--mitre", help="Download updated MITRE JSONS", action="store_true", default=False, required=False)
+    parser.add_argument(
+        "-u", "--url", help="Download community modules from the specified url", action="store", default=None, required=False
+    )
+    parser.add_argument(
+        "-t", "--token", help="Access token to download private repositories", action="store", default=None, required=False
+    )
     args = parser.parse_args()
 
-    URL = URL.format(args.branch)
+    URL = args.url or URL.format(args.branch)
     enabled = []
 
     if args.all:
@@ -225,7 +237,7 @@ def main():
         parser.print_help()
         return
 
-    install(enabled, args.force, args.rewrite, args.file)
+    install(enabled, args.force, args.rewrite, args.file, args.token)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ The **analysis packages** are a core component of CAPE Sandbox.
 They consist of structured Python classes that, when executed in the guest machines,
 describe how CAPE's analyzer component should conduct the analysis.
 
-CAPE provides some default analysis packages that you can use, but you can 
+CAPE provides some default analysis packages that you can use, but you can
 create your own or modify the existing ones.
 You can find them at *analyzer/windows/modules/packages/*.
 
@@ -169,4 +169,3 @@ specify the package name whenever possible.
 For example, to launch a malware sample and specify some options you can do::
 
     $ ./utils/submit.py --package dll --options function=FunctionName,loader=explorer.exe /path/to/malware.dll
-

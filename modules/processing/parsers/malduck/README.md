@@ -1,10 +1,10 @@
 :duck: Malduck
 =========
 
-Malduck is your ducky companion in malware analysis journeys. It is mostly based on [Roach](https://github.com/hatching/roach) project, which derives many concepts from [mlib](https://github.com/mak/mlib) 
+Malduck is your ducky companion in malware analysis journeys. It is mostly based on [Roach](https://github.com/hatching/roach) project, which derives many concepts from [mlib](https://github.com/mak/mlib)
 library created by [Maciej Kotowicz](https://lokalhost.pl). The purpose of fork was to make Roach independent from [Cuckoo Sandbox](https://cuckoosandbox.org/) project, but still supporting its internal `procmem` format.
 
-Malduck provides many improvements resulting from CERT.pl codebase, making scripts written for malware analysis purposes much shorter and more powerful. 
+Malduck provides many improvements resulting from CERT.pl codebase, making scripts written for malware analysis purposes much shorter and more powerful.
 
 Improvements
 ============

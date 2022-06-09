@@ -152,4 +152,3 @@ repository`_.
 
 .. _`official git repository`: https://github.com/kevoreilly/CAPEv2
 .. _`changelog`: https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md
-

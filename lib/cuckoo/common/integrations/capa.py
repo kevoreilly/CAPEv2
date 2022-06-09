@@ -35,7 +35,7 @@ if processing_conf.flare_capa.enabled:
             from capa.render.result_document import (
                 convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document,
             )
-            from capa.rules import InvalidRuleWithPath
+            from capa.rules import InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if os.path.exists(rules_path):
@@ -46,6 +46,10 @@ if processing_conf.flare_capa.enabled:
                     HAVE_FLARE_CAPA = True
                 except InvalidRuleWithPath:
                     print("FLARE_CAPA InvalidRuleWithPath")
+                    HAVE_FLARE_CAPA = False
+                except InvalidRuleSet:
+                    print("FLARE_CAPA InvalidRuleSet")
+                    HAVE_FLARE_CAPA = False
             else:
                 print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
                 HAVE_FLARE_CAPA = False

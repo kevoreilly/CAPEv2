@@ -23,6 +23,11 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
+
+blocklist = {}
+if os.path.exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):
+    from utils.community_blocklist import blocklist
+
 log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
@@ -89,7 +94,7 @@ def install(enabled, force, rewrite, filepath, access_token=None):
     if filepath and os.path.exists(filepath):
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:
-        print("Downloading modules from {0}".format(URL))
+        print(f"Downloading modules from {URL}")
         try:
             http = urllib3.PoolManager()
             if access_token is None:
@@ -123,10 +128,10 @@ def install(enabled, force, rewrite, filepath, access_token=None):
         if not folder:
             continue
 
-        print("\nInstalling {0}".format(colors.cyan(category.upper())))
+        print(f"\nInstalling {colors.cyan(category.upper())}")
 
         # E.g., "community-master/modules/signatures".
-        name_start = "%s/%s" % (directory, folder)
+        name_start = f"{directory}/{folder}"
         for member in members:
             if not member.name.startswith(name_start) or name_start == member.name:
                 continue
@@ -140,20 +145,24 @@ def install(enabled, force, rewrite, filepath, access_token=None):
                     os.mkdir(filepath)
                 continue
 
-            if not rewrite:
-                if os.path.exists(filepath):
-                    print('File "{}" already exists, {}'.format(filepath, colors.yellow("skipped")))
-                    continue
+            if not rewrite and os.path.exists(filepath):
+                print(f'File "{filepath}" already exists, {colors.yellow("skipped")}')
+                continue
 
             install = False
             dest_file = os.path.basename(filepath)
+
+            if filepath in blocklist.get(category, []):
+                print(f'You have blacklisted file: {dest_file}. {colors.yellow("skipped")}')
+                continue
+
             if not force:
                 while True:
-                    choice = input('Do you want to install file "{}"? [yes/no] '.format(dest_file))
-                    if choice.lower() == "yes":
+                    choice = input(f'Do you want to install file "{dest_file}"? [yes/no] ')
+                    if choice.lower() in ("y", "yes"):
                         install = True
                         break
-                    elif choice.lower() == "no":
+                    elif choice.lower() in ("n", "no"):
                         break
                     else:
                         continue
@@ -164,7 +173,7 @@ def install(enabled, force, rewrite, filepath, access_token=None):
                 if not os.path.exists(os.path.dirname(filepath)):
                     os.makedirs(os.path.dirname(filepath))
 
-                print('File "{}" {}'.format(filepath, colors.green("installed")))
+                print(f'File "{filepath}" {colors.green("installed")}')
                 open(filepath, "wb").write(t.extractfile(member).read())
 
 

@@ -2,6 +2,7 @@
 * Use poetry to handle dependencies
     * requirements.txt is still present to continue support for pip
 * Added pre-commit hooks
+* Add community blocklist to avoid pulling some undesired modules/signatures/etc.
 
 ### [10-5-2022]
 * Added AWS machinery and ReversingLabs file lookup by @JaminB

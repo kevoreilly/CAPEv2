@@ -110,8 +110,8 @@ def insert_calls(report, elastic_db=None, mongodb=False):
                     chunk_id = elastic_db.index(index=get_daily_calls_index(), body=to_insert)["_id"]
                 else:
                     chunk_id = None
-
-                chunks_ids.append(chunk_id)
+                if chunk_id:
+                    chunks_ids.append(chunk_id)
                 # Reset the chunk.
                 chunk = []
             # Append call to the chunk.
@@ -129,7 +129,8 @@ def insert_calls(report, elastic_db=None, mongodb=False):
             else:
                 chunk_id = None
 
-            chunks_ids.append(chunk_id)
+            if chunk_id:
+                chunks_ids.append(chunk_id)
 
         # Add list of chunks.
         new_process["calls"] = chunks_ids

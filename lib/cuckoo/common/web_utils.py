@@ -869,6 +869,14 @@ search_term_map = {
     ),
     "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
     "package": "info.package",
+    # File_extra_info
+    "extracted_tool": (
+        "info.parent_sample.extracted_files_tool",
+        "target.file.extracted_files_tool",
+        "dropped.extracted_files_tool",
+        "procdump.extracted_files_tool",
+        "CAPE.payloads.extracted_files_tool",
+    ),
 }
 
 # search terms that will be forwarded to mongodb in a lowered normalized form

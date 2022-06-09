@@ -73,6 +73,7 @@ Actions
 
 * Instruction traces can grow to be huge so often it's important to be able to stop at a chosen point. To stop the trace at a given breakpoint, the action is simply:
     * Stop
+
 Type
 ====
 * Although the debugger defaults to execution breakpoints, it is also possible to set data breakpoints either for read-only, or both read & write. This is specified with the options: type0, type1, type2, and type3 for the corresponding breakpoint. The type option uses the following values:

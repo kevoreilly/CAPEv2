@@ -30,6 +30,9 @@ Please read the following rules before posting:
  * **Github issues**. Please read the `Markdown`_
    documentation before posting for tips on how to escape and post configs as code blocks.
 
+.. _pastebin.com: https://pastebin.com/
+.. _pastie.org: http://pastie.org/
+.. _Markdown: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
 
 Support Us
 ==========

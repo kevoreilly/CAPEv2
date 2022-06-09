@@ -2,11 +2,11 @@
 REST API v2
 ===========
 
-To see the current REST API see ``/apiv2/`` you will find all endpoints and details on how to do requests
+To see the current hosted REST API documentation head to ``/apiv2/``. You will find all endpoints and details on how to do requests.
 
 `API example`: https://capesandbox.com/apiv2/
 
-To enable it, we use ``django-rest-framework``::
+To enable the REST API, we use `django-rest-framework`::
 
     $ pip3 install djangorestframework
 
@@ -15,6 +15,9 @@ To enable it, we use ``django-rest-framework``::
 To generate a user authorization token:
 
 .. code-block:: python
+
+    # Ensure you are in CAPE's web directory
+    cd /opt/CAPEv2/web
 
     # To create super user aka admin
     python3 manage.py createsuperuser
@@ -37,13 +40,18 @@ To generate a user authorization token:
     r = requests.get(url, headers=headers)
 
 `CAPE throttling`_, aka requests per minute/hour/day.
-====================================================
+=====================================================
 
 * Requires authentication enabled in ``web.conf``
 * Default 5/m
 * To change the user limit go to django admin ``/admin/`` if you didn't change the path, and set the limit per user in the user profile at the bottom.
 
 .. _`CAPE throttling`: https://github.com/kevoreilly/CAPEv2/blob/master/web/apiv2/throttling.py
+
+
+.. warning:: 
+    All documentation below this warning is deprecated.
+
 
 ======================
 REST API v1 DEPRECATED

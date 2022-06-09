@@ -52,6 +52,9 @@ want to pay more attention to are:
     in *<machinery>.conf* to specify the address and port as every machine sees them. Note that if you set
     resultserver IP to 0.0.0.0 in cuckoo.conf you have to set `resultserver_ip` for all your virtual machines.
 
+.. note:: Default freespace value is 50GB
+    It is worth mentioning that the default ``freespace`` value in ``cuckoo.conf`` is 50000 MB aka 50 GB.
+
 .. _auxiliary_conf:
 
 auxiliary.conf

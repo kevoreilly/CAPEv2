@@ -2,11 +2,11 @@
 Creation of the Virtual Machine
 ===============================
 
-Once you have :doc:`properly installed <../host/requirements>` your virtualization
-software, you can proceed with creating all the virtual machines you need.
+Once you have :doc:`properly installed <../host/installation>` your virtualization
+software, you can create the virtual machines that you need.
 
-Using and configuring your virtualization software is out of the scope of this
-guide, so please refer to the official documentation.
+The usage and configuration of your virtualization software is out of scope for this
+guide, so please refer to the virtualization software's official documentation.
 
     .. note::
 
@@ -16,14 +16,14 @@ guide, so please refer to the official documentation.
 
     .. note::
 
-        For analysis purposes, you are recommended  Windows 7 with User
-        Access Control disabled. CAPE supports Windows 10 too
+        For analysis purposes, it is recommended to use a Windows 7 that has User
+        Access Control disabled. CAPE also supports Windows 10.
 
     .. note::
 
-        KVM Users - Be sure to choose a hard drive image format that supports snapshots(QCOW2).
+        KVM Users - Be sure to choose a hard drive image format that supports snapshots, such as QCOW2.
         See :doc:`saving`
         for more information.
 
 When creating the virtual machine, CAPE doesn't require any specific
-configuration. You can choose the options that best fit your needs.
+configuration. Choose the options that best fit your needs.

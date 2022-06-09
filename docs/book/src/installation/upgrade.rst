@@ -2,8 +2,7 @@
 Upgrade from a previous release
 ===============================
 
-CAPE Sandbox grows fast and in every release, new features are added and
-some others are fixed or removed.
+CAPE Sandbox grows fast. In every release, features are added, fixed and/or removed.
 There are two ways to upgrade your CAPE: start from scratch or migrate your
 "old" setup.
 The suggested way to upgrade CAPE is to start from a fresh setup because it's

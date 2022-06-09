@@ -52,7 +52,7 @@ def parse_config(data):
 
     for entry in config_entries:
         try:
-            k, v = entry.split(b"=")
+            k, v = entry.rsplit(b"=", 1)
             if k == b"3":
                 config[CONFIG.get(k, k)] = datetime.datetime.fromtimestamp(int(v)).strftime("%H:%M:%S %d-%m-%Y")
             else:

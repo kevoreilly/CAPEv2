@@ -164,4 +164,3 @@ Following are the available options::
     --snapshot SNAPSHOT   Specific Virtual Machine Snapshot to use.
     --resultserver RESULTSERVER
                           IP:Port of the Result Server.
-

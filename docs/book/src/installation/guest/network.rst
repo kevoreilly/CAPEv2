@@ -87,7 +87,3 @@ Then navigate to Computer Configuration> Administrative Templates>
 System> Internet Communication Management, and open Restrict Internet Communication.
 
 Set the policy to enabled.
-
-
-
-

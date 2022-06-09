@@ -1,6 +1,6 @@
 *.DS_Store
 *.log
-*.db 
+*.db
 *.sqlite
 __pycache__/
 env/
@@ -12,3 +12,5 @@ storage/*
 web/web/secret_key.py
 tests/test_bson.bson.compressed
 .idea
+.cache/
+.local/

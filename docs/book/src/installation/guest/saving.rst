@@ -10,7 +10,7 @@ running, with CAPE's agent running and with Windows fully booted**.
 Now you can proceed with saving the machine, which depends on
 the virtualization software that you decided to use.
 
-The virtualization software-specific instructions found below can assist with getting the virtual 
+The virtualization software-specific instructions found below can assist with getting the virtual
 machine ready to be used by CAPE.
 
 KVM

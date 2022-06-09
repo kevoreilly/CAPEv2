@@ -3,7 +3,7 @@ Starting CAPE
 ===============
 
 Make sure to run it inside CAPE's root directory::
-    
+
     $ cd /opt/CAPEv2
 
 To start CAPE, use the command::

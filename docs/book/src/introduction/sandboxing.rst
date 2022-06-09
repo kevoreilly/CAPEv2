@@ -70,4 +70,3 @@ Once you finished designing and preparing the prototype of the system you want, 
 can proceed with creating and deploying it. You will be always in time to
 change things or slightly fix them, but remember that good planning at the
 beginning always means fewer troubles in the long run.
-

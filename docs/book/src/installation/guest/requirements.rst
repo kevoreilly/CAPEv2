@@ -8,7 +8,7 @@ will have to install some required software and libraries.
 Install Python
 ==============
 
-Python is a strict requirement for the CAPE guest component (*analyzer*) to run properly.  
+Python is a strict requirement for the CAPE guest component (*analyzer*) to run properly.
     .. note::
 
         Please note that only 32-bit (x86) versions of Python3 are
@@ -37,7 +37,7 @@ Additional Software
 At this point, you should have installed everything needed by CAPE to run
 properly.
 
-Depending on what kind of files you want to analyze and what kind of sandboxed 
+Depending on what kind of files you want to analyze and what kind of sandboxed
 environment you want to run the malware samples in, you may want to install
 additional software such as browsers, PDF readers, office suites, etc.
 

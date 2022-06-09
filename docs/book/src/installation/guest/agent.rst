@@ -15,11 +15,11 @@ On Windows, if you simply launch the script, a Python window will be spawned. If
 you want to hide this window you can rename the file from *agent.py* to **agent.pyw**
 which will prevent the window from spawning upon launching the script.
 
-If you want the script to be launched at Windows' boot, place the file in 
-the admin startup folder. To access this folder, open the app launcher with **Win+R** 
-and search for "shell:common startup" which will open the folder you want 
-(usually ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``). 
-Do not place the agent in the user startup folder (usually 
-``C:\Users\<Username>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup``) 
-as it will launch the agent without admin privileges and therefore insufficient 
+If you want the script to be launched at Windows' boot, place the file in
+the admin startup folder. To access this folder, open the app launcher with **Win+R**
+and search for "shell:common startup" which will open the folder you want
+(usually ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``).
+Do not place the agent in the user startup folder (usually
+``C:\Users\<Username>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup``)
+as it will launch the agent without admin privileges and therefore insufficient
 permissions resulting in the agent not being able to work as intended.

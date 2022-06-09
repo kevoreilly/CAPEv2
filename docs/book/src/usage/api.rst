@@ -49,7 +49,7 @@ To generate a user authorization token:
 .. _`CAPE throttling`: https://github.com/kevoreilly/CAPEv2/blob/master/web/apiv2/throttling.py
 
 
-.. warning:: 
+.. warning::
     All documentation below this warning is deprecated.
 
 

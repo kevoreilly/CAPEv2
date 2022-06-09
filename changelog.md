@@ -1,6 +1,7 @@
 ### [8-6-2022]
 * Use poetry to handle dependencies
     * requirements.txt is still present to continue support for pip
+* Added pre-commit hooks
 
 ### [10-5-2022]
 * Added AWS machinery and ReversingLabs file lookup by @JaminB

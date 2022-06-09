@@ -45,7 +45,7 @@ Following is the list of available routing options.
 Using Per-Analysis Network Routing
 ==================================
 
-Now that you know the available network routing options, it is time to 
+Now that you know the available network routing options, it is time to
 use them in practice. Assuming CAPE has been configured properly
 taking advantage of its features is as simple as **starting the CAPE
 Rooter and choosing a network routing option for your analysis**.
@@ -224,7 +224,7 @@ depending on the country of origin of their IP address.
 The configuration for a VPN is much like the configuration of a VM. For each
 VPN you will need one section in the ``$CWD/conf/routing.conf`` configuration
 file detailing the relevant information for the VPN. In the configuration, the
-VPN will also have to be *registered* in the list of available VPNs 
+VPN will also have to be *registered* in the list of available VPNs
 (the same as you'd do for registering more VMs).
 
 Configuration for a single VPN looks roughly as follows::

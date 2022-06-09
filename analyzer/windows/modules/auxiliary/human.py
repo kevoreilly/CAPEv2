@@ -18,7 +18,12 @@ log = logging.getLogger(__name__)
 EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 
-RESOLUTION = {"x": USER32.GetSystemMetrics(0), "y": USER32.GetSystemMetrics(1)}
+SM_CXSCREEN = 0
+SM_CYSCREEN = 1
+SM_CXFULLSCREEN = 16
+SM_CYFULLSCREEN = 17
+RESOLUTION = {"x": USER32.GetSystemMetrics(SM_CXSCREEN), "y": USER32.GetSystemMetrics(SM_CYSCREEN)}
+RESOLUTION_WITHOUT_TASKBAR = {"x": USER32.GetSystemMetrics(SM_CXFULLSCREEN), "y": USER32.GetSystemMetrics(SM_CYFULLSCREEN)}
 
 INITIAL_HWNDS = []
 
@@ -165,8 +170,9 @@ def getwindowlist(hwnd, lparam):
 
 
 def move_mouse():
-    x = random.randint(0, RESOLUTION["x"])
-    y = random.randint(0, RESOLUTION["y"])
+    # To avoid mousing over desktop icons, use 1/4 of the total resolution as tgestarting pixel
+    x = random.randint(RESOLUTION_WITHOUT_TASKBAR["x"] // 4, RESOLUTION_WITHOUT_TASKBAR["x"])
+    y = random.randint(0, RESOLUTION_WITHOUT_TASKBAR["y"])
 
     # Originally was:
     # USER32.mouse_event(0x8000, x, y, 0, None)

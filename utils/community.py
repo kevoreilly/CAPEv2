@@ -23,7 +23,6 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
-
 blocklist = {}
 if os.path.exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):
     from utils.community_blocklist import blocklist

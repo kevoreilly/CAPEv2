@@ -477,8 +477,8 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
 
     elif any(
         "Microsoft Cabinet" in string
-        for string in data_dictionary.get("die", {}) or "Microsoft Cabinet" in data_dictionary.get("type", "")
-    ):
+        for string in data_dictionary.get("die", {})
+    ) or "Microsoft Cabinet" in data_dictionary.get("type", ""):
         tool = "UnCab"
         prefix = "cab_"
         password = ""

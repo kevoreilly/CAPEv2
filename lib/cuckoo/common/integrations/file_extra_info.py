@@ -317,8 +317,7 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
                     for extracted_file in list(filter(None, files.split("\n")))
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
-                if not test:
-                    metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
 
         except Exception as e:
             log.error(e, exc_info=True)

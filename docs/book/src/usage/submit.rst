@@ -53,59 +53,59 @@ command-line utility. It currently has the following options available::
       --unique             Only submit new samples, ignore duplicates
       --quiet              Only print text on failure
 
-If you specify a directory as a path, all the files contained in it will be
+If you specify a directory as the target path, all of the files contained within that directory will be
 submitted for analysis.
 
 The concept of analysis packages will be dealt with later in this documentation (at
-:doc:`packages`). Following are some usage examples:
+:doc:`packages`). The following are some examples of how to use the `submit.py` tool:
 
-*Example*: submit a local binary::
+*Example*: Submit a local binary::
 
     $ ./utils/submit.py /path/to/binary
 
-*Example*: submit an URL::
+*Example*: Submit an URL::
 
     $ ./utils/submit.py --url http://www.example.com
 
-*Example*: submit a local binary and specify an higher priority::
+*Example*: Submit a local binary and specify a higher priority::
 
     $ ./utils/submit.py --priority 5 /path/to/binary
 
-*Example*: submit a local binary and specify a custom analysis timeout of
+*Example*: Submit a local binary and specify a custom analysis timeout of
 60 seconds::
 
     $ ./utils/submit.py --timeout 60 /path/to/binary
 
-*Example*: submit a local binary and specify a custom analysis package::
+*Example*: Submit a local binary and specify a custom analysis package::
 
     $ ./utils/submit.py --package <name of package> /path/to/binary
 
-*Example*: submit a local binary and specify a custom analysis package and
+*Example*: Submit a local binary and specify a custom analysis package and
 some options (in this case a command line argument for the malware)::
 
     $ ./utils/submit.py --package exe --options arguments=--dosomething /path/to/binary.exe
 
-*Example*: submit a local binary to be run on virtual machine *cape1*::
+*Example*: Submit a local binary to be run on the virtual machine *cape1*::
 
     $ ./utils/submit.py --machine cape1 /path/to/binary
 
-*Example*: submit a local binary to be run on a Windows machine::
+*Example*: Submit a local binary to be run on a Windows machine::
 
     $ ./utils/submit.py --platform windows /path/to/binary
 
-*Example*: submit a local binary and take a full memory dump of the analysis machine::
+*Example*: Submit a local binary and take a full memory dump of the analysis machine once the analysis is complete::
 
     $ ./utils/submit.py --memory /path/to/binary
 
-*Example*: submit a local binary and force the analysis to be executed for the full timeout (disregarding the internal mechanism that CAPE uses to decide when to terminate the analysis)::
+*Example*: Submit a local binary and force the analysis to be executed for the full timeout (disregarding the internal mechanism that CAPE uses to decide when to terminate the analysis)::
 
     $ ./utils/submit.py --enforce-timeout /path/to/binary
 
-*Example*: submit a local binary and set virtual machine clock. The format is %m-%d-%Y %H:%M:%S. If not specified, the current time is used. For example, if we want to run a sample on January 24th, 2001, at 14:41:20::
+*Example*: Submit a local binary and set the virtual machine clock. The format is %m-%d-%Y %H:%M:%S. If not specified, the current time is used. For example, if we want to run a sample on January 24th, 2001, at 14:41:20::
 
     $ ./utils/submit.py --clock "01-24-2001 14:41:20" /path/to/binary
 
-*Example*: submit a sample for Volatility analysis (to reduce side effects of the CAPE hooking, switch it off with *options free=True*)::
+*Example*: Submit a sample for Volatility analysis (to reduce side effects of the CAPE hooking, switch it off with *options free=True*)::
 
     $ ./utils/submit.py --memory --options free=True /path/to/binary
 

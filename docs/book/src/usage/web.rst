@@ -15,6 +15,8 @@ is mandatory for this interface. If that's not the case, the application won't s
 and it will raise an exception. Also, currently, Django only supports having one of
 the database modules enabled at a time.
 
+Interface
+---------
 The interface can be configured by editing ``local_settings.py`` under ``web/web/``::
 
     # If you want to customize your CAPE path set it here.
@@ -57,6 +59,18 @@ The interface can be configured by editing ``local_settings.py`` under ``web/web
     # When DEBUG is True or when running tests, host validation is disabled; any
     # host will be accepted. Thus it's usually only necessary to set it in production.
     ALLOWED_HOSTS = ["*"]
+
+Enable/Disable REST API Endpoints
+---------------------------------
+By default, there are multiple REST API endpoints that are disabled.
+To enable them, head to the 
+[API configuration file](https://github.com/kevoreilly/CAPEv2/blob/master/conf/api.conf) 
+in the CAPE installation directory at `conf/api.conf`.
+
+For example, to enable the `machines/list` endpoint, you must find the `[machinelist]` 
+header in the configuration file just mentioned and set the `enabled` field to `yes`. 
+
+Restart the CAPE web service for the changes to take effect.
 
 Usage
 =====

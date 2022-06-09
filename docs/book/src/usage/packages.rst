@@ -14,9 +14,9 @@ As described in :doc:`../usage/submit`, you can specify some options to the
 analysis packages in the form of ``key1=value1,key2=value2``. The existing analysis
 packages already include some default options that can be enabled.
 
-Following is the list of existing packages in alphabetical order:
+The following is a list of the existing packages in alphabetical order:
 
-    * PROBABLY outdated, see packages code for mode retails
+    .. warning:: PROBABLY outdated, see  code for more details
 
     * ``applet``: used to analyze **Java applets**.
 
@@ -153,7 +153,7 @@ Following is the list of existing packages in alphabetical order:
             * ``procmemdump`` *[yes/no]*: if enabled, take memory dumps of all actively monitored processes.
             * ``dll``: specify the name of an optional DLL to be used as a replacement for capemon.dll.
 
-You can find more details on how to start creating new analysis packages in the
+You can find more details on how to start creating analysis packages in the
 :doc:`../customization/packages` customization chapter.
 
 As you already know, you can select which analysis package to use by specifying
@@ -161,9 +161,9 @@ its name at submission time (see :doc:`submit`) as follows::
 
     $ ./utils/submit.py --package <package name> /path/to/malware
 
-If none is specified, CAPE will try to detect the file type and select
+If no package is specified, CAPE will try to detect the file type and select
 the correct analysis package accordingly. If the file type is not supported by
-default the analysis will be aborted, therefore we encourage to
+default, the analysis will be aborted. Therefore we encourage to
 specify the package name whenever possible.
 
 For example, to launch a malware sample and specify some options you can do::

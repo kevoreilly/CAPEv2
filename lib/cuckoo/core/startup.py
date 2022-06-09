@@ -7,6 +7,7 @@ import logging
 import logging.handlers
 import os
 import platform
+import re
 import socket
 import sys
 
@@ -284,7 +285,7 @@ def init_yara():
                 File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
                 break
             except yara.SyntaxError as e:
-                bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
+                bad_rule = re.match(r"(.+)\(\d+\):", str(e))[1]
                 log.debug("Trying to delete bad rule: %s", bad_rule)
                 if os.path.basename(bad_rule) in indexed:
                     for k, v in rules.items():

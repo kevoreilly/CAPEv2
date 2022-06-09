@@ -69,7 +69,9 @@ class Disguise(Auxiliary):
         to detect public setups of Cuckoo, e.g., Malwr.com.
         """
         value = f"{random_integer(5)}-{random_integer(3)}-{random_integer(7)}-{random_integer(5)}"
-        with OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE) as key:
+        with OpenKey(
+            HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE | KEY_WOW64_64KEY
+        ) as key:
             SetValueEx(key, "ProductId", 0, REG_SZ, value)
 
     def _office_helper(self, key, subkey, value, size=REG_SZ):
@@ -175,7 +177,9 @@ class Disguise(Auxiliary):
                         SetValueEx(mruKey, name, 0, REG_SZ, setVal)
 
     def ramnit(self):
-        with OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE) as key:
+        with OpenKey(
+            HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE | KEY_WOW64_64KEY
+        ) as key:
             SetValueEx(key, "jfghdug_ooetvtgk", 0, REG_SZ, "TRUE")
 
     """

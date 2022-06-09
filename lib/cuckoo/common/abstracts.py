@@ -9,8 +9,8 @@ import os
 import socket
 import threading
 import time
-from typing import Dict, List
 import xml.etree.ElementTree as ET
+from typing import Dict, List
 
 import dns.resolver
 import requests

@@ -460,6 +460,7 @@ def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionar
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", "UnUPX")
 
+
 # ToDo do not ask for password + test with pass
 def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     tool = False
@@ -467,14 +468,18 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
     password = ""
     # Only for real 7zip, breaks others
     password = options.get("password", "infected")
-    if any("7-zip Installer data" in string for string in data_dictionary.get("die", {})) or "Zip archive data" in data_dictionary.get("type", ""):
+    if any(
+        "7-zip Installer data" in string for string in data_dictionary.get("die", {})
+    ) or "Zip archive data" in data_dictionary.get("type", ""):
         tool = "7Zip"
         prefix = "7zip_"
-        password=options.get("password", "infected")
+        password = options.get("password", "infected")
         password = f"-p{password}"
 
-
-    elif any("Microsoft Cabinet" in string for string in data_dictionary.get("die", {}) or "Microsoft Cabinet" in data_dictionary.get("type", "")):
+    elif any(
+        "Microsoft Cabinet" in string
+        for string in data_dictionary.get("die", {}) or "Microsoft Cabinet" in data_dictionary.get("type", "")
+    ):
         tool = "UnCab"
         prefix = "cab_"
         password = ""
@@ -517,10 +522,10 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
                 )
                 print(output)
             files = [
-                    os.path.join(tempdir, extracted_file)
-                    for extracted_file in tempdir
-                    if os.path.isfile(os.path.join(tempdir, extracted_file))
-                ]
+                os.path.join(tempdir, extracted_file)
+                for extracted_file in tempdir
+                if os.path.isfile(os.path.join(tempdir, extracted_file))
+            ]
             metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
         except subprocess.CalledProcessError:
             logging.error("Can't unpack with 7Zip for %s", file)
@@ -533,6 +538,7 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
 
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", tool)
+
 
 # ToDo move to sflock
 def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options: dict, results: dict):
@@ -552,7 +558,9 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
     with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
         try:
             password = options.get("password", "infected")
-            output = subprocess.check_output(["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir], universal_newlines=True)
+            output = subprocess.check_output(
+                ["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir], universal_newlines=True
+            )
             if output:
                 files = [
                     os.path.join(tempdir, extracted_file)

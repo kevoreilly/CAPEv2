@@ -114,6 +114,8 @@ some initial attributes. These are the ones you can currently set:
     * ``name``: an identifier for the signature.
     * ``description``: a brief description of what the signature represents.
     * ``severity``: a number identifying the severity of the events matched (generally between 1 and 3).
+    * ``confidence``: a number between 1 and 100 that represents how confident the signature writer is that this signature will not be raised as a false positive.
+    * ``weight``: a number used for calculating the `malscore` of a submission. This attribute acts as a multiplier of the product of severity and confidence.
     * ``categories``: a list of categories that describe the type of event being matched (for example "*banker*", "*injection*" or "*anti-vm*").
     * ``families``: a list of malware family names, in case the signature specifically matches a known one.
     * ``authors``: a list of people who authored the signature.

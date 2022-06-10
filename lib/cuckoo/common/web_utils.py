@@ -1015,6 +1015,22 @@ def force_int(value):
         return value
 
 
+def force_bool(value):
+    if type(value) == bool:
+        return value
+
+    if not value:
+        return False
+
+    if value in ["False", "false", "FALSE"]:
+        return False
+    elif value in ["True", "true", "TRUE"]:
+        return True
+    else:
+        log.warning(f"Value of '{value}' cannot be converted from string to bool")
+        return False
+
+
 def parse_request_arguments(request):
     static = request.POST.get("static", "")
     referrer = validate_referrer(request.POST.get("referrer"))
@@ -1027,18 +1043,18 @@ def parse_request_arguments(request):
     tags_tasks = request.POST.get("tags_tasks")
     tags = request.POST.get("tags")
     custom = request.POST.get("custom", "")
-    memory = bool(request.POST.get("memory", False))
+    memory = force_bool(request.POST.get("memory", False))
     clock = request.POST.get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
     if not clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
     if "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-    enforce_timeout = bool(request.POST.get("enforce_timeout", False))
+    enforce_timeout = force_bool(request.POST.get("enforce_timeout", False))
     shrike_url = request.POST.get("shrike_url")
     shrike_msg = request.POST.get("shrike_msg")
     shrike_sid = request.POST.get("shrike_sid")
     shrike_refer = request.POST.get("shrike_refer")
-    unique = bool(request.POST.get("unique", False))
+    unique = force_bool(request.POST.get("unique", False))
     tlp = request.POST.get("tlp")
     lin_options = request.POST.get("lin_options", "")
     route = request.POST.get("route")

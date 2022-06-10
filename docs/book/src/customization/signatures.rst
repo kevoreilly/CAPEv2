@@ -122,7 +122,7 @@ some initial attributes. These are the attributes that you can currently set:
     * ``families``: a list of malware family names, in case the signature specifically matches a known one.
     * ``authors``: a list of people who authored the signature.
     * ``references``: a list of references (URLs) to give context to the signature.
-    * ``enable``: if set to False the signature will be skipped.
+    * ``enabled``: if set to False the signature will be skipped.
     * ``alert``: if set to True can be used to specify that the signature should be reported (perhaps by a dedicated reporting module).
     * ``minimum``: the minimum required version of CAPE to successfully run this signature.
     * ``maximum``: the maximum required version of CAPE to successfully run this signature.

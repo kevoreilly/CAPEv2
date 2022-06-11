@@ -250,7 +250,6 @@ class CAPE_InjectionProcessHollowing(Signature):
     minimum = "1.3"
     evented = True
     ttp = ["T1055", "T1093"]
-    allow_list = ["acrord32.exe"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -267,7 +266,7 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.thread_map = {}
             self.lastprocess = process
 
-        if process.get("process_name") in self.allow_list:
+        if process.get("process_name") in ["acrord32.exe"]:
             return False
 
         if call["api"] == "CreateProcessInternalW":

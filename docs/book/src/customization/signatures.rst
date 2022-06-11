@@ -2,30 +2,30 @@
 Signatures
 ==========
 
-With CAPE you're able to create some customized signatures that you can run against
-the analysis results to identify some predefined pattern that might
-represent a particular malicious behavior or an indicator you're interested in.
+By taking advantage of CAPE's customizability, you can write signatures which will then
+by run against analysis results. These signatures can be used to identify a predefined 
+pattern that represents a malicious behavior or an indicator that you're interested in.
 
-These signatures are very useful to give context to the analyses: both because they
-simplify the interpretation of the results as well as for automatically identifying
+These signatures are very useful to give context to the analyses. They
+simplify the interpretation of the results and assist with automatically identifying
 malware samples of interest.
 
-Some examples of what you can use CAPE's signatures for:
-    * Identify a particular malware family you're interested in by isolating some unique behaviors (like file names or mutexes).
-    * Spot interesting modifications the malware performs on the system, such as the installation of device drivers.
-    * Identify particular malware categories, such as Banking Trojans or Ransomware by isolating typical actions commonly performed by those.
+A few examples of what you can use CAPE's signatures for are:
+    * Identify a particular malware family that you're interested in, by isolating unique behaviors (like file names or mutexes).
+    * Spot interesting modifications that the malware performs on the system, such as the installation of device drivers.
+    * Identify particular malware categories, such as Banking Trojans or Ransomware, by isolating typical actions that are commonly performed by these categories.
 
-You can find signatures created by us and by other CAPE users on our `Community`_ repository.
+You can find signatures created by the CAPE administrators and other CAPE users on the `Community`_ repository.
 
 .. _`Community`: https://github.com/kevoreilly/community
 
-Getting started
+Getting Started
 ===============
 
-The creation of signatures is a very simple process and requires just a decent
+Creating a signature is a very simple process but requires a decent
 understanding of Python programming.
 
-First things first, all signatures must be located inside *modules/signatures/*.
+First things first, all signatures must be located inside the *modules/signatures/* directory.
 
 The following is a basic example signature:
 
@@ -46,17 +46,19 @@ The following is a basic example signature:
                 return self.check_file(pattern=".*\\.exe$",
                                        regex=True)
 
-As you can see the structure is really simple and consistent with the other
-modules. We're going to get into details later, but as you can see in line **12**
-from version 0.5 CAPE provides some helper functions that make the process of
-creating signatures much easier.
+As you can see the structure of the signature is really simple and consistent with the other CAPE
+modules. Note that on line **12** a helper function is used. These helper functions 
+assist with signature-writing and we highly recommend becoming familiar with what helper functions are 
+available to you (found in the 
+[Signature class](https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/common/abstracts.py)) 
+before you start writing signatures.
 
-In this example we just walk through all the accessed files in the summary and check
-if there anything is ending with "*.exe*": in that case, it will return ``True``, meaning that
-the signature matched, otherwise return ``False``.
+In the example above, the helper function is used to walk through all of the accessed files in the summary and check
+if there are any files ending with "*.exe*". If there is at least one, then the helper function will return ``True``;
+ otherwise it will return ``False``. When a signature returns True, that means that the signature matched.
 
-In case the signature gets matched, a new entry in the "signatures" section will be added to
-the global container as follows::
+If the signature matches, a new entry in the "signatures" section will be added to
+the **global container** `self.results` as follows::
 
     "signatures": [
         {
@@ -74,7 +76,7 @@ the global container as follows::
     ]
 
 We could rewrite the exact same signature by accessing the **global container**
-directly:
+directly, rather than through the helper function `check_file`:
 
     .. code-block:: python
         :linenos:
@@ -96,41 +98,43 @@ directly:
 
                 return False
 
-This requires you to know the structure of the **global container**,
-which you can observe represented in the JSON report of your analyses.
+If you access the **global container** directly, you must know its structure,
+which can be observed in the JSON report of your analyses.
 
 Creating your new signature
 ===========================
 
-To make you better understand the process of creating a signature, we
+To help you better understand the process of creating a signature, we
 are going to create a very simple one together and walk through the steps and
-the available options. For this purpose, we're simply going to create a
-signature that checks whether the malware analyzed opened a mutex named
+the available options. For this purpose, we're going to create a
+signature that checks whether the malware analyzed opens a mutex named
 "i_am_a_malware".
 
-The first thing to do is import the dependencies, create a skeleton, and define
-some initial attributes. These are the ones you can currently set:
+The first thing to do is to import the dependencies, create a skeleton, and define
+some initial attributes. These are the attributes that you can currently set:
 
     * ``name``: an identifier for the signature.
     * ``description``: a brief description of what the signature represents.
     * ``severity``: a number identifying the severity of the events matched (generally between 1 and 3).
+    * ``confidence``: a number between 1 and 100 that represents how confident the signature writer is that this signature will not be raised as a false positive.
+    * ``weight``: a number used for calculating the `malscore` of a submission. This attribute acts as a multiplier of the product of severity and confidence.
     * ``categories``: a list of categories that describe the type of event being matched (for example "*banker*", "*injection*" or "*anti-vm*").
     * ``families``: a list of malware family names, in case the signature specifically matches a known one.
     * ``authors``: a list of people who authored the signature.
     * ``references``: a list of references (URLs) to give context to the signature.
-    * ``enable``: if set to False the signature will be skipped.
+    * ``enabled``: if set to False the signature will be skipped.
     * ``alert``: if set to True can be used to specify that the signature should be reported (perhaps by a dedicated reporting module).
     * ``minimum``: the minimum required version of CAPE to successfully run this signature.
     * ``maximum``: the maximum required version of CAPE to successfully run this signature.
 
-In our example, we would create the following skeleton:
+In our example, we will create the following skeleton:
 
     .. code-block:: python
         :linenos:
 
         from lib.cuckoo.common.abstracts import Signature
 
-        class BadBadMalware(Signature): # We initialize the class inheriting Signature.
+        class BadBadMalware(Signature): # We initialize the class by inheriting Signature.
             name = "badbadmalware" # We define the name of the signature
             description = "Creates a mutex known to be associated with Win32.BadBadMalware" # We provide a description
             severity = 3 # We set the severity to maximum
@@ -145,7 +149,7 @@ In our example, we would create the following skeleton:
 This is a perfectly valid signature. It doesn't do anything yet,
 so now we need to define the conditions for the signature to be matched.
 
-As we said, we want to match a particular mutex name, so we proceed as follows:
+Since we want to match a particular mutex name, we use the helper function `check_mutex`:
 
     .. code-block:: python
         :linenos:
@@ -164,10 +168,10 @@ As we said, we want to match a particular mutex name, so we proceed as follows:
         def run(self):
             return self.check_mutex("i_am_a_malware")
 
-Simple as that, now our signature will return ``True`` whether the analyzed
+It's as simple as that! Now our signature will return ``True`` if the analyzed
 malware was observed opening the specified mutex.
 
-If you want to be more explicit and directly access the global container,
+If you want to be more explicit and directly access the **global container**,
 you could translate the previous signature in the following way:
 
     .. code-block:: python

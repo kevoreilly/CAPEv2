@@ -126,6 +126,7 @@ some initial attributes. These are the attributes that you can currently set:
     * ``alert``: if set to True can be used to specify that the signature should be reported (perhaps by a dedicated reporting module).
     * ``minimum``: the minimum required version of CAPE to successfully run this signature.
     * ``maximum``: the maximum required version of CAPE to successfully run this signature.
+    * ``ttp``: a list of MITRE ATT&CK IDs applicable to this signature.
 
 In our example, we will create the following skeleton:
 

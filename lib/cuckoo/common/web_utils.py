@@ -1022,12 +1022,12 @@ def force_bool(value):
     if not value:
         return False
 
-    if value in ["False", "false", "FALSE"]:
+    if value in ("False", "false", "FALSE"):
         return False
-    elif value in ["True", "true", "TRUE"]:
+    elif value in ("True", "true", "TRUE"):
         return True
     else:
-        log.warning(f"Value of '{value}' cannot be converted from string to bool")
+        log.warning("Value of %s cannot be converted from string to bool", value)
         return False
 
 

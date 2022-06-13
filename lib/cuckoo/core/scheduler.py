@@ -239,8 +239,8 @@ class AnalysisManager(threading.Thread):
             del file_obj
 
         # options from auxiliar.conf
-        for plugin in self.aux_cfg.auxiliar_modules.keys():
-            options[plugin] = self.aux_cfg.auxiliar_modules[plugin]
+        for plugin in self.aux_cfg.auxiliary_modules.keys():
+            options[plugin] = self.aux_cfg.auxiliary_modules[plugin]
 
         return options
 

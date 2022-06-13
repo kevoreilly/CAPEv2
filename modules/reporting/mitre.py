@@ -11,9 +11,11 @@ class MITRE_TTPS(Report):
             return
 
         attck = {}
-        ttp_dict = {block["ttp"]: block["signature"] for block in results["ttps"]}
+        ttp_dict = {}
+        for ttp in results["ttps"]:
+            ttp_dict.setdefault(ttp["ttp"], []).append(ttp["signature"])
         try:
-            for technique in self.mitre.enterprise.techniques:
+            for technique in sorted(self.mitre.enterprise.techniques, key=lambda x: x.id):
                 if technique.id in list(ttp_dict.keys()):
                     for tactic in technique.tactics:
                         attck.setdefault(tactic.name, []).append(

@@ -38,7 +38,7 @@ class TargetInfo(Processing):
                     str(self.task["id"]),
                     self.task.get("package", ""),
                     self.task.get("options", ""),
-                    self.analysis_path,
+                    self.self_extracted,
                     self.results,
                 )
 

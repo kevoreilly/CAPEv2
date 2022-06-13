@@ -26,8 +26,13 @@ class PDF:
         """
         # Load the PDF with PDFiD and convert it to JSON for processing
         pdf_data = PDFiD(filepath, False, True)
-        pdf_json = PDFiD2JSON(pdf_data, True)
-        pdfid_data = json.loads(pdf_json)[0]
+        try:
+            pdf_json = PDFiD2JSON(pdf_data, True)
+            pdfid_data = json.loads(pdf_json)[0]
+        except IndexError as e:
+            log.error("parse_pdf: %s", str(e))
+            return {}
+
 
         pdfresult = {
             "Info": {

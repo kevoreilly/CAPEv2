@@ -303,7 +303,7 @@ class CAPE_InjectionProcessHollowing(Signature):
                     self.get_name_from_pid(self.thread_map[handle]),
                     self.thread_map[handle],
                 )
-                self.data.append({"Injection": desc})
+                self.data.append({"injection": desc})
                 return True
         elif call["api"] == "NtResumeProcess" and (self.sequence == 2 or self.sequence == 3):
             handle = self.get_argument(call, "ProcessHandle")
@@ -314,7 +314,7 @@ class CAPE_InjectionProcessHollowing(Signature):
                     self.get_name_from_pid(self.process_map[handle]),
                     self.process_map[handle],
                 )
-                self.data.append({"Injection": desc})
+                self.data.append({"injection": desc})
                 return True
 
 

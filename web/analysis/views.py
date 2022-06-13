@@ -30,16 +30,7 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.utils import delete_folder
-from lib.cuckoo.common.web_utils import (
-    category_all_files,
-    my_rate_minutes,
-    my_rate_seconds,
-    perform_malscore_search,
-    perform_search,
-    perform_ttps_search,
-    rateblock,
-    statistics,
-)
+from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.processing.virustotal import vt_lookup
 
@@ -1816,8 +1807,8 @@ def search(request, searched=False):
         else:
             value = searched.strip()
 
-        # Check on search size. But malscore can be a single digit number.
-        if term != "malscore" and len(value) < 3:
+        # Check on search size. But malscore, ID and package can be strings of less than 3 characters.
+        if term not in {"malscore", "id", "package"} and len(value) < 3:
             return render(
                 request,
                 "analysis/search.html",
@@ -1851,13 +1842,12 @@ def search(request, searched=False):
                     {"analyses": None, "term": searched, "error": "Not all values are integers"},
                 )
 
+        # Escape forward slash characters
+        if isinstance(value, str):
+            value = value.replace("\\", "\\\\")
+
         try:
-            if term == "malscore":
-                records = perform_malscore_search(value)
-            elif term == "ttp":
-                records = perform_ttps_search(value)
-            else:
-                records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff)
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=True)
         except ValueError:
             if term:
                 return render(

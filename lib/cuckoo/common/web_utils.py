@@ -15,7 +15,7 @@ from django.http import HttpResponse
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
-from lib.cuckoo.common.utils import bytes2str, get_ip_address, get_options, sanitize_filename, validate_referrer
+from lib.cuckoo.common.utils import bytes2str, get_ip_address, get_options, sanitize_filename, validate_referrer, validate_ttp
 from lib.cuckoo.core.database import ALL_DB_STATUSES, TASK_REPORTED, Database, Sample, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
@@ -800,6 +800,9 @@ search_term_map = {
     "id": "info.id",
     "ids": "info.id",
     "tags_tasks": "info.id",
+    "package": "info.package",
+    "ttp": "ttps.ttp",
+    "malscore": "malscore",
     "user_tasks": True,
     "name": "target.file.name",
     "type": "target.file.type",
@@ -839,6 +842,8 @@ search_term_map = {
     "capeyara": "target.file.cape_yara.name",
     "procmemyara": "procmemory.yara.name",
     "virustotal": "virustotal.results.sig",
+    "machinename": "info.machine.name",
+    "machinelabel": "info.machine.label",
     "comment": "info.comments.Data",
     "shrikemsg": "info.shrike_msg",
     "shrikeurl": "info.shrike_url",
@@ -903,26 +908,7 @@ normalized_int_terms = (
 )
 
 
-# ToDo verify if still working
-def perform_ttps_search(value):
-    if len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
-        if repconf.mongodb.enabled:
-            return mongo_find("analysis", {f"ttps.{value.upper()}": {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
-        elif repconf.elasticsearchdb.enabled:
-            q = {"query": {"match": {"ttps.ttp": value.upper()}}}
-            return es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
-
-
-def perform_malscore_search(value):
-    if repconf.mongodb.enabled:
-        return mongo_find("analysis", {"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
-    elif repconf.elasticsearchdb.enabled:
-        q = {"query": {"range": {"malscore": {"gte": float(value)}}}}
-        _source_fields = list(perform_search_filters.keys())[:-1]
-        return es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]
-
-
-def perform_search(term, value, search_limit=False, user_id=False, privs=False):
+def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
@@ -934,6 +920,7 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False):
         ]
 
     query_val = False
+    search_limit = web_cfg.general.get("search_limit", 50) if web else 0
     if term in normalized_lower_terms:
         query_val = value.lower()
     elif term in normalized_int_terms:
@@ -949,25 +936,36 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False):
             if term == "ids":
                 ids = value
             elif term == "tags_tasks":
-                ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value)]
+                ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=search_limit)]
             elif term == "user_tasks":
                 if not user_id:
                     ids = 0
                 else:
                     # ToDo allow to admin search by user tasks
-                    ids = [int(v.id) for v in db.list_tasks(user_id=user_id)]
+                    ids = [int(v.id) for v in db.list_tasks(user_id=user_id, limit=search_limit)]
             else:
-                ids = [int(v.id) for v in db.list_tasks(options_like=value)]
+                ids = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
             if ids:
-                term = "id"
                 if len(ids) > 1:
+                    term = "ids"
                     query_val = {"$in": ids}
                 else:
+                    term = "id"
                     if isinstance(value, list):
                         value = value[0]
                     query_val = int(value)
         except Exception as e:
             print(term, value, e)
+    elif term == "configs":
+        # check if family name is string only maybe?
+        query_val = {f"{search_term_map[term]}.{value}": {"$exist": True}, "$options": "-i"}
+    elif term == "ttp":
+        if validate_ttp(value):
+            query_val = value.upper()
+        else:
+            raise ValueError("Invalid TTP enterred")
+    elif term == "malscore":
+        query_val = {"$gte": float(value)}
     else:
         query_val = {"$regex": value, "$options": "-i"}
 
@@ -990,11 +988,7 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False):
             mongo_search_query = {search_term_map[term]: query_val}
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
-        return (
-            mongo_find("analysis", mongo_search_query, perform_search_filters)
-            .sort([["_id", -1]])
-            .limit(web_cfg.general.get("search_limit", 50))
-        )
+        return mongo_find("analysis", mongo_search_query, perform_search_filters).sort([["_id", -1]]).limit(search_limit)
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
         if isinstance(search_term_map[term], str):

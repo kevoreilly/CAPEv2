@@ -33,7 +33,6 @@ class PDF:
             log.error("parse_pdf: %s", str(e))
             return {}
 
-
         pdfresult = {
             "Info": {
                 "PDF Header": pdfid_data["pdfid"]["header"],

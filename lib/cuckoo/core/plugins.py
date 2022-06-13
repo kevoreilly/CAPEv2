@@ -546,8 +546,8 @@ class RunSignatures:
                     continue
                 else:
                     if result:
-                        if hasattr(sig, "ttp"):
-                            [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttp]
+                        if hasattr(sig, "ttps"):
+                            [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttps]
                         log.debug('Analysis matched signature "%s"', sig.name)
                         matched.append(sig.as_result())
                         if sig in complete_list:
@@ -572,8 +572,8 @@ class RunSignatures:
                     match = self.process(signature)
                     # If the signature is matched, add it to the list.
                     if match:
-                        if hasattr(signature, "ttp"):
-                            [self.ttps.append({"ttp": ttp, "signature": signature.name}) for ttp in signature.ttp]
+                        if hasattr(signature, "ttps"):
+                            [self.ttps.append({"ttp": ttp, "signature": signature.name}) for ttp in signature.ttps]
                         matched.append(match)
 
         # Sort the matched signatures by their severity level.

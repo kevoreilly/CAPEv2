@@ -2,7 +2,7 @@
 name = "CAPEv2"
 version = "0.1.0"
 description = "CAPE: Malware Configuration And Payload Extraction"
-authors = ["Kevin O'Reilly <kevoreilly@gmail.com>", "doomedraven <doommedraven@gmail.com>"]
+authors = ["Kevin O'Reilly <kev@capesandbox.com>", "doomedraven <doomedraven@capesandbox.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]

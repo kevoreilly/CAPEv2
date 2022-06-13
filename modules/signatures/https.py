@@ -43,6 +43,6 @@ class NetworkHTTPS(Signature):
             ret = True
 
         for url in urls:
-            self.data.append({"URL": url})
+            self.data.append({"url": url})
 
         return ret

@@ -1502,9 +1502,10 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     else:
         shot = srcdir + "/" + screenshot.zfill(4) + ".jpg"
         if os.path.exists(shot):
+            fname = f"{task_id}_{os.path.basename(shot)}"
             resp = StreamingHttpResponse(FileWrapper(open(shot, "rb"), 8096), content_type="image/jpeg")
             resp["Content-Length"] = os.path.getsize(shot)
-            resp["Content-Disposition"] = "attachment; filename=" + os.path.basename(shot)
+            resp["Content-Disposition"] = f"attachment; filename={fname}"
             return resp
 
         else:
@@ -1772,9 +1773,10 @@ def tasks_fullmemory(request, task_id):
     if filename:
         content_type = "application/octet-stream"
         chunk_size = 8192
+        fname = f"{task_id}_{filename}"
         response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), chunk_size), content_type=content_type)
         response["Content-Length"] = os.path.getsize(file_path)
-        response["Content-Disposition"] = "attachment; filename=%s" % filename
+        response["Content-Disposition"] = f"attachment; filename={fname}"
         return response
     else:
         resp = {"error": True, "error_value": "Memory dump not found for task " + task_id}

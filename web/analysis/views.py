@@ -1583,6 +1583,8 @@ def file(request, category, task_id, dlfile):
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
+    send_filename = f"{task_id + '_' if task_id not in os.path.basename(path) else ''}{os.path.basename(path)}"
+
     if not path:
         return render(
             request,
@@ -1616,7 +1618,7 @@ def file(request, category, task_id, dlfile):
         else:
             resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8091), content_type=cd)
             resp["Content-Length"] = os.path.getsize(path)
-        resp["Content-Disposition"] = "attachment; filename={0}".format(os.path.basename(path))
+        resp["Content-Disposition"] = f"attachment; filename={send_filename}"
         return resp
     except Exception as e:
         print(e)

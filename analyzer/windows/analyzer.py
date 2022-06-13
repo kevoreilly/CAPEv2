@@ -451,7 +451,7 @@ class Analyzer:
         # Walk through the available auxiliary modules.
         aux_avail = []
 
-        for module in Auxiliary.__subclasses__():
+        for module in sorted(Auxiliary.__subclasses__(), key=lambda x: x.priority, reverse=True):
             # Try to start the auxiliary module.
             # if module.__name__ == "Screenshots" and disable_screens:
             #    continue
@@ -665,7 +665,7 @@ class Analyzer:
 
         log.info("Stopping auxiliary modules")
         # Terminate the Auxiliary modules.
-        for aux in AUX_ENABLED:
+        for aux in sorted(AUX_ENABLED, key=lambda x: x.priority, reverse=True):
             if not hasattr(aux, "stop"):
                 continue
             try:

@@ -805,7 +805,7 @@ class Signature:
                     for yara_block in block[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
                             # we can't use here values from set_path
-                            yield "sample", os.path.join(analysis_folder, "files", block["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), block
 
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
             for sub_keyword in ("cape_yara", "yara"):
@@ -817,7 +817,7 @@ class Signature:
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in subblock[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", os.path.join(analysis_folder, "files", block["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if self.results.get(keyword) is not None:
@@ -840,7 +840,7 @@ class Signature:
                         for keyword in ("cape_yara", "yara"):
                             for yara_block in subblock[keyword]:
                                 if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", os.path.join(analysis_folder, "files", subblock["sha256"]), block
+                                    yield "sample", os.path.join(analysis_folder, "selfextracted", subblock["sha256"]), block
 
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
             for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:

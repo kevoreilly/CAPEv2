@@ -157,6 +157,7 @@ def init_logging(auto=False, tid=0, debug=False):
         log.setLevel(logging.INFO)
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    return ch, fh
 
 
 def processing_finished(future):
@@ -302,9 +303,27 @@ def _load_report(task_id: int, return_one: bool = False):
     return False
 
 
+def parse_id(id_string: str):
+    if id_string == "auto":
+        return id_string
+    id_string = id_string.replace(" ", "")
+    blocks = [block.split("-") for block in id_string.split(",")]
+    for index, block in enumerate(blocks):
+        block = list(map(int, block))
+        if len(block) == 2 and block[1] < block[0]:
+            raise TypeError("Invalid id input")
+        elif len(block) == 1:
+            blocks[index] = (block[0], block[0])
+        else:
+            raise TypeError("Invalid id input")
+    return blocks
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("id", type=str, help="ID of the analysis to process (auto for continuous processing of unprocessed tasks).")
+    parser.add_argument(
+        "id", type=parse_id, help="ID of the analysis to process (auto for continuous processing of unprocessed tasks)."
+    )
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
@@ -373,27 +392,33 @@ def main():
             processing_timeout=args.processing_timeout,
         )
     else:
-        if not os.path.exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id)):
-            sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
-        init_logging(tid=args.id, debug=args.debug)
-        task = Database().view_task(int(args.id))
-        if args.signatures:
-            report = False
-            results = _load_report(int(args.id), return_one=True)
-            if not results:
-                # fallback to json
-                report = os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id, "reports", "report.json")
-                if not os.path.exists(report):
-                    if args.json_report and not os.path.exists(args.json_report):
-                        report = args.json_report
-                    else:
-                        sys.exit("File {} doest exist".format(report))
-                if report:
-                    results = json.load(open(report))
-            if results is not None:
-                RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
-        else:
-            process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
+        for start, end in args.id:
+            for num in range(start, end + 1):
+                log.debug(f"Processing task {num}")
+                if not os.path.exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
+                    sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
+                handlers = init_logging(tid=str(num), debug=args.debug)
+                task = Database().view_task(num)
+                if args.signatures:
+                    report = False
+                    results = _load_report(num, return_one=True)
+                    if not results:
+                        # fallback to json
+                        report = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num), "reports", "report.json")
+                        if not os.path.exists(report):
+                            if args.json_report and not os.path.exists(args.json_report):
+                                report = args.json_report
+                            else:
+                                sys.exit(f"File {report} doest exist")
+                        if report:
+                            results = json.load(open(report))
+                    if results is not None:
+                        RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
+                else:
+                    process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
+                log.debug("Finished processing task %d", num)
+                for handler in handlers:
+                    log.removeHandler(handler)
 
 
 if __name__ == "__main__":

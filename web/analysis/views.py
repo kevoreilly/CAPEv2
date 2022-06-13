@@ -1512,6 +1512,9 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
     elif category in ("dropped", "droppedzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
+        # Self Extracted support folder
+        if not os.path.exists(path):
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", file_name)
     elif category in ("droppedzipall", "procdumpzipall", "CAPEzipall"):
         if web_cfg.zipped_download.download_all:
             sub_cat = category.replace("zipall", "")
@@ -1568,16 +1571,16 @@ def file(request, category, task_id, dlfile):
     # Just for suricata dropped files currently
     elif category == "zip":
         file_name = "files.zip"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "logs", "files.zip")
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs", "files.zip")
         cd = "application/zip"
     elif category == "suricata":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "logs", "files", file_name)
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs", "files", file_name)
     elif category == "rtf":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "rtf_objects", file_name)
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
     elif category == "tlskeys":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "tlsdump", "tlsdump.log")
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "tlsdump", "tlsdump.log")
     elif category == "evtx":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "evtx", "evtx.zip")
         file_name = f"{task_id}_evtx.zip"
         cd = "application/zip"
     else:

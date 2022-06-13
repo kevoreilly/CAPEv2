@@ -130,7 +130,7 @@ class CAPE(Processing):
             str(self.task["id"]),
             self.task.get("package", ""),
             self.task.get("options", ""),
-            self.dropped_path,
+            self.self_extracted,
             self.results,
         )
 

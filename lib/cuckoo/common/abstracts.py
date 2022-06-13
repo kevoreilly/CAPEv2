@@ -689,6 +689,7 @@ class Processing:
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.network_path = os.path.join(self.analysis_path, "network")
         self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
+        self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
 
     def add_statistic_tmp(self, name, field, pretime):
         posttime = datetime.datetime.now()
@@ -781,6 +782,7 @@ class Signature:
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
+        self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
 
         try:
             create_folder(folder=self.reports_path)
@@ -1604,6 +1606,7 @@ class Report:
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
         self.files_metadata = os.path.join(self.analysis_path, "files.json")
+        self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
 
         try:
             create_folder(folder=self.reports_path)

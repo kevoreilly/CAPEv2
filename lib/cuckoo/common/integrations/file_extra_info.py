@@ -210,6 +210,9 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
     Run all extra extractors/unpackers/extra scripts here, each extractor should check file header/type/identification:
     """
 
+    if not os.path.exists(destination_folder):
+        os.makedirs(destination_folder)
+
     for funcname in (
         msi_extract,
         kixtart_extract,

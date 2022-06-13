@@ -1808,7 +1808,7 @@ def search(request, searched=False):
             value = searched.strip()
 
         # Check on search size. But malscore, ID and package can be strings of less than 3 characters.
-        if term not in {"malscore", "id", "package"} and len(value) < 3:
+        if term not in {"malscore", "id", "ids", "package"} and len(value) < 3:
             return render(
                 request,
                 "analysis/search.html",

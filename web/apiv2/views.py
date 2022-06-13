@@ -48,9 +48,7 @@ from lib.cuckoo.common.web_utils import (
     force_int,
     get_file_content,
     parse_request_arguments,
-    perform_malscore_search,
     perform_search,
-    perform_ttps_search,
     search_term_map,
     statistics,
     validate_task,
@@ -739,12 +737,7 @@ def ext_tasks_search(request):
             del tmp_value
 
         try:
-            if term == "malscore":
-                records = perform_malscore_search(value)
-            elif term == "ttp":
-                records = perform_ttps_search(value)
-            else:
-                records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff)
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False)
         except ValueError:
             if not term:
                 resp = {"error": True, "error_value": "No option provided."}

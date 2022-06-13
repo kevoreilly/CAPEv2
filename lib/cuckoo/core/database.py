@@ -2050,6 +2050,8 @@ class Database(object, metaclass=Singleton):
             if added_before:
                 search = search.filter(Task.added_on < added_before)
             if options_like:
+                # Replace '*' wildcards with wildcard for sql
+                options_like = options_like.replace("*", "%")
                 search = search.filter(Task.options.like(f"%{options_like}%"))
             if tags_tasks_like:
                 search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))

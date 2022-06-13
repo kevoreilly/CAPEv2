@@ -881,3 +881,8 @@ def get_options(optstring: str):
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack("256s", ifname[:15].encode()))[20:24])  # SIOCGIFADDR
+
+
+def validate_ttp(ttp: str) -> bool:
+    regex = r"^(O?[BCTFSU]\d{4}(\.\d{3})?)|(E\d{4}(\.m\d{2})?)$"
+    return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))

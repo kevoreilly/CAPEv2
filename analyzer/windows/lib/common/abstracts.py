@@ -179,6 +179,8 @@ class Package:
 
 
 class Auxiliary:
+    priority = 0
+
     def __init__(self, options=None, config=None):
         """@param options: options dict."""
         if options is None:

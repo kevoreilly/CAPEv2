@@ -728,7 +728,8 @@ class Signature:
     enabled = True
     minimum = None
     maximum = None
-    ttp = []
+    ttps = []
+    mbcs = []
 
     # Higher order will be processed later (only for non-evented signatures)
     # this can be used for having meta-signatures that check on other lower-

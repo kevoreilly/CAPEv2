@@ -249,7 +249,11 @@ class CAPE(Processing):
         # Process CAPE Yara hits
 
         executed_config_parsers = set()
-        for hit in file_info["cape_yara"]:
+        for tmp_data, hit in [(file_data, yara) for yara in file_info["cape_yara"]] + [
+            (extracted_file["data"].encode(), yara)
+            for extracted_file in file_info.get("extracted_files", [])
+            for yara in extracted_file["cape_yara"]
+        ]:
 
             # Check for a payload or config hit
             try:
@@ -265,7 +269,7 @@ class CAPE(Processing):
                     file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
             if cape_name and cape_name not in executed_config_parsers:
-                tmp_config = static_config_parsers(cape_name, file_data)
+                tmp_config = static_config_parsers(cape_name, tmp_data)
                 config.update(tmp_config)
                 executed_config_parsers.add(cape_name)
 

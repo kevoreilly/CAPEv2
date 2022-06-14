@@ -249,17 +249,11 @@ class CAPE(Processing):
         # Process CAPE Yara hits
 
         executed_config_parsers = set()
-        for tmp_data, hit in (
-            [
-                (file_data, yara)
-                for yara in file_info["cape_yara"]
-            ]
-            + [
-                (extracted_file["data"].encode(), yara)
-                for extracted_file in file_info.get("extracted_files", [])
-                for yara in extracted_file["cape_yara"]
-            ]
-        ):
+        for tmp_data, hit in [(file_data, yara) for yara in file_info["cape_yara"]] + [
+            (extracted_file["data"].encode(), yara)
+            for extracted_file in file_info.get("extracted_files", [])
+            for yara in extracted_file["cape_yara"]
+        ]:
 
             # Check for a payload or config hit
             try:

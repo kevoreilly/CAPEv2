@@ -51,7 +51,7 @@ modules. Note that on line **12** a helper function is used. These helper functi
 assist with signature-writing and we highly recommend becoming familiar with what helper functions are 
 available to you (found in the 
 [Signature class](https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/common/abstracts.py)) 
-before you start writing signatures.
+before you start writing signatures. Some documentation for :ref:`Helpers` can be found below.
 
 In the example above, the helper function is used to walk through all of the accessed files in the summary and check
 if there are any files ending with "*.exe*". If there is at least one, then the helper function will return ``True``;
@@ -118,7 +118,7 @@ some initial attributes. These are the attributes that you can currently set:
     * ``severity``: a number identifying the severity of the events matched (generally between 1 and 3).
     * ``confidence``: a number between 1 and 100 that represents how confident the signature writer is that this signature will not be raised as a false positive.
     * ``weight``: a number used for calculating the `malscore` of a submission. This attribute acts as a multiplier of the product of severity and confidence.
-    * ``categories``: a list of categories that describe the type of event being matched (for example "*banker*", "*injection*" or "*anti-vm*").
+    * ``categories``: a list of categories that describe the type of event being matched (for example "*banker*", "*injection*" or "*anti-vm*"). For a list of all categories, see :ref:`Categories`. 
     * ``families``: a list of malware family names, in case the signature specifically matches a known one.
     * ``authors``: a list of people who authored the signature.
     * ``references``: a list of references (URLs) to give context to the signature.
@@ -326,6 +326,8 @@ Two helpers have been included to specify matching data.
         def on_complete(self):
             return self.has_matches()
 
+.. _Helpers:
+
 Helpers
 =======
 
@@ -480,3 +482,112 @@ Following is a list of available methods.
         :linenos:
 
         self.check_url(pattern="^.+\/load\.php\?file=[0-9a-zA-Z]+$", regex=True)
+
+.. _Categories:
+Categories
+==========
+You can put signatures into categories to facilitate grouping or sorting. You can create your own category if you wish, but 
+it is easier for other users if you associate a signature 
+with a category that already exists. Here is a list of all categories available:
+
+- `access`
+- `account`
+- `ads`
+- `adware`
+- `allocation`
+- `anonimity`
+- `anti-analysis`
+- `anti-av`
+- `anti-debug`
+- `anti-emulation`
+- `anti-sandbox`
+- `anti-vm`
+- `antivirus`
+- `backdoor`
+- `banker`
+- `bind`
+- `bootkit`
+- `bot`
+- `browser`
+- `bypass`
+- `c2`
+- `chinese`
+- `clickfraud`
+- `collection`
+- `command`
+- `crash`
+- `credential_access`
+- `credential_dumping`
+- `cryptomining`
+- `ddos`
+- `deception`
+- `decoy`
+- `discovery`
+- `dns`
+- `dotnet`
+- `downloader`
+- `dropper`
+- `encryption`
+- `escalation`
+- `evasion`
+- `execution`
+- `exfiltration`
+- `exploit`
+- `exploit_kit`
+- `generic`
+- `hooking`
+- `http`
+- `icmp`
+- `impact`
+- `infostealer`
+- `injection`
+- `ipc`
+- `irc`
+- `java`
+- `keylogger`
+- `lateral`
+- `loader`
+- `locker`
+- `lolbin`
+- `macro`
+- `malware`
+- `martians`
+- `masquerading`
+- `misc`
+- `network`
+- `obuscation`
+- `office`
+- `origin`
+- `p2p`
+- `packer`
+- `pdf`
+- `persistence`
+- `phishing`
+- `powershell`
+- `privilege_escalation`
+- `process_discovery`
+- `proxy`
+- `ransomware`
+- `rat`
+- `recon`
+- `rootkit`
+- `rtf`
+- `shellcode`
+- `silverlight`
+- `smtp`
+- `sniffer`
+- `spam`
+- `spreading`
+- `spyware`
+- `static`
+- `stealth`
+- `tampering`
+- `targeted`
+- `tor`
+- `trojan`
+- `uac_bypass`
+- `udp`
+- `virus`
+- `wiper`
+- `wmi`
+- `worm`

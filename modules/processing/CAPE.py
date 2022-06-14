@@ -25,11 +25,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import (
-    add_family_detection,
-    get_clamav_consensus,
-    make_bytes,
-)
+from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus, make_bytes
 
 try:
     import pydeep

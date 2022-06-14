@@ -24,6 +24,9 @@ class Sniffer(Auxiliary):
         self.proc = None
 
     def start(self):
+        if self.task.route in ("none", "None", "drop", "false"):
+            return
+
         # Get updated machine info
         self.machine = self.db.view_machine_by_label(self.machine.label)
         tcpdump = self.options.get("tcpdump", "/usr/sbin/tcpdump")
@@ -183,6 +186,10 @@ class Sniffer(Auxiliary):
         """Stop sniffing.
         @return: operation status.
         """
+
+        if self.task.route in ("none", "None", "drop", "false"):
+            return
+
         remote = self.options.get("remote", False)
         if remote:
             remote_host = self.options.get("host", "")

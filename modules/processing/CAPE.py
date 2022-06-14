@@ -25,7 +25,11 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus
+from lib.cuckoo.common.utils import (
+    add_family_detection,
+    get_clamav_consensus,
+    make_bytes,
+)
 
 try:
     import pydeep
@@ -250,7 +254,7 @@ class CAPE(Processing):
 
         executed_config_parsers = set()
         for tmp_data, hit in [(file_data, yara) for yara in file_info["cape_yara"]] + [
-            (extracted_file["data"].encode(), yara)
+            (make_bytes(extracted_file["data"]), yara)
             for extracted_file in file_info.get("extracted_files", [])
             for yara in extracted_file["cape_yara"]
         ]:

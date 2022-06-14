@@ -172,7 +172,7 @@ class Sniffer(Auxiliary):
 
         else:
             try:
-                self.proc = subprocess.Popen(pargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                self.proc = subprocess.Popen(pargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
             except (OSError, ValueError):
                 log.exception("Failed to start sniffer (interface=%s, host=%s, dump path=%s)", interface, host, file_path)
                 return
@@ -200,11 +200,14 @@ class Sniffer(Auxiliary):
         if self.proc and not self.proc.poll():
             try:
                 self.proc.terminate()
-            except Exception:
+                _, _ = self.proc.communicate()
+            except Exception as e:
+                log.exception("Unable to stop the sniffer (first try) with pid %d: %s", self.proc.pid, e)
                 try:
                     if not self.proc.poll():
                         log.debug("Killing sniffer")
                         self.proc.kill()
+                        _, _ = self.proc.communicate()
                 except OSError as e:
                     log.debug("Error killing sniffer: %s, continuing", e)
                 except Exception as e:

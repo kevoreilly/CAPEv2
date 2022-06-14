@@ -103,7 +103,8 @@ texttypes = [
 # textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
-def make_bytes(value: Union[str, bytes], encoding: str='latin-1') -> bytes:
+
+def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
     return value.encode(encoding) if isinstance(value, str) else value
 
 

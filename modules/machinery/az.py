@@ -3,40 +3,39 @@
 # Modified by the Canadian Centre for Cyber Security to support Azure.
 
 import logging
+import socket
 import threading
 import time
-import socket
 
 try:
     # Azure-specific imports
     # pip install azure-common msrest msrestazure azure-mgmt-compute==12.0.0 azure-mgmt-network==10.2.0
     from azure.common.credentials import ServicePrincipalCredentials
-    from azure.mgmt.compute import ComputeManagementClient
+    from azure.mgmt.compute import ComputeManagementClient, models
     from azure.mgmt.network import NetworkManagementClient
-    from azure.mgmt.compute import models
-    from msrestazure.polling.arm_polling import ARMPolling
     from msrest.polling import LROPoller
+    from msrestazure.polling.arm_polling import ARMPolling
 
     HAVE_AZURE = True
 except ImportError:
     HAVE_AZURE = False
+
+# SQLAlchemy-specific imports
+from sqlalchemy.exc import SQLAlchemyError
 
 # Cuckoo-specific imports
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.exceptions import (
-    CuckooMachineError,
+    CuckooCriticalError,
     CuckooDependencyError,
     CuckooGuestCriticalTimeout,
-    CuckooCriticalError,
+    CuckooMachineError,
     CuckooOperationalError,
 )
 from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.core.database import TASK_PENDING, Machine
-
-# SQLAlchemy-specific imports
-from sqlalchemy.exc import SQLAlchemyError
 
 # Only log INFO or higher from imported python packages
 logging.getLogger("adal-python").setLevel(logging.INFO)

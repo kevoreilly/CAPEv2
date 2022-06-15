@@ -248,12 +248,18 @@ class CAPE(Processing):
 
         # Process CAPE Yara hits
 
+        # Prefilter extracted data + beauty is better than oneliner:
+        all_files = []
+        for extracted_file in file_info.get("extracted_files", []):
+            for yara in extracted_file["cape_yara"]:
+                if  extracted_file.get("data", ""):
+                    all_files.append((make_bytes(extracted_file["data"], yara)))
+
+        for yara in file_info["cape_yara"]:
+            all_files.append((file_data, yara))
+
         executed_config_parsers = set()
-        for tmp_data, hit in [(file_data, yara) for yara in file_info["cape_yara"]] + [
-            (make_bytes(extracted_file["data"]), yara)
-            for extracted_file in file_info.get("extracted_files", [])
-            for yara in extracted_file["cape_yara"]
-        ]:
+        for tmp_data, hit in all_files:
 
             # Check for a payload or config hit
             try:

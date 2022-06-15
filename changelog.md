@@ -1,3 +1,6 @@
+### [15-6-2022]
+* [Azure machinery](https://github.com/kevoreilly/CAPEv2/pull/922) by @cccs-kevin
+
 ### [8-6-2022]
 * Use poetry to handle dependencies
     * requirements.txt is still present to continue support for pip

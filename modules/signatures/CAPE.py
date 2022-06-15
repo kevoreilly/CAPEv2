@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 
 class CAPE_Compression(Signature):
-    name = "Compression"
+    name = "compression"
     description = "Behavioural detection: Decompression of executable module(s)."
     severity = 1
     categories = ["malware"]
@@ -57,7 +57,7 @@ class CAPE_Compression(Signature):
 
 
 class CAPE_RegBinary(Signature):
-    name = "RegBinary"
+    name = "reg_binary"
     description = "Behavioural detection: PE binary written to registry."
     severity = 3
     categories = ["malware"]
@@ -87,7 +87,7 @@ class CAPE_RegBinary(Signature):
 
 
 class CAPE_Decryption(Signature):
-    name = "Decryption"
+    name = "decryption"
     description = "Behavioural detection: Decryption of executable module(s)."
     severity = 1
     categories = ["malware"]
@@ -116,7 +116,7 @@ class CAPE_Decryption(Signature):
 
 
 class CAPE_Unpacker(Signature):
-    name = "Unpacker"
+    name = "unpacker"
     description = "Behavioural detection: Executable code extraction - unpacking"
     severity = 1
     categories = ["allocation"]
@@ -159,7 +159,7 @@ class CAPE_Unpacker(Signature):
 
 
 class CAPE_InjectionCreateRemoteThread(Signature):
-    name = "InjectionCreateRemoteThread"
+    name = "injection_create_remote_thread"
     description = "Behavioural detection: Injection with CreateRemoteThread in a remote process"
     severity = 3
     categories = ["injection"]
@@ -242,7 +242,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
 
 
 class CAPE_InjectionProcessHollowing(Signature):
-    name = "InjectionProcessHollowing"
+    name = "injection_process_hollowing"
     description = "Behavioural detection: Injection (Process Hollowing)"
     severity = 3
     categories = ["injection"]
@@ -319,7 +319,7 @@ class CAPE_InjectionProcessHollowing(Signature):
 
 
 class CAPE_InjectionSetWindowLong(Signature):
-    name = "InjectionSetWindowLong"
+    name = "injection_set_window_long"
     description = "Behavioural detection: Injection with SetWindowLong in a remote process"
     severity = 3
     categories = ["injection"]
@@ -383,7 +383,7 @@ class CAPE_InjectionSetWindowLong(Signature):
 
 
 class CAPE_Injection(Signature):
-    name = "InjectionInterProcess"
+    name = "injection_inter_process"
     description = "Behavioural detection: Injection (inter-process)"
     severity = 3
     categories = ["injection"]
@@ -433,7 +433,7 @@ class CAPE_Injection(Signature):
 
 
 class CAPE_EvilGrab(Signature):
-    name = "EvilGrab"
+    name = "evil_grab"
     description = "Behavioural detection: EvilGrab"
     severity = 3
     categories = ["malware"]
@@ -468,7 +468,7 @@ class CAPE_EvilGrab(Signature):
 
 
 class CAPE_PlugX(Signature):
-    name = "PlugX"
+    name = "plugx"
     description = "Behavioural detection: PlugX"
     severity = 3
     categories = ["chinese", "malware"]
@@ -503,7 +503,7 @@ class CAPE_PlugX(Signature):
 
 
 class CAPE_Doppelganging(Signature):
-    name = "Doppelganging"
+    name = "doppelganging"
     description = "Behavioural detection: Process Doppelganging"
     severity = 3
     categories = ["injection"]
@@ -542,7 +542,7 @@ class CAPE_Doppelganging(Signature):
 
 
 class CAPE_TransactedHollowing(Signature):
-    name = "TransactedHollowing"
+    name = "transacted_hollowing"
     description = "Behavioural detection: Transacted Hollowing"
     severity = 3
     categories = ["injection"]

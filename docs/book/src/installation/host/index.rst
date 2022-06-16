@@ -12,3 +12,4 @@ reference system for the commands examples.
     installation
     configuration
     routing
+    cloud

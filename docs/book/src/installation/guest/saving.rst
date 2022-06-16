@@ -191,3 +191,22 @@ remaining disk to change its behavior to reset on boot::
 After the disk is set to reset on boot, no permanent changes can be made to the
 virtual machine's disk. Modifications that occur while a virtual machine is
 running will not persist past shutdown.
+
+Azure
+=====
+Once you have a virtual machine that is ready to be your golden image for a 
+virtual machine scale set, take a snapshot of the virtual machine's disk.
+
+We are now going to turn this snapshot into an "image", which is the terminology 
+Azure uses as the base for all virtual machines in a scale set. 
+
+1. Create a Shared Image Gallery resource.
+2. Create an Image Definition in this Shared Image Gallery.
+    a. Operating System state must be SPECIALIZED
+3. Create an Image Version, and select "Disks and/or snapshots" as the Source.
+    a. Select the snapshot of the golden image.
+
+The creation of an image from a snapshot takes a while, so be patient.
+
+In the `az.conf` file, you will need to specify the Shared Gallery Name as well as 
+the Image Definition Name.

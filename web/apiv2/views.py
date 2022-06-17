@@ -1058,16 +1058,16 @@ def tasks_delete(request, task_id, status=False):
     for task in task_id:
         check = validate_task(task, status)
         if check["error"]:
-            f_deleted.append(task)
+            f_deleted.append(str(task))
             continue
 
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
             mongo_delete_data(task)
 
-            s_deleted.append(task)
+            s_deleted.append(str(task))
         else:
-            f_deleted.append(task)
+            f_deleted.append(str(task))
 
     if s_deleted:
         resp["data"] = "Task(s) ID(s) {0} has been deleted".format(",".join(s_deleted))

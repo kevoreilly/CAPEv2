@@ -1132,9 +1132,15 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     }
 
     report_formats = {
+        # Use the 'all' option if you want all generated files except for memory.dmp
         "all": {"type": "-", "files": ["memory.dmp"]},
+        # Use the 'dropped' option if you want all dropped files found in the /files directory
         "dropped": {"type": "+", "files": ["files"]},
+        # Use the 'dist' option if you want all generated files except for binary, dump_sorted.pcap, memory.dmp, and
+        # those found in the /logs directory
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp", "logs"]},
+        #  Use the 'lite' option if you want the generated files files.json, dump.pcap, and those found
+        # in the /CAPE, /files, /procdump, /macros and /shots directories
         "lite": {"type": "+", "files": ["files.json", "CAPE", "files", "procdump", "macros", "shots", "dump.pcap"]},
     }
 
@@ -1179,22 +1185,12 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             resp = {"error": True, "error_value": "Reports directory does not exist"}
             return Response(resp)
 
-    elif report_format.lower() == "all":
-        if not apiconf.taskreport.get("all"):
-            resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
-            return Response(resp)
-
-        mem_zip = create_zip(folder=srcdir)
-        if mem_zip is False:
-            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
-            return Response(resp)
-
-        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-        resp["Content-Length"] = len(mem_zip.getvalue())
-        resp["Content-Disposition"] = f"attachment; filename={task_id}_reports.zip"
-        return resp
-
     elif report_format.lower() in report_formats:
+        if report_format.lower() == "all":
+            if not apiconf.taskreport.get("all"):
+                resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
+                return Response(resp)
+
         report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -1224,7 +1220,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
                 except Exception as e:
                     log.error(e, exc_info=True)
 
-            # # exception for lite report that is under reports/lite.json
+            # exception for lite report that is under reports/lite.json
             if report_format.lower() == "lite":
                 lite_report_path = os.path.join(srcdir, "reports", "lite.json")
                 if os.path.exists(lite_report_path):
@@ -1235,11 +1231,8 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp["Content-Disposition"] = f"attachment; filename={report_format.lower()}.zip"
 
         print(
-            "Time needed to generate report for task",
-            task_id,
-            datetime.now() - time_start,
-            "size is:",
-            f'int({int(resp["Content-Length"])/int(1<<20):,.0f} MB',
+            f"Time needed to generate report for task {task_id}: {datetime.now() - time_start}; "
+            f"Size is: {int(resp['Content-Length'])/int(1<<20):,.0f} MB"
         )
         return resp
 

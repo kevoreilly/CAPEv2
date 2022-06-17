@@ -33,7 +33,7 @@ properly or your code might cause malfunctioning.
 Maximum Line Length
 -------------------
 
-Limit all lines to a maximum of 79 characters.
+Limit all lines to a maximum of 132 characters.
 
 Blank Lines
 -----------

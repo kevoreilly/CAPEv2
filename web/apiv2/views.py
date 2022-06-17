@@ -321,9 +321,7 @@ def tasks_create_file(request):
                 and (web_conf.uniq_submission.enabled or unique)
                 and db.check_file_uniq(File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours)
             ):
-                details["errors"].append(
-                    {sample.name: "Not unique, as unique option set on submit or in conf/web.conf"}
-                )
+                details["errors"].append({sample.name: "Not unique, as unique option set on submit or in conf/web.conf"})
                 continue
             if pcap:
                 if sample.name.lower().endswith(".saz"):
@@ -383,9 +381,7 @@ def tasks_create_file(request):
             if len(details["task_ids"]) == 1:
                 resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details.get("task_ids", [])[0]))
                 if callback:
-                    resp["url"] = [
-                        "{0}/submit/status/{1}/".format(apiconf.api.get("url"), details.get("task_ids", [])[0])
-                    ]
+                    resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), details.get("task_ids", [])[0])]
             else:
                 resp["data"]["message"] = "Task IDs {0} have been submitted".format(
                     ", ".join(str(x) for x in details.get("task_ids", []))
@@ -1542,9 +1538,7 @@ def tasks_pcap(request, task_id):
         return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
     if os.path.exists(srcfile):
         fname = "%s_dump.pcap" % task_id
-        resp = StreamingHttpResponse(
-            FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap"
-        )
+        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
         resp["Content-Length"] = os.path.getsize(srcfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
@@ -2159,9 +2153,7 @@ def common_download_func(service, request):
     if not hashes:
         hashes = request.POST.get("hashes".strip(), None)
     if not hashes:
-        return Response(
-            {"error": True, "error_value": f"hashes (hash list) or {dl_service_map[service]} value is empty"}
-        )
+        return Response({"error": True, "error_value": f"hashes (hash list) or {dl_service_map[service]} value is empty"})
     resp["error"] = False
     # Parse potential POST options (see submission/views.py)
     options = request.POST.get("options", "")

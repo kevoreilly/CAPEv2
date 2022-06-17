@@ -191,7 +191,12 @@ def tasks_create_static(request):
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
             task_id, extra_details = db.demux_sample_and_add_to_db(
-                tmp_path, options=options, priority=priority, static=1, only_extraction=True, user_id=request.user.id or 0
+                tmp_path,
+                options=options,
+                priority=priority,
+                static=1,
+                only_extraction=True,
+                user_id=request.user.id or 0,
             )
             task_ids.extend(task_id)
         except CuckooDemuxError as e:
@@ -283,7 +288,7 @@ def tasks_create_file(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
                 }
                 return Response(resp)
         # Parse a max file size to be uploaded
@@ -316,7 +321,9 @@ def tasks_create_file(request):
                 and (web_conf.uniq_submission.enabled or unique)
                 and db.check_file_uniq(File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours)
             ):
-                details["errors"].append({sample.name: "Not unique, as unique option set on submit or in conf/web.conf"})
+                details["errors"].append(
+                    {sample.name: "Not unique, as unique option set on submit or in conf/web.conf"}
+                )
                 continue
             if pcap:
                 if sample.name.lower().endswith(".saz"):
@@ -376,7 +383,9 @@ def tasks_create_file(request):
             if len(details["task_ids"]) == 1:
                 resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details.get("task_ids", [])[0]))
                 if callback:
-                    resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), details.get("task_ids", [])[0])]
+                    resp["url"] = [
+                        "{0}/submit/status/{1}/".format(apiconf.api.get("url"), details.get("task_ids", [])[0])
+                    ]
             else:
                 resp["data"]["message"] = "Task IDs {0} have been submitted".format(
                     ", ".join(str(x) for x in details.get("task_ids", []))
@@ -452,7 +461,7 @@ def tasks_create_url(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
                 }
                 return Response(resp)
 
@@ -542,7 +551,7 @@ def tasks_create_dlnexec(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
                 }
                 return Response(resp)
 
@@ -981,7 +990,10 @@ def tasks_reschedule(request, task_id):
         resp["error"] = False
         resp["data"] = "Task ID {0} has been rescheduled".format(task_id)
     else:
-        resp = {"error": True, "error_value": ("An error occurred while trying to reschedule Task ID {0}".format(task_id))}
+        resp = {
+            "error": True,
+            "error_value": "An error occurred while trying to reschedule Task ID {0}".format(task_id),
+        }
 
     return Response(resp)
 
@@ -1042,7 +1054,7 @@ def tasks_delete(request, task_id, status=False):
     if isinstance(task_id, int):
         task_id = [task_id]
     else:
-        task_id = [task.strip() for task in task_id.split(",")]
+        task_id = [force_int(task.strip()) for task in task_id.split(",")]
 
     resp = {}
     s_deleted = []
@@ -1094,7 +1106,7 @@ def tasks_status(request, task_id):
 def tasks_report(request, task_id, report_format="json", make_zip=False):
 
     if not apiconf.taskreport.get("enabled"):
-        resp = {"error": True, "error_value": "Task Deletion API is Disabled"}
+        resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
 
     check = validate_task(task_id)
@@ -1530,7 +1542,9 @@ def tasks_pcap(request, task_id):
         return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
     if os.path.exists(srcfile):
         fname = "%s_dump.pcap" % task_id
-        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
+        resp = StreamingHttpResponse(
+            FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap"
+        )
         resp["Content-Length"] = os.path.getsize(srcfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
@@ -1572,7 +1586,10 @@ def tasks_dropped(request, task_id):
         size = len(mem_zip.getvalue())
         size_in_mb = int(size / 1024 / 1024)
         if dropped_max_size_limit and size_in_mb > int(dropped_max_size_limit):
-            resp = {"error": True, "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb)}
+            resp = {
+                "error": True,
+                "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb),
+            }
             return Response(resp)
 
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
@@ -1626,7 +1643,9 @@ def tasks_rollingsuri(request, window=60):
     dummy_id = ObjectId.from_datetime(gen_time)
     result = list(
         mongo_find(
-            "analysis", {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}
+            "analysis",
+            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}},
+            {"suricata.alerts": 1, "info.id": 1},
         )
     )
     resp = []
@@ -1917,7 +1936,12 @@ def cuckoo_status(request):
 
             # add more from https://pypi.org/project/psutil/
             resp["data"]["server"] = {
-                "storage": {"free": hdd_free, "total": hdd_total, "used": hdd_used, "used_by": "{}%".format(hdd_percent_used)},
+                "storage": {
+                    "free": hdd_free,
+                    "total": hdd_total,
+                    "used": hdd_used,
+                    "used_by": "{}%".format(hdd_percent_used),
+                },
                 "ram": {"free": ram_free, "total": ram_total, "used": ram_used},
             }
     return Response(resp)
@@ -2135,7 +2159,9 @@ def common_download_func(service, request):
     if not hashes:
         hashes = request.POST.get("hashes".strip(), None)
     if not hashes:
-        return Response({"error": True, "error_value": f"hashes (hash list) or {dl_service_map[service]} value is empty"})
+        return Response(
+            {"error": True, "error_value": f"hashes (hash list) or {dl_service_map[service]} value is empty"}
+        )
     resp["error"] = False
     # Parse potential POST options (see submission/views.py)
     options = request.POST.get("options", "")
@@ -2156,7 +2182,10 @@ def common_download_func(service, request):
         if not (settings.VTDL_KEY or opt_apikey) or not settings.VTDL_PATH:
             resp = {
                 "error": True,
-                "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory",
+                "error_value": (
+                    "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH"
+                    " base directory"
+                ),
             }
             return Response(resp)
 
@@ -2176,7 +2205,7 @@ def common_download_func(service, request):
         else:
             resp = {
                 "error": True,
-                "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
             }
             return Response(resp)
 

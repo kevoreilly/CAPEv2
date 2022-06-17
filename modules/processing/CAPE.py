@@ -253,7 +253,7 @@ class CAPE(Processing):
         for extracted_file in file_info.get("extracted_files", []):
             for yara in extracted_file["cape_yara"]:
                 if extracted_file.get("data", ""):
-                    all_files.append((make_bytes(extracted_file["data"], yara)))
+                    all_files.append((make_bytes(extracted_file["data"]), yara))
 
         for yara in file_info["cape_yara"]:
             all_files.append((file_data, yara))

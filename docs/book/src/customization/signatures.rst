@@ -3,7 +3,7 @@ Signatures
 ==========
 
 By taking advantage of CAPE's customizability, you can write signatures which will then
-by run against analysis results. These signatures can be used to identify a predefined 
+by run against analysis results. These signatures can be used to identify a predefined
 pattern that represents a malicious behavior or an indicator that you're interested in.
 
 These signatures are very useful to give context to the analyses. They
@@ -47,10 +47,10 @@ The following is a basic example signature:
                                        regex=True)
 
 As you can see the structure of the signature is really simple and consistent with the other CAPE
-modules. Note that on line **12** a helper function is used. These helper functions 
-assist with signature-writing and we highly recommend becoming familiar with what helper functions are 
-available to you (found in the 
-[Signature class](https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/common/abstracts.py)) 
+modules. Note that on line **12** a helper function is used. These helper functions
+assist with signature-writing and we highly recommend becoming familiar with what helper functions are
+available to you (found in the
+[Signature class](https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/common/abstracts.py))
 before you start writing signatures. Some documentation for :ref:`Helpers` can be found below.
 
 In the example above, the helper function is used to walk through all of the accessed files in the summary and check
@@ -118,7 +118,7 @@ some initial attributes. These are the attributes that you can currently set:
     * ``severity``: a number identifying the severity of the events matched (generally between 1 and 3).
     * ``confidence``: a number between 1 and 100 that represents how confident the signature writer is that this signature will not be raised as a false positive.
     * ``weight``: a number used for calculating the `malscore` of a submission. This attribute acts as a multiplier of the product of severity and confidence.
-    * ``categories``: a list of categories that describe the type of event being matched (for example "*banker*", "*injection*" or "*anti-vm*"). For a list of all categories, see :ref:`Categories`. 
+    * ``categories``: a list of categories that describe the type of event being matched (for example "*banker*", "*injection*" or "*anti-vm*"). For a list of all categories, see :ref:`Categories`.
     * ``families``: a list of malware family names, in case the signature specifically matches a known one.
     * ``authors``: a list of people who authored the signature.
     * ``references``: a list of references (URLs) to give context to the signature.
@@ -486,65 +486,60 @@ Following is a list of available methods.
 .. _Categories:
 Categories
 ==========
-You can put signatures into categories to facilitate grouping or sorting. You can create your own category if you wish, but 
-it is easier for other users if you associate a signature 
+You can put signatures into categories to facilitate grouping or sorting. You can create your own category if you wish, but
+it is easier for other users if you associate a signature
 with a category that already exists. Here is a list of all categories available:
 
-- `account`
-- `anti-analysis`
-- `anti-av`
-- `anti-debug`
-- `anti-emulation`
-- `anti-sandbox`
-- `anti-vm`
-- `antivirus`
-- `backdoor`
-- `banker`
-- `bootkit`
-- `bot`
-- `browser`
-- `bypass`
-- `c2`
-- `clickfraud`
-- `command`
-- `credential_access`
-- `credential_dumping`
-- `cryptomining`
-- `ddos`
-- `discovery`
-- `dns`
-- `dotnet`
-- `downloader`
-- `dropper`
-- `encryption`
-- `evasion`
-- `execution`
-- `exploit`
-- `exploit_kit`
-- `generic`
-- `infostealer`
-- `injection`
-- `keylogger`
-- `lateral`
-- `loader`
-- `locker`
-- `macro`
-- `malware`
-- `martians`
-- `masquerading`
-- `network`
-- `office`
-- `packer`
-- `persistence`
-- `phishing`
-- `ransomware`
-- `rat`
-- `recon`
-- `rootkit`
-- `rtf`
-- `shellcode`
-- `static`
-- `stealth`
-- `trojan`
-- `uac_bypass`
-- `virus`
+- `account`: Adds or manipulates an administrative user account.
+- `anti-analysis`: Constructed to conceal or obfuscate itself to prevent analysis.
+- `anti-av`: Attempts to conceal itself from detection by antivirus.
+- `anti-debug`: Attempts to detect if it is being debugged.
+- `anti-emulation`: Detects the presence of an emulator.
+- `anti-sandbox`: Attempts to detect if it is in a sandbox.
+- `anti-vm`: Attempts to detect if it is being run in virtualized environment.
+- `antivirus`: Antivirus hit. File is infected.
+- `banker`: Designed to gain access to confidential information stored or processed through online banking.
+- `bootkit`: Manipulates machine configurations that would affect the boot of the machine.
+- `bot`: Appears to be a bot or exhibits bot-like behaviour.
+- `browser`: Manipulates browser-settings in a suspicious way.
+- `bypass`: Attempts to bypass operating systems security controls (firewall, amsi, applocker, etc.)
+- `c2`: Communicates with a server controlled by a malicious actor.
+- `clickfraud`: Manipulates browser settings to allow for insecure clicking.
+- `command`: A suspicious command was observed.
+- `credential_access`: Uses techniques to access credentials.
+- `credential_dumping`: Uses techniques to dump credentials.
+- `cryptomining`: Facilitates mining of cryptocurrency.
+- `discovery`: Uses techniques for discovery information about the system, the user, or the environment.
+- `dns`: Uses suspicious DNS queries.
+- `dotnet`: .NET code is used in a suspicious manner.
+- `downloader`: Trojan that downloads installs files.
+- `dropper`: Trojan that drops additional malware on an affected system.
+- `encryption`: Encryption algorithms are used for obfuscating data.
+- `evasion`: Techniques are used to avoid detection.
+- `execution`: Uses techniques to execute harmful code or create executables that could run harmful code.
+- `exploit`: Exploits an known software vulnerability or security flaw.
+- `exploit_kit`: Programs designed to crack or break computer and network security measures.
+- `generic`: Basic operating system objects are used in suspicious ways.
+- `infostealer`: Collects and disseminates information such as login details, usernames, passwords, etc.
+- `injection`: Input is not properly validated and gets processed by an interpreter as part of a command or query.
+- `keylogger`: Monitoring software detected.
+- `lateral`: Techniques used to move through environment and maintain access.
+- `loader`: Download and execute additional payloads on compromised machines.
+- `locker`: Prevents access to system data and files.
+- `macro`: A set of commands that automates a software to perform a certain action, found in Office macros.
+- `malware`: The file uses techniques associated with malicious software.
+- `martians`: Command shell or script process was created by unexpected parent process.
+- `masquerading`: The name or location of an object is manipulated to evade defenses and observation.
+- `network`: Suspicious network traffic was observed.
+- `office`: Makes API calls not consistent with expected/standard behaviour.
+- `packer`: Compresses, encrypts, and/or modifies a malicious file's format.
+- `persistence`: Technique used to maintain presence in system(s) across interruptions that could cut off access.
+- `phishing`: Techniques were observed that attempted to obtain information from the user.
+- `ransomware`: Designed to block access to a system until a sum of money is paid.
+- `rat`: Designed to provide the capability of covert surveillance and/or unauthorized access to a target.
+- `rootkit`: Designed to provide continued privileged access to a system while actively hiding its presence.
+- `static`: A suspicious characteristic was discovered during static analysis.
+- `stealth`: Leverages/modifies internal processes and settings to conceal itself.
+- `trojan`: Presents itself as legitimate in attempt to infiltrate a system.
+- `uac_bypass`: Technique observed that bypasses the User Account Control settings.
+- `virus`: Malicious software program.

@@ -502,7 +502,7 @@ with a category that already exists. Here is a list of all categories available:
 - `bootkit`: Manipulates machine configurations that would affect the boot of the machine.
 - `bot`: Appears to be a bot or exhibits bot-like behaviour.
 - `browser`: Manipulates browser-settings in a suspicious way.
-- `bypass`: Attempts to bypass operating systems security controls (firewall, amsi, applocker, etc.)
+- `bypass`: Attempts to bypass operating systems security controls (firewall, amsi, applocker, UAC, etc.)
 - `c2`: Communicates with a server controlled by a malicious actor.
 - `clickfraud`: Manipulates browser settings to allow for insecure clicking.
 - `command`: A suspicious command was observed.
@@ -541,5 +541,4 @@ with a category that already exists. Here is a list of all categories available:
 - `static`: A suspicious characteristic was discovered during static analysis.
 - `stealth`: Leverages/modifies internal processes and settings to conceal itself.
 - `trojan`: Presents itself as legitimate in attempt to infiltrate a system.
-- `uac_bypass`: Technique observed that bypasses the User Account Control settings.
 - `virus`: Malicious software program.

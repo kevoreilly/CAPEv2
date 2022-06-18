@@ -40,8 +40,10 @@ if processing_conf.flare_capa.enabled:
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if os.path.exists(rules_path):
                 capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+                rules_list = []
+                rules_list.append(rules_path)
                 try:
-                    rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
+                    rules = capa.main.get_rules(rules_list, disable_progress=True)
                     rules = capa.rules.RuleSet(rules)
                     HAVE_FLARE_CAPA = True
                 except InvalidRuleWithPath:

@@ -1114,7 +1114,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     resp = {}
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+        return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
     # Report validity check
     if os.path.exists(srcdir) and len(os.listdir(srcdir)) == 0:
@@ -1147,7 +1147,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     if report_format.lower() in formats:
         report_path = os.path.join(srcdir, formats[report_format.lower()])
         if not os.path.normpath(report_path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "error.html", {"error": "File not found".format(os.path.basename(report_path))})
+            return render(request, "error.html", {"error": f"File not found {os.path.basename(report_path)}"})
         if os.path.exists(report_path):
             if report_format in ("litereport", "json", "maec5"):
                 content = "application/json; charset=UTF-8"
@@ -1166,7 +1166,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             if make_zip:
                 mem_zip = create_zip(files=report_path)
                 if mem_zip is False:
-                    esp = {"error": True, "error_value": "Can't create zip archive for report file"}
+                    resp = {"error": True, "error_value": "Can't create zip archive for report file"}
                     return Response(resp)
 
                 resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
@@ -1193,12 +1193,8 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
 
         report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
-        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
-
-        if not os.path.exists(srcdir):
-            resp = {"error": True, "error_value": "Report doesn't exists"}
-            return Response(resp)
+        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH) and os.path.exists(srcdir):
+            return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
         mem_zip = BytesIO()
         with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
@@ -1225,6 +1221,9 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
                 lite_report_path = os.path.join(srcdir, "reports", "lite.json")
                 if os.path.exists(lite_report_path):
                     zf.write(lite_report_path, "reports/lite.json")
+                else:
+                    log.warning("Lite report does not exist. Did you enable 'litereport' in reporting.conf?")
+
         mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())

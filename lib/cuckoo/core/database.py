@@ -832,8 +832,6 @@ class Database(object, metaclass=Singleton):
                     log.debug("Task id %d - needs VM: %s. %s - %s", row.id, need_VM, row.machine, machine.label)
                     return None
             else:
-                if need_VM:
-                    log.debug("No task for machine with arch: %s", machine.arch)
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)

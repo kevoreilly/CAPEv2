@@ -39,10 +39,8 @@ if processing_conf.flare_capa.enabled:
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if os.path.exists(rules_path):
-                capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
                 try:
-                    rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
-                    rules = capa.rules.RuleSet(rules)
+                    rules = capa.rules.RuleSet(capa.main.get_rules([rules_path], disable_progress=True))
                     HAVE_FLARE_CAPA = True
                 except InvalidRuleWithPath:
                     print("FLARE_CAPA InvalidRuleWithPath")
@@ -56,14 +54,14 @@ if processing_conf.flare_capa.enabled:
 
             signatures_path = os.path.join(CUCKOO_ROOT, "data", "capa-signatures")
             if os.path.exists(signatures_path):
-                capa.main.SIGNATURES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-signatures")
+                capa.main.SIGNATURES_PATH_DEFAULT_STRING = signatures_path
                 try:
                     signatures = capa.main.get_signatures(capa.main.SIGNATURES_PATH_DEFAULT_STRING)
                     HAVE_FLARE_CAPA = True
                 except IOError:
                     print("FLARE_CAPA InvalidSignatures")
             else:
-                print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
+                print("FLARE CAPA signature missed! You can download them using python3 community.py -cr")
                 HAVE_FLARE_CAPA = False
     except ImportError as e:
         HAVE_FLARE_CAPA = False

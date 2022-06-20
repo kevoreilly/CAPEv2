@@ -12,7 +12,10 @@ import time
 import xml.etree.ElementTree as ET
 from typing import Dict, List
 
-import dns.resolver
+try:
+    import dns.resolver
+except ImportError:
+    print("Missed dependency -> pip3 install dnspython")
 import requests
 
 from lib.cuckoo.common.config import Config

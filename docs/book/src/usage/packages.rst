@@ -49,6 +49,11 @@ The following is a list of the existing packages in alphabetical order:
             * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of rundll32.exe (this is used to fool possible anti-sandboxing tricks of certain malware)
             * ``procmemdump`` *[yes/no]*: if enabled, take memory dumps of all actively monitored processes.
             * ``dll``: specify the name of an optional DLL to be used as a replacement for capemon.dll.
+            * ``dll_multi`` *[yes/no, true/false, on/off]*: if enabled, will allow multiple functions to be specified by name.
+            These functions must be separated by the `|` character, and must be supplied in the `function` task option. If this option is enabled, no function is specified,
+            and the Pip package `pefile` is installed in the guest, then the package will dynamically gather functions to run, up to the limit found in the `max_dll_exports` task option.
+            * ``max_dll_exports``: A positive integer, representing how many functions you wish to execute.
+
 
     * ``doc``: used to run and analyze **Microsoft Word documents**.
 

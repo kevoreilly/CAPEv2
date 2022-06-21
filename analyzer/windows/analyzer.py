@@ -469,8 +469,8 @@ class Analyzer:
                     log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                     aux.start()
                     log.debug('Started auxiliary module "%s"', module.__name__)
-            except (NotImplementedError, AttributeError):
-                log.warning("Auxiliary module %s was not implemented", module.__name__)
+            except (NotImplementedError, AttributeError) as e:
+                log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
             except Exception as e:
                 log.warning("Cannot execute auxiliary module %s: %s", module.__name__, e)
             else:

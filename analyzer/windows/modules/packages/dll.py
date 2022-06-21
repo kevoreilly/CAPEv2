@@ -3,14 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import contextlib
-import logging
 import os
 import shutil
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
-log = logging.getLogger(__name__)
+MAX_DLL_EXPORTS_DEFAULT = 8
 
 
 class Dll(Package):
@@ -22,13 +21,8 @@ class Dll(Package):
 
     def start(self, path):
         rundll32 = self.get_path("rundll32.exe")
-        function = self.options.get("function", "")
         arguments = self.options.get("arguments", "")
         dllloader = self.options.get("dllloader")
-        dll_multi = self.options.get("dll_multi", False)
-        max_dll_exports = int(self.options.get("max_dll_exports", 5))
-        if max_dll_exports <= 0:
-            max_dll_exports = 5
 
         # If the file doesn't have the proper .dll extension force it
         # and rename it. This is needed for rundll32 to execute correctly.
@@ -40,10 +34,52 @@ class Dll(Package):
             shutil.copy(rundll32, newname)
             rundll32 = newname
 
-        # If we just want a DLL function by a single function, a single ordinal or an ordinal range
-        if not dll_multi or dll_multi.lower() in ["false", "no", "off"]:
-            if not function:
-                function = "#1"
+        # If user has requested we use something (function, functions, ordinal, ordinal range)
+        function = self.options.get("function")
+        run_ordinal_range = False
+        run_multiple_functions = False
+        if function:
+
+            # If user has requested we use functions, separated by commas
+            if "," in function:
+                function = function.split(",")
+                run_multiple_functions = True
+
+            # If user has requested we use an ordinal range, separated by a hyphen or by ..
+            elif "-" in function or ".." in function:
+                run_ordinal_range = True
+
+        # If user has not requested that we use something, we should default to running all available exports, up to a limit
+        else:
+            available_exports = self.config.exports.split(",")
+
+            # Used for export discovery / splitting
+            use_export_name = self.options.get("use_export_name")
+            if use_export_name.lower() in ["on", "yes", "true"]:
+                use_export_name = True
+            else:
+                use_export_name = False
+
+            if not available_exports:
+                if use_export_name:
+                    function = ["DllMain", "DllRegisterServer"]
+                    run_multiple_functions = True
+                else:
+                    function = "#1"
+            else:
+                max_dll_exports = int(self.options.get("max_dll_exports", MAX_DLL_EXPORTS_DEFAULT))
+                if max_dll_exports <= 0:
+                    max_dll_exports = MAX_DLL_EXPORTS_DEFAULT
+                dll_exports_num = min(len(available_exports), max_dll_exports)
+
+                if use_export_name:
+                    function = available_exports[:dll_exports_num]
+                    run_multiple_functions = True
+                else:
+                    function = f"#1-{dll_exports_num}"
+                    run_ordinal_range = True
+
+        if run_ordinal_range:
             with contextlib.suppress(ValueError, AssertionError):
                 start, end = (int(_.lstrip("#")) for _ in function.replace("..", "-").split("-", 1))
                 assert start < end
@@ -51,55 +87,19 @@ class Dll(Package):
                 # if there are multiple functions launch them by their ordinal number in a for loop via cmd.exe calling rundll32.exe
                 return self.execute("C:\\Windows\\System32\\cmd.exe", args.strip(), path)
 
-            args = f'"{path}"' if dllloader == "regsvcs.exe" else f'"{path}",{function}'
-            if arguments:
-                args += f" {arguments}"
-
-            return self.execute(rundll32, args, path)
-
-        # If we want to launch multiple functions by name or dynamically launch DLL functions by their export name
-        else:
-            # Allow ability to receive multiple entry points by submission, through the use of a pipe
-            function = set([item for item in function.split("|") if item])
-            if not function:
-                try:
-                    from pefile import PE, PEFormatError
-                    # We have a DLL file, but no user specified function(s) to run. let's try to pick a few...
-                    dll_parsed = None
-                    try:
-                        dll_parsed = PE(data=open(path, "rb").read())
-                    except PEFormatError as e:
-                        log.warning(f"Could not parse PE file due to {e}")
-
-                    if dll_parsed and hasattr(dll_parsed, "DIRECTORY_ENTRY_EXPORT"):
-                        # Do we have any exports?
-                        for export_symbol in dll_parsed.DIRECTORY_ENTRY_EXPORT.symbols:
-                            if export_symbol.name is not None:
-                                if type(export_symbol.name) == str:
-                                    function.add(export_symbol.name)
-                                elif type(export_symbol.name) == bytes:
-                                    function.add(export_symbol.name.decode())
-                            else:
-                                function.add(f"#{export_symbol.ordinal}")
-                except ImportError:
-                    log.error("'pefile' module is not installed. On your guest, run 'pip install pefile'.")
-
-            # Wow, seriously? Nothing yet?
-            if not function:
-                function.add("DllMain")
-                function.add("DllRegisterServer")
-
-            # Run them all!
+        elif run_multiple_functions:
             ret_list = []
-            for function_name in list(function)[:max_dll_exports]:
+            for function_name in function:
                 args = f'"{path}"' if dllloader == "regsvcs.exe" else f'"{path}",{function_name}'
                 if arguments:
                     args += f" {arguments}"
 
                 ret_list.append(self.execute(rundll32, args, path))
-
-            available_functions = ",".join(list(function)[max_dll_exports:])
-            if available_functions:
-                log.info(f"There were {len(function) - max_dll_exports} other exports that were not executed: {available_functions}.")
-
             return ret_list
+
+        else:
+            args = f'"{path}"' if dllloader == "regsvcs.exe" else f'"{path}",{function}'
+            if arguments:
+                args += f" {arguments}"
+
+            return self.execute(rundll32, args, path)

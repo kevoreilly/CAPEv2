@@ -10,6 +10,7 @@ from threading import Thread
 from lib.api.screenshot import Screenshot
 from lib.common.abstracts import Auxiliary
 from lib.common.results import NetlogFile
+from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -23,12 +24,12 @@ SKIP_AREA = None
 class Screenshots(Auxiliary, Thread):
     """Take screenshots."""
 
-    priority = 1
-
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
-        self.do_run = True
+        self.config = Config(cfg="analysis.conf")
+        self.enabled = self.config.screenshots
+        self.do_run = self.enabled
 
     def stop(self):
         """Stop screenshotting."""

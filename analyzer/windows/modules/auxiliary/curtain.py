@@ -70,7 +70,5 @@ class Curtain(Thread, Auxiliary):
         return False
 
     def stop(self):
-        if self.enabled:
-            self.collectLogs()
-            return True
-        return False
+        self.collectLogs()
+        return True

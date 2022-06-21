@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host

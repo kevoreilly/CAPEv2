@@ -201,7 +201,7 @@ class FileUpload(ProtocolHandler):
         else:
             filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
-        log.debug(f"Task #{self.task_id}: Trying to upload file '{dump_path.decode()}'")
+        log.debug("Task #%s: Trying to upload file %s", self.task_id, dump_path.decode())
         if not duplicated:
             file_path = os.path.join(self.storagepath, dump_path.decode())
 
@@ -241,7 +241,7 @@ class FileUpload(ProtocolHandler):
             try:
                 return self.handler.copy_to_fd(self.fd, self.upload_max_size)
             finally:
-                log.debug(f"Task #{self.task_id}: Uploaded file '{dump_path.decode()}' of length {self.fd.tell()}")
+                log.debug("Task #%s: Uploaded file %s of length: %s", self.task_id, dump_path.decode(), self.fd.tell())
 
 
 class LogHandler(ProtocolHandler):

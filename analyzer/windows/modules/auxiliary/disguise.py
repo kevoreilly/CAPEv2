@@ -28,12 +28,19 @@ from winreg import (
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
+from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
 
 class Disguise(Auxiliary):
     """Disguise the analysis environment."""
+
+    def __init__(self, options, config):
+        Auxiliary.__init__(self, options, config)
+        self.config = Config(cfg="analysis.conf")
+        self.enabled = self.config.disguise
+        self.do_run = self.enabled
 
     @staticmethod
     def run_as_system(command):

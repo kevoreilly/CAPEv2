@@ -154,11 +154,8 @@ class MongoDB(Report):
                 self.loop_saver(report)
                 return
             parent_key, psize = self.debug_dict_size(report)[0]
-            if not self.options.get("fix_large_docs", False):
-                # Just log the error and problem keys
-                # log.error(str(e))
-                log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
-            else:
+            log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
+            if self.options.get("fix_large_docs"):
                 # Delete the problem keys and check for more
                 error_saved = True
                 size_filter = MONGOSIZELIMIT
@@ -167,11 +164,16 @@ class MongoDB(Report):
                         report = report[0]
                     try:
                         if isinstance(report[parent_key], list):
-                            for j, parent_dict in enumerate(report[parent_key]):
-                                child_key, csize = self.debug_dict_size(parent_dict)[0]
-                                if csize > size_filter:
-                                    log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
-                                    del report[parent_key][j][child_key]
+                            if parent_key == "strings":
+                                del report["strings"]
+                                parent_key, psize = self.debug_dict_size(report)[0]
+                                continue
+                            else:
+                                for j, parent_dict in enumerate(report[parent_key]):
+                                    child_key, csize = self.debug_dict_size(parent_dict)[0]
+                                    if csize > size_filter:
+                                        log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
+                                        del report[parent_key][j][child_key]
                         else:
                             child_key, csize = self.debug_dict_size(report[parent_key])[0]
                             if csize > size_filter:

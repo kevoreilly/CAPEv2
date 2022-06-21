@@ -466,6 +466,7 @@ class Analyzer:
                     # We continue so that the module is not added to AUX_ENABLED
                     continue
                 else:
+                    log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                     aux.start()
                     log.debug('Started auxiliary module "%s"', module.__name__)
             except (NotImplementedError, AttributeError):
@@ -473,6 +474,7 @@ class Analyzer:
             except Exception as e:
                 log.warning("Cannot execute auxiliary module %s: %s", module.__name__, e)
             else:
+                log.debug("Started auxiliary module %s", module.__name__)
                 AUX_ENABLED.append(aux)
 
         """

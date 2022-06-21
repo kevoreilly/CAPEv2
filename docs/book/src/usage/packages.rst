@@ -50,9 +50,9 @@ The following is a list of the existing packages in alphabetical order:
             * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of rundll32.exe (this is used to fool possible anti-sandboxing tricks of certain malware)
             * ``procmemdump`` *[yes/no]*: if enabled, take memory dumps of all actively monitored processes.
             * ``dll``: specify the name of an optional DLL to be used as a replacement for capemon.dll.
-            * ``use_export_name`` *[yes/no, true/false, on/off]*: if enabled and no function is specified,
-            then the package will run all available functions, up to the limit found in the `max_dll_exports` task option.
-            * ``max_dll_exports``: A positive integer, representing how many functions you wish to execute.
+            * ``enable_mutli`` *[yes/no, true/false, on/off]*: if enabled, multiple functions can be run.
+            * ``use_export_name`` *[yes/no, true/false, on/off]*: if enabled, functions will be run by name rather than by ordinal number.
+            * ``max_dll_exports``: A positive integer, representing how many functions you wish to execute. `enable_mutli` must be enabled.
 
 
     * ``doc``: used to run and analyze **Microsoft Word documents**.

@@ -1,6 +1,7 @@
 import logging
-from subprocess import call, STARTUPINFO, STARTF_USESHOWWINDOW
+from subprocess import STARTF_USESHOWWINDOW, STARTUPINFO, call
 from threading import Thread
+
 from lib.common.abstracts import Auxiliary
 from lib.core.config import Config
 

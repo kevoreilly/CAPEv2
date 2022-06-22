@@ -14,6 +14,7 @@ Please answer the following questions for yourself before submitting an issue.
 - [ ] I checked to make sure that this issue has not already been filed
 - [ ] I'm reporting the issue to the correct repository (for multi-repository projects)
 - [ ] I'm have read all configs with all optional parts
+- [ ] I'm have checked [discussions section](https://github.com/kevoreilly/CAPEv2/discussions)
 
 
 # Expected Behavior

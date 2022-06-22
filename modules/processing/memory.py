@@ -314,10 +314,11 @@ class VolatilityManager:
 
         if self.voptions.basic.delete_memdump:
             for memfile in (self.memfile, f"{self.memfile}.zip"):
-                try:
-                    os.remove(memfile)
-                except OSError:
-                    log.error('Unable to delete memory dump file at path "%s"', memfile)
+                if os.path.exists(memfile):
+                    try:
+                        os.remove(memfile)
+                    except OSError:
+                        log.error('Unable to delete memory dump file at path "%s"', memfile)
 
 
 class Memory(Processing):

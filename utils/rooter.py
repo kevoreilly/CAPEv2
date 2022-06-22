@@ -261,9 +261,30 @@ def inetsim_redirect_port(action, srcip, dstip, ports):
             log.debug("Invalid inetsim ports entry: %s", entry)
             continue
         srcport, dstport = entry.split(":")
-        if not srcport.isdigit() or not dstport.isdigit():
-            log.debug("Invalid inetsim ports entry: %s", entry)
+        if not dstport.isdigit():
+            log.debug("Invalid inetsim dstport entry: %s", dstport)
             continue
+
+        # Handle srcport ranges
+        if "-" in srcport:
+            # We need a single hyphen to indicate that it is a range
+            if srcport.count("-") != 1:
+                log.debug("Invalid inetsim srcport range entry: %s", srcport)
+                continue
+            else:
+                start_srcport, end_srcport = srcport.split("-")
+                if not start_srcport.isdigit() or not end_srcport.isdigit():
+                    log.debug("Invalid inetsim srcport range entry: %s", srcport)
+                    continue
+                else:
+                    # Good to go! iptables takes port ranges as start:end
+                    srcport = srcport.replace("-", ":")
+
+        # Handle a single srcport
+        else:
+            if not srcport.isdigit():
+                log.debug("Invalid inetsim srcport entry: %s", srcport)
+                continue
         run(
             settings.iptables,
             "-t",

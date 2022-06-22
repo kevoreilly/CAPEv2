@@ -6,6 +6,7 @@ from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
+import pytest_asyncio
 from func_timeout import FunctionTimedOut, func_timeout
 from tcr_misc import get_sample, random_string
 
@@ -23,7 +24,7 @@ class mock_task:
         self.sample_id = "testid"
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def grab_sample():
     def _grab_sample(sample_hash):
         sample_location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
@@ -33,7 +34,7 @@ def grab_sample():
     return _grab_sample
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def setup_machine_lock():
     # See lib.cuckoo.core.scheduler::Scheduler:initialize()
     class mock_lock:
@@ -48,7 +49,7 @@ def setup_machine_lock():
     scheduler.machine_lock = None
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def setup_machinery():
     def _setup_machinery(mach_id):
         scheduler.machinery = mach_id
@@ -57,7 +58,7 @@ def setup_machinery():
     scheduler.machinery = None
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def symlink():
     try:
         os.makedirs("fstorage/binaries", exist_ok=True)
@@ -83,7 +84,7 @@ def symlink():
         print(("Error cleaning up, probably fine:" + str(e)))
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def clean_init_storage():
     yield
     try:
@@ -92,7 +93,7 @@ def clean_init_storage():
         print(("Error cleaning up, probably fine:" + str(e)))
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def create_store_file_dir():
     try:
         os.makedirs(os.getcwd() + "/storage/binaries/")
@@ -308,7 +309,6 @@ class TestAnalysisManager:
         except Exception as e:
             print((str(e)))
 
-    @pytest.mark.skip(reason="TODO")
     def test_build_options(self):
         class mock_machine:
             resultserver_ip = "1.2.3.4"
@@ -341,7 +341,7 @@ class TestAnalysisManager:
             "timeout": 10,
             "file_name": "test_scheduler.py",
             "browser": True,
-            "curtain": True,
+            "curtain": False,
             "procmon": False,
             "digisig": True,
             "disguise": True,
@@ -356,6 +356,28 @@ class TestAnalysisManager:
             "do_upload_max_size": 0,
             "upload_max_size": 100000000,
         }
+
+    @pytest.mark.skip(reason="This error is from parse_pe get_exports, which is not part of scheduler anymore")
+    def test_build_options_false_pe(self, mocker, caplog):
+        class mock_machine(object):
+            resultserver_ip = "1.2.3.4"
+            resultserver_port = "1337"
+
+        mock_task_build_opts = mock_task()
+        mock_task_build_opts.package = "foo"
+        mock_task_build_opts.enforce_timeout = 1
+        mock_task_build_opts.clock = datetime.strptime("01-01-2099 09:01:01", "%m-%d-%Y %H:%M:%S")
+        mock_task_build_opts.timeout = 10
+
+        analysis_man = AnalysisManager(task=mock_task_build_opts, error_queue=queue.Queue())
+        analysis_man.machine = mock_machine()
+        mocker.patch(
+            "lib.cuckoo.core.scheduler.File.get_type", return_value="PE32 executable (console) Intel 80386, for MS Windows"
+        )
+
+        opts = analysis_man.build_options()
+        opts["target"] = opts["target"].rsplit("/", 1)[-1]
+        assert "PE type not recognised" in caplog.text
 
     @pytest.mark.skip(reason="TODO")
     def test_build_options_pe(self, grab_sample):
@@ -391,7 +413,7 @@ class TestAnalysisManager:
             "timeout": 10,
             "file_name": "5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b",
             "browser": True,
-            "curtain": True,
+            "curtain": False,
             "procmon": False,
             "digisig": True,
             "disguise": True,

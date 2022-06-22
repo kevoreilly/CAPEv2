@@ -460,15 +460,16 @@ class Analyzer:
                 log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_avail.append(aux)
 
+                # The following commented out code causes the monitor to not upload logs.
                 # If the auxiliary module is not enabled, we shouldn't start it
-                if hasattr(aux, "enabled") and not getattr(aux, "enabled", False):
-                    log.debug('Auxiliary module "%s" is disabled.', module.__name__)
-                    # We continue so that the module is not added to AUX_ENABLED
-                    continue
-                else:
-                    log.debug('Trying to start auxiliary module "%s"...', module.__name__)
-                    aux.start()
-                    log.debug('Started auxiliary module "%s"', module.__name__)
+                # if hasattr(aux, "enabled") and not getattr(aux, "enabled", False):
+                #     log.debug('Auxiliary module "%s" is disabled.', module.__name__)
+                #     # We continue so that the module is not added to AUX_ENABLED
+                #     continue
+                # else:
+                log.debug('Trying to start auxiliary module "%s"...', module.__name__)
+                aux.start()
+                log.debug('Started auxiliary module "%s"', module.__name__)
             except (NotImplementedError, AttributeError) as e:
                 log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
             except Exception as e:

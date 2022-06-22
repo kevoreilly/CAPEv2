@@ -71,6 +71,10 @@ if processing_conf.trid.enabled:
 def static_file_info(
     data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str, results: dict
 ):
+
+    if int(os.path.getsize(file_path)/(1024*1024)) > int(processing_conf.static.max_file_size):
+        return
+
     if (
         not HAVE_OLETOOLS
         and "Zip archive data, at least v2.0" in data_dictionary["type"]

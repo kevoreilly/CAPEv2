@@ -443,7 +443,7 @@ def fix_section_permission(path):
     try:
         if not IsPEImage:
             return
-        pe = pefile.PE(path)
+        pe = pefile.PE(path, fast_load=True)
         if not pe:
             return
         for pe_section in pe.sections:

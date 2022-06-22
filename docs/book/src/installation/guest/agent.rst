@@ -19,8 +19,8 @@ spawned. If you want to hide this window you can rename the file from
 spawning upon launching the script.
 
 
-Prio To Windows 10
-==================
+Prior To Windows 10
+===================
 
 If you want the script to be launched at Windows' boot, place the file
 in the admin startup folder. To access this folder, open the app
@@ -36,13 +36,13 @@ agent not being able to work as intended.
 Windows 10+
 ===========
 
-To start the script at boot, you will need to set it to be run as a
-scheduled task as dropping it in
+To start the script at boot, you will need to set the agent to be run
+as a scheduler task. Dropping it in
 ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp`` will
-result in it being ran with improper priviledges.
+result in it being ran with improper privilege.
 
-1. Goto control panel and administrative tools to access ``Task
-   Scheduler``.
+1. Go to "Control Panel" > "System and Security" > "Administrative
+   Tools" to access Task Scheduler.
 2. Select ``Create Basic Task`` from the action list.
 3. Set the trigger as ``When I logon``, select start a program, and
    point it at the saved agent.
@@ -52,4 +52,4 @@ result in it being ran with improper priviledges.
 5. In the general tab tell it to ``run with highest priviledges``.
 6. Select ok.
 
-After that all is done, it will come up next restart/login.
+After that all is done, it will come up on the next restart/login.

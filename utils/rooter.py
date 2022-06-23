@@ -324,7 +324,7 @@ def inetsim_service_port_trap(action, srcip, dstip, protocol):
         "-j",
         "DNAT",
         "--to-destination",
-        dstip
+        dstip,
     )
     run_iptables(
         "-t",
@@ -343,7 +343,7 @@ def inetsim_service_port_trap(action, srcip, dstip, protocol):
         "-j",
         "DNAT",
         "--to-destination",
-        dstip
+        dstip,
     )
 
 
@@ -369,7 +369,7 @@ def inetsim_trap(action, ipaddr, inetsim_ip, resultserver_port):
         "-j",
         "DNAT",
         "--to-destination",
-        "%s:%s" % (inetsim_ip, "1")
+        "%s:%s" % (inetsim_ip, "1"),
     )
     # udp
     run_iptables(
@@ -387,7 +387,7 @@ def inetsim_trap(action, ipaddr, inetsim_ip, resultserver_port):
         "-j",
         "DNAT",
         "--to-destination",
-        "%s:%s" % (inetsim_ip, "1")
+        "%s:%s" % (inetsim_ip, "1"),
     )
     # icmp
     run_iptables(
@@ -404,7 +404,7 @@ def inetsim_trap(action, ipaddr, inetsim_ip, resultserver_port):
         "-j",
         "DNAT",
         "--to-destination",
-        "%s:%s" % (inetsim_ip, "1")
+        "%s:%s" % (inetsim_ip, "1"),
     )
 
 

@@ -285,8 +285,7 @@ def inetsim_redirect_port(action, srcip, dstip, ports):
             if not srcport.isdigit():
                 log.debug("Invalid inetsim srcport entry: %s", srcport)
                 continue
-        run(
-            settings.iptables,
+        run_iptables(
             "-t",
             "nat",
             action,
@@ -305,18 +304,63 @@ def inetsim_redirect_port(action, srcip, dstip, ports):
         )
 
 
-def inetsim_enable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
-    """Enable hijacking of all traffic and send it to InetSIM."""
-    log.info("Enabling inetsim route.")
-    inetsim_redirect_port("-A", ipaddr, inetsim_ip, ports)
+def inetsim_service_port_trap(action, srcip, dstip, protocol):
+    # Note that the multiport limit for ports specified is 15,
+    # so we will split this up into two rules
     run_iptables(
         "-t",
         "nat",
-        "-I",
+        action,
+        "PREROUTING",
+        "--source",
+        srcip,
+        "-p",
+        protocol,
+        "-m",
+        "multiport",
+        "--dports",
+        # The following ports are used for default services on Ubuntu
+        "7,9,13,17,19,21,22,25,37,69,79,80,110,113",
+        "-j",
+        "DNAT",
+        "--to-destination",
+        dstip
+    )
+    run_iptables(
+        "-t",
+        "nat",
+        action,
+        "PREROUTING",
+        "--source",
+        srcip,
+        "-p",
+        protocol,
+        "-m",
+        "multiport",
+        "--dports",
+        # The following ports are used for default services on Ubuntu
+        "123,443,465,514,990,995,6667",
+        "-j",
+        "DNAT",
+        "--to-destination",
+        dstip
+    )
+
+
+def inetsim_trap(action, ipaddr, inetsim_ip, resultserver_port):
+    # There are four options for protocol in iptables: tcp, udp, icmp and all
+    # Since we want tcp, udp and icmp to be configured differently, we cannot use all
+    # tcp
+    run_iptables(
+        "-t",
+        "nat",
+        action,
         "PREROUTING",
         "--source",
         ipaddr,
         "-p",
+        "tcp",
+        "-m",
         "tcp",
         "--syn",
         "!",
@@ -325,11 +369,57 @@ def inetsim_enable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
         "-j",
         "DNAT",
         "--to-destination",
-        "{}".format(inetsim_ip),
+        "%s:%s" % (inetsim_ip, "1")
     )
+    # udp
+    run_iptables(
+        "-t",
+        "nat",
+        action,
+        "PREROUTING",
+        "--source",
+        ipaddr,
+        "-p",
+        "udp",
+        "!",
+        "--dport",
+        resultserver_port,
+        "-j",
+        "DNAT",
+        "--to-destination",
+        "%s:%s" % (inetsim_ip, "1")
+    )
+    # icmp
+    run_iptables(
+        "-t",
+        "nat",
+        action,
+        "PREROUTING",
+        "--source",
+        ipaddr,
+        "-p",
+        "icmp",
+        "--icmp-type",
+        "any",
+        "-j",
+        "DNAT",
+        "--to-destination",
+        "%s:%s" % (inetsim_ip, "1")
+    )
+
+
+def inetsim_enable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
+    """Enable hijacking of all traffic and send it to InetSIM."""
+    log.info("Enabling inetsim route.")
+    inetsim_redirect_port("-A", ipaddr, inetsim_ip, ports)
+    inetsim_service_port_trap("-A", ipaddr, inetsim_ip, "tcp")
+    inetsim_service_port_trap("-A", ipaddr, inetsim_ip, "udp")
+    dns_forward("-A", ipaddr, inetsim_ip, dns_port)
+    inetsim_trap("-A", ipaddr, inetsim_ip, resultserver_port)
+    # INetSim does not have an SSH service, so SSH traffic can get through to the host. We want to block this.
+    run_iptables("-A", "INPUT", "--source", ipaddr, "-p", "tcp", "-m", "tcp", "--dport", "22", "-j", "DROP")
     run_iptables("-A", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
     run_iptables("-A", "OUTPUT", "-m", "state", "--state", "INVALID", "-j", "DROP")
-    dns_forward("-A", ipaddr, inetsim_ip, dns_port)
     run_iptables("-A", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 
@@ -337,27 +427,13 @@ def inetsim_disable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
     """Disable hijacking of all traffic and send it to InetSIM."""
     log.info("Disabling inetsim route.")
     inetsim_redirect_port("-D", ipaddr, inetsim_ip, ports)
-    run_iptables(
-        "-D",
-        "PREROUTING",
-        "-t",
-        "nat",
-        "--source",
-        ipaddr,
-        "-p",
-        "tcp",
-        "--syn",
-        "!",
-        "--dport",
-        resultserver_port,
-        "-j",
-        "DNAT",
-        "--to-destination",
-        "{}".format(inetsim_ip),
-    )
+    inetsim_service_port_trap("-D", ipaddr, inetsim_ip, "tcp")
+    inetsim_service_port_trap("-D", ipaddr, inetsim_ip, "udp")
+    dns_forward("-D", ipaddr, inetsim_ip, dns_port)
+    inetsim_trap("-D", ipaddr, inetsim_ip, resultserver_port)
+    run_iptables("-D", "INPUT", "--source", ipaddr, "-p", "tcp", "-m", "tcp", "--dport", "22", "-j", "DROP")
     run_iptables("-D", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
     run_iptables("-D", "OUTPUT", "-m", "state", "--state", "INVALID", "-j", "DROP")
-    dns_forward("-D", ipaddr, inetsim_ip, dns_port)
     run_iptables("-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 

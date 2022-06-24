@@ -85,7 +85,7 @@ class Dll(Package):
                 else:
                     use_export_name = False
 
-                available_exports = self.config.exports.split(",")
+                available_exports = list(filter(None, self.config.exports.split(",")))
 
                 # If there are no available exports, default
                 if not available_exports:

@@ -35,7 +35,9 @@ class CAPE_Compression(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1027"]
+    ttps = ["T1027", "T1140"]  # MITRE v6,7,8
+    mbcs = ["OB0002", "OB0006", "E1027"]
+    mbcs += ["OC0004", "C0025"]  # micro-behaviour
 
     filter_apinames = set(["RtlDecompressBuffer"])
 
@@ -64,7 +66,9 @@ class CAPE_RegBinary(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1112"]
+    ttps = ["T1112"]  # MITRE v6,7,8
+    mbcs = ["OB0006", "E1112"]
+    mbcs += ["OC0008", "C0036"]  # micro-behaviour
 
     filter_apinames = set(["RegSetValueExA", "RegSetValueExW", "RegCreateKeyExA", "RegCreateKeyExW"])
 
@@ -94,7 +98,9 @@ class CAPE_Decryption(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1027"]
+    ttps = ["T1027", "T1140"]  # MITRE v6,7,8
+    mbcs = ["OB0002", "OB0006", "E1027"]
+    mbcs += ["OC0005", "C0031"]  # micro-behaviour
 
     filter_apinames = set(["CryptDecrypt"])
 
@@ -123,7 +129,10 @@ class CAPE_Unpacker(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1027"]
+    ttps = ["T1027", "T1140"]  # MITRE v6,7,8
+    ttps += ["T1027.002"]  # MITRE v7,8
+    mbcs = ["OB0002", "OB0006", "E1027", "F0001"]
+    mbcs += ["OC0002", "C0007"]  # micro-behaviour
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -152,7 +161,7 @@ class CAPE_Unpacker(Signature):
                 return True
         elif call["api"] == "NtProtectVirtualMemory":
             protection = int(self.get_argument(call, "NewAccessProtection"), 0)
-            size = self.get_argument(call, "NumberOfBytesProtected")
+            size = int(self.get_argument(call, "NumberOfBytesProtected"), 0)
             handle = self.get_argument(call, "ProcessHandle")
             if handle == 0xFFFFFFFF and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
@@ -166,7 +175,11 @@ class CAPE_InjectionCreateRemoteThread(Signature):
     authors = ["JoseMi Holguin", "nex", "Optiv", "kevoreilly", "KillerInstinct"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055"]
+    ttps = ["T1055"]  # MITRE v6,7,8
+    ttps += ["T1055.002"]  # MITRE v7,8
+    ttps += ["U1216"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
+    mbcs += ["OC0003", "C0038"]  # micro-behaviours
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -249,7 +262,10 @@ class CAPE_InjectionProcessHollowing(Signature):
     authors = ["glysbaysb", "Optiv", "KillerInstinct"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055", "T1093"]
+    ttps = ["T1055", "T1093"]  # MITRE v6
+    ttps += ["T1055.012"]  # MITRE v7,8
+    ttps += ["U1225"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -326,7 +342,10 @@ class CAPE_InjectionSetWindowLong(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055", "T1181"]
+    ttps = ["T1055", "T1181"]  # MITRE v6
+    ttps += ["T1055.011"]  # MITRE v7,8
+    ttps += ["U1319"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -390,7 +409,8 @@ class CAPE_Injection(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055"]
+    ttps = ["T1055"]  # MITRE v6,7,8
+    mbcs = ["OB0006", "E1055"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -440,7 +460,9 @@ class CAPE_EvilGrab(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1219"]
+    ttps = ["T1219"]  # MITRE v6,7,8
+    mbcs = ["OB0008", "OB0012", "B0022"]
+    mbcs += ["OC0008", "C0036"]  # micro-behaviour
 
     filter_apinames = set(["RegSetValueExA", "RegSetValueExW", "RegCreateKeyExA", "RegCreateKeyExW"])
 
@@ -476,7 +498,9 @@ class CAPE_PlugX(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1219"]
+    ttps = ["T1219"]  # MITRE v6,7,8
+    mbcs = ["OB0008", "OB0012", "B0022"]
+    mbcs += ["OC0008", "C0036"]  # micro-behaviour
 
     filter_apinames = set(["RtlDecompressBuffer", "memcpy"])
 
@@ -510,7 +534,10 @@ class CAPE_Doppelganging(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055", "T1186"]
+    ttps = ["T1055", "T1186"]  # MITRE v6
+    ttps += ["T1055.013"]  # MITRE v7,8
+    ttps += ["U1215"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -549,7 +576,10 @@ class CAPE_TransactedHollowing(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055", "T1093"]
+    ttps = ["T1055", "T1093"]  # MITRE v6
+    ttps += ["T1055.012"]  # MITRE v7,8
+    ttps += ["U1225"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
 
     filter_apinames = set(["RtlSetCurrentTransaction", "NtRollbackTransaction", "NtMapViewOfSection"])
 

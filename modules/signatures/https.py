@@ -24,6 +24,8 @@ class NetworkHTTPS(Signature):
     authors = ["doomedraven"]
     minimum = "1.2"
     evented = True
+    ttps = ["T1071", "T1071.001"]  # MITRE v6,7,8
+    mbcs = ["OC0006", "C0002"]  # micro-behaviour
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)

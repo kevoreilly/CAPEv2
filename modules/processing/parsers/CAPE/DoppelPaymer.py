@@ -40,8 +40,10 @@ rule DoppelPaymer
 LEN_BLOB_KEY = 40
 
 
-def convert_char(c):
-    if c in (string.letters + string.digits + string.punctuation + " \t\r\n"):
+def convert_char(c) -> str:
+    if isinstance(c, int):
+        c = chr(c)
+    if c in string.printable:
         return c
     else:
         return f"\\x{ord(c):02x}"
@@ -54,7 +56,7 @@ def decrypt_rc4(key, data):
 
 def extract_rdata(pe):
     for section in pe.sections:
-        if ".rdata" in section.Name:
+        if b".rdata" in section.Name:
             return section.get_data(section.VirtualAddress, section.SizeOfRawData)
     return None
 

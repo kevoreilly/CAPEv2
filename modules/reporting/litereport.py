@@ -39,7 +39,7 @@ class LiteReport(Report):
         keys_to_copy = repconf.litereport.keys_to_copy.split(" ")
 
         # lite report report only has the specific keys
-        lite_report = {k: results[k] for k in results.keys() & keys_to_copy}
+        lite_report = {k: results[k] for k in results.keys() & keys_to_copy if results[k] is not None}
 
         # add specific keys from behavior
         behavior_keys_to_copy = repconf.litereport.behavior_keys_to_copy.split(" ")

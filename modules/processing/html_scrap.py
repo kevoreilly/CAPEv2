@@ -1,5 +1,4 @@
 import base64
-import binascii
 import logging
 import os
 import urllib.parse
@@ -29,7 +28,14 @@ safe_url_list = (
     'https://cdnjs.cloudflare.com',
     'https://getbootstrap.com',
     'https://use.fontawesome.com',
-    'https://www.office.com'
+    'https://www.office.com',
+    'https://github.com/twbs/bootstrap',
+    'http://fonts.cdnfonts.com',
+    'https://www.google.com/',
+    'https://www.gstatic.com',
+    'https://stackpath.bootstrapcdn.com',
+    'https://ka-f.fontawesome.com',
+    'https://fontawesome.com'
 )
 
 log = logging.getLogger(__name__)
@@ -39,7 +45,7 @@ def try_base64_decode(text: str, validate: bool = True) -> Optional[bytes]:
     try:
         result = base64.b64decode(text, validate=validate)
         return result
-    except binascii.Error:
+    except Exception:
         return None
 
 
@@ -93,13 +99,14 @@ class HtmlScrap(Processing):
 
             extractor = URLExtract()
             text_to_search = f'{decoded_strings_text}\n{html_scrap}'
-            addresses_in_html = set(extractor.find_urls(text_to_search, only_unique=True))
+            addresses_in_html = set(extractor.find_urls(text_to_search, only_unique=True, with_schema_only=True))
 
             if os.path.exists(last_url_path):
                 with open(last_url_path, 'r') as f:
                     addresses_in_html.add(f.read())
 
-            filtered_addresses = {url for url in addresses_in_html if not url.startswith(safe_url_list)}
+            filtered_addresses = {url.strip('\\x27') for url in addresses_in_html if
+                                  not url.startswith(safe_url_list)}
 
             log.info('Finished html scrap processing')
 

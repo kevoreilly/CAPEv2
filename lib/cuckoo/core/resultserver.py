@@ -331,7 +331,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        for folder in RESULT_UPLOADABLE + ["logs"]:
+        for folder in list(RESULT_UPLOADABLE) + ["logs"]:
             try:
                 create_folder(self.storagepath, folder=folder)
             except Exception as e:

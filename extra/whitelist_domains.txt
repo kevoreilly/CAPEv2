@@ -209,6 +209,7 @@ armmf\.adobe\.com
 p13n\.adobe\.io
 ardownload3\.adobe\.com
 armmf\.adobe\.com
+acroipm.adobe.com
 
 # firefox
 firefox\.settings\.services\.mozilla\.com

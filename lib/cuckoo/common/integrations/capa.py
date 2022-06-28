@@ -48,6 +48,9 @@ if processing_conf.flare_capa.enabled:
                 except InvalidRuleSet:
                     print("FLARE_CAPA InvalidRuleSet")
                     HAVE_FLARE_CAPA = False
+                except TypeError:
+                    print("FLARE_CAPA problems. Probably install CAPA from github")
+                    HAVE_FLARE_CAPA = False
             else:
                 print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
                 HAVE_FLARE_CAPA = False

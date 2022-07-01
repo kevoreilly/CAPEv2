@@ -310,8 +310,11 @@ def parse_id(id_string: str):
     blocks = [block.split("-") for block in id_string.split(",")]
     for index, block in enumerate(blocks):
         block = list(map(int, block))
-        if len(block) == 2 and block[1] < block[0]:
-            raise TypeError("Invalid id input")
+        if len(block) == 2:
+            if block[1] < block[0]:
+                raise TypeError("Invalid id input")
+            else:
+                blocks[index] = block
         elif len(block) == 1:
             blocks[index] = (block[0], block[0])
         else:

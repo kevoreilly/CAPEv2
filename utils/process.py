@@ -82,22 +82,23 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
     # dump in the analysis' reports folder. (If jsondump is enabled.)
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
+    set_formatter_fmt(task_id)
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     if memory_debugging:
         gc.collect()
-        log.info("[%s] (1) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
+        log.info("(1) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
     if memory_debugging:
         gc.collect()
-        log.info("[%s] (2) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
+        log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
     RunProcessing(task=task_dict, results=results).run()
     if memory_debugging:
         gc.collect()
-        log.info("[%s] (3) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
+        log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
 
     RunSignatures(task=task_dict, results=results).run()
     if memory_debugging:
         gc.collect()
-        log.info("[%s] (4) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
+        log.info("(4) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
 
     if report:
         if auto or capeproc:
@@ -117,19 +118,27 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
 
     if memory_debugging:
         gc.collect()
-        log.info("[%s] (5) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
+        log.info("(5) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
         for i, obj in enumerate(gc.garbage):
-            log.info("[%s] (garbage) GC object #%d: type=%s", task_id, i, type(obj).__name__)
+            log.info("(garbage) GC object #%d: type=%s", i, type(obj).__name__)
 
 
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
+def get_formatter_fmt(task_id=None):
+    task_info = f"[Task {task_id}] " if task_id is not None else ""
+    return f"%(asctime)s {task_info}[%(name)s] %(levelname)s: %(message)s"
+
+FORMATTER = logging.Formatter(get_formatter_fmt())
+
+def set_formatter_fmt(task_id=None):
+    FORMATTER._style._fmt = get_formatter_fmt(task_id)
+
 def init_logging(auto=False, tid=0, debug=False):
-    formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
     ch = ConsoleHandler()
-    ch.setFormatter(formatter)
+    ch.setFormatter(FORMATTER)
     log.addHandler(ch)
     try:
         if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
@@ -148,7 +157,7 @@ def init_logging(auto=False, tid=0, debug=False):
     except PermissionError:
         sys.exit("Probably executed with wrong user, PermissionError to create/access log")
 
-    fh.setFormatter(formatter)
+    fh.setFormatter(FORMATTER)
     log.addHandler(fh)
 
     if debug:
@@ -164,19 +173,20 @@ def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
         result = future.result()
-        log.info("Task #%d: reports generation completed", task_id)
+        log.info("Reports generation completed")
     except TimeoutError as error:
-        log.error("Processing Timeout %s - Task ID: %d", error, task_id)
+        log.error("Processing Timeout %s", error)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
     except pebble.ProcessExpired as error:
-        log.error("Exception when processing task %s: %s", task_id, error)
+        log.error("Exception when processing task: %s", error)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
     except Exception as error:
-        log.error("Exception when processing task %s: %s", task_id, error)
+        log.error("Exception when processing task: %s", error)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
 
     del pending_future_map[future]
     del pending_task_id_map[task_id]
+    set_formatter_fmt()
 
 
 def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300):
@@ -221,6 +231,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                     # Not-so-efficient lock.
                     if pending_task_id_map.get(task.id):
                         continue
+                    set_formatter_fmt(task.id)
                     log.info("Processing analysis data for Task #%d", task.id)
                     if task.category != "url":
                         sample = db.view_sample(task.sample_id)
@@ -231,7 +242,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                     kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
                     if memory_debugging:
                         gc.collect()
-                        log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                        log.info("(before) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
                     # result = pool.apply_async(process, args, kwargs)
                     future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
                     pending_future_map[future] = task.id
@@ -239,7 +250,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                     future.add_done_callback(processing_finished)
                     if memory_debugging:
                         gc.collect()
-                        log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                        log.info("(after) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
                     count += 1
                     added = True
                     if copy_path != None:
@@ -397,7 +408,8 @@ def main():
     else:
         for start, end in args.id:
             for num in range(start, end + 1):
-                log.debug(f"Processing task {num}")
+                set_formatter_fmt(num)
+                log.debug("Processing task")
                 if not os.path.exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
                     sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
                 handlers = init_logging(tid=str(num), debug=args.debug)
@@ -419,7 +431,9 @@ def main():
                         RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
                 else:
                     process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
-                log.debug("Finished processing task %d", num)
+                log.debug("Finished processing task")
+                set_formatter_fmt()
+
                 for handler in handlers:
                     log.removeHandler(handler)
 

@@ -85,7 +85,13 @@
                 {% for analysis in files %}
                     <tr>
                         <td>
+                            {% if analysis.status == "reported" %}
+                            <a href="{% url "report" analysis.id %}">{{analysis.id}}</a>
+                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                            <a href="{% url "submission_status" analysis.id %}">{{analysis.id}}</a>
+                            {% else %}
                             {{analysis.id}}
+                            {% endif %}
                         </td>
                         <td>
                         {% if analysis.status == "reported" %}
@@ -105,7 +111,13 @@
                             <span class="mono">{{analysis.package}}</span>
                         </td>
                         <td>
-                        {{analysis.filename}}
+                            {% if analysis.status == "reported" %}
+                            <a href="{% url "report" analysis.id %}">{{analysis.filename}}</a>
+                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                            <a href="{% url "submission_status" analysis.id %}">{{analysis.filename}}</a>
+                            {% else %}
+                            {{analysis.filename}}
+                            {% endif %}
                         </td>
                         <td style="word-wrap: break-word;">
                             {% if analysis.status == "reported" %}

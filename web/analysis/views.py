@@ -475,16 +475,20 @@ def pending(request):
 
     pending = []
     for task in tasks:
-        pending.append(
-            {
-                "id": task.id,
-                "target": task.target,
-                "added_on": task.added_on,
-                "category": task.category,
-                "md5": task.sample.md5,
-                "sha256": task.sample.sha256,
-            }
-        )
+        # Some tasks do not have sample attributes
+        if task.sample:
+            pending.append(
+                {
+                    "id": task.id,
+                    "target": task.target,
+                    "added_on": task.added_on,
+                    "category": task.category,
+                    "md5": task.sample.md5,
+                    "sha256": task.sample.sha256,
+                }
+            )
+        else:
+            continue
 
     return render(request, "analysis/pending.html", {"tasks": pending})
 
@@ -1808,7 +1812,7 @@ def search(request, searched=False):
     if "search" in request.POST or searched:
         term = ""
         if not searched and request.POST.get("search"):
-            searched = request.POST["search"]
+            searched = str(request.POST["search"])
 
         if ":" in searched:
             term, value = searched.strip().split(":", 1)

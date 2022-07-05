@@ -157,7 +157,7 @@ class Machinery:
         self.module_name = module_name
         mmanager_opts = self.options.get(module_name)
         if not isinstance(mmanager_opts["machines"], list):
-            mmanager_opts["machines"] = mmanager_opts["machines"].strip().split(",")
+            mmanager_opts["machines"] = str(mmanager_opts["machines"]).strip().split(",")
 
         for machine_id in mmanager_opts["machines"]:
             try:

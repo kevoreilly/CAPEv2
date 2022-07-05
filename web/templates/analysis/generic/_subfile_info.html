@@ -267,6 +267,14 @@
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                     {% endif %}
                 {% endif %}
+                {% if config.floss %}
+                    {% if not sub_file.floss %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "floss" id "static" sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate floss strings"><span class="fas fa-cogs"></span> Floss</a>
+                    {% else %}
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#floss_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
+                    {% endif %}
+                {% endif %}
+
                 {% if config.bingraph %}
                     {% if not graphs.bingraph.content|getkey:sub_file.sha256 and on_demand.bingraph %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>

@@ -73,6 +73,9 @@ HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
+HAVE_FLOSS = False
+if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
+    from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 IMAGE_DOS_SIGNATURE = 0x5A4D
 IMAGE_NT_SIGNATURE = 0x00004550
@@ -910,5 +913,10 @@ class PortableExecutable:
             capa_details = flare_capa_details(self.file_path, "static")
             if capa_details:
                 peresults["flare_capa"] = capa_details
+
+        if HAVE_FLOSS:
+            floss_strings = Floss(self.file_path, "static", "pe").run()
+            if floss_strings:
+                peresults["floss"] = capa_details
         pe.close()
         return peresults

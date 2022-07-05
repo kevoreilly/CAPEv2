@@ -1,25 +1,39 @@
 <section id="static_floss">
     {% if analysis.floss %}
+        {% if analysis.floss.decoded_strings %}
         <h4>Decoded Strings</h4>
-        {% if analysis.floss.strings.decoded_strings %}
             <div class="well" style="font-family: monospace;">
-                {% for string in analysis.floss.strings.decoded_strings %}
+                {% for string in analysis.floss.decoded_strings %}
                     <div>{{string}}</div>
                 {% endfor %}
             </div>
-        {% else %}
-            <div>None</div>
         {% endif %}
 
+        {% if analysis.floss.stack_strings %}
         <h4>Stack Strings</h4>
-        {% if analysis.floss.strings.stack_strings %}
             <div class="well" style="font-family: monospace;">
-                {% for string in analysis.floss.strings.stack_strings %}
+                {% for string in analysis.floss.stack_strings %}
                     <div>{{string}}</div>
                 {% endfor %}
             </div>
-        {% else %}
-            <div>None</div>
+        {% endif %}
+
+        {% if analysis.floss.tight_strings %}
+        <h4>Tight Strings</h4>
+            <div class="well" style="font-family: monospace;">
+                {% for string in analysis.floss.tight_strings %}
+                    <div>{{string}}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if analysis.static_strings %}
+        <h4>Static Strings</h4>
+            <div class="well" style="font-family: monospace;">
+                {% for string in analysis.floss.static_strings %}
+                    <div>{{string}}</div>
+                {% endfor %}
+            </div>
         {% endif %}
 
     {% endif %}

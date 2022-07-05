@@ -759,7 +759,8 @@ class Scheduler:
             self.maxcount = self.cfg.cuckoo.max_analysis_count
 
         # Start the logger which grabs database information
-        self._thr_periodic_log()
+        if self.cfg.cuckoo.periodic_log:
+            self._thr_periodic_log()
 
         # This loop runs forever.
         while self.running:

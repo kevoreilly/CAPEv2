@@ -696,6 +696,13 @@ def download_file(**kwargs):
             # parent_id=kwargs.get("parent_id"),
             # sample_parent_id=kwargs.get("sample_parent_id")
         )
+
+        try:
+            save_script_to_storage(task_ids_new, kwargs)
+        except Exception as e:
+            log.error("Error saving scripts to storage: %s", e)
+            return "error", {"error": "Error: Storing scripts to tempstorage"}
+
         if isinstance(kwargs.get("task_ids", False), list):
             kwargs["task_ids"].extend(task_ids_new)
         else:
@@ -706,6 +713,36 @@ def download_file(**kwargs):
         return "error", {"error": f"Provided hash not found on {kwargs['service']}"}
 
     return "ok", kwargs["task_ids"]
+
+
+def save_script_to_storage(task_ids, kwargs):
+    """
+    Parameters: task_ids, kwargs
+    Retrieve pre_script and during_script contents and save it to a temp storage
+    """
+    for task_id in task_ids:
+        task_id = str(task_id)
+        # Temp Folder for storing scripts
+        script_temp_path = os.path.join("/tmp/cuckoo-tmp", task_id)
+        if "pre_script_name" in kwargs and "pre_script_content" in kwargs:
+            file_ext = os.path.splitext(kwargs["pre_script_name"])[-1]
+            if file_ext not in (".py", ".ps1", ".exe"):
+                raise ValueError(f"Unknown file_extention of {file_ext} to run for pre_script")
+
+            os.makedirs(script_temp_path, exist_ok=True)
+            log.info("Writing pre_script to temp folder %s", script_temp_path)
+            with open(os.path.join(script_temp_path, f"pre_script{file_ext}"), "wb") as f:
+                f.write(kwargs["pre_script_content"])
+
+        if "during_script_name" in kwargs and "during_script_content" in kwargs:
+            file_ext = os.path.splitext(kwargs["during_script_name"])[-1]
+            if file_ext not in (".py", ".ps1", ".exe"):
+                raise ValueError(f"Unknown file_extention of {file_ext} to run for during_script")
+
+            os.makedirs(script_temp_path, exist_ok=True)
+            log.info("Writing during_script to temp folder %s", script_temp_path)
+            with open(os.path.join(script_temp_path, f"during_script{file_ext}"), "wb") as f:
+                f.write(kwargs["during_script_content"])
 
 
 def url_defang(url):

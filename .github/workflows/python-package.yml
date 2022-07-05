@@ -30,6 +30,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
+          version: latest
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
@@ -50,6 +51,7 @@ jobs:
 
       - name: Lint with flake8
         run: |
+          source .venv/bin/activate
           # stop the build if there are Python syntax errors or undefined names
           poetry run pflake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
@@ -82,6 +84,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
+          version: latest
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true

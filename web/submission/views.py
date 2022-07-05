@@ -579,7 +579,7 @@ def index(request, resubmit_hash=False):
                         break
             else:
                 # Get VM names for machinery config elements
-                vms = [x.strip() for x in getattr(Config(machinery), machinery).get("machines").split(",") if x.strip()]
+                vms = [x.strip() for x in str(getattr(Config(machinery), machinery).get("machines")).split(",") if x.strip()]
                 # Check each VM config element for tags
                 if any(["tags" in list(getattr(Config(machinery), vmtag).keys()) for vmtag in vms]):
                     enabledconf["tags"] = True

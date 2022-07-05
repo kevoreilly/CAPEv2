@@ -310,9 +310,12 @@ class Office:
         else:
             officeresults["Metadata"]["HasMacros"] = "No"
 
-        for indicator in OleID(filepath).check():
-            if indicator.value and indicator.name in {"Word Document", "Excel Workbook", "PowerPoint Presentation"}:
-                officeresults["Metadata"]["DocumentType"] = indicator.name
+        try:
+            for indicator in OleID(filepath).check():
+                if indicator.value and indicator.name in {"Word Document", "Excel Workbook", "PowerPoint Presentation"}:
+                    officeresults["Metadata"]["DocumentType"] = indicator.name
+        except Exception as e:
+            log.error(e, exc_info=True)
 
         if HAVE_XLM_DEOBF:
             tmp_xlmmacro = xlmdeobfuscate(filepath, self.task_id, self.options.get("password", ""))

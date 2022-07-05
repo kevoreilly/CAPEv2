@@ -87,7 +87,8 @@ jobs:
           version: latest
           virtualenvs-create: true
           virtualenvs-in-project: true
-          installer-parallel: true
+          installer-parallel: false
+      - run: poetry config experimental.new-installer false
 
       - name: Load cached venv
         id: cached-poetry-dependencies

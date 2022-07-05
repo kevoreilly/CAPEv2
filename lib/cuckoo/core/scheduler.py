@@ -831,7 +831,11 @@ class Scheduler:
                 pass
 
     def _thr_periodic_log(self):
-        log.debug("# Tasks: %d; # Available Machines: %d; # Locked Machines: %d; # Total Machines: %d;",
-                  self.db.count_tasks(status=TASK_PENDING), self.db.count_machines_available(),
-                  len(self.db.list_machines(locked=True)), len(self.db.list_machines()))
+        log.debug(
+            "# Tasks: %d; # Available Machines: %d; # Locked Machines: %d; # Total Machines: %d;",
+            self.db.count_tasks(status=TASK_PENDING),
+            self.db.count_machines_available(),
+            len(self.db.list_machines(locked=True)),
+            len(self.db.list_machines()),
+        )
         threading.Timer(10, self._thr_periodic_log).start()

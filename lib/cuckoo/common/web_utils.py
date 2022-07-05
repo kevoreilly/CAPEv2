@@ -823,6 +823,7 @@ def validate_task(tid, status=TASK_REPORTED):
 
     return {"error": False}
 
+
 def validate_task_by_path(tid):
     analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid))
     # verify path with
@@ -830,7 +831,6 @@ def validate_task_by_path(tid):
     #    return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
     return os.path.exists(analysis_path)
-
 
 
 perform_search_filters = {

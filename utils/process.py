@@ -131,10 +131,13 @@ def get_formatter_fmt(task_id=None):
     task_info = f"[Task {task_id}] " if task_id is not None else ""
     return f"%(asctime)s {task_info}[%(name)s] %(levelname)s: %(message)s"
 
+
 FORMATTER = logging.Formatter(get_formatter_fmt())
+
 
 def set_formatter_fmt(task_id=None):
     FORMATTER._style._fmt = get_formatter_fmt(task_id)
+
 
 def init_logging(auto=False, tid=0, debug=False):
     ch = ConsoleHandler()

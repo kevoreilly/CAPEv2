@@ -357,7 +357,7 @@ class TestAnalysisManager:
             "do_upload_max_size": 0,
             "upload_max_size": 100000000,
             "during_script": False,
-            "pre_script": False
+            "pre_script": False,
         }
 
     @pytest.mark.skip(reason="This error is from parse_pe get_exports, which is not part of scheduler anymore")

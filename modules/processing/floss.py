@@ -26,6 +26,7 @@ class FLOSS(Processing):
                 raise CuckooProcessingError(f"Sample file doesn't exist: {self.file_path}")
 
             try:
+                # ToDo stop using file and move to direct python integration
                 output_json_path = os.path.join(self.analysis_path, "floss.json")
                 floss_options = [
                     self.options.get("floss_path", "floss"),

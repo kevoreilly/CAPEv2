@@ -34,7 +34,6 @@ from lib.cuckoo.common.exceptions import (
     CuckooMachineError,
     CuckooOperationalError,
 )
-from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.core.database import TASK_PENDING, Machine
 
 # Only log INFO or higher from imported python packages
@@ -903,6 +902,8 @@ class Azure(Machinery):
             if projected_total_machines > self.options.az.total_machines_limit:
                 non_relevant_machines = number_of_machines - number_of_relevant_machines
                 number_of_relevant_machines_required = self.options.az.total_machines_limit - non_relevant_machines
+                if number_of_relevant_machines_required < 0:
+                    number_of_relevant_machines_required = self.options.az.initial_pool_size
 
             # Let's confirm that this number is actually achievable
             usages = Azure._azure_api_call(self.options.az.region_name, operation=self.compute_client.usage.list)

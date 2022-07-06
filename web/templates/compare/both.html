@@ -12,48 +12,45 @@ $(function () {
         <h2 style="text-align: center;">Analysis 1</h2>
 
         {% include "compare/_info.html" with record=left %}
-
-        <div class="col-md-8">
-            <h4>Execution Graph</h4>
-
-            <p>This graph gives you an abstracted overview of the execution of the analyzer file. More specifically it represents the percentage of occurrences of behavioral events classified by category: the bigger the colored block, the higher is the count of events for the respective category performed by the analyzed malware</p>
-            <p>Comparing two graphs from different analyses can give you help estimate how much the behavior of the two files differ.</p>
-            <p>Following are the colored categories:</p>
-
-            <p style="text-align: center;">
-                <span class="badge.badge-pill registry" style="color:black;">registry</span>
-                <span class="badge.badge-pill filesystem" style="color:black;">filesystem</span>
-                <span class="badge.badge-pill system" style="color:black;">system</span>
-                <span class="badge.badge-pill network" style="color:black;">network</span>
-                <span class="badge.badge-pill process" style="color:black;">process</span>
-                <span class="badge.badge-pill services" style="color:black;">services</span>
-                <span class="badge.badge-pill synchronization" style="color:black;">synchronization</span>
-                <span class="badge.badge-pill windows" style="color:black;">windows</span>
-            </p>
-        </div>
-
-        <div class="col-md-4">
-            <div style="height: 300px;border: 2px solid #666;">
-                {% for cat, count in left_counts.items %}
-                    <div style="height: {{count}}%" class="{{cat}}" data-toggle="tooltip" data-placement="top" title="{{count}}% {{cat}}"></div>
-                {% endfor %}
-            </div>
-        </div>
     </div>
     <div class="col-md-6">
         <h2 style="text-align: center;">Analysis 2</h2>
-
         {% include "compare/_info.html" with record=right %}
-
-        <div class="col-md-4">
-            <div style="height: 300px;border: 2px solid #666;">
-                {% for cat, count in right_counts.items %}
-                    <div style="height: {{count}}%" class="{{cat}}" data-toggle="tooltip" data-placement="top" title="{{count}}% {{cat}}"></div>
-                {% endfor %}
-            </div>
-        </div>
-
         <div class="col-md-8">
+        </div>
+    </div>
+</div>
+<div class="mt-3">
+    <h4>Execution Graph</h4>
+
+    <p>This graph gives you an abstracted overview of the execution of the analyzer file. More specifically it represents the percentage of occurrences of behavioral events classified by category: the bigger the colored block, the higher is the count of events for the respective category performed by the analyzed malware</p>
+    <p>Comparing two graphs from different analyses can give you help estimate how much the behavior of the two files differ.</p>
+    <p>Following are the colored categories:</p>
+
+    <p style="text-align: center;">
+        <span class="badge.badge-pill registry" style="color:black;">registry</span>
+        <span class="badge.badge-pill filesystem" style="color:black;">filesystem</span>
+        <span class="badge.badge-pill system" style="color:black;">system</span>
+        <span class="badge.badge-pill network" style="color:black;">network</span>
+        <span class="badge.badge-pill process" style="color:black;">process</span>
+        <span class="badge.badge-pill services" style="color:black;">services</span>
+        <span class="badge.badge-pill synchronization" style="color:black;">synchronization</span>
+        <span class="badge.badge-pill windows" style="color:black;">windows</span>
+    </p>
+</div>
+<div class="row">
+    <div class="col-md-6" style="border-right: 1px dashed #ddd;">
+        <div class="m-auto" style="height: 300px;border: 2px solid #666; width: 30%;">
+            {% for cat, count in left_counts.items %}
+                <div style="height: {{count}}%" class="{{cat}}" data-toggle="tooltip" data-placement="top" title="{{count}}% {{cat}}"></div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="m-auto" style="height: 300px;border: 2px solid #666; width: 30%;">
+            {% for cat, count in right_counts.items %}
+                <div style="height: {{count}}%" class="{{cat}}" data-toggle="tooltip" data-placement="top" title="{{count}}% {{cat}}"></div>
+            {% endfor %}
         </div>
     </div>
 </div>
@@ -61,19 +58,19 @@ $(function () {
 <div class="row">
     <h2 style="text-align: left;"> Summary Similarities</h2>
         <ul class="nav nav-pills" style="margin-bottom: 0;">
-            <li class="nav-item active"><a class="nav-link" href=#summary_compare_files" data-toggle="tab">Accessed Files</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_read_files" data-toggle="tab">Read Files</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_write_files" data-toggle="tab">Modified Files</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_delete_files" data-toggle="tab">Deleted Files</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_keys" data-toggle="tab">Accessed Registry Keys</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_read_keys" data-toggle="tab">Read Registry Keys</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_write_keys" data-toggle="tab">Modified Registry Keys</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_delete_keys" data-toggle="tab">Deleted Registry Keys</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_resolved_apis" data-toggle="tab">Resolved APIs</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_executed_commands" data-toggle="tab">Executed Commands</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_mutexes" data-toggle="tab">Mutexes</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_created_services" data-toggle="tab">Created Services</a></li>
-            <li class="nav-item"><a class="nav-link" href=#summary_compare_started_services" data-toggle="tab">Started Services</a></li>
+            <li class="nav-item active"><a class="nav-link" href=#summary_compare_files data-toggle="tab">Accessed Files</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_read_files data-toggle="tab">Read Files</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_write_files data-toggle="tab">Modified Files</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_delete_files data-toggle="tab">Deleted Files</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_keys data-toggle="tab">Accessed Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_read_keys data-toggle="tab">Read Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_write_keys data-toggle="tab">Modified Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_delete_keys data-toggle="tab">Deleted Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_resolved_apis data-toggle="tab">Resolved APIs</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_executed_commands data-toggle="tab">Executed Commands</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_mutexes data-toggle="tab">Mutexes</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_created_services data-toggle="tab">Created Services</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_started_services data-toggle="tab">Started Services</a></li>
         </ul>
         <div class="tab-content">
             <div class="tab-pane fade show active" id="summary_compare_files">

@@ -275,7 +275,7 @@
                     {% if not graphs.bingraph.content|getkey:file.sha256 and on_demand.bingraph %}
                     <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate BinGraph"><span class="fas fa-cogs"></span> BinGraph</a>
                     {% else %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "file_nl" "bingraph" id file.sha256 %}" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  title="Display Bingraph"><span class="fas fa-download"></span> BinGraph</a>
+                        <a class="btn btn-secondary btn-sm" href="{% url "file_nl" "bingraph" id file.sha256 %}" aria-expanded="false" aria-controls="bingraph_{{file.sha256}}"  title="Display Bingraph"><span class="fas fa-download"></span> BinGraph</a>
                     {% endif %}
                 {% endif %}
                 <!--add type check-->

@@ -25,20 +25,22 @@ HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled:
     try:
         from capa.version import __version__ as capa_version
+
         if capa_version[0] != "3":
             print("FLARE-CAPA missed, pip3 install -U flare-capa")
         else:
-            import capa.main
-            import capa.rules
             import capa.engine
             import capa.features
-            import capa.render.json
-            import capa.render.utils as rutils
-            import capa.render.default
-            import capa.render.result_document as rd
             import capa.features.freeze.features as frzf
+            import capa.main
+            import capa.render.default
+            import capa.render.json
+            import capa.render.result_document as rd
+            import capa.render.utils as rutils
+            import capa.rules
             from capa.engine import *
             from capa.rules import InvalidRuleSet, InvalidRuleWithPath
+
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if os.path.exists(rules_path):
                 try:
@@ -213,6 +215,7 @@ def render_dictionary(doc: rd.ResultDocument) -> Dict[str, Any]:
     render_mbc(doc, result)
     render_capabilities(doc, result)
     return result
+
 
 # ===== CAPA END
 

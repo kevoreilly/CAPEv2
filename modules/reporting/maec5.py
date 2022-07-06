@@ -722,21 +722,21 @@ class MaecReport(Report):
             return
 
         maec_attcks = []
-        for tactic in self.mitre.tactics:
+        for tactic in self.mitre.enterprise.tactics:
             for technique in tactic.techniques:
-                if technique.id in list(results["ttps"].keys()):
-                    maec_attck = OrderedDict()
-
-                    maec_attck.setdefault(tactic.name, []).append(
-                        {
-                            "technique_id": technique.id,
-                            "ttp_name": technique.name,
-                            "description": technique.description,
-                            "signature": results["ttps"][technique.id],
+                if results["ttps"]:
+                    list_of_ttps = [dictionary["ttp"] for dictionary in results["ttps"]]
+                    if technique.id in list_of_ttps:
+                        maec_attck = {
+                            tactic.name: {
+                                "technique_id": technique.id,
+                                "ttp_name": technique.name,
+                                "description": technique.description,
+                                "signature": results["ttps"][list_of_ttps.index(technique.id)]["signature"],
+                            }
                         }
-                    )
 
-                    maec_attcks.append(maec_attck)
+                        maec_attcks.append(maec_attck)
 
         if maec_attcks:
             self.primaryInstance["mitre_attck"] = maec_attcks

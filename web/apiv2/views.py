@@ -1111,8 +1111,6 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     if check["error"]:
         return Response(check)
 
-    time_start = datetime.now()
-
     resp = {}
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -1230,11 +1228,6 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename={report_format.lower()}.zip"
-
-        print(
-            f"Time needed to generate report for task {task_id}: {datetime.now() - time_start}; "
-            f"Size is: {int(resp['Content-Length'])/int(1<<20):,.0f} MB"
-        )
         return resp
 
     else:

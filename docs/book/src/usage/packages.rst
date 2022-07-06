@@ -153,6 +153,23 @@ The following is a list of the existing packages in alphabetical order:
             * ``procmemdump`` *[yes/no]*: if enabled, take memory dumps of all actively monitored processes.
             * ``dll``: specify the name of an optional DLL to be used as a replacement for capemon.dll.
 
+    * ``zip_compound``: used to run and analyze **Zip archives** with more specific settings.
+
+        **Options**:
+            * Similar settings as ``zip`` package
+            * Either ``file`` option must be set, or a __configuration.json file must be present in the zip file.
+            * Sample json file:
+
+    .. code-block:: json
+
+        {
+            "path_to_extract": {
+                "a.exe": "%USERPROFILE%\\Desktop\\a\\b\\c",
+                "folder_b": "%appdata%"
+            },
+            "target_file":"a.exe"
+        }
+
 You can find more details on how to start creating analysis packages in the
 :doc:`../customization/packages` customization chapter.
 

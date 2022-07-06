@@ -394,5 +394,6 @@
     {% if file.lnk %} <div class="collapse" id="lnk_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
     {% if file.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
     {% if file.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
+    {% if file.floss %} <div class="collapse" id="floss_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_floss.html" %}</div></div></br>{% endif %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</td></center></br>{% endif %}
 </div>

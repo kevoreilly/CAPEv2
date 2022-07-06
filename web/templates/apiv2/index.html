@@ -560,7 +560,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
             <li>RPM: {{ config.sampledl.rpm }}</li>
           </ul>
         </td>
-        <td>Download a sample from a Task by Task ID/MD5/SHA1/SHA256. Return object will be octet-stream. (.bin)</td>
+        <td>Download a sample from a Task by Task ID/MD5/SHA1/SHA256. Supports zip-encryption with default password. Return object will be octet-stream. (.bin) or application/zip. (.zip) if encrypted</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#sampledl" aria-expanded="false" aria-controls="#sampledl">Example</a>
         </td>
       </tr>
@@ -569,7 +569,12 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
           <pre>curl {{ config.api.url }}/apiv2/files/get/task/[task id]/
 curl {{ config.api.url }}/apiv2/files/get/md5/[md5 hash]/
 curl {{ config.api.url }}/apiv2/files/get/sha1/[sha1 hash]/
-curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
+curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/
+
+curl {{ config.api.url }}/apiv2/files/get/task/[task id]/?encrypted=1
+curl {{ config.api.url }}/apiv2/files/get/md5/[md5 hash]/?encrypted=1
+curl {{ config.api.url }}/apiv2/files/get/sha1/[sha1 hash]/?encrypted=1
+curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre>
         </td>
       </tr>
       <tr>

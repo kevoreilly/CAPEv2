@@ -917,6 +917,6 @@ class PortableExecutable:
         if HAVE_FLOSS:
             floss_strings = Floss(self.file_path, "static", "pe").run()
             if floss_strings:
-                peresults["floss"] = capa_details
+                peresults["floss"] = floss_strings
         pe.close()
         return peresults

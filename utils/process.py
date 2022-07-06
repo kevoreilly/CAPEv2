@@ -424,7 +424,7 @@ def main():
                         # fallback to json
                         report = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num), "reports", "report.json")
                         if not os.path.exists(report):
-                            if args.json_report and not os.path.exists(args.json_report):
+                            if args.json_report and os.path.exists(args.json_report):
                                 report = args.json_report
                             else:
                                 sys.exit(f"File {report} doest exist")

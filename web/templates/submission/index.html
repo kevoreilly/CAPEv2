@@ -455,6 +455,18 @@ $(document).ready( function() {
                                                     <td><code>store_memdump</code></td>
                                                     <td>Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this </td>
                                                 </tr>
+                                                <tr>
+                                                    <td><code>pre_script_args</code></td>
+                                                    <td>Command line arguments for pre_script. Example: pre_script_args=file1 file2 file3</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>pre_script_timeout</code></td>
+                                                    <td>pre_script_timeout will default to 60 seconds. Script will stop after timeout Example: pre_script_timeout=30</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>during_script_args</code></td>
+                                                    <td>Command line arguments for during_script. Example: during_script_args=file1 file2 file3</td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -520,6 +532,28 @@ $(document).ready( function() {
                                 <label for="form_tags_tasks">Tasks Tags(allows set "tag" for your jobs)</label>
                                 <input type="text" class="form-control" id="form_tags_tasks" name="tags_tasks" />
                             </div>
+                            {% if config.pre_script %}
+                            <div class="form-group tab-pane fade show active" id="file">
+                                <label for="form_pre_script">Python Pre-Execution Script to run</label>
+                                <div id="form_pre_script" class="input-group">
+                                    <input type="text" class="form-control" style="background-color: darkgrey !important;" readonly>
+                                    <span class="btn btn-secondary btn-file">
+                                        Select <input type="file" name="pre_script">
+                                    </span>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if config.during_script %}
+                            <div class="form-group tab-pane fade show active" id="file">
+                                <label for="form_during_script">Python During-Execution Script to run</label>
+                                <div id="form_during_script" class="input-group">
+                                    <input type="text" class="form-control" style="background-color: darkgrey !important;" readonly>
+                                    <span class="btn btn-secondary btn-file">
+                                        Select <input type="file" name="during_script">
+                                    </span>
+                                </div>
+                            </div>
+                            {% endif %}
                             <div class="form-group">
                                 <label for="form_custom">Custom</label>
                                 <input type="text" class="form-control" id="form_custom" name="custom" />

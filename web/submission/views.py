@@ -316,6 +316,16 @@ def index(request, resubmit_hash=False):
                     )
                     continue
 
+                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
+                    pre_script = request.FILES["pre_script"]
+                    details["pre_script_name"] = request.FILES["pre_script"].name
+                    details["pre_script_content"] = pre_script.read()
+
+                if web_conf.during_script.enabled and "during_script" in request.FILES:
+                    during_script = request.FILES["during_script"]
+                    details["during_script_name"] = request.FILES["during_script"].name
+                    details["during_script_content"] = during_script.read()
+
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
@@ -551,6 +561,8 @@ def index(request, resubmit_hash=False):
         enabledconf["tlp"] = web_conf.tlp.enabled
         enabledconf["timeout"] = cfg.timeouts.default
         enabledconf["amsidump"] = web_conf.amsidump.enabled
+        enabledconf["pre_script"] = web_conf.pre_script.enabled
+        enabledconf["during_script"] = web_conf.during_script.enabled
 
         if all_vms_tags:
             enabledconf["tags"] = True
@@ -567,7 +579,7 @@ def index(request, resubmit_hash=False):
                         break
             else:
                 # Get VM names for machinery config elements
-                vms = [x.strip() for x in getattr(Config(machinery), machinery).get("machines").split(",") if x.strip()]
+                vms = [x.strip() for x in str(getattr(Config(machinery), machinery).get("machines")).split(",") if x.strip()]
                 # Check each VM config element for tags
                 if any(["tags" in list(getattr(Config(machinery), vmtag).keys()) for vmtag in vms]):
                     enabledconf["tags"] = True

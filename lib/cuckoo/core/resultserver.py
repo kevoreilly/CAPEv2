@@ -19,7 +19,7 @@ from lib.cuckoo.common.abstracts import ProtocolHandler
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
-from lib.cuckoo.common.files import open_exclusive
+from lib.cuckoo.common.files import open_exclusive, open_inclusive
 
 # from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import Singleton, create_folder, load_categories
@@ -204,8 +204,10 @@ class FileUpload(ProtocolHandler):
             file_path = os.path.join(self.storagepath, dump_path.decode())
 
             try:
-                # open_exclusive will failing if file_path already exists
-                if not os.path.exists(file_path):
+                if file_path.endswith("_script.log"):
+                    self.fd = open_inclusive(file_path)
+                elif not os.path.exists(file_path):
+                    # open_exclusive will fail if file_path already exists
                     self.fd = open_exclusive(file_path)
             except OSError as e:
                 log.debug("File upload error for %s (task #%s)", dump_path, self.task_id)

@@ -56,6 +56,12 @@
                         <th>Distributed</th>
                     {% endif %}
                     <th>Log</th>
+                    {% if analysis.debug.pre_script_log %}
+                        <th>Pre Script Logs</th>
+                    {% endif %}
+                    {% if analysis.debug.during_script_log %}
+                        <th>During Script Logs</th>
+                    {% endif %}
                     {% if config.malscore and analysis.malscore %}
                         <th>MalScore</th>
                     {% endif %}
@@ -75,6 +81,12 @@
                         <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
                     {% endif %}
                     <td><a class="accordion-toggle" data-toggle="collapse" href="#info-log">Show Log</a></td>
+                    {% if analysis.debug.pre_script_log %}
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-pre-script-log">Show Pre Script</a></td>
+                    {% endif %}
+                    {% if analysis.debug.during_script_log %}
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-during-script-log">Show During Script</a></td>
+                    {% endif %}
                     {% if config.malscore and analysis.malscore %}
                     <td>
                         {% if analysis.malscore > 6.0 %}
@@ -105,6 +117,12 @@
     {% endif %}
     <div id="info-log" class="collapse">
         <pre>{{analysis.debug.log}}</pre>
+    </div>
+    <div id="info-pre-script-log" class="collapse">
+        <pre>{{analysis.debug.pre_script_log}}</pre>
+    </div>
+    <div id="info-during-script-log" class="collapse">
+        <pre>{{analysis.debug.during_script_log}}</pre>
     </div>
     </div>
 </section>

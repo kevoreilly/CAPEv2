@@ -127,6 +127,7 @@ class TestAnalysisManager:
             "daydelta": 0,
             "max_analysis_count": 0,
             "freespace_processing": 15000,
+            "periodic_log": False,
         }
 
         assert analysis_man.task.id == 1234
@@ -355,6 +356,8 @@ class TestAnalysisManager:
             "id": 1234,
             "do_upload_max_size": 0,
             "upload_max_size": 100000000,
+            "during_script": False,
+            "pre_script": False,
         }
 
     @pytest.mark.skip(reason="This error is from parse_pe get_exports, which is not part of scheduler anymore")

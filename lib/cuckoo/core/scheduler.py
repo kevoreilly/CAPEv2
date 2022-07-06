@@ -22,7 +22,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
-from lib.cuckoo.core.database import TASK_COMPLETED, Database
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_PENDING, Database
 from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
@@ -758,6 +758,10 @@ class Scheduler:
         if self.maxcount is None:
             self.maxcount = self.cfg.cuckoo.max_analysis_count
 
+        # Start the logger which grabs database information
+        if self.cfg.cuckoo.periodic_log:
+            self._thr_periodic_log()
+
         # This loop runs forever.
         while self.running:
             time.sleep(1)
@@ -825,3 +829,13 @@ class Scheduler:
                 raise errors.get(block=False)
             except queue.Empty:
                 pass
+
+    def _thr_periodic_log(self):
+        log.debug(
+            "# Tasks: %d; # Available Machines: %d; # Locked Machines: %d; # Total Machines: %d;",
+            self.db.count_tasks(status=TASK_PENDING),
+            self.db.count_machines_available(),
+            len(self.db.list_machines(locked=True)),
+            len(self.db.list_machines()),
+        )
+        threading.Timer(10, self._thr_periodic_log).start()

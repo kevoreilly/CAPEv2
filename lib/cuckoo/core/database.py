@@ -1535,12 +1535,14 @@ class Database(object, metaclass=Singleton):
         # create tasks for each file in the archive
         for file in extracted_files:
             if static:
-                # we don't need to process extra file if we already have it and config
-                config = static_config_lookup(file)
-                if config:
-                    task_ids.append(config["id"])
-                else:
-                    config = static_extraction(file)
+                # On huge loads this just become a bottleneck
+                config = False
+                if web_conf.general.check_config_exists:
+                    config = static_config_lookup(file)
+                    if config:
+                        task_ids.append(config["id"])
+                    else:
+                        config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
                         file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options

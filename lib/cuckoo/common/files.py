@@ -37,7 +37,17 @@ def open_exclusive(path, mode="xb", bufsize=-1):
     try:
         return os.fdopen(fd, mode, bufsize)
     except OSError as e:
-        log.error(e, "You migth need to add whitelist folder in resultserver.py")
+        log.error(e, "You might need to add whitelist folder in resultserver.py")
+        os.close(fd)
+        raise
+
+
+def open_inclusive(path, mode="ab", bufsize=-1):
+    fd = os.open(path, os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o644)
+    try:
+        return os.fdopen(fd, mode, bufsize)
+    except OSError as e:
+        log.error(e, "You might need to add whitelist folder in resultserver.py")
         os.close(fd)
         raise
 

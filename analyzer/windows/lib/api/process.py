@@ -580,6 +580,9 @@ class Process:
                 "main_task_id",
                 "auto",
                 "tlsdump",
+                "pre_script_args",
+                "pre_script_timeout",
+                "during_script_args",
             ]
 
             for optname, option in self.options.items():

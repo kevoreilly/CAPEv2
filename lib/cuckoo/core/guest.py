@@ -4,9 +4,11 @@
 # https://github.com/cuckoosandbox/cuckoo/blob/master/cuckoo/core/guest.py
 
 import datetime
+import glob
 import json
 import logging
 import os
+import shutil
 import socket
 import sys
 import time
@@ -16,7 +18,7 @@ from zipfile import ZIP_STORED, ZipFile
 import requests
 
 from lib.cuckoo.common.config import Config, parse_options
-from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT, CUCKOO_ROOT
+from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
 from lib.cuckoo.core.database import Database
 
@@ -231,6 +233,25 @@ class GuestManager:
                     self.post("/store", files=files, data=data)
         return
 
+    def upload_scripts(self):
+        """Upload various scripts such as pre_script and during_scripts."""
+        log.info("Uploading script files to guest  (id=%s, ip=%s)", self.vmid, self.ipaddr)
+        # Temp File location of pre_script and during_script
+        base_dir = os.path.join("/tmp/cuckoo-tmp", str(self.task_id))
+        # File path of Analyses path. Storage of script
+        analyses_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(self.task_id), "scripts")
+        # Create folder in Analyses
+        os.makedirs(analyses_path, exist_ok=True)
+
+        for name in glob.glob(os.path.join(base_dir, "*_script.*")):
+            # Copy file to Analyses/{task_ID}/scripts
+            shutil.copy(name, analyses_path)
+            basename = os.path.basename(name)
+            data = {"filepath": os.path.join(self.determine_temp_path(), basename).replace("/", "\\")}
+            files = {"file": (basename, open(name, "rb"))}
+            self.post("/store", files=files, data=data)
+        return
+
     def start_analysis(self, options):
         """Start the analysis by uploading all required files.
         @param options: the task options
@@ -309,6 +330,9 @@ class GuestManager:
 
         # check for support files and upload them to guest.
         self.upload_support_files(options)
+
+        # upload additional scripts
+        self.upload_scripts()
 
         # Debug analyzer.py in vm
         if "CAPE_DBG" in os.environ:

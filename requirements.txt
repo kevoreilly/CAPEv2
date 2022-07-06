@@ -241,9 +241,9 @@ django-recaptcha==3.0.0 \
     --hash=sha256:1aed69fd6ac8fd9e99e52665392ae6748f8b6339ace656fad779fe0c6c915a52
 django-settings-export==1.2.1 \
     --hash=sha256:fceeae49fc597f654c1217415d8e049fc81c930b7154f5d8f28c432db738ff79
-django==4.0.4; python_version >= "3.8" \
-    --hash=sha256:07c8638e7a7f548dc0acaaa7825d84b7bd42b10e8d22268b3d572946f1e9b687 \
-    --hash=sha256:4e8177858524417563cc0430f29ea249946d831eacb0068a1455686587df40b5
+django==4.0.6; python_version >= "3.8" \
+    --hash=sha256:ca54ebedfcbc60d191391efbf02ba68fb52165b8bf6ccd6fe71f098cac1fe59e \
+    --hash=sha256:a67a793ff6827fd373555537dca0da293a63a316fe34cb7f367f898ccca3c3ae
 djangorestframework==3.12.4; python_version >= "3.5" \
     --hash=sha256:6d1d59f623a5ad0509fe0d6bfe93cbdfe17b8116ebc8eda86d45f6e16e819aaf \
     --hash=sha256:f747949a8ddac876e879190df194b925c177cdeb725a099db1460872f7c0a7f2

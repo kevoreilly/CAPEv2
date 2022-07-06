@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import shutil
 import socket
 import sys
 import zipfile
@@ -10,6 +11,7 @@ from io import BytesIO
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
+import pyzipper
 import requests
 from bson.objectid import ObjectId
 from django.conf import settings
@@ -1812,9 +1814,21 @@ def file(request, stype, value):
 
     sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
     if os.path.exists(sample):
-        resp = StreamingHttpResponse(FileWrapper(open(sample, "rb"), 8096), content_type="application/octet-stream")
-        resp["Content-Length"] = os.path.getsize(sample)
-        resp["Content-Disposition"] = "attachment; filename=" + "%s.bin" % file_hash
+        if request.GET.get("encrypted"):
+            # Check if file exists in temp folder
+            file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
+            if not file_exists:
+                # If files does not exist encrypt and move to tmp folder
+                with pyzipper.AESZipFile(f"{file_hash}.zip", "w", encryption=pyzipper.WZ_AES) as zf:
+                    zf.setpassword(b"infected")
+                    zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
+                shutil.move(f"{file_hash}.zip", "/tmp")
+            resp = StreamingHttpResponse(FileWrapper(open(f"/tmp/{file_hash}.zip", "rb"), 8096), content_type="application/zip")
+            resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+        else:
+            resp = StreamingHttpResponse(FileWrapper(open(sample, "rb"), 8096), content_type="application/octet-stream")
+            resp["Content-Length"] = os.path.getsize(sample)
+            resp["Content-Disposition"] = f"attachment; filename={file_hash}.bin"
         return resp
 
     else:

@@ -4,6 +4,7 @@ import mmap
 import os.path
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 processing_cfg = Config("processing")
 
@@ -64,7 +65,7 @@ class Floss:
                         with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
                             tmpres["static_strings"] = list(fm.extract_ascii_unicode_strings(buf, min_length))
 
-                sigspath = fm.get_signatures(processing_cfg.floss.sigs_path)
+                sigspath = fm.get_signatures(os.path.join(CUCKOO_ROOT, processing_cfg.floss.sigs_path))
                 vw = fm.load_vw(self.file_path, fileformat, sigspath, False)
 
                 try:

@@ -2209,7 +2209,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             if buf.get(category, {}):
                 if service == "virustotal":
                     buf[service] = details
-                if service == "xlsdeobf":
+                elif service == "xlsdeobf":
                     buf["static"].setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 else:
                     buf["static"][service] = details

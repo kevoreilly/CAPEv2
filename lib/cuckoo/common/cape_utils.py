@@ -233,7 +233,7 @@ def convert(data):
         return data
 
 
-def static_config_parsers(cape_name, file_data):
+def static_config_parsers(cape_name, file_path, file_data):
     """Process CAPE Yara hits"""
     cape_config = {cape_name: {}}
     parser_loaded = False
@@ -243,7 +243,7 @@ def static_config_parsers(cape_name, file_data):
     # MalDuck
     # Attempt to import a parser for the hit
     if HAVE_CAPE_EXTRACTORS and cape_name in cape_malware_parsers:
-        log.debug("Running CAPE")
+        log.debug("Running CAPE on %s", file_path)
         try:
             # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
             if hasattr(cape_malware_parsers[cape_name], "extract_config"):
@@ -265,11 +265,11 @@ def static_config_parsers(cape_name, file_data):
                     cape_config[cape_name].update({key: [value]})
                 parser_loaded = True
         except Exception as e:
-            log.error("CAPE: parsing error with %s: %s", cape_name, e)
+            log.error("CAPE: parsing error on %s with %s: %s", file_path, cape_name, e)
 
     # DC3-MWCP
     if HAS_MWCP and not parser_loaded and cape_name and cape_name in malware_parsers:
-        log.debug("Running MWCP")
+        log.debug("Running MWCP on %s", file_path)
         try:
             report = mwcp.run(malware_parsers[cape_name], data=file_data)
             reportmeta = report.as_dict_legacy()
@@ -294,12 +294,17 @@ def static_config_parsers(cape_name, file_data):
                     if line.startswith("ImportError: "):
                         log.debug("CAPE: DC3-MWCP parser: %s", line.split(": ", 2)[1])
         except pefile.PEFormatError:
-            log.error("pefile PEFormatError")
+            log.error("pefile PEFormatError on %s", file_path)
         except Exception as e:
-            log.error("CAPE: DC3-MWCP config parsing error with %s: %s", cape_name, e)
+            log.error(
+                "CAPE: DC3-MWCP config parsing error on %s with %s: %s",
+                file_path,
+                cape_name,
+                e,
+            )
 
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
-        log.debug("Running Malwareconfigs")
+        log.debug("Running Malwareconfigs on %s", file_path)
         try:
             module = False
             file_info = fileparser.FileParser(rawdata=file_data)
@@ -309,7 +314,7 @@ def static_config_parsers(cape_name, file_data):
             elif cape_name in __decoders__:
                 module = __decoders__[cape_name]["obj"]()
             else:
-                log.warning("%s: wasn't matched by plugin's yara", cape_name)
+                log.warning("%s: %s wasn't matched by plugin's yara", file_path, cape_name)
 
             if module:
                 module.set_file(file_info)
@@ -328,7 +333,8 @@ def static_config_parsers(cape_name, file_data):
             else:
                 log.error(e, exc_info=True)
                 log.warning(
-                    "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
+                    "malwareconfig parsing error for %s with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
+                    file_path,
                     cape_name,
                     e,
                 )
@@ -337,7 +343,7 @@ def static_config_parsers(cape_name, file_data):
             return {}
 
     elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
-        log.debug("Running Malduck")
+        log.debug("Running Malduck on %s", file_path)
         if not File.yara_initialized:
             init_yara()
         # placing here due to not load yara in not related tools
@@ -401,7 +407,7 @@ def static_extraction(path):
             file_data = file_open.read()
         for hit in hits:
             cape_name = File.get_cape_name_from_yara_hit(hit)
-            config = static_config_parsers(cape_name, file_data)
+            config = static_config_parsers(cape_name, path, file_data)
             if config:
                 return config
         return False

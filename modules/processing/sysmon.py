@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-import xml.etree.ElementTree as ET
+import xmltodict
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
@@ -31,8 +31,8 @@ class Sysmon(Processing):
             is_filtered = False
             if event["System"]["EventID"] == "1":
                 for p in filtered_proc_creations_re:
-                    cmdline = event["EventData"]["Data"][9]["#text"]
-                    if re.search(p, cmdline):
+                    cmdline = event["EventData"]["Data"][9].get("#text")
+                    if cmdline and re.search(p, cmdline):
                         log.info("Supressed %s because it is noisy", cmdline)
                         is_filtered = True
 
@@ -43,23 +43,6 @@ class Sysmon(Processing):
 
     def run(self):
         self.key = "sysmon"
-
-        # Determine oldest sysmon log and remove the rest
-        lastlog = os.listdir(f"{self.analysis_path}/sysmon/")
-        lastlog.sort()
-        if not lastlog:
-            return
-        lastlog = lastlog[-1]
-        # Leave only the most recent file
-        for f in os.listdir(f"{self.analysis_path}/sysmon/"):
-            if f != lastlog:
-                try:
-                    os.remove(f"{self.analysis_path}/sysmon/{f}")
-                except Exception:
-                    log.error("Failed to remove sysmon file log %s", f)
-
-        os.rename(f"{self.analysis_path}/sysmon/{lastlog}", f"{self.analysis_path}/sysmon/sysmon.xml")
-
         sysmon_path = f"{self.analysis_path}/sysmon/sysmon.xml"
 
         if not os.path.exists(sysmon_path) or os.path.getsize(sysmon_path) < 100:
@@ -67,14 +50,10 @@ class Sysmon(Processing):
 
         data = None
         try:
-            tree = ET.parse(sysmon_path)
-            root = tree.getroot()
-            data = parseXmlToJson(root.attrib)
+            xml = open(sysmon_path, "rb").read()
+            xml = xml.decode("latin1").encode("utf8")
+            data = xmltodict.parse(xml)["Events"]["Event"]
         except Exception as e:
-            raise CuckooProcessingError(f"Failed parsing sysmon.xml with ET: {e}") from e
+            raise CuckooProcessingError("Failed parsing sysmon.xml: %s" % e.message)
 
-        if not root:
-            return
-
-        data = self.remove_noise(data)
-        return data
+        return self.remove_noise(data)

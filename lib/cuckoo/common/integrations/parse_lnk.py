@@ -11,6 +11,7 @@ from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 
 try:
     import LnkParse3
+    from LnkParse3.exceptions import LnkParserError
 
     HAVE_LNK3 = True
 except ImportError:
@@ -88,7 +89,7 @@ class LnkShortcut:
             if HAVE_LNK3:
                 try:
                     data = LnkParse3.lnk_file(f).get_json(get_all=True)
-                except struct.error as e:
+                except (LnkParserError, struct.error) as e:
                     log.error("Parse LNK error: %s", str(e))
                     return {}
                 # breaks json due to datetime objects

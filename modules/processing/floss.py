@@ -4,19 +4,26 @@ import os.path
 import subprocess
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 log = logging.getLogger()
+
+processing_conf = Config("processing")
 
 
 class FLOSS(Processing):
     """Extract strings from sample using FLOSS."""
 
-    # TODO: Move floss into processing.conf for `enabled` and `on_demand`
+    # TODO: Add `on_demand` for floss
     def run(self):
         """Run FLOSS to extract strings from sample.
         @return: dictionary parsed from the JSON FLOSS output.
         """
+
+        if not processing_conf.floss.enabled:
+            return {}
+
         self.key = "floss"
         results = {}
 

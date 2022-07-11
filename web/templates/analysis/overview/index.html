@@ -49,11 +49,6 @@
 {% endif %}
 <div class="container">
     <div class="row">
-        {% if analysis.virustotal %}
-        <div class="col-sm">
-            {% include "analysis/overview/_antivirus.html" %}
-        </div>
-        {% endif %}
         {% if reports_exist %}
         <div class="col-sm">
             {% include "analysis/overview/_reports.html" %}

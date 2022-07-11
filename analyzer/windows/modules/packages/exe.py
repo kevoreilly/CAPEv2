@@ -30,6 +30,7 @@ class Exe(Package):
             newpath = os.path.join(basepath, os.path.basename(path))
             shutil.copy(path, newpath)
             path = newpath
+            self.options["executiondir"] = basepath
         if runasx86:
             # ignore the return value, user must have CorFlags.exe installed in the guest VM
             call(["CorFlags.exe", path, "/32bit+"])

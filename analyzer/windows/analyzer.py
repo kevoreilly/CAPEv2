@@ -37,6 +37,7 @@ from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, NTDLL, SY
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
+from lib.core.compound import create_custom_folders
 from lib.core.config import Config
 from lib.core.packages import choose_package
 from lib.core.pipe import PipeDispatcher, PipeForwarder, PipeServer, disconnect_pipes
@@ -236,6 +237,12 @@ class Analyzer:
         self.config = Config(cfg="analysis.conf")
         self.options = self.config.get_options()
 
+        # Resolve the paths first in case some other part of the code needs those (fullpath) parameters.
+        if "curdir" in self.options:
+            self.options["curdir"] = os.path.expandvars(self.options["curdir"])
+        if "executiondir" in self.options:
+            self.options["executiondir"] = os.path.expandvars(self.options["executiondir"])
+
         # Set the default DLL to be used for this analysis.
         self.default_dll = self.options.get("dll")
 
@@ -382,7 +389,11 @@ class Analyzer:
         # E.g., for some samples it might be useful to run from %APPDATA%
         # instead of %TEMP%.
         if self.config.category == "file":
+            # Try to create the folders for the cases of the custom paths other than %TEMP%
+            if "curdir" in self.options:
+                create_custom_folders(self.options["curdir"])
             self.target = self.package.move_curdir(self.target)
+        log.debug("New location of moved file: %s", self.target)
 
         # Set the DLL to that specified by package
         if self.package.options.get("dll") is not None:

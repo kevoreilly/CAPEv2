@@ -48,6 +48,7 @@ from lib.common.defines import (
 from lib.common.errors import get_error_string
 from lib.common.rand import random_string
 from lib.common.results import upload_to_host
+from lib.core.compound import create_custom_folders
 from lib.core.config import Config
 from lib.core.log import LogServer
 
@@ -407,8 +408,20 @@ class Process:
             self.suspended = True
             creation_flags += CREATE_SUSPENDED
 
+        # Use the custom execution directory if provided, otherwise launch in the same location
+        # where the sample resides (default %TEMP%)
+        if "executiondir" in self.options.keys():
+            execution_directory = self.options["executiondir"]
+        elif "curdir" in self.options.keys():
+            execution_directory = self.options["curdir"]
+        else:
+            execution_directory = os.getenv("TEMP")
+
+        # Try to create the custom directories so that the execution path is deemed valid
+        create_custom_folders(execution_directory)
+
         created = KERNEL32.CreateProcessW(
-            path, arguments, None, None, None, creation_flags, None, os.getenv("TEMP"), byref(startup_info), byref(process_info)
+            path, arguments, None, None, None, creation_flags, None, execution_directory, byref(startup_info), byref(process_info)
         )
 
         if created:
@@ -566,6 +579,7 @@ class Process:
                 "nohuman",
                 "main_task_id",
                 "auto",
+                "tlsdump",
                 "pre_script_args",
                 "pre_script_timeout",
                 "during_script_args",

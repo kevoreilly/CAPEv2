@@ -1,0 +1,6 @@
+{
+    "path_to_extract":{
+        "test_executable.exe":"%USERPROFILE%\\Desktop\\a\\b\\c"
+    }
+    "target_file":"test_exec.exe"
+}

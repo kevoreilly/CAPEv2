@@ -59,7 +59,7 @@ if processing_conf.flare_capa.enabled:
                 print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
                 HAVE_FLARE_CAPA = False
 
-            signatures_path = os.path.join(CUCKOO_ROOT, "data", "capa-signatures")
+            signatures_path = os.path.join(CUCKOO_ROOT, "data", "flare-signatures")
             if os.path.exists(signatures_path):
                 capa.main.SIGNATURES_PATH_DEFAULT_STRING = signatures_path
                 try:

@@ -1,3 +1,10 @@
+### [11-7-2022]
+* FLARE-CAPA fix
+* FLOSS 2.0 integration.
+* __ACTION REQUIRED__
+    * Now that CAPA and Floss uses the same signatures we renamed `capa-signatures` to `flare-signatures`
+    * `python3 utils/community.py -cr`
+
 ### [15-6-2022]
 * [Azure machinery](https://github.com/kevoreilly/CAPEv2/pull/922) by @cccs-kevin
 

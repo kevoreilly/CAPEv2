@@ -47,7 +47,7 @@ def flare_capa():
         os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
 
         # shutil.rmtree((os.path.join(dest_folder, "capa-signatures")), ignore_errors=True)
-        capa_sigs_path = os.path.join(dest_folder, "capa-signatures")
+        capa_sigs_path = os.path.join(dest_folder, "flare-signatures")
         if not os.path.isdir(capa_sigs_path):
             os.mkdir(capa_sigs_path)
         for url in signature_urls:

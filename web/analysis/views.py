@@ -103,7 +103,7 @@ else:
 
 HAVE_FLOSS = False
 if processing_cfg.floss.on_demand:
-    from lib.cuckoo.common.integrations.floss import Floss, HAVE_FLOSS
+    from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 
 # Used for displaying enabled config options in Django UI
@@ -167,10 +167,12 @@ def get_tags_tasks(task_ids: list) -> str:
     for analysis in db.list_tasks(task_ids=task_ids):
         return analysis.tags_tasks
 
+
 def get_task_package(task_id: int) -> str:
     task = db.view_task(task_id)
     task_dict = task.to_dict()
     return task_dict.get("package", "")
+
 
 def get_analysis_info(db, id=-1, task=None):
     if not task:

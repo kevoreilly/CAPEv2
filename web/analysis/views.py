@@ -70,10 +70,13 @@ processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
 web_cfg = Config("web")
 
-# On demand features
-HAVE_FLARE_CAPA = False
-if processing_cfg.flare_capa.on_demand:
-    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
+try:
+    # On demand features
+    HAVE_FLARE_CAPA = False
+    if processing_cfg.flare_capa.on_demand:
+        from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
+except (NameError, ImportError):
+    print("Can't import FLARE-CAPA")
 
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:

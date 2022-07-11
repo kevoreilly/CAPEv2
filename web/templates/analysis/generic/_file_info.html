@@ -314,7 +314,9 @@
             </td>
         </tr>
         {% endif %}
-        {% if file.flare_capa %}
+    </table>
+
+                {% if file.flare_capa %}
             <tr>
                 <th></th><td>
                 <div class="collapse" id="flare_capa_{{file.sha256}}">
@@ -381,8 +383,6 @@
             </td>
             </tr>
         {% endif %}
-    </table>
-
         {% if file.extracted_files %}
             <tr>
                 <th></th><td>

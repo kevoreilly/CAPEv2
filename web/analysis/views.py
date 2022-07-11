@@ -2149,7 +2149,6 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     if category == "static":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
-        category = "target.file"
     elif category == "dropped":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
     else:
@@ -2201,21 +2200,22 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         package = get_task_package(int(task_id))
         details = Floss(path, category, package, on_demand=True).run()
     if details:
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
+        if category == "static":
+            buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, "target.file": 1})
+        else:
+            buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
         if category == "CAPE":
             for block in buf[category].get("payloads", []) or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
 
-        elif category == "target.file":
-            if buf.get(category, {}):
-                if service in ("virustotal", "floss"):
-                    buf[service] = details
-                elif service == "xlsdeobf":
-                    buf.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+        elif category == "static":
+            if buf.get("target", {}):
+                if service == "xlsdeobf":
+                    buf["target"]["file"].setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 else:
-                    buf[service] = details
+                    buf["target"]["file"][service] = details
 
         elif category in ("procdump", "procmemory", "dropped"):
             for block in buf[category] or []:
@@ -2223,10 +2223,10 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     block[service] = details
                     break
 
-        if service in ("virustotal", "floss") and category == "target.file":
-            category = service
-        if category == "target.file":
-            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf["target"]["file"]}})
+        # if service in ("virustotal", "floss") and category == "target.file":
+        #     category = service
+        if category == "static":
+            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {"target": buf["target"]}})
         else:
             mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details

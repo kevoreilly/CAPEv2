@@ -27,15 +27,15 @@ if processing_conf.flare_capa.enabled:
         from capa.version import __version__ as capa_version
 
         if capa_version[0] != "3":
-            print("FLARE-CAPA missed, pip3 install -U flare-capa")
+            print("FLARE-CAPA missed, pip3 install git+https://github.com/mandiant/capa")
         else:
             import capa.engine
             import capa.features
-            import capa.features.freeze.features as frzf
             import capa.main
             import capa.render.default
             import capa.render.json
             import capa.render.result_document as rd
+            import capa.features.freeze.features as frzf
             import capa.render.utils as rutils
             import capa.rules
             from capa.engine import *
@@ -245,6 +245,8 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
             capa_output = render_dictionary(doc)
         except MemoryError:
             log.warning("FLARE CAPA -> MemoryError")
+        except AttributeError:
+            log.warning("FLARE CAPA -> Use GitHub's version. pip3 install git+https://github.com/mandiant/capa")
         # except UnsupportedRuntimeError:
         #     log.error("FLARE CAPA -> UnsupportedRuntimeError")
         except Exception as e:

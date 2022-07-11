@@ -1,6 +1,7 @@
 ### [11-7-2022]
-* FLARE-CAPA fix
+* FLARE-CAPA fix, you must install it from `GitHub`. Pip version is different.
 * FLOSS 2.0 integration.
+* `on_demand` fixed. Uniq service that doesn't work is binGraph due to numpy updates.
 * __ACTION REQUIRED__
     * Now that CAPA and Floss uses the same signatures we renamed `capa-signatures` to `flare-signatures`
     * `python3 utils/community.py -cr`

@@ -51,3 +51,4 @@ class TLSDumpMasterSecrets(Auxiliary):
                     "An unknown error occurred while trying to inject into the lsass.exe process to dump TLS master secrets: %s",
                     e,
                 )
+        del self.options["tlsdump"]

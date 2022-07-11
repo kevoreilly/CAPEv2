@@ -2207,7 +2207,6 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     break
 
         elif category == "target.file":
-            import code;code.interact(local=dict(locals(), **globals()))
             if buf.get(category, {}):
                 if service in ("virustotal", "floss"):
                     buf[service] = details

@@ -253,13 +253,19 @@ class CAPE(Processing):
         for extracted_file in file_info.get("extracted_files", []):
             for yara in extracted_file["cape_yara"]:
                 if extracted_file.get("data", ""):
-                    all_files.append((make_bytes(extracted_file["data"]), yara))
+                    all_files.append(
+                        (
+                            f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
+                            make_bytes(extracted_file["data"]),
+                            yara,
+                        )
+                    )
 
         for yara in file_info["cape_yara"]:
-            all_files.append((file_data, yara))
+            all_files.append((file_info["path"], file_data, yara))
 
         executed_config_parsers = set()
-        for tmp_data, hit in all_files:
+        for tmp_path, tmp_data, hit in all_files:
 
             # Check for a payload or config hit
             try:
@@ -275,7 +281,7 @@ class CAPE(Processing):
                     file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
             if cape_name and cape_name not in executed_config_parsers:
-                tmp_config = static_config_parsers(cape_name, tmp_data)
+                tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
                 config.update(tmp_config)
                 executed_config_parsers.add(cape_name)
 
@@ -283,7 +289,7 @@ class CAPE(Processing):
             log.info("CAPE: type_string: %s", type_string)
             tmp_cape_name = File.get_cape_name_from_cape_type(type_string)
             if tmp_cape_name and tmp_cape_name not in executed_config_parsers:
-                tmp_config = static_config_parsers(tmp_cape_name, file_data)
+                tmp_config = static_config_parsers(tmp_cape_name, file_info["path"], file_data)
                 if tmp_config:
                     cape_name = tmp_cape_name
                     log.info("CAPE: config returned for: %s", cape_name)

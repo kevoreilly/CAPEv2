@@ -255,10 +255,7 @@ class CAPE(Processing):
                 if extracted_file.get("data", ""):
                     all_files.append(
                         (
-                            "{path}[{extracted_sha256}]".format(
-                                path=file_info["path"],
-                                extracted_sha256=extracted_file.get("sha256", ""),
-                            ),
+                            f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
                             make_bytes(extracted_file["data"]),
                             yara,
                         )

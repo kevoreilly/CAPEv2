@@ -94,10 +94,27 @@ multi_block_config = ("SquirrelWaffle",)
 class CAPE(Processing):
     """CAPE output file processing."""
 
+    def add_family_detections(self, file_info, cape_names):
+        for cape_name in cape_names:
+            if cape_name != "UPX" and cape_name:
+                if processing_conf.detections.yara:
+                    add_family_detection(self.results, cape_name, "Yara", file_info["sha256"])
+            if file_info.get("pid"):
+                self.detect2pid(str(file_info["pid"]), cape_name)
+
     def detect2pid(self, pid: str, cape_name: str):
         self.results.setdefault("detections2pid", {}).setdefault(pid, [])
         if cape_name not in self.results["detections2pid"][pid]:
             self.results["detections2pid"][pid].append(cape_name)
+
+    @staticmethod
+    def ensure_config_key(cape_name, config):
+        """Make sure that the cape_name is the top-level key of the config.
+        Return the resulting config.
+        """
+        if cape_name not in config:
+            config = {cape_name: config}
+        return config
 
     def process_file(self, file_path, append_file, metadata=None):
         """Process file.
@@ -106,7 +123,6 @@ class CAPE(Processing):
 
         if metadata is None:
             metadata = {}
-        config = {}
         cape_name = ""
         type_string = ""
 
@@ -114,6 +130,7 @@ class CAPE(Processing):
             return
 
         file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
+        cape_names = set()
 
         if pefile_object:
             self.results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
@@ -201,7 +218,8 @@ class CAPE(Processing):
                     plugx_config = plugx_parser.parse_config(file_data, len(file_data))
                     if plugx_config:
                         cape_name = "PlugX"
-                        config[cape_name] = plugx_config
+                        self.update_cape_configs(cape_name, plugx_config)
+                        cape_names.add(cape_name)
                     else:
                         log.error("CAPE: PlugX config parsing failure - size many not be handled")
                     append_file = False
@@ -272,6 +290,7 @@ class CAPE(Processing):
                 if File.yara_hit_provides_detection(hit):
                     file_info["cape_type"] = hit["meta"]["cape_type"]
                     cape_name = File.get_cape_name_from_yara_hit(hit)
+                    cape_names.add(cape_name)
             except Exception as e:
                 print(f"Cape type error: {e}")
             type_strings = file_info["type"].split()
@@ -282,7 +301,7 @@ class CAPE(Processing):
 
             if cape_name and cape_name not in executed_config_parsers:
                 tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
-                config.update(tmp_config)
+                self.update_cape_configs(cape_name, tmp_config)
                 executed_config_parsers.add(cape_name)
 
         if type_string:
@@ -292,15 +311,11 @@ class CAPE(Processing):
                 tmp_config = static_config_parsers(tmp_cape_name, file_info["path"], file_data)
                 if tmp_config:
                     cape_name = tmp_cape_name
+                    cape_names.add(cape_name)
                     log.info("CAPE: config returned for: %s", cape_name)
-                    config.update(tmp_config)
+                    self.update_cape_configs(cape_name, tmp_config)
 
-        if cape_name:
-            if cape_name != "UPX" and cape_name:
-                if processing_conf.detections.yara:
-                    add_family_detection(self.results, cape_name, "Yara", file_info["sha256"])
-            if file_info.get("pid"):
-                self.detect2pid(str(file_info["pid"]), cape_name)
+        self.add_family_detections(file_info, cape_names)
 
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:
@@ -329,18 +344,6 @@ class CAPE(Processing):
                     file_info["flare_capa"] = capa_details
                 self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
-
-        if config and config not in self.cape["configs"]:
-            if cape_name in multi_block_config and self.cape["configs"]:
-                for conf in self.cape["configs"]:
-                    if cape_name in conf:
-                        conf[cape_name].update(config)
-            else:
-                # in case if malware name is missed it will break conf visualization
-                if cape_name not in config:
-                    config = {cape_name: config}
-                if config not in self.cape["configs"]:
-                    self.cape["configs"].append(config)
 
     def run(self):
         """Run analysis.
@@ -397,3 +400,20 @@ class CAPE(Processing):
         self.process_file(self.file_path, False, meta.get(self.file_path, {}))
 
         return self.cape
+
+    def update_cape_configs(self, cape_name, config):
+        """Add the given config to self.cape["configs"]."""
+        if not config:
+            return
+
+        config = self.ensure_config_key(cape_name, config)
+
+        if config not in self.cape["configs"]:
+            if cape_name in multi_block_config and self.cape["configs"]:
+                # Some families may have multiple configs extracted. Squash them all
+                # together.
+                for conf in self.cape["configs"]:
+                    if cape_name in conf:
+                        conf[cape_name].update(config)
+            else:
+                self.cape["configs"].append(config)

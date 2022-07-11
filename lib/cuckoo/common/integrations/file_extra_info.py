@@ -78,6 +78,10 @@ if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
+HAVE_FLOSS = False
+if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
+    from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
+
 
 def static_file_info(
     data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str, results: dict
@@ -144,6 +148,11 @@ def static_file_info(
 
     if processing_conf.die.enabled:
         detect_it_easy_info(file_path, data_dictionary)
+
+    if HAVE_FLOSS and processing_conf.floss.enabled:
+        floss_strings = Floss(file_path, package).run()
+        if floss_strings:
+            data_dictionary["floss"] = floss_strings
 
     generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary, options_dict, results)
 

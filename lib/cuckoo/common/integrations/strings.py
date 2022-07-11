@@ -2,10 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import logging
 import os.path
 
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import bytes2str
 
 try:
@@ -17,15 +17,32 @@ except ImportError:
 
     HAVE_RE2 = False
 
+processing_cfg = Config("processing")
+log = logging.getLogger(__name__)
 
-def extract_strings(path, nulltermonly, minchars):
+
+def extract_strings(filepath: str, on_demand: bool = False):
+    """Extract strings from analyzed file.
+    @return: list of printable strings.
+    """
+    if not processing_cfg.strings.enabled or processing_cfg.strings.on_demand and not on_demand:
+        return
+
+    nulltermonly = processing_cfg.strings.nullterminated_only
+    minchars = processing_cfg.strings.minchars
+
+    if not os.path.exists(filepath):
+        log.error("Sample file doesn't exist: %s", filepath)
+        return
+
     strings = []
 
     try:
-        with open(path, "rb") as f:
+        with open(filepath, "rb") as f:
             data = f.read()
     except (IOError, OSError) as e:
-        raise CuckooProcessingError(f"Error opening file {e}") from e
+        log.error("Error reading file: %s", e)
+        return
 
     endlimit = b"8192" if not HAVE_RE2 else b""
     if nulltermonly:
@@ -37,22 +54,5 @@ def extract_strings(path, nulltermonly, minchars):
 
     strings = [bytes2str(string) for string in re.findall(apat, data)]
     strings.extend(str(ws.decode("utf-16le")) for ws in re.findall(upat, data))
+
     return strings
-
-
-class Strings(Processing):
-    """Extract strings from analyzed file."""
-
-    def run(self):
-        """Run extract of printable strings.
-        @return: list of printable strings.
-        """
-        self.key = "strings"
-
-        nulltermonly = self.options.get("nullterminated_only", True)
-        minchars = self.options.get("minchars", 5)
-
-        if self.task["category"] in ("file", "static") and not os.path.exists(self.file_path):
-            raise CuckooProcessingError(f'Sample file doesn\'t exist: "{self.file_path}"')
-
-        return extract_strings(self.file_path, nulltermonly, minchars)

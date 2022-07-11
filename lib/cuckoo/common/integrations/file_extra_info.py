@@ -82,6 +82,11 @@ HAVE_FLOSS = False
 if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
+HAVE_STRINGS = False
+if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
+    from lib.cuckoo.common.integrations.strings import extract_strings
+    HAVE_STRINGS = True
+
 
 def static_file_info(
     data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str, results: dict
@@ -153,6 +158,11 @@ def static_file_info(
         floss_strings = Floss(file_path, package).run()
         if floss_strings:
             data_dictionary["floss"] = floss_strings
+
+    if HAVE_STRINGS and processing_conf.strings.enabled:
+        strings = extract_strings(file_path)
+        if strings:
+            data_dictionary["strings"] = strings
 
     generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary, options_dict, results)
 

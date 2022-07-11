@@ -49,7 +49,6 @@ try:
 except ImportError:
     import re
 
-
 try:
     import requests
 
@@ -82,7 +81,6 @@ if processing_cfg.strings.on_demand:
 
     HAVE_STRINGS = True
 
-
 HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
     from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
@@ -90,7 +88,6 @@ if processing_cfg.vba2graph.on_demand:
 HAVE_XLM_DEOBF = False
 if processing_cfg.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
-
 
 if reporting_cfg.bingraph.on_demand:
     try:
@@ -103,6 +100,10 @@ if reporting_cfg.bingraph.on_demand:
         HAVE_BINGRAPH = False
 else:
     HAVE_BINGRAPH = False
+
+HAVE_FLOSS = False
+if processing_cfg.floss.on_demand:
+    from lib.cuckoo.common.integrations.floss import Floss, HAVE_FLOSS
 
 
 # Used for displaying enabled config options in Django UI
@@ -166,6 +167,10 @@ def get_tags_tasks(task_ids: list) -> str:
     for analysis in db.list_tasks(task_ids=task_ids):
         return analysis.tags_tasks
 
+def get_task_package(task_id: int) -> str:
+    task = db.view_task(task_id)
+    task_dict = task.to_dict()
+    return task_dict.get("package", "")
 
 def get_analysis_info(db, id=-1, task=None):
     if not task:
@@ -2103,6 +2108,7 @@ on_demand_config_mapper = {
     "vba2graph": processing_cfg,
     "xlsdeobf": processing_cfg,
     "strings": processing_cfg,
+    "floss": processing_cfg,
 }
 
 str_nulltermonly = processing_cfg.strings.get("nullterminated_only", True)
@@ -2135,11 +2141,13 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         "virustotal",
         "xlsdeobf",
         "strings",
+        "floss",
     ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
+        category = "target.file"
     elif category == "dropped":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
     else:
@@ -2187,7 +2195,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                 print("Can't generate bingraph for {}: {}".format(sha256, e))
         except Exception as e:
             print("Bingraph on demand error:", e)
-
+    elif service == "floss" and HAVE_FLOSS:
+        package = get_task_package(int(task_id))
+        details = Floss(path, category, package, on_demand=True).run()
     if details:
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
         if category == "CAPE":
@@ -2196,14 +2206,14 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     block[service] = details
                     break
 
-        elif category == "static":
+        elif category == "target.file":
             if buf.get(category, {}):
-                if service == "virustotal":
+                if service in ("virustotal", "floss"):
                     buf[service] = details
-                if service == "xlsdeobf":
-                    buf["static"].setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+                elif service == "xlsdeobf":
+                    buf.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 else:
-                    buf["static"][service] = details
+                    buf[service] = details
 
         elif category in ("procdump", "procmemory", "dropped"):
             for block in buf[category] or []:
@@ -2211,10 +2221,12 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     block[service] = details
                     break
 
-        if service == "virustotal" and category == "static":
-            category = "virustotal"
-
-        mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
+        if service in ("virustotal", "floss") and category == "target.file":
+            category = service
+        if category == "target.file":
+            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf["target"]["file"]}})
+        else:
+            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details
 
     return redirect("report", task_id=task_id)

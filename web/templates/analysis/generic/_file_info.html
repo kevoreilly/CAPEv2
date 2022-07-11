@@ -271,6 +271,13 @@
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                     {% endif %}
                 {% endif %}
+                {% if config.floss %}
+                    {% if not file.floss %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "floss" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate floss strings"><span class="fas fa-cogs"></span> Floss</a>
+                    {% else %}
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#floss_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
+                    {% endif %}
+                {% endif %}
                 {% if config.bingraph %}
                     {% if not graphs.bingraph.content|getkey:file.sha256 and on_demand.bingraph %}
                     <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate BinGraph"><span class="fas fa-cogs"></span> BinGraph</a>
@@ -397,5 +404,6 @@
     {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
     {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
     {% if file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div> {% include "analysis/generic/_xlmmacro.html" %}</div></div></br>{% endif %}
+    {% if file.floss %} <div class="collapse" id="floss_{{file.sha256}}"> <div> {% include "analysis/generic/_floss.html" %}</div></div></br>{% endif %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:file.sha256|safe }}</td></center></br>{% endif %}
 </div>

@@ -78,6 +78,21 @@ if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
+HAVE_FLOSS = False
+if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
+    from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
+
+HAVE_STRINGS = False
+if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
+    from lib.cuckoo.common.integrations.strings import extract_strings
+    HAVE_STRINGS = True
+
+
+HAVE_VIRUSTOTAL = False
+if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
+    from lib.cuckoo.common.integrations.virustotal import vt_lookup
+    HAVE_VIRUSTOTAL = True
+
 
 def static_file_info(
     data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str, results: dict
@@ -144,6 +159,22 @@ def static_file_info(
 
     if processing_conf.die.enabled:
         detect_it_easy_info(file_path, data_dictionary)
+
+    if HAVE_FLOSS and processing_conf.floss.enabled:
+        floss_strings = Floss(file_path, package).run()
+        if floss_strings:
+            data_dictionary["floss"] = floss_strings
+
+    if HAVE_STRINGS:
+        strings = extract_strings(file_path)
+        if strings:
+            data_dictionary["strings"] = strings
+
+    # ToDo we need url support
+    if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
+        vt_details = vt_lookup("file", file_path, results)
+        if vt_details:
+            data_dictionary["virustotal"] = vt_details
 
     generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary, options_dict, results)
 

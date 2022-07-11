@@ -31,11 +31,11 @@ if processing_conf.flare_capa.enabled:
         else:
             import capa.engine
             import capa.features
+            import capa.features.freeze.features as frzf
             import capa.main
             import capa.render.default
             import capa.render.json
             import capa.render.result_document as rd
-            import capa.features.freeze.features as frzf
             import capa.render.utils as rutils
             import capa.rules
             from capa.engine import *

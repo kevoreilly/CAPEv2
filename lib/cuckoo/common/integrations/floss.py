@@ -111,7 +111,8 @@ class Floss:
                 )
 
             for stype in tmpres.keys():
-                results[stype] = []
+                if tmpres[stype]:
+                    results[stype] = []
                 for sval in tmpres[stype]:
                     results[stype].append(sval.string)
 

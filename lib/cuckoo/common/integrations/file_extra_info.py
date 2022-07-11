@@ -165,7 +165,7 @@ def static_file_info(
         if floss_strings:
             data_dictionary["floss"] = floss_strings
 
-    if HAVE_STRINGS and processing_conf.strings.enabled:
+    if HAVE_STRINGS:
         strings = extract_strings(file_path)
         if strings:
             data_dictionary["strings"] = strings

@@ -85,12 +85,14 @@ if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
 HAVE_STRINGS = False
 if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
+
     HAVE_STRINGS = True
 
 
 HAVE_VIRUSTOTAL = False
 if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
     from lib.cuckoo.common.integrations.virustotal import vt_lookup
+
     HAVE_VIRUSTOTAL = True
 
 

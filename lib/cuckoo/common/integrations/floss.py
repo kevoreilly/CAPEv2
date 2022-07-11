@@ -99,7 +99,7 @@ class Floss:
             if processing_cfg.floss.decoded_strings:
                 top_functions = fm.get_top_functions(decoding_function_features, 20)
                 fvas_to_emulate = fm.get_function_fvas(top_functions)
-                fvas_tight_functions = fm.get_tight_function_fvas( decoding_function_features )
+                fvas_tight_functions = fm.get_tight_function_fvas(decoding_function_features)
                 fvas_to_emulate = fm.append_unique(fvas_to_emulate, fvas_tight_functions)
 
                 tmpres["decoded_strings"] = fm.decode_strings(

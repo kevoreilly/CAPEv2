@@ -80,6 +80,7 @@ except (NameError, ImportError):
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
+
     HAVE_STRINGS = True
 
 HAVE_VBA2GRAPH = False
@@ -93,6 +94,7 @@ if processing_cfg.xlsdeobf.on_demand:
 HAVE_VIRUSTOTAL = False
 if processing_cfg.virustotal.on_demand:
     from lib.cuckoo.common.integrations.virustotal import vt_lookup
+
     HAVE_VIRUSTOTAL = True
 
 if reporting_cfg.bingraph.on_demand:

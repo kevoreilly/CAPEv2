@@ -20,7 +20,6 @@ from typing import Dict, List, Tuple
 import peutils
 from PIL import Image
 
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
 
@@ -65,17 +64,6 @@ if os.path.exists(userdb_path):
 
 
 log = logging.getLogger(__name__)
-
-processing_conf = Config("processing")
-
-HAVE_FLARE_CAPA = False
-# required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
-    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
-
-HAVE_FLOSS = False
-if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
-    from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 IMAGE_DOS_SIGNATURE = 0x5A4D
 IMAGE_NT_SIGNATURE = 0x00004550
@@ -909,14 +897,5 @@ class PortableExecutable:
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len(peresults["imports"])
 
-        if HAVE_FLARE_CAPA:
-            capa_details = flare_capa_details(self.file_path, "static")
-            if capa_details:
-                peresults["flare_capa"] = capa_details
-
-        if HAVE_FLOSS:
-            floss_strings = Floss(self.file_path, "static", "pe").run()
-            if floss_strings:
-                peresults["floss"] = floss_strings
         pe.close()
         return peresults

@@ -27,7 +27,7 @@
             </div>
         {% endif %}
 
-        {% if analysis.static_strings %}
+        {% if file.floss.static_strings %}
         <h4>Static Strings</h4>
             <div class="well" style="font-family: monospace;">
                 {% for string in file.floss.static_strings %}

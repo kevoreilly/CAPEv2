@@ -2147,6 +2147,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     if category == "static":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
+        category = "target.file"
     elif category == "dropped":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
     else:
@@ -2205,14 +2206,15 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     block[service] = details
                     break
 
-        elif category == "static":
+        elif category == "target.file":
+            import code;code.interact(local=dict(locals(), **globals()))
             if buf.get(category, {}):
                 if service in ("virustotal", "floss"):
                     buf[service] = details
                 elif service == "xlsdeobf":
-                    buf["static"].setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+                    buf.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 else:
-                    buf["static"][service] = details
+                    buf[service] = details
 
         elif category in ("procdump", "procmemory", "dropped"):
             for block in buf[category] or []:
@@ -2220,10 +2222,12 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     block[service] = details
                     break
 
-        if service in ("virustotal", "floss") and category == "static":
+        if service in ("virustotal", "floss") and category == "target.file":
             category = service
-
-        mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
+        if category == "target.file":
+            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf["target"]["file"]}})
+        else:
+            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details
 
     return redirect("report", task_id=task_id)

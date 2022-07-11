@@ -388,12 +388,12 @@
             </br>
         {% endif %}
     </table>
-    {% if file.pe %} <div class="collapse" id="pe_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pe.html" %}</div></div></br>{% endif %}
-    {% if file.dotnet %} <div class="collapse" id="dotnet_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_dotnet.html" %}</div></div></br>{% endif %}
-    {% if file.pdf %} <div class="collapse" id="pdf_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pdf.html" %}</div></div></br>{% endif %}
-    {% if file.lnk %} <div class="collapse" id="lnk_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
-    {% if file.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
-    {% if file.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
-    {% if file.floss %} <div class="collapse" id="floss_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_floss.html" %}</div></div></br>{% endif %}
+    {% if subfile.pe %} <div class="collapse" id="pe_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pe.html" %}</div></div></br>{% endif %}
+    {% if subfile.dotnet %} <div class="collapse" id="dotnet_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_dotnet.html" %}</div></div></br>{% endif %}
+    {% if subfile.pdf %} <div class="collapse" id="pdf_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pdf.html" %}</div></div></br>{% endif %}
+    {% if subfile.lnk %} <div class="collapse" id="lnk_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
+    {% if subfile.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
+    {% if subfile.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
+    {% if subfile.floss %} <div class="collapse" id="floss_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_floss.html" %}</div></div></br>{% endif %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</td></center></br>{% endif %}
 </div>

@@ -17,12 +17,11 @@ import struct
 
 import pefile
 
-
 def extract_config(filebuf):
     cfg = {}
     pe = None
     try:
-        pe = pefile.PE(data=data, fast_load=False)
+        pe = pefile.PE(data=filebuf, fast_load=False)
     except Exception:
         pass
     if pe is None:

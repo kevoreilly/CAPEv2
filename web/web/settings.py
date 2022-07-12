@@ -10,6 +10,9 @@ try:
 except ImportError:
     import re
 
+if os.geteuid() == 0:
+    sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
+
 # Cuckoo path.
 CUCKOO_PATH = os.path.join(os.getcwd(), "..")
 sys.path.append(CUCKOO_PATH)

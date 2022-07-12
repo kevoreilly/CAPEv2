@@ -73,6 +73,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
     * host tested with python3 version 3.7 and 3.8, but newer versions should work too
 
 ## Installation recommendations and scripts for optimal performance
+* __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 0. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/installation/guest/network.html#virtual-networking) for proper configuration
     * DO NOT FOLLOW BLOGS LIKE THESE - they suggest things that are against what we suggest:
         * https://notes.netbytesec.com/2020/12/cape-sandbox-installation-from-0-to-hero.html
@@ -88,10 +89,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
         * cape-rooter.service
         * To restart any service use `systemctl restart <service_name>`
     * To debug any problem, stop the relevant service and run the command that runs that service by hand to see more logs. Check `-h` for the help menu. Running the service in debug mode (`-d`) can help as well.
-    * __Only rooter should be executed as root__, the rest as __cape__ user.
-    * Running as root will mess with permissions
-
-4. Reboot and enjoy!
+5. Reboot and enjoy!
 
 
 * All scripts contain __help__ `-h`, but please check the scripts to __understand__ what they are doing.

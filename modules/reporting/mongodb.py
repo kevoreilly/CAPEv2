@@ -129,13 +129,13 @@ class MongoDB(Report):
         # with large amounts of data.
         # Note: Silently ignores the creation if the index already exists.
         mongo_create_index("analysis", "info.id", name="info.id_1")
-
+        # mongo_create_index([("target.file.sha256", TEXT)], name="target_sha256")
         # We performs a lot of SHA256 hash lookup so we need this index
-        mongo_create_index(
-            "analysis",
-            [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
-            name="ALL_SHA256",
-        )
+        # mongo_create_index(
+        #     "analysis",
+        #     [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
+        #     name="ALL_SHA256",
+        #)
         # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])

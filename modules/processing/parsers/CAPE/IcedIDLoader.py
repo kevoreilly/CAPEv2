@@ -17,6 +17,7 @@ import struct
 
 import pefile
 
+
 def extract_config(filebuf):
     cfg = {}
     pe = None
@@ -40,7 +41,9 @@ def extract_config(filebuf):
             cfg["Campaign"] = campaign
             return cfg
 
+
 if __name__ == "__main__":
     import sys
+
     with open(sys.argv[1], "rb") as f:
         print(extract_config(f.read()))

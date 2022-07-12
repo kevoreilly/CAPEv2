@@ -135,7 +135,7 @@ class MongoDB(Report):
         #     "analysis",
         #     [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
         #     name="ALL_SHA256",
-        #)
+        # )
         # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])

@@ -17,6 +17,7 @@ import struct
 
 import pefile
 
+
 def extract_config(filebuf):
     cfg = {}
     pe = None

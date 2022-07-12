@@ -16,46 +16,31 @@ import os
 import struct
 
 import pefile
-import yara
-
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-
-yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedIDLoader.yar")
-yara_rule = open(yara_path, "r").read()
-
-
-def yara_scan(raw_data):
-    try:
-        yara_rules = yara.compile(source=yara_rule)
-        return yara_rules.match(data=raw_data)
-    except Exception as e:
-        print(e)
-
-
-def iced_decode(data):
-    new = []
-    for n, x in enumerate(data):
-        k = x ^ data[n + 64]
-        new.append(k)
-        if n > 32:
-            break
-    _, d = struct.unpack("I30s", bytes(new))
-    return d.split(b"\00", 1)[0]
-
 
 def extract_config(filebuf):
-    yara_hit = yara_scan(filebuf)
-    for hit in yara_hit:
-        if hit.rule == "IcedIDLoader":
-            pe = pefile.PE(data=filebuf, fast_load=False)
-            for section in pe.sections:
-                if section.Name == b".d\x00\x00\x00\x00\x00\x00":
-                    config_section = bytearray(section.get_data())
-                    return {"address": iced_decode(config_section).decode()}
-
+    cfg = {}
+    pe = None
+    try:
+        pe = pefile.PE(data=data, fast_load=False)
+    except Exception:
+        pass
+    if pe is None:
+        return
+    for section in pe.sections:
+        if section.Name == b".d\x00\x00\x00\x00\x00\x00":
+            config_section = bytearray(section.get_data())
+            dec = []
+            for n, x in enumerate(config_section):
+                k = x ^ config_section[n + 64]
+                dec.append(k)
+                if n > 32:
+                    break
+            campaign, c2 = struct.unpack("I30s", bytes(dec))
+            cfg["C2"] = c2.split(b"\00", 1)[0].decode()
+            cfg["Campaign"] = campaign
+            return cfg
 
 if __name__ == "__main__":
     import sys
-
     with open(sys.argv[1], "rb") as f:
         print(extract_config(f.read()))

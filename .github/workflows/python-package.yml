@@ -58,7 +58,7 @@ jobs:
           poetry run pflake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Run unit tests
-        run: poetry run pytest --import-mode=append tests/
+        run: poetry run pytest --import-mode=append
 
 
   format:

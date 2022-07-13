@@ -118,6 +118,8 @@ exclude = ".git,__pycache__,.cache,.venv"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "web.settings"
 python_paths = "web"
+testpaths = "tests"
+norecursedirs = "tests/zip_compound"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

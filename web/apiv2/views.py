@@ -27,6 +27,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.dist_db import Node, Task, create_session
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
@@ -66,7 +67,6 @@ from lib.cuckoo.core.database import (
     Task,
 )
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
-from lib.cuckoo.common.dist_db import Node, Task, create_session
 
 try:
     import psutil
@@ -2266,7 +2266,7 @@ def task_worker_details(request, task_id: int):
 
     dist_db = distdb_session()
     # select Node.id, Node.name, Task.task_id from Node inner join Task on Task.node_id=Node.id where main_task_id=376324
-    n, t = dist_db.query(Node, Task).join(Task, Task.node_id==Node.id).filter(Task.main_task_id==task_id).first()
+    n, t = dist_db.query(Node, Task).join(Task, Task.node_id == Node.id).filter(Task.main_task_id == task_id).first()
 
     data = {
         "node": n.name,
@@ -2277,5 +2277,3 @@ def task_worker_details(request, task_id: int):
     dist_db.close()
 
     return Response(data)
-
-

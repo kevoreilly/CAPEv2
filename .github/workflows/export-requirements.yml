@@ -6,11 +6,6 @@ on:
     paths:
       - "pyproject.toml"
       - "poetry.lock"
-  pull_request:
-    branches: [ master ]
-    paths:
-      - "pyproject.toml"
-      - "poetry.lock"
 
 jobs:
   update:

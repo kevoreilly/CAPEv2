@@ -66,6 +66,7 @@ from lib.cuckoo.core.database import (
     Task,
 )
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+from lib.cuckoo.common.dist_db import Node, Task, create_session
 
 try:
     import psutil
@@ -88,6 +89,13 @@ except AttributeError:
 repconf = Config("reporting")
 web_conf = Config("web")
 routing_conf = Config("routing")
+
+HAVE_DISTDB = False
+try:
+    distdb_session = create_session(repconf.distributed.db, echo=False)
+    HAVE_DISTDB = True
+except Exception as e:
+    print(f"Failed to connec to distribted database: {str(e)}")
 
 zlib_compresion = False
 if repconf.compression.enabled:
@@ -2247,3 +2255,27 @@ def tasks_vtdl(request):
     if not apiconf.vtdl.get("enabled"):
         return Response({"error": True, "error_value": "VTDL Create API is Disabled"})
     return common_download_func("VirusTotal", request)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def task_worker_details(request, task_id: int):
+    # Check if this API function is enabled
+    if not apiconf.task_worker_details.get("enabled") or not HAVE_DISTDB:
+        return Response({"error": True, "error_value": "Task worker details is Disabled"})
+
+    dist_db = distdb_session()
+    # select Node.id, Node.name, Task.task_id from Node inner join Task on Task.node_id=Node.id where main_task_id=376324
+    n, t = dist_db.query(Node, Task).join(Task, Task.node_id==Node.id).filter(Task.main_task_id==task_id).first()
+
+    data = {
+        "node": n.name,
+        "node_id": n.id,
+        "task_id": t.task_id,
+        "main_task_id": t.main_task_id,
+    }
+    dist_db.close()
+
+    return Response(data)
+
+

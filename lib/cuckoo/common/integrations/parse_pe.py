@@ -56,6 +56,7 @@ except ImportError:
 HAVE_USERDB = False
 try:
     import peutils
+
     userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
     userdb_signatures = peutils.SignatureDatabase()
     if os.path.exists(userdb_path):
@@ -63,7 +64,6 @@ try:
         HAVE_USERDB = True
 except (ImportError, AttributeError) as e:
     print(f"Failed to initialize peutils: {str(e)}")
-
 
 
 log = logging.getLogger(__name__)

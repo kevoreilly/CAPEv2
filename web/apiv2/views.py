@@ -91,11 +91,11 @@ web_conf = Config("web")
 routing_conf = Config("routing")
 
 HAVE_DISTDB = False
-try:
-    distdb_session = create_session(repconf.distributed.db, echo=False)
-    HAVE_DISTDB = True
-except Exception as e:
-    print(f"Failed to connec to distribted database: {str(e)}")
+# try:
+#    distdb_session = create_session(repconf.distributed.db, echo=False)
+#    HAVE_DISTDB = True
+# except Exception as e:
+#    print(f"Failed to connec to distribted database: {str(e)}")
 
 zlib_compresion = False
 if repconf.compression.enabled:

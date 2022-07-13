@@ -17,7 +17,6 @@ from datetime import datetime
 from io import BytesIO
 from typing import Dict, List, Tuple
 
-import peutils
 from PIL import Image
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -55,12 +54,16 @@ except ImportError:
 
 
 HAVE_USERDB = False
+try:
+    import peutils
+    userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
+    userdb_signatures = peutils.SignatureDatabase()
+    if os.path.exists(userdb_path):
+        userdb_signatures.load(userdb_path)
+        HAVE_USERDB = True
+except (ImportError, AttributeError) as e:
+    print(f"Failed to initialize peutils: {str(e)}")
 
-userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
-userdb_signatures = peutils.SignatureDatabase()
-if os.path.exists(userdb_path):
-    userdb_signatures.load(userdb_path)
-    HAVE_USERDB = True
 
 
 log = logging.getLogger(__name__)

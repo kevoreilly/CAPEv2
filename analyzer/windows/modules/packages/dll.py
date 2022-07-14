@@ -42,6 +42,7 @@ class Dll(Package):
 
         # Does the user want us to run multiple exports that are available?
         enable_multi = self.options.get("enable_multi", "")
+        use_export_name = self.options.get("use_export_name", "")
         if enable_multi.lower() in ["on", "yes", "true"]:
             enable_multi = True
         else:
@@ -79,7 +80,6 @@ class Dll(Package):
             # The user does want us to run multiple functions if we can find them
             else:
                 # Does the user want us to run multiple exports by name?
-                use_export_name = self.options.get("use_export_name", "")
                 if use_export_name.lower() in ["on", "yes", "true"]:
                     use_export_name = True
                 else:

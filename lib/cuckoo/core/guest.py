@@ -148,9 +148,9 @@ class GuestManager:
                 socket.create_connection((self.ipaddr, self.port), 1).close()
                 break
             except socket.timeout:
-                log.debug("%s: not ready yet", self.vmid)
+                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
             except socket.error:
-                log.debug("%s: not ready yet", self.vmid)
+                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
                 time.sleep(1)
 
             if time.time() > end:
@@ -371,7 +371,7 @@ class GuestManager:
             # If the analysis hits the critical timeout, just return straight
             # away and try to recover the analysis results from the guest.
             if time.time() > end:
-                log.info("%s: end of analysis reached!", self.vmid)
+                log.info("Task #%s: End of analysis reached! (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
                 return
 
             try:
@@ -381,11 +381,11 @@ class GuestManager:
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover
                 log.warning(
-                    "Virtual Machine: %s /status failed. This can indicate the guest losing network connectivity", self.vmid
+                    "Task #%s: Virtual Machine %s /status failed. This can indicate the guest losing network connectivity", self.task_id, self.vmid
                 )
                 continue
             except Exception as e:
-                log.error("Virtual machine: %s /status failed. %s", self.vmid, e, exc_info=True)
+                log.error("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e, exc_info=True)
                 continue
 
             if status["status"] == "complete":

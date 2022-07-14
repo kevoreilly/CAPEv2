@@ -115,7 +115,7 @@ class HandlerContext:
 
             if e.errno != errno.ECONNRESET:
                 raise
-            log.debug("Task #%s had connection reset for %s, error: %s", self.task_id, self, e)
+            log.debug("Task #%s had %s for %s", self.task_id, e.strerror.lower(), self)
             return b""
         except Exception as e:
             print(e)

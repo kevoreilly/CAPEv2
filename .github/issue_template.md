@@ -1,5 +1,6 @@
 ## Removing issue template is equivalent to invalid issue!
 * We have this template in order to not have to ask everyone the same questions again and again!
+- [ ] I understand that if I remove this template this issue will be automatically closed without answer
 
 ## About accounts on [capesandbox.com](https://capesandbox.com/)
 * Issues isn't the way to ask for account acctivation. Ping capesandbox in [Twitter](https://twitter.com/capesandbox) with your username

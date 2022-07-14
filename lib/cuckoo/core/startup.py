@@ -23,6 +23,7 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupEr
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import create_folders
 from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
+from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns
 
@@ -161,9 +162,14 @@ def check_linux_dist():
         pass
 
 
-def init_logging():
-    """Initializes logging."""
+def init_logging(level: int):
+    """Initializes logging.
+    @param level: The logging level for the console logs
+    """
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+
+    init_logger("console", level)
+    init_logger("database")
 
     if cuckoo.log_rotation.enabled:
         days = cuckoo.log_rotation.backup_count or 7
@@ -175,15 +181,7 @@ def init_logging():
     fh.setFormatter(formatter)
     log.addHandler(fh)
 
-    ch = ConsoleHandler()
-    ch.setFormatter(formatter)
-    log.addHandler(ch)
-
-    dh = DatabaseHandler()
-    dh.setLevel(logging.ERROR)
-    log.addHandler(dh)
-
-    log.setLevel(logging.INFO)
+    init_logger("task")
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 

@@ -66,12 +66,14 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
         except KeyboardInterrupt:
             return
 
-    init_logging()
-
     if quiet:
-        log.setLevel(logging.WARN)
+        level = logging.WARN
     elif debug:
-        log.setLevel(logging.DEBUG)
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    log.setLevel(level)
+    init_logging(level)
 
     check_webgui_mongo()
     init_modules()

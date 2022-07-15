@@ -5,8 +5,17 @@
 import logging
 import os
 
-import imagehash
-from PIL import Image
+HAVE_IMAGEHASH = False
+try:
+    import imagehash
+    HAVE_IMAGEHASH = True
+except ImportError:
+    print("Missed dependency: pip3 install ImageHash")
+
+try:
+    from PIL import Image
+except ImportError:
+    print("Missed dependency: pip3 install Pillow")
 
 from lib.cuckoo.common.abstracts import Processing
 
@@ -16,7 +25,7 @@ log = logging.getLogger()
 class Deduplicate(Processing):
     """Deduplicate screenshots."""
 
-    def deduplicate_images(self, userpath, hashfunc=imagehash.average_hash):
+    def deduplicate_images(self, userpath, hashfunc):
         """
         Remove duplicate images from a path
         :userpath: path of the image files
@@ -55,6 +64,10 @@ class Deduplicate(Processing):
         """
         self.key = "deduplicated_shots"
         shots = []
+
+        if not HAVE_IMAGEHASH:
+            return shots
+
         hashmethod = self.options.get("hashmethod", "ahash")
         try:
             if hashmethod == "ahash":
@@ -67,6 +80,9 @@ class Deduplicate(Processing):
                 hashfunc = imagehash.whash
             elif hashmethod == "whash-db4":
                 hashfunc = lambda img: imagehash.whash(img, mode="db4")
+            else:
+                # Default
+                hashfunc = imagehash.average_hash
 
             shots_path = os.path.join(self.analysis_path, "shots")
             if os.path.exists(shots_path):

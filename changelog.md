@@ -1,3 +1,8 @@
+### [15-7-2022]
+* Monitor updates:
+    * MSI detonation (Win10)
+    * Misc updates & fixes (see capemon repo)
+
 ### [11-7-2022]
 * FLARE-CAPA fix, you must install it from `GitHub`. Pip version is different.
 * FLOSS 2.0 integration.

@@ -54,7 +54,7 @@ class TaskHandler(logging.Handler):
         if not task:
             return
 
-        task[1].write(f"{self.format(record)}\n")
+        task[1].write(f"{self.format(record)}\n".encode())
 
 
 class ConsoleHandler(logging.StreamHandler):
@@ -145,35 +145,19 @@ def task_log_stop(task_id):
 def init_logger(name, level=None):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
-    if name == "cuckoo.log":
-        l = logging.handlers.WatchedFileHandler(cwd("log", "cuckoo.log"))
-        l.setFormatter(formatter)
-        l.setLevel(level)
-
-    if name == "cuckoo.json":
-        j = JsonFormatter()
-        l = logging.handlers.WatchedFileHandler(cwd("log", "cuckoo.json"))
-        l.setFormatter(j)
-        l.addFilter(j)
-
     if name == "console":
         l = ConsoleHandler()
         l.setFormatter(formatter)
         l.setLevel(level)
 
-    if name == "database":
+    elif name == "database":
         l = DatabaseHandler()
         l.setLevel(logging.ERROR)
 
-    if name == "task":
+    elif name == "task":
         l = TaskHandler()
         l.setFormatter(formatter)
-
-    if name.startswith("process-") and name.endswith(".json"):
-        j = JsonFormatter()
-        l = logging.handlers.WatchedFileHandler(cwd("log", name))
-        l.setFormatter(j)
-        l.addFilter(j)
+        l.setLevel(logging.DEBUG)
 
     _loggers[name] = l
     logging.getLogger().addHandler(l)

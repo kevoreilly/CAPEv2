@@ -213,7 +213,7 @@ class FileUpload(ProtocolHandler):
                 log.debug("File upload error for %s (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
                     raise CuckooOperationalError(
-                        f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}"
+                        "Task #%s: Analyzer tried to overwrite an existing file: %s" % (self.task_id, file_path)
                     )
                 raise
         # ToDo we need Windows path
@@ -315,7 +315,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
     def add_task(self, task_id, ipaddr):
         with self.task_mgmt_lock:
             self.tasks[ipaddr] = task_id
-            log.debug("Now tracking machine %s for task #%s", ipaddr, task_id)
+            log.debug("Task #%s: The associated machine IP is %s", task_id, ipaddr)
 
     def del_task(self, task_id, ipaddr):
         """Delete ResultServer state and abort pending RequestHandlers. Since
@@ -326,10 +326,10 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             if self.tasks.pop(ipaddr, None) is None:
                 log.warning("ResultServer did not have a task with ID %s and IP %s", task_id, ipaddr)
             else:
-                log.debug("Stopped tracking machine %s for task #%s", ipaddr, task_id)
+                log.debug("Task %s: Stopped tracking machine %s", task_id, ipaddr)
             ctxs = self.handlers.pop(task_id, set())
             for ctx in ctxs:
-                log.debug("Cancel %s for task %s", ctx, task_id)
+                log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
 
     def create_folders(self):

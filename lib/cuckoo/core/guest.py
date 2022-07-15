@@ -148,9 +148,9 @@ class GuestManager:
                 socket.create_connection((self.ipaddr, self.port), 1).close()
                 break
             except socket.timeout:
-                log.debug("%s: not ready yet", self.vmid)
+                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
             except socket.error:
-                log.debug("%s: not ready yet", self.vmid)
+                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
                 time.sleep(1)
 
             if time.time() > end:
@@ -190,7 +190,7 @@ class GuestManager:
         """Upload the analyzer to the Virtual Machine."""
         zip_data = analyzer_zipfile(self.platform)
 
-        log.debug("Uploading analyzer to guest (id=%s, ip=%s, size=%d)", self.vmid, self.ipaddr, len(zip_data))
+        log.debug("Task #%s: Uploading analyzer to guest (id=%s, ip=%s, size=%d)", self.task_id, self.vmid, self.ipaddr, len(zip_data))
 
         self.determine_analyzer_path()
         data = {
@@ -220,7 +220,7 @@ class GuestManager:
         :param options: options
         :return:
         """
-        log.info("Uploading support files to guest (id=%s, ip=%s)", self.vmid, self.ipaddr)
+        log.info("Task #%s: Uploading support files to guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
         basedir = os.path.dirname(options["target"])
 
         for dirpath, _, files in os.walk(basedir):
@@ -235,7 +235,7 @@ class GuestManager:
 
     def upload_scripts(self):
         """Upload various scripts such as pre_script and during_scripts."""
-        log.info("Uploading script files to guest  (id=%s, ip=%s)", self.vmid, self.ipaddr)
+        log.info("Task #%s: Uploading script files to guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
         # Temp File location of pre_script and during_script
         base_dir = os.path.join("/tmp/cuckoo-tmp", str(self.task_id))
         # File path of Analyses path. Storage of script
@@ -256,7 +256,7 @@ class GuestManager:
         """Start the analysis by uploading all required files.
         @param options: the task options
         """
-        log.info("Starting analysis #%s on guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
+        log.info("Task #%s: Starting analysis on guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
 
         self.options = options
         self.timeout = options["timeout"] + cfg.timeouts.critical
@@ -299,7 +299,7 @@ class GuestManager:
             db.guest_set_status(self.task_id, "failed")
             return
 
-        log.info("Guest is running CAPE Agent %s (id=%s, ip=%s)", version, self.vmid, self.ipaddr)
+        log.info("Task #%s: Guest is running CAPE Agent %s (id=%s, ip=%s)", self.task_id, version, self.vmid, self.ipaddr)
 
         # Pin the Agent to our IP address so that it is not accessible by
         # other Virtual Machines etc.
@@ -362,7 +362,7 @@ class GuestManager:
 
         while db.guest_get_status(self.task_id) == "running" and self.do_run:
             if count >= 5:
-                log.debug("%s: analysis #%s is still running", self.vmid, self.task_id)
+                log.debug("Task #%s: Analysis is still running (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
                 count = 0
 
             count += 1
@@ -371,7 +371,7 @@ class GuestManager:
             # If the analysis hits the critical timeout, just return straight
             # away and try to recover the analysis results from the guest.
             if time.time() > end:
-                log.info("%s: end of analysis reached!", self.vmid)
+                log.info("Task #%s: End of analysis reached! (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
                 return
 
             try:
@@ -381,18 +381,18 @@ class GuestManager:
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover
                 log.warning(
-                    "Virtual Machine: %s /status failed. This can indicate the guest losing network connectivity", self.vmid
+                    "Task #%s: Virtual Machine %s /status failed. This can indicate the guest losing network connectivity", self.task_id, self.vmid
                 )
                 continue
             except Exception as e:
-                log.error("Virtual machine: %s /status failed. %s", self.vmid, e, exc_info=True)
+                log.error("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e, exc_info=True)
                 continue
 
             if status["status"] == "complete":
-                log.info("%s: analysis completed successfully", self.vmid)
+                log.info("Task #%s: Analysis completed successfully (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
                 db.guest_set_status(self.task_id, "complete")
                 return
             elif status["status"] == "exception":
-                log.warning("%s: analysis #%s caught an exception\n%s", self.vmid, self.task_id, status["description"])
+                log.warning("Task #%s: Analysis caught an exception (id=%s, ip=%s)\n%s", self.task_id, self.vmid, self.ipaddr, status["description"])
                 db.guest_set_status(self.task_id, "failed")
                 return

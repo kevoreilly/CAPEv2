@@ -8,6 +8,7 @@ import os
 HAVE_IMAGEHASH = False
 try:
     import imagehash
+
     HAVE_IMAGEHASH = True
 except ImportError:
     print("Missed dependency: pip3 install ImageHash")

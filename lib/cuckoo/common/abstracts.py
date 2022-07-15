@@ -1487,7 +1487,9 @@ class Signature:
         # If not, we can start caching it and store a copy converted to a dict.
         if call is not self._current_call_raw_cache:
             self._current_call_raw_cache = call
-            self._current_call_raw_dict = {argument["name"]: argument["raw_value"] for argument in call["arguments"]}
+            self._current_call_raw_dict = {
+                argument["name"]: argument["raw_value"] for argument in call["arguments"] if "raw_value" in argument
+            }
 
         # Return the required argument.
         if name in self._current_call_raw_dict:

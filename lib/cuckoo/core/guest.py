@@ -190,7 +190,9 @@ class GuestManager:
         """Upload the analyzer to the Virtual Machine."""
         zip_data = analyzer_zipfile(self.platform)
 
-        log.debug("Task #%s: Uploading analyzer to guest (id=%s, ip=%s, size=%d)", self.task_id, self.vmid, self.ipaddr, len(zip_data))
+        log.debug(
+            "Task #%s: Uploading analyzer to guest (id=%s, ip=%s, size=%d)", self.task_id, self.vmid, self.ipaddr, len(zip_data)
+        )
 
         self.determine_analyzer_path()
         data = {
@@ -381,7 +383,9 @@ class GuestManager:
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover
                 log.warning(
-                    "Task #%s: Virtual Machine %s /status failed. This can indicate the guest losing network connectivity", self.task_id, self.vmid
+                    "Task #%s: Virtual Machine %s /status failed. This can indicate the guest losing network connectivity",
+                    self.task_id,
+                    self.vmid,
                 )
                 continue
             except Exception as e:
@@ -393,6 +397,12 @@ class GuestManager:
                 db.guest_set_status(self.task_id, "complete")
                 return
             elif status["status"] == "exception":
-                log.warning("Task #%s: Analysis caught an exception (id=%s, ip=%s)\n%s", self.task_id, self.vmid, self.ipaddr, status["description"])
+                log.warning(
+                    "Task #%s: Analysis caught an exception (id=%s, ip=%s)\n%s",
+                    self.task_id,
+                    self.vmid,
+                    self.ipaddr,
+                    status["description"],
+                )
                 db.guest_set_status(self.task_id, "failed")
                 return

@@ -197,14 +197,18 @@ Azure
 Once you have a virtual machine that is ready to be your golden image for a 
 virtual machine scale set, take a snapshot of the virtual machine's disk.
 
+Official documentation on how to do this: [Create a snapshot of a virtual hard disk](https://docs.microsoft.com/en-us/azure/virtual-machines/snapshot-copy-managed-disk?tabs=portal)
+
 We are now going to turn this snapshot into an "image", which is the terminology 
 Azure uses as the base for all virtual machines in a scale set. 
 
 1. Create a Shared Image Gallery resource.
+    a. [Create a gallery for storing and sharing resources](https://docs.microsoft.com/en-us/azure/virtual-machines/create-gallery?tabs=portal%2Ccli2)
 2. Create an Image Definition in this Shared Image Gallery.
-    a. Operating System state must be SPECIALIZED
-3. Create an Image Version, and select "Disks and/or snapshots" as the Source.
-    a. Select the snapshot of the golden image.
+    a. [Create an image definition and an image version](https://docs.microsoft.com/en-us/azure/virtual-machines/image-version?tabs=portal)
+    b. Operating System state must be SPECIALIZED
+    c. Create an Image Version, and select "Disks and/or snapshots" as the Source.
+    d. Select the snapshot of the golden image.
 
 The creation of an image from a snapshot takes a while, so be patient.
 

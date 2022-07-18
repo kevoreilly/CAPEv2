@@ -10,7 +10,7 @@ try:
 except ImportError:
     import re
 
-if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1" :
+if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
     sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 
 # Cuckoo path.

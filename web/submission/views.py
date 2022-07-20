@@ -258,7 +258,7 @@ def index(request, resubmit_hash=False):
             task_category = "vtdl"
             samples = request.POST.get("vtdl").strip()
 
-        if job_category and job_category in ("hash", "sample", "quarantine", "static", "pcap"): # , "dlnexec", "vtdl"):
+        if job_category and job_category in ("hash", "sample", "quarantine", "static", "pcap", "dlnexec", "vtdl"):
             task_category = job_category
 
         list_of_files = []

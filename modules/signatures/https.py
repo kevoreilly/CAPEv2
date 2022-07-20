@@ -39,7 +39,6 @@ class NetworkHTTPS(Signature):
 
     def on_complete(self):
         ret = False
-        print(self.urls)
         urls = list(set(self.urls))
         if urls:
             ret = True

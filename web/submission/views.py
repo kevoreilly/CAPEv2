@@ -193,6 +193,10 @@ def index(request, resubmit_hash=False):
         if request.POST.get("unpack"):
             options += "unpack=yes,"
 
+        job_category = False
+        if request.POST.get("job_category"):
+            job_category = request.POST.get("job_category")
+
         # amsidump is enabled by default in the monitor for Win10+
         if web_conf.amsidump.enabled and not request.POST.get("amsidump"):
             options += "amsidump=0,"
@@ -222,9 +226,101 @@ def index(request, resubmit_hash=False):
             "only_extraction": False,
             "user_id": request.user.id or 0,
         }
-
+        task_category = False
+        samples = []
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
-            for hash in request.POST.get("hash").strip().split(","):
+            task_category = "resubmit"
+            samples = request.POST.get("hash").strip().split(",")
+        elif "sample" in request.FILES:
+            task_category = "sample"
+            samples = request.FILES.getlist("sample")
+        elif "quarantine" in request.FILES:
+            task_category = "quarantine"
+            samples = request.FILES.getlist("quarantine")
+        elif "static" in request.FILES:
+            task_category = "static"
+            samples = request.FILES.getlist("static")
+        elif "pcap" in request.FILES:
+            task_category = "pcap"
+            samples = request.FILES.getlist("pcap")
+        elif "url" in request.POST and request.POST.get("url").strip():
+            task_category = "url"
+            samples = request.POST.get("url").strip()
+        elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
+            task_category = "dlnexec"
+            samples = request.POST.get("dlnexec").strip()
+        elif (
+            settings.VTDL_ENABLED
+            and "vtdl" in request.POST
+            and request.POST.get("vtdl", False)
+            and request.POST.get("vtdl")[0] != ""
+        ):
+            task_category = "vtdl"
+            samples = request.POST.get("vtdl").strip()
+
+        if job_category and job_category in ("hash", "sample", "quarantine", "static", "pcap"): # , "dlnexec", "vtdl"):
+            task_category = job_category
+
+        list_of_files = []
+        if task_category in ("url", "dlnexec"):
+            if not samples:
+                return render(request, "error.html", {"error": "You specified an invalid URL!"})
+
+            for url in samples.split(","):
+                url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
+                if task_category == "dlnexec":
+                    response = _download_file(request.POST.get("route"), url, options)
+                    if not response:
+                        return render(request, "error.html", {"error": "Was impossible to retrieve url"})
+
+                    name = os.path.basename(url)
+                    if not "." in name:
+                        name = get_user_filename(options, custom) or generate_fake_name()
+
+                    path = store_temp_file(response, name)
+                    content = get_file_content(path)
+                    list_of_files.append((content, path))
+                elif task_category == "url":
+                    list_of_files.append(("", url))
+
+        elif task_category in ("sample", "quarantine", "static", "pcap"):
+            for sample in samples:
+                # Error if there was only one submitted sample and it's empty.
+                # But if there are multiple and one was empty, just ignore it.
+                if not sample.size:
+                    details["errors"].append({sample.name: "You uploaded an empty file."})
+                    continue
+                elif sample.size > settings.MAX_UPLOAD_SIZE:
+                    details["errors"].append(
+                        {
+                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
+                        }
+                    )
+                    continue
+
+                if opt_filename:
+                    filename = opt_filename
+                else:
+                    filename = sanitize_filename(sample.name)
+                # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
+                path = store_temp_file(sample.read(), filename)
+                sha256 = File(path).get_sha256()
+
+                if (
+                    not request.user.is_staff
+                    and (web_conf.uniq_submission.enabled or unique)
+                    and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours)
+                ):
+                    details["errors"].append(
+                        {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
+                    )
+                    continue
+
+                content = get_file_content(path)
+                list_of_files.append((content, path))
+
+        elif task_category == "resubmit":
+            for hash in samples:
                 paths = []
                 if len(hash) in (32, 40, 64):
                     paths = db.sample_path_by_hash(hash)
@@ -270,6 +366,10 @@ def index(request, resubmit_hash=False):
                 else:
                     filename = base_dir + "/" + sanitize_filename(hash)
                 path = store_temp_file(content, filename)
+                list_of_files.append((content, path))
+
+        if task_category == "resubmit":
+            for content, path in list_of_files:
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
@@ -282,40 +382,9 @@ def index(request, resubmit_hash=False):
                         for record in records or []:
                             existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
 
-        elif "sample" in request.FILES:
-            samples = request.FILES.getlist("sample")
+        elif task_category == "sample":
             details["service"] = "WebGUI"
-            for sample in samples:
-                # Error if there was only one submitted sample and it's empty.
-                # But if there are multiple and one was empty, just ignore it.
-                if not sample.size:
-                    details["errors"].append({sample.name: "You uploaded an empty file."})
-                    continue
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    details["errors"].append(
-                        {
-                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        }
-                    )
-                    continue
-
-                if opt_filename:
-                    filename = opt_filename
-                else:
-                    filename = sanitize_filename(sample.name)
-                # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
-                path = store_temp_file(sample.read(), filename)
-                sha256 = File(path).get_sha256()
-                if (
-                    not request.user.is_staff
-                    and (web_conf.uniq_submission.enabled or unique)
-                    and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours)
-                ):
-                    details["errors"].append(
-                        {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
-                    )
-                    continue
-
+            for content, path in list_of_files:
                 if web_conf.pre_script.enabled and "pre_script" in request.FILES:
                     pre_script = request.FILES["pre_script"]
                     details["pre_script_name"] = request.FILES["pre_script"].name
@@ -330,7 +399,7 @@ def index(request, resubmit_hash=False):
                     timeout = web_conf.public.timeout
 
                 details["path"] = path
-                details["content"] = get_file_content(path)
+                details["content"] = content
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(path): task_ids_tmp})
@@ -342,30 +411,8 @@ def index(request, resubmit_hash=False):
                                 existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
                     details["task_ids"] = task_ids_tmp
 
-        elif "quarantine" in request.FILES:
-            samples = request.FILES.getlist("quarantine")
-            for sample in samples:
-                # Error if there was only one submitted sample and it's empty.
-                # But if there are multiple and one was empty, just ignore it.
-                if not sample.size:
-                    if len(samples) != 1:
-                        continue
-
-                    return render(request, "error.html", {"error": "You uploaded an empty quarantine file."})
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(
-                        request,
-                        "error.html",
-                        {
-                            "error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        },
-                    )
-
-                # Moving sample from django temporary file to Cuckoo temporary storage to
-                # let it persist between reboot (if user like to configure it in that way).
-                filename = sanitize_filename(sample.name)
-                tmp_path = store_temp_file(sample.read(), filename)
-
+        elif task_category == "quarantine":
+            for content, path in list_of_files:
                 path = unquarantine(tmp_path)
                 try:
                     os.remove(tmp_path)
@@ -373,62 +420,27 @@ def index(request, resubmit_hash=False):
                     print(e)
 
                 if not path:
-                    return render(request, "error.html", {"error": "You uploaded an unsupported quarantine file."})
+                    details["errors"].append({os.path.basename(path): "You uploaded an unsupported quarantine file."})
+                    continue
 
                 details["path"] = path
-                details["content"] = get_file_content(path)
+                details["content"] = content
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({sample.name: task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
 
-        elif "static" in request.FILES:
-            samples = request.FILES.getlist("static")
-            for sample in samples:
-                if not sample.size:
-                    if len(samples) != 1:
-                        continue
-
-                    return render(request, "error.html", {"error": "You uploaded an empty file."})
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(
-                        request,
-                        "error.html",
-                        {"error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."},
-                    )
-
-                # Moving sample from django temporary file to Cuckoo temporary storage to
-                # let it persist between reboot (if user like to configure it in that way).
-                path = store_temp_file(sample.read(), sample.name)
-
+        elif task_category == "static":
+            for content, path in list_of_files:
                 task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
 
-        elif "pcap" in request.FILES:
-            samples = request.FILES.getlist("pcap")
-            for sample in samples:
-                if not sample.size:
-                    if len(samples) != 1:
-                        continue
-
-                    return render(request, "error.html", {"error": "You uploaded an empty PCAP file."})
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(
-                        request,
-                        "error.html",
-                        {
-                            "error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        },
-                    )
-
-                # Moving sample from django temporary file to Cuckoo temporary storage to
-                # let it persist between reboot (if user like to configure it in that way).
-                path = store_temp_file(sample.read(), sample.name)
-
-                if sample.name.lower().endswith(".saz"):
+        elif task_category == "pcap":
+            for content, path in list_of_files:
+                if path.lower().endswith(".saz"):
                     saz = saz_to_pcap(path)
                     if saz:
                         try:
@@ -437,89 +449,65 @@ def index(request, resubmit_hash=False):
                             pass
                         path = saz
                     else:
-                        return render(request, "error.html", {"error": "Conversion from SAZ to PCAP failed."})
+                        details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
+                        continue
 
                 task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if task_id:
                     details["task_ids"].append(task_id)
 
-        elif "url" in request.POST and request.POST.get("url").strip():
-            url = request.POST.get("url").strip()
-            if not url:
-                return render(request, "error.html", {"error": "You specified an invalid URL!"})
+        elif task_category == "url":
+            for _, url in list_of_files:
+                if machine.lower() == "all":
+                    machines = [vm.name for vm in db.list_machines(platform=platform)]
+                elif machine:
+                    machine_details = db.view_machine(machine)
+                    if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
+                        details["errors"].append({os.path.basename(name):  f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"})
+                        continue
+                    else:
+                        machines = [machine]
 
-            url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-
-            if machine.lower() == "all":
-                machines = [vm.name for vm in db.list_machines(platform=platform)]
-            elif machine:
-                machine_details = db.view_machine(machine)
-                if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                    return render(
-                        request,
-                        "error.html",
-                        {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
-                    )
                 else:
-                    machines = [machine]
+                    machines = [None]
+                for entry in machines:
+                    task_id = db.add_url(
+                        url=url,
+                        package=package,
+                        timeout=timeout,
+                        priority=priority,
+                        options=options,
+                        machine=entry,
+                        platform=platform,
+                        tags=tags,
+                        custom=custom,
+                        memory=memory,
+                        enforce_timeout=enforce_timeout,
+                        clock=clock,
+                        shrike_url=shrike_url,
+                        shrike_msg=shrike_msg,
+                        shrike_sid=shrike_sid,
+                        shrike_refer=shrike_refer,
+                        route=route,
+                        cape=cape,
+                        tags_tasks=tags_tasks,
+                        user_id=request.user.id or 0,
+                    )
+                    details["task_ids"].append(task_id)
 
-            else:
-                machines = [None]
-            for entry in machines:
-                task_id = db.add_url(
-                    url=url,
-                    package=package,
-                    timeout=timeout,
-                    priority=priority,
-                    options=options,
-                    machine=entry,
-                    platform=platform,
-                    tags=tags,
-                    custom=custom,
-                    memory=memory,
-                    enforce_timeout=enforce_timeout,
-                    clock=clock,
-                    shrike_url=shrike_url,
-                    shrike_msg=shrike_msg,
-                    shrike_sid=shrike_sid,
-                    shrike_refer=shrike_refer,
-                    route=route,
-                    cape=cape,
-                    tags_tasks=tags_tasks,
-                    user_id=request.user.id or 0,
-                )
-                details["task_ids"].append(task_id)
+        elif task_category == "dlnexec":
+            for content, path in list_of_files:
+                details["path"] = path
+                details["content"] = content
+                details["service"] = "DLnExec"
+                details["source_url"] = samples
+                status, task_ids_tmp = download_file(**details)
+                if status == "error":
+                    details["errors"].append({os.path.basename(name): task_ids_tmp})
+                else:
+                    details["task_ids"] = task_ids_tmp
 
-        elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
-            url = request.POST.get("dlnexec").strip()
-            if not url:
-                return render(request, "error.html", {"error": "You specified an invalid URL!"})
-
-            url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-            response = _download_file(request.POST.get("route"), url, options)
-            if not response:
-                return render(request, "error.html", {"error": "Was impossible to retrieve url"})
-
-            name = os.path.basename(url)
-            if not "." in name:
-                name = get_user_filename(options, custom) or generate_fake_name()
-
-            path = store_temp_file(response, name)
-            details["path"] = path
-            details["content"] = get_file_content(path)
-            details["service"] = "DLnExec"
-            details["source_url"] = url
-            status, task_ids_tmp = download_file(**details)
-            if status == "error":
-                details["errors"].append({name: task_ids_tmp})
-            else:
-                details["task_ids"] = task_ids_tmp
-        elif (
-            settings.VTDL_ENABLED
-            and "vtdl" in request.POST
-            and request.POST.get("vtdl", False)
-            and request.POST.get("vtdl")[0] != ""
-        ):
+        elif task_category == "vtdl":
             if not settings.VTDL_KEY or not settings.VTDL_PATH:
                 return render(
                     request,
@@ -531,7 +519,7 @@ def index(request, resubmit_hash=False):
             else:
                 if opt_apikey:
                     details["apikey"] = opt_apikey
-                details = download_from_vt(request.POST.get("vtdl").strip(), details, opt_filename, settings)
+                details = download_from_vt(samples, details, opt_filename, settings)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])

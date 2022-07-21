@@ -177,16 +177,13 @@ $(document).ready( function() {
                                     <div class="form-group">
                                         <label for="form_package">Task Category</label>
                                         <select class="form-control" id="form_package" name="job_category">
-                                            <option value="" active>Detect Automatically</option>
-                                            <option value="hash">Resubmit</option>
+                                            <option value="hash" checked>Resubmit</option>
                                             <option value="sample">Files</option>
                                             <option value="quarantine">Quarantine</option>
                                             <option value="static">Static analysis</option>
                                             <option value="pcap">Pcap</option>
                                             <option value="dlnexec">Download and Execute</option>
                                             <option value="vtdl">Virustotal Download</option>
-                                            <option value="hash">Resubmit</option>
-                                            <option value="hash">Resubmit</option>
                                         </select>
                                     </div>
                                 {% endif %}

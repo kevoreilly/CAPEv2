@@ -260,9 +260,6 @@ def index(request, resubmit_hash=False):
             task_category = "vtdl"
             samples = request.POST.get("vtdl").strip()
 
-        if job_category and job_category in ("hash", "sample", "quarantine", "static", "pcap", "dlnexec", "vtdl"):
-            task_category = job_category
-
         list_of_files = []
         if task_category in ("url", "dlnexec"):
             if not samples:
@@ -327,7 +324,11 @@ def index(request, resubmit_hash=False):
                 else:
                     filename = base_dir + "/" + sanitize_filename(hash)
                 path = store_temp_file(content, filename)
-                list_of_files.append((content, path))
+                list_of_files.append((content, path, hash))
+
+        # Hack for resubmit first find all files and then put task as proper category
+        if job_category and job_category in ("hash", "sample", "quarantine", "static", "pcap", "dlnexec", "vtdl"):
+            task_category = job_category
 
         if task_category == "resubmit":
             for content, path, sha256 in list_of_files:

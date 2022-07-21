@@ -28,6 +28,8 @@ from lib.cuckoo.common.web_utils import (
     get_file_content,
     parse_request_arguments,
     perform_search,
+    process_new_task_files,
+    process_new_url_task,
 )
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
@@ -269,55 +271,13 @@ def index(request, resubmit_hash=False):
             for url in samples.split(","):
                 url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
                 if task_category == "dlnexec":
-                    response = _download_file(request.POST.get("route"), url, options)
-                    if not response:
-                        return render(request, "error.html", {"error": "Was impossible to retrieve url"})
-
-                    name = os.path.basename(url)
-                    if not "." in name:
-                        name = get_user_filename(options, custom) or generate_fake_name()
-
-                    path = store_temp_file(response, name)
-                    content = get_file_content(path)
+                    path, content = process_new_url_task(url, route, options, custom)
                     list_of_files.append((content, path))
                 elif task_category == "url":
                     list_of_files.append(("", url))
 
         elif task_category in ("sample", "quarantine", "static", "pcap"):
-            for sample in samples:
-                # Error if there was only one submitted sample and it's empty.
-                # But if there are multiple and one was empty, just ignore it.
-                if not sample.size:
-                    details["errors"].append({sample.name: "You uploaded an empty file."})
-                    continue
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    details["errors"].append(
-                        {
-                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        }
-                    )
-                    continue
-
-                if opt_filename:
-                    filename = opt_filename
-                else:
-                    filename = sanitize_filename(sample.name)
-                # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
-                path = store_temp_file(sample.read(), filename)
-                sha256 = File(path).get_sha256()
-
-                if (
-                    not request.user.is_staff
-                    and (web_conf.uniq_submission.enabled or unique)
-                    and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours)
-                ):
-                    details["errors"].append(
-                        {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
-                    )
-                    continue
-
-                content = get_file_content(path)
-                list_of_files.append((content, path))
+            list_of_files, details = process_new_task_files(request, samples, details, opt_filename, unique)
 
         elif task_category == "resubmit":
             for hash in samples:

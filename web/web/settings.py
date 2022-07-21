@@ -38,12 +38,14 @@ aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
 api_cfg = Config("api")
 
-# Error handling for database backends
-if not cfg.mongodb.get("enabled") and not cfg.elasticsearchdb.get("enabled"):
-    raise Exception("No database backend reporting module is enabled! Please enable either ElasticSearch or MongoDB.")
+# If reporting is enabled via the web GUI, then require one of these to be enabled
+if web_cfg.web_reporting.get("enabled", True):
+    # Error handling for database backends
+    if not cfg.mongodb.get("enabled") and not cfg.elasticsearchdb.get("enabled"):
+        raise Exception("No database backend reporting module is enabled! Please enable either ElasticSearch or MongoDB.")
 
-if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and not cfg.elasticsearchdb.get("searchonly"):
-    raise Exception("Both database backend reporting modules are enabled. Please only enable ElasticSearch or MongoDB.")
+    if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and not cfg.elasticsearchdb.get("searchonly"):
+        raise Exception("Both database backend reporting modules are enabled. Please only enable ElasticSearch or MongoDB.")
 
 WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
 WEB_OAUTH = web_cfg.oauth

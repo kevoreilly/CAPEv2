@@ -28,8 +28,8 @@ from lib.cuckoo.common.web_utils import (
     get_file_content,
     parse_request_arguments,
     perform_search,
-    process_new_task_files,
     process_new_dlnexec_task,
+    process_new_task_files,
 )
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
@@ -271,8 +271,9 @@ def index(request, resubmit_hash=False):
             for url in samples.split(","):
                 url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
                 if task_category == "dlnexec":
-                    path, content = process_new_dlnexec_task(url, route, options, custom)
-                    list_of_files.append((content, path))
+                    path, content, sha256 = process_new_dlnexec_task(url, route, options, custom)
+                    if path:
+                        list_of_files.append((content, path, sha256))
                 elif task_category == "url":
                     list_of_files.append(("", url))
 
@@ -329,7 +330,7 @@ def index(request, resubmit_hash=False):
                 list_of_files.append((content, path))
 
         if task_category == "resubmit":
-            for content, path in list_of_files:
+            for content, path, sha256 in list_of_files:
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
@@ -344,7 +345,7 @@ def index(request, resubmit_hash=False):
 
         elif task_category == "sample":
             details["service"] = "WebGUI"
-            for content, path in list_of_files:
+            for content, path, sha256 in list_of_files:
                 if web_conf.pre_script.enabled and "pre_script" in request.FILES:
                     pre_script = request.FILES["pre_script"]
                     details["pre_script_name"] = request.FILES["pre_script"].name
@@ -372,7 +373,7 @@ def index(request, resubmit_hash=False):
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "quarantine":
-            for content, path in list_of_files:
+            for content, path, sha256 in list_of_files:
                 path = unquarantine(tmp_path)
                 try:
                     os.remove(tmp_path)
@@ -387,19 +388,19 @@ def index(request, resubmit_hash=False):
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
-                    details["errors"].append({sample.name: task_ids_tmp})
+                    details["errors"].append({os.path.basename(path): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "static":
-            for content, path in list_of_files:
+            for content, path, sha256 in list_of_files:
                 task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
 
         elif task_category == "pcap":
-            for content, path in list_of_files:
+            for content, path, sha256 in list_of_files:
                 if path.lower().endswith(".saz"):
                     saz = saz_to_pcap(path)
                     if saz:
@@ -417,13 +418,13 @@ def index(request, resubmit_hash=False):
                     details["task_ids"].append(task_id)
 
         elif task_category == "url":
-            for _, url in list_of_files:
+            for _, url, _ in list_of_files:
                 if machine.lower() == "all":
                     machines = [vm.name for vm in db.list_machines(platform=platform)]
                 elif machine:
                     machine_details = db.view_machine(machine)
                     if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                        details["errors"].append({os.path.basename(name):  f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"})
+                        details["errors"].append({os.path.basename(url):  f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"})
                         continue
                     else:
                         machines = [machine]
@@ -456,14 +457,14 @@ def index(request, resubmit_hash=False):
                     details["task_ids"].append(task_id)
 
         elif task_category == "dlnexec":
-            for content, path in list_of_files:
+            for content, path, sha256 in list_of_files:
                 details["path"] = path
                 details["content"] = content
                 details["service"] = "DLnExec"
                 details["source_url"] = samples
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(name): task_ids_tmp})
+                    details["errors"].append({os.path.basename(path): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
 

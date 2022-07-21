@@ -52,6 +52,7 @@ from lib.cuckoo.common.web_utils import (
     get_file_content,
     parse_request_arguments,
     perform_search,
+    process_new_dlnexec_task,
     process_new_task_files,
     process_new_url_task,
     search_term_map,
@@ -322,7 +323,7 @@ def tasks_create_file(request):
         opt_filename = get_user_filename(options, custom)
         list_of_tasks, details = process_new_task_files(request, files, details, opt_filename, unique)
 
-        for content, tmp_path in list_of_tasks:
+        for content, tmp_path, _ in list_of_tasks:
 
             if pcap:
                 if tmp_path.lower().endswith(".saz"):
@@ -565,7 +566,7 @@ def tasks_create_dlnexec(request):
                 }
                 return Response(resp)
 
-        path, content = process_new_url_task(url, route, options, custom)
+        path, content, _ = process_new_dlnexec_task(url, route, options, custom)
         if not path:
             return Response({"error": "Was impossible to retrieve url"})
 

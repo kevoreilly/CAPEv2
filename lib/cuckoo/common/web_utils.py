@@ -1250,7 +1250,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             continue
 
         content = get_file_content(path)
-        list_of_files.append((content, path))
+        list_of_files.append((content, path, sha256))
 
     return list_of_files, details
 
@@ -1258,7 +1258,7 @@ def process_new_dlnexec_task(url, route, options, custom):
     url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
     response = _download_file(route, url, options)
     if not response:
-        return False, False
+        return False, False, False
 
     name = os.path.basename(url)
     if not "." in name:
@@ -1266,4 +1266,4 @@ def process_new_dlnexec_task(url, route, options, custom):
 
     path = store_temp_file(response, name)
 
-    return path, response
+    return path, response, ""

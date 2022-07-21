@@ -329,6 +329,64 @@ class RunSignatures:
         self.cfg_processing = Config("processing")
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
 
+        # Gather all enabled & up-to-date Signatures.
+        self.signatures = []
+        for signature in list_plugins(group="signatures"):
+            if self._should_load_signature(signature):
+                # Initialize them all
+                self.signatures.append(signature(self.results))
+
+        overlay = self._load_overlay()
+        log.debug("Applying signature overlays for signatures: %s", ", ".join(overlay))
+        for signature in self.signatures:
+            self._apply_overlay(signature, overlay)
+
+        self.evented_list = []
+        self.non_evented_list = []
+        try:
+            for sig in self.signatures:
+                if sig.evented:
+                    # This is to confirm that the evented signature has its own on_call function, which is required 
+                    # https://capev2.readthedocs.io/en/latest/customization/signatures.html#evented-signatures
+                    if sig.on_call.__module__ != Signature.on_call.__module__:
+                        if not sig.filter_analysistypes or self.results["target"]["category"] in sig.filter_analysistypes:
+                            self.evented_list.append(sig)
+                
+                if sig not in self.evented_list:
+                    self.non_evented_list.append(sig)
+        except Exception as e:
+            print(e)
+
+        # Cache of signatures to call per API name.
+        self.api_sigs = {}
+
+        # Prebuild a list of signatures that *may* be interested
+        self.call_always = set()
+        self.call_for_api = defaultdict(set)
+        self.call_for_cat = defaultdict(set)
+        self.call_for_processname = defaultdict(set)
+        for sig in self.evented_list:
+            if not sig.filter_apinames and not sig.filter_categories and not sig.filter_processnames:
+                self.call_always.add(sig)
+                continue
+            for api in sig.filter_apinames:
+                self.call_for_api[api].add(sig)
+            for cat in sig.filter_categories:
+                self.call_for_cat[cat].add(sig)
+            for proc in sig.filter_processnames:
+                self.call_for_processname[proc].add(sig)
+
+    def _should_load_signature(self, signature):
+        """Should the given signature be enabled for this analysis?"""
+        if not signature.enabled or signature.name is None:
+            return False
+
+        if not self._check_signature_version(signature):
+            return False
+
+        return True
+
+
     def _load_overlay(self):
         """Loads overlay data from a json file.
         See example in data/signature_overlay.json
@@ -406,48 +464,34 @@ class RunSignatures:
         if not self.results:
             return
 
-        # Initialize the current signature.
-        try:
-            current = signature(self.results)
-        except Exception as e:
-            log.exception('Failed to load signature "%s": %s', signature, e)
-            return
-
-        # If the signature is disabled, skip it.
-        if not current.enabled:
-            return None
-
-        if not self._check_signature_version(current):
-            return None
-
         # Give it path to the analysis results.
-        current.set_path(self.analysis_path)
-        log.debug('Running signature "%s"', current.name)
+        signature.set_path(self.analysis_path)
+        log.debug('Running signature "%s"', signature.name)
 
         try:
             # Run the signature and if it gets matched, extract key information
             # from it and append it to the results container.
             pretime = datetime.now()
-            data = current.run()
+            data = signature.run()
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["signatures"].append(
                 {
-                    "name": current.name,
+                    "name": signature.name,
                     "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
                 }
             )
 
             if data:
-                log.debug('Analysis matched signature "%s"', current.name)
+                log.debug('Analysis matched signature "%s"', signature.name)
                 # Return information on the matched signature.
-                return current.as_result()
+                return signature.as_result()
         except KeyError as e:
-            log.error('Failed to run signature "%s": %s', current.name, e)
+            log.error('Failed to run signature "%s": %s', signature.name, e)
         except NotImplementedError:
             return None
         except Exception as e:
-            log.exception('Failed to run signature "%s": %s', current.name, e)
+            log.exception('Failed to run signature "%s": %s', signature.name, e)
 
         return None
 
@@ -460,49 +504,35 @@ class RunSignatures:
         matched = []
         stats = {}
 
-        complete_list = list_plugins(group="signatures") or []
         if test_signature:
-            complete_list = [sig for sig in complete_list if sig.name == test_signature]
-        evented_list = []
-        try:
-            evented_list = [
-                sig(self.results)
-                for sig in complete_list
-                if sig.enabled
-                and sig.evented
-                and self._check_signature_version(sig)
-                and (not sig.filter_analysistypes or self.results["target"]["category"] in sig.filter_analysistypes)
-            ]
-        except Exception as e:
-            print(e)
-        overlay = self._load_overlay()
-        log.debug("Applying signature overlays for signatures: %s", ", ".join(overlay))
-        for signature in complete_list + evented_list:
-            self._apply_overlay(signature, overlay)
+            self.evented_list = next((sig for sig in self.evented_list if sig.name == test_signature), [])
+            self.non_evented_list = next((sig for sig in self.non_evented_list if sig.name == test_signature), [])
 
-        if evented_list and "behavior" in self.results:
-            log.debug("Running %d evented signatures", len(evented_list))
-            for sig in evented_list:
+        if self.evented_list and "behavior" in self.results:
+            log.debug("Running %d evented signatures", len(self.evented_list))
+            for sig in self.evented_list:
                 stats[sig.name] = timedelta()
-                if sig == evented_list[-1]:
+                if sig == self.evented_list[-1]:
                     log.debug("\t `-- %s", sig.name)
                 else:
                     log.debug("\t |-- %s", sig.name)
 
             # Iterate calls and tell interested signatures about them.
             for proc in self.results["behavior"]["processes"]:
-                for call in proc["calls"]:
-                    # Loop through active evented signatures.
-                    for sig in evented_list:
-                        # Skip current call if it doesn't match the filters (if any).
-                        if sig.filter_processnames and not proc["process_name"] in sig.filter_processnames:
-                            continue
-                        if sig.filter_apinames and not call["api"] in sig.filter_apinames:
-                            continue
-                        if sig.filter_categories and not call["category"] in sig.filter_categories:
-                            continue
-
-                        result = None
+                process_name = proc["process_name"]
+                calls = proc.get("calls", [])
+                for call in calls:
+                    api = call.get("api")
+                    sigs = self.api_sigs.get(api)
+                    if sigs is None:
+                        # Build interested signatures
+                        cat = call.get("category")
+                        sigs = self.call_always.union(
+                            self.call_for_api.get(api, set()),
+                            self.call_for_cat.get(cat, set()),
+                            self.call_for_processname.get(process_name, set()),
+                        )
+                    for sig in sigs:
                         try:
                             pretime = datetime.now()
                             result = sig.on_call(call, proc)
@@ -524,15 +554,9 @@ class RunSignatures:
                         if result:
                             log.debug('Analysis matched signature "%s"', sig.name)
                             matched.append(sig.as_result())
-                            if sig in complete_list:
-                                complete_list.remove(sig)
-
-                        # Either True or False, we don't need to check this sig anymore.
-                        evented_list.remove(sig)
-                        del sig
-
+                
             # Call the stop method on all remaining instances.
-            for sig in evented_list:
+            for sig in self.evented_list:
                 try:
                     pretime = datetime.now()
                     result = sig.on_complete()
@@ -550,8 +574,6 @@ class RunSignatures:
                             [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttps]
                         log.debug('Analysis matched signature "%s"', sig.name)
                         matched.append(sig.as_result())
-                        if sig in complete_list:
-                            complete_list.remove(sig)
 
         # Link this into the results already at this point, so non-evented signatures can use it
         self.results["signatures"] = matched
@@ -563,11 +585,11 @@ class RunSignatures:
                     {"name": key, "time": float(f"{value.seconds}.{value.microseconds // 1000:03d}")}
                 )
         # Compat loop for old-style (non evented) signatures.
-        if complete_list:
-            complete_list.sort(key=lambda sig: sig.order)
+        if self.non_evented_list:
+            self.non_evented_list.sort(key=lambda sig: sig.order)
             log.debug("Running non-evented signatures")
 
-            for signature in complete_list:
+            for signature in self.non_evented_list:
                 if not signature.filter_analysistypes or self.results["target"]["category"] in signature.filter_analysistypes:
                     match = self.process(signature)
                     # If the signature is matched, add it to the list.

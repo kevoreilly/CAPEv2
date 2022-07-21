@@ -52,6 +52,8 @@ from lib.cuckoo.common.web_utils import (
     get_file_content,
     parse_request_arguments,
     perform_search,
+    process_new_dlnexec_task,
+    process_new_task_files,
     search_term_map,
     statistics,
     validate_task,
@@ -246,16 +248,31 @@ def tasks_create_file(request):
         # Parse potential POST options (see submission/views.py)
         quarantine = request.data.get("quarantine", "")
         pcap = request.data.get("pcap", "")
-        unique = bool(request.data.get("unique", False))
-        static = request.data.get("static", "")
-        priority = force_int(request.data.get("priority"))
-        options = request.data.get("options", "")
-        machine = request.data.get("machine", "")
 
-        if request.data.get("process_dump"):
-            if options:
-                options += ","
-            options += "procmemdump=1,procdump=1"
+        (
+            static,
+            package,
+            timeout,
+            priority,
+            options,
+            machine,
+            platform,
+            tags,
+            custom,
+            memory,
+            clock,
+            enforce_timeout,
+            shrike_url,
+            shrike_msg,
+            shrike_sid,
+            shrike_refer,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+        ) = parse_request_arguments(request, keyword="data")
 
         details = {
             "errors": [],
@@ -287,19 +304,12 @@ def tasks_create_file(request):
             # Check if VM is in our machines table
             if machine == "" or machine in vm_list:
                 task_machines.append(machine)
-            # Error if its not
             else:
                 resp = {
                     "error": True,
-                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
+                    "error_value": f"Machine '{machine}' does not exist. Available: {', '.join(vm_list)}",
                 }
                 return Response(resp)
-        # Parse a max file size to be uploaded
-        max_file_size = settings.MAX_UPLOAD_SIZE
-        if not max_file_size or int(max_file_size) == 0:
-            max_file_size = 5 * 1048576
-        else:
-            max_file_size = int(max_file_size) * 1048576
 
         files = []
         # Check if we are allowing multiple file submissions
@@ -308,26 +318,14 @@ def tasks_create_file(request):
             files = request.FILES.getlist("file")
         else:
             files = [request.FILES.getlist("file")[0]]
-        # Handle all files
-        for sample in files:
-            if sample.size == 0:
-                resp = {"error": True, "error_value": "You submitted an empty file"}
-                return Response(resp)
-            if sample.size > max_file_size:
-                resp = {"error": True, "error_value": "File size exceeds API limit"}
-                return Response(resp)
-            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
-            details["path"] = tmp_path
 
-            if (
-                not request.user.is_staff
-                and (web_conf.uniq_submission.enabled or unique)
-                and db.check_file_uniq(File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours)
-            ):
-                details["errors"].append({sample.name: "Not unique, as unique option set on submit or in conf/web.conf"})
-                continue
+        opt_filename = get_user_filename(options, custom)
+        list_of_tasks, details = process_new_task_files(request, files, details, opt_filename, unique)
+
+        for content, tmp_path, _ in list_of_tasks:
+
             if pcap:
-                if sample.name.lower().endswith(".saz"):
+                if tmp_path.lower().endswith(".saz"):
                     saz = saz_to_pcap(tmp_path)
                     if saz:
                         try:
@@ -336,8 +334,8 @@ def tasks_create_file(request):
                             print(e, "removing pcap")
                         tmp_path = saz
                     else:
-                        resp = {"error": True, "error_value": "Failed to convert SAZ to PCAP"}
-                        return Response(resp)
+                        details["error"].append({os.path.basename(tmp_path): "Failed to convert SAZ to PCAP"})
+                        continue
                 task_id = db.add_pcap(file_path=tmp_path)
                 details["task_ids"].append(task_id)
                 continue
@@ -354,18 +352,12 @@ def tasks_create_file(request):
                     print(e, "removing quarantine")
 
                 if not path:
-                    resp = {"error": True, "error_value": "You uploaded an unsupported quarantine file."}
-                    return Response(resp)
+                    details["error"].append({os.path.basename(tmp_path): "You uploaded an unsupported quarantine file."})
+                    continue
 
-                details["path"] = path
-                details["content"] = get_file_content(path)
-                status, task_ids_tmp = download_file(**details)
-                if status == "error":
-                    details["errors"].append({sample.name: task_ids_tmp})
-                else:
-                    details["task_ids"] = task_ids_tmp
-            else:
-                details["content"] = get_file_content(tmp_path)
+            if tmp_path:
+                details["path"] = tmp_path
+                details["content"] = content
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(tmp_path).decode(): task_ids_tmp})
@@ -434,7 +426,7 @@ def tasks_create_url(request):
             tags_tasks,
             route,
             cape,
-        ) = parse_request_arguments(request)
+        ) = parse_request_arguments(request, keyword="data")
 
         task_ids = []
         task_machines = []
@@ -525,10 +517,30 @@ def tasks_create_dlnexec(request):
             resp = {"error": True, "error_value": "URL value is empty"}
             return Response(resp)
 
-        options = request.data.get("options", "")
-        custom = request.data.get("custom", "")
-        machine = request.data.get("machine", "")
-        referrer = validate_referrer(request.data.get("referrer"))
+        (
+            static,
+            package,
+            timeout,
+            priority,
+            options,
+            machine,
+            platform,
+            tags,
+            custom,
+            memory,
+            clock,
+            enforce_timeout,
+            shrike_url,
+            shrike_msg,
+            shrike_sid,
+            shrike_refer,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+        ) = parse_request_arguments(request, keyword="data")
 
         details = {}
         task_machines = []
@@ -554,23 +566,10 @@ def tasks_create_dlnexec(request):
                 }
                 return Response(resp)
 
-        if referrer:
-            if options:
-                options += ","
-            options += "referrer=%s" % (referrer)
-
-        url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-        response = _download_file(request.data.get("route"), url, options)
-        if not response:
+        path, content, _ = process_new_dlnexec_task(url, route, options, custom)
+        if not path:
             return Response({"error": "Was impossible to retrieve url"})
 
-        name = os.path.basename(url)
-        if not "." in name:
-            name = get_user_filename(options, custom) or generate_fake_name()
-
-        path = store_temp_file(response, name)
-
-        content = get_file_content(path)
         details = {
             "errors": [],
             "content": content,
@@ -627,6 +626,13 @@ def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
     resp = {}
     if md5 or sha1 or sha256 or sample_id:
         resp["error"] = False
+        """
+        for key, value in (("md5", md5), ("sha1", sha1), ("sha256", sha256), ("id", sample_id)):
+            if value:
+                if not apiconf.fileview.get(key):
+                    resp = {"error": True, "error_value": f"File View by {key.upper()} is Disabled"}
+                    return Response(resp)
+        """
         if md5:
             if not apiconf.fileview.get("md5"):
                 resp = {"error": True, "error_value": "File View by MD5 is Disabled"}

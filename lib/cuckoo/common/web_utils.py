@@ -15,7 +15,18 @@ from django.http import HttpResponse
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
-from lib.cuckoo.common.utils import bytes2str, get_ip_address, get_options, sanitize_filename, validate_referrer, validate_ttp
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import (
+    bytes2str,
+    generate_fake_name,
+    get_ip_address,
+    get_options,
+    get_user_filename,
+    sanitize_filename,
+    store_temp_file,
+    validate_referrer,
+    validate_ttp,
+)
 from lib.cuckoo.core.database import (
     ALL_DB_STATUSES,
     TASK_FAILED_ANALYSIS,
@@ -1082,34 +1093,46 @@ def force_bool(value):
         return False
 
 
-def parse_request_arguments(request):
-    static = request.POST.get("static", "")
-    referrer = validate_referrer(request.POST.get("referrer"))
-    package = request.POST.get("package", "")
-    timeout = force_int(request.POST.get("timeout"))
-    priority = force_int(request.POST.get("priority"))
-    options = request.POST.get("options", "")
-    machine = request.POST.get("machine", "")
-    platform = request.POST.get("platform", "")
-    tags_tasks = request.POST.get("tags_tasks")
-    tags = request.POST.get("tags")
-    custom = request.POST.get("custom", "")
-    memory = force_bool(request.POST.get("memory", False))
-    clock = request.POST.get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
+def parse_request_arguments(request, keyword="POST"):
+    # Django uses request.POST and API uses request.data
+    static = getattr(request, keyword).get("static", "")
+    referrer = validate_referrer(getattr(request, keyword).get("referrer"))
+    package = getattr(request, keyword).get("package", "")
+    timeout = force_int(getattr(request, keyword).get("timeout"))
+    priority = force_int(getattr(request, keyword).get("priority"))
+    options = getattr(request, keyword).get("options", "")
+    machine = getattr(request, keyword).get("machine", "")
+    platform = getattr(request, keyword).get("platform", "")
+    tags_tasks = getattr(request, keyword).get("tags_tasks")
+    tags = getattr(request, keyword).get("tags")
+    custom = getattr(request, keyword).get("custom", "")
+    memory = force_bool(getattr(request, keyword).get("memory", False))
+    clock = getattr(request, keyword).get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
     if not clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
     if "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-    enforce_timeout = force_bool(request.POST.get("enforce_timeout", False))
-    shrike_url = request.POST.get("shrike_url")
-    shrike_msg = request.POST.get("shrike_msg")
-    shrike_sid = request.POST.get("shrike_sid")
-    shrike_refer = request.POST.get("shrike_refer")
-    unique = force_bool(request.POST.get("unique", False))
-    tlp = request.POST.get("tlp")
-    lin_options = request.POST.get("lin_options", "")
-    route = request.POST.get("route")
-    cape = request.POST.get("cape", "")
+    enforce_timeout = force_bool(getattr(request, keyword).get("enforce_timeout", False))
+    shrike_url = getattr(request, keyword).get("shrike_url")
+    shrike_msg = getattr(request, keyword).get("shrike_msg")
+    shrike_sid = getattr(request, keyword).get("shrike_sid")
+    shrike_refer = getattr(request, keyword).get("shrike_refer")
+    unique = force_bool(getattr(request, keyword).get("unique", False))
+    tlp = getattr(request, keyword).get("tlp")
+    lin_options = getattr(request, keyword).get("lin_options", "")
+    route = getattr(request, keyword).get("route")
+    cape = getattr(request, keyword).get("cape", "")
+
+    if getattr(request, keyword).get("process_dump"):
+        if options:
+            options += ","
+        options += "procmemdump=1,procdump=1"
+
+    if referrer:
+        if options:
+            options += ","
+        options += "referrer=%s" % (referrer)
+
     # Linux options
     if lin_options:
         options = lin_options
@@ -1190,3 +1213,57 @@ def download_from_vt(vtdl, details, opt_filename, settings):
             details["task_ids"] = task_ids_tmp
 
     return details
+
+def process_new_task_files(request, samples, details, opt_filename, unique):
+    list_of_files = []
+    for sample in samples:
+        # Error if there was only one submitted sample and it's empty.
+        # But if there are multiple and one was empty, just ignore it.
+        if not sample.size:
+            details["errors"].append({sample.name: "You uploaded an empty file."})
+            continue
+        elif sample.size > web_cfg.general.max_sample_size:
+            details["errors"].append(
+                {
+                    sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
+                }
+            )
+            continue
+
+        if opt_filename:
+            filename = opt_filename
+        else:
+            filename = sanitize_filename(sample.name)
+
+        # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
+        path = store_temp_file(sample.read(), filename)
+        sha256 = File(path).get_sha256()
+
+        if (
+            not request.user.is_staff
+            and (web_cfg.uniq_submission.enabled or unique)
+            and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
+        ):
+            details["errors"].append(
+                {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
+            )
+            continue
+
+        content = get_file_content(path)
+        list_of_files.append((content, path, sha256))
+
+    return list_of_files, details
+
+def process_new_dlnexec_task(url, route, options, custom):
+    url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
+    response = _download_file(route, url, options)
+    if not response:
+        return False, False, False
+
+    name = os.path.basename(url)
+    if not "." in name:
+        name = get_user_filename(options, custom) or generate_fake_name()
+
+    path = store_temp_file(response, name)
+
+    return path, response, ""

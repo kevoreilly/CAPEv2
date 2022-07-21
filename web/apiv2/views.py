@@ -54,7 +54,6 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     process_new_dlnexec_task,
     process_new_task_files,
-    process_new_url_task,
     search_term_map,
     statistics,
     validate_task,

@@ -625,6 +625,13 @@ def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
     resp = {}
     if md5 or sha1 or sha256 or sample_id:
         resp["error"] = False
+        """
+        for key, value in (("md5", md5), ("sha1", sha1), ("sha256", sha256), ("id", sample_id)):
+            if value:
+                if not apiconf.fileview.get(key):
+                    resp = {"error": True, "error_value": f"File View by {key.upper()} is Disabled"}
+                    return Response(resp)
+        """
         if md5:
             if not apiconf.fileview.get("md5"):
                 resp = {"error": True, "error_value": "File View by MD5 is Disabled"}

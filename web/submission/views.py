@@ -29,7 +29,7 @@ from lib.cuckoo.common.web_utils import (
     parse_request_arguments,
     perform_search,
     process_new_task_files,
-    process_new_url_task,
+    process_new_dlnexec_task,
 )
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
@@ -271,7 +271,7 @@ def index(request, resubmit_hash=False):
             for url in samples.split(","):
                 url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
                 if task_category == "dlnexec":
-                    path, content = process_new_url_task(url, route, options, custom)
+                    path, content = process_new_dlnexec_task(url, route, options, custom)
                     list_of_files.append((content, path))
                 elif task_category == "url":
                     list_of_files.append(("", url))

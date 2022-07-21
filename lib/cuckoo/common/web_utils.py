@@ -1254,7 +1254,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
     return list_of_files, details
 
-def process_new_url_task(url, route, options, custom):
+def process_new_dlnexec_task(url, route, options, custom):
     url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
     response = _download_file(route, url, options)
     if not response:

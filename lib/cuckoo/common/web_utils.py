@@ -1214,6 +1214,7 @@ def download_from_vt(vtdl, details, opt_filename, settings):
 
     return details
 
+
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
     for sample in samples:
@@ -1224,9 +1225,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             continue
         elif sample.size > web_cfg.general.max_sample_size:
             details["errors"].append(
-                {
-                    sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                }
+                {sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."}
             )
             continue
 
@@ -1253,6 +1252,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         list_of_files.append((content, path, sha256))
 
     return list_of_files, details
+
 
 def process_new_dlnexec_task(url, route, options, custom):
     url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")

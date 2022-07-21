@@ -425,7 +425,9 @@ def index(request, resubmit_hash=False):
                 elif machine:
                     machine_details = db.view_machine(machine)
                     if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                        details["errors"].append({os.path.basename(url):  f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"})
+                        details["errors"].append(
+                            {os.path.basename(url): f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"}
+                        )
                         continue
                     else:
                         machines = [machine]

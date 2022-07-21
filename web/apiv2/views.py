@@ -355,13 +355,14 @@ def tasks_create_file(request):
                     details["error"].append({os.path.basename(tmp_path): "You uploaded an unsupported quarantine file."})
                     continue
 
-            details["path"] = path
-            details["content"] = content
-            status, task_ids_tmp = download_file(**details)
-            if status == "error":
-                details["errors"].append({os.path.basename(tmp_path).decode(): task_ids_tmp})
-            else:
-                details["task_ids"] = task_ids_tmp
+            if tmp_path:
+                details["path"] = tmp_path
+                details["content"] = content
+                status, task_ids_tmp = download_file(**details)
+                if status == "error":
+                    details["errors"].append({os.path.basename(tmp_path).decode(): task_ids_tmp})
+                else:
+                    details["task_ids"] = task_ids_tmp
 
         if details["task_ids"]:
             tasks_count = len(details["task_ids"])

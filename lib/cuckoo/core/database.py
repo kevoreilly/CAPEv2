@@ -835,8 +835,6 @@ class Database(object, metaclass=Singleton):
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)
-            if need_VM:
-                self.set_task_vm(task_id=row.id, vmname=machine.label, vm_id=machine.id)
             session.refresh(row)
 
             return row
@@ -930,8 +928,10 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            session.query(Guest).get(guest_id).shutdown_on = datetime.now()
-            session.commit()
+            guest = session.query(Guest).get(guest_id)
+            if guest:
+                guest.shutdown_on = datetime.now()
+                session.commit()
         except SQLAlchemyError as e:
             log.debug("Database error logging guest stop: %s", e)
             session.rollback()
@@ -989,9 +989,9 @@ class Database(object, metaclass=Singleton):
             machines = session.query(Machine)
             if label:
                 machines = machines.filter_by(label=label)
-            if platform:
+            elif platform:
                 machines = machines.filter_by(platform=platform)
-            if tags:
+            elif tags:
                 for tag in tags:
                     machines = machines.filter(Machine.tags.any(name=tag.name))
 

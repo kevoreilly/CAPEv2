@@ -534,6 +534,8 @@ class RunSignatures:
                             self.call_for_processname.get(process_name, set()),
                         )
                     for sig in sigs:
+                        if sig.matched:
+                            continue
                         try:
                             pretime = datetime.now()
                             result = sig.on_call(call, proc)
@@ -545,19 +547,14 @@ class RunSignatures:
                         except Exception as e:
                             log.exception("Failed to run signature %s: %s", sig.name, e)
                             result = False
-
-                        # If the signature returns None we can carry on, the
-                        # condition was not matched.
-                        if result is None:
-                            continue
-
-                        # On True, the signature is matched.
+                        
                         if result:
-                            log.debug('Analysis matched signature "%s"', sig.name)
-                            matched.append(sig.as_result())
-                
+                            sig.matched = True
+
             # Call the stop method on all remaining instances.
             for sig in self.evented_list:
+                if sig.matched:
+                    continue
                 try:
                     pretime = datetime.now()
                     result = sig.on_complete()
@@ -570,11 +567,9 @@ class RunSignatures:
                     log.exception('Failed run on_complete() method for signature "%s": %s', sig.name, e)
                     continue
                 else:
-                    if result:
+                    if result and not sig.matched:
                         if hasattr(sig, "ttps"):
                             [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttps]
-                        log.debug('Analysis matched signature "%s"', sig.name)
-                        matched.append(sig.as_result())
 
         # Link this into the results already at this point, so non-evented signatures can use it
         self.results["signatures"] = matched
@@ -594,10 +589,17 @@ class RunSignatures:
                 if not signature.filter_analysistypes or self.results["target"]["category"] in signature.filter_analysistypes:
                     match = self.process(signature)
                     # If the signature is matched, add it to the list.
-                    if match:
+                    if match and not signature.matched:
                         if hasattr(signature, "ttps"):
                             [self.ttps.append({"ttp": ttp, "signature": signature.name}) for ttp in signature.ttps]
-                        matched.append(match)
+                        signature.matched = True
+
+        for signature in self.signatures:
+            if not signature.matched:
+                continue
+            log.debug('Analysis matched signature "%s"', signature.name)
+            signature.matched = True
+            matched.append(signature.as_result())
 
         # Sort the matched signatures by their severity level.
         matched.sort(key=lambda key: key["severity"])

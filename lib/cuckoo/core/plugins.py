@@ -36,7 +36,6 @@ _modules = defaultdict(dict)
 
 processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
-web_cfg = Config("web")
 
 config_mapper = {
     "processing": processing_cfg,
@@ -649,9 +648,8 @@ class RunReporting:
         # remove unwanted/duplicate information from reporting
         for process in results["behavior"]["processes"]:
             process["calls"].begin_reporting()
-            if web_cfg.web_reporting.get("enabled", True):
-                # required to convert object to list
-                process["calls"] = list(process["calls"])
+            # required to convert object to list
+            process["calls"] = list(process["calls"])
 
         self.results = results
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))

@@ -238,7 +238,10 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                     log.info("Processing analysis data for Task #%d", task.id)
                     if task.category != "url":
                         sample = db.view_sample(task.sample_id)
-                        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task.id), sample.sha256)
+                        if sample:
+                            copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task.id), sample.sha256)
+                        else:
+                            copy_path = None
                     else:
                         copy_path = None
                     args = task.target, copy_path

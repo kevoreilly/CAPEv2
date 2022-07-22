@@ -327,7 +327,7 @@ def index(request, resubmit_hash=False):
                 list_of_files.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
-        if job_category and job_category in ("hash", "sample", "quarantine", "static", "pcap", "dlnexec", "vtdl"):
+        if job_category and job_category in ("resubmit", "sample", "quarantine", "static", "pcap", "dlnexec", "vtdl"):
             task_category = job_category
 
         if task_category == "resubmit":

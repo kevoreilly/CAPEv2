@@ -153,11 +153,9 @@ class PortableExecutable:
     @property
     def file_data(self):
         if not self._file_data:
-            try:
+            if os.path.exists(self.file_path):
                 with open(self.file_path, "rb") as f:
                     self._file_data = f.read()
-            except FileNotFoundError as e:
-                log.error(e, exc_info=True)
         return self._file_data
 
     # Obtained from

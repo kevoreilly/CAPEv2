@@ -246,10 +246,8 @@ class File:
     @property
     def file_data(self):
         if not self._file_data:
-            try:
+            if os.path.exists(self.file_path):
                 self._file_data = open(self.file_path, "rb").read()
-            except FileNotFoundError as e:
-                log.error(e, exc_info=True)
         return self._file_data
 
     def get_size(self):

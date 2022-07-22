@@ -260,7 +260,7 @@ class ParseProcessLog(list):
         if cfg.processing.ram_boost:
             idx = 0
             ent = self.api_call_cache[idx]
-            while not ent:
+            while ent:
                 # remove the values we don't want to encode in reports
                 for arg in ent["arguments"]:
                     del arg["raw_value"]

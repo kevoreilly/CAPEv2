@@ -16,7 +16,9 @@ launch the HTTP server which will listen for connections.
 On Windows, if you simply launch the script, a Python window will be
 spawned. If you want to hide this window you can rename the file from
 *agent.py* to **agent.pyw** which will prevent the window from
-spawning upon launching the script.
+spawning upon launching the script. Don't forget to test the agent
+before saving the snapshot with:
+``curl VM_IP:8000``
 
 
 Prior To Windows 10

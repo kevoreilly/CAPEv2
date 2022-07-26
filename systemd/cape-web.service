@@ -6,7 +6,7 @@ After=cape-rooter.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/web
-ExecStart=/usr/bin/python3 -m poetry run python manage.py runserver 0.0.0.0:8000
+ExecStart=/usr/bin/python3 -m poetry run python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 User=cape
 Group=cape
 Restart=always

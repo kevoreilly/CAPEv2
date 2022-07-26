@@ -94,7 +94,7 @@ ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
 
 # If false run next command
-# python3 manage.py runserver 0.0.0.0:8000 --insecure
+# python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 DEBUG = True
 
 # Database settings. We don't need it.
@@ -223,7 +223,7 @@ X_FRAME_OPTIONS = "DENY"
 
 ROOT_URLCONF = "web.urls"
 
-# Python dotted path to the WSGI application used by Django's runserver.
+# Python dotted path to the WSGI application used by Django's runserver_plus.
 WSGI_APPLICATION = "web.wsgi.application"
 
 INSTALLED_APPS = [

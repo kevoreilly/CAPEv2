@@ -19,7 +19,7 @@ Starting the Distributed REST API
 
 The Distributed REST API requires a few commandline options in order to run::
 
-    $ cd /opt/CAPEv2/web && python3 manage.py runserver 0.0.0.0:8000
+    $ cd /opt/CAPEv2/web && python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
 
 RESTful resources

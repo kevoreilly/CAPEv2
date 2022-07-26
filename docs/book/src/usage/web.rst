@@ -78,13 +78,13 @@ Usage
 To start the web interface, you can simply run the following command
 from the ``web/`` directory::
 
-    $ python3 manage.py runserver
+    $ python3 manage.py runserver_plus --traceback --keep-meta-shutdown
 
 If you want to configure the web interface as listening for any IP on a
 specified port, you can start it with the following command (replace PORT
 with the desired port number)::
 
-    $ python3 manage.py runserver 0.0.0.0:PORT
+    $ python3 manage.py runserver_plus 0.0.0.0:PORT --traceback --keep-meta-shutdown
 
 You can serve CAPE's web interface using WSGI interface with common web servers:
 Apache, Nginx, Unicorn, and so on.

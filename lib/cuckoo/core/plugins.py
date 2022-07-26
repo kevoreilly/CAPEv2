@@ -349,7 +349,7 @@ class RunSignatures:
                     # This is to confirm that the evented signature has its own on_call function, which is required
                     # https://capev2.readthedocs.io/en/latest/customization/signatures.html#evented-signatures
                     if sig.on_call.__module__ != Signature.on_call.__module__:
-                        if not sig.filter_analysistypes or self.results["target"]["category"] in sig.filter_analysistypes:
+                        if not sig.filter_analysistypes or self.results.get("target", {}).get("category") in sig.filter_analysistypes:
                             self.evented_list.append(sig)
 
                 if sig not in self.evented_list:
@@ -584,7 +584,7 @@ class RunSignatures:
             log.debug("Running non-evented signatures")
 
             for signature in self.non_evented_list:
-                if not signature.filter_analysistypes or self.results["target"]["category"] in signature.filter_analysistypes:
+                if not signature.filter_analysistypes or self.results.get("target", {}).get("category") in signature.filter_analysistypes:
                     match = self.process(signature)
                     # If the signature is matched, add it to the list.
                     if match and not signature.matched:

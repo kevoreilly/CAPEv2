@@ -24,6 +24,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_PENDING, Database
 from lib.cuckoo.core.guest import GuestManager
+from lib.cuckoo.core.log import task_log_stop
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
@@ -475,8 +476,10 @@ class AnalysisManager(threading.Thread):
             log.info("Task #%s: analysis procedure completed", self.task.id)
         except Exception as e:
             log.exception("Task #%s: Failure in AnalysisManager.run: %s", self.task.id, e)
-
-        active_analysis_count -= 1
+        finally:
+            self.db.set_status(self.task.id, TASK_COMPLETED)
+            task_log_stop(self.task.id)
+            active_analysis_count -= 1
 
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:

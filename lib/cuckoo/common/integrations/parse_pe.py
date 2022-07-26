@@ -153,8 +153,9 @@ class PortableExecutable:
     @property
     def file_data(self):
         if not self._file_data:
-            with open(self.file_path, "rb") as f:
-                self._file_data = f.read()
+            if os.path.exists(self.file_path):
+                with open(self.file_path, "rb") as f:
+                    self._file_data = f.read()
         return self._file_data
 
     # Obtained from
@@ -251,6 +252,9 @@ class PortableExecutable:
         @return: file type or None.
         """
         if not HAVE_MAGIC:
+            return None
+
+        if not data:
             return None
 
         try:
@@ -798,7 +802,7 @@ class PortableExecutable:
 
     def get_dll_exports(self) -> str:
         file_type = self._get_filetype(self.file_data)
-        if HAVE_PEFILE and ("PE32" in file_type or "MS-DOS executable" in file_type):
+        if HAVE_PEFILE and file_type and ("PE32" in file_type or "MS-DOS executable" in file_type):
             try:
                 pe = pefile.PE(self.file_path)
                 if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):

@@ -260,7 +260,7 @@ class ParseProcessLog(list):
         if cfg.processing.ram_boost:
             idx = 0
             ent = self.api_call_cache[idx]
-            while not ent:
+            while ent:
                 # remove the values we don't want to encode in reports
                 for arg in ent["arguments"]:
                     del arg["raw_value"]
@@ -1159,19 +1159,22 @@ class BehaviorAnalysis(Processing):
             Enhanced(),
             EncryptedBuffers(),
         ]
-        # Iterate calls and tell interested signatures about them
-        for process in behavior["processes"]:
-            for call in process["calls"]:
-                for instance in instances:
-                    try:
-                        instance.event_apicall(call, process)
-                    except Exception:
-                        log.exception('Failure in partial behavior "%s"', instance.key)
+        enabled_instances = [instance for instance in instances if getattr(cfg_process.behavior, instance.key, True)]
+
+        if enabled_instances:
+            # Iterate calls and tell interested signatures about them
+            for process in behavior["processes"]:
+                for call in process["calls"]:
+                    for instance in enabled_instances:
+                        try:
+                            instance.event_apicall(call, process)
+                        except Exception:
+                            log.exception('Failure in partial behavior "%s"', instance.key)
 
         for instance in instances:
             try:
                 behavior[instance.key] = instance.run()
-            except Exception:
-                log.exception('Failed to run partial behavior class "%s"', instance.key)
+            except Exception as e:
+                log.exception('Failed to run partial behavior class "%s" due to "%s"', instance.key, e)
 
         return behavior

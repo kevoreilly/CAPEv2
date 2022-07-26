@@ -675,7 +675,7 @@ class Azure(Machinery):
                 raise CuckooGuestCriticalTimeout(
                     f"Machine {machine_name}: the guest initialization hit the critical " "timeout, analysis aborted."
                 )
-        log.debug(f"Machine {machine_name} was created and available in {round(time.time() - start)}")
+        log.debug(f"Machine {machine_name} was created and available in {round(time.time() - start)}s")
 
     @staticmethod
     def _azure_api_call(*args, **kwargs):

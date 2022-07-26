@@ -756,6 +756,7 @@ class Signature:
         self._current_call_raw_dict = None
         self.hostname2ips = {}
         self.machinery_conf = machinery_conf
+        self.matched = False
 
     def statistics_custom(self, pretime, extracted: bool = False):
         """

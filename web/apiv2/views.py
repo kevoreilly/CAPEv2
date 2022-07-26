@@ -908,6 +908,7 @@ def tasks_view(request, task_id):
             sort=[("_id", -1)],
         )
 
+    rtmp = None
     if es_as_db:
         rtmp = es.search(
             index=get_analysis_index(),
@@ -1072,7 +1073,8 @@ def tasks_delete(request, task_id, status=False):
 
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
-            mongo_delete_data(task)
+            if web_conf.web_reporting.get("enabled", True):
+                mongo_delete_data(task)
 
             s_deleted.append(str(task))
         else:

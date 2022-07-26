@@ -346,12 +346,12 @@ class RunSignatures:
         try:
             for sig in self.signatures:
                 if sig.evented:
-                    # This is to confirm that the evented signature has its own on_call function, which is required 
+                    # This is to confirm that the evented signature has its own on_call function, which is required
                     # https://capev2.readthedocs.io/en/latest/customization/signatures.html#evented-signatures
                     if sig.on_call.__module__ != Signature.on_call.__module__:
                         if not sig.filter_analysistypes or self.results["target"]["category"] in sig.filter_analysistypes:
                             self.evented_list.append(sig)
-                
+
                 if sig not in self.evented_list:
                     self.non_evented_list.append(sig)
         except Exception as e:
@@ -385,7 +385,6 @@ class RunSignatures:
             return False
 
         return True
-
 
     def _load_overlay(self):
         """Loads overlay data from a json file.
@@ -546,7 +545,7 @@ class RunSignatures:
                         except Exception as e:
                             log.exception("Failed to run signature %s: %s", sig.name, e)
                             result = False
-                        
+
                         if result:
                             sig.matched = True
 

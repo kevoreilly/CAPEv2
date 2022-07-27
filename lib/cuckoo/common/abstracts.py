@@ -265,19 +265,20 @@ class Machinery:
         """
         return self.db.count_machines_available()
 
-    def acquire(self, machine_id=None, platform=None, tags=None):
+    def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
         """Acquire a machine to start analysis.
         @param machine_id: machine ID.
         @param platform: machine platform.
         @param tags: machine tags
+        @param arch: machine arch
         @return: machine or None.
         """
         if machine_id:
             return self.db.lock_machine(label=machine_id)
         elif platform:
-            return self.db.lock_machine(platform=platform, tags=tags)
+            return self.db.lock_machine(platform=platform, tags=tags, arch=arch)
         else:
-            return self.db.lock_machine(tags=tags)
+            return self.db.lock_machine(tags=tags, arch=arch)
 
     def release(self, label=None):
         """Release a machine.

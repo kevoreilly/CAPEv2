@@ -1,8 +1,9 @@
 name: PIP audit
 
 on:
-  push:
-    branches: [ master ]
+  schedule:
+  - cron: '0 8 * * 1'
+
 
 jobs:
   test:

@@ -129,7 +129,7 @@ class Azure(Machinery):
                 for key, value in scale_set_opts.items():
                     if value and isinstance(value, str):
                         scale_set_opts[key] = value.strip()
-                
+
                 # Insert the scale_set_opts into the module.scale_sets attribute
                 mmanager_opts["scale_sets"][scale_set_id] = scale_set_opts
 

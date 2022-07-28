@@ -519,7 +519,7 @@ class Azure(Machinery):
                 # Start it and forget about it
                 threading.Thread(
                     target=self._thr_scale_machine_pool,
-                    args=(self.options.az.scale_sets[vmss_name].tag, True if platform else False),
+                    args=(self.options.az.scale_sets[vmss_name].pool_tag, True if platform else False),
                 ).start()
 
         return base_class_return_value

@@ -507,6 +507,7 @@ class Azure(Machinery):
         @param machine_id: the name of the machine to be acquired
         @param platform: the platform of the machine's operating system to be acquired
         @param tags: any tags that are associated with the machine to be acquired
+        @param arch: the architecture of the operating system
         @return: dict representing machine object from DB
         """
         base_class_return_value = super(Azure, self).acquire(machine_id=machine_id, platform=platform, tags=tags, arch=arch)

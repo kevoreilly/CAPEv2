@@ -107,7 +107,7 @@ if repconf.elasticsearchdb.enabled:
 
     es = elastic_handler
 
-SCHEMA_VERSION = "8537286ff4d5"
+SCHEMA_VERSION = "02af0b0ec686"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"

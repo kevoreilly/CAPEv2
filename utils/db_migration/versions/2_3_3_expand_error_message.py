@@ -19,9 +19,9 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    op.alter_column("errors", "message", existing_type=sa.String(length=255), type_=sa.String(length=512), existing_nullable=True)
+    op.alter_column("errors", "message", existing_type=sa.String(length=255), type_=sa.String(length=1024), existing_nullable=True)
 
 
 def downgrade():
-    op.alter_column("errors", "message", existing_type=sa.String(length=512), type_=sa.String(length=255), existing_nullable=True)
+    op.alter_column("errors", "message", existing_type=sa.String(length=1024), type_=sa.String(length=255), existing_nullable=True)
 

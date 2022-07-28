@@ -857,7 +857,7 @@ class Scheduler:
                 specific_pending_task_counts[tag.name] += 1
             specific_pending_task_counts[task.platform] += 1
 
-        log.warning(
+        log.debug(
             "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Total Machines: %d;",
             self.db.count_tasks(status=TASK_PENDING),
             dict(specific_pending_task_counts),

@@ -360,7 +360,7 @@ class Error(Base):
     __tablename__ = "errors"
 
     id = Column(Integer(), primary_key=True)
-    message = Column(String(255), nullable=False)
+    message = Column(String(512), nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
 
     def to_dict(self):
@@ -807,7 +807,8 @@ class Database(object, metaclass=Singleton):
         # Are there available machines that match up with a task?
         task_arch = next((tag.name for tag in task.tags if tag.name in ["x86", "x64"]), "")
         task_tags = [tag.name for tag in task.tags if tag.name != task_arch]
-        if len(self.list_machines(locked=False, platform=task.platform, tags=task_tags, arch=task_arch)) > 0:
+        relevant_available_machines = self.list_machines(locked=False, platform=task.platform, tags=task_tags, arch=task_arch)
+        if len(relevant_available_machines) > 0:
             # There are? Awesome!
             self.set_status(task_id=task.id, status=TASK_RUNNING)
             return True
@@ -945,15 +946,15 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def list_machines(self, locked=False, platform="", tags=[], arch=""):
+    def list_machines(self, locked=None, platform="", tags=[], arch=""):
         """Lists virtual machines.
         @return: list of virtual machines
         """
         session = self.Session()
         try:
             machines = session.query(Machine).options(joinedload("tags"))
-            if locked:
-                machines = machines.filter_by(locked=True)
+            if locked is not None and isinstance(locked, bool):
+                machines = machines.filter_by(locked=locked)
             if platform:
                 machines = machines.filter_by(platform=platform)
             if arch:

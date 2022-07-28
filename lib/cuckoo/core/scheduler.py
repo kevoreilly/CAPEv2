@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from collections import defaultdict
 import logging
 import os
 import queue
@@ -18,6 +19,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooMachineError,
     CuckooNetworkError,
     CuckooOperationalError,
+    CuckooGuestCriticalTimeout,
 )
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
@@ -110,7 +112,7 @@ class AnalysisManager(threading.Thread):
         """Checks the integrity of the file to be analyzed."""
         sample = self.db.view_sample(self.task.sample_id)
 
-        if sha256 != sample.sha256:
+        if sample and sha256 != sample.sha256:
             log.error(
                 "Task #%s: Target file has been modified after submission: '%s'",
                 self.task.id,
@@ -357,6 +359,10 @@ class AnalysisManager(threading.Thread):
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
             dead_machine = True
+        except CuckooGuestCriticalTimeout as e:
+            if not unlocked:
+                machine_lock.release()
+            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
         except CuckooGuestError as e:
             if not unlocked:
                 machine_lock.release()
@@ -816,10 +822,14 @@ class Scheduler:
                     # First things first, are there pending tasks?
                     if not self.db.count_tasks(status=TASK_PENDING):
                         continue
+                    relevant_machine_is_available = False
                     # There are? Great, let's get them, ordered by priority and then oldest to newest
                     for task in self.db.list_tasks(status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="):
-                        if self.db.is_relevant_machine_available(task):
+                        relevant_machine_is_available = self.db.is_relevant_machine_available(task)
+                        if relevant_machine_is_available:
                             break
+                    if not relevant_machine_is_available:
+                        task = None
                 else:
                     task = self.db.fetch_task(False, categories=self.analyzing_categories, need_VM=False)
                 if task:
@@ -837,10 +847,22 @@ class Scheduler:
                 pass
 
     def _thr_periodic_log(self):
-        log.debug(
-            "# Tasks: %d; # Available Machines: %d; # Locked Machines: %d; # Total Machines: %d;",
+        specific_available_machine_counts = defaultdict(int)
+        for machine in self.db.get_available_machines():
+            for tag in machine.tags:
+                specific_available_machine_counts[tag.name] += 1
+        specific_pending_task_counts = defaultdict(int)
+        for task in self.db.list_tasks(status=TASK_PENDING):
+            for tag in task.tags:
+                specific_pending_task_counts[tag.name] += 1
+            specific_pending_task_counts[task.platform] += 1
+
+        log.warning(
+            "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Total Machines: %d;",
             self.db.count_tasks(status=TASK_PENDING),
+            dict(specific_pending_task_counts),
             self.db.count_machines_available(),
+            dict(specific_available_machine_counts),
             len(self.db.list_machines(locked=True)),
             len(self.db.list_machines()),
         )

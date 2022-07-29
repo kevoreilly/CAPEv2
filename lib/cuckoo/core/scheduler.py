@@ -861,7 +861,8 @@ class Scheduler:
                     specific_pending_task_counts[tag.name] += 1
             if task.platform:
                 specific_pending_task_counts[task.platform] += 1
-            specific_pending_task_counts[task.machine] += 1
+            if task.machine:
+                specific_pending_task_counts[task.machine] += 1
 
         log.debug(
             "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Total Machines: %d;",

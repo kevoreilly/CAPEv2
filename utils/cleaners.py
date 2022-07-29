@@ -36,6 +36,7 @@ log = logging.getLogger(__name__)
 
 cuckoo = Config()
 repconf = Config("reporting")
+webconf = Config("web")
 resolver_pool = ThreadPool(50)
 atexit.register(resolver_pool.close)
 
@@ -66,6 +67,8 @@ def connect_to_es():
 
 def is_reporting_db_connected():
     try:
+        if not webconf.web_reporting.enabled:
+            return True
         if repconf.mongodb.enabled:
             results_db = connect_to_mongo()[mdb]
             # Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None

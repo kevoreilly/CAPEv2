@@ -419,7 +419,7 @@ def index(request, resubmit_hash=False):
                     details["task_ids"].append(task_id)
 
         elif task_category == "url":
-            for _, url, _ in list_of_files:
+            for _, url in list_of_files:
                 if machine.lower() == "all":
                     machines = [vm.name for vm in db.list_machines(platform=platform)]
                 elif machine:

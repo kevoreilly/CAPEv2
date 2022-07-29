@@ -207,7 +207,7 @@ class TestAnalysisManager:
             def availables(self):
                 return True
 
-            def acquire(self, machine_id, platform, tags):
+            def acquire(self, machine_id, platform, tags, arch):
                 class mock_acquire:
                     name = "mock_mach"
                     label = "mock_label"
@@ -223,7 +223,14 @@ class TestAnalysisManager:
             platform = "plat"
 
         class mock_tags:
-            tags = "tags"
+            class mock_tag:
+                def __init__(self, name):
+                    self.name = name
+
+            tags = [mock_tag("tag1"), mock_tag("tag2")]
+            def __iter__(self):
+                for tag in self.tags:
+                    yield tag
 
         class mock_arch:
             arch = "x64"

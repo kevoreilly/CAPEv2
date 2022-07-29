@@ -666,7 +666,7 @@ def download_file(**kwargs):
         kwargs["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
     elif machine:
         machine_details = db.view_machine(machine)
-        if hasattr(machine_details, "platform") and not machine_details.platform == platform:
+        if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
             return "error", {"error": f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"}
         else:
             kwargs["task_machines"] = [machine]

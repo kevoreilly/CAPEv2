@@ -272,7 +272,7 @@ def index(request, resubmit_hash=False):
                     if path:
                         list_of_files.append((content, path, sha256))
                 elif task_category == "url":
-                    list_of_files.append(("", url))
+                    list_of_files.append(("", url, ""))
 
         elif task_category in ("sample", "quarantine", "static", "pcap"):
             list_of_files, details = process_new_task_files(request, samples, details, opt_filename, unique)

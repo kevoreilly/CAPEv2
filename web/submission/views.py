@@ -402,7 +402,7 @@ def index(request, resubmit_hash=False):
 
         elif task_category == "pcap":
             for content, path, sha256 in list_of_files:
-                if path.lower().endswith(".saz"):
+                if path.lower().endswith(b".saz"):
                     saz = saz_to_pcap(path)
                     if saz:
                         try:

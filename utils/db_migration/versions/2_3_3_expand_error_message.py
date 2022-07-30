@@ -11,11 +11,11 @@ Create Date: 2022-07-28 18:46:00.169029
 """
 
 # revision identifiers, used by Alembic.
-revision = '02af0b0ec686'
-down_revision = '8537286ff4d5'
+revision = "02af0b0ec686"
+down_revision = "8537286ff4d5"
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 
 def upgrade():
@@ -24,4 +24,3 @@ def upgrade():
 
 def downgrade():
     op.alter_column("errors", "message", existing_type=sa.String(length=1024), type_=sa.String(length=255), existing_nullable=True)
-

@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from collections import defaultdict
 import logging
 import os
 import queue
@@ -10,16 +9,17 @@ import shutil
 import signal
 import threading
 import time
+from collections import defaultdict
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import (
     CuckooCriticalError,
+    CuckooGuestCriticalTimeout,
     CuckooGuestError,
     CuckooMachineError,
     CuckooNetworkError,
     CuckooOperationalError,
-    CuckooGuestCriticalTimeout,
 )
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
@@ -200,7 +200,13 @@ class AnalysisManager(threading.Thread):
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug("Task #%s: no machine available yet for machine '%s', platform '%s' or tags '%s'.", self.task.id, self.task.machine, self.task.platform, self.task.tags)
+                log.debug(
+                    "Task #%s: no machine available yet for machine '%s', platform '%s' or tags '%s'.",
+                    self.task.id,
+                    self.task.machine,
+                    self.task.platform,
+                    self.task.tags,
+                )
                 time.sleep(1)
             else:
                 log.info(
@@ -824,7 +830,9 @@ class Scheduler:
                         continue
                     relevant_machine_is_available = False
                     # There are? Great, let's get them, ordered by priority and then oldest to newest
-                    for task in self.db.list_tasks(status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="):
+                    for task in self.db.list_tasks(
+                        status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
+                    ):
                         relevant_machine_is_available = self.db.is_relevant_machine_available(task)
                         if relevant_machine_is_available:
                             break

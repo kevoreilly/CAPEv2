@@ -228,6 +228,7 @@ class TestAnalysisManager:
                     self.name = name
 
             tags = [mock_tag("tag1"), mock_tag("tag2")]
+
             def __iter__(self):
                 for tag in self.tags:
                     yield tag

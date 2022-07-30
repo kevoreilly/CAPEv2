@@ -808,11 +808,7 @@ class Database(object, metaclass=Singleton):
         task_arch = next((tag.name for tag in task.tags if tag.name in ["x86", "x64"]), "")
         task_tags = [tag.name for tag in task.tags if tag.name != task_arch]
         relevant_available_machines = self.list_machines(
-            locked=False,
-            label=task.machine,
-            platform=task.platform,
-            tags=task_tags,
-            arch=task_arch
+            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_arch
         )
         if len(relevant_available_machines) > 0:
             # There are? Awesome!
@@ -1017,9 +1013,8 @@ class Database(object, metaclass=Singleton):
             if not machines.count():
                 session.close()
                 raise CuckooOperationalError(
-                    "No machines match selection criteria of label: '%s', platform: '%s', arch: '%s', tags: '%s'" % (
-                        label, platform, arch, tags
-                    )
+                    "No machines match selection criteria of label: '%s', platform: '%s', arch: '%s', tags: '%s'"
+                    % (label, platform, arch, tags)
                 )
 
             # Get the first free machine.

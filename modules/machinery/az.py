@@ -369,10 +369,7 @@ class Azure(Machinery):
                 thr.start()
             else:
                 # Create VMSS!
-                thr = threading.Thread(
-                    target=self._thr_create_vmss,
-                    args=(vmss, vals["image"], vals["platform"])
-                )
+                thr = threading.Thread(target=self._thr_create_vmss, args=(vmss, vals["image"], vals["platform"]))
                 vmss_creation_threads.append(thr)
                 thr.start()
 
@@ -381,10 +378,7 @@ class Azure(Machinery):
             thr.join()
 
         # Initialize the platform scaling state monitor
-        is_platform_scaling = {
-            Azure.WINDOWS_PLATFORM: False,
-            Azure.LINUX_PLATFORM: False
-        }
+        is_platform_scaling = {Azure.WINDOWS_PLATFORM: False, Azure.LINUX_PLATFORM: False}
 
         # Let's get the number of CPUs associated with the SKU (instance_type)
         # If we want to programmatically determine the number of cores for the sku
@@ -702,8 +696,7 @@ class Azure(Machinery):
             if time.time() >= end:
                 # We didn't do it :(
                 raise CuckooGuestCriticalTimeout(
-                    f"Machine {machine_name}: the guest initialization hit the critical "
-                    "timeout, analysis aborted."
+                    f"Machine {machine_name}: the guest initialization hit the critical " "timeout, analysis aborted."
                 )
         log.debug(f"Machine {machine_name} was created and available in {round(time.time() - start)}s")
 
@@ -791,9 +784,7 @@ class Azure(Machinery):
             ip_configurations=[vmss_ip_config],
             primary=True,
         )
-        vmss_network_profile = models.VirtualMachineScaleSetNetworkProfile(
-            network_interface_configurations=[vmss_network_config]
-        )
+        vmss_network_profile = models.VirtualMachineScaleSetNetworkProfile(network_interface_configurations=[vmss_network_config])
         # If the user wants spot instances, then give them spot instances!
         if self.options.az.spot_instances:
             vmss_vm_profile = models.VirtualMachineScaleSetVMProfile(
@@ -957,7 +948,7 @@ class Azure(Machinery):
                         number_of_relevant_machines_required - number_of_machines
                     )
                     # Leaving at least five spaces in the usage quota for a spot VM, let's not push it!
-                    number_of_new_cpus_available = int(usage.limit) - usage.current_value - int(self.instance_type_cpus*5)
+                    number_of_new_cpus_available = int(usage.limit) - usage.current_value - int(self.instance_type_cpus * 5)
                     if number_of_new_cpus_available < 0:
                         number_of_relevant_machines_required = machine_pools[vmss_name]["size"]
                     elif number_of_new_cpus_required > number_of_new_cpus_available:

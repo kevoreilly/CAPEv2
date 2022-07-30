@@ -1,3 +1,11 @@
+### [30-7-2022] 
+* [Details here](https://github.com/kevoreilly/CAPEv2/pull/1020)
+* __ACTION REQUIRED__
+    * `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`
+    * Restart:
+        * CAPE service `systemctl restart cape cape-processor`
+        * Web: uwsgi or cape-web
+
 ### [15-7-2022]
 * Monitor updates:
     * MSI detonation (Win10)

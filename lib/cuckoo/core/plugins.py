@@ -184,7 +184,7 @@ class RunAuxiliary:
             except NotImplementedError:
                 pass
             except Exception as e:
-                log.warning("Unable to stop auxiliary module: %s", e)
+                log.warning("Unable to stop auxiliary module: %s", e, exc_info=True)
             else:
                 log.debug("Stopped auxiliary module: %s", module.__class__.__name__)
 

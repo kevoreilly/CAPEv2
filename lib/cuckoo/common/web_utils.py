@@ -59,6 +59,8 @@ rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
 
 db = Database()
 
+DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
+
 HAVE_DIST = False
 # Distributed CAPE
 if repconf.distributed.enabled:
@@ -655,7 +657,8 @@ def download_file(**kwargs):
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 
-    platform = get_platform(magic_type)
+    if DYNAMIC_PLATFORM_DETERMINATION:
+        platform = get_platform(magic_type)
     if platform == "linux" and not linux_enabled and "Python" not in magic_type:
         return "error", {"error": "Linux binaries analysis isn't enabled"}
 
@@ -663,7 +666,7 @@ def download_file(**kwargs):
         kwargs["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
     elif machine:
         machine_details = db.view_machine(machine)
-        if hasattr(machine_details, "platform") and not machine_details.platform == platform:
+        if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
             return "error", {"error": f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"}
         else:
             kwargs["task_machines"] = [machine]
@@ -1084,9 +1087,9 @@ def force_bool(value):
     if not value:
         return False
 
-    if value in ("False", "false", "FALSE"):
+    if value.lower() in ("false", "no", "off", "0"):
         return False
-    elif value in ("True", "true", "TRUE"):
+    elif value.lower() in ("true", "yes", "on", "1"):
         return True
     else:
         log.warning("Value of %s cannot be converted from string to bool", value)

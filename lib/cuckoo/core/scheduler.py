@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from collections import defaultdict
 import logging
 import os
 import queue
@@ -18,11 +19,12 @@ from lib.cuckoo.common.exceptions import (
     CuckooMachineError,
     CuckooNetworkError,
     CuckooOperationalError,
+    CuckooGuestCriticalTimeout,
 )
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_PENDING, Database
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_PENDING, Database, Task
 from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.log import task_log_stop
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
@@ -110,7 +112,7 @@ class AnalysisManager(threading.Thread):
         """Checks the integrity of the file to be analyzed."""
         sample = self.db.view_sample(self.task.sample_id)
 
-        if sha256 != sample.sha256:
+        if sample and sha256 != sample.sha256:
             log.error(
                 "Task #%s: Target file has been modified after submission: '%s'",
                 self.task.id,
@@ -191,12 +193,14 @@ class AnalysisManager(threading.Thread):
 
             # If the user specified a specific machine ID, a platform to be
             # used or machine tags acquire the machine accordingly.
-            machine = machinery.acquire(machine_id=self.task.machine, platform=self.task.platform, tags=self.task.tags)
+            task_arch = next((tag.name for tag in self.task.tags if tag.name in ["x86", "x64"]), "")
+            task_tags = [tag.name for tag in self.task.tags if tag.name != task_arch]
+            machine = machinery.acquire(machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_arch)
 
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug("Task #%s: no machine available yet. Verify that arch value is set in hypervisor config", self.task.id)
+                log.debug("Task #%s: no machine available yet for machine '%s', platform '%s' or tags '%s'.", self.task.id, self.task.machine, self.task.platform, self.task.tags)
                 time.sleep(1)
             else:
                 log.info(
@@ -239,7 +243,7 @@ class AnalysisManager(threading.Thread):
             options["exports"] = PortableExecutable(self.task.target).get_dll_exports()
             del file_obj
 
-        # options from auxiliar.conf
+        # options from auxiliary.conf
         for plugin in self.aux_cfg.auxiliary_modules.keys():
             options[plugin] = self.aux_cfg.auxiliary_modules[plugin]
 
@@ -355,6 +359,10 @@ class AnalysisManager(threading.Thread):
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
             dead_machine = True
+        except CuckooGuestCriticalTimeout as e:
+            if not unlocked:
+                machine_lock.release()
+            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
         except CuckooGuestError as e:
             if not unlocked:
                 machine_lock.release()
@@ -810,15 +818,20 @@ class Scheduler:
                 if active_analysis_count <= 0:
                     self.stop()
             else:
-                # Fetch a pending analysis task.
-                # TODO: this fixes only submissions by --machine, need to add other attributes (tags etc.)
                 if self.categories_need_VM:
-                    for machine in self.db.get_available_machines():
-                        task = self.db.fetch(machine, self.analyzing_categories)
-                        if task:
+                    # First things first, are there pending tasks?
+                    if not self.db.count_tasks(status=TASK_PENDING):
+                        continue
+                    relevant_machine_is_available = False
+                    # There are? Great, let's get them, ordered by priority and then oldest to newest
+                    for task in self.db.list_tasks(status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="):
+                        relevant_machine_is_available = self.db.is_relevant_machine_available(task)
+                        if relevant_machine_is_available:
                             break
+                    if not relevant_machine_is_available:
+                        task = None
                 else:
-                    task = self.db.fetch(False, categories=self.analyzing_categories, need_VM=False)
+                    task = self.db.fetch_task(False, categories=self.analyzing_categories, need_VM=False)
                 if task:
                     log.debug("Task #%s: Processing task", task.id)
                     self.total_analysis_count += 1
@@ -834,10 +847,29 @@ class Scheduler:
                 pass
 
     def _thr_periodic_log(self):
+        specific_available_machine_counts = defaultdict(int)
+        for machine in self.db.get_available_machines():
+            for tag in machine.tags:
+                if tag:
+                    specific_available_machine_counts[tag.name] += 1
+            if machine.platform:
+                specific_available_machine_counts[machine.platform] += 1
+        specific_pending_task_counts = defaultdict(int)
+        for task in self.db.list_tasks(status=TASK_PENDING):
+            for tag in task.tags:
+                if tag:
+                    specific_pending_task_counts[tag.name] += 1
+            if task.platform:
+                specific_pending_task_counts[task.platform] += 1
+            if task.machine:
+                specific_pending_task_counts[task.machine] += 1
+
         log.debug(
-            "# Tasks: %d; # Available Machines: %d; # Locked Machines: %d; # Total Machines: %d;",
+            "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Total Machines: %d;",
             self.db.count_tasks(status=TASK_PENDING),
+            dict(specific_pending_task_counts),
             self.db.count_machines_available(),
+            dict(specific_available_machine_counts),
             len(self.db.list_machines(locked=True)),
             len(self.db.list_machines()),
         )

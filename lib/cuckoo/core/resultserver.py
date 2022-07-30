@@ -326,7 +326,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             if self.tasks.pop(ipaddr, None) is None:
                 log.warning("ResultServer did not have a task with ID %s and IP %s", task_id, ipaddr)
             else:
-                log.debug("Task %s: Stopped tracking machine %s", task_id, ipaddr)
+                log.debug("Task #%s: Stopped tracking machine %s", task_id, ipaddr)
             ctxs = self.handlers.pop(task_id, set())
             for ctx in ctxs:
                 log.debug("Task #%s: Cancel %s", task_id, ctx)

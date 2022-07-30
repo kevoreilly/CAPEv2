@@ -98,15 +98,16 @@ conf = Config("cuckoo")
 repconf = Config("reporting")
 web_conf = Config("web")
 LINUX_ENABLED = web_conf.linux.enabled
+DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_find, mongo_find_one
+    from dev_utils.mongodb import mongo_find
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
 
     es = elastic_handler
 
-SCHEMA_VERSION = "8537286ff4d5"
+SCHEMA_VERSION = "02af0b0ec686"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -359,7 +360,7 @@ class Error(Base):
     __tablename__ = "errors"
 
     id = Column(Integer(), primary_key=True)
-    message = Column(String(255), nullable=False)
+    message = Column(String(1024), nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
 
     def to_dict(self):
@@ -799,13 +800,34 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def fetch(self, machine, categories: list = [], need_VM: bool = True):
+    def is_relevant_machine_available(self, task: Task) -> bool:
+        """Checks if a machine that is relevant to the given task is available
+        @return: boolean indicating if a relevant machine is available
+        """
+        # Are there available machines that match up with a task?
+        task_arch = next((tag.name for tag in task.tags if tag.name in ["x86", "x64"]), "")
+        task_tags = [tag.name for tag in task.tags if tag.name != task_arch]
+        relevant_available_machines = self.list_machines(
+            locked=False,
+            label=task.machine,
+            platform=task.platform,
+            tags=task_tags,
+            arch=task_arch
+        )
+        if len(relevant_available_machines) > 0:
+            # There are? Awesome!
+            self.set_status(task_id=task.id, status=TASK_RUNNING)
+            return True
+        else:
+            return False
+
+    @classlock
+    def fetch_task(self, categories: list = []):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
         session = self.Session()
         row = None
-        arch_cond = False
         try:
             row = (
                 session.query(Task)
@@ -815,28 +837,14 @@ class Database(object, metaclass=Singleton):
                 .filter(not_(Task.options.contains("node=")))
             )
 
-            if machine:
-                # set filter to get tasks with acceptable arch
-                if "x64" in machine.arch:
-                    arch_cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
-                else:
-                    arch_cond = or_(*[Task.tags.any(name=machine.arch)])
-                row = row.filter(arch_cond)
-
             if categories:
                 row = row.filter(Task.category.in_(categories))
             row = row.first()
 
-            if row:
-                if need_VM and row.machine and row.machine != machine.label:
-                    log.debug("Task id %d - needs VM: %s. %s - %s", row.id, need_VM, row.machine, machine.label)
-                    return None
-            else:
+            if not row:
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)
-            if need_VM:
-                self.set_task_vm(task_id=row.id, vmname=machine.label, vm_id=machine.id)
             session.refresh(row)
 
             return row
@@ -930,8 +938,10 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            session.query(Guest).get(guest_id).shutdown_on = datetime.now()
-            session.commit()
+            guest = session.query(Guest).get(guest_id)
+            if guest:
+                guest.shutdown_on = datetime.now()
+                session.commit()
         except SQLAlchemyError as e:
             log.debug("Database error logging guest stop: %s", e)
             session.rollback()
@@ -942,21 +952,25 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def list_machines(self, locked=False, platform="", tags=[]):
+    def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None):
         """Lists virtual machines.
         @return: list of virtual machines
         """
         session = self.Session()
         try:
-            if locked:
-                machines = session.query(Machine).options(joinedload("tags")).filter_by(locked=True).all()
-            elif platform:
-                machines = session.query(Machine).options(joinedload("tags")).filter_by(platform=platform).all()
-            else:
-                machines = session.query(Machine).options(joinedload("tags")).all()
+            machines = session.query(Machine).options(joinedload("tags"))
+            if locked is not None and isinstance(locked, bool):
+                machines = machines.filter_by(locked=locked)
+            if label:
+                machines = machines.filter_by(label=label)
+            if platform:
+                machines = machines.filter_by(platform=platform)
+            if arch:
+                machines = machines.filter_by(arch=arch)
             if tags:
-                machines = [machine for tag in tags for machine in machines if tag in machine.to_dict()["tags"]]
-            return machines
+                for tag in tags:
+                    machines = machines.filter(Machine.tags.any(name=tag))
+            return machines.all()
         except SQLAlchemyError as e:
             log.debug("Database error listing machines: %s", e)
             return []
@@ -964,11 +978,12 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def lock_machine(self, label=None, platform=None, tags=None):
+    def lock_machine(self, label=None, platform=None, tags=None, arch=None):
         """Places a lock on a free virtual machine.
         @param label: optional virtual machine label
         @param platform: optional virtual machine platform
         @param tags: optional tags required (list)
+        @param arch: optional virtual machine arch
         @return: locked machine
         """
         session = self.Session()
@@ -991,15 +1006,21 @@ class Database(object, metaclass=Singleton):
                 machines = machines.filter_by(label=label)
             if platform:
                 machines = machines.filter_by(platform=platform)
+            if arch:
+                machines = machines.filter_by(arch=arch)
             if tags:
                 for tag in tags:
-                    machines = machines.filter(Machine.tags.any(name=tag.name))
+                    machines = machines.filter(Machine.tags.any(name=tag))
 
             # Check if there are any machines that satisfy the
             # selection requirements.
             if not machines.count():
                 session.close()
-                raise CuckooOperationalError("No machines match selection criteria")
+                raise CuckooOperationalError(
+                    "No machines match selection criteria of label: '%s', platform: '%s', arch: '%s', tags: '%s'" % (
+                        label, platform, arch, tags
+                    )
+                )
 
             # Get the first free machine.
             machine = machines.filter_by(locked=False).first()
@@ -1078,7 +1099,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            machines = session.query(Machine).filter_by(locked=False).all()
+            machines = session.query(Machine).options(joinedload("tags")).filter_by(locked=False).all()
             return machines
         except SQLAlchemyError as e:
             log.debug("Database error getting available machines: %s", e)
@@ -1290,26 +1311,27 @@ class Database(object, metaclass=Singleton):
                 session.close()
                 return None
 
-            # Assign architecture to task to fetch correct VM type
-            # This isn't 100% full proof
-            if "PE32+" in file_type or "64-bit" in file_type or package.endswith("_x64"):
-                if tags:
-                    tags += ",x64"
-                else:
-                    tags = "x64"
-            else:
-                if LINUX_ENABLED:
-                    linux_arch = _get_linux_vm_tag(file_type)
-                    if linux_arch:
-                        if tags:
-                            tags += f",{linux_arch}"
-                        else:
-                            tags = linux_arch
-                else:
+            if DYNAMIC_ARCH_DETERMINATION:
+                # Assign architecture to task to fetch correct VM type
+                # This isn't 100% full proof
+                if "PE32+" in file_type or "64-bit" in file_type or package.endswith("_x64"):
                     if tags:
-                        tags += ",x86"
+                        tags += ",x64"
                     else:
-                        tags = "x86"
+                        tags = "x64"
+                else:
+                    if LINUX_ENABLED:
+                        linux_arch = _get_linux_vm_tag(file_type)
+                        if linux_arch:
+                            if tags:
+                                tags += f",{linux_arch}"
+                            else:
+                                tags = linux_arch
+                    else:
+                        if tags:
+                            tags += ",x86"
+                        else:
+                            tags = "x86"
             try:
                 task = Task(obj.file_path)
                 task.sample_id = sample.id
@@ -2001,6 +2023,7 @@ class Database(object, metaclass=Singleton):
         id_before=None,
         id_after=None,
         options_like=False,
+        options_not_like=False,
         tags_tasks_like=False,
         task_ids=False,
         inclide_hashes=False,
@@ -2019,7 +2042,8 @@ class Database(object, metaclass=Singleton):
         @param added_before: tasks added before a specific timestamp
         @param id_before: filter by tasks which is less than this value
         @param id_after filter by tasks which is greater than this value
-        @param options_like: filter tasks by specific option insde of the options
+        @param options_like: filter tasks by specific option inside of the options
+        @param options_not_like: filter tasks by specific option not inside of the options
         @param tags_tasks_like: filter tasks by specific tag
         @param task_ids: list of task_id
         @param inclide_hashes: return task+samples details
@@ -2053,13 +2077,19 @@ class Database(object, metaclass=Singleton):
                 # Replace '*' wildcards with wildcard for sql
                 options_like = options_like.replace("*", "%")
                 search = search.filter(Task.options.like(f"%{options_like}%"))
+            if options_not_like:
+                # Replace '*' wildcards with wildcard for sql
+                options_not_like = options_not_like.replace("*", "%")
+                search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
             if tags_tasks_like:
                 search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
             if task_ids:
                 search = search.filter(Task.id.in_(task_ids))
             if user_id:
                 search = search.filter(Task.user_id == user_id)
-            if order_by is not None:
+            if order_by is not None and isinstance(order_by, tuple):
+                search = search.order_by(*order_by)
+            elif order_by is not None:
                 search = search.order_by(order_by)
             else:
                 search = search.order_by(Task.added_on.desc())

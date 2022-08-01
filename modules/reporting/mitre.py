@@ -13,7 +13,7 @@ class MITRE_TTPS(Report):
         attck = {}
         ttp_dict = {}
         for ttp in results["ttps"]:
-            ttp_dict.setdefault(ttp["ttp"], []).append(ttp["signature"])
+            ttp_dict.setdefault(ttp["ttp"], set()).add(ttp["signature"])
         try:
             for technique in sorted(self.mitre.enterprise.techniques, key=lambda x: x.id):
                 if technique.id in list(ttp_dict.keys()):
@@ -23,7 +23,7 @@ class MITRE_TTPS(Report):
                                 "t_id": technique.id,
                                 "ttp_name": technique.name,
                                 "description": technique.description,
-                                "signature": ttp_dict[technique.id],
+                                "signature": list(ttp_dict[technique.id]),
                             }
                         )
             if attck:

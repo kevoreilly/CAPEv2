@@ -947,6 +947,19 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
 
+    @staticmethod
+    def filter_machines_by_arch(machines, arch):
+        """Add a filter to the given query for the architecture of the machines.
+        Allow x64 machines to be returned when requesting x86.
+        """
+        if arch:
+            if arch == "x86":
+                # Prefer x86 machines over x64 if x86 is what was requested.
+                machines = machines.filter(Machine.arch.in_(("x64", "x86"))).order_by(Machine.arch.desc())
+            else:
+                machines = machines.filter_by(arch=arch)
+        return machines
+
     @classlock
     def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None):
         """Lists virtual machines.
@@ -961,8 +974,7 @@ class Database(object, metaclass=Singleton):
                 machines = machines.filter_by(label=label)
             if platform:
                 machines = machines.filter_by(platform=platform)
-            if arch:
-                machines = machines.filter_by(arch=arch)
+            machines = self.filter_machines_by_arch(machines, arch)
             if tags:
                 for tag in tags:
                     machines = machines.filter(Machine.tags.any(name=tag))
@@ -1002,8 +1014,7 @@ class Database(object, metaclass=Singleton):
                 machines = machines.filter_by(label=label)
             if platform:
                 machines = machines.filter_by(platform=platform)
-            if arch:
-                machines = machines.filter_by(arch=arch)
+            machines = self.filter_machines_by_arch(machines, arch)
             if tags:
                 for tag in tags:
                     machines = machines.filter(Machine.tags.any(name=tag))

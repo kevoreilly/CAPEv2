@@ -12,15 +12,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from Cryptodome.Cipher import ARC4
+import yara
+import pefile
+import struct
+import logging
 DESCRIPTION = "Zloader configuration parser"
 AUTHOR = "kevoreilly"
 
-import logging
-import struct
-
-import pefile
-import yara
-from Cryptodome.Cipher import ARC4
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ def decrypt_rc4(key, data):
 
 
 def string_from_offset(data, offset):
-    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def extract_config(filebuf):
@@ -65,18 +64,20 @@ def extract_config(filebuf):
         for item in match.strings:
             if "$decrypt_conf" in item[1]:
                 decrypt_conf = int(item[0]) + 21
-    va = struct.unpack("I", filebuf[decrypt_conf : decrypt_conf + 4])[0]
+    end_config['family'] = "Zloader"
+    va = struct.unpack("I", filebuf[decrypt_conf: decrypt_conf + 4])[0]
     key = string_from_offset(filebuf, pe.get_offset_from_rva(va - image_base))
-    data_offset = pe.get_offset_from_rva(struct.unpack("I", filebuf[decrypt_conf + 5 : decrypt_conf + 9])[0] - image_base)
+    data_offset = pe.get_offset_from_rva(struct.unpack(
+        "I", filebuf[decrypt_conf + 5: decrypt_conf + 9])[0] - image_base)
     enc_data = filebuf[data_offset:].split(b"\0\0", 1)[0]
     raw = decrypt_rc4(key, enc_data)
     items = list(filter(None, raw.split(b"\x00\x00")))
-    end_config["Botnet name"] = items[1].lstrip(b"\x00")
-    end_config["Campaign ID"] = items[2]
+    end_config.setdefault('other', {})["Botnet name"] = items[1].lstrip(b"\x00")
+    end_config["campaign_id"] = items[2]
     for item in items:
         item = item.lstrip(b"\x00")
         if item.startswith(b"http"):
-            end_config.setdefault("address", []).append(item)
+            end_config.setdefault("http", []).append({'uri': item})
         elif len(item) == 16:
-            end_config["RC4 key"] = item
+            end_config['encryption'] = [{'algorithm': 'RC4', 'key': item}]
     return end_config

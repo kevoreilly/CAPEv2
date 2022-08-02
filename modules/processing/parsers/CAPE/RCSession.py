@@ -12,13 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import yara
+import pefile
+import struct
 DESCRIPTION = "RCSession configuration parser."
 AUTHOR = "kevoreilly"
 
-import struct
-
-import pefile
-import yara
 
 rule_source = """
 rule RCSession
@@ -52,7 +51,7 @@ def yara_scan(raw_data, rule_name):
 
 
 def unicode_string_from_offset(buffer, offset, max):
-    return buffer[offset : offset + max].decode("utf-16")
+    return buffer[offset: offset + max].decode("utf-16")
 
 
 def decode(ciphertext, size, key):
@@ -74,7 +73,7 @@ def decode(ciphertext, size, key):
             key = (key - v6) & UINT_MAX
         else:
             key = (key * 9) & UINT_MAX
-        decoded_chars[v4] = struct.unpack("B", ciphertext[v4 : v4 + 1])[0] ^ (key & 0xFF)
+        decoded_chars[v4] = struct.unpack("B", ciphertext[v4: v4 + 1])[0] ^ (key & 0xFF)
         v4 += 1
 
     return decoded_chars
@@ -89,33 +88,37 @@ def extract_config(filebuf):
     else:
         return
 
-    config_rva = struct.unpack("i", filebuf[yara_offset + 8 : yara_offset + 12])[0] - image_base
+    config_rva = struct.unpack("i", filebuf[yara_offset + 8: yara_offset + 12])[0] - image_base
     config_offset = pe.get_offset_from_rva(config_rva)
-    size = struct.unpack("i", filebuf[yara_offset + 88 : yara_offset + 92])[0]
-    key = struct.unpack("i", filebuf[config_offset + 128 : config_offset + 132])[0]
-    end_config = {}
-    tmp_config = decode(filebuf[config_offset : config_offset + size], size, key)
+    size = struct.unpack("i", filebuf[yara_offset + 88: yara_offset + 92])[0]
+    key = struct.unpack("i", filebuf[config_offset + 128: config_offset + 132])[0]
+    end_config = {'family': 'RCSession'}
+    tmp_config = decode(filebuf[config_offset: config_offset + size], size, key)
 
-    c2_address = str(tmp_config[156 : 156 + MAX_IP_STRING_SIZE])
+    c2_address = str(tmp_config[156: 156 + MAX_IP_STRING_SIZE])
     if c2_address:
-        end_config.setdefault("c2_address", []).append(c2_address)
-    c2_address = str(tmp_config[224 : 224 + MAX_IP_STRING_SIZE])
+        end_config.setdefault("tcp", []).append({'server_ip': c2_address, 'usage': 'c2'})
+    c2_address = str(tmp_config[224: 224 + MAX_IP_STRING_SIZE])
     if c2_address:
-        end_config.setdefault("c2_address", []).append(c2_address)
+        end_config.setdefault("tcp", []).append({'server_ip': c2_address, 'usage': 'c2'})
     installdir = unicode_string_from_offset(bytes(tmp_config), 0x2A8, 128)
     if installdir:
-        end_config["directory"] = installdir
+        end_config.setdefault('paths', []).append({'path': installdir, 'usage': 'install'})
     executable = unicode_string_from_offset(tmp_config, 0x4B0, 128)
     if executable:
-        end_config["filename"] = executable
+        end_config.setdefault('paths', []).append({'path': executable, 'usage': 'install'})
     servicename = unicode_string_from_offset(tmp_config, 0x530, 128)
+    service = {}
     if servicename:
-        end_config["servicename"] = servicename
+        service['name'] = servicename
     displayname = unicode_string_from_offset(tmp_config, 0x738, 128)
     if displayname:
-        end_config["servicedisplayname"] = displayname
+        service['display_name'] = displayname
     description = unicode_string_from_offset(tmp_config, 0x940, 512)
     if description:
-        end_config["servicedescription"] = description
+        service['description'] = description
+
+    if service:
+        end_config['services'] = [service]
 
     return end_config

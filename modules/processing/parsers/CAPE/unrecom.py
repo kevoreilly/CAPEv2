@@ -47,16 +47,28 @@ def parse_config(config):
         else:
             raw_config[child.attrib["key"]] = child.text
     return {
-        "Version": raw_config["Version"],
-        "Delay": raw_config["delay"],
-        "Domain": raw_config["dns"],
-        "Extension": raw_config["extensionname"],
-        "Install": raw_config["install"],
-        "Port1": raw_config["p1"],
-        "Port2": raw_config["p2"],
-        "Password": raw_config["password"],
-        "PluginFolder": raw_config["pluginfoldername"],
-        "Prefix": raw_config["prefix"],
+        "family": "unrecom",
+        "version": raw_config["Version"],
+        "sleep_delay": [raw_config["delay"]],
+        "password": [raw_config["password"]],
+        "paths": [
+            {
+                'path': raw_config["pluginfoldername"],
+                'usage': 'plugins'
+            },
+            {
+                'path': raw_config["install"],
+                'usage': 'install'
+            }
+        ],
+        'other': {
+            # Need context around how these are used TCP/HTTP connections
+            "Prefix": raw_config["prefix"],
+            "Domain": raw_config["dns"],
+            "Extension": raw_config["extensionname"],
+            "Port1": raw_config["p1"],
+            "Port2": raw_config["p2"],
+        }
     }
 
 

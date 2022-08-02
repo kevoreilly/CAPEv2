@@ -65,11 +65,11 @@ def extract_config(filebuf):
     except Exception:
         image_base = 0
 
-    end_config = {}
+    end_config = {'family': "SmokeLoader"}
     table_ref = yara_scan(filebuf, "$ref64_1")
     if table_ref:
         table_ref_offset = int(table_ref["$ref64_1"])
-        table_delta = struct.unpack("i", filebuf[table_ref_offset + 62 : table_ref_offset + 66])[0]
+        table_delta = struct.unpack("i", filebuf[table_ref_offset + 62: table_ref_offset + 66])[0]
         table_offset = table_ref_offset + table_delta + 66
 
         table_loop = True
@@ -104,7 +104,7 @@ def extract_config(filebuf):
         table_ref = yara_scan(filebuf, "$ref64_2")
     if table_ref:
         table_ref_offset = int(table_ref["$ref64_2"])
-        table_delta = struct.unpack("i", filebuf[table_ref_offset + 26 : table_ref_offset + 30])[0]
+        table_delta = struct.unpack("i", filebuf[table_ref_offset + 26: table_ref_offset + 30])[0]
         table_offset = table_ref_offset + table_delta + 30
 
         for _ in range(2):
@@ -127,7 +127,7 @@ def extract_config(filebuf):
         table_ref = yara_scan(filebuf, "$ref32_1")
     if table_ref:
         table_ref_offset = int(table_ref["$ref32_1"])
-        table_rva = struct.unpack("i", filebuf[table_ref_offset + 55 : table_ref_offset + 59])[0] - image_base
+        table_rva = struct.unpack("i", filebuf[table_ref_offset + 55: table_ref_offset + 59])[0] - image_base
         table_offset = pe.get_offset_from_rva(table_rva)
 
         table_loop = True

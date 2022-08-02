@@ -12,10 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from Cryptodome.Cipher import ARC4
-import yara
-import pefile
 import string
+
+import pefile
+import yara
+from Cryptodome.Cipher import ARC4
+
 DESCRIPTION = "DoppelPaymer configuration parser."
 AUTHOR = "kevoreilly"
 
@@ -63,7 +65,7 @@ def extract_rdata(pe):
 def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
     config = {
-        'family': "DoppelPaymer",
+        "family": "DoppelPaymer",
     }
     blobs = filter(None, [x.strip(b"\x00\x00\x00\x00") for x in extract_rdata(pe).split(b"\x00\x00\x00\x00")])
     for blob in blobs:
@@ -75,12 +77,8 @@ def extract_config(filebuf):
         for item in raw.split(b"\x00"):
             data = "".join(convert_char(c) for c in item)
             if len(data) == 406:
-                config['encryption'] = [{
-                    'algorithm': "RSA",
-                    'public_key': data,
-                    'usage': 'ransom'
-                }]
+                config["encryption"] = [{"algorithm": "RSA", "public_key": data, "usage": "ransom"}]
             elif len(data) > 1 and "\\x" not in data:
-                config.setdefault('decoded_strings', [])
-                config['decoded_strings'].append(data)
+                config.setdefault("decoded_strings", [])
+                config["decoded_strings"].append(data)
     return config

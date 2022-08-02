@@ -48,7 +48,7 @@ def yara_scan(raw_data, rule_name):
 
 
 def string_from_offset(data, offset):
-    return data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def extract_config(filebuf):
@@ -62,7 +62,7 @@ def extract_config(filebuf):
 
     ref_c2_offset = int(ref_c2["$ref_c2"])
 
-    c2_list_va = struct.unpack("i", filebuf[ref_c2_offset + 21: ref_c2_offset + 25])[0]
+    c2_list_va = struct.unpack("i", filebuf[ref_c2_offset + 21 : ref_c2_offset + 25])[0]
     c2_list_rva = c2_list_va - image_base
 
     try:
@@ -72,6 +72,6 @@ def extract_config(filebuf):
 
     c2_domain = string_from_offset(filebuf, c2_list_offset)
     if c2_domain:
-        config['tcp'] = [{'server_domain': c2_domain.decode(), 'usage': 'c2'}]
+        config["tcp"] = [{"server_domain": c2_domain.decode(), "usage": "c2"}]
 
     return config

@@ -7,12 +7,12 @@ def extract_config(data):
     if len(config_parts) <= 5:
         return None
 
-    config['tcp'] = [{'server_domain': config_parts[1].decode(), 'server_port': config_parts[2].decode()}]
-    config['campaign_id'] = [config_parts[3].decode()]
-    config['password'] = [config_parts[8].decode()]
-    config['registry'] = [{'key': config_parts[7].decode()}]
-    config['decoded_strings'] = [config_parts[5].decode()]
-    config['sleep_delay'] = config_parts[22]
+    config["tcp"] = [{"server_domain": config_parts[1].decode(), "server_port": config_parts[2].decode()}]
+    config["campaign_id"] = [config_parts[3].decode()]
+    config["password"] = [config_parts[8].decode()]
+    config["registry"] = [{"key": config_parts[7].decode()}]
+    config["decoded_strings"] = [config_parts[5].decode()]
+    config["sleep_delay"] = config_parts[22]
 
     install_name = config_parts[16]
     config_dict = {
@@ -31,7 +31,7 @@ def extract_config(data):
         "HideProcess": config_parts[24],
     }
     for capability, status in config_dict.items():
-        key = "capability_enabled" if status == b'1' else "capability_disabled"
+        key = "capability_enabled" if status == b"1" else "capability_disabled"
         config.setdefault(key, []).append(capability)
 
     install_path = ""
@@ -42,6 +42,6 @@ def extract_config(data):
     if config_parts[19] == b"True":
         install_path = "Documents"
 
-    config['paths'] = [{'path': os.path.join(install_path, install_name), 'usage': 'install'}]
+    config["paths"] = [{"path": os.path.join(install_path, install_name), "usage": "install"}]
 
     return config

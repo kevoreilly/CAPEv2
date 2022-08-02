@@ -61,12 +61,12 @@ def extract_config(filebuf):
                         config = list(filter(None, decrypted_data.split(b"\x00")))
                         return {
                             "family": "IcedID",
-                            'version': str(struct.unpack("I", decrypted_data[4:8])[0]),
-                            'paths': [{'path': config[1], 'usage': 'other'}],
-                            'http': [{'uri': controller[1:]}for controller in config[2:]],
-                            'other': {
+                            "version": str(struct.unpack("I", decrypted_data[4:8])[0]),
+                            "paths": [{"path": config[1], "usage": "other"}],
+                            "http": [{"uri": controller[1:]} for controller in config[2:]],
+                            "other": {
                                 "Bot ID": str(struct.unpack("I", decrypted_data[:4])[0]),
-                            }
+                            },
                         }
             except Exception as e:
                 log.error("Error: %s", e)

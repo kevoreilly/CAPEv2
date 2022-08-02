@@ -42,11 +42,11 @@ def extract_config(memdump_path, read=False):
 
     start = F.find(b"YUIPWDFILE0YUIPKDFILE0YUICRYPTED0YUI1.0")
     if start:
-        F = F[start - 600: start + 500]
+        F = F[start - 600 : start + 500]
 
     output = re.findall(
-        b"(https?://.[A-Za-z0-9-\\.\\_\\~\\:\\/\\?\\#\\[\\]\\@\\!\\$\\&'\\(\\)\\*\\+\\,\\;\\=]+(?:\\.php|\\.exe|\\.dll))",
-        F)
+        b"(https?://.[A-Za-z0-9-\\.\\_\\~\\:\\/\\?\\#\\[\\]\\@\\!\\$\\&'\\(\\)\\*\\+\\,\\;\\=]+(?:\\.php|\\.exe|\\.dll))", F
+    )
     for url in output:
         try:
             if b"\x00" not in url:
@@ -61,19 +61,8 @@ def extract_config(memdump_path, read=False):
             print(e, sys.exc_info(), "PONY")
 
     config = {
-        'family': 'Fareit',
-        'http': [
-            {
-                'uri': c,
-                'usage': 'c2'
-            } for c in controllers
-        ] +
-        [
-            {
-                'uri': d,
-                'usage': 'download'
-            }for d in downloads
-        ]
+        "family": "Fareit",
+        "http": [{"uri": c, "usage": "c2"} for c in controllers] + [{"uri": d, "usage": "download"} for d in downloads],
     }
 
     return config

@@ -274,8 +274,8 @@ def decrypt_memory(file):
     key_offset = key_offset[0].strings[0][0]
     tag_offset = tag_offset[0].strings[0][0]
 
-    key = data[key_offset + 20: key_offset + 20 + 4]
-    tag = data[tag_offset + 4: tag_offset + 4 + 4]
+    key = data[key_offset + 20 : key_offset + 20 + 4]
+    tag = data[tag_offset + 4 : tag_offset + 4 + 4]
 
     print("[+] Xor key:", hex(u32(key)))
     print("[+] Packed code tag:", hex(u32(tag)))
@@ -293,7 +293,7 @@ def decrypt_memory(file):
     rsrc_data = section.get_data()
     encrypted_memory_offset = rsrc_data.find(tag)
 
-    decrypted_memory = dexor(rsrc_data[encrypted_memory_offset + 4:], key)  # DECRYPTED MEMORY
+    decrypted_memory = dexor(rsrc_data[encrypted_memory_offset + 4 :], key)  # DECRYPTED MEMORY
 
     key_pattern_rule32 = """
         rule key_pattern_rule
@@ -314,10 +314,10 @@ def decrypt_memory(file):
 
     if key_pattern_offset32:  # 32bit samples
         key_pattern_offset = key_pattern_offset32[0].strings[0][0]
-        key_pattern = decrypted_memory[key_pattern_offset + 12: key_pattern_offset + 12 + 4]
+        key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     elif key_pattern_offset64:  # 64bit samples
         key_pattern_offset = key_pattern_offset64[0].strings[0][0]
-        key_pattern = decrypted_memory[key_pattern_offset + 12: key_pattern_offset + 12 + 4]
+        key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     else:
         print("[-] key_pattern_rule Error signature not found")
         print("-" * 100)
@@ -336,14 +336,14 @@ def decrypt_memory(file):
     config_size = 0x644
 
     decrypted_config = dexor(
-        rsrc_data[encrypted_config_offset + 4: encrypted_config_offset + 4 + config_size],
+        rsrc_data[encrypted_config_offset + 4 : encrypted_config_offset + 4 + config_size],
         key,
     )
 
-    key = decrypted_config[0x62C: 0x62C + 16]
-    iv = decrypted_config[0x63C: 0x63C + 8]
-    compressed_data_size = decrypted_config[0x624: 0x624 + 4]
-    uncompressed_data_size = decrypted_config[0x628: 0x628 + 4]
+    key = decrypted_config[0x62C : 0x62C + 16]
+    iv = decrypted_config[0x63C : 0x63C + 8]
+    compressed_data_size = decrypted_config[0x624 : 0x624 + 4]
+    uncompressed_data_size = decrypted_config[0x628 : 0x628 + 4]
     flag = u16(decrypted_config[0:2])
     payload_export_hash = decrypted_config[2:6]
     MZ = True
@@ -382,7 +382,7 @@ def decrypt_memory(file):
     # decrypt payload
 
     encrypted_payload = rsrc_data[
-        encrypted_config_offset + 4 + config_size: encrypted_config_offset + 4 + config_size + u32(compressed_data_size)
+        encrypted_config_offset + 4 + config_size : encrypted_config_offset + 4 + config_size + u32(compressed_data_size)
     ]  # 4 == tag size
 
     cipher = Rabbit(bytes(key), bytes(iv))
@@ -479,8 +479,8 @@ def extract_config(data, apply_MACO=False):
     key_offset = key_offset[0].strings[0][0]
     tag_offset = tag_offset[0].strings[0][0]
 
-    key = data[key_offset + 20: key_offset + 20 + 4]
-    tag = data[tag_offset + 4: tag_offset + 4 + 4]
+    key = data[key_offset + 20 : key_offset + 20 + 4]
+    tag = data[tag_offset + 4 : tag_offset + 4 + 4]
 
     section = None
     for entry in pe.sections:
@@ -495,7 +495,7 @@ def extract_config(data, apply_MACO=False):
     rsrc_data = section.get_data()
     encrypted_memory_offset = rsrc_data.find(tag)
 
-    decrypted_memory = dexor(rsrc_data[encrypted_memory_offset + 4:], key)  # DECRYPTED MEMORY
+    decrypted_memory = dexor(rsrc_data[encrypted_memory_offset + 4 :], key)  # DECRYPTED MEMORY
 
     key_pattern_rule32 = """
         rule key_pattern_rule
@@ -516,10 +516,10 @@ def extract_config(data, apply_MACO=False):
 
     if key_pattern_offset32:  # 32bit samples
         key_pattern_offset = key_pattern_offset32[0].strings[0][0]
-        key_pattern = decrypted_memory[key_pattern_offset + 12: key_pattern_offset + 12 + 4]
+        key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     elif key_pattern_offset64:  # 64bit samples
         key_pattern_offset = key_pattern_offset64[0].strings[0][0]
-        key_pattern = decrypted_memory[key_pattern_offset + 12: key_pattern_offset + 12 + 4]
+        key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     else:
         log.info("key_pattern_rule: Error signature not found")
         return {}
@@ -535,14 +535,14 @@ def extract_config(data, apply_MACO=False):
     config_size = 0x644
 
     decrypted_config = dexor(
-        rsrc_data[encrypted_config_offset + 4: encrypted_config_offset + 4 + config_size],
+        rsrc_data[encrypted_config_offset + 4 : encrypted_config_offset + 4 + config_size],
         key,
     )
 
-    key = decrypted_config[0x62C: 0x62C + 16]
-    iv = decrypted_config[0x63C: 0x63C + 8]
-    compressed_data_size = decrypted_config[0x624: 0x624 + 4]
-    uncompressed_data_size = decrypted_config[0x628: 0x628 + 4]
+    key = decrypted_config[0x62C : 0x62C + 16]
+    iv = decrypted_config[0x63C : 0x63C + 8]
+    compressed_data_size = decrypted_config[0x624 : 0x624 + 4]
+    uncompressed_data_size = decrypted_config[0x628 : 0x628 + 4]
     flag = u16(decrypted_config[0:2])
     payload_export_hash = decrypted_config[2:6]
     MZ = True
@@ -577,25 +577,23 @@ def extract_config(data, apply_MACO=False):
 
     if apply_MACO:
         config = {
-            'sleep_delay': config["Sleep after injection"],
-            'binaries': [{
-                'datatype': 'payload',
-                'other': {
-                    "Payload filename": config["Payload filename"],
-                    "Payload export hash": config["Payload export hash"],
+            "sleep_delay": config["Sleep after injection"],
+            "binaries": [
+                {
+                    "datatype": "payload",
+                    "other": {
+                        "Payload filename": config["Payload filename"],
+                        "Payload export hash": config["Payload export hash"],
+                    },
                 }
-            }],
-            'encryptions': {
-                'algorithm': 'rabbit',
-                'key': config['Rabbit key'],
-                'seed': config['Rabbit IV']
-            },
-            'other': {
+            ],
+            "encryptions": {"algorithm": "rabbit", "key": config["Rabbit key"], "seed": config["Rabbit IV"]},
+            "other": {
                 "Compressed data size": config["Compressed data size"],
                 "Uncompressed data size": config["Uncompressed data size"],
-                "Persistence": config['Persistence'],
-                "Injection method": config['Injection method']
-            }
+                "Persistence": config["Persistence"],
+                "Injection method": config["Injection method"],
+            },
         }
 
     return config

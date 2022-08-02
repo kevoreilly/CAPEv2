@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import yara
+
 DESCRIPTION = "ChChes configuration parser."
 AUTHOR = "kevoreilly"
 
@@ -48,7 +49,7 @@ def yara_scan(raw_data):
 
 
 def string_from_offset(data, offset):
-    return data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def extract_config(filebuf):
@@ -63,10 +64,7 @@ def extract_config(filebuf):
     if yara_matches.get("$payload3"):
         c2_offsets.append(0xE2B9)
     # no c2 for type4
-    c2_urls = [string_from_offset(filebuf, c2_offset)
-               for c2_offset in c2_offsets if string_from_offset(filebuf, c2_offset)]
-    tmp_config = {
-        'http': [{'uri': url, 'usage': 'c2'} for url in c2_urls]
-    }
+    c2_urls = [string_from_offset(filebuf, c2_offset) for c2_offset in c2_offsets if string_from_offset(filebuf, c2_offset)]
+    tmp_config = {"http": [{"uri": url, "usage": "c2"} for url in c2_urls]}
 
     return tmp_config

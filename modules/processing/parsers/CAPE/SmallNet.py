@@ -1,5 +1,5 @@
-from gettext import install
 import os
+from gettext import install
 
 
 def ver_52(data):
@@ -8,16 +8,11 @@ def ver_52(data):
         "family": "SmallNet",
         "category": ["rat"],
         "version": "5.2",
-        "tcp": [{
-            'server_domain': config_parts[1],
-            'server_port': config_parts[2]
-        }, {
-            'server_domain': config_parts[5],  # Install Server
-            'usage': 'c2'
-        }],
-        'registry': [{
-            'key': config_parts[8]
-        }],
+        "tcp": [
+            {"server_domain": config_parts[1], "server_port": config_parts[2]},
+            {"server_domain": config_parts[5], "usage": "c2"},  # Install Server
+        ],
+        "registry": [{"key": config_parts[8]}],
     }
     config_dict = {
         "Disable Registry": config_parts[3],
@@ -70,7 +65,7 @@ def ver_52(data):
     if config_parts[12] == 1:
         install_path = os.path.join("Program Files", config_parts[9])
 
-    config["paths"] = [{'path': install_path, 'usage': 'install'}]
+    config["paths"] = [{"path": install_path, "usage": "install"}]
     config["other"] = config_dict  # Placing in other for now
     return config
 
@@ -81,16 +76,11 @@ def ver_5(data):
         "family": "SmallNet",
         "category": ["rat"],
         "version": "5",
-        "tcp": [{
-            'server_domain': config_parts[1],
-            'server_port': config_parts[2]
-        }, {
-            'server_domain': config_parts[5],  # Install Server
-            'usage': 'c2'
-        }],
-        'registry': [{
-            'key': config_parts[8]
-        }],
+        "tcp": [
+            {"server_domain": config_parts[1], "server_port": config_parts[2]},
+            {"server_domain": config_parts[5], "usage": "c2"},  # Install Server
+        ],
+        "registry": [{"key": config_parts[8]}],
     }
     config_dict = {
         "Disable Registry": config_parts[3],
@@ -121,7 +111,7 @@ def ver_5(data):
         install_path = os.path.join("System32", config_parts[9])
     if config_parts[12] == 1:
         install_path = os.path.join("Program Files", config_parts[9])
-    config["paths"] = [{'path': install_path, 'usage': 'install'}]
+    config["paths"] = [{"path": install_path, "usage": "install"}]
     config["other"] = config_dict  # Placing in other for now
 
     return config

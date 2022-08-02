@@ -14,9 +14,11 @@
 
 #!/usr/bin/python
 
-import pefile
-import struct
 import json
+import struct
+
+import pefile
+
 AUTHOR = "R3MRUM"
 DESCRIPTION = "REvil configuration parser."
 
@@ -40,7 +42,7 @@ def decodeREvilConfig(config_key, config_data):
 
     key = config_key
     config_len = struct.unpack("<H", config_data[4:6])[0]
-    encoded_config = config_data[8: config_len + 7]
+    encoded_config = config_data[8 : config_len + 7]
     decoded_config = []
 
     # print(f"Key:\t{key}")

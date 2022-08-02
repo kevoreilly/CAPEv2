@@ -33,7 +33,15 @@ with your user. You also have a script in utils/linux_mktaps.sh**
 Preparing x32/x64 Linux guests
 ===========================================
 
-Install support files dependencies::
+    .. warning::
+
+        For Linux guests on an Azure hypervisor, installing Python3 32-bit breaks the way that the Azure agent starts: https://docs.microsoft.com/en-us/azure/virtual-machines/extensions/agent-linux#installation.
+        So the use of the monitor is limited to what can be run with the 64-bit version of Python3. You will have to comment out the architecture check in the CAPE `agent.py` for the CAPE agent to start. To 
+        reiterate, this warning is only relevant if you are using an Azure hypervisor.
+
+x32 guests
+----------
+Install support file dependencies::
 
     $ sudo apt update
     $ sudo apt install python3-pip
@@ -41,11 +49,19 @@ Install support files dependencies::
     $ pip3 install pillow       # optional
     $ pip3 install pyscreenshot # optional
 
-(For x64 architectures) Install python3 32 bits::
+x64 guests
+----------
+Install support file dependencies (we need Python3 32-bit)::
 
     $ sudo dpkg --add-architecture i386
     $ sudo apt update
-    $ sudo apt install python3:i386
+    $ sudo apt install python3:i386 -y
+    $ sudo apt install python3-distutils -y
+    $ curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    $ python3 get-pip.py
+    $ python3 -m pip install pyinotify
+    $ python3 -m pip install pillow       # optional
+    $ python3 -m pip install pyscreenshot # optional
 
 Ensure the agent automatically starts. The easiest way is to add it to crontab::
 
@@ -67,17 +83,17 @@ Disable auto-update for noise reduction::
     APT::Periodic::Download-Upgradeable-Packages "0";
     APT::Periodic::AutocleanInterval "0";
     APT::Periodic::Unattended-Upgrade "0";
-        EOF
+    EOF
 
     $ sudo systemctl stop snapd.service && sudo systemctl mask snapd.service
 
-If needed, kill the unattended-upgrade process using htop or ps + kill.
+If needed, kill the unattended-upgrade process using ``htop`` or ``ps`` + ``kill``.
 
 Optional - preinstalled remove software and configurations::
 
-    $ sudo apt-get purge update-notifier update-manager update-manager-core ubuntu-release-upgrader-core
-    $ sudo apt-get purge whoopsie ntpdate cups-daemon avahi-autoipd avahi-daemon avahi-utils
-    $ sudo apt-get purge account-plugin-salut libnss-mdns telepathy-salut
+    $ sudo apt-get purge update-notifier update-manager update-manager-core ubuntu-release-upgrader-core -y
+    $ sudo apt-get purge whoopsie ntpdate cups-daemon avahi-autoipd avahi-daemon avahi-utils -y
+    $ sudo apt-get purge account-plugin-salut libnss-mdns telepathy-salut -y
 
 It is recommended to configure the Linux guest with a static IP addresses.
 Make sure the machine entry in the configuration has the correct IP address and

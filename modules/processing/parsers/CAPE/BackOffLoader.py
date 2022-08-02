@@ -7,6 +7,8 @@ import pefile
 from Cryptodome.Cipher import ARC4
 
 CFG_START = "1020304050607080"
+AUTHOR = "CAPE"
+DESCRIPTION = "BackOffLoader configuration parser."
 
 
 def RC4(key, data):
@@ -27,12 +29,17 @@ def extract_config(data):
             enc_data = bytes(bytearray(unpack_from(">8192B", data, offset=32)))
             dec_data = RC4(key, enc_data)
             config_data = {
-                "Version": unpack_from(">5s", data, offset=16)[0],
-                "RC4Seed": hexlify(rc4_seed),
-                "EncryptionKey": hexlify(key),
-                "OnDiskConfigKey": unpack_from("20s", data, offset=8224)[0],
-                "Build": dec_data[:16].strip("\x00"),
-                "URLs": [url.strip("\x00") for url in dec_data[16:].split("|")],
+                'version': unpack_from(">5s", data, offset=16)[0],
+                'encryption': [{
+                    'algorithm': "RC4",
+                    'key': hexlify(key),
+                    'seed': hexlify(rc4_seed),
+                    'binaries': [{'data': dec_data[:16].strip("\x00")}],
+                    'http': [{'uri': url} for url in [url.strip("\x00") for url in dec_data[16:].split("|")]],
+                    'other': {
+                        'OnDiskConfigKey': unpack_from("20s", data, offset=8224)[0],
+                    }
+                }]
             }
     return config_data
 

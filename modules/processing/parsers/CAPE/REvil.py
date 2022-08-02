@@ -14,10 +14,11 @@
 
 #!/usr/bin/python
 
-import json
-import struct
-
 import pefile
+import struct
+import json
+AUTHOR = "R3MRUM"
+DESCRIPTION = "REvil configuration parser."
 
 
 def getSectionNames(sections):
@@ -39,15 +40,19 @@ def decodeREvilConfig(config_key, config_data):
 
     key = config_key
     config_len = struct.unpack("<H", config_data[4:6])[0]
-    encoded_config = config_data[8 : config_len + 7]
+    encoded_config = config_data[8: config_len + 7]
     decoded_config = []
 
     # print(f"Key:\t{key}")
 
+    if not encoded_config:
+        # No config to decode
+        return
+
     ECX = EAX = ESI = 0
 
     for char in init255:
-        ESI = ((char & 0xFF) + (ord(key[EAX % len(key)]) + ESI)) & 0xFF
+        ESI = ((char & 0xFF) + (key[EAX % len(key)] + ESI)) & 0xFF
         init255[EAX] = init255[ESI] & 0xFF
         EAX += 1
         init255[ESI] = char & 0xFF
@@ -61,7 +66,7 @@ def decodeREvilConfig(config_key, config_data):
         ESI = (ESI + DL) & 0xFF
         init255[ECX] = init255[ESI]
         init255[ESI] = DL
-        decoded_config.append((init255[((init255[ECX] + DL) & 0xFF)]) ^ ord(char))
+        decoded_config.append((init255[((init255[ECX] + DL) & 0xFF)]) ^ char)
         EAX = LOCAL1
 
     return json.loads("".join(map(chr, decoded_config)))
@@ -74,7 +79,7 @@ def extract_config(data):
 
     if len(pe.sections) == 5:
         section_names = getSectionNames(pe.sections)
-        required_sections = (".text", ".rdata", ".data", ".reloc")
+        required_sections = (b".text", b".rdata", b".data", b".reloc")
 
         # print section_names
         if all(sections in section_names for sections in required_sections):
@@ -82,4 +87,7 @@ def extract_config(data):
             config_section_name = [resource for resource in section_names if resource not in required_sections][0]
             config_key, config_data = getREvilKeyAndConfig(pe.sections, config_section_name)
             if config_key and config_data:
-                return decodeREvilConfig(config_key, config_data)
+                config = decodeREvilConfig(config_key, config_data)
+                if config:
+                    return {"family": "REvil", "other": config}
+    return {}

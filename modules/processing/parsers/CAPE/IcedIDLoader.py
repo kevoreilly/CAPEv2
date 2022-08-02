@@ -23,6 +23,9 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedIDLoader.yar")
 yara_rule = open(yara_path, "r").read()
 
+DESCRIPTION = "IcedIDLoader configuration parser."
+AUTHOR = "kevoreilly, enzo"
+
 
 def yara_scan(raw_data):
     try:
@@ -51,7 +54,10 @@ def extract_config(filebuf):
             for section in pe.sections:
                 if section.Name == b".d\x00\x00\x00\x00\x00\x00":
                     config_section = bytearray(section.get_data())
-                    return {"address": iced_decode(config_section).decode()}
+                    return {
+                        'family': 'IcedIDLoader',
+                        'tcp': [{'server_domain': iced_decode(config_section).decode()}]
+                    }
 
 
 if __name__ == "__main__":

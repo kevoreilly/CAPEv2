@@ -6,20 +6,20 @@
 # By Talos July 2018 - https://github.com/Cisco-Talos/remcos-decoder
 # Updates based on work presented here https://gist.github.com/sysopfb/11e6fb8c1377f13ebab09ab717026c87
 
+from Cryptodome.Cipher import ARC4
+import pefile
+from collections import OrderedDict
+import string
+import re
+import logging
+import base64
+import os
 DESCRIPTION = "Remcos config extractor."
 AUTHOR = "threathive,sysopfb,kevoreilly"
 
-import base64
-import logging
-import re
-import string
-from collections import OrderedDict
-
-import pefile
-from Cryptodome.Cipher import ARC4
 
 # From JPCERT
-FLAG = {b"\x00": "Disable", b"\x01": "Enable"}
+FLAG = {b"\x00": "Disabled", b"\x01": "Enabled"}
 
 # From JPCERT
 idx_list = {
@@ -104,7 +104,8 @@ setup_list = {
     8: "Application path",
 }
 
-utf_16_string_list = ["Copy file", "Startup value", "Keylog file", "Take screenshot title", "Copy folder", "Keylog folder"]
+utf_16_string_list = ["Copy file", "Startup value", "Keylog file",
+                      "Take screenshot title", "Copy folder", "Keylog folder"]
 logger = logging.getLogger(__name__)
 
 
@@ -151,7 +152,6 @@ def check_version(filedata):
 
 def extract_config(filebuf):
     config = {}
-
     try:
         pe = pefile.PE(data=filebuf)
         blob = False
@@ -162,31 +162,55 @@ def extract_config(filebuf):
                 break
 
         if blob:
+            config = {'family': "Remcos", 'category': ['rat']}
             keylen = blob[0]
-            key = blob[1 : keylen + 1]
-            decrypted_data = ARC4.new(key).decrypt(blob[keylen + 1 :])
+            key = blob[1: keylen + 1]
+            decrypted_data = ARC4.new(key).decrypt(blob[keylen + 1:])
             p_data = OrderedDict()
-            p_data["Version"] = check_version(filebuf)
+            config['version'] = check_version(filebuf)
 
             configs = re.split(rb"\|\x1e\x1e\x1f\|", decrypted_data)
 
             for i, cont in enumerate(configs):
                 if cont in (b"\x00", b"\x01"):
-                    p_data[idx_list[i]] = FLAG[cont]
+                    # Flag capabilities that are enabled/disabled whether known or not
+                    config.setdefault(f'capability_{FLAG[cont].lower()}', []).append(idx_list[i])
                 elif i in (9, 16, 25, 37):
                     p_data[idx_list[i]] = setup_list[int(cont)]
                 elif i in (56, 57, 58):
-                    p_data[idx_list[i]] = base64.b64encode(cont)
+                    config.setdefault('other', {})[idx_list[i]] = base64.b64encode(cont)
                 elif i == 0:
-                    host, port, password = cont.split(b"|", 1)[0].split(b":")
-                    p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"
+                    host, port, password = cont.split(b"|", 1)[0].decode().split(":")
+                    config.setdefault('tcp', []).append({'server_ip': host, 'server_port': port, 'usage': 'other'})
+                    config.setdefault('password', []).append(password)
                 else:
-                    p_data[idx_list[i]] = cont
+                    p_data[idx_list[i]] = cont.decode()
+
+            # Flag paths
+            for path_key in [k for k in p_data.keys() if k.endswith('path')]:
+                prefix = path_key.split(' ')[0]
+                usage = 'other'
+                if prefix == "Install":
+                    usage = "install"
+                elif prefix == "Keylog":
+                    usage = "logs"
+
+                def get_string(key) -> str:
+                    value = p_data.pop(key, None)
+                    if key in utf_16_string_list:
+                        if isinstance(value, str):
+                            value = value.encode()
+                        value = value.decode("utf16").strip("\00")
+                    return value
+
+                path_parts = [get_string(f"{prefix} {path_part}") for path_part in ["path", "folder", "file"]]
+                full_path = os.path.join(*[p for p in path_parts if p])
+                config.setdefault('paths', []).append({'path': full_path, 'usage': usage})
 
             for k, v in p_data.items():
                 if k in utf_16_string_list:
                     v = v.decode("utf16").strip("\00")
-                config[k] = v
+                config.setdefault('other', {})[k] = v
 
     except Exception as e:
         logger.error(f"Caught an exception: {e}")

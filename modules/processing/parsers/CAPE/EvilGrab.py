@@ -12,13 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import yara
+import pefile
+import struct
 DESCRIPTION = "EvilGrab configuration parser."
 AUTHOR = "kevoreilly"
 
-import struct
-
-import pefile
-import yara
 
 rule_source = """
 rule EvilGrab
@@ -64,9 +63,9 @@ def pe_data(pe, va, size):
 
 def string_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
-    string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
+    string_rva = struct.unpack("i", pe.__data__[offset: offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return pe.__data__[string_offset: string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 map_offset = {
@@ -80,31 +79,34 @@ def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
     # image_base = pe.OPTIONAL_HEADER.ImageBase
     yara_matches = yara_scan(filebuf)
-    end_config = {}
+    end_config = {'family': 'EvilGrab'}
     for key, values in map_offset.keys():
         if not yara_matches.get(key):
             continue
 
         yara_offset = int(yara_matches[key])
 
+        c2_tcp = dict()
         c2_address = string_from_va(pe, yara_offset + values[0])
         if c2_address:
-            end_config["c2_address"] = c2_address
-        port = str(struct.unpack("h", filebuf[yara_offset + values[1] : yara_offset + values[1] + 2])[0])
+            c2_tcp['server_ip'] = c2_address
+        port = str(struct.unpack("h", filebuf[yara_offset + values[1]: yara_offset + values[1] + 2])[0])
         if port:
-            end_config["port"] = [port, "tcp"]
+            c2_tcp['server_port'] = port
         missionid = string_from_va(pe, yara_offset + values[3])
         if missionid:
-            end_config["missionid"] = missionid
+            end_config.setdefault("campaign_id", []).append(missionid)
         version = string_from_va(pe, yara_offset + values[4])
         if version:
             end_config["version"] = version
         injectionprocess = string_from_va(pe, yara_offset + values[5])
         if injectionprocess:
-            end_config["injectionprocess"] = injectionprocess
+            end_config.setdefault("inject_exe", []).append(injectionprocess)
         if key != "$configure3":
             mutex = string_from_va(pe, yara_offset - values[6])
             if mutex:
-                end_config["mutex"] = mutex
+                end_config.setdefault("mutex", []).append(mutex)
+        if c2_tcp:
+            end_config.setdefault('tcp', []).append(c2_tcp)
 
     return end_config

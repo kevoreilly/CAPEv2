@@ -65,7 +65,7 @@ def extract_rdata(pe):
 
 
 def extract_config(filebuf):
-    cfg = {}
+    cfg = {'family': 'Dridex'}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
     line, c2va_offset, delta = 0, 0, 0
@@ -89,22 +89,22 @@ def extract_config(filebuf):
             elif "$rc4_key" in item[1] and not rc4_decode:
                 rc4_decode = int(item[0])
     if line == "$c2parse_6":
-        c2_rva = struct.unpack("i", filebuf[c2va_offset + 44 : c2va_offset + 48])[0] - image_base
-        botnet_rva = struct.unpack("i", filebuf[c2va_offset - 7 : c2va_offset - 3])[0] - image_base
+        c2_rva = struct.unpack("i", filebuf[c2va_offset + 44: c2va_offset + 48])[0] - image_base
+        botnet_rva = struct.unpack("i", filebuf[c2va_offset - 7: c2va_offset - 3])[0] - image_base
         num_ips_rva = c2_rva - 1
     elif line == "$c2parse_5":
-        c2_rva = struct.unpack("i", filebuf[c2va_offset + 75 : c2va_offset + 79])[0] - image_base
-        botnet_rva = struct.unpack("i", filebuf[c2va_offset + 3 : c2va_offset + 7])[0] - image_base
-        num_ips_rva = struct.unpack("i", filebuf[c2va_offset + 18 : c2va_offset + 22])[0] - image_base
+        c2_rva = struct.unpack("i", filebuf[c2va_offset + 75: c2va_offset + 79])[0] - image_base
+        botnet_rva = struct.unpack("i", filebuf[c2va_offset + 3: c2va_offset + 7])[0] - image_base
+        num_ips_rva = struct.unpack("i", filebuf[c2va_offset + 18: c2va_offset + 22])[0] - image_base
     elif line == "$c2parse_4":
-        c2_rva = struct.unpack("i", filebuf[c2va_offset + 6 : c2va_offset + 10])[0] - image_base + 1
+        c2_rva = struct.unpack("i", filebuf[c2va_offset + 6: c2va_offset + 10])[0] - image_base + 1
     elif line == "$c2parse_3":
-        c2_rva = struct.unpack("i", filebuf[c2va_offset + 60 : c2va_offset + 64])[0] - image_base
+        c2_rva = struct.unpack("i", filebuf[c2va_offset + 60: c2va_offset + 64])[0] - image_base
         delta = 2
     elif line == "$c2parse_2":
-        c2_rva = struct.unpack("i", filebuf[c2va_offset + 47 : c2va_offset + 51])[0] - image_base
+        c2_rva = struct.unpack("i", filebuf[c2va_offset + 47: c2va_offset + 51])[0] - image_base
     elif line == "$c2parse_1":
-        c2_rva = struct.unpack("i", filebuf[c2va_offset + 27 : c2va_offset + 31])[0] - image_base
+        c2_rva = struct.unpack("i", filebuf[c2va_offset + 27: c2va_offset + 31])[0] - image_base
         delta = 2
     else:
         return
@@ -113,45 +113,53 @@ def extract_config(filebuf):
 
     if num_ips_rva:
         num_ips_offset = pe.get_offset_from_rva(num_ips_rva)
-        num_ips = struct.unpack("B", filebuf[num_ips_offset : num_ips_offset + 1])[0]
+        num_ips = struct.unpack("B", filebuf[num_ips_offset: num_ips_offset + 1])[0]
 
     for _ in range(num_ips):
-        ip = struct.unpack(">I", filebuf[c2_offset : c2_offset + 4])[0]
+        ip = struct.unpack(">I", filebuf[c2_offset: c2_offset + 4])[0]
         c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-        port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])
+        port = str(struct.unpack("H", filebuf[c2_offset + 4: c2_offset + 6])[0])
 
         if c2_address and port:
-            cfg.setdefault("address", []).append(f"{c2_address}:{port}")
+            cfg.setdefault('tcp', [])
+            cfg.append({
+                'server_ip': c2_address,
+                'server_port': port,
+                'usage': 'c2'
+            })
 
         c2_offset += 6 + delta
 
     if rc4_decode:
-        zb = struct.unpack("B", filebuf[rc4_decode + 8 : rc4_decode + 9])[0]
+        zb = struct.unpack("B", filebuf[rc4_decode + 8: rc4_decode + 9])[0]
         if not zb:
-            rc4_rva = struct.unpack("i", filebuf[rc4_decode + 5 : rc4_decode + 9])[0] - image_base
+            rc4_rva = struct.unpack("i", filebuf[rc4_decode + 5: rc4_decode + 9])[0] - image_base
         else:
-            rc4_rva = struct.unpack("i", filebuf[rc4_decode + 3 : rc4_decode + 7])[0] - image_base
+            rc4_rva = struct.unpack("i", filebuf[rc4_decode + 3: rc4_decode + 7])[0] - image_base
         if rc4_rva:
             rc4_offset = pe.get_offset_from_rva(rc4_rva)
             if not zb:
                 raw = decrypt_rc4(
-                    filebuf[rc4_offset : rc4_offset + LEN_BLOB_KEY][::-1],
-                    filebuf[rc4_offset + LEN_BLOB_KEY : rc4_offset + LEN_BOT_KEY],
+                    filebuf[rc4_offset: rc4_offset + LEN_BLOB_KEY][::-1],
+                    filebuf[rc4_offset + LEN_BLOB_KEY: rc4_offset + LEN_BOT_KEY],
                 )
             else:
-                raw = decrypt_rc4(
-                    filebuf[rc4_offset : rc4_offset + LEN_BLOB_KEY], filebuf[rc4_offset + LEN_BLOB_KEY : rc4_offset + LEN_BOT_KEY]
-                )
+                raw = decrypt_rc4(filebuf[rc4_offset: rc4_offset + LEN_BLOB_KEY],
+                                  filebuf[rc4_offset + LEN_BLOB_KEY: rc4_offset + LEN_BOT_KEY])
             for item in raw.split(b"\x00"):
                 if len(item) == LEN_BLOB_KEY - 1:
-                    cfg["RC4 key"] = item.split(b";", 1)[0].decode()
+                    cfg['encryption'] = [{
+                        'algorithm': "RSA",
+                        'public_key': item.split(b";", 1)[0].decode(),
+                        'usage': 'ransom'
+                    }]
 
     if botnet_code:
-        botnet_rva = struct.unpack("i", filebuf[botnet_code + 23 : botnet_code + 27])[0] - image_base
+        botnet_rva = struct.unpack("i", filebuf[botnet_code + 23: botnet_code + 27])[0] - image_base
     if botnet_rva:
         botnet_offset = pe.get_offset_from_rva(botnet_rva)
-        botnet_id = struct.unpack("H", filebuf[botnet_offset : botnet_offset + 2])[0]
-        cfg["Botnet ID"] = str(botnet_id)
+        botnet_id = struct.unpack("H", filebuf[botnet_offset: botnet_offset + 2])[0]
+        cfg['other'] = {"Botnet ID": str(botnet_id)}  # Might fall under identifier?
 
         return cfg
 

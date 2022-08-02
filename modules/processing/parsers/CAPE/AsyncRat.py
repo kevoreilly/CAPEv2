@@ -5,7 +5,11 @@ import logging
 import string
 import struct
 
+import os
+import re
+from urllib.parse import urlparse
 import yara
+from collections import defaultdict
 from Cryptodome.Cipher import AES
 from Cryptodome.Protocol.KDF import PBKDF2
 
@@ -13,6 +17,8 @@ log = logging.getLogger(__name__)
 
 DESCRIPTION = "AsyncRat configuration parser."
 AUTHOR = "Based on work of c3rb3ru5"
+
+IP_REGEX = r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
 
 rule_source = """
 rule asyncrat {
@@ -58,7 +64,7 @@ def get_salt():
 
 def decrypt(key, ciphertext):
     aes_key = PBKDF2(key, get_salt(), 32, 50000)
-    cipher = AES.new(aes_key, AES.MODE_CBC, ciphertext[32 : 32 + 16])
+    cipher = AES.new(aes_key, AES.MODE_CBC, ciphertext[32: 32 + 16])
     plaintext = cipher.decrypt(ciphertext[48:]).decode("ascii", "ignore").strip()
     return plaintext
 
@@ -94,24 +100,56 @@ def extract_config(filebuf):
         if match[1] == "$magic_cslr_0":
             addr = match[0]
 
-    strings_offset = struct.unpack("<I", filebuf[addr + 0x40 : addr + 0x44])[0]
-    strings_size = struct.unpack("<I", filebuf[addr + 0x44 : addr + 0x48])[0]
-    data = filebuf[addr + strings_offset : addr + strings_offset + strings_size]
+    strings_offset = struct.unpack("<I", filebuf[addr + 0x40: addr + 0x44])[0]
+    strings_size = struct.unpack("<I", filebuf[addr + 0x44: addr + 0x48])[0]
+    data = filebuf[addr + strings_offset: addr + strings_offset + strings_size]
     data = data.split(b"\x00\x00")
     key = base64.b64decode(get_string(data, 7))
     log.debug("extracted key: " + str(key))
     try:
+        family = "asyncrat"
+        hosts = decrypt_config_item_list(key, data, 2)
+        ports = decrypt_config_item_list(key, data, 1)
+        version = decrypt_config_item_printable(key, data, 3)
+        install_folder = get_wide_string(data, 5)
+        install_file = get_wide_string(data, 6)
+        install = decrypt_config_item_printable(key, data, 4)
+        mutex = decrypt_config_item_printable(key, data, 8)
+        pastebin = decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b"")
+
         config = {
-            "family": "asyncrat",
-            "hosts": decrypt_config_item_list(key, data, 2),
-            "ports": decrypt_config_item_list(key, data, 1),
-            "version": decrypt_config_item_printable(key, data, 3),
-            "install_folder": get_wide_string(data, 5),
-            "install_file": get_wide_string(data, 6),
-            "install": decrypt_config_item_printable(key, data, 4),
-            "mutex": decrypt_config_item_printable(key, data, 8),
-            "pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b""),
+            'family': family,
+            'version': version,
+            'category': "rat",
+            'mutex': mutex,
+            'paths': [
+                {
+                    'path': os.path.join(install_folder, install_file),
+                    'usage': 'install' if install else 'other'
+                }
+            ],
+            'other': {
+                # No context around how these are used
+                'hosts': hosts,
+                'ports': ports
+            }
         }
+
+        if pastebin != b'null':
+            parsed_url = urlparse(pastebin).decode()
+            port = parsed_url.port
+            if not port:
+                port = 443 if parsed_url.scheme == 'https' else 80
+
+            config.update({'http': [{
+                'uri': parsed_url.geturl(),
+                'protocol': parsed_url.scheme,
+                'hostname': parsed_url.netloc,
+                'port': port,
+                'path': parsed_url.path,
+                'method': 'GET',
+                'usage': 'c2'
+            }]})
     except Exception as e:
         print(e)
         return {}

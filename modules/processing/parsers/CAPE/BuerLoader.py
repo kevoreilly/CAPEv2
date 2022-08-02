@@ -32,8 +32,10 @@ def extract_config(filebuf):
     for item in data.split(b"\x00\x00"):
         try:
             dec = decrypt_string(item.lstrip(b"\x00").rstrip(b"\x00").decode())
+            if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
+                cfg['other'] = {'address': dec}
         except Exception:
             pass
-        if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
-            cfg.setdefault("address", []).append(dec)
-        return cfg
+    if cfg:
+        cfg['family'] = "BuerLoader"
+    return cfg

@@ -7,6 +7,8 @@ import pefile
 from Cryptodome.Cipher import ARC4
 
 header_ptrn = b"Content-Type: application/x-www-form-urlencoded"
+AUTHOR = "CAPE"
+DESCRIPTION = "BackOffPOS configuration parser."
 
 
 def RC4(key, data):
@@ -29,11 +31,14 @@ def extract_config(data):
             enc_data = bytes(bytearray(unpack_from(">8192B", data, offset=start_offset + 8)))
             dec_data = RC4(key, enc_data)
             config_data = {
-                "RC4Seed": hexlify(rc4_seed),
-                "EncryptionKey": hexlify(key),
-                "Build": dec_data[:16].strip("\x00"),
-                "URLs": [url.strip("\x00") for url in dec_data[16:].split("|")],
-                "Version": unpack_from(">5s", data, offset=start_offset + 16 + 8192)[0],
+                'version': unpack_from(">5s", data, offset=start_offset + 16 + 8192)[0],
+                'encryption': [{
+                    'algorithm': 'RC4',
+                    'key': hexlify(key),
+                    'seed': hexlify(rc4_seed),
+                    'binaries': [{'data': dec_data[:16].strip("\x00")}],
+                    'http':[{'uri': url} for url in [url.strip("\x00") for url in dec_data[16:].split("|")]]
+                }]
             }
     return config_data
 

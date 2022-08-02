@@ -37,7 +37,7 @@ def find_iv(img):
     if temp != []:
         (addr,) = struct.unpack_from("<I", temp[0][1:])
         addr -= 0x400000
-        iv = t[addr: addr + 8]
+        iv = t[addr : addr + 8]
     return iv
 
 
@@ -47,17 +47,17 @@ def try_find_iv(pe):
     off = t.find(b"\x6a\x08\x59\xbe")
     if off == -1:
         return -1
-    (addr,) = struct.unpack_from("<I", t[off + 4:])
+    (addr,) = struct.unpack_from("<I", t[off + 4 :])
     # print(hex(addr))
     addr -= 0x400000
 
     # Go until past next blob to \x00\x00\x00\x00
-    off = t[addr + dlen + 4:].find(b"\x00\x00\x00\x00")
+    off = t[addr + dlen + 4 :].find(b"\x00\x00\x00\x00")
     off += addr + dlen + 4 + 4
-    iv = t[off: off + 8]
+    iv = t[off : off + 8]
 
     # This doesn't work for all samples... still interesting that the data is in close proximity sometimes
-    nul, key3, nul, key2, nul, key1 = struct.unpack_from("<I8sI8sI8s", t[off + 8:])
+    nul, key3, nul, key2, nul, key1 = struct.unpack_from("<I8sI8sI8s", t[off + 8 :])
 
     # key = f"\x08\x02\x00\x00\x03\x66\x00\x00\x18\x00\x00\x00{key1}{key2}{key3}"
 
@@ -68,16 +68,16 @@ def find_conf(pe):
     dlen = 8 * 4
     t = pe.get_memory_mapped_image() if isinstance(pe, pefile.PE) else pe
     off = t.find(b"\x6a\x08\x59\xbe")
-    (addr,) = struct.unpack_from("<I", t[off + 4:])
+    (addr,) = struct.unpack_from("<I", t[off + 4 :])
     # print(hex(addr))
     addr -= 0x400000
-    ret = [t[addr: addr + dlen]]
+    ret = [t[addr : addr + dlen]]
     dlen = 10 * 4
     off = t.find(b"\x6a\x0a\x59\xbe")
-    (addr,) = struct.unpack_from("<I", t[off + 4:])
+    (addr,) = struct.unpack_from("<I", t[off + 4 :])
     # print(hex(addr))
     addr -= 0x400000
-    ret.append(t[addr: addr + dlen])
+    ret.append(t[addr : addr + dlen])
 
     return ret
 
@@ -93,7 +93,7 @@ def find_key(img):
                 (addr,) = struct.unpack_from("<I", a)
                 # print(hex(addr))
                 addr -= 0x400000
-                ret += t[addr: addr + 8]
+                ret += t[addr : addr + 8]
     return ret
 
 
@@ -111,7 +111,7 @@ def decoder(data):
     except Exception:
         img = data
     if x_sect is not None:
-        x = img[x_sect.VirtualAddress: x_sect.VirtualAddress + x_sect.SizeOfRawData]
+        x = img[x_sect.VirtualAddress : x_sect.VirtualAddress + x_sect.SizeOfRawData]
         x = bytearray(x)
     else:
         x = bytearray(img)
@@ -142,10 +142,7 @@ def decoder(data):
 def extract_config(filebuf):
     urls = decoder(filebuf)
     if urls:
-        return {
-            "family": "LokiBot",
-            "http": [{'uri': url.decode(), 'usage': 'other'} for url in urls]
-        }
+        return {"family": "LokiBot", "http": [{"uri": url.decode(), "usage": "other"} for url in urls]}
 
 
 if __name__ == "__main__":

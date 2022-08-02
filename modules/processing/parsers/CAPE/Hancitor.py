@@ -27,12 +27,12 @@ def extract_config(filebuf):
                 cfg.setdefault("version", build_id.decode())
                 controllers = list(filter(None, controllers.split(b"|")))
                 if controllers:
-                    cfg.setdefault("http", []).extend([{'uri': url.decode(), 'usage': 'c2'} for url in controllers])
+                    cfg.setdefault("http", []).extend([{"uri": url.decode(), "usage": "c2"} for url in controllers])
     except Exception as e:
         log.warning(e)
 
     if cfg:
-        cfg['family'] = "Hancitor"
+        cfg["family"] = "Hancitor"
     return cfg
 
 

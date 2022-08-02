@@ -65,19 +65,22 @@ def parse_config(config):
     config_dict = collections.OrderedDict()
     for i in range(4):
         if config[0x10 + 0x100 * i] != "\x00":
-            server_name = __format_string(unpack_from("<240s", config, 0x10 + 0x100 * i)[0].decode("utf-16")),
+            server_name = (__format_string(unpack_from("<240s", config, 0x10 + 0x100 * i)[0].decode("utf-16")),)
             main_port = unpack_from("<H", config, 0x4 + 0x100 * i)[0]
             backup_port = unpack_from("<H", config, 0x8 + 0x100 * i)[0]
-            config_dict.setdefault("tcp", []).extend([{'server_domain': server_name, 'server_port': port}
-                                                      for port in [main_port, backup_port]])
+            config_dict.setdefault("tcp", []).extend(
+                [{"server_domain": server_name, "server_port": port} for port in [main_port, backup_port]]
+            )
     if config[0x400] != "\x00":
-        config_dict['proxy'] = [{
-            'hostname': __format_string(unpack_from("<128s", config, 0x400)[0].decode("utf-16")),
-            'port': unpack_from("<H", config, 0x480)[0]
-        }]
-    config_dict['identifier'] = [__format_string(unpack_from("<256s", config, 0x500)[0].decode("utf-16"))]
-    config_dict['encryption'] = [{'algorithm': "RC4", 'key': f"0x{unpack_from('>I', config, 0x604)[0]:X}"}]
-    config_dict['sleep_delay'] = [unpack_from("<H", config, 0x89C)[0]]
+        config_dict["proxy"] = [
+            {
+                "hostname": __format_string(unpack_from("<128s", config, 0x400)[0].decode("utf-16")),
+                "port": unpack_from("<H", config, 0x480)[0],
+            }
+        ]
+    config_dict["identifier"] = [__format_string(unpack_from("<256s", config, 0x500)[0].decode("utf-16"))]
+    config_dict["encryption"] = [{"algorithm": "RC4", "key": f"0x{unpack_from('>I', config, 0x604)[0]:X}"}]
+    config_dict["sleep_delay"] = [unpack_from("<H", config, 0x89C)[0]]
     return config_dict
 
 
@@ -99,7 +102,7 @@ def load_rc4key(data):
         mk = re.search(pattern, data)
         key_end = ""
         if mk:
-            key_end = data[mk.end() + 1: mk.end() + 5]
+            key_end = data[mk.end() + 1 : mk.end() + 5]
             break
     return key_end
 
@@ -110,9 +113,9 @@ def load_resource(pe, data):
         mr = re.search(pattern, data)
         if mr:
             try:
-                (resource_name_rva,) = unpack("=I", data[mr.start() + 2: mr.start() + 6])
+                (resource_name_rva,) = unpack("=I", data[mr.start() + 2 : mr.start() + 6])
                 rn_addr = pe.get_physical_by_rva(resource_name_rva - pe.NT_HEADERS.OPTIONAL_HEADER.ImageBase)
-                resource_name = data[rn_addr: rn_addr + 4]
+                resource_name = data[rn_addr : rn_addr + 4]
                 resource_id = ord(unpack("c", data[mr.start() + 7])[0])
                 if resource_id > 200:
                     resource_id = ord(unpack("c", data[mr.start() + 8])[0])
@@ -131,7 +134,7 @@ def load_resource(pe, data):
                     try:
                         data_rva = entry.directory.entries[0].data.struct.OffsetToData
                         size = entry.directory.entries[0].data.struct.Size
-                        rc_data = pe.get_memory_mapped_image()[data_rva: data_rva + size]
+                        rc_data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
                     except Exception:
                         return
 
@@ -148,9 +151,9 @@ def extract_config(data):
         mc = re.search(pattern, data)
         if mc:
             try:
-                (config_rva,) = unpack("=I", data[mc.start() + 3: mc.start() + 7])
+                (config_rva,) = unpack("=I", data[mc.start() + 3 : mc.start() + 7])
                 config_addr = dll.get_physical_by_rva(config_rva - dll.NT_HEADERS.OPTIONAL_HEADER.ImageBase)
-                enc_config_data = data[config_addr: config_addr + CONFIG_SIZE]
+                enc_config_data = data[config_addr : config_addr + CONFIG_SIZE]
             except Exception:
                 return
 

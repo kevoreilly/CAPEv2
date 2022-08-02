@@ -12,9 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import yara
-import pefile
 import struct
+
+import pefile
+import yara
 
 AUTHOR = "kevoreilly"
 DESCRIPTION = "SmokeLoader configuration parser."
@@ -65,18 +66,18 @@ def extract_config(filebuf):
     except Exception:
         image_base = 0
 
-    end_config = {'family': "SmokeLoader"}
+    end_config = {"family": "SmokeLoader"}
     table_ref = yara_scan(filebuf, "$ref64_1")
     if table_ref:
         table_ref_offset = int(table_ref["$ref64_1"])
-        table_delta = struct.unpack("i", filebuf[table_ref_offset + 62: table_ref_offset + 66])[0]
+        table_delta = struct.unpack("i", filebuf[table_ref_offset + 62 : table_ref_offset + 66])[0]
         table_offset = table_ref_offset + table_delta + 66
 
         table_loop = True
         while table_loop:
             c2_offset = 0
             if image_base:
-                c2_rva = struct.unpack("Q", filebuf[table_offset: table_offset + 8])[0]
+                c2_rva = struct.unpack("Q", filebuf[table_offset : table_offset + 8])[0]
                 if not c2_rva:
                     table_loop = False
                 else:
@@ -86,14 +87,14 @@ def extract_config(filebuf):
                 else:
                     table_loop = False
             else:
-                c2_offset = struct.unpack("I", filebuf[table_offset: table_offset + 4])[0] & 0xFFFF
+                c2_offset = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0] & 0xFFFF
             if c2_offset and c2_offset < 0x8000:
                 try:
-                    c2_size = struct.unpack("B", filebuf[c2_offset: c2_offset + 1])[0]
-                    c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1: c2_offset + c2_size + 5])[0]
-                    c2_url = xor_decode(filebuf[c2_offset + 1: c2_offset + c2_size + 1], c2_key).decode("ascii")
+                    c2_size = struct.unpack("B", filebuf[c2_offset : c2_offset + 1])[0]
+                    c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
+                    c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                     if c2_url:
-                        end_config.setdefault("http", []).append({'uri': c2_url, 'usage': 'c2'})
+                        end_config.setdefault("http", []).append({"uri": c2_url, "usage": "c2"})
                 except Exception:
                     table_loop = False
             else:
@@ -104,21 +105,21 @@ def extract_config(filebuf):
         table_ref = yara_scan(filebuf, "$ref64_2")
     if table_ref:
         table_ref_offset = int(table_ref["$ref64_2"])
-        table_delta = struct.unpack("i", filebuf[table_ref_offset + 26: table_ref_offset + 30])[0]
+        table_delta = struct.unpack("i", filebuf[table_ref_offset + 26 : table_ref_offset + 30])[0]
         table_offset = table_ref_offset + table_delta + 30
 
         for _ in range(2):
             if image_base:
-                c2_rva = struct.unpack("Q", filebuf[table_offset: table_offset + 8])[0] - image_base
+                c2_rva = struct.unpack("Q", filebuf[table_offset : table_offset + 8])[0] - image_base
                 c2_offset = pe.get_offset_from_rva(c2_rva)
             else:
-                c2_offset = struct.unpack("I", filebuf[table_offset: table_offset + 4])[0] & 0xFFFF
-            c2_size = struct.unpack("B", filebuf[c2_offset: c2_offset + 1])[0]
-            c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1: c2_offset + c2_size + 5])[0]
+                c2_offset = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0] & 0xFFFF
+            c2_size = struct.unpack("B", filebuf[c2_offset : c2_offset + 1])[0]
+            c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
             try:
-                c2_url = xor_decode(filebuf[c2_offset + 1: c2_offset + c2_size + 1], c2_key).decode("ascii")
+                c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                 if c2_url:
-                    end_config.setdefault("http", []).append({'uri': c2_url, 'usage': 'c2'})
+                    end_config.setdefault("http", []).append({"uri": c2_url, "usage": "c2"})
             except Exception:
                 pass
             table_offset += 8
@@ -127,14 +128,14 @@ def extract_config(filebuf):
         table_ref = yara_scan(filebuf, "$ref32_1")
     if table_ref:
         table_ref_offset = int(table_ref["$ref32_1"])
-        table_rva = struct.unpack("i", filebuf[table_ref_offset + 55: table_ref_offset + 59])[0] - image_base
+        table_rva = struct.unpack("i", filebuf[table_ref_offset + 55 : table_ref_offset + 59])[0] - image_base
         table_offset = pe.get_offset_from_rva(table_rva)
 
         table_loop = True
         while table_loop:
             c2_offset = 0
             if image_base:
-                c2_rva = struct.unpack("I", filebuf[table_offset: table_offset + 4])[0]
+                c2_rva = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0]
                 if not c2_rva:
                     table_loop = False
                 else:
@@ -144,14 +145,14 @@ def extract_config(filebuf):
                 else:
                     table_loop = False
             else:
-                c2_offset = struct.unpack("I", filebuf[table_offset: table_offset + 4])[0] & 0xFFFF
+                c2_offset = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0] & 0xFFFF
             if c2_offset and c2_offset < 0x8000:
                 try:
-                    c2_size = struct.unpack("B", filebuf[c2_offset: c2_offset + 1])[0]
-                    c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1: c2_offset + c2_size + 5])[0]
-                    c2_url = xor_decode(filebuf[c2_offset + 1: c2_offset + c2_size + 1], c2_key).decode("ascii")
+                    c2_size = struct.unpack("B", filebuf[c2_offset : c2_offset + 1])[0]
+                    c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
+                    c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                     if c2_url:
-                        end_config.setdefault("http", []).append({'uri': c2_url, 'usage': 'c2'})
+                        end_config.setdefault("http", []).append({"uri": c2_url, "usage": "c2"})
                 except Exception:
                     table_loop = False
             else:

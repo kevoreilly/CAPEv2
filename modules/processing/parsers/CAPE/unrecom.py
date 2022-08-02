@@ -52,23 +52,17 @@ def parse_config(config):
         "sleep_delay": [raw_config["delay"]],
         "password": [raw_config["password"]],
         "paths": [
-            {
-                'path': raw_config["pluginfoldername"],
-                'usage': 'plugins'
-            },
-            {
-                'path': raw_config["install"],
-                'usage': 'install'
-            }
+            {"path": raw_config["pluginfoldername"], "usage": "plugins"},
+            {"path": raw_config["install"], "usage": "install"},
         ],
-        'other': {
+        "other": {
             # Need context around how these are used TCP/HTTP connections
             "Prefix": raw_config["prefix"],
             "Domain": raw_config["dns"],
             "Extension": raw_config["extensionname"],
             "Port1": raw_config["p1"],
             "Port2": raw_config["p2"],
-        }
+        },
     }
 
 

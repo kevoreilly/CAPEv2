@@ -12,9 +12,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import yara
-import pefile
 import struct
+
+import pefile
+import yara
+
 DESCRIPTION = "HttpBrowser configuration parser."
 AUTHOR = "kevoreilly"
 
@@ -63,16 +65,16 @@ def pe_data(pe, va, size):
 
 def ascii_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
-    string_rva = struct.unpack("i", pe.__data__[offset: offset + 4])[0] - image_base
+    string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    return pe.__data__[string_offset: string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def unicode_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
-    string_rva = struct.unpack("i", pe.__data__[offset: offset + 4])[0] - image_base
+    string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    return pe.__data__[string_offset: string_offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
+    return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
 
 
 match_map = {
@@ -88,7 +90,7 @@ def extract_config(filebuf):
     # image_base = pe.OPTIONAL_HEADER.ImageBase
 
     yara_matches = yara_scan(filebuf)
-    tmp_config = {'family': 'HTTPBrowser'}
+    tmp_config = {"family": "HTTPBrowser"}
     tcp_connections = []
     for key, values in match_map.keys():
         if yara_matches.get(key):
@@ -98,32 +100,32 @@ def extract_config(filebuf):
 
                 c2_address = unicode_from_va(pe, yara_offset + values[1])
                 if c2_address:
-                    tcp_conn = {'server_ip': c2_address, 'usage': 'c2'}
+                    tcp_conn = {"server_ip": c2_address, "usage": "c2"}
                     if port:
-                        tcp_conn['server_port'] = port
+                        tcp_conn["server_port"] = port
                     tcp_connections.append(tcp_conn)
 
                 if key == "$connect_3":
                     c2_address = unicode_from_va(pe, yara_offset + values[2])
                     if c2_address:
-                        tcp_conn = {'server_ip': c2_address, 'usage': 'c2'}
+                        tcp_conn = {"server_ip": c2_address, "usage": "c2"}
                         if port:
-                            tcp_conn['server_port'] = port
+                            tcp_conn["server_port"] = port
                         tcp_connections.append(tcp_conn)
             else:
                 c2_address = unicode_from_va(pe, yara_offset + values[0])
                 if c2_address:
-                    tcp_connections.append({'server_ip': c2_address, 'usage': 'c2'})
+                    tcp_connections.append({"server_ip": c2_address, "usage": "c2"})
 
                 filepath = unicode_from_va(pe, yara_offset + values[1])
                 if filepath:
-                    tmp_config['paths'] = [{'path': filepath, 'usage': 'c2'}]
+                    tmp_config["paths"] = [{"path": filepath, "usage": "c2"}]
 
                 injectionprocess = unicode_from_va(pe, yara_offset - values[2])
                 if injectionprocess:
-                    tmp_config['inject_exe'] = [injectionprocess]
+                    tmp_config["inject_exe"] = [injectionprocess]
 
     if tcp_connections:
-        tmp_config['tcp'] = tcp_connections
+        tmp_config["tcp"] = tcp_connections
 
     return tmp_config

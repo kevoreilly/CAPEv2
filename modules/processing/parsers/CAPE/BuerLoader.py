@@ -33,9 +33,9 @@ def extract_config(filebuf):
         try:
             dec = decrypt_string(item.lstrip(b"\x00").rstrip(b"\x00").decode())
             if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
-                cfg['other'] = {'address': dec}
+                cfg["other"] = {"address": dec}
         except Exception:
             pass
     if cfg:
-        cfg['family'] = "BuerLoader"
+        cfg["family"] = "BuerLoader"
     return cfg

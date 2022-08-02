@@ -13,10 +13,7 @@ def extract_config(data):
     try:
         urls = [url.lower().decode() for url in url_regex.findall(data)]
         if urls:
-            return {
-                'family': 'GuLoader',
-                'http': [{'uri': uri, 'usage': 'download'} for uri in urls]
-            }
+            return {"family": "GuLoader", "http": [{"uri": uri, "usage": "download"} for uri in urls]}
     except Exception as e:
         print(e)
 

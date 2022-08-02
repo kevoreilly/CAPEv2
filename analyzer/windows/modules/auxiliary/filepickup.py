@@ -3,7 +3,6 @@ import os
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -17,8 +16,7 @@ class FilePickup(Auxiliary):
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
-        self.config = Config(cfg="analysis.conf")
-        self.enabled = self.config.file_pickup
+        self.enabled = config.file_pickup
         self.do_run = self.enabled
 
     def start(self):

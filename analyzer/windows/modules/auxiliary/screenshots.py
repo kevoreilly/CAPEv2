@@ -10,7 +10,6 @@ from threading import Thread
 from lib.api.screenshot import Screenshot
 from lib.common.abstracts import Auxiliary
 from lib.common.results import NetlogFile
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -27,8 +26,7 @@ class Screenshots(Auxiliary, Thread):
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
-        self.config = Config(cfg="analysis.conf")
-        self.enabled = self.config.screenshots
+        self.enabled = config.screenshots_windows
         self.do_run = self.enabled
 
     def stop(self):

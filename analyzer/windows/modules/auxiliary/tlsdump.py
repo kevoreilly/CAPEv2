@@ -9,7 +9,6 @@ from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
 from lib.common.defines import KERNEL32, PROCESSENTRY32, TH32CS_SNAPPROCESS
 from lib.common.exceptions import CuckooError
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -19,9 +18,8 @@ class TLSDumpMasterSecrets(Auxiliary):
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
-        self.config = Config(cfg="analysis.conf")
+        self.config = config
         self.enabled = self.config.tlsdump
-        self.do_run = self.enabled
         self.options["tlsdump"] = "1"
 
     def start(self):

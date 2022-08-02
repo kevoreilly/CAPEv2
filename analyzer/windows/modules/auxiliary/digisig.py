@@ -11,7 +11,6 @@ from io import BytesIO
 from lib.api.utils import Utils
 from lib.common.abstracts import Auxiliary
 from lib.common.results import NetlogFile
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 util = Utils()
@@ -35,9 +34,8 @@ class DigiSig(Auxiliary):
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
-        self.config = Config(cfg="analysis.conf")
+        self.config = config
         self.enabled = self.config.digisig
-        self.do_run = self.enabled
         self.cert_build = []
         self.time_build = []
         self.json_data = {"sha1": None, "signers": [], "timestamp": None, "valid": False, "error": None, "error_desc": None}
@@ -104,6 +102,8 @@ class DigiSig(Auxiliary):
             self.json_data["signers"].append(buf)
 
     def start(self):
+        if not self.enabled:
+            return False
         try:
             if self.config.category != "file":
                 log.debug("Skipping authenticode validation, analysis is not a file")

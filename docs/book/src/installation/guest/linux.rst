@@ -36,7 +36,8 @@ Preparing x32/x64 Linux guests
     .. warning::
 
         For Linux guests on an Azure hypervisor, installing Python3 32-bit breaks the way that the Azure agent starts: https://docs.microsoft.com/en-us/azure/virtual-machines/extensions/agent-linux#installation.
-        So the use of the monitor is limited to what can be run with the 64-bit version of Python3. You will have to comment out the architecture check in the CAPE `agent.py` for the CAPE agent to start.
+        So the use of the monitor is limited to what can be run with the 64-bit version of Python3. You will have to comment out the architecture check in the CAPE `agent.py` for the CAPE agent to start. To 
+        reiterate, this warning is only relevant if you are using an Azure hypervisor.
 
 x32 guests
 ----------

@@ -197,20 +197,20 @@ Azure
 Once you have a virtual machine that is ready to be your golden image for a 
 virtual machine scale set, take a snapshot of the virtual machine's disk.
 
-Official documentation on how to do this: [Create a snapshot of a virtual hard disk](https://docs.microsoft.com/en-us/azure/virtual-machines/snapshot-copy-managed-disk?tabs=portal)
+Official documentation on how to do this: `Create a snapshot of a virtual hard disk <https://docs.microsoft.com/en-us/azure/virtual-machines/snapshot-copy-managed-disk?tabs=portal>`_
 
 We are now going to turn this snapshot into an "image", which is the terminology 
 Azure uses as the base for all virtual machines in a scale set. 
 
-1. Create a Shared Image Gallery resource.
-    a. [Create a gallery for storing and sharing resources](https://docs.microsoft.com/en-us/azure/virtual-machines/create-gallery?tabs=portal%2Ccli2)
-2. Create an Image Definition in this Shared Image Gallery.
-    a. [Create an image definition and an image version](https://docs.microsoft.com/en-us/azure/virtual-machines/image-version?tabs=portal)
+1. Create a Compute Gallery resource.
+    a. `Create a gallery for storing and sharing resources <https://docs.microsoft.com/en-us/azure/virtual-machines/create-gallery?tabs=portal%2Ccli2>`_
+2. Create an Image Definition in this Compute Gallery.
+    a. `Create an image definition and an image version <https://docs.microsoft.com/en-us/azure/virtual-machines/image-version?tabs=portal>`_
     b. Operating System state must be SPECIALIZED
     c. Create an Image Version, and select "Disks and/or snapshots" as the Source.
     d. Select the snapshot of the golden image.
 
 The creation of an image from a snapshot takes a while, so be patient.
 
-In the `az.conf` file, you will need to specify the Shared Gallery Name as well as 
+In the ``az.conf`` file, you will need to specify the Compute Gallery Name as well as 
 the Image Definition Name.

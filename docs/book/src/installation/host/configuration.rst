@@ -55,14 +55,19 @@ want to pay more attention to are:
 .. note:: Default freespace value is 50GB
     It is worth mentioning that the default ``freespace`` value in ``cuckoo.conf`` is 50000 MB aka 50 GB.
 
+Please check the latest version of cuckoo.conf here: `cuckoo.conf`_.
+
+.. _`cuckoo.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/cuckoo.conf
+
 .. _auxiliary_conf:
 
 auxiliary.conf
 ==============
 
 Auxiliary modules are scripts that run concurrently with malware analysis, this file defines
-their options. Please see the latest version here
-.. _ `auxiliary.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/auxiliary.conf
+their options. Please see the latest version here: `auxiliary.conf`_.
+
+.. _`auxiliary.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/auxiliary.conf
 
 
 .. _machinery_conf:
@@ -79,9 +84,17 @@ machinery module, you should specify *kvm* in *conf/cuckoo.conf*
 and have a *conf/kvm.conf* file.
 
 CAPE provides some modules by default and for the sake of this guide, we'll
-assume you're going to use KVM. Please see the latest version here
+assume you're going to use KVM. Please see the latest version here: `kvm.conf`_.
 
-.. _ `<machinery>.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/machinery.conf
+.. _`kvm.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/kvm.conf
+
+You can also find examples of other hipervisors like:
+
+* VirtualBox: `virtualbox.conf`_.
+* VMWare: `vmware.conf`_.
+
+.. _`virtualbox.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/virtualbox.conf
+.. _`vmware.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/vmware.conf
 
 The comments for the options are self-explanatory.
 
@@ -138,6 +151,11 @@ You can enter a list of pids in pid_generic to filter out processes::
     # pid_generic: a list of process ids that already existed on the machine before the malware was started.
     pid_generic = 4, 680, 752, 776, 828, 840, 1000, 1052, 1168, 1364, 1428, 1476, 1808, 452, 580, 652, 248, 1992, 1696, 1260, 1656, 1156
 
+Please see the latest version here: `memory.conf`_.
+
+.. _`memory.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/memory.conf
+
+
 .. _processing_conf:
 
 processing.conf
@@ -147,9 +165,9 @@ This file allows you to enable, disable and configure all processing modules.
 These modules are located under `modules/processing/` and define how to digest
 the raw data collected during the analysis.
 
-You will find a section for each processing module::
+You will find a section for each processing module here: `processing.conf`_.
 
-.. _ `<processing>.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/processing.conf
+.. _`processing.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/processing.conf
 
 You might want to configure the `VirusTotal`_ key if you have an account of your own.
 
@@ -161,9 +179,9 @@ reporting.conf
 ==============
 
 The *conf/reporting.conf* file contains information on the automated reports generation.
-Please see the latest version here:
+Please see the latest version here: `reporting.conf`_.
 
-.. _ `<reporting>.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/reporting.conf
+.. _`reporting.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/reporting.conf
 
 By setting these options to *on* or *off* you enable or disable the generation
 of such reports.

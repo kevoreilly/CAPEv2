@@ -759,6 +759,11 @@ class Signature:
         self.machinery_conf = machinery_conf
         self.matched = False
 
+        # These are set during the iteration of evented signatures
+        self.pid = None
+        self.cid = None
+        self.call = None
+
     def statistics_custom(self, pretime, extracted: bool = False):
         """
         Aux function for custom stadistics on signatures

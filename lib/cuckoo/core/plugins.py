@@ -522,8 +522,9 @@ class RunSignatures:
             # Iterate calls and tell interested signatures about them.
             for proc in self.results["behavior"]["processes"]:
                 process_name = proc["process_name"]
+                process_id = proc["process_id"]
                 calls = proc.get("calls", [])
-                for call in calls:
+                for idx, call in enumerate(calls):
                     api = call.get("api")
                     sigs = self.api_sigs.get(api)
                     if sigs is None:
@@ -535,6 +536,11 @@ class RunSignatures:
                             self.call_for_processname.get(process_name, set()),
                         )
                     for sig in sigs:
+                        # Setting signature attributes per call
+                        sig.cid = idx
+                        sig.call = call
+                        sig.pid = process_id
+
                         if sig.matched:
                             continue
                         try:

@@ -117,7 +117,9 @@ def create_structure():
     try:
         create_folders(root=CUCKOO_ROOT, folders=folders)
     except CuckooOperationalError as e:
-        raise CuckooStartupError(e)
+        raise CuckooStartupError(
+            f"Can't create folders. Ensure that you executed CAPE with proper USER! Maybe should be cape user?. %s", str(e)
+        )
 
 
 class DatabaseHandler(logging.Handler):

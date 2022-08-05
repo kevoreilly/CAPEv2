@@ -838,8 +838,10 @@ class Scheduler:
                             break
                     if not relevant_machine_is_available:
                         task = None
+                    else:
+                        task = self.db.view_task(task.id)
                 else:
-                    task = self.db.fetch_task(False, categories=self.analyzing_categories, need_VM=False)
+                    task = self.db.fetch_task(self.analyzing_categories)
                 if task:
                     log.debug("Task #%s: Processing task", task.id)
                     self.total_analysis_count += 1

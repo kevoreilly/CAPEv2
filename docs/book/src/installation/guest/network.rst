@@ -53,6 +53,35 @@ virtual network was set up correctly.
 
 Only use static IP addresses for your guests, since CAPE doesn't support DHCP (at least, as of this writing).
 
+Setting a static IP
+===================
+
+To set up a static IP it is first recommended to inspect the assigned IP, which will be (ideally) in the range of your interface (presumabley virbr0). To see your actual IP settings execute the follwoing command from a command prompt::
+
+> ipconfig /all
+
+    .. image:: ../../_images/screenshots/guest_win10_static_IP.png
+            :align: center
+
+Open ``Control Panel`` and search for ``Network``. Find and open the ``Network and Sharing Center``. Click ``Change adapter settings.``
+
+    .. image:: ../../_images/screenshots/guest_win10_static_IP_1.png
+            :align: center
+
+Now open the Ethernet adapter and click ``Properties``.
+
+    .. image:: ../../_images/screenshots/guest_win10_static_IP_2.png
+            :align: center
+
+Then click ``Internet Protocol Version 4 (TCP/IPv4)`` and ``Properties``. Set the IP address, Subnet mask, Default gateway and DNS Server according to the results of the ipconfig command.
+
+    .. image:: ../../_images/screenshots/guest_win10_static_IP_3.png
+            :align: center
+
+    .. note:: You can set as static IP address the address previously given by DHCP or any other address you like within the range of your interface.
+
+Wait a few seconds and you should have Internet access.
+
 This stage is very much up to your requirements and the
 characteristics of your virtualization software.
 

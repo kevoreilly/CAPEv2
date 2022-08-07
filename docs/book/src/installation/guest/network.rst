@@ -16,6 +16,24 @@ of the malware under normal circumstances and they can pollute the network
 analysis performed by CAPE, by dropping connections or including irrelevant
 requests.
 
+Windows 10
+==========
+To do so in Windows 10, open Control Panel and search for ``Windows Defender Firewall``. Disable it completely:
+
+    .. image:: ../../_images/screenshots/guest_win10_disable_firewall.png
+        :align: center
+
+    .. image:: ../../_images/screenshots/guest_win10_disable_firewall_1.png
+        :align: center
+
+The next step is disabling automatic updates. To do so, open Control Panel and search for ``Administrative Tools``. Open it, then open ``Services``. Look for the ``Windows Update`` entry and double-click on it. Set Startup type to disabled and click stop.
+
+    .. image:: ../../_images/screenshots/guest_win10_disable_updates.png
+            :align: center
+
+Windows XP
+==========
+
 You can do so from Windows' Control Panel as shown in the picture:
 
     .. image:: ../../_images/screenshots/windows_security.png

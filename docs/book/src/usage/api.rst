@@ -42,8 +42,9 @@ To generate a user authorization token:
 `CAPE throttling`_, aka requests per minute/hour/day.
 =====================================================
 
-* Requires authentication enabled in ``web.conf``
+* Requires token authentication enabled in ``api.conf``
 * Default 5/m
+* You can change the default throttle limits in ``api.conf``
 * To change the user limit go to django admin ``/admin/`` if you didn't change the path, and set the limit per user in the user profile at the bottom.
 
 .. _`CAPE throttling`: https://github.com/kevoreilly/CAPEv2/blob/master/web/apiv2/throttling.py

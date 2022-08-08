@@ -24,28 +24,29 @@ class FileCollector(Auxiliary, Thread):
     """Gets files."""
 
     def start(self):
-        log.info("FileCollector started v0.07")
+        if not self.enabled:
+            return False
+
         self.event_processor.do_collect = True
 
     def stop(self):
-        """Stop monitoring."""
-        log.info("FileCollector requested stop")
+        if not self.enabled:
+            return False
+
         time.sleep(2)  # wait a while to process stuff in the queue
         self.do_run = False
         self.thread.join()
-        log.info("FileCollector stopped")
 
-    def __init__(self):
-        log.info("FileCollector init started")
-        self.do_run = HAVE_PYINOTIFY
-
-        self.initComplete = False
-        self.thread = Thread(target=self.run)
-        self.thread.start()
-        while not self.initComplete:
-            self.thread.join(0.5)
-
-        log.info("FileCollector init complete")
+    def __init__(self, options, config):
+        Auxiliary.__init__(self, options, config)
+        self.enabled = config.filecollector
+        self.do_run = self.enabled and HAVE_PYINOTIFY
+        if self.enabled:
+            self.initComplete = False
+            self.thread = Thread(target=self.run)
+            self.thread.start()
+            while not self.initComplete:
+                self.thread.join(0.5)
 
     def run(self):
 

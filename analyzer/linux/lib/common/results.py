@@ -4,9 +4,9 @@
 
 import logging
 import os
-from pathlib import Path
 import socket
 import time
+from pathlib import Path
 
 from lib.core.config import Config
 
@@ -26,7 +26,7 @@ def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", categor
     if int(config.upload_max_size) < file_size and not config.do_upload_max_size:
         log.warning("File %s size is too big: %d, ignoring", file_path, file_size)
         return
-    
+
     try:
         nc = NetlogFile()
         # nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)

@@ -1,3 +1,9 @@
+---
+name: Bug report
+about: Create a report to help us improve
+
+---
+
 ## Removing issue template is equivalent to invalid issue!
 * We have this template in order to not have to ask everyone the same questions again and again!
 - [ ] I understand that if I remove this template this issue will be automatically closed without answer

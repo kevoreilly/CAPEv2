@@ -26,95 +26,102 @@ import sys
 
 import pefile
 from Cryptodome.Cipher import DES3
+from Cryptodome.Util.Padding import unpad
 
 DESCRIPTION = "LokiBot configuration parser."
 AUTHOR = "sysopfb"
 
 
-def find_iv(pe):
-    iv = -1
-    t = pe.get_memory_mapped_image() if isinstance(pe, pefile.PE) else pe
-    temp = re.findall(rb"""\x68...\x00.{1,10}\x68...\x00\x68...\x00\x68...\x00\x03\xc1""", t)
+def find_iv(img):
+    temp = re.findall(rb"\x68...\x00.{1,10}\x68...\x00\x68...\x00\x68...\x00\x03\xc1", img)
     if temp != []:
         (addr,) = struct.unpack_from("<I", temp[0][1:])
         addr -= 0x400000
-        iv = t[addr : addr + 8]
+        iv = img[addr : addr + 8]
     return iv
 
 
-def try_find_iv(pe):
-    dlen = 8 * 4
-    t = pe.get_memory_mapped_image() if isinstance(pe, pefile.PE) else pe
-    off = t.find(b"\x6a\x08\x59\xbe")
-    if off == -1:
-        return -1
-    (addr,) = struct.unpack_from("<I", t[off + 4 :])
-    # print(hex(addr))
-    addr -= 0x400000
+def find_conf(img):
+    ret = []
 
-    # Go until past next blob to \x00\x00\x00\x00
-    off = t[addr + dlen + 4 :].find(b"\x00\x00\x00\x00")
-    off += addr + dlen + 4 + 4
-    iv = t[off : off + 8]
+    num_addr_re1 = re.compile(
+        rb"""
+        \x6A(?P<num>.)      # 6A 08                push    8
+        \x59                # 59                   pop     ecx
+        \xBE(?P<addr>.{4})  # BE D0 88 41 00       mov     esi, offset encrypted_data1
+        \x8D\xBD.{4}        # 8D BD 68 FE FF FF    lea     edi, [ebp+encrypted_data_list]
+        \xF3\xA5            # F3 A5                rep movsd
+        \x6A.               # 6A 43                push    43h ; 'C'
+        \x5B                # 5B                   pop     ebx
+        \x53                # 53                   push    ebx
+        \x8D\x85.{4}        # 8D 85 89 FE FF FF    lea     eax, [ebp+var_177]
+        \xA4                # A4                   movsb
+        \x6A\x00            # 6A 00                push    0
+        \x50                # 50                   push    eax
+        \xE8.{4}            # E8 78 E9 FE FF       call    about_memset
+        """,
+        re.DOTALL | re.VERBOSE,
+    )
+    num_addr_re2 = re.compile(
+        rb"""
+        \x6A(?P<num>.)      # 6A 08                push    8
+        \x59                # 59                   pop     ecx
+        \xBE(?P<addr>.{4})  # BE F4 88 41 00       mov     esi, offset encrypted_data2
+        \x8D.{2,5}          # 8D BD CC FE FF FF    lea     edi, [ebp+var_134]
+        \xF3\xA5            # F3 A5                rep movsd
+        \x53                # 53                   push    ebx
+        \x8D.{2,5}          # 8D 85 ED FE FF FF    lea     eax, [ebp+var_113]
+        \x6A\x00            # 6A 00                push    0
+        \x50                # 50                   push    eax
+        \xA4                # A4                   movsb
+        \xE8.{4}            # E8 58 E9 FE FF       call    about_memset
+        """,
+        re.DOTALL | re.VERBOSE,
+    )
 
-    # This doesn't work for all samples... still interesting that the data is in close proximity sometimes
-    nul, key3, nul, key2, nul, key1 = struct.unpack_from("<I8sI8sI8s", t[off + 8 :])
+    num_addr_list = re.findall(num_addr_re1, img)
+    num_addr_list.extend(re.findall(num_addr_re2, img))
 
-    # key = f"\x08\x02\x00\x00\x03\x66\x00\x00\x18\x00\x00\x00{key1}{key2}{key3}"
-
-    return iv
-
-
-def find_conf(pe):
-    dlen = 8 * 4
-    t = pe.get_memory_mapped_image() if isinstance(pe, pefile.PE) else pe
-    off = t.find(b"\x6a\x08\x59\xbe")
-    (addr,) = struct.unpack_from("<I", t[off + 4 :])
-    # print(hex(addr))
-    addr -= 0x400000
-    ret = [t[addr : addr + dlen]]
-    dlen = 10 * 4
-    off = t.find(b"\x6a\x0a\x59\xbe")
-    (addr,) = struct.unpack_from("<I", t[off + 4 :])
-    # print(hex(addr))
-    addr -= 0x400000
-    ret.append(t[addr : addr + dlen])
+    for num, addr in num_addr_list:
+        dlen = ord(num) * 4
+        (addr,) = struct.unpack_from("<I", addr)
+        # print(hex(addr))
+        addr -= 0x400000
+        data = img[addr : addr + dlen]
+        ret.append(data)
 
     return ret
 
 
-def find_key(pe):
+def find_key(img):
     ret = None
-    t = pe.get_memory_mapped_image() if isinstance(pe, pefile.PE) else pe
-    temp = re.findall(rb"""\x68...\x00\x68...\x00\x68...\x00\x03\xc1""", t)
+    temp = re.findall(rb"\x68...\x00\x68...\x00\x68...\x00\x03\xc1", img)
     if temp != []:
-        ret = "\x08\x02\x00\x00\x03\x66\x00\x00\x18\x00\x00\x00"
-        temp = temp[0][:-2].split("\x68")[::-1]
+        ret = b""
+        temp = temp[0][:-2].split(b"\x68")[::-1]
         for a in temp:
-            if a != "":
+            if a != b"":
                 (addr,) = struct.unpack_from("<I", a)
                 # print(hex(addr))
                 addr -= 0x400000
-                ret += t[addr : addr + 8]
+                ret += img[addr : addr + 8]
     return ret
 
 
 def decoder(data):
     x_sect = None
+    urls = []
 
-    urls = re.findall(rb"""https?:\/\/[a-zA-Z0-9\/\.:\-_]+""", data)
-
-    pe = None
     try:
-        pe = pefile.PE(sys.argv[1])
+        pe = pefile.PE(data=data)
 
         for sect in pe.sections:
-            if ".x" in sect.Name:
+            if sect.Name.strip(b"\x00") == b".x":
                 x_sect = sect
         img = pe.get_memory_mapped_image()
     except Exception:
         img = data
-    if x_sect is not None:
+    if x_sect:
         x = img[x_sect.VirtualAddress : x_sect.VirtualAddress + x_sect.SizeOfRawData]
         x = bytearray(x)
     else:
@@ -123,27 +130,21 @@ def decoder(data):
     for i in range(len(x)):
         x[i] ^= 0xFF
 
-    temp = re.findall(rb"""https?:\/\/[a-zA-Z0-9\/\.:\-_]+""", x)
-    urls += temp
+    temp = re.findall(rb"https?:\/\/[a-zA-Z0-9\/\.:?\-_]+", x)
+    for url in temp:
+        if url not in [b"http://www.ibsensoftware.com/", b""]:
+            urls.append(url)
 
-    urls = [x for x in urls if x not in ("http://www.ibsensoftware.com/", "")]
-
-    # Try to decrypt onboard config then
-    if not urls:
-        temp = ""
-        if pe is None:
-            pe = data
-        key = find_key(pe)
-        # iv = try_find_iv(pe)
-        iv = find_iv(pe)
-        confs = find_conf(pe)
-        if iv not in ["", -1] and confs != []:
-            for conf in confs:
-                dec = DES3.new(key[12:], DES3.MODE_CBC, iv)
-                temp += dec.decrypt(conf)
-            temp_urls = re.findall(rb"""[a-zA-Z0-9\/\.:\-_]{6,}""", temp)
-            urls += temp_urls
-
+    # Try to decrypt onboard config
+    key = find_key(img)
+    iv = find_iv(img)
+    confs = find_conf(img)
+    if iv not in [b"", -1] and confs != []:
+        for conf in confs:
+            dec = DES3.new(key, DES3.MODE_CBC, iv)
+            temp = dec.decrypt(conf)
+            temp = unpad(temp, 8)
+            urls.append(b"http://" + temp)
     return urls
 
 

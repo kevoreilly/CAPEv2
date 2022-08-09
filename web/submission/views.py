@@ -374,7 +374,7 @@ def index(request, resubmit_hash=False):
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "quarantine":
-            for content, path, sha256 in list_of_files:
+            for content, tmp_path, sha256 in list_of_files:
                 path = unquarantine(tmp_path)
                 try:
                     os.remove(tmp_path)

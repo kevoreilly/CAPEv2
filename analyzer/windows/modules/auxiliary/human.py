@@ -12,7 +12,6 @@ from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.defines import BM_CLICK, CF_TEXT, GMEM_MOVEABLE, KERNEL32, USER32, WM_CLOSE, WM_GETTEXT, WM_GETTEXTLENGTH
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -263,8 +262,8 @@ class Human(Auxiliary, Thread):
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
-        self.config = Config(cfg="analysis.conf")
-        self.enabled = self.config.human
+        self.config = config
+        self.enabled = self.config.human_windows
         self.do_run = self.enabled
 
     def stop(self):

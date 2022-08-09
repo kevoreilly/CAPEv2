@@ -23,19 +23,25 @@ SKIP_AREA = None
 class Screenshots(Auxiliary, Thread):
     """Take screenshots."""
 
-    def __init__(self, options={}, analyzer=None):
-        Auxiliary.__init__(self, options={}, analyzer=None)
+    def __init__(self, options, config):
+        Auxiliary.__init__(self, options, config)
+        self.enabled = config.screenshots_linux
+        self.do_run = self.enabled
         Thread.__init__(self)
-        self.do_run = True
 
     def stop(self):
-        """Stop screenshotting."""
+        if not self.enabled:
+            return False
+
         self.do_run = False
 
     def run(self):
         """Run screenshotting.
         @return: operation status.
         """
+        if not self.enabled:
+            return False
+
         if not Screenshot().have_pil():
             log.warning("Python Image Library is not installed, screenshots are disabled")
             return False

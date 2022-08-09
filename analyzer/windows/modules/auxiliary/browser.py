@@ -9,7 +9,6 @@ from threading import Thread
 
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -20,8 +19,7 @@ class Browser(Auxiliary, Thread):
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
-        self.config = Config(cfg="analysis.conf")
-        self.enabled = self.config.browser
+        self.enabled = config.browser
         self.do_run = self.enabled
         self.seconds_elapsed = 0
 

@@ -44,10 +44,11 @@ x32 guests
 Install support file dependencies::
 
     $ sudo apt update
-    $ sudo apt install python3-pip
+    $ sudo apt install python3-pip systemtap-runtime
     $ pip3 install pyinotify
-    $ pip3 install pillow       # optional
+    $ pip3 install Pillow       # optional
     $ pip3 install pyscreenshot # optional
+    $ pip3 install pyautogui    # optional
 
 x64 guests
 ----------
@@ -57,11 +58,13 @@ Install support file dependencies (we need Python3 32-bit)::
     $ sudo apt update
     $ sudo apt install python3:i386 -y
     $ sudo apt install python3-distutils -y
+    $ sudo apt install systemtap-runtime -y
     $ curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py
     $ python3 get-pip.py
     $ python3 -m pip install pyinotify
-    $ python3 -m pip install pillow       # optional
+    $ python3 -m pip install Pillow       # optional
     $ python3 -m pip install pyscreenshot # optional
+    $ python3 -m pip install pyautogui    # optional
 
 Ensure the agent automatically starts. The easiest way is to add it to crontab::
 

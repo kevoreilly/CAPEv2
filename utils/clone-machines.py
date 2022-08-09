@@ -180,8 +180,10 @@ def print_machines_config(machines):
                 f"tags = x64",
             ]
 
-            machines_file.writelines(machine_lines)
-            print("\n".join(machine_lines))
+            machine_lines_str = "\n".join(machine_lines)
+
+            machines_file.write(machine_lines_str + "\n\n")
+            print(machine_lines_str + "\n")
 
 
 if __name__ == "__main__":

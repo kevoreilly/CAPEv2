@@ -10,7 +10,6 @@ from threading import Thread
 from lib.common.abstracts import Auxiliary
 from lib.common.defines import DWORD, KERNEL32, MEMORYSTATUSEX, PDH, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PVOID
 from lib.common.results import NetlogFile
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -21,8 +20,7 @@ class Usage(Auxiliary, Thread):
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
-        self.config = Config(cfg="analysis.conf")
-        self.enabled = self.config.usage
+        self.enabled = config.usage
         self.do_run = self.enabled
         self.pidlist = []
 

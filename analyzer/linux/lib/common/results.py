@@ -6,30 +6,37 @@ import logging
 import os
 import socket
 import time
+from pathlib import Path
 
 from lib.core.config import Config
 
+config = Config(cfg="analysis.conf")
 log = logging.getLogger(__name__)
 
 BUFSIZE = 1024 * 1024
 
 
-def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
-    nc = infd = None
+def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", category="", duplicated=False):
+    nc = None
     if not os.path.exists(file_path):
-        log.warning("File not exist: %s", file_path)
+        log.warning("File %s doesn't exist anymore", file_path)
+        return
+    file_size = Path(file_path).stat().st_size
+    log.info("File %s size is %d, Max size: %s", file_path, file_size, config.upload_max_size)
+    if int(config.upload_max_size) < file_size and not config.do_upload_max_size:
+        log.warning("File %s size is too big: %d, ignoring", file_path, file_size)
         return
 
     try:
         nc = NetlogFile()
         # nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
-        nc.init(dump_path, file_path, pids, metadata, category)
-        with open(file_path, "rb") as infd:
-            buf = infd.read(BUFSIZE)
-            log.info("Uploading file %s to host -> %s", file_path, dump_path)
-            while buf:
-                nc.send(buf, retry=True)
+        nc.init(dump_path, file_path, pids, ppids, metadata, category, duplicated)
+        if not duplicated and file_path:
+            with open(file_path, "rb") as infd:
                 buf = infd.read(BUFSIZE)
+                while buf:
+                    nc.send(buf, retry=True)
+                    buf = infd.read(BUFSIZE)
     except Exception as e:
         log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
     finally:
@@ -101,19 +108,23 @@ class NetlogBinary(NetlogConnection):
 
 
 class NetlogFile(NetlogConnection):
-    def init(self, dump_path, filepath=False, pids="", metadata="", category="files"):
+    def init(self, dump_path, filepath=False, pids="", ppids="", metadata="", category="files", duplicated=0):
         """
         All arguments should be strings
         """
-        if pids and not isinstance(pids, str):
+        if not isinstance(pids, str):
             pids = " ".join(pids)
+        if not isinstance(ppids, str):
+            ppids = " ".join(ppids)
         if filepath:
-            self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n" % (
+            self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n%s\n%d\n" % (
                 dump_path.encode(),
-                filepath.encode(errors="replace"),
+                filepath.encode("utf-8", "replace"),
                 pids.encode(),
+                ppids.encode(),
                 metadata.encode() if isinstance(metadata, str) else metadata,
                 category.encode() if isinstance(category, str) else category,
+                1 if duplicated else 0,
             )
         else:
             self.proto = b"FILE\n%s\n" % dump_path.encode()

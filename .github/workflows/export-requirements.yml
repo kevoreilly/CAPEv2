@@ -39,6 +39,7 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "action@github.com"
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+            git pull -f
             git commit -m "ci: Update requirements.txt" -a
             git push
           fi

@@ -9,7 +9,6 @@ import time
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -19,11 +18,16 @@ class STAP(Auxiliary):
 
     priority = -10  # low prio to wrap tightly around the analysis
 
-    def __init__(self, options={}, analyzer=None):
-        self.config = Config(cfg="analysis.conf")
+    def __init__(self, options, config):
+        Auxiliary.__init__(self, options, config)
+        self.config = config
+        self.enabled = self.config.stap
         self.proc = None
 
     def start(self):
+        if not self.enabled:
+            return False
+
         # helper function locating the stap module
         def has_stap(p):
             for fn in os.listdir(p):
@@ -69,6 +73,9 @@ class STAP(Auxiliary):
         return True
 
     def stop(self):
+        if not self.enabled:
+            return False
+
         try:
             r = self.proc.poll()
             log.debug("stap subprocess retval %d", r)

@@ -5,6 +5,10 @@
     The following tasks were added successfully:
     {% for task in tasks %}
         <a href="{% url "submission_status" task %}">{{task}}</a>
+        {% if remote_console %}
+            Click to start an interactive remote session:
+            <a href="{% url "remote_session" task %}">{{task}}</a>
+        {% endif %}
     {% endfor %}.
     Click on the links to monitor the status of the submission.
 </div>

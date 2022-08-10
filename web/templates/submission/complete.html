@@ -5,13 +5,19 @@
     The following tasks were added successfully:
     {% for task in tasks %}
         <a href="{% url "submission_status" task %}">{{task}}</a>
-        {% if remote_console %}
-            Click to start an interactive remote session:
-            <a href="{% url "remote_session" task %}">{{task}}</a>
-        {% endif %}
     {% endfor %}.
     Click on the links to monitor the status of the submission.
 </div>
+
+{% if remote_console %}
+    <div class="alert alert-secondary"><h4>Remote Control Session</h4>
+        Tasks:
+        {% for task in tasks %}
+            <a href="{% url "remote_session" task %}">{{task}}</a>
+        {% endfor %}.
+        Click on the link to start an interactive remote session.
+    </div>
+{% endif %}
 
 {% if existent_tasks %}
     {% for sha256, details in existent_tasks.items %}

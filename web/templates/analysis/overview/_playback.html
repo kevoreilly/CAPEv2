@@ -2,7 +2,7 @@
     <h4>Session Playback</h4>
 	<div>
    	{% if analysis.info.options.nohuman %}
-		<button	onclick='window.open(window.location.origin + "/guac/playback/{{analysis.info.id}}")';>Playback</button>
+		<button class="btn btn-secondary" onclick='window.open(window.location.origin + "/guac/playback/{{analysis.info.id}}")';><span class="fas fa-play"></span> Playback</button>
     {% else %}
     	No playback available.
     {% endif %}

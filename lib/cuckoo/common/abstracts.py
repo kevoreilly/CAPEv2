@@ -759,6 +759,11 @@ class Signature:
         self.machinery_conf = machinery_conf
         self.matched = False
 
+        # These are set during the iteration of evented signatures
+        self.pid = None
+        self.cid = None
+        self.call = None
+
     def statistics_custom(self, pretime, extracted: bool = False):
         """
         Aux function for custom stadistics on signatures
@@ -1516,6 +1521,24 @@ class Signature:
                     res = True
                     break
         return res
+
+    def mark_call(self, *args, **kwargs):
+        """Mark the current call as explanation as to why this signature
+        matched."""
+        mark = {
+            "type": "call",
+            "pid": self.pid,
+            "cid": self.cid,
+            "call": self.call,
+        }
+
+        if args or kwargs:
+            log.warning(
+                "You have provided extra arguments to the mark_call() method "
+                "which does not support doing so."
+            )
+
+        self.data.append(mark)
 
     def add_match(self, process, type, match):
         """Adds a match to the signature data.

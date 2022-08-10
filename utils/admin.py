@@ -76,9 +76,9 @@ def remove(task_id):
                     # Delete calls.
                     for process in analysis.get("behavior", {}).get("processes", []):
                         for call in process["calls"]:
-                            results_db.calls.remove({"_id": ObjectId(call)})
+                            results_db.calls.delete_one({"_id": ObjectId(call)})
                     # Delete analysis data.
-                    results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                    results_db.analysis.delete_one({"_id": ObjectId(analysis["_id"])})
                 elif repconf.elasticsearchdb.enabled:
                     delete_analysis_and_related_calls(analysis["info"]["id"])
 

@@ -13,7 +13,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.utils import convert_to_printable, pretty_print_arg, pretty_print_retval, logtime, default_converter, bytes2str, get_options
-
+from lib.cuckoo.common.utils_pretty_print_funcs import category_registry_arg_name_type
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -425,6 +425,7 @@ class Summary:
         self.read_keys = []
         self.write_keys = []
         self.delete_keys = []
+        self.keys_info = {}
         self.mutexes = []
         self.files = []
         self.read_files = []
@@ -465,7 +466,21 @@ class Summary:
                 self.keys.append(name)
             if name and name not in self.write_keys:
                 self.write_keys.append(name)
-        elif call["api"] == "NtDeleteValueKey" or call["api"] == "NtDeleteKey" or call["api"].startswith("RegDeleteValue"):
+
+                key_info = {}
+                reg_type = self.get_argument(call, "Type")
+                reg_value = self.get_argument(call, "Buffer") or self.get_argument(call, "Data")
+
+                if reg_type:
+                    key_info['type'] = category_registry_arg_name_type(reg_type)
+
+                if reg_value:
+                    key_info['value'] = reg_value
+
+                if key_info:
+                    self.keys_info[name] = key_info
+        elif call["api"] == "NtDeleteValueKey" or call["api"] == "NtDeleteKey" or call["api"].startswith(
+                "RegDeleteValue"):
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
                 self.keys.append(name)
@@ -479,6 +494,12 @@ class Summary:
             # if disposition == 1 then we created a new key
             if name and disposition == 1 and name not in self.write_keys:
                 self.write_keys.append(name)
+
+                reg_type = self.get_argument(call, 'Class')
+
+                if reg_type:
+                    self.keys_info[name] = {'type': category_registry_arg_name_type(reg_type)}
+
         elif call["api"].startswith("NtOpenKey"):
             name = self.get_argument(call, "ObjectAttributes")
             if name and name not in self.keys:
@@ -491,6 +512,12 @@ class Summary:
             # if disposition == 1 then we created a new key
             if name and disposition == 1 and name not in self.write_keys:
                 self.write_keys.append(name)
+
+                reg_type = self.get_argument(call, 'Class')
+
+                if reg_type:
+                    self.keys_info[name] = {'type': category_registry_arg_name_type(reg_type)}
+
         elif call["api"].startswith("RegQueryValue") or call["api"] == "NtQueryValueKey" or call["api"] == "NtQueryMultipleValueKey":
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
@@ -643,6 +670,7 @@ class Summary:
             "read_keys": self.read_keys,
             "write_keys": self.write_keys,
             "delete_keys": self.delete_keys,
+            "keys_info": self.keys_info,
             "executed_commands": self.executed_commands,
             "resolved_apis": self.resolved_apis,
             "mutexes": self.mutexes,

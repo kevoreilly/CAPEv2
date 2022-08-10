@@ -404,7 +404,8 @@ def init_routing():
             #   f"The network interface that has been configured for VPN {entry.name} is not available"
             # )
             #    add = 0
-            if not rooter("rt_available", entry.rt_table):
+            is_rt_available = rooter("rt_available", entry.rt_table)["output"]
+            if not is_rt_available:
                 raise CuckooStartupError(f"The routing table that has been configured for VPN {entry.name} is not available")
             vpns[entry.name] = entry
 
@@ -436,10 +437,12 @@ def init_routing():
 
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":
-        if not rooter("nic_available", routing.routing.internet):
+        is_nic_available = rooter("nic_available", routing.routing.internet)["output"]
+        if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as dirty line is not available")
 
-        if not rooter("rt_available", routing.routing.rt_table):
+        is_rt_available = rooter("rt_available", entry.rt_table)["output"]
+        if not is_rt_available:
             raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
@@ -454,7 +457,8 @@ def init_routing():
 
     # Check if tor interface exists, if yes then enable nat
     if routing.tor.enabled and routing.tor.interface:
-        if not rooter("nic_available", routing.tor.interface):
+        is_nic_available = rooter("nic_available", routing.tor.interface)["output"]
+        if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as tor line is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
@@ -471,7 +475,8 @@ def init_routing():
     # if routing.inetsim.interface and cuckoo.routing.inetsim_interface !=  routing.tor.interface:
     # Check if inetsim interface exists, if yes then enable nat
     if routing.inetsim.enabled and routing.inetsim.interface:
-        if not rooter("nic_available", routing.inetsim.interface):
+        is_nic_available = rooter("nic_available", routing.inetsim.interface)["output"]
+        if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as inetsim line is not available")
 
         # Disable & enable NAT on this network interface. Disable it just

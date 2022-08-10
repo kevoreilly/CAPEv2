@@ -35,7 +35,7 @@ from lib.cuckoo.common.web_utils import (
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
-from uuid import uuid4
+from uuid import uuid3, NAMESPACE_DNS
 
 # this required for hash searches
 cfg = Config("cuckoo")
@@ -627,7 +627,7 @@ def remote_session(request, task_id):
         machine = db.view_machine(task.machine)
         label = machine.label
         machine_status = True
-        session_id = uuid4().hex[:16]
+        session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
         session_data = urlsafe_b64encode(f"{session_id}|{label}".encode("utf8")).decode("utf8")
 
     return render(

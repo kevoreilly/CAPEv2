@@ -878,7 +878,7 @@ class Signature:
 
     def get_signature_data(self, signame: str) -> List[Dict[str, str]]:
         # Retrieve data from matched signature (useful for ordered signatures)
-        if self.check_signature_match(signame):
+        if self.signature_matched(signame):
             signature = next((match for match in self.results.get("signatures", []) if match.get("name") == signame), None)
 
             if signature:

@@ -6,6 +6,7 @@ import logging
 import socket
 import threading
 import time
+import timeit
 
 try:
     # Azure-specific imports
@@ -680,8 +681,8 @@ class Azure(Machinery):
         @return: End method call
         """
         # Majority of this code is copied from cuckoo/core/guest.py:GuestManager.wait_available()
-        start = time.time()
-        end = start + Config("cuckoo").timeouts.vm_state
+        timeout = Config("cuckoo").timeouts.vm_state
+        start = timeit.default_timer()
         while True:
             try:
                 socket.create_connection((machine_ip, CUCKOO_GUEST_PORT), 1).close()
@@ -693,12 +694,12 @@ class Azure(Machinery):
                 log.debug(f"{machine_name}: Initializing...")
             time.sleep(10)
 
-            if time.time() >= end:
+            if timeit.default_timer() - start >= timeout:
                 # We didn't do it :(
                 raise CuckooGuestCriticalTimeout(
                     f"Machine {machine_name}: the guest initialization hit the critical " "timeout, analysis aborted."
                 )
-        log.debug(f"Machine {machine_name} was created and available in {round(time.time() - start)}s")
+        log.debug(f"Machine {machine_name} was created and available in {round(timeit.default_timer() - start)}s")
 
     @staticmethod
     def _azure_api_call(*args, **kwargs):
@@ -992,7 +993,7 @@ class Azure(Machinery):
                 # System is not at rest, but task queue is 0, therefore set machines in use to delete
                 elif relevant_task_queue == 0:
                     machine_pools[vmss_name]["is_scaling_down"] = True
-                    start_time = time.time()
+                    start_time = timeit.default_timer()
                     # Wait until currently locked machines are deleted to the number that we require
                     while number_of_relevant_machines > number_of_relevant_machines_required:
                         # Since we're sleeping 1 second between iterations of this while loop, if there are available
@@ -1008,7 +1009,7 @@ class Azure(Machinery):
                         )
 
                         # We don't want to be stuck in this for longer than the timeout specified
-                        if time.time() - start_time > AZURE_TIMEOUT:
+                        if timeit.default_timer() - start_time > AZURE_TIMEOUT:
                             log.debug(f"Breaking out of the while loop within the scale down section for {vmss_name}.")
                             break
                         # Get the updated number of relevant machines required
@@ -1049,7 +1050,7 @@ class Azure(Machinery):
                 operation=self.compute_client.virtual_machine_scale_sets.get,
             )
             vmss.sku.capacity = number_of_relevant_machines_required
-            start_time = time.time()
+            start_time = timeit.default_timer()
 
             try:
                 Azure._wait_for_concurrent_operations_to_complete()
@@ -1072,7 +1073,8 @@ class Azure(Machinery):
                     is_platform_scaling[platform] = False
                 return
 
-            log.debug(f"The scaling of {vmss_name} took {round(time.time()-start_time)}s")
+            timediff = timeit.default_timer() - start_time
+            log.debug(f"The scaling of {vmss_name} took {round(timediff)}s")
             machine_pools[vmss_name]["size"] = number_of_relevant_machines_required
 
             # Alter the database based on if we scaled up or down
@@ -1102,14 +1104,15 @@ class Azure(Machinery):
         Provides method of handling Azure tasks that take too long to complete
         @param lro_poller_object: An LRO Poller Object for an Async Azure Task
         """
-        start_time = time.time()
+        start_time = timeit.default_timer()
         # TODO: Azure disregards the timeout passed to it in most cases, unless it has a custom poller
         try:
             lro_poller_result = lro_poller_object.result(timeout=AZURE_TIMEOUT)
         except Exception as e:
             raise CuckooMachineError(repr(e))
-        if (time.time() - start_time) >= AZURE_TIMEOUT:
-            raise CuckooMachineError(f"The task took {round(time.time() - start_time)}s to complete! Bad Azure!")
+        time_taken = timeit.default_timer() - start_time
+        if time_taken >= AZURE_TIMEOUT:
+            raise CuckooMachineError(f"The task took {round(time_taken)}s to complete! Bad Azure!")
         else:
             return lro_poller_result
 
@@ -1153,9 +1156,9 @@ class Azure(Machinery):
         """
         Waits until concurrent operations have reached an acceptable level to continue (less than 4)
         """
-        start_time = time.time()
+        start_time = timeit.default_timer()
         while current_vmss_operations == MAX_CONCURRENT_VMSS_OPERATIONS:
-            if (time.time() - start_time) > AZURE_TIMEOUT:
+            if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
                 log.debug("The timeout has been exceeded for the current concurrent VMSS operations to complete. Unleashing!")
                 break
             else:
@@ -1218,7 +1221,7 @@ class Azure(Machinery):
             instance_ids = list(set([vm["id"] for vm in vms_to_reimage_from_same_vmss]))
             try:
                 Azure._wait_for_concurrent_operations_to_complete()
-                start_time = time.time()
+                start_time = timeit.default_timer()
                 current_vmss_operations += 1
                 async_reimage_some_machines = Azure._azure_api_call(
                     self.options.az.sandbox_resource_group,
@@ -1265,7 +1268,7 @@ class Azure(Machinery):
 
             # We wait because we want the machine to be fresh before another task is assigned to it
             while not async_reimage_some_machines.done():
-                if (time.time() - start_time) > AZURE_TIMEOUT:
+                if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
                     log.debug(
                         f"Reimaging machines {instance_ids} in {vmss_to_reimage} took too long, deleting them from the DB and the VMSS."
                     )
@@ -1284,7 +1287,8 @@ class Azure(Machinery):
                 vms_currently_being_reimaged.remove(f"{vm['vmss']}_{vm['id']}")
 
             current_vmss_operations -= 1
-            log.debug(f"Reimaging instances {instance_ids} in {vmss_to_reimage} took {round(time.time() - start_time)}s")
+            timediff = timeit.default_timer() - start_time
+            log.debug(f"Reimaging instances {instance_ids} in {vmss_to_reimage} took {round(timediff)}s")
 
     def _thr_delete_list_reader(self):
         global current_vmss_operations
@@ -1317,7 +1321,7 @@ class Azure(Machinery):
             instance_ids = list(set([vm["id"] for vm in vms_to_delete_from_same_vmss]))
             try:
                 Azure._wait_for_concurrent_operations_to_complete()
-                start_time = time.time()
+                start_time = timeit.default_timer()
                 current_vmss_operations += 1
                 async_delete_some_machines = Azure._azure_api_call(
                     self.options.az.sandbox_resource_group,
@@ -1336,7 +1340,7 @@ class Azure(Machinery):
 
             # We wait because we want the machine to be fresh before another task is assigned to it
             while not async_delete_some_machines.done():
-                if (time.time() - start_time) > AZURE_TIMEOUT:
+                if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
                     log.debug(f"Deleting machines {instance_ids} in {vmss_to_delete} took too long.")
                     break
                 time.sleep(2)
@@ -1346,4 +1350,4 @@ class Azure(Machinery):
                     vms_currently_being_deleted.remove(f"{vmss_to_delete}_{instance_id}")
 
             current_vmss_operations -= 1
-            log.debug(f"Deleting instances {instance_ids} in {vmss_to_delete} took {round(time.time() - start_time)}s")
+            log.debug(f"Deleting instances {instance_ids} in {vmss_to_delete} took {round(timeit.default_timer() - start_time)}s")

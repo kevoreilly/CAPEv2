@@ -17,7 +17,7 @@ import imp
 import json
 import logging
 import os
-from datetime import datetime
+import timeit
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import pe_map, plugx_parser, static_config_parsers
@@ -338,7 +338,7 @@ class CAPE(Processing):
 
         if append_file:
             if HAVE_FLARE_CAPA:
-                pretime = datetime.now()
+                pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:
                     file_info["flare_capa"] = capa_details

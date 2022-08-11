@@ -3,8 +3,7 @@
 
 {% if running %}
     <script>
-        window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_blank");
-        window.open(window.location.origin + "/submit/status/{{task_id}}", "_self");
+        window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_self");
     </script>
 {% else %}
     <script type="text/JavaScript">setTimeout("location.reload(true);",5000);</script>

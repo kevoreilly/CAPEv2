@@ -241,9 +241,7 @@ class RunProcessing:
             pretime = timeit.default_timer()
             data = current.run()
             timediff = timeit.default_timer() - pretime
-            self.results["statistics"]["processing"].append(
-                {"name": current.__class__.__name__, "time": round(timediff, 3)}
-            )
+            self.results["statistics"]["processing"].append({"name": current.__class__.__name__, "time": round(timediff, 3)})
 
             # If succeeded, return they module's key name and the data to be
             # appended to it.
@@ -575,9 +573,7 @@ class RunSignatures:
         # Add in statistics for evented signatures that took at least some time
         for key, value in stats.items():
             if value:
-                self.results["statistics"]["signatures"].append(
-                    {"name": key, "time": round(timediff, 3)}
-                )
+                self.results["statistics"]["signatures"].append({"name": key, "time": round(timediff, 3)})
         # Compat loop for old-style (non evented) signatures.
         if self.non_evented_list:
             self.non_evented_list.sort(key=lambda sig: sig.order)

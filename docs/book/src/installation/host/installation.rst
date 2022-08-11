@@ -67,3 +67,13 @@ If you want to install Virtual Machine Manager (``virt-manager``), execute the f
 `replacing <username> with your actual username.`
 
 Remember to **reboot** after the installation.
+
+============================
+**ATTENTION!** ``cape`` user
+============================
+
+Only the installation scripts and some utilities like ``rooter.py`` must be executed with ``sudo``, the rest of configuration scripts and programs **MUST** be executed under the ``cape`` user, which is created in the system after executing ``cape2.sh``.
+
+By default, the cape user has no login. In order to substitute it and use the cmd on its behalf, you can execute the following command::
+
+    $ sudo su - cape -c /bin/bash

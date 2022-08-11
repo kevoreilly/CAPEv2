@@ -64,6 +64,8 @@ We have automated this for you with::
 
     $ utils/rooter.py
 
+You can read more about ``rooter.py`` in its dedicated chapter: :ref:`rooter`.
+
 In the chapter `Setting a static IP`_ you will find the instructions for configuring a Windows guest OS to use a static IP. In the chapter `Creating an isolated network`_ you will find instructions on how to create an isolated network (usually referred to as ``hostonly``) network and use it in your virtual machine. You can find further instructions on creating VMs with Virtual Machine Manage in `this post`_.
 
 .. _this post: https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html

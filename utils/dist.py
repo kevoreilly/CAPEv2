@@ -16,6 +16,7 @@ import shutil
 import sys
 import threading
 import time
+import timeit
 import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -619,11 +620,10 @@ class Retriever(threading.Thread):
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
                 # ToDo option
                 node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
-                start_copy = datetime.now()
+                start_copy = timeit.default_timer()
                 copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
-                log.info(
-                    f"It took {datetime.now()-start_copy} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
-                )
+                timediff = timeit.default_timer() - start_copy
+                log.info(f"It took {timediff} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
 
                 if not copied:
                     log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")

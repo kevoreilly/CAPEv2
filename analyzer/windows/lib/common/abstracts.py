@@ -179,7 +179,9 @@ class Package:
 
 
 class Auxiliary:
-    priority = 0
+    # Setting all Auxiliary to have a default priority of 0
+    start_priority = 0
+    stop_priority = 0
 
     def __init__(self, options=None, config=None):
         """@param options: options dict."""

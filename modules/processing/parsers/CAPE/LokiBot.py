@@ -127,12 +127,14 @@ def decoder(data):
     else:
         x = bytearray(img)
 
-    for i in range(len(x)):
-        x[i] ^= 0xFF
+    url_re = rb"https?:\/\/[a-zA-Z0-9\/\.:?\-_]+"
+    urls = re.findall(url_re, x)
+    if not urls:
+        for i in range(len(x)):
+            x[i] ^= 0xFF
 
-    temp = re.findall(rb"https?:\/\/[a-zA-Z0-9\/\.:?\-_]+", x)
-    for url in temp:
-        if url not in [b"http://www.ibsensoftware.com/", b""]:
+        temp = re.findall(url_re, x)
+        for url in temp:
             urls.append(url)
 
     # Try to decrypt onboard config

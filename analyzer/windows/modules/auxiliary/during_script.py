@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 class During_script(Thread, Auxiliary):
     # De-priortise during_script to run last in Auxiliary
-    priority = -10
+    start_priority = -10
 
     def __init__(self, options=None, config=None):
         if options is None:

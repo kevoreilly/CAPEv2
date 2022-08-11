@@ -9,6 +9,7 @@ import os
 import socket
 import threading
 import time
+import timeit
 import xml.etree.ElementTree as ET
 from typing import Dict, List
 
@@ -696,9 +697,8 @@ class Processing:
         self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
 
     def add_statistic_tmp(self, name, field, pretime):
-        posttime = datetime.datetime.now()
-        timediff = posttime - pretime
-        value = float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")
+        timediff = timeit.default_timer() - pretime
+        value = round(timediff, 3)
 
         if name not in self.results["temp_processing_stats"]:
             self.results["temp_processing_stats"][name] = {}
@@ -770,10 +770,10 @@ class Signature:
         @param pretime: start time as datetime object
         @param extracted: conf extraction from inside signature to count success extraction vs sig run
         """
-        timediff = datetime.datetime.now() - pretime
+        timediff = timeit.default_timer() - pretime
         self.results["custom_statistics"] = {
             "name": self.name,
-            "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
+            "time": round(timediff, 3),
             "extracted": int(extracted),
         }
 

@@ -530,7 +530,7 @@ class Azure(Machinery):
             vmss_vm_nics = [vmss_vm_nic for vmss_vm_nic in paged_vmss_vm_nics]
 
             # This will be used if we are in the initializing phase of the system
-            ready_vmss_vm_threads = []
+            ready_vmss_vm_threads = {}
             with vms_currently_being_deleted_lock:
                 vms_to_avoid_adding = vms_currently_being_deleted
             for vmss_vm in paged_vmss_vms:
@@ -596,14 +596,16 @@ class Azure(Machinery):
                             private_ip,
                         ),
                     )
-                    ready_vmss_vm_threads.append(thr)
+                    ready_vmss_vm_threads[vmss_vm.name] = thr
                     thr.start()
 
             if self.initializing:
-                for thr in ready_vmss_vm_threads:
+                for vm, thr in ready_vmss_vm_threads.items():
                     try:
                         thr.join()
                     except CuckooGuestCriticalTimeout:
+                        log.debug(f"Rough start for {vm}, deleting.")
+                        self.delete_machine(vm)
                         raise
         except Exception as e:
             log.error(repr(e), exc_info=True)

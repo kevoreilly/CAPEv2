@@ -1,3 +1,5 @@
+.. _routing:
+
 ============================
 Per-Analysis Network Routing
 ============================
@@ -264,6 +266,7 @@ Configuration for a single VPN looks roughly as follows::
 
 * `Helper script, read code to understand it`_
 * `Example of wireguard integration`_
+
 .. _`Helper script, read code to understand it`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/vpn2cape.py
 .. _`Example of wireguard integration`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html
 

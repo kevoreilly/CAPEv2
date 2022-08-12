@@ -1533,7 +1533,7 @@ class Signature:
         }
 
         if args or kwargs:
-            log.warning("You have provided extra arguments to the mark_call() method " "which does not support doing so.")
+            log.warning("You have provided extra arguments to the mark_call() method which does not support doing so.")
 
         self.data.append(mark)
 

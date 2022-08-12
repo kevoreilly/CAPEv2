@@ -21,7 +21,7 @@ nginx_version=1.19.6
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.2.0
+guacamole_version=1.4.0
 
 DIE_VERSION="3.05"
 UBUNTU_VERSION=$(lsb_release -rs)
@@ -1145,19 +1145,23 @@ function install_volatility3() {
 
 function install_guacamole() {
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
-    sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev libfreerdp2-2 #libfreerdp-dev
+    sudo add-apt-repository ppa:remmina-ppa-team/remmina-next-daily
+    sudo apt update
+    sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
     sudo apt install freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
     mkdir /tmp/guac-build && cd /tmp/guac-build || return
     wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz
     wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz.asc
-    ./configure --with-systemd-dir=/lib/systemd/system
-    make -j"$(getconf _NPROCESSORS_ONLN)"
-    sudo checkinstall -D --pkgname=guacamole-server-guacamole --pkgversion="$guacamole_version" --default
+    CFLAGS=-Wno-error ./configure --with-systemd-dir=/etc/systemd/system/
+    mkdir -p /tmp/guacamole-"${guacamole_version}"_builded/DEBIAN
+    echo -e "Package: guacamole\nVersion: ${guacamole_version}\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Guacamole ${guacamole_version}" > /tmp/guacamole-"${guacamole_version}"_builded/DEBIAN/control
+    USE_SYSTEM=1 make -j"$(nproc)" install DESTDIR=/tmp/guacamole-"${guacamole_version}"_builded
+    USE_SYSTEM=1 dpkg-deb --build --root-owner-group /tmp/guacamole-"${guacamole_version}"_builded
+    sudo dpkg -i --force-overwrite /tmp/guacamole-"${guacamole_version}"_builded.deb
     sudo ldconfig
     sudo systemctl enable guacd
     sudo systemctl start guacd
-
 }
 
 function install_DIE() {

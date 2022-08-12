@@ -269,15 +269,22 @@ class CAPE(Processing):
         # Prefilter extracted data + beauty is better than oneliner:
         all_files = []
         for extracted_file in file_info.get("extracted_files", []):
-            for yara in extracted_file["cape_yara"]:
-                if extracted_file.get("data", ""):
-                    all_files.append(
-                        (
-                            f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
-                            make_bytes(extracted_file["data"]),
-                            yara,
-                        )
+            yara_hits = extracted_file["cape_yara"]
+            if not yara_hits:
+                continue
+            if extracted_file.get("data", b""):
+                extracted_file_data = make_bytes(extracted_file["data"])
+            else:
+                with open(extracted_file["path"], "rb") as fil:
+                    extracted_file_data = fil.read()
+            for yara in yara_hits:
+                all_files.append(
+                    (
+                        f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
+                        extracted_file_data,
+                        yara,
                     )
+                )
 
         for yara in file_info["cape_yara"]:
             all_files.append((file_info["path"], file_data, yara))

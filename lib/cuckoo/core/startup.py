@@ -441,7 +441,7 @@ def init_routing():
         if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as dirty line is not available")
 
-        is_rt_available = rooter("rt_available", entry.rt_table)["output"]
+        is_rt_available = rooter("rt_available", routing.routing.rt_table)["output"]
         if not is_rt_available:
             raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
 

@@ -1144,6 +1144,7 @@ function install_volatility3() {
 }
 
 function install_guacamole() {
+    # Kudos to @Enzok https://github.com/kevoreilly/CAPEv2/pull/1065
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
     sudo add-apt-repository ppa:remmina-ppa-team/remmina-next-daily
     sudo apt update
@@ -1162,6 +1163,8 @@ function install_guacamole() {
     sudo ldconfig
     sudo systemctl enable guacd
     sudo systemctl start guacd
+
+    # ToDo add https://github.com/enzok/guac-session
 }
 
 function install_DIE() {

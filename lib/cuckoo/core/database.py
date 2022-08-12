@@ -1088,14 +1088,26 @@ class Database(object, metaclass=Singleton):
         return machine
 
     @classlock
-    def count_machines_available(self):
-        """How many virtual machines are ready for analysis.
+    def count_machines_available(self, machine_id=None, platform=None, tags=None, arch=None):
+        """How many (relevant) virtual machines are ready for analysis.
+        @param machine_id: machine ID.
+        @param platform: machine platform.
+        @param tags: machine tags
+        @param arch: machine arch
         @return: free virtual machines count
         """
         session = self.Session()
         try:
-            machines_count = session.query(Machine).filter_by(locked=False).count()
-            return machines_count
+            machines = session.query(Machine).filter_by(locked=False)
+            if machine_id:
+                machines = machines.filter_by(label=machine_id)
+            if platform:
+                machines = machines.filter_by(platform=platform)
+            machines = self.filter_machines_by_arch(machines, arch)
+            if tags:
+                for tag in tags:
+                    machines = machines.filter(Machine.tags.any(name=tag))
+            return machines.count()
         except SQLAlchemyError as e:
             log.debug("Database error counting machines: %s", e)
             return 0

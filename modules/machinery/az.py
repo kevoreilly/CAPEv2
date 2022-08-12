@@ -460,37 +460,21 @@ class Azure(Machinery):
         else:
             self.delete_machine(label)
 
-    def availables(self, label=None, platform=None, tags=None):
-        if all(param is None for param in [label, platform, tags]):
-            return super(Azure, self).availables()
-        else:
-            return self._get_specific_availables(label=label, platform=platform, tags=tags)
+    def availables(self, machine_id=None, platform=None, tags=None, arch=None):
+        """
+        Overloading abstracts.py:availables() to utilize the auto-scale option.
+        """
+        if tags:
+            for tag in tags:
+                # If VMSS is in the "wait" state, then WAIT
+                vmss_name = next((name for name, vals in self.required_vmsss.items() if vals["tag"] == tag), None)
+                if vmss_name is None:
+                    return 0
+                if machine_pools[vmss_name]["wait"]:
+                    log.debug("Machinery is not ready yet...")
+                    return 0
 
-    def _get_specific_availables(self, label=None, platform=None, tags=None):
-        session = self.db.Session()
-        try:
-            machines = session.query(Machine)
-            # Note that label > platform > tags
-            if label:
-                machines = machines.filter_by(locked=False).filter_by(label=label)
-            elif platform:
-                machines = machines.filter_by(locked=False).filter_by(platform=platform)
-            elif tags:
-                for tag in tags:
-                    # If VMSS is in the "wait" state, then WAIT
-                    vmss_name = next((name for name, vals in self.required_vmsss.items() if vals["tag"] == tag), None)
-                    if vmss_name is None:
-                        return 0
-                    if machine_pools[vmss_name]["wait"]:
-                        log.debug("Machinery is not ready yet...")
-                        return 0
-                    machines = machines.filter_by(locked=False).filter(Machine.tags.any(name=tag))
-            return machines.count()
-        except SQLAlchemyError as e:
-            log.exception("Database error getting specific available machines: {0}".format(e))
-            return 0
-        finally:
-            session.close()
+        return super(Azure, self).availables(machine_id=machine_id, platform=platform, tags=tags, arch=arch)
 
     def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
         """

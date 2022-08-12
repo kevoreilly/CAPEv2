@@ -92,7 +92,7 @@ The output should be similar to::
 
 From now on, you will have to execute CAPE within the virtual env of Poetry. To do so you need just ``poetry run <command>``. For example::
 
-    $ sudo su -u cape poetry run python3 cuckoo.py
+    $ sudo -u cape poetry run python3 cuckoo.py
 
 If you need further assistance with Poetry, there are hundreds of cheatsheets on the Internet 
 

@@ -282,6 +282,7 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
         RarSFX_extract,
         Inno_extract,
         SevenZip_unpack,
+        de4dot_deobfuscate,
     ):
 
         if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
@@ -357,6 +358,37 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
         return
 
     return "Vbe", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary)
+
+
+def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+    if "Mono" not in filetype:
+        return
+
+    if not os.path.exists(selfextract_conf.de4dot_deobfuscate.binary):
+        log.error("Missed dependency: sudo apt install de4dot")
+        return
+    metadata = []
+
+    with tempfile.TemporaryDirectory(prefix="de4dot_") as tempdir:
+        try:
+            dest_path = os.path.join(tempdir, os.path.basename(file))
+            output = subprocess.check_output(
+                [
+                    selfextract_conf.de4dot_deobfuscate.binary,
+                    "-f",
+                    file,
+                    f"-o",
+                    dest_path,
+                ],
+                universal_newlines=True,
+            )
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder))
+        except subprocess.CalledProcessError:
+            log.exception("Failed to deobfuscate %s with de4dot.", file)
+        except Exception as e:
+            log.error(e, exc_info=True)
+
+    return "de4dot", metadata
 
 
 def msi_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):

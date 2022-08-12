@@ -1548,6 +1548,8 @@ def file(request, category, task_id, dlfile):
             path = os.path.join(buf, dfile)
         else:
             path = buf
+            if not os.path.exists(path):
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", file_name)
     elif category == "networkzip":
         buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "network", file_name)
         path = buf

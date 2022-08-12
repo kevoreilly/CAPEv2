@@ -653,17 +653,21 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def delete_machine(self, name):
+    def delete_machine(self, name) -> bool:
         """Delete a single machine entry from DB."""
 
         session = self.Session()
         try:
             machine = session.query(Machine).filter_by(name=name).first()
-            session.delete(machine)
-            session.commit()
-            return "success"
+            if machine:
+                session.delete(machine)
+                session.commit()
+                return True
+            else:
+                log.warning(f"{name} does not exist in the database.")
+                return False
         except SQLAlchemyError as e:
-            log.info("Database error deleting machine: %s", e)
+            log.debug("Database error deleting machine: %s", e)
             session.rollback()
         finally:
             session.close()

@@ -369,6 +369,7 @@ class AnalysisManager(threading.Thread):
             if not unlocked:
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
+            dead_machine = True
         except CuckooGuestError as e:
             if not unlocked:
                 machine_lock.release()
@@ -416,6 +417,7 @@ class AnalysisManager(threading.Thread):
                 # new guest when the task is being analyzed with another
                 # machine.
                 self.db.guest_remove(guest_log)
+                machinery.delete_machine(self.machine.name)
 
                 # Remove the analysis directory that has been created so
                 # far, as launch_analysis() is going to be doing that again.

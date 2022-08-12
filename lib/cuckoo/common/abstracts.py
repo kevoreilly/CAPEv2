@@ -361,6 +361,11 @@ class Machinery:
             waitme += 1
             current = self._status(label)
 
+    def delete_machine(self, name):
+        """Delete a virtual machine.
+        @param name: virtual machine name
+        """
+        _ = self.db.delete_machine(name)
 
 class LibVirtMachinery(Machinery):
     """Libvirt based machine manager.

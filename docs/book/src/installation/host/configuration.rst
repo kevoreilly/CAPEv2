@@ -11,6 +11,7 @@ CAPE relies on six main configuration files:
     * :ref:`memory_conf`: Volatility configuration.
     * :ref:`processing_conf`: for enabling and configuring processing modules.
     * :ref:`reporting_conf`: for enabling or disabling report formats.
+    * :ref:`routing_conf`: for defining the routing of internet connection for the VMs. 
 
 To get CAPE working you have to edit :ref:`auxiliary_conf`, :ref:`cuckoo_conf`, and :ref:`machinery_conf` at least.
 We suggest you check all configs before starting, to be familiar with the possibilities that you have and what you want to be done.
@@ -185,6 +186,18 @@ Please see the latest version here: `reporting.conf`_.
 
 By setting these options to *on* or *off* you enable or disable the generation
 of such reports.
+
+.. _routing_conf:
+
+routing.conf
+============
+
+The *conf/routing.conf* file contains information about how the guest VM is connected (or not) to the Internet via the Host, or whether it is isolated. This file is used in conjunction with the ``rooter.py`` utility.
+
+Please see the latest version of routing.conf here: `routing.conf`_.
+
+You can read more about the *routing.conf* file and its options in the :ref:`routing` chapter and more about the ``rooter.py`` utility in the :ref:`rooter` chapter. 
+
 
 Using environment variables in config files
 ===========================================

@@ -210,7 +210,7 @@ def get_analysis_info(db, id=-1, task=None):
             {"info.id": int(new["id"])},
             {
                 "info": 1,
-                "virustotal_summary": 1,
+                "target.file.virustotal.summary": 1,
                 "malscore": 1,
                 "detections": 1,
                 "network.pcap_sha256": 1,
@@ -233,7 +233,7 @@ def get_analysis_info(db, id=-1, task=None):
             query=get_query_by_info_id(str(new["id"])),
             _source=[
                 "info",
-                "virustotal_summary",
+                "target.file.virustotal.summary",
                 "malscore",
                 "detections",
                 "network.pcap_sha256",
@@ -257,7 +257,6 @@ def get_analysis_info(db, id=-1, task=None):
     if rtmp:
         for keyword in (
             "detections",
-            "virustotal_summary",
             "mlist_cnt",
             "f_mlist_cnt",
             "suri_tls_cnt",
@@ -288,6 +287,8 @@ def get_analysis_info(db, id=-1, task=None):
             for keyword in ("clamav", "trid"):
                 if rtmp["info"].get(keyword, False):
                     new[keyword] = rtmp["info"]["target"][keyword]
+            if rtmp["target"]["file"].get("virustotal", {}).get("summary", False):
+                new["virustotal_summary"] = rtmp["target"]["file"]["virustotal"]["summary"]
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":
@@ -1823,7 +1824,7 @@ def full_memory_dump_strings(request, analysis_number):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-def search(request, searched=False):
+def search(request, searched=""):
     if "search" in request.POST or searched:
         term = ""
         if not searched and request.POST.get("search"):
@@ -1922,6 +1923,7 @@ def remove(request, task_id):
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
         if os.path.exists(analyses_path):
             delete_folder(analyses_path)
+        message = "Task(s) deleted."
     if es_as_db:
         analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(analyses) > 1:

@@ -53,15 +53,83 @@ virtual network was set up correctly.
 
 Only use static IP addresses for your guests, since CAPE doesn't support DHCP (at least, as of this writing).
 
+.. warning:: The range ``192.168.122.0/24`` is the default range for KVM's first interface (usually ``virbr01``) and it can be used as an **ANTI VM** check. If you want to read more about ANTI VM checks and how to set up your VM, check this `KVM ANTIVM post`_. 
+
+    .. _`KVM ANTIVM post`: https://www.doomedraven.com/2016/05/kvm.html
+
+The recommended setup is using a Host-Only networking layout with proper
+forwarding and filtering configuration done with ``iptables`` on the Host.
+
+We have automated this for you with::
+
+    $ utils/rooter.py
+
+You can read more about ``rooter.py`` in its dedicated chapter: :ref:`rooter`.
+
+In the chapter `Setting a static IP`_ you will find the instructions for configuring a Windows guest OS to use a static IP. In the chapter `Creating an isolated network`_ you will find instructions on how to create an isolated network (usually referred to as ``hostonly``) network and use it in your virtual machine. You can find further instructions on creating VMs with Virtual Machine Manage in `this post`_.
+
+.. _this post: https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html
+
+.. _Creating an isolated network:
+
+Creating an isolated network
+============================
+
+The recommended setup is using an isolated network for your VM. In order to do so, you can follow the instructions below if you are using KVM and virt-manager (Virtual Machine Manager).
+
+First, in the Virtual Machine Manager GUI click con **Edit** -> **Connection Details**.
+
+    .. image:: ../../_images/screenshots/creating_isolated_network_0.png
+            :align: center
+
+In the opened window click on the **+** sign, at the bottom left corner of the image. We are now defining the details of the new network. Give it a name (hostonly, for example) and make sure you select **Isolated** mode. Then, click on the **IPv$ configuration** drop-down menu and define the range of your network. In the image below only the third octet is changed.
+
+    .. image:: ../../_images/screenshots/creating_isolated_network_1.png
+            :align: center
+
+Once the new isolated network is created, if you already created a VM, you can select it from Virtual Machine Manager by clicking ``Show virtual hardware details`` of that specific VM. Then click on the network adapter and choose the recently created network. Then click ``Apply``.
+
+    .. image:: ../../_images/screenshots/creating_isolated_network_2.png
+            :align: center
+
+The next thing is checking the new interface was indeed created and the VM is actually using it. From your Host, execute the following command from a command prompt::
+
+> ip a
+
+.. image:: ../../_images/screenshots/creating_isolated_network_3.png
+            :align: center
+
+There should be an interface with the IP address you specified while creating it. in the image above the specific interface is ``virbr1``.
+
+From the guest VM (Windows OS in this example) execute the following command from a command prompt::
+
+> ipconfig
+
+.. image:: ../../_images/screenshots/creating_isolated_network_4.png
+            :align: center
+
+The assigned IP should be in the range of the ``hostonly`` network. 
+
+The guest VM and host **must** have connectivity between them. In order to check it, you can use tools like ``ping`` or ``telnet.``
+
+.. image:: ../../_images/screenshots/creating_isolated_network_5.png
+            :align: center
+
+Please bear in mind that this time the IP is assigned via DHCP, something CAPE does not support. Please set a static IP for your VM. Next chapter has instructions on that.
+
+.. _Setting a static IP:
+
 Setting a static IP
 ===================
 
-To set up a static IP it is first recommended to inspect the assigned IP, which will be (ideally) in the range of your interface (presumabley virbr0). To see your actual IP settings execute the follwoing command from a command prompt::
+To set up a static IP it is first recommended to inspect the assigned IP, which will be (ideally) in the range of your interface (presumably y virbr0). To see your actual IP settings execute the following command from a command prompt::
 
 > ipconfig /all
 
     .. image:: ../../_images/screenshots/guest_win10_static_IP.png
             :align: center
+
+    .. note:: The IP addresses and ranges used throughout this chapter are just examples. Please make sure you use your own working configurations and addresses.
 
 Open ``Control Panel`` and search for ``Network``. Find and open the ``Network and Sharing Center``. Click ``Change adapter settings.``
 
@@ -78,9 +146,12 @@ Then click ``Internet Protocol Version 4 (TCP/IPv4)`` and ``Properties``. Set th
     .. image:: ../../_images/screenshots/guest_win10_static_IP_3.png
             :align: center
 
+
     .. note:: You can set as static IP address the address previously given by DHCP or any other address you like within the range of your interface.
 
-Wait a few seconds and you should have Internet access.
+Wait a few seconds and you should have Internet access (in case you are using NAT. Bear in mind an isolated network will not provide Internet connection).
+
+It is important to check connectivity between the Host and the Guest, like in the previous chapter.
 
 This stage is very much up to your requirements and the
 characteristics of your virtualization software.
@@ -92,12 +163,6 @@ characteristics of your virtualization software.
         If you aren't sure about your networking, check your virtualization software
         documentation and test connectivity with ``ping`` and ``telnet``.
 
-The recommended setup is using a Host-Only networking layout with proper
-forwarding and filtering configuration done with ``iptables`` on the Host.
-
-We have automated this for you with::
-
-    $ utils/rooter.py
 
 Disable Noisy Network Services
 ==============================

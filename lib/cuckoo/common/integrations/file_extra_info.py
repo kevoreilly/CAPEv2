@@ -226,9 +226,7 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
     with open(filelog, "a") as f:
         for file in files:
             full_path = os.path.join(folder, file)
-            file_details = File(full_path).get_all()
-            if file_details:
-                file_details = file_details[0]
+            file_details, _pe = File(full_path).get_all()
 
             if processing_conf.trid.enabled:
                 trid_info(full_path, file_details)
@@ -238,6 +236,8 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
 
             metadata.append(file_details)
             dest_path = os.path.join(destination_folder, file_details["sha256"])
+            file_details["path"] = dest_path
+            file_details["name"] = os.path.basename(dest_path)
             if not os.path.exists(dest_path):
                 shutil.move(full_path, dest_path)
                 print(

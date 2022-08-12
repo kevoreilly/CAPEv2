@@ -70,6 +70,34 @@ If you want to install Virtual Machine Manager (``virt-manager``), execute the f
 
 Remember to **reboot** after the installation.
 
+To install dependencies
+=======================
+
+You can install CAPE's dependencies with the traditional `pip3 install -r requirements.txt` However, **several errors have been reported with newer OS like Ubuntu 22.04**. (Check this `issue`_ on github as an example).
+
+.. _issue: https://github.com/kevoreilly/CAPEv2/issues/1033
+
+To solve them, we recommend using poetry. If you are on Ubuntu 22.04, change ``pyproject.toml`` according to this `discussion`_ and then execute the following command (from the main working directory of CAPE, usually ``/opt/CAPEv2/``)::
+
+    $ sudo poetry install
+
+Once the installation is done, you can confirm a virtual environment has been created with::
+
+    $ poetry env list
+
+The output should be similar to::
+
+    $ poetry env list
+    capev2-t2x27zRb-py3.10 (Activated)
+
+From now on, you will have to execute CAPE within the virtual env of Poetry. To do so you need just ``poetry run <command>``. For example::
+
+    $ sudo su -u cape poetry run python3 cuckoo.py
+
+If you need further assistance with Poetry, there are hundreds of cheatsheets on the Internet 
+
+.. _discussion: https://github.com/kevoreilly/CAPEv2/discussions/916
+
 ============================
 **ATTENTION!** ``cape`` user
 ============================

@@ -287,23 +287,26 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
         if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
             continue
         try:
-            funcname(file, destination_folder, filetype, data_dictionary, options, results)
+            extraction_result = funcname(file, destination_folder, filetype, data_dictionary, options, results)
+            if extraction_result is not None:
+                tool_name, metadata = extraction_result
+                if metadata:
+                    for meta in metadata:
+                        is_text_file(meta, destination_folder, 8192)
+
+                    data_dictionary.setdefault("extracted_files", metadata)
+                    data_dictionary.setdefault("extracted_files_tool", tool_name)
         except Exception as e:
             log.error(e, exc_info=True)
 
 
-def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict, tool_name: str):
-    with tempfile.TemporaryDirectory(prefix=tool_name) as tempdir:
+def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict):
+    with tempfile.TemporaryDirectory() as tempdir:
         decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
         with open(decoded_file_path, "w") as f:
             f.write(decoded)
 
-    metadata = _extracted_files_metadata(tempdir, destination_folder, files=[decoded_file_path])
-    for meta in metadata:
-        is_text_file(meta, destination_folder, 8192)
-
-    data_dictionary.setdefault("decoded_files", metadata)
-    data_dictionary.setdefault("decoded_files_tool", tool_name)
+    return _extracted_files_metadata(tempdir, destination_folder, files=[decoded_file_path])
 
 
 def batch_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
@@ -327,7 +330,7 @@ def batch_extract(file: str, destination_folder: str, filetype: str, data_dictio
     if original_sha256 == decoded_sha256:
         return
 
-    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Batch")
+    return "Batch", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary)
 
 
 def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
@@ -353,7 +356,7 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
         log.debug("VBE content wasn't decoded")
         return
 
-    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Vbe")
+    return "Vbe", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary)
 
 
 def msi_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
@@ -384,11 +387,7 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
         except Exception as e:
             log.error(e, exc_info=True)
 
-    for meta in metadata:
-        is_text_file(meta, destination_folder, 8192)
-
-    data_dictionary.setdefault("extracted_files", metadata)
-    data_dictionary.setdefault("extracted_files_tool", "MsiExtract")
+    return "MsiExtract", metadata
 
 
 def Inno_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
@@ -413,12 +412,7 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
         except Exception as e:
             log.error(e, exc_info=True)
 
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", "InnoExtract")
+    return "InnoExtract", metadata
 
 
 def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
@@ -442,12 +436,7 @@ def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dict
 
             metadata.extend(_extracted_files_metadata(tempdir, destination_folder, content=content))
 
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", "Kixtart")
+    return "Kixtart", metadata
 
 
 def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
@@ -479,12 +468,7 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
         except Exception as e:
             log.error(e, exc_info=True)
 
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
+    return "UnAutoIt", metadata
 
 
 def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
@@ -514,12 +498,7 @@ def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionar
         except Exception as e:
             log.error(e, exc_info=True)
 
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", "UnUPX")
+    return "UnUPX", metadata
 
 
 # ToDo do not ask for password + test with pass
@@ -593,12 +572,7 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
         except Exception as e:
             log.error(e, exc_info=True)
 
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", tool)
+    return tool, metadata
 
 
 # ToDo move to sflock
@@ -635,9 +609,4 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
         except Exception as e:
             logging.error(e, exc_info=True)
 
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", "UnRarSFX")
+    return "UnRarSFX", metadata

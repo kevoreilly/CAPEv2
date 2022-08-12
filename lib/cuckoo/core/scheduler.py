@@ -183,18 +183,26 @@ class AnalysisManager(threading.Thread):
         while True:
             machine_lock.acquire()
 
-            # In some cases it's possible that we enter this loop without
-            # having any available machines. We should make sure this is not
-            # such case, or the analysis task will fail completely.
-            if not machinery.availables():
-                machine_lock.release()
-                time.sleep(1)
-                continue
-
             # If the user specified a specific machine ID, a platform to be
             # used or machine tags acquire the machine accordingly.
             task_arch = next((tag.name for tag in self.task.tags if tag.name in ["x86", "x64"]), "")
             task_tags = [tag.name for tag in self.task.tags if tag.name != task_arch]
+
+            # In some cases it's possible that we enter this loop without
+            # having any available machines. We should make sure this is not
+            # such case, or the analysis task will fail completely.
+            if not machinery.availables(machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_arch):
+                machine_lock.release()
+                log.debug(
+                    "Task #%s: no machine available yet for machine '%s', platform '%s' or tags '%s'.",
+                    self.task.id,
+                    self.task.machine,
+                    self.task.platform,
+                    self.task.tags,
+                )
+                time.sleep(1)
+                continue
+
             machine = machinery.acquire(machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_arch)
 
             # If no machine is available at this moment, wait for one second and try again.
@@ -369,6 +377,7 @@ class AnalysisManager(threading.Thread):
             if not unlocked:
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
+            dead_machine = True
         except CuckooGuestError as e:
             if not unlocked:
                 machine_lock.release()
@@ -416,6 +425,7 @@ class AnalysisManager(threading.Thread):
                 # new guest when the task is being analyzed with another
                 # machine.
                 self.db.guest_remove(guest_log)
+                machinery.delete_machine(self.machine.name)
 
                 # Remove the analysis directory that has been created so
                 # far, as launch_analysis() is going to be doing that again.

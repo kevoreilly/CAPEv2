@@ -260,11 +260,15 @@ class Machinery:
         """
         return self.db.list_machines()
 
-    def availables(self):
-        """How many machines are free.
+    def availables(self, machine_id=None, platform=None, tags=None, arch=None):
+        """How many (relevant) machines are free.
+        @param machine_id: machine ID.
+        @param platform: machine platform.
+        @param tags: machine tags
+        @param arch: machine arch
         @return: free machines count.
         """
-        return self.db.count_machines_available()
+        return self.db.count_machines_available(machine_id=machine_id, platform=platform, tags=tags, arch=arch)
 
     def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
         """Acquire a machine to start analysis.
@@ -361,6 +365,11 @@ class Machinery:
             waitme += 1
             current = self._status(label)
 
+    def delete_machine(self, name):
+        """Delete a virtual machine.
+        @param name: virtual machine name
+        """
+        _ = self.db.delete_machine(name)
 
 class LibVirtMachinery(Machinery):
     """Libvirt based machine manager.

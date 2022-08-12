@@ -653,17 +653,21 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def delete_machine(self, name):
+    def delete_machine(self, name) -> bool:
         """Delete a single machine entry from DB."""
 
         session = self.Session()
         try:
             machine = session.query(Machine).filter_by(name=name).first()
-            session.delete(machine)
-            session.commit()
-            return "success"
+            if machine:
+                session.delete(machine)
+                session.commit()
+                return True
+            else:
+                log.warning(f"{name} does not exist in the database.")
+                return False
         except SQLAlchemyError as e:
-            log.info("Database error deleting machine: %s", e)
+            log.debug("Database error deleting machine: %s", e)
             session.rollback()
         finally:
             session.close()
@@ -1084,14 +1088,26 @@ class Database(object, metaclass=Singleton):
         return machine
 
     @classlock
-    def count_machines_available(self):
-        """How many virtual machines are ready for analysis.
+    def count_machines_available(self, machine_id=None, platform=None, tags=None, arch=None):
+        """How many (relevant) virtual machines are ready for analysis.
+        @param machine_id: machine ID.
+        @param platform: machine platform.
+        @param tags: machine tags
+        @param arch: machine arch
         @return: free virtual machines count
         """
         session = self.Session()
         try:
-            machines_count = session.query(Machine).filter_by(locked=False).count()
-            return machines_count
+            machines = session.query(Machine).filter_by(locked=False)
+            if machine_id:
+                machines = machines.filter_by(label=machine_id)
+            if platform:
+                machines = machines.filter_by(platform=platform)
+            machines = self.filter_machines_by_arch(machines, arch)
+            if tags:
+                for tag in tags:
+                    machines = machines.filter(Machine.tags.any(name=tag))
+            return machines.count()
         except SQLAlchemyError as e:
             log.debug("Database error counting machines: %s", e)
             return 0

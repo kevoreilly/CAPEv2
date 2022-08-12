@@ -458,43 +458,23 @@ class Azure(Machinery):
                 with reimage_lock:
                     label_in_reimage_vm_list = label in [f"{vm['vmss']}_{vm['id']}" for vm in reimage_vm_list]
         else:
-            self._delete_machine_from_db(label)
-            with vms_currently_being_deleted_lock:
-                vms_currently_being_deleted.append(label)
-            with delete_lock:
-                delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
+            self.delete_machine(label)
 
-    def availables(self, label=None, platform=None, tags=None):
-        if all(param is None for param in [label, platform, tags]):
-            return super(Azure, self).availables()
-        else:
-            return self._get_specific_availables(label=label, platform=platform, tags=tags)
+    def availables(self, machine_id=None, platform=None, tags=None, arch=None):
+        """
+        Overloading abstracts.py:availables() to utilize the auto-scale option.
+        """
+        if tags:
+            for tag in tags:
+                # If VMSS is in the "wait" state, then WAIT
+                vmss_name = next((name for name, vals in self.required_vmsss.items() if vals["tag"] == tag), None)
+                if vmss_name is None:
+                    return 0
+                if machine_pools[vmss_name]["wait"]:
+                    log.debug("Machinery is not ready yet...")
+                    return 0
 
-    def _get_specific_availables(self, label=None, platform=None, tags=None):
-        session = self.db.Session()
-        try:
-            machines = session.query(Machine)
-            # Note that label > platform > tags
-            if label:
-                machines = machines.filter_by(locked=False).filter_by(label=label)
-            elif platform:
-                machines = machines.filter_by(locked=False).filter_by(platform=platform)
-            elif tags:
-                for tag in tags:
-                    # If VMSS is in the "wait" state, then WAIT
-                    vmss_name = next((name for name, vals in self.required_vmsss.items() if vals["tag"] == tag), None)
-                    if vmss_name is None:
-                        return 0
-                    if machine_pools[vmss_name]["wait"]:
-                        log.debug("Machinery is not ready yet...")
-                        return 0
-                    machines = machines.filter_by(locked=False).filter(Machine.tags.any(name=tag))
-            return machines.count()
-        except SQLAlchemyError as e:
-            log.exception("Database error getting specific available machines: {0}".format(e))
-            return 0
-        finally:
-            session.close()
+        return super(Azure, self).availables(machine_id=machine_id, platform=platform, tags=tags, arch=arch)
 
     def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
         """
@@ -550,7 +530,7 @@ class Azure(Machinery):
             vmss_vm_nics = [vmss_vm_nic for vmss_vm_nic in paged_vmss_vm_nics]
 
             # This will be used if we are in the initializing phase of the system
-            ready_vmss_vm_threads = []
+            ready_vmss_vm_threads = {}
             with vms_currently_being_deleted_lock:
                 vms_to_avoid_adding = vms_currently_being_deleted
             for vmss_vm in paged_vmss_vms:
@@ -616,14 +596,16 @@ class Azure(Machinery):
                             private_ip,
                         ),
                     )
-                    ready_vmss_vm_threads.append(thr)
+                    ready_vmss_vm_threads[vmss_vm.name] = thr
                     thr.start()
 
             if self.initializing:
-                for thr in ready_vmss_vm_threads:
+                for vm, thr in ready_vmss_vm_threads.items():
                     try:
                         thr.join()
                     except CuckooGuestCriticalTimeout:
+                        log.debug(f"Rough start for {vm}, deleting.")
+                        self.delete_machine(vm)
                         raise
         except Exception as e:
             log.error(repr(e), exc_info=True)
@@ -647,30 +629,21 @@ class Azure(Machinery):
         for machine in self.db.list_machines():
             # If machine entry in database is part of VMSS but machine in VMSS does not exist, delete
             if vmss_name in machine.label and machine.label not in vmss_vm_names:
-                self._delete_machine_from_db(machine.label)
+                self.delete_machine(machine.label, delete_from_vmss=False)
 
-    def _delete_machine_from_db(self, machine_name):
+    def delete_machine(self, label, delete_from_vmss=True):
         """
-        Implementing machine deletion from Cuckoo's database.
-        This was not implemented in database.py, so implemented here in the machinery
-        TODO: move this method to database.py
-        @param machine_name: the name of the machine to be deleted
-        @return: End method call
+        Overloading abstracts.py:delete_machine()
         """
-        session = self.db.Session()
-        try:
-            machine = session.query(Machine).filter_by(label=machine_name).first()
-            if machine:
-                session.delete(machine)
-                session.commit()
-            else:
-                log.warning(f"{machine_name} does not exist in the database.")
-        except SQLAlchemyError as exc:
-            log.debug(f"Database error removing machine: '{exc}'.")
-            session.rollback()
-            return
-        finally:
-            session.close()
+        _ = super(Azure, self).delete_machine(label)
+
+        if delete_from_vmss:
+            vmss_name, instance_id = label.split("_")
+            with vms_currently_being_deleted_lock:
+                vms_currently_being_deleted.append(label)
+            with delete_lock:
+                delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
+
 
     @staticmethod
     def _thr_wait_for_ready_machine(machine_name, machine_ip):
@@ -1256,7 +1229,7 @@ class Azure(Machinery):
                         with delete_lock:
                             delete_vm_list.append({"vmss": vmss_to_reimage, "id": instance_id, "time_added": time.time()})
 
-                    self._delete_machine_from_db(f"{vmss_to_reimage}_{instance_id}")
+                    self.delete_machine(f"{vmss_to_reimage}_{instance_id}", delete_from_vmss=False)
                     vms_currently_being_reimaged.remove(f"{vmss_to_reimage}_{instance_id}")
                     instance_ids.remove(instance_id)
 
@@ -1274,11 +1247,7 @@ class Azure(Machinery):
                     )
                     # That sucks, now we have to delete each one
                     for instance_id in instance_ids:
-                        self._delete_machine_from_db(f"{vmss_to_reimage}_{instance_id}")
-                        with vms_currently_being_deleted_lock:
-                            vms_currently_being_deleted.append(f"{vmss_to_reimage}_{instance_id}")
-                        with delete_lock:
-                            delete_vm_list.append({"vmss": vmss_to_reimage, "id": instance_id, "time_added": time.time()})
+                        self.delete_machine(f"{vmss_to_reimage}_{instance_id}")
                     break
                 time.sleep(2)
 

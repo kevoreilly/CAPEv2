@@ -371,6 +371,7 @@ class Machinery:
         """
         _ = self.db.delete_machine(name)
 
+
 class LibVirtMachinery(Machinery):
     """Libvirt based machine manager.
 

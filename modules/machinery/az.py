@@ -644,7 +644,6 @@ class Azure(Machinery):
             with delete_lock:
                 delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
 
-
     @staticmethod
     def _thr_wait_for_ready_machine(machine_name, machine_ip):
         """

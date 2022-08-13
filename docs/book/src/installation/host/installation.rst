@@ -26,9 +26,12 @@ Please become familiar with available options using::
 
     $ ./cape2.sh -h
 
-To install CAPE with all the optimization, use the following command.::
+To install CAPE with all the optimizations, use one of the following commands::
 
     $ sudo ./cape2.sh base cape | tee cape.log
+    $ sudo ./cape2.sh all cape | tee cape.log
+
+The main difference between **base** and **all** is that **all** installs virt-manager, which is GUI for libvirt. This is useless if the installation is performed on a server, for example.
 
 Remember to **reboot** after the installation.
 
@@ -52,7 +55,15 @@ To install KVM
 
 While you can install and use any hypervisor you like, we recommend using KVM. The script to install everything related to KVM (including KVM itself) can be found here: `kvm-qemu.sh`_.
 
+.. note:: We recommend using the script to install everything related with KVM-Qemu since the script performs a stealthier configuration and achieves better performance than the installation from APT.
+
 .. _`kvm-qemu.sh`: https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh
+
+**BEFORE** executing the script, you should replace the **<WOOT>** occurrences withing the script itself with real hardware patterns. You can use ``acpidump`` in Linux and ``acpiextract`` in Windows to obtain such patterns, as stated `in the script itself`_.
+
+    .. warning:: If you are installing or using CAPE in a laboratory environment you can replace **<WOOT>** with any random 4 chars you like. However, if you are planning to use CAPE in real production environments and you want to hinder the sandbox/VM detection, you should use *REAL* hardware 4 chars. To find out which chars correspond to each piece of HW, you should use ACPIDUMP/ACPIEXTRACT and Google. 
+
+.. _`in the script itself`: https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh#L37
 
 In order to install KVM itself, execute the following command::
 

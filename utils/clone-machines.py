@@ -108,45 +108,44 @@ def clone_machines(
 
     for machine_num in range(number_of_machine):
         machine_id = machine_start_from + machine_num
-        with tempfile.TemporaryDirectory() as temp_dir:
-            machine_name = machine_name_format.format(machine_id)
+        machine_name = machine_name_format.format(machine_id)
 
-            curr_machine = Machine(
-                machine_id,
-                machine_name,
-                str(current_ip),
-                str(randmac.RandMac()),
-                os.path.join(machine_hd_path, f"{machine_name}.qcow2"),
+        curr_machine = Machine(
+            machine_id,
+            machine_name,
+            str(current_ip),
+            str(randmac.RandMac()),
+            os.path.join(machine_hd_path, f"{machine_name}.qcow2"),
+        )
+
+        print("Creating new machine:")
+        print(curr_machine)
+
+        print("cloning using virt-clone")
+        if is_dry_run:
+            print(f"copy the disk file. {original_machine_hd_path} -> {curr_machine.hd_path}")
+        else:
+            output = subprocess.run(
+                [
+                    "virt-clone",
+                    "--original",
+                    original_machine_name,
+                    "--name",
+                    curr_machine.name,
+                    "--mac",
+                    curr_machine.mac_address,
+                    "--file",
+                    curr_machine.hd_path,
+                ]
             )
 
-            print("Creating new machine:")
-            print(curr_machine)
+            if output.returncode != 0:
+                print("there was an error cloning the machine, continuing")
+                continue
+        machines.append(curr_machine)
 
-            print("cloning using virt-clone")
-            if is_dry_run:
-                print(f"copy the disk file. {original_machine_hd_path} -> {curr_machine.hd_path}")
-            else:
-                output = subprocess.run(
-                    [
-                        "virt-clone",
-                        "--original",
-                        original_machine_name,
-                        "--name",
-                        curr_machine.name,
-                        "--mac",
-                        curr_machine.mac_address,
-                        "--file",
-                        curr_machine.hd_path,
-                    ]
-                )
-
-                if output.returncode != 0:
-                    print("there was an error cloning the machine, continuing")
-                    continue
-            machines.append(curr_machine)
-
-            # set next IP
-            current_ip += 1
+        # set next IP
+        current_ip += 1
 
     return machines
 

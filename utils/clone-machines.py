@@ -122,11 +122,10 @@ def clone_machines(
             print("Creating new machine:")
             print(curr_machine)
 
-            # Clone the xml file
-            xml_define_path = os.path.join(temp_dir, f"{machine_name}.xml")
             print("cloning using virt-clone")
-
-            with open(xml_define_path, "w") as xml_file:
+            if is_dry_run:
+                print(f"copy the disk file. {original_machine_hd_path} -> {curr_machine.hd_path}")
+            else:
                 output = subprocess.run(
                     [
                         "virt-clone",
@@ -138,27 +137,12 @@ def clone_machines(
                         curr_machine.mac_address,
                         "--file",
                         curr_machine.hd_path,
-                        "--print-xml",
-                    ],
-                    stdout=xml_file,
+                    ]
                 )
 
                 if output.returncode != 0:
                     print("there was an error cloning the machine, continuing")
                     continue
-
-            if is_dry_run:
-                print(f"copy the disk file. {original_machine_hd_path} -> {curr_machine.hd_path}")
-                print(f"define a new machine from xml: {xml_define_path}")
-            else:
-                # copy disk
-                subprocess.run(
-                    ["rsync", "--archive", "--human-readable", "--progress", original_machine_hd_path, curr_machine.hd_path]
-                )
-
-                # define new machine
-                _run_virsh_command(["define", xml_define_path])
-
             machines.append(curr_machine)
 
             # set next IP
@@ -178,6 +162,8 @@ def print_machines_config(machines):
                 f"platform = windows",
                 f"ip = {machine.ip}",
                 f"tags = x64",
+                f"snapshot = {DEFAULT_SNAPSHOT_NAME}",
+                f"arch = x64",
             ]
 
             machine_lines_str = "\n".join(machine_lines)

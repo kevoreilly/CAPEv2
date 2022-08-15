@@ -5,7 +5,7 @@
 # This file is part of Tools - https://github.com/doomedraven/Tools
 # See the file 'LICENSE.md' for copying permission.
 
-# Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne
+# Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne 
 
 
 # Static values
@@ -741,7 +741,6 @@ function dependencies() {
     apt install apparmor-utils -y
     aa-complain /usr/sbin/tcpdump
     aa-disable /usr/sbin/tcpdump
-    # ToDo check if user exits
 
     if id "${USER}" &>/dev/null; then
         echo "user ${USER} already exist"
@@ -749,7 +748,7 @@ function dependencies() {
         groupadd ${USER}
         useradd --system -g ${USER} -d /home/${USER}/ -m ${USER}
     fi
-    # ToDo add current user to ${USER} group
+    
     groupadd pcap
     usermod -a -G pcap ${USER}
     chgrp pcap /usr/sbin/tcpdump
@@ -1164,7 +1163,7 @@ function install_guacamole() {
     sudo systemctl enable guacd
     sudo systemctl start guacd
 
-    # ToDo add https://github.com/enzok/guac-session
+    # ToDo add this https://github.com/enzok/guac-session
 }
 
 function install_DIE() {

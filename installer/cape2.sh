@@ -1163,7 +1163,7 @@ function install_guacamole() {
     sudo systemctl enable guacd
     sudo systemctl start guacd
 
-    # ToDo add this https://github.com/enzok/guac-session
+    # ToDo https://github.com/enzok/guac-session
 }
 
 function install_DIE() {

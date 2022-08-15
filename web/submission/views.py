@@ -621,6 +621,8 @@ def remote_session(request, task_id):
 
     machine_status = False
     label = ""
+    session_data = ""
+
     if task.status == "running":
         machine = db.view_machine(task.machine)
         label = machine.label

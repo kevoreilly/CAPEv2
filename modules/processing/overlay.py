@@ -44,10 +44,7 @@ class extract_overlay_data(Processing):
         self.key = "static"  # uses the existing "static" sub container to add in the overlay data
         output = self.results["static"]
 
-        if "pe" not in output:
-            return output
-
-        if not output["pe"]["overlay"]:
+        if not output.get("pe", {}).get("overlay"):
             return output
 
         overlay_size = int(output["pe"]["overlay"]["size"], 16)

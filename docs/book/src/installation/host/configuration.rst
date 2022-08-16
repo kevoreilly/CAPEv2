@@ -80,7 +80,7 @@ Machinery modules are scripts that define how Cuckoo should interact with
 your virtualization software of choice.
 
 Every module should have a dedicated configuration file that defines the
-details f the available machines. For example, if you created a *kvm.py*
+details of the available machines. For example, if you created a *kvm.py*
 machinery module, you should specify *kvm* in *conf/cuckoo.conf*
 and have a *conf/kvm.conf* file.
 
@@ -88,6 +88,9 @@ CAPE provides some modules by default and for the sake of this guide, we'll
 assume you're going to use KVM. Please see the latest version here: `kvm.conf`_.
 
 .. _`kvm.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/kvm.conf
+
+If you are using KVM (kvm.conf), for each VM you want to use for analysis there must be a dedicated section. First you have to create and configure the VM (following the instructions in the dedicated chapter, see :ref:`preparing_the_guest`). The name of the section must be the same as the label of the VM as printed by ``$ virsh list --all``. If no VMs are shown, you can execute the following command sequence: ``$ virsh``, ``$ connect qemu:///system``, ``$ list --all``; or you can check `this link <https://serverfault.com/a/861853>`_ to learn how to change the connection in Virtual Manager.
+
 
 You can also find examples of other hipervisors like:
 

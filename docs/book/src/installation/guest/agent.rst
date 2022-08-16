@@ -14,11 +14,17 @@ mounting a CDROM containing the *agent.py* file) and run it. This will
 launch the HTTP server which will listen for connections.
 
 On Windows, if you simply launch the script, a Python window will be
-spawned. If you want to hide this window you can rename the file from
+spawned, with a title similar to ``C:\Windows\py.exe``. If you want to hide this window you can rename the file from
 *agent.py* to **agent.pyw** which will prevent the window from
-spawning upon launching the script. Don't forget to test the agent
-before saving the snapshot with:
-``curl VM_IP:8000``
+spawning upon launching the script. 
+
+Don't forget to test the agent before saving the snapshot. You can do it both navigating to ``VM_IP:8000`` with a browser from your Host or be executing: ``curl VM_IP:8000``. You should see an output similar to the following:
+
+   .. image:: ../../_images/screenshots/running_agentpy_within_guest_0.png
+        :align: center
+
+   .. image:: ../../_images/screenshots/running_agentpy_within_guest_1.png
+        :align: center
 
 
 Prior To Windows 10
@@ -43,15 +49,31 @@ as a scheduler task. Dropping it in
 ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp`` will
 result in it being ran with improper privilege.
 
-1. Go to "Control Panel" > "System and Security" > "Administrative
+..
+   1. Go to "Control Panel" > "System and Security" > "Administrative
    Tools" to access Task Scheduler.
-2. Select ``Create Basic Task`` from the action list.
-3. Set the trigger as ``When I logon``, select start a program, and
-   point it at the saved agent.
-4. After the task is created, go to the ``Task Scheduler Library`` and
+
+1. Open Windows menu (Win key) and search for **Task Scheduler**.
+2. Select **Create Basic Task** from the action list.
+
+   .. image:: ../../_images/screenshots/creating_task_scheduler_0.png
+        :align: center
+
+3. Give the task a name (for example ``CAPE agent.py``, the name is irrelevant) and click **Next**.
+4. Set the trigger as **When I logon** and click **Next**.
+5. In the **Start a program** window, select the path of the *agent.py*, and click **Finish**.
+6. After the task is created, click the **Task Scheduler Library** and
    find the one you just created. Right click on it and select
-   ``Properties``.
-5. In the general tab tell it to ``run with highest priviledges``.
-6. Select ok.
+   **Properties**.
+
+   .. image:: ../../_images/screenshots/creating_task_scheduler_1.png
+        :align: center
+
+6. In the general tab tell it to **Run with highest privileges**.
+
+   .. image:: ../../_images/screenshots/creating_task_scheduler_2.png
+        :align: center
+
+7. Select **OK**.
 
 After that all is done, it will come up on the next restart/login.

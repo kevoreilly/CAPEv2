@@ -9,7 +9,7 @@ from lib.common.abstracts import Package
 
 
 class MP3(Package):
-    """Word analysis package."""
+    """Windows Media Player analysis package."""
 
     def __init__(self, options={}, config=None):
         self.config = config

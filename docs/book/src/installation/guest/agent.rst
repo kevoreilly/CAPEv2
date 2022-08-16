@@ -59,7 +59,7 @@ result in it being ran with improper privilege.
    .. image:: ../../_images/screenshots/creating_task_scheduler_0.png
         :align: center
 
-3. Give the task a name (for example ``CAPE agent.py``, the name is irrelevant) and click **Next**.
+3. Give the task a name (for example ``pizza.pyw``, the name is irrelevant) and click **Next**.
 4. Set the trigger as **When I logon** and click **Next**.
 5. In the **Start a program** window, select the path of the *agent.py*, and click **Finish**.
 6. After the task is created, click the **Task Scheduler Library** and

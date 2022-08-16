@@ -21,9 +21,5 @@ class MP3(Package):
 
     def start(self, path):
         wmplayer = self.get_path_glob("Microsoft Media Player")
-        if "." not in os.path.basename(path):
-            new_path = path + ".mp3"
-            os.rename(path, new_path)
-            path = new_path
 
         return self.execute(wmplayer, "\"%s\" /q" % path, path)

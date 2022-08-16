@@ -185,8 +185,12 @@ class AnalysisManager(threading.Thread):
 
             # If the user specified a specific machine ID, a platform to be
             # used or machine tags acquire the machine accordingly.
-            task_arch = next((tag.name for tag in self.task.tags if tag.name in ["x86", "x64"]), "")
-            task_tags = [tag.name for tag in self.task.tags if tag.name != task_arch]
+            if self.task.category.lower() == "url":
+                task_arch = None
+                task_tags = None
+            else:
+                task_arch = next((tag.name for tag in self.task.tags if tag.name in ["x86", "x64"]), "")
+                task_tags = [tag.name for tag in self.task.tags if tag.name != task_arch]
 
             # In some cases it's possible that we enter this loop without
             # having any available machines. We should make sure this is not

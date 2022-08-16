@@ -14,11 +14,17 @@ mounting a CDROM containing the *agent.py* file) and run it. This will
 launch the HTTP server which will listen for connections.
 
 On Windows, if you simply launch the script, a Python window will be
-spawned. If you want to hide this window you can rename the file from
+spawned, with a title similar to ``C:\Windows\py.exe``. If you want to hide this window you can rename the file from
 *agent.py* to **agent.pyw** which will prevent the window from
-spawning upon launching the script. Don't forget to test the agent
-before saving the snapshot with:
-``curl VM_IP:8000``
+spawning upon launching the script. 
+
+Don't forget to test the agent before saving the snapshot. You can do it both navigating to ``VM_IP:8000`` with a browser from your Host or be executing: ``curl VM_IP:8000``. You should see an output similar to the following:
+
+   .. image:: ../../_images/screenshots/running_agentpy_within_guest_0.png
+        :align: center
+
+   .. image:: ../../_images/screenshots/running_agentpy_within_guest_1.png
+        :align: center
 
 
 Prior To Windows 10

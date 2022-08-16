@@ -957,7 +957,7 @@ class Database(object, metaclass=Singleton):
         Allow x64 machines to be returned when requesting x86.
         """
         if arch:
-            if arch == ["x86"] or set(arch) == {"x64", "x86"}:
+            if "x86" in arch:
                 # Prefer x86 machines over x64 if x86 is what was requested.
                 machines = machines.filter(Machine.arch.in_(("x64", "x86"))).order_by(Machine.arch.desc())
             else:

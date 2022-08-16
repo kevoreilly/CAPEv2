@@ -809,8 +809,16 @@ class Database(object, metaclass=Singleton):
         @return: boolean indicating if a relevant machine is available
         """
         # Are there available machines that match up with a task?
-        task_arch = next((tag.name for tag in task.tags if tag.name in ["x86", "x64"]), "")
-        task_tags = [tag.name for tag in task.tags if tag.name != task_arch]
+        task_tags = []
+        for tag in task.tags:
+            if tag.name in ["x86", "x64"]:
+                task_arch = tag.name
+            else:
+                task_tags.append(tag.name)
+
+        if task.category.lower() == "url":
+            task_arch = "x86"
+
         relevant_available_machines = self.list_machines(
             locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_arch
         )

@@ -187,6 +187,15 @@ Network> DNS Client, and open Turn off Multicast Name Resolution.
 
 Set the policy to enabled.
 
+``gpedit.msc`` missing
+======================
+
+.. warning:: If ``gpedit.msc`` is not present in your system (if you are using Windows 10 Home Edition, for example), you can enable it by executing the following commands from an Administrator command prompt::
+
+    > FOR %F IN ("%SystemRoot%\servicing\Packages\Microsoft-Windows-GroupPolicy-ClientTools-Package~*.mum") DO (DISM /Online /NoRestart /Add-Package:"%F")
+    > FOR %F IN ("%SystemRoot%\servicing\Packages\Microsoft-Windows-GroupPolicy-ClientExtensions-Package~*.mum") DO (DISM /Online /NoRestart /Add-Package:"%F")
+If the commands were successful, you should now be able to execute Run (Win+R) -> ``gpedit.msc``.
+
 
 Network Connectivity Status Indicator, Error Reporting, etc
 ===========================================================
@@ -199,12 +208,3 @@ Then navigate to Computer Configuration> Administrative Templates>
 System> Internet Communication Management, and open Restrict Internet Communication.
 
 Set the policy to enabled.
-
-``gpedit.msc`` missing
-======================
-
-.. warning:: If ``gpedit.msc`` is not present in your system (if you are using Windows 10 Home Edition, for example), you can enable it by executing the following commands from an Administrator command prompt::
-
-    > FOR %F IN ("%SystemRoot%\servicing\Packages\Microsoft-Windows-GroupPolicy-ClientTools-Package~*.mum") DO (DISM /Online /NoRestart /Add-Package:"%F")
-    > FOR %F IN ("%SystemRoot%\servicing\Packages\Microsoft-Windows-GroupPolicy-ClientExtensions-Package~*.mum") DO (DISM /Online /NoRestart /Add-Package:"%F")
-If the commands were successful, you should now be able to execute Run (Win+R) -> ``gpedit.msc``.

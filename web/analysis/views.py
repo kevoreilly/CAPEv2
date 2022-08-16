@@ -487,7 +487,7 @@ def index(request, page=1):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
     db = Database()
-    tasks = db.list_tasks(inclide_hashes=True, status=TASK_PENDING)
+    tasks = db.list_tasks(include_hashes=True, status=TASK_PENDING)
 
     pending = []
     for task in tasks:

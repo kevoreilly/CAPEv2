@@ -685,6 +685,8 @@ function install_postgresql() {
     # amazing tool for monitoring https://github.com/dalibo/pg_activity
     # sudo -u postgres pg_activity -U postgres
     python3 -m pip install pg_activity psycopg2-binary
+    sudo systemctl enable postgresql.service
+    sudo systemctl start postgresql.service
 }
 
 function dependencies() {

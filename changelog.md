@@ -1,3 +1,8 @@
+### [17-8-2022]
+* Monitor updates:
+    * Enable enhanced .NET dumps
+    * Misc updates & fixes (see capemon repo)
+
 ### [30-7-2022] 
 * [Details here](https://github.com/kevoreilly/CAPEv2/pull/1020)
 * __ACTION REQUIRED__

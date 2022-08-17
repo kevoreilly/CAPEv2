@@ -59,21 +59,22 @@ result in it being ran with improper privilege.
    .. image:: ../../_images/screenshots/creating_task_scheduler_0.png
         :align: center
 
-3. Give the task a name (for example ``pizza.pyw``, the name is irrelevant) and click **Next**.
+3. Give the task a name (for example ``pizza.pyw``, the name is irrelevant as long as you don't make any mention to CAPE or anything blatant for anti-VM detection algorithms) and click **Next**.
 4. Set the trigger as **When I logon** and click **Next**.
-5. In the **Start a program** window, select the path of the *agent.py*, and click **Finish**.
-6. After the task is created, click the **Task Scheduler Library** and
+5. In the **Action** window, select **Start a program** and click **Next**.
+6. In the **Start a program** window, select the path of the *agent.py*, and click **Finish**.
+7. After the task is created, click the **Task Scheduler Library** and
    find the one you just created. Right click on it and select
    **Properties**.
 
    .. image:: ../../_images/screenshots/creating_task_scheduler_1.png
         :align: center
 
-6. In the general tab tell it to **Run with highest privileges**.
+8. In the general tab tell it to **Run with highest privileges**.
 
    .. image:: ../../_images/screenshots/creating_task_scheduler_2.png
         :align: center
 
-7. Select **OK**.
+9. Select **OK**.
 
 After that all is done, it will come up on the next restart/login.

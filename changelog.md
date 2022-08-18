@@ -1,9 +1,12 @@
+### [18-8-2022]
+* Function `yara_detected` now returns 4 arguments. 4th is file metadata
+
 ### [17-8-2022]
 * Monitor updates:
     * Enable enhanced .NET dumps
     * Misc updates & fixes (see capemon repo)
 
-### [30-7-2022] 
+### [30-7-2022]
 * [Details here](https://github.com/kevoreilly/CAPEv2/pull/1020)
 * __ACTION REQUIRED__
     * `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`

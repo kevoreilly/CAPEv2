@@ -861,19 +861,25 @@ class Signature:
                         for keyword in ("cape_yara", "yara"):
                             for yara_block in subblock[keyword]:
                                 if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", os.path.join(analysis_folder, "selfextracted", subblock["sha256"]), yara_block, block
+                                    yield "sample", os.path.join(
+                                        analysis_folder, "selfextracted", subblock["sha256"]
+                                    ), yara_block, block
 
         macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
             for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
                 for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
                     if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(macro_path, macroname), sub_block, self.results["static"]["office"]["Macro"]["info"]
+                        yield "macro", os.path.join(macro_path, macroname), sub_block, self.results["static"]["office"]["Macro"][
+                            "info"
+                        ]
 
         if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
             for yara_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
                 if re.findall(name, yara_block["name"], re.I):
-                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, self.results["static"]["office"]["XLMMacroDeobfuscator"]["info"]
+                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, self.results["static"]["office"][
+                        "XLMMacroDeobfuscator"
+                    ]["info"]
 
     def signature_matched(self, signame: str) -> bool:
         # Check if signature has matched (useful for ordered signatures)

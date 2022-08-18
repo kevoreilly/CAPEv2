@@ -605,10 +605,12 @@ function install_mongo(){
     fi
 
     wget -qO - https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc | sudo apt-key add -
-    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
-
+    # mongo 22 uses repo of 20
+    # echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
+    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
     apt update 2>/dev/null
-    apt install libpcre3-dev numactl -y
+    # From Ubuntu version 20 repo we need to add extra dependency libssl1.1
+    apt install libssl1.1 libpcre3-dev numactl -y
     apt install -y mongodb-org
     pip3 install pymongo -U
 

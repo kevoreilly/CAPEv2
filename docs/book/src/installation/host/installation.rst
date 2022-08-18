@@ -61,7 +61,7 @@ While you can install and use any hypervisor you like, we recommend using KVM. T
 
 **BEFORE** executing the script, you should replace the **<WOOT>** occurrences withing the script itself with real hardware patterns. You can use ``acpidump`` in Linux and ``acpiextract`` in Windows to obtain such patterns, as stated `in the script itself`_.
 
-    .. warning:: If you are installing or using CAPE in a laboratory environment you can replace **<WOOT>** with any random 4 chars you like. However, if you are planning to use CAPE in real production environments and you want to hinder the sandbox/VM detection, you should use *REAL* hardware 4 chars. To find out which chars correspond to each piece of HW, you should use ACPIDUMP/ACPIEXTRACT and Google. 
+    .. warning:: If you are installing or using CAPE in a laboratory environment you can replace **<WOOT>** with any random 4 chars you like. However, if you are planning to use CAPE in real production environments and you want to hinder the sandbox/VM detection, you should use *REAL* hardware 4 chars. To find out which chars correspond to each piece of HW, you should use ACPIDUMP/ACPIEXTRACT and Google.
 
 .. _`in the script itself`: https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh#L37
 
@@ -84,11 +84,10 @@ Remember to **reboot** after the installation.
 To install dependencies
 =======================
 
-You can install CAPE's dependencies with the traditional `pip3 install -r requirements.txt` However, **several errors have been reported with newer OS like Ubuntu 22.04**. (Check this `issue`_ on github as an example).
+You can install CAPE's dependencies with the traditional. However, we recommend using poetry. As all services are configured to use poetry and better deal with dependencies conflict. See next step for poetry::
+    $ pip3 install -r requirements.txt
 
-.. _issue: https://github.com/kevoreilly/CAPEv2/issues/1033
-
-To solve them, we recommend using poetry. If you are on Ubuntu 22.04, change ``pyproject.toml`` according to this `discussion`_ and then execute the following command (from the main working directory of CAPE, usually ``/opt/CAPEv2/``)::
+To install dependencies with poetry, execute the following command (from the main working directory of CAPE, usually ``/opt/CAPEv2/``)::
 
     $ sudo poetry install
 
@@ -105,9 +104,7 @@ From now on, you will have to execute CAPE within the virtual env of Poetry. To 
 
     $ sudo -u cape poetry run python3 cuckoo.py
 
-If you need further assistance with Poetry, there are hundreds of cheatsheets on the Internet 
-
-.. _discussion: https://github.com/kevoreilly/CAPEv2/discussions/916
+If you need further assistance with Poetry, there are hundreds of cheatsheets on the Internet
 
 ============================
 **ATTENTION!** ``cape`` user

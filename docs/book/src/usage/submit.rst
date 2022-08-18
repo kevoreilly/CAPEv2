@@ -230,6 +230,9 @@ Example Usage:
 Troubleshooting
 ===============
 
+submit.py
+---------
+
 If you try to submit an analysis using ``submit.py`` and your output looks like::
 
     $ sudo -u cape poetry run python3 submit.py /path/to/binary/test.exe
@@ -244,6 +247,14 @@ If the status is other than **Active** (it can be in exited status, as long as i
 The logs for PostgreSQL can be found under */var/log/postgresql/\*.log*. 
 
 If everything is working regarding PostgreSQL, **make sure** the ``cape`` user is able to access (both read and write) the directories involved in the analysis. For example, ``cape`` must be able to read and write in */tmp*.
+
+MongoDB
+-------
+You can check the status of the MongoDB instance with ``sudo systemctl status mongodb.service``.
+
+.. warning:: You may face problems when installing MongoDB for Ubuntu 22. ``cape2.sh`` will try to install the package called ``mongodb-org`` which `does not exist in Ubuntu 22 (jammy) repositories <https://packages.ubuntu.com/search?keywords=mongodb-org&searchon=names&suite=jammy&section=all>`_.
+
+In case ``cape2.sh`` does not detect your OS version and install MongoDB properly, you can follow the instructions in `this link <https://wiki.crowncloud.net/?How_to_Install_Latest_MongoDB_on_Ubuntu_22_04>`_.
 
 Analysis results
 ================

@@ -250,11 +250,11 @@ If everything is working regarding PostgreSQL, **make sure** the ``cape`` user i
 
 MongoDB
 -------
-You can check the status of the MongoDB instance with ``sudo systemctl status mongodb.service``.
-
 .. warning:: You may face problems when installing MongoDB for Ubuntu 22. ``cape2.sh`` will try to install the package called ``mongodb-org`` which `does not exist in Ubuntu 22 (jammy) repositories <https://packages.ubuntu.com/search?keywords=mongodb-org&searchon=names&suite=jammy&section=all>`_.
 
-In case ``cape2.sh`` does not detect your OS version and install MongoDB properly, you can follow the instructions in `this link <https://wiki.crowncloud.net/?How_to_Install_Latest_MongoDB_on_Ubuntu_22_04>`_.
+In case MongoDB installation does not finish properly, you can follow the instructions in `this link <https://wiki.crowncloud.net/?How_to_Install_Latest_MongoDB_on_Ubuntu_22_04>`_.
+
+If you are facing problems related with libssl1.1, you can read more about the problem in `this thread <https://askubuntu.com/a/1403683>`_.
 
 Analysis results
 ================

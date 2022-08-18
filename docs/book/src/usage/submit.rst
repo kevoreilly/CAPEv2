@@ -248,14 +248,6 @@ The logs for PostgreSQL can be found under */var/log/postgresql/\*.log*.
 
 If everything is working regarding PostgreSQL, **make sure** the ``cape`` user is able to access (both read and write) the directories involved in the analysis. For example, ``cape`` must be able to read and write in */tmp*.
 
-MongoDB
--------
-.. warning:: You may face problems when installing MongoDB for Ubuntu 22. ``cape2.sh`` will try to install the package called ``mongodb-org`` which `does not exist in Ubuntu 22 (jammy) repositories <https://packages.ubuntu.com/search?keywords=mongodb-org&searchon=names&suite=jammy&section=all>`_.
-
-In case MongoDB installation does not finish properly, you can follow the instructions in `this link <https://wiki.crowncloud.net/?How_to_Install_Latest_MongoDB_on_Ubuntu_22_04>`_.
-
-If you are facing problems related with libssl1.1, you can read more about the problem in `this thread <https://askubuntu.com/a/1403683>`_.
-
 Analysis results
 ================
 

@@ -20,12 +20,13 @@ except ImportError:
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 from lib.cuckoo.common.colors import bold, green, red, yellow
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import sanitize_filename, store_temp_file, to_unicode
 from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.startup import check_user_permissions
 
+check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
 
 def main():
     parser = argparse.ArgumentParser()

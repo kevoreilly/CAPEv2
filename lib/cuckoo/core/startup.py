@@ -10,6 +10,7 @@ import platform
 import re
 import socket
 import sys
+import getpass as gt
 
 import modules.auxiliary
 import modules.feeds
@@ -51,6 +52,17 @@ def check_python_version():
     if sys.version_info[:2] < (3, 6):
         raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.6")
 
+def check_user_permissions(as_root: bool=False):
+
+    if as_root:
+        log.warning("You running part of CAPE as non 'cape' user! That breaks permissions on temp folder and log folder.")
+        return
+    if gt.getuser() != "cape":
+        raise CuckooStartupError(f"Running as not 'cape' user breaks permissions! Run with cape user! Also fix permission on tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}")
+
+    # Check permission for tmp folder
+    if cuckoo.cuckoo.tmppath and not os.access(cuckoo.cuckoo.tmppath, os.W_OK):
+        raise CuckooStartupError(f"Fix permission on\n tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}")
 
 def check_working_directory():
     """Checks if working directories are ready.
@@ -65,8 +77,7 @@ def check_working_directory():
 
     # Check permission for tmpfs if enabled
     if cuckoo.tmpfs.enabled and not os.access(cuckoo.tmpfs.path, os.W_OK):
-        username = os.getlogin()
-        raise CuckooStartupError(f"Fix permission on tmpfs path: chown {username}:{username} {cuckoo.tmpfs.path}")
+        raise CuckooStartupError(f"Fix permission on tmpfs path: chown cape:cape {cuckoo.tmpfs.path}")
 
 
 def check_webgui_mongo():

@@ -20,6 +20,8 @@ The script to install CAPE can be found here: `cape2.sh`_.
 
 .. _`cape2.sh`: https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh
 
+    .. note:: CAPE is being maintained and updated in a `rolling <https://en.wikipedia.org/wiki/Rolling_release>`_ fashion. That is, there are no versions or releases. It is your responsibility to regularly ``pull`` the repo and stay up to date.
+
 You need to give execution permission to script `chmod a+x cape2.sh`. Please keep in mind that all our scripts use the ``-h`` flag to print the help and usage message. However, it is recommended to read the scripts themselves to **understand** what they do.
 
 Please become familiar with available options using::

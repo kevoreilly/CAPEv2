@@ -40,15 +40,16 @@ rule SmokeLoader
 """
 
 
-def yara_scan(raw_data, rule_name):
+def yara_scan(raw_data):
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
+    ret_matches = {}
     for match in matches:
         if match.rule == "SmokeLoader":
             for item in match.strings:
-                if item[1] == rule_name:
-                    return {item[1]: item[0]}
+                ret_matches[item[1]] = item[0]
 
+    return ret_matches
 
 def xor_decode(buffer, key):
     byte_key = 0xFF
@@ -65,9 +66,9 @@ def extract_config(filebuf):
         image_base = 0
 
     end_config = {}
-    table_ref = yara_scan(filebuf, "$ref64_1")
-    if table_ref:
-        table_ref_offset = int(table_ref["$ref64_1"])
+    matches = yara_scan(filebuf, "$")
+    if matches["$ref64_1"]:
+        table_ref_offset = int(matches["$ref64_1"])
         table_delta = struct.unpack("i", filebuf[table_ref_offset + 62 : table_ref_offset + 66])[0]
         table_offset = table_ref_offset + table_delta + 66
 
@@ -99,10 +100,8 @@ def extract_config(filebuf):
                 table_loop = False
             table_offset += 8
         return end_config
-    else:
-        table_ref = yara_scan(filebuf, "$ref64_2")
-    if table_ref:
-        table_ref_offset = int(table_ref["$ref64_2"])
+    elif matches["$ref64_2"]:
+        table_ref_offset = int(matches["$ref64_1"])
         table_delta = struct.unpack("i", filebuf[table_ref_offset + 26 : table_ref_offset + 30])[0]
         table_offset = table_ref_offset + table_delta + 30
 
@@ -122,10 +121,8 @@ def extract_config(filebuf):
                 pass
             table_offset += 8
         return end_config
-    else:
-        table_ref = yara_scan(filebuf, "$ref32_1")
-    if table_ref:
-        table_ref_offset = int(table_ref["$ref32_1"])
+    elif matches["$ref32_1"]:
+        table_ref_offset = int(matches["$ref32_1"])
         table_rva = struct.unpack("i", filebuf[table_ref_offset + 55 : table_ref_offset + 59])[0] - image_base
         table_offset = pe.get_offset_from_rva(table_rva)
 

@@ -51,6 +51,7 @@ def yara_scan(raw_data):
 
     return ret_matches
 
+
 def xor_decode(buffer, key):
     byte_key = 0xFF
     for i in range(4):

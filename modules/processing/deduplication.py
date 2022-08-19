@@ -15,6 +15,7 @@ except ImportError:
 
 try:
     from PIL import Image
+    Image.logger.setLevel.setLevel(logging.WARNING)
 except ImportError:
     print("Missed dependency: pip3 install Pillow")
 

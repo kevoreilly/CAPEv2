@@ -6,6 +6,16 @@ CAPE provides a full-fledged web interface in the form of a Django application.
 This interface will allow you to submit files, browse through the reports as well
 as search across all the analysis results.
 
+``cape2.sh`` adds ``systemd`` deamon called ``cape-web.service`` which listen on all interfaces::
+
+    $ /lib/systemd/system/cape-web.service
+
+To modify that you need to edit that file and change from ``0.0.0.0`` to your IP.
+You need to restart deamon to reload after change it::
+
+    $ systemctl daemon-reload
+
+
 Configuration
 =============
 
@@ -15,8 +25,8 @@ is mandatory for this interface. If that's not the case, the application won't s
 and it will raise an exception. Also, currently, Django only supports having one of
 the database modules enabled at a time.
 
-Interface
----------
+Web Interface
+-------------
 The interface can be configured by editing ``local_settings.py`` under ``web/web/``::
 
     # If you want to customize your CAPE path set it here.
@@ -63,14 +73,17 @@ The interface can be configured by editing ``local_settings.py`` under ``web/web
 Enable/Disable REST API Endpoints
 ---------------------------------
 By default, there are multiple REST API endpoints that are disabled.
-To enable them, head to the 
-[API configuration file](https://github.com/kevoreilly/CAPEv2/blob/master/conf/api.conf) 
-in the CAPE installation directory at `conf/api.conf`.
+To enable them, head to the `API configuration file`_
 
-For example, to enable the `machines/list` endpoint, you must find the `[machinelist]` 
-header in the configuration file just mentioned and set the `enabled` field to `yes`. 
+For example, to enable the `machines/list` endpoint, you must find the `[machinelist]`
+header in the configuration file just mentioned and set the `enabled` field to `yes`.
 
-Restart the CAPE web service for the changes to take effect.
+Restart the CAPE web service for the changes to take effect::
+
+    $ systemctl restart cape-web
+
+.. _`API configuration file`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/api.conf
+
 
 Usage
 =====

@@ -765,6 +765,8 @@ function dependencies() {
     chgrp pcap /usr/sbin/tcpdump
     setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
 
+    usermod -a -G systemd-journal ${USER}
+
     # https://www.torproject.org/docs/debian.html.en
     echo "deb [ arch=amd64 ] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list
     echo "deb-src http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list

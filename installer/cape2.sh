@@ -611,7 +611,7 @@ function install_mongo(){
     apt update 2>/dev/null
     # From Ubuntu version 20 repo we need to add extra dependency libssl1.1
     curl -LO http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
-    udo dpkg -i ./libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
+    sudo dpkg -i ./libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
     apt install libpcre3-dev numactl -y
     apt install -y mongodb-org
     pip3 install pymongo -U

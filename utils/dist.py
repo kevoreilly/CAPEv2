@@ -626,7 +626,9 @@ class Retriever(threading.Thread):
                 start_copy = timeit.default_timer()
                 copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
                 timediff = timeit.default_timer() - start_copy
-                log.info(f"It took {timediff:.2f} seconds to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
+                log.info(
+                    f"It took {timediff:.2f} seconds to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
+                )
 
                 if not copied:
                     log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")

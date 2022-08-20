@@ -30,8 +30,6 @@ Enable web interface auth
 To enable web authentication you need to edit `conf/web.conf` -> `web_auth` -> `enabled = yes`,
 after that you need to create your django admin user by running following command from `web` folder::
 
-    $ python3 manage.py createsuperuser
-    or
     $ poetry run python manage.py createsuperuser
 
 For more security tips see `Exposed to internet`_ section.

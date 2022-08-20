@@ -13,5 +13,5 @@ jobs:
     - name: Run script file
       run: |
          chmod a+x "${GITHUB_WORKSPACE}/installer/cape2.sh"
-         "${GITHUB_WORKSPACE}/installer/cape2.sh" base
+         BUILD_ENV=1 "${GITHUB_WORKSPACE}/installer/cape2.sh" base
       shell: bash

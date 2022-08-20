@@ -1212,7 +1212,7 @@ fi
 sandbox_version=$(echo "$sandbox_version"|tr "{A-Z}" "{a-z}")
 
 #check if start with root
-if [ "$EUID" -ne 0 ]; then
+if [ "$EUID" -ne 0 ] && [[ -z "${BUILD_ENV}" ]]; then
    echo 'This script must be run as root'
    exit 1
 fi

@@ -59,6 +59,8 @@ submitted for analysis.
 The concept of analysis packages will be dealt with later in this documentation (at
 :doc:`packages`). The following are some examples of how to use the `submit.py` tool:
 
+    .. warning:: Remember to use the ``cape`` user. The following commands are executed as ``cape``.
+
 *Example*: Submit a local binary::
 
     $ ./utils/submit.py /path/to/binary
@@ -224,3 +226,29 @@ Example Usage:
     >>>
 
 .. _`SQLAlchemy`: http://www.sqlalchemy.org
+
+Troubleshooting
+===============
+
+submit.py
+---------
+
+If you try to submit an analysis using ``submit.py`` and your output looks like::
+
+    $ sudo -u cape poetry run python3 submit.py /path/to/binary/test.exe
+    Error: adding task to database
+
+It could be due to errors while trying to communicate with the PostgreSQL instance. PostgreSQL is installed and configured by default when executing ``cape2.sh``. Make sure your PostgreSQL instance is active and running. To check it out execute the following command::
+
+    $ sudo systemctl status postgresql
+
+If the status is other than **Active** (it can be in exited status, as long as it is Active), there is something that needs to be fixed.
+
+The logs for PostgreSQL can be found under */var/log/postgresql/\*.log*. 
+
+If everything is working regarding PostgreSQL, **make sure** the ``cape`` user is able to access (both read and write) the directories involved in the analysis. For example, ``cape`` must be able to read and write in */tmp*.
+
+Analysis results
+================
+
+Check :ref:`analysis_results`.

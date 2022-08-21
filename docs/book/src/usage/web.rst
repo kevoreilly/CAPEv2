@@ -15,6 +15,11 @@ You need to restart deamon to reload after change it::
 
     $ systemctl daemon-reload
 
+If you get migration-related WARNINGS when launching the cape-web service, you should execute::
+
+    $ poetry run python3 web/manage.py migrate
+
+.. note:: In order to improve performance, it is recommended to move from SQLite to PostgreSQL.
 
 Configuration
 =============
@@ -30,7 +35,7 @@ Enable web interface auth
 To enable web authentication you need to edit `conf/web.conf` -> `web_auth` -> `enabled = yes`,
 after that you need to create your django admin user by running following command from `web` folder::
 
-    $ poetry run python manage.py createsuperuser
+    $ poetry run python web/manage.py createsuperuser
 
 For more security tips see `Exposed to internet`_ section.
 
@@ -56,13 +61,13 @@ Usage
 To start the web interface, you can simply run the following command
 from the ``web/`` directory::
 
-    $ python3 manage.py runserver_plus --traceback --keep-meta-shutdown
+    $ python3 web/manage.py runserver_plus --traceback --keep-meta-shutdown
 
 If you want to configure the web interface as listening for any IP on a
 specified port (by default the web interace is deployed at localhost:8000), you can start it with the following command (replace PORT
 with the desired port number)::
 
-    $ python3 manage.py runserver_plus 0.0.0.0:PORT --traceback --keep-meta-shutdown
+    $ python3 web/manage.py runserver_plus 0.0.0.0:PORT --traceback --keep-meta-shutdown
 
 You can serve CAPE's web interface using WSGI interface with common web servers:
 Apache, Nginx, Unicorn, and so on.

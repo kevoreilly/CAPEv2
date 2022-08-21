@@ -817,28 +817,28 @@ class Signature:
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for keyword in ("cape_yara", "yara"):
-                for block in self.results["target"]["file"].get(keyword, []):
-                    if re.findall(name, block["name"], re.I):
-                        yield "sample", self.results["target"]["file"]["path"], block
+                for yara_block in self.results["target"]["file"].get(keyword, []):
+                    if re.findall(name, yara_block["name"], re.I):
+                        yield "sample", self.results["target"]["file"]["path"], yara_block, self.results["target"]["file"]
 
             for block in target["file"].get("extracted_files", []):
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in block[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
                             # we can't use here values from set_path
-                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), yara_block, block
 
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
             for sub_keyword in ("cape_yara", "yara"):
-                for sub_block in block.get(sub_keyword, []):
-                    if re.findall(name, sub_block["name"], re.I):
-                        yield sub_keyword, block["path"], sub_block
+                for yara_block in block.get(sub_keyword, []):
+                    if re.findall(name, yara_block["name"], re.I):
+                        yield sub_keyword, block["path"], yara_block, block
 
             for subblock in block.get("extracted_files", []):
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in subblock[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), yara_block, block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if self.results.get(keyword) is not None:
@@ -846,45 +846,40 @@ class Signature:
                     if not isinstance(block, dict):
                         continue
                     for sub_keyword in ("cape_yara", "yara"):
-                        for sub_block in block.get(sub_keyword, []):
-                            if re.findall(name, sub_block["name"], re.I):
+                        for yara_block in block.get(sub_keyword, []):
+                            if re.findall(name, yara_block["name"], re.I):
                                 path = block["path"] if block.get("path", False) else ""
-                                yield keyword, path, sub_block
+                                yield keyword, path, yara_block, block
 
                         if keyword == "procmemory":
                             for pe in block.get("extracted_pe", []) or []:
-                                for sub_block in pe.get(sub_keyword, []) or []:
-                                    if re.findall(name, sub_block["name"], re.I):
-                                        yield "extracted_pe", pe["path"], sub_block
+                                for yara_block in pe.get(sub_keyword, []) or []:
+                                    if re.findall(name, yara_block["name"], re.I):
+                                        yield "extracted_pe", pe["path"], yara_block, block
 
                     for subblock in block.get("extracted_files", []):
                         for keyword in ("cape_yara", "yara"):
                             for yara_block in subblock[keyword]:
                                 if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", os.path.join(analysis_folder, "selfextracted", subblock["sha256"]), block
-
-        for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
-            for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
-                for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
-                    if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(analysis_folder, "macro", macroname), sub_block
-
-        if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
-            for sub_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
-                if re.findall(name, sub_block["name"], re.I):
-                    yield "macro", os.path.join(analysis_folder, "macro", "xlm_macro"), sub_block
+                                    yield "sample", os.path.join(
+                                        analysis_folder, "selfextracted", subblock["sha256"]
+                                    ), yara_block, block
 
         macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
             for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
                 for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
                     if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(macro_path, macroname), sub_block
+                        yield "macro", os.path.join(macro_path, macroname), sub_block, self.results["static"]["office"]["Macro"][
+                            "info"
+                        ]
 
         if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
-            for sub_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
-                if re.findall(name, sub_block["name"], re.I):
-                    yield "macro", os.path.join(macro_path, "xlm_macro"), sub_block
+            for yara_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
+                if re.findall(name, yara_block["name"], re.I):
+                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, self.results["static"]["office"][
+                        "XLMMacroDeobfuscator"
+                    ]["info"]
 
     def signature_matched(self, signame: str) -> bool:
         # Check if signature has matched (useful for ordered signatures)

@@ -79,8 +79,7 @@ socks5man = {git = "https://github.com/doomedraven/socks5man.git", rev = "7b335d
 # httpreplay = {git = "https://github.com/CAPESandbox/httpreplay.git", rev = "0d5a5b3144ab15f93189b83ca8188afde43db134"}
 # bingraph = {git = "https://github.com/CAPESandbox/binGraph.git", rev = "552d1210ac6770f8b202d0d1fc4610cc14d878ec"}
 psycopg2 = "^2.9.3"
-# Read -> https://github.com/kevoreilly/CAPEv2/discussions/949
-# libvirt-python = "^8.4.0"
+Werkzeug = "2.2.2"
 
 [tool.poetry.dev-dependencies]
 black = "^22.3.0"

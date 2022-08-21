@@ -6,6 +6,16 @@ CAPE provides a full-fledged web interface in the form of a Django application.
 This interface will allow you to submit files, browse through the reports as well
 as search across all the analysis results.
 
+``cape2.sh`` adds ``systemd`` deamon called ``cape-web.service`` which listen on all interfaces::
+
+    $ /lib/systemd/system/cape-web.service
+
+To modify that you need to edit that file and change from ``0.0.0.0`` to your IP.
+You need to restart deamon to reload after change it::
+
+    $ systemctl daemon-reload
+
+
 Configuration
 =============
 
@@ -15,62 +25,30 @@ is mandatory for this interface. If that's not the case, the application won't s
 and it will raise an exception. Also, currently, Django only supports having one of
 the database modules enabled at a time.
 
-Interface
----------
-The interface can be configured by editing ``local_settings.py`` under ``web/web/``::
+Enable web interface auth
+-------------------------
+To enable web authentication you need to edit `conf/web.conf` -> `web_auth` -> `enabled = yes`,
+after that you need to create your django admin user by running following command from `web` folder::
 
-    # If you want to customize your CAPE path set it here.
-    # CAPE_PATH = "/where/CAPE/is/placed/"
+    $ poetry run python manage.py createsuperuser
 
-    # Maximum upload size.
-    MAX_UPLOAD_SIZE = 26214400
+For more security tips see `Exposed to internet`_ section.
 
-    # Override default secret key stored in secret_key.py
-    # Make this unique, and don't share it with anybody.
-    # SECRET_KEY = "YOUR_RANDOM_KEY"
-
-    # Local time zone for this installation. Choices can be found here:
-    # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
-    # although not all choices may be available on all operating systems.
-    # On Unix systems, a value of None will cause Django to use the same
-    # timezone as the operating system.
-    # If running in a Windows environment this must be set to the same as your
-    # system time zone.
-    TIME_ZONE = "America/Chicago"
-
-    # Language code for this installation. All choices can be found here:
-    # http://www.i18nguy.com/unicode/language-identifiers.html
-    LANGUAGE_CODE = "en-us"
-
-    ADMINS = (
-        # ("Your Name", "your_email@example.com"),
-    )
-
-    MANAGERS = ADMINS
-
-    # Allow verbose debug error message in case of application fault.
-    # It's strongly suggested to set it to False if you are serving the
-    # web application from a web server front-end (i.e. Apache).
-    DEBUG = True
-
-    # A list of strings representing the host/domain names that this Django site
-    # can serve.
-    # Values in this list can be fully qualified names (e.g. 'www.example.com').
-    # When DEBUG is True or when running tests, host validation is disabled; any
-    # host will be accepted. Thus it's usually only necessary to set it in production.
-    ALLOWED_HOSTS = ["*"]
 
 Enable/Disable REST API Endpoints
 ---------------------------------
 By default, there are multiple REST API endpoints that are disabled.
-To enable them, head to the 
-[API configuration file](https://github.com/kevoreilly/CAPEv2/blob/master/conf/api.conf) 
-in the CAPE installation directory at `conf/api.conf`.
+To enable them, head to the `API configuration file`_
 
-For example, to enable the `machines/list` endpoint, you must find the `[machinelist]` 
-header in the configuration file just mentioned and set the `enabled` field to `yes`. 
+For example, to enable the `machines/list` endpoint, you must find the `[machinelist]`
+header in the configuration file just mentioned and set the `enabled` field to `yes`.
 
-Restart the CAPE web service for the changes to take effect.
+Restart the CAPE web service for the changes to take effect::
+
+    $ systemctl restart cape-web
+
+.. _`API configuration file`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/api.conf
+
 
 Usage
 =====

@@ -70,6 +70,7 @@ class STAP(Auxiliary):
 
         stap_stop = timeit.default_timer()
         log.info("STAP aux module startup took %.2f seconds", stap_stop - stap_start)
+
         return True
 
     def stop(self):
@@ -83,4 +84,4 @@ class STAP(Auxiliary):
         except Exception as e:
             log.warning("Exception killing stap: %s", e)
 
-        upload_to_host("stap.log", "stap/stap.log", False)
+        upload_to_host("stap.log", "stap/stap.log", True)

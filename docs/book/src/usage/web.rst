@@ -81,7 +81,7 @@ from the ``web/`` directory::
     $ python3 manage.py runserver_plus --traceback --keep-meta-shutdown
 
 If you want to configure the web interface as listening for any IP on a
-specified port, you can start it with the following command (replace PORT
+specified port (by default the web interace is deployed at localhost:8000), you can start it with the following command (replace PORT
 with the desired port number)::
 
     $ python3 manage.py runserver_plus 0.0.0.0:PORT --traceback --keep-meta-shutdown

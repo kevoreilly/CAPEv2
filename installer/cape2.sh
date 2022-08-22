@@ -57,8 +57,8 @@ cat << EndOfHelp
 
     * This ISN'T a silver bullet, we can't control all changes in all third part software, you are welcome to report updates
 
-    Usage: $0 <command> cape <iface_ip> | tee $0.log
-        Example: $0 all cape 192.168.1.1 | tee $0.log
+    Usage: $0 <command> <iface_ip> | tee $0.log
+        Example: $0 all 192.168.1.1 | tee $0.log
     Commands - are case insensitive:
         Base - Installs dependencies, CAPE, systemd, see code for full list
         All - Installs everything - (don't use it if you don't know what will be installed ;))

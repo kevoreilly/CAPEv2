@@ -1258,7 +1258,14 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             filename = sanitize_filename(sample.name)
 
         # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
-        path = store_temp_file(sample.read(), filename)
+        try:
+            path = store_temp_file(sample.read(), filename)
+        except OSError:
+            details["errors"].append(
+                {filename: "Your specified temp folder, disk is out of space. Clean some space before continue."}
+            )
+            continue
+
         sha256 = File(path).get_sha256()
 
         if (

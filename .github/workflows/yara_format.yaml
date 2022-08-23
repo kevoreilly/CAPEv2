@@ -1,0 +1,53 @@
+name: YARA Formatting
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        python-version: [3.8]
+    if: ${{ github.ref == 'refs/heads/main' }}
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install cmake
+      - name: Install dependencies
+        run: pip install yaramod
+
+      - name: Run formatting
+        uses: jannekem/run-python-script-action@v1
+        with:
+          script: |
+            import pathlib
+            import yaramod
+            ymod = yaramod.Yaramod()
+            for yara_file in pathlib.Path(".").glob("**/*.yar"):
+                try:
+                    yfile = ymod.parse_file(str(yara_file))
+                    yara_file.write_text(yfile.text_formatted)
+                except Exception as e:
+                    print(f"Failed to format file {str(yara_file)}: {str(e)}")
+      - name: Commit changes if any
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "action@github.com"
+          if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+            git commit -m "style: Automatic code formatting" -a
+            git push
+          fi

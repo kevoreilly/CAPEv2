@@ -781,25 +781,33 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def set_task_vm(self, task_id, vmname, vm_id):
-        """Set task status.
+    def set_task_vm_and_guest_start(self, task_id, vmname, vmlabel, vm_id, manager):
+        """Set task status and logs guest start.
         @param task_id: task identifier
         @param vmname: virtual vm name
-        @return: operation status
+        @param label: vm label
+        @param manager: vm manager
+        @return: guest row id
         """
         session = self.Session()
+        guest = Guest(vmname, vmlabel, manager)
         try:
+            guest.status = "init"
             row = session.query(Task).get(task_id)
 
             if not row:
                 return
 
+            row.guest = guest
             row.machine = vmname
             row.machine_id = vm_id
             session.commit()
+            session.refresh(guest)
+            return guest.id
         except SQLAlchemyError as e:
-            log.debug("Database error setting status: %s", e)
+            log.debug("Database error setting task vm and logging guest start: %s", e)
             session.rollback()
+            return None
         finally:
             session.close()
 
@@ -852,30 +860,6 @@ class Database(object, metaclass=Singleton):
             log.debug("Database error fetching task: %s", e)
             log.debug(red("Ensure that your database schema version is correct"))
             session.rollback()
-        finally:
-            session.close()
-
-    @classlock
-    def guest_start(self, task_id, name, label, manager):
-        """Logs guest start.
-        @param task_id: task identifier
-        @param name: vm name
-        @param label: vm label
-        @param manager: vm manager
-        @return: guest row id
-        """
-        session = self.Session()
-        guest = Guest(name, label, manager)
-        try:
-            guest.status = "init"
-            session.query(Task).get(task_id).guest = guest
-            session.commit()
-            session.refresh(guest)
-            return guest.id
-        except SQLAlchemyError as e:
-            log.debug("Database error logging guest start: %s", e)
-            session.rollback()
-            return None
         finally:
             session.close()
 

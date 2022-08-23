@@ -318,7 +318,7 @@ class AnalysisManager(threading.Thread):
         # Acquire analysis machine.
         try:
             self.acquire_machine()
-            # Mark the selected analysis machine in the database as started.
+            # Set task VM and mark the selected analysis machine in the database as started.
             guest_log = self.db.set_task_vm_and_guest_start(self.task.id, self.machine.name, self.machine.label, self.machine.id, machinery.__class__.__name__)
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:

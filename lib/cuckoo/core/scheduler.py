@@ -318,7 +318,8 @@ class AnalysisManager(threading.Thread):
         # Acquire analysis machine.
         try:
             self.acquire_machine()
-            self.db.set_task_vm(self.task.id, self.machine.label, self.machine.id)
+            # Mark the selected analysis machine in the database as started.
+            guest_log = self.db.set_task_vm_and_guest_start(self.task.id, self.machine.name, self.machine.label, self.machine.id, machinery.__class__.__name__)
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
@@ -340,18 +341,16 @@ class AnalysisManager(threading.Thread):
         try:
             unlocked = False
 
-            # Mark the selected analysis machine in the database as started.
-            guest_log = self.db.guest_start(self.task.id, self.machine.name, self.machine.label, machinery.__class__.__name__)
             # Start the machine.
             machinery.start(self.machine.label)
-
-            # Enable network routing.
-            self.route_network()
 
             # By the time start returns it will have fully started the Virtual
             # Machine. We can now safely release the machine lock.
             machine_lock.release()
             unlocked = True
+
+            # Enable network routing.
+            self.route_network()
 
             aux.start()
 

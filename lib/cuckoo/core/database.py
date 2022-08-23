@@ -1107,7 +1107,7 @@ class Database(object, metaclass=Singleton):
             if tags:
                 for tag in tags:
                     machines = machines.filter(Machine.tags.any(name=tag))
-            return machines.count()
+            return machines.session.execute(machines.statement.with_only_columns([func.count()]).order_by(None)).scalar()
         except SQLAlchemyError as e:
             log.debug("Database error counting machines: %s", e)
             return 0

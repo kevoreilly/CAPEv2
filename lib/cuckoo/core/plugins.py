@@ -579,7 +579,7 @@ class RunSignatures:
             if hasattr(self.non_evented_list, "sort"):
                 self.non_evented_list.sort(key=lambda sig: sig.order)
             else:
-                # for testing single sithgnature with process.py
+                # for testing single signature with process.py
                 self.non_evented_list = [self.non_evented_list]
             log.debug("Running non-evented signatures")
 

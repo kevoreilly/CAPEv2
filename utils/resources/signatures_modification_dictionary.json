@@ -5,6 +5,9 @@
     "network_cnc_encrypted.py": {},
     "http_request.py": {},
     "stealth_network.py": {},
-    "infostealer_cookies.py": {}
+    "infostealer_cookies.py": {},
+    "backdoor_ketrican_regkeys.py": {},
+    "recon_fingerprint.py": {},
+    "dead_connect.py": {}
   }
 }

@@ -790,7 +790,7 @@ class Scheduler:
 
         # This loop runs forever.
         while self.running:
-            time.sleep(1)
+
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather that about to start
             # or still busy starting. This way we won't have race conditions

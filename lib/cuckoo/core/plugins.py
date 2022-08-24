@@ -576,7 +576,11 @@ class RunSignatures:
                 self.results["statistics"]["signatures"].append({"name": key, "time": round(timediff, 3)})
         # Compat loop for old-style (non evented) signatures.
         if self.non_evented_list:
-            self.non_evented_list.sort(key=lambda sig: sig.order)
+            if hasattr(self.non_evented_list, "sort"):
+                self.non_evented_list.sort(key=lambda sig: sig.order)
+            else:
+                # for testing single sithgnature with process.py
+                self.non_evented_list = [self.non_evented_list]
             log.debug("Running non-evented signatures")
 
             for signature in self.non_evented_list:

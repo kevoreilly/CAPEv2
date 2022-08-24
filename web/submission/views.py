@@ -626,9 +626,10 @@ def remote_session(request, task_id):
     if task.status == "running":
         machine = db.view_machine(task.machine)
         label = machine.label
+        guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-        session_data = urlsafe_b64encode(f"{session_id}|{label}".encode("utf8")).decode("utf8")
+        session_data = urlsafe_b64encode(f"{session_id}|{label}|{guest_ip}".encode("utf8")).decode("utf8")
 
     return render(
         request,

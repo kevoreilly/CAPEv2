@@ -1180,6 +1180,8 @@ function install_guacamole() {
     sudo dpkg -i --force-overwrite /tmp/guacamole-"${guacamole_version}"_builded.deb
     sudo ldconfig
 
+    pip3 install -U 'Twisted[tls,http2]'
+
     # ToDo https://github.com/enzok/guac-session
     cp /opt/guac-session/extra/guacd.service /lib/systemd/system/guacd.service
     cp /opt/guac-session/extra/guac-web.service /lib/systemd/system/guac-web.service

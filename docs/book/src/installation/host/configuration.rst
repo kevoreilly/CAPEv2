@@ -11,6 +11,7 @@ CAPE relies on six main configuration files:
     * :ref:`memory_conf`: Volatility configuration.
     * :ref:`processing_conf`: for enabling and configuring processing modules.
     * :ref:`reporting_conf`: for enabling or disabling report formats.
+    * :ref:`routing_conf`: for defining the routing of internet connection for the VMs. 
 
 To get CAPE working you have to edit :ref:`auxiliary_conf`, :ref:`cuckoo_conf`, and :ref:`machinery_conf` at least.
 We suggest you check all configs before starting, to be familiar with the possibilities that you have and what you want to be done.
@@ -79,7 +80,7 @@ Machinery modules are scripts that define how Cuckoo should interact with
 your virtualization software of choice.
 
 Every module should have a dedicated configuration file that defines the
-details f the available machines. For example, if you created a *kvm.py*
+details of the available machines. For example, if you created a *kvm.py*
 machinery module, you should specify *kvm* in *conf/cuckoo.conf*
 and have a *conf/kvm.conf* file.
 
@@ -87,6 +88,9 @@ CAPE provides some modules by default and for the sake of this guide, we'll
 assume you're going to use KVM. Please see the latest version here: `kvm.conf`_.
 
 .. _`kvm.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/kvm.conf
+
+If you are using KVM (kvm.conf), for each VM you want to use for analysis there must be a dedicated section. First you have to create and configure the VM (following the instructions in the dedicated chapter, see :ref:`preparing_the_guest`). The name of the section must be the same as the label of the VM as printed by ``$ virsh list --all``. If no VMs are shown, you can execute the following command sequence: ``$ virsh``, ``$ connect qemu:///system``, ``$ list --all``; or you can check `this link <https://serverfault.com/a/861853>`_ to learn how to change the connection in Virtual Manager.
+
 
 You can also find examples of other hipervisors like:
 
@@ -185,6 +189,18 @@ Please see the latest version here: `reporting.conf`_.
 
 By setting these options to *on* or *off* you enable or disable the generation
 of such reports.
+
+.. _routing_conf:
+
+routing.conf
+============
+
+The *conf/routing.conf* file contains information about how the guest VM is connected (or not) to the Internet via the Host, or whether it is isolated. This file is used in conjunction with the ``rooter.py`` utility.
+
+Please see the latest version of routing.conf here: `routing.conf`_.
+
+You can read more about the *routing.conf* file and its options in the :ref:`routing` chapter and more about the ``rooter.py`` utility in the :ref:`rooter` chapter. 
+
 
 Using environment variables in config files
 ===========================================

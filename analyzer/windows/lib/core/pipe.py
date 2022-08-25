@@ -152,7 +152,7 @@ class PipeDispatcher(threading.Thread):
 
             KERNEL32.WriteFile(self.pipe_handle, response, len(response), byref(bytes_written), None)
 
-        KERNEL32.CloseHandle(self.pipe_handle)
+        KERNEL32.DisconnectNamedPipe(self.pipe_handle)
 
     def stop(self):
         self.do_run = False

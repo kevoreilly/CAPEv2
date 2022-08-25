@@ -10,7 +10,7 @@ command is currently only available for Ubuntu and Debian-like systems.
 
 In particular, the ``rooter`` helps CAPE out with running network-related
 commands to provide **per-analysis routing** options. For more
-information on that, please refer to the :ref:`../installation/host/routing` document. CAPE and
+information on that, please refer to the :ref:`routing` document. CAPE and
 the ``rooter`` communicate through a UNIX socket for which the ``rooter``
 makes sure that CAPE can reach it.
 
@@ -36,10 +36,20 @@ Its usage is as follows::
     --ip IP               Path to ip
     -v, --verbose         Enable verbose logging
 
-By default, the ``rooter`` will default to ``chown``'ing the ``cape`` user as
-user and group for the UNIX socket, as recommended when :ref:`../installation/host/installation`.
-If you're running CAPE under a user other than ``cape``, you will have to
-specify this to the ``rooter`` as follows::
+..
+    By default, the ``rooter`` will default to ``chown``'ing the ``cape`` user as user and group for the UNIX socket, as recommended when :ref:`../installation/host/installation`.
+    If you're running CAPE under a user other than ``cape``, you will have to specify this to the ``rooter`` as follows::
+
+When executing the ``rooter`` utility, it will default to the ``cuckoo`` group.
+
+    .. image:: ../_images/screenshots/rooter_0.png
+        :align: center
+
+You must specify the user of the UNIX socket. As recommended in the :ref:`installation`, it should be the **cape** user. You can do so by executing the following command::
+
+    $ sudo python3 utils/rooter.py -g cape
+
+However, if you're running CAPE under a user other than ``cape``, you will have to specify this to the ``rooter`` as follows::
 
     $ sudo python3 utils/rooter.py -g <user>
 

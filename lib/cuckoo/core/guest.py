@@ -12,6 +12,7 @@ import shutil
 import socket
 import sys
 import time
+import timeit
 from io import BytesIO
 from zipfile import ZIP_STORED, ZipFile
 
@@ -29,7 +30,7 @@ cfg = Config()
 
 def analyzer_zipfile(platform):
     """Create the zip file that is sent to the Guest."""
-    t = time.time()
+    t = timeit.default_timer()
 
     zip_data = BytesIO()
     zip_file = ZipFile(zip_data, "w", ZIP_STORED)
@@ -63,7 +64,7 @@ def analyzer_zipfile(platform):
     data = zip_data.getvalue()
     zip_data.close()
 
-    if time.time() - t > 10:
+    if timeit.default_timer() - t > 10:
         log.warning(
             "It took more than 10 seconds to build the Analyzer Zip for the "
             "Guest. This might be a serious performance penalty. Is your "
@@ -141,7 +142,7 @@ class GuestManager:
 
     def wait_available(self):
         """Wait until the Virtual Machine is available for usage."""
-        end = time.time() + self.timeout
+        start = timeit.default_timer()
 
         while db.guest_get_status(self.task_id) == "starting" and self.do_run:
             try:
@@ -153,7 +154,7 @@ class GuestManager:
                 log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
                 time.sleep(1)
 
-            if time.time() > end:
+            if timeit.default_timer() - start > self.timeout:
                 raise CuckooGuestCriticalTimeout(
                     f"Machine {self.vmid}: the guest initialization hit the critical timeout, analysis aborted"
                 )
@@ -360,7 +361,7 @@ class GuestManager:
     def wait_for_completion(self):
 
         count = 0
-        end = time.time() + self.timeout
+        start = timeit.default_timer()
 
         while db.guest_get_status(self.task_id) == "running" and self.do_run:
             if count >= 5:
@@ -372,7 +373,7 @@ class GuestManager:
 
             # If the analysis hits the critical timeout, just return straight
             # away and try to recover the analysis results from the guest.
-            if time.time() > end:
+            if timeit.default_timer() - start > self.timeout:
                 log.info("Task #%s: End of analysis reached! (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
                 return
 

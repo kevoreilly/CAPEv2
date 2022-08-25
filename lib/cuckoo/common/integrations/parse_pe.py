@@ -307,6 +307,8 @@ class PortableExecutable:
                                         "entropy": f"{float(self.get_entropy(data)):.02f}",
                                     }
                                 )
+            except pefile.PEFormatError as e:
+                log.error("get_resources error: %s", str(e))
             except Exception as e:
                 log.error(e, exc_info=True)
                 continue

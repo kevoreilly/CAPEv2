@@ -9,6 +9,7 @@ import os
 import socket
 import threading
 import time
+import timeit
 import xml.etree.ElementTree as ET
 from typing import Dict, List
 
@@ -259,11 +260,15 @@ class Machinery:
         """
         return self.db.list_machines()
 
-    def availables(self):
-        """How many machines are free.
+    def availables(self, machine_id=None, platform=None, tags=None, arch=None):
+        """How many (relevant) machines are free.
+        @param machine_id: machine ID.
+        @param platform: machine platform.
+        @param tags: machine tags
+        @param arch: machine arch
         @return: free machines count.
         """
-        return self.db.count_machines_available()
+        return self.db.count_machines_available(machine_id=machine_id, platform=platform, tags=tags, arch=arch)
 
     def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
         """Acquire a machine to start analysis.
@@ -359,6 +364,12 @@ class Machinery:
             time.sleep(1)
             waitme += 1
             current = self._status(label)
+
+    def delete_machine(self, name):
+        """Delete a virtual machine.
+        @param name: virtual machine name
+        """
+        _ = self.db.delete_machine(name)
 
 
 class LibVirtMachinery(Machinery):
@@ -696,9 +707,8 @@ class Processing:
         self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
 
     def add_statistic_tmp(self, name, field, pretime):
-        posttime = datetime.datetime.now()
-        timediff = posttime - pretime
-        value = float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")
+        timediff = timeit.default_timer() - pretime
+        value = round(timediff, 3)
 
         if name not in self.results["temp_processing_stats"]:
             self.results["temp_processing_stats"][name] = {}
@@ -759,16 +769,21 @@ class Signature:
         self.machinery_conf = machinery_conf
         self.matched = False
 
+        # These are set during the iteration of evented signatures
+        self.pid = None
+        self.cid = None
+        self.call = None
+
     def statistics_custom(self, pretime, extracted: bool = False):
         """
         Aux function for custom stadistics on signatures
         @param pretime: start time as datetime object
         @param extracted: conf extraction from inside signature to count success extraction vs sig run
         """
-        timediff = datetime.datetime.now() - pretime
+        timediff = timeit.default_timer() - pretime
         self.results["custom_statistics"] = {
             "name": self.name,
-            "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
+            "time": round(timediff, 3),
             "extracted": int(extracted),
         }
 
@@ -802,28 +817,28 @@ class Signature:
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for keyword in ("cape_yara", "yara"):
-                for block in self.results["target"]["file"].get(keyword, []):
-                    if re.findall(name, block["name"], re.I):
-                        yield "sample", self.results["target"]["file"]["path"], block
+                for yara_block in self.results["target"]["file"].get(keyword, []):
+                    if re.findall(name, yara_block["name"], re.I):
+                        yield "sample", self.results["target"]["file"]["path"], yara_block, self.results["target"]["file"]
 
             for block in target["file"].get("extracted_files", []):
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in block[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
                             # we can't use here values from set_path
-                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), yara_block, block
 
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
             for sub_keyword in ("cape_yara", "yara"):
-                for sub_block in block.get(sub_keyword, []):
-                    if re.findall(name, sub_block["name"], re.I):
-                        yield sub_keyword, block["path"], sub_block
+                for yara_block in block.get(sub_keyword, []):
+                    if re.findall(name, yara_block["name"], re.I):
+                        yield sub_keyword, block["path"], yara_block, block
 
             for subblock in block.get("extracted_files", []):
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in subblock[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), yara_block, block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if self.results.get(keyword) is not None:
@@ -831,45 +846,40 @@ class Signature:
                     if not isinstance(block, dict):
                         continue
                     for sub_keyword in ("cape_yara", "yara"):
-                        for sub_block in block.get(sub_keyword, []):
-                            if re.findall(name, sub_block["name"], re.I):
+                        for yara_block in block.get(sub_keyword, []):
+                            if re.findall(name, yara_block["name"], re.I):
                                 path = block["path"] if block.get("path", False) else ""
-                                yield keyword, path, sub_block
+                                yield keyword, path, yara_block, block
 
                         if keyword == "procmemory":
                             for pe in block.get("extracted_pe", []) or []:
-                                for sub_block in pe.get(sub_keyword, []) or []:
-                                    if re.findall(name, sub_block["name"], re.I):
-                                        yield "extracted_pe", pe["path"], sub_block
+                                for yara_block in pe.get(sub_keyword, []) or []:
+                                    if re.findall(name, yara_block["name"], re.I):
+                                        yield "extracted_pe", pe["path"], yara_block, block
 
                     for subblock in block.get("extracted_files", []):
                         for keyword in ("cape_yara", "yara"):
                             for yara_block in subblock[keyword]:
                                 if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", os.path.join(analysis_folder, "selfextracted", subblock["sha256"]), block
-
-        for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
-            for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
-                for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
-                    if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(analysis_folder, "macro", macroname), sub_block
-
-        if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
-            for sub_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
-                if re.findall(name, sub_block["name"], re.I):
-                    yield "macro", os.path.join(analysis_folder, "macro", "xlm_macro"), sub_block
+                                    yield "sample", os.path.join(
+                                        analysis_folder, "selfextracted", subblock["sha256"]
+                                    ), yara_block, block
 
         macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
             for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
                 for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
                     if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(macro_path, macroname), sub_block
+                        yield "macro", os.path.join(macro_path, macroname), sub_block, self.results["static"]["office"]["Macro"][
+                            "info"
+                        ]
 
         if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
-            for sub_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
-                if re.findall(name, sub_block["name"], re.I):
-                    yield "macro", os.path.join(macro_path, "xlm_macro"), sub_block
+            for yara_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
+                if re.findall(name, yara_block["name"], re.I):
+                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, self.results["static"]["office"][
+                        "XLMMacroDeobfuscator"
+                    ]["info"]
 
     def signature_matched(self, signame: str) -> bool:
         # Check if signature has matched (useful for ordered signatures)
@@ -878,7 +888,7 @@ class Signature:
 
     def get_signature_data(self, signame: str) -> List[Dict[str, str]]:
         # Retrieve data from matched signature (useful for ordered signatures)
-        if self.check_signature_match(signame):
+        if self.signature_matched(signame):
             signature = next((match for match in self.results.get("signatures", []) if match.get("name") == signame), None)
 
             if signature:
@@ -1516,6 +1526,21 @@ class Signature:
                     res = True
                     break
         return res
+
+    def mark_call(self, *args, **kwargs):
+        """Mark the current call as explanation as to why this signature
+        matched."""
+        mark = {
+            "type": "call",
+            "pid": self.pid,
+            "cid": self.cid,
+            "call": self.call,
+        }
+
+        if args or kwargs:
+            log.warning("You have provided extra arguments to the mark_call() method which does not support doing so.")
+
+        self.data.append(mark)
 
     def add_match(self, process, type, match):
         """Adds a match to the signature data.

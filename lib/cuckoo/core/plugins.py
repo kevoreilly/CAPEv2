@@ -8,8 +8,8 @@ import logging
 import os
 import pkgutil
 import sys
+import timeit
 from collections import defaultdict
-from datetime import datetime, timedelta
 from distutils.version import StrictVersion
 
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
@@ -24,11 +24,6 @@ from lib.cuckoo.common.exceptions import (
 )
 from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -243,13 +238,10 @@ class RunProcessing:
             # Run the processing module and retrieve the generated data to be
             # appended to the general results container.
             log.debug('Executing processing module "%s" on analysis at "%s"', current.__class__.__name__, self.analysis_path)
-            pretime = datetime.now()
+            pretime = timeit.default_timer()
             data = current.run()
-            posttime = datetime.now()
-            timediff = posttime - pretime
-            self.results["statistics"]["processing"].append(
-                {"name": current.__class__.__name__, "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")}
-            )
+            timediff = timeit.default_timer() - pretime
+            self.results["statistics"]["processing"].append({"name": current.__class__.__name__, "time": round(timediff, 3)})
 
             # If succeeded, return they module's key name and the data to be
             # appended to it.
@@ -473,14 +465,13 @@ class RunSignatures:
         try:
             # Run the signature and if it gets matched, extract key information
             # from it and append it to the results container.
-            pretime = datetime.now()
+            pretime = timeit.default_timer()
             data = signature.run()
-            posttime = datetime.now()
-            timediff = posttime - pretime
+            timediff = timeit.default_timer() - pretime
             self.results["statistics"]["signatures"].append(
                 {
                     "name": signature.name,
-                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
+                    "time": round(timediff, 3),
                 }
             )
 
@@ -513,7 +504,7 @@ class RunSignatures:
         if self.evented_list and "behavior" in self.results:
             log.debug("Running %d evented signatures", len(self.evented_list))
             for sig in self.evented_list:
-                stats[sig.name] = timedelta()
+                stats[sig.name] = 0
                 if sig == self.evented_list[-1]:
                     log.debug("\t `-- %s", sig.name)
                 else:
@@ -522,8 +513,9 @@ class RunSignatures:
             # Iterate calls and tell interested signatures about them.
             for proc in self.results["behavior"]["processes"]:
                 process_name = proc["process_name"]
+                process_id = proc["process_id"]
                 calls = proc.get("calls", [])
-                for call in calls:
+                for idx, call in enumerate(calls):
                     api = call.get("api")
                     sigs = self.api_sigs.get(api)
                     if sigs is None:
@@ -535,13 +527,17 @@ class RunSignatures:
                             self.call_for_processname.get(process_name, set()),
                         )
                     for sig in sigs:
+                        # Setting signature attributes per call
+                        sig.cid = idx
+                        sig.call = call
+                        sig.pid = process_id
+
                         if sig.matched:
                             continue
                         try:
-                            pretime = datetime.now()
+                            pretime = timeit.default_timer()
                             result = sig.on_call(call, proc)
-                            posttime = datetime.now()
-                            timediff = posttime - pretime
+                            timediff = timeit.default_timer() - pretime
                             stats[sig.name] += timediff
                         except NotImplementedError:
                             result = False
@@ -557,10 +553,9 @@ class RunSignatures:
                 if sig.matched:
                     continue
                 try:
-                    pretime = datetime.now()
+                    pretime = timeit.default_timer()
                     result = sig.on_complete()
-                    posttime = datetime.now()
-                    timediff = posttime - pretime
+                    timediff = timeit.default_timer() - pretime
                     stats[sig.name] += timediff
                 except NotImplementedError:
                     continue
@@ -578,12 +573,14 @@ class RunSignatures:
         # Add in statistics for evented signatures that took at least some time
         for key, value in stats.items():
             if value:
-                self.results["statistics"]["signatures"].append(
-                    {"name": key, "time": float(f"{value.seconds}.{value.microseconds // 1000:03d}")}
-                )
+                self.results["statistics"]["signatures"].append({"name": key, "time": round(timediff, 3)})
         # Compat loop for old-style (non evented) signatures.
         if self.non_evented_list:
-            self.non_evented_list.sort(key=lambda sig: sig.order)
+            if hasattr(self.non_evented_list, "sort"):
+                self.non_evented_list.sort(key=lambda sig: sig.order)
+            else:
+                # for testing single signature with process.py
+                self.non_evented_list = [self.non_evented_list]
             log.debug("Running non-evented signatures")
 
             for signature in self.non_evented_list:
@@ -699,7 +696,7 @@ class RunReporting:
 
         try:
             log.debug('Executing reporting module "%s"', current.__class__.__name__)
-            pretime = datetime.now()
+            pretime = timeit.default_timer()
 
             if module_name == "submitCAPE" and self.reprocess:
                 tasks = db.list_parents(self.task["id"])
@@ -708,12 +705,11 @@ class RunReporting:
                 return
             else:
                 current.run(self.results)
-            posttime = datetime.now()
-            timediff = posttime - pretime
+            timediff = timeit.default_timer() - pretime
             self.results["statistics"]["reporting"].append(
                 {
                     "name": current.__class__.__name__,
-                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
+                    "time": round(timediff, 3),
                 }
             )
 
@@ -794,4 +790,4 @@ class GetFeeds:
                 # If the feed is disabled, skip it.
                 if feed.enabled:
                     log.debug('Running feed module "%s"', feed.name)
-                    runit = self.process(feed)
+                    self.process(feed)

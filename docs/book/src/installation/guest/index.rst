@@ -1,3 +1,5 @@
+.. _preparing_the_guest:
+
 ===================
 Preparing the Guest
 ===================

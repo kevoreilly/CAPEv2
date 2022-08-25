@@ -56,13 +56,13 @@ jobs:
       - name: Run unit tests
         run: poetry run pytest --import-mode=append
 
-
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       matrix:
         python-version: [3.8]
+    if: ${{ github.ref == 'refs/heads/master' }}
 
     steps:
       - name: Check out repository code

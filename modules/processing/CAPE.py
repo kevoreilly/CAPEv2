@@ -12,12 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import collections
 import hashlib
 import imp
 import json
 import logging
 import os
-from datetime import datetime
+import timeit
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import pe_map, plugx_parser, static_config_parsers
@@ -269,22 +270,28 @@ class CAPE(Processing):
         # Prefilter extracted data + beauty is better than oneliner:
         all_files = []
         for extracted_file in file_info.get("extracted_files", []):
-            for yara in extracted_file["cape_yara"]:
-                if extracted_file.get("data", ""):
-                    all_files.append(
-                        (
-                            f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
-                            make_bytes(extracted_file["data"]),
-                            yara,
-                        )
+            yara_hits = extracted_file["cape_yara"]
+            if not yara_hits:
+                continue
+            if extracted_file.get("data", b""):
+                extracted_file_data = make_bytes(extracted_file["data"])
+            else:
+                with open(extracted_file["path"], "rb") as fil:
+                    extracted_file_data = fil.read()
+            for yara in yara_hits:
+                all_files.append(
+                    (
+                        f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
+                        extracted_file_data,
+                        yara,
                     )
+                )
 
         for yara in file_info["cape_yara"]:
             all_files.append((file_info["path"], file_data, yara))
 
-        executed_config_parsers = set()
+        executed_config_parsers = collections.defaultdict(set)
         for tmp_path, tmp_data, hit in all_files:
-
             # Check for a payload or config hit
             try:
                 if File.yara_hit_provides_detection(hit):
@@ -299,10 +306,10 @@ class CAPE(Processing):
                     file_info["cape_type"] += pe_map[type_strings[0]]
                     file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
-            if cape_name and cape_name not in executed_config_parsers:
+            if cape_name and cape_name not in executed_config_parsers[tmp_path]:
                 tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
                 self.update_cape_configs(cape_name, tmp_config)
-                executed_config_parsers.add(cape_name)
+                executed_config_parsers[tmp_path].add(cape_name)
 
         if type_string:
             log.info("CAPE: type_string: %s", type_string)
@@ -338,7 +345,7 @@ class CAPE(Processing):
 
         if append_file:
             if HAVE_FLARE_CAPA:
-                pretime = datetime.now()
+                pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:
                     file_info["flare_capa"] = capa_details

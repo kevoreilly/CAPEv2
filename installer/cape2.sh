@@ -21,7 +21,7 @@ nginx_version=1.19.6
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.2.0
+guacamole_version=1.4.0
 
 DIE_VERSION="3.05"
 UBUNTU_VERSION=$(lsb_release -rs)
@@ -57,8 +57,8 @@ cat << EndOfHelp
 
     * This ISN'T a silver bullet, we can't control all changes in all third part software, you are welcome to report updates
 
-    Usage: $0 <command> cape <iface_ip> | tee $0.log
-        Example: $0 all cape 192.168.1.1 | tee $0.log
+    Usage: $0 <command> <iface_ip> | tee $0.log
+        Example: $0 all 192.168.1.1 | tee $0.log
     Commands - are case insensitive:
         Base - Installs dependencies, CAPE, systemd, see code for full list
         All - Installs everything - (don't use it if you don't know what will be installed ;))
@@ -605,9 +605,13 @@ function install_mongo(){
     fi
 
     wget -qO - https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc | sudo apt-key add -
-    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
-
+    # mongo 22 uses repo of 20
+    # echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
+    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
     apt update 2>/dev/null
+    # From Ubuntu version 20 repo we need to add extra dependency libssl1.1
+    curl -LO http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
+    sudo dpkg -i ./libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
     apt install libpcre3-dev numactl -y
     apt install -y mongodb-org
     pip3 install pymongo -U
@@ -685,6 +689,8 @@ function install_postgresql() {
     # amazing tool for monitoring https://github.com/dalibo/pg_activity
     # sudo -u postgres pg_activity -U postgres
     python3 -m pip install pg_activity psycopg2-binary
+    sudo systemctl enable postgresql.service
+    sudo systemctl start postgresql.service
 }
 
 function dependencies() {
@@ -705,6 +711,11 @@ function dependencies() {
     apt install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
     apt install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt install openvpn wireguard -y
+
+    # de4dot selfextraction
+    apt install -y libgdiplus libdnlib2.1-cil libgif7 libmono-accessibility4.0-cil libmono-ldap4.0-cil libmono-posix4.0-cil libmono-sqlite4.0-cil libmono-system-componentmodel-dataannotations4.0-cil libmono-system-data4.0-cil libmono-system-design4.0-cil libmono-system-drawing4.0-cil libmono-system-enterpriseservices4.0-cil libmono-system-ldap4.0-cil libmono-system-runtime-serialization-formatters-soap4.0-cil libmono-system-runtime4.0-cil libmono-system-transactions4.0-cil libmono-system-web-applicationservices4.0-cil libmono-system-web-services4.0-cil libmono-system-web4.0-cil libmono-system-windows-forms4.0-cil libmono-webbrowser4.0-cil
+    wget http://archive.ubuntu.com/ubuntu/pool/universe/d/de4dot/de4dot_3.1.41592.3405-2_all.deb && sudo dpkg -i de4dot_3.1.41592.3405-2_all.deb
+
     # if broken sudo python -m pip uninstall pip && sudo apt install python-pip --reinstall
     #pip3 install --upgrade pip
     # /usr/bin/pip
@@ -741,7 +752,6 @@ function dependencies() {
     apt install apparmor-utils -y
     aa-complain /usr/sbin/tcpdump
     aa-disable /usr/sbin/tcpdump
-    # ToDo check if user exits
 
     if id "${USER}" &>/dev/null; then
         echo "user ${USER} already exist"
@@ -749,11 +759,13 @@ function dependencies() {
         groupadd ${USER}
         useradd --system -g ${USER} -d /home/${USER}/ -m ${USER}
     fi
-    # ToDo add current user to ${USER} group
+
     groupadd pcap
     usermod -a -G pcap ${USER}
     chgrp pcap /usr/sbin/tcpdump
     setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
+
+    usermod -a -G systemd-journal ${USER}
 
     # https://www.torproject.org/docs/debian.html.en
     echo "deb [ arch=amd64 ] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list
@@ -800,6 +812,11 @@ EOF
         echo "net.bridge.bridge-nf-call-iptables = 0";
         echo "net.bridge.bridge-nf-call-arptables = 0";
     } >> /etc/sysctl.conf
+
+    # enable packet forwarding for IPv4
+    if ! grep -q -E '^net.ipv4.ip_forward=1' /etc/sysctl.conf; then
+        echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+    fi
 
     sudo modprobe br_netfilter
     sudo sysctl -p
@@ -1144,20 +1161,27 @@ function install_volatility3() {
 }
 
 function install_guacamole() {
+    # Kudos to @Enzok https://github.com/kevoreilly/CAPEv2/pull/1065
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
-    sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev libfreerdp2-2 #libfreerdp-dev
+    sudo add-apt-repository ppa:remmina-ppa-team/remmina-next-daily
+    sudo apt update
+    sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
     sudo apt install freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
     mkdir /tmp/guac-build && cd /tmp/guac-build || return
     wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz
     wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz.asc
-    ./configure --with-systemd-dir=/lib/systemd/system
-    make -j"$(getconf _NPROCESSORS_ONLN)"
-    sudo checkinstall -D --pkgname=guacamole-server-guacamole --pkgversion="$guacamole_version" --default
+    CFLAGS=-Wno-error ./configure --with-systemd-dir=/etc/systemd/system/
+    mkdir -p /tmp/guacamole-"${guacamole_version}"_builded/DEBIAN
+    echo -e "Package: guacamole\nVersion: ${guacamole_version}\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Guacamole ${guacamole_version}" > /tmp/guacamole-"${guacamole_version}"_builded/DEBIAN/control
+    USE_SYSTEM=1 make -j"$(nproc)" install DESTDIR=/tmp/guacamole-"${guacamole_version}"_builded
+    USE_SYSTEM=1 dpkg-deb --build --root-owner-group /tmp/guacamole-"${guacamole_version}"_builded
+    sudo dpkg -i --force-overwrite /tmp/guacamole-"${guacamole_version}"_builded.deb
     sudo ldconfig
     sudo systemctl enable guacd
     sudo systemctl start guacd
 
+    # ToDo https://github.com/enzok/guac-session
 }
 
 function install_DIE() {
@@ -1193,7 +1217,7 @@ fi
 sandbox_version=$(echo "$sandbox_version"|tr "{A-Z}" "{a-z}")
 
 #check if start with root
-if [ "$EUID" -ne 0 ]; then
+if [ "$EUID" -ne 0 ] && [[ -z "${BUILD_ENV}" ]]; then
    echo 'This script must be run as root'
    exit 1
 fi

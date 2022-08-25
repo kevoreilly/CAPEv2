@@ -20,3 +20,9 @@ To sum up, this command does the following:
    If you use this command you will delete permanently all data stored by CAPE in all
    storages: file system, SQL database, and MongoDB/ElasticSearch database. Use it only
    if you are sure you would clean up all the data.
+
+After executing the ``cleaners.py --clean`` utility, you must restart CAPE service as it destroys the database.::
+
+   $ sudo systemctl restart cape
+
+After any other option, you don't need to restart the service.

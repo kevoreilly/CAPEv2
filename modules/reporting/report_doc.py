@@ -73,8 +73,7 @@ def get_json_document(results, analysis_path):
             report["f_mlist_cnt"] = len(entry["data"])
 
     # Other info we want quick access to from the web UI
-    if results.get("virustotal", {}).get("positive") and results.get("virustotal", {}).get("total"):
-        report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positive"], results["virustotal"]["total"])
+
     if results.get("suricata", False):
         keywords = ("tls", "alerts", "files", "http", "ssh", "dns")
         keywords_dict = ("suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "suri_ssh_cnt", "suri_dns_cnt")

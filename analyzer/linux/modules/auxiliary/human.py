@@ -96,6 +96,7 @@ class Human(Thread, Auxiliary):
         @return: operation status.
         """
         if not self.enabled:
+            self.initComplete = True
             return False
 
         seconds = 0

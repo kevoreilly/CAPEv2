@@ -148,7 +148,7 @@ class packedSetting:
             return "Not Found"
 
         repr_len = len(self.binary_repr())
-        conf_data = full_config_data[data_offset + repr_len: data_offset + repr_len + self.length]
+        conf_data = full_config_data[data_offset + repr_len : data_offset + repr_len + self.length]
         if self.datatype == confConsts.TYPE_SHORT:
             conf_data = unpack(">H", conf_data)[0]
             if not conf_data:
@@ -195,8 +195,8 @@ class packedSetting:
                     # Only EXECUTE_TYPE for now
                     else:
                         # Skipping unknown short value in the start
-                        string1 = netunpack(b"I$", conf_data[i + 3:])[0].decode()
-                        string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1):])[0].decode()
+                        string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
+                        string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
                         ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
                         i += len(string1) + len(string2) + 11
 
@@ -205,10 +205,10 @@ class packedSetting:
                     return "Empty"
 
                 prepend_length = unpack(">I", conf_data[:4])[0]
-                prepend = conf_data[4: 4 + prepend_length].hex()
+                prepend = conf_data[4 : 4 + prepend_length].hex()
                 append_length_offset = prepend_length + 4
-                append_length = unpack(">I", conf_data[append_length_offset: append_length_offset + 4])[0]
-                append = conf_data[append_length_offset + 4: append_length_offset + 4 + append_length].hex()
+                append_length = unpack(">I", conf_data[append_length_offset : append_length_offset + 4])[0]
+                append = conf_data[append_length_offset + 4 : append_length_offset + 4 + append_length].hex()
                 ret_arr = [
                     prepend,
                     append if append_length < 256 and append != bytes(append_length) else "Empty",
@@ -337,11 +337,9 @@ class BeaconSettings:
         self.settings["ProcInject_PrependAppend_x64"] = packedSetting(
             47, confConsts.TYPE_STR, 256, isBlob=True, isProcInjectTransform=True
         )
-        self.settings["ProcInject_Execute"] = packedSetting(
-            51, confConsts.TYPE_STR, 128, isBlob=True, enum=self.EXECUTE_TYPE)
+        self.settings["ProcInject_Execute"] = packedSetting(51, confConsts.TYPE_STR, 128, isBlob=True, enum=self.EXECUTE_TYPE)
         # If True then allocation is using NtMapViewOfSection
-        self.settings["ProcInject_AllocationMethod"] = packedSetting(
-            52, confConsts.TYPE_SHORT, enum=self.ALLOCATION_FUNCTIONS)
+        self.settings["ProcInject_AllocationMethod"] = packedSetting(52, confConsts.TYPE_SHORT, enum=self.ALLOCATION_FUNCTIONS)
 
         # Unknown data, silencing for now
         # self.settings["ProcInject_Stub"] = packedSetting(53, confConsts.TYPE_STR, 16, isBlob=True)
@@ -371,10 +369,10 @@ class cobaltstrikeConfig:
 
         if encoded_config_offset >= 0:
             full_config_data = cobaltstrikeConfig.decode_config(
-                self.data[encoded_config_offset: encoded_config_offset + confConsts.CONFIG_SIZE], version=version
+                self.data[encoded_config_offset : encoded_config_offset + confConsts.CONFIG_SIZE], version=version
             )
         else:
-            full_config_data = self.data[decoded_config_offset: decoded_config_offset + confConsts.CONFIG_SIZE]
+            full_config_data = self.data[decoded_config_offset : decoded_config_offset + confConsts.CONFIG_SIZE]
 
         settings = BeaconSettings(version).settings.items()
         for conf_name, packed_conf in settings:
@@ -439,10 +437,10 @@ class cobaltstrikeConfig:
         offset = 0
         key_found = False
         while offset < len(data):
-            key = data[offset: offset + 4]
+            key = data[offset : offset + 4]
             if key != bytes(4) and data.count(key) >= THRESHOLD:
                 key_found = True
-                size = int.from_bytes(data[offset - 4: offset], "little")
+                size = int.from_bytes(data[offset - 4 : offset], "little")
                 encrypted_data_offset = offset + 16 - (offset % 16)
                 break
 
@@ -453,7 +451,7 @@ class cobaltstrikeConfig:
             return None
 
         # decrypt and parse
-        enc_data = data[encrypted_data_offset: encrypted_data_offset + size]
+        enc_data = data[encrypted_data_offset : encrypted_data_offset + size]
         dec_data = [c ^ key[i % 4] for i, c in enumerate(enc_data)]
         dec_data = bytes(dec_data)
         return cobaltstrikeConfig(dec_data).parse_config(version, quiet, as_json)

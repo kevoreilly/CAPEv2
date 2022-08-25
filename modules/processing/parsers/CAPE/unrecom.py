@@ -1,7 +1,7 @@
 import string
 import xml.etree.ElementTree as ET
-from io import StringIO, BytesIO
-from zipfile import ZipFile, BadZipFile
+from io import BytesIO, StringIO
+from zipfile import BadZipFile, ZipFile
 
 from Cryptodome.Cipher import ARC4
 

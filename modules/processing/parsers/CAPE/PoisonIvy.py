@@ -33,7 +33,7 @@ def walk_data(data):
     max_count = 0
     while offset < EOF and max_count < 22:
         try:
-            length = calc_length(stream[offset + 2: offset + 4])
+            length = calc_length(stream[offset + 2 : offset + 4])
             temp = [chr(stream[i]) for i in range(offset + 4, offset + 4 + length)]
             date_type = bytetohex(data[offset] + data[offset + 1])
             this.append((date_type, "".join(temp)))
@@ -53,7 +53,7 @@ def walk_domain(raw_stream):
         temp = [chr(stream[i]) for i in range(offset + 1, offset + 1 + length)]
         domain = "".join(temp)
 
-        port = calc_length(raw_stream[offset + length + 2: offset + length + 4])
+        port = calc_length(raw_stream[offset + length + 2 : offset + length + 4])
         offset += length + 4
         domains.append((domain, port))
     return domains

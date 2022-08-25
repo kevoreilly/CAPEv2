@@ -53,7 +53,7 @@ def yara_scan(raw_data, rule_name):
 
 
 def unicode_string_from_offset(buffer, offset, max):
-    return buffer[offset: offset + max].decode("utf-16")
+    return buffer[offset : offset + max].decode("utf-16")
 
 
 def decode(ciphertext, size, key):
@@ -75,7 +75,7 @@ def decode(ciphertext, size, key):
             key = (key - v6) & UINT_MAX
         else:
             key = (key * 9) & UINT_MAX
-        decoded_chars[v4] = struct.unpack("B", ciphertext[v4: v4 + 1])[0] ^ (key & 0xFF)
+        decoded_chars[v4] = struct.unpack("B", ciphertext[v4 : v4 + 1])[0] ^ (key & 0xFF)
         v4 += 1
 
     return decoded_chars
@@ -90,17 +90,17 @@ def extract_config(filebuf):
     else:
         return
 
-    config_rva = struct.unpack("i", filebuf[yara_offset + 8: yara_offset + 12])[0] - image_base
+    config_rva = struct.unpack("i", filebuf[yara_offset + 8 : yara_offset + 12])[0] - image_base
     config_offset = pe.get_offset_from_rva(config_rva)
-    size = struct.unpack("i", filebuf[yara_offset + 88: yara_offset + 92])[0]
-    key = struct.unpack("i", filebuf[config_offset + 128: config_offset + 132])[0]
+    size = struct.unpack("i", filebuf[yara_offset + 88 : yara_offset + 92])[0]
+    key = struct.unpack("i", filebuf[config_offset + 128 : config_offset + 132])[0]
     end_config = {"family": "RCSession"}
-    tmp_config = decode(filebuf[config_offset: config_offset + size], size, key)
+    tmp_config = decode(filebuf[config_offset : config_offset + size], size, key)
 
-    c2_address = str(tmp_config[156: 156 + MAX_IP_STRING_SIZE])
+    c2_address = str(tmp_config[156 : 156 + MAX_IP_STRING_SIZE])
     if c2_address:
         end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
-    c2_address = str(tmp_config[224: 224 + MAX_IP_STRING_SIZE])
+    c2_address = str(tmp_config[224 : 224 + MAX_IP_STRING_SIZE])
     if c2_address:
         end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
     installdir = unicode_string_from_offset(bytes(tmp_config), 0x2A8, 128)

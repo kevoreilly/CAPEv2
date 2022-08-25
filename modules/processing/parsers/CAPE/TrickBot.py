@@ -62,7 +62,7 @@ def yara_scan(raw_data, rule_name):
 def xor_data(data, key, key_len):
     decrypted_blob = b""
     for i, x in enumerate(range(0, len(data), 4)):
-        xor = struct.unpack("<L", data[x: x + 4])[0] ^ struct.unpack("<L", key[i % key_len])[0]
+        xor = struct.unpack("<L", data[x : x + 4])[0] ^ struct.unpack("<L", key[i % key_len])[0]
         decrypted_blob += struct.pack("<L", xor)
     return decrypted_blob
 
@@ -149,34 +149,34 @@ def decode_onboard_config(data):
         data = trick_decrypt(a[4:])
         length = struct.unpack_from("<I", data)[0]
         if length < 4000:
-            return data[8: length + 8]
+            return data[8 : length + 8]
         a = rsrcs[1][1]
         data = trick_decrypt(a[4:])
         length = struct.unpack_from("<I", data)[0]
         if length < 4000:
-            return data[8: length + 8]
+            return data[8 : length + 8]
 
     # Following code by grahamaustin
     snippet = yara_scan(data, "$snippet1")
     if not snippet:
         return
     offset = int(snippet["$snippet1"])
-    key_len = struct.unpack("<L", data[offset + 10: offset + 14])[0]
-    key_offset = struct.unpack("<L", data[offset + 15: offset + 19])[0]
-    key_offset = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset + 15: offset + 19])[0]))
-    data_offset = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset + 20: offset + 24])[0]))
-    size_offset = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset + 53: offset + 57])[0]))
+    key_len = struct.unpack("<L", data[offset + 10 : offset + 14])[0]
+    key_offset = struct.unpack("<L", data[offset + 15 : offset + 19])[0]
+    key_offset = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset + 15 : offset + 19])[0]))
+    data_offset = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset + 20 : offset + 24])[0]))
+    size_offset = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset + 53 : offset + 57])[0]))
     size = size_offset - data_offset
-    key = data[key_offset: key_offset + key_len]
-    key = [key[i: i + 4] for i in range(0, len(key), 4)]
+    key = data[key_offset : key_offset + key_len]
+    key = [key[i : i + 4] for i in range(0, len(key), 4)]
     key_len2 = len(key)
-    a = data[data_offset: data_offset + size]
+    a = data[data_offset : data_offset + size]
     a = xor_data(a, key, key_len2)
 
     data = trick_decrypt(a)
     length = struct.unpack_from("<I", data)[0]
     if length < 4000:
-        return data[8: length + 8]
+        return data[8 : length + 8]
 
 
 def extract_config(data):

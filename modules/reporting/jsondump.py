@@ -20,6 +20,9 @@ except ImportError:
 class JsonDump(Report):
     """Saves analysis results in JSON format."""
 
+    # ensure we run after the SubmitCAPE
+    order = 10
+
     def default(self, obj):
         if isinstance(obj, bytes):
             try:

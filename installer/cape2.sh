@@ -1186,13 +1186,16 @@ function install_guacamole() {
     cp /opt/guac-session/extra/guacd.service /lib/systemd/system/guacd.service
     cp /opt/guac-session/extra/guac-web.service /lib/systemd/system/guac-web.service
 
+    mkdir -p /var/www/guacrecordings && chow ${USER}:${USER} /var/www/guacrecordings
+    if grep -q '/var/log/www/guacrecordings' /etc/fstab; then
+        echo "/opt/CAPEv2/storage/guacrecordings /var/log/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
+    fi
+
+    sudo mount -a
+
     systemctl daemon-reload
     systemctl enable guacd.service guac-web.service
     systemctl start guacd.service guac-web.service
-
-    mkdir -p /var/www/guacrecordings && chow ${USER}:${USER} /var/www/guacrecordings
-    echo "/opt/CAPEv2/storage/guacrecordings /var/log/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
-    sudo mount -a
 }
 
 function install_DIE() {

@@ -38,7 +38,7 @@ MAX_STRING_SIZE = 32
 
 
 def string_from_offset(data, offset):
-    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def extract_rdata(pe):
@@ -72,7 +72,8 @@ def extract_config(data):
                     if "\r\n" in decrypted and "|" not in decrypted:
                         config["IP Blocklist"] = list(filter(None, decrypted.split("\r\n")))
                     elif "|" in decrypted and "." in decrypted and "\r\n" not in decrypted:
-                        config.setdefault("http", []).extend([{"uri": uri} for uri in list(filter(None, decrypted.split("|")))])
+                        config.setdefault("http", []).extend([{"uri": uri}
+                                                              for uri in list(filter(None, decrypted.split("|")))])
                 except Exception:
                     continue
         matches = yara_rules.match(data=data)
@@ -85,7 +86,8 @@ def extract_config(data):
             for item in match.strings:
                 if "$c2key" in item[1]:
                     c2key_offset = int(item[0])
-                    key_rva = struct.unpack("i", data[c2key_offset + 28 : c2key_offset + 32])[0] - pe.OPTIONAL_HEADER.ImageBase
+                    key_rva = struct.unpack("i", data[c2key_offset + 28: c2key_offset + 32]
+                                            )[0] - pe.OPTIONAL_HEADER.ImageBase
                     key_offset = pe.get_offset_from_rva(key_rva)
                     config.setdefault("other", {})["C2 key"] = string_from_offset(data, key_offset).decode()
                     return config

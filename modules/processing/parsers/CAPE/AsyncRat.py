@@ -3,10 +3,8 @@
 import base64
 import logging
 import os
-import re
 import string
 import struct
-from collections import defaultdict
 from urllib.parse import urlparse
 
 import yara

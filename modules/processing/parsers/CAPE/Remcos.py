@@ -106,7 +106,8 @@ setup_list = {
     8: "Application path",
 }
 
-utf_16_string_list = ["Copy file", "Startup value", "Keylog file", "Take screenshot title", "Copy folder", "Keylog folder"]
+utf_16_string_list = ["Copy file", "Startup value", "Keylog file",
+                      "Take screenshot title", "Copy folder", "Keylog folder"]
 logger = logging.getLogger(__name__)
 
 
@@ -165,8 +166,8 @@ def extract_config(filebuf):
         if blob:
             config = {"family": "Remcos", "category": ["rat"]}
             keylen = blob[0]
-            key = blob[1 : keylen + 1]
-            decrypted_data = ARC4.new(key).decrypt(blob[keylen + 1 :])
+            key = blob[1: keylen + 1]
+            decrypted_data = ARC4.new(key).decrypt(blob[keylen + 1:])
             p_data = OrderedDict()
             config["version"] = check_version(filebuf)
 
@@ -213,6 +214,9 @@ def extract_config(filebuf):
                     v = v.decode("utf16").strip("\00")
                 config.setdefault("other", {})[k] = v
 
+    except pefile.PEFormatError:
+        # Not a PE file
+        pass
     except Exception as e:
         logger.error(f"Caught an exception: {e}")
 

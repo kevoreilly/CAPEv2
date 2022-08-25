@@ -15,7 +15,6 @@
 import string
 
 import pefile
-import yara
 from Cryptodome.Cipher import ARC4
 
 DESCRIPTION = "DoppelPaymer configuration parser."

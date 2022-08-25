@@ -64,11 +64,11 @@ def pe_data(pe, va, size):
 
 
 def string_from_offset(buffer, offset):
-    return buffer[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return buffer[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def unicode_string_from_offset(buffer, offset):
-    return buffer[offset : offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
+    return buffer[offset: offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
 
 
 def extract_config(filebuf):
@@ -82,19 +82,19 @@ def extract_config(filebuf):
     else:
         return
 
-    config_rva = struct.unpack("i", filebuf[yara_offset + 23 : yara_offset + 27])[0] - image_base
+    config_rva = struct.unpack("i", filebuf[yara_offset + 23: yara_offset + 27])[0] - image_base
     config_offset = pe.get_offset_from_rva(config_rva)
-    xor_key = struct.unpack("b", filebuf[yara_offset + 27 : yara_offset + 28])[0]
-    config_size = struct.unpack("i", filebuf[yara_offset + 30 : yara_offset + 34])[0]
-    tmp_config = "".join([chr(xor_key ^ ord(x)) for x in filebuf[config_offset : config_offset + config_size]])
+    xor_key = struct.unpack("b", filebuf[yara_offset + 27: yara_offset + 28])[0]
+    config_size = struct.unpack("i", filebuf[yara_offset + 30: yara_offset + 34])[0]
+    tmp_config = "".join([chr(xor_key ^ ord(x)) for x in filebuf[config_offset: config_offset + config_size]])
     end_config = {}
-    c2_address = tmp_config[8 : 8 + MAX_IP_STRING_SIZE]
+    c2_address = tmp_config[8: 8 + MAX_IP_STRING_SIZE]
     if c2_address:
         end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
-    c2_address = tmp_config[0x48 : 0x48 + MAX_IP_STRING_SIZE]
+    c2_address = tmp_config[0x48: 0x48 + MAX_IP_STRING_SIZE]
     if c2_address:
         end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
-    c2_address = tmp_config[0x88 : 0x88 + MAX_IP_STRING_SIZE]
+    c2_address = tmp_config[0x88: 0x88 + MAX_IP_STRING_SIZE]
     if c2_address:
         end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
     missionid = string_from_offset(tmp_config, 0x1EC)

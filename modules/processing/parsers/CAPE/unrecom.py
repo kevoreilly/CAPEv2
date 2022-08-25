@@ -1,21 +1,25 @@
 import string
 import xml.etree.ElementTree as ET
-from io import StringIO
-from zipfile import ZipFile
+from io import StringIO, BytesIO
+from zipfile import ZipFile, BadZipFile
 
 from Cryptodome.Cipher import ARC4
 
 
 def extract_embedded(zip_data):
     raw_embedded = None
-    archive = StringIO(zip_data)
-    with ZipFile(archive) as zip:
-        for name in zip.namelist():  # get all the file names
-            if name == "load/ID":  # contains first part of key
-                partial_key = zip.read(name)
-                enckey = f"{partial_key}DESW7OWKEJRU4P2K"  # complete key
-            if name == "load/MANIFEST.MF":  # this is the embedded jar
-                raw_embedded = zip.read(name)
+    archive = BytesIO(zip_data) if isinstance(zip_data, bytes) else StringIO(zip_data)
+    try:
+        with ZipFile(archive) as zip:
+            for name in zip.namelist():  # get all the file names
+                if name == "load/ID":  # contains first part of key
+                    partial_key = zip.read(name)
+                    enckey = f"{partial_key}DESW7OWKEJRU4P2K"  # complete key
+                if name == "load/MANIFEST.MF":  # this is the embedded jar
+                    raw_embedded = zip.read(name)
+    except BadZipFile:
+        # File is not a zip
+        pass
     if raw_embedded is None:
         return None
     # Decrypt the raw file

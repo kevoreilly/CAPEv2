@@ -7,13 +7,15 @@ import pefile
 def get_config(data):
     try:
         pe = pefile.PE(data=data)
-        rt_string_idx = [entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE["RT_RCDATA"])
+        rt_string_idx = [
+            entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries].index(
+            pefile.RESOURCE_TYPE["RT_RCDATA"])
         rt_string_directory = pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_string_idx]
         for entry in rt_string_directory.directory.entries:
             if str(entry.name) == "GREAME":
                 data_rva = entry.directory.entries[0].data.struct.OffsetToData
                 size = entry.directory.entries[0].data.struct.Size
-                data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
+                data = pe.get_memory_mapped_image()[data_rva: data_rva + size]
                 return data.split("####@####")
     except Exception:
         return None
@@ -49,7 +51,10 @@ def parse_config(raw_config):
             }
         ],
     )
-    config["paths"] = [{"path": os.path.join(xor_decode(raw_config[25]), xor_decode(raw_config[26])), "usage": "install"}]
+    config["paths"] = [
+        {"path": os.path.join(xor_decode(raw_config[25]),
+                              xor_decode(raw_config[26])),
+         "usage": "install"}]
     config["mutex"] = [xor_decode(raw_config[62])]
     config["registry"] = [
         {"key": xor_decode(raw_config[28])},  # "REG Key HKLM"

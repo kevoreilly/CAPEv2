@@ -85,7 +85,7 @@ SECTION_KEYS = {
 
 
 def string_from_offset(buffer, offset):
-    return buffer[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0].decode()
+    return buffer[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0].decode()
 
 
 def get_config_item(config, offset):
@@ -96,8 +96,8 @@ def get_config_item(config, offset):
 def convert_pubkey(pub):
     # bit = struct.unpack_from('<I', pub)[0]
     bit = 0x200
-    mod = pub[4 : (bit / 8) + 4]
-    exp = pub[(bit / 8) + 4 :]
+    mod = pub[4: (bit / 8) + 4]
+    exp = pub[(bit / 8) + 4:]
 
     mod = int(binascii.hexlify(mod), 16)
     exp = int(binascii.hexlify(exp), 16)
@@ -122,10 +122,10 @@ def extract_config(raw_data):
         section_count = 0
         section_offset = 8
         while section_count < number_of_sections:
-            section_key = struct.unpack("I", raw_data[section_offset : section_offset + 4])[0]
-            section_type = struct.unpack("I", raw_data[section_offset + 4 : section_offset + 8])[0]
+            section_key = struct.unpack("I", raw_data[section_offset: section_offset + 4])[0]
+            section_type = struct.unpack("I", raw_data[section_offset + 4: section_offset + 8])[0]
             if section_type == 1:
-                data_offset = struct.unpack("I", raw_data[section_offset + 8 : section_offset + 12])[0]
+                data_offset = struct.unpack("I", raw_data[section_offset + 8: section_offset + 12])[0]
                 config_item = get_config_item(raw_data, section_offset + data_offset)
                 if config_item == "":
                     section_count += 1
@@ -140,12 +140,12 @@ def extract_config(raw_data):
 
     elif dword2 == 0:
         section_offset = 8
-        section_key = struct.unpack("I", raw_data[section_offset : section_offset + 4])[0]
-        section_type = struct.unpack("I", raw_data[section_offset + 4 : section_offset + 8])[0]
+        section_key = struct.unpack("I", raw_data[section_offset: section_offset + 4])[0]
+        section_type = struct.unpack("I", raw_data[section_offset + 4: section_offset + 8])[0]
         while section_type == 1:
-            section_key = struct.unpack("I", raw_data[section_offset : section_offset + 4])[0]
-            section_type = struct.unpack("I", raw_data[section_offset + 4 : section_offset + 8])[0]
-            data_offset = struct.unpack("I", raw_data[section_offset + 8 : section_offset + 12])[0]
+            section_key = struct.unpack("I", raw_data[section_offset: section_offset + 4])[0]
+            section_type = struct.unpack("I", raw_data[section_offset + 4: section_offset + 8])[0]
+            data_offset = struct.unpack("I", raw_data[section_offset + 8: section_offset + 12])[0]
             config_item = get_config_item(raw_data, section_offset + data_offset)
             if config_item == "":
                 section_offset += 24

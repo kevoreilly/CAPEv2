@@ -42,7 +42,7 @@ def decodeREvilConfig(config_key, config_data):
 
     key = config_key
     config_len = struct.unpack("<H", config_data[4:6])[0]
-    encoded_config = config_data[8 : config_len + 7]
+    encoded_config = config_data[8: config_len + 7]
     decoded_config = []
 
     # print(f"Key:\t{key}")
@@ -77,19 +77,23 @@ def decodeREvilConfig(config_key, config_data):
 def extract_config(data):
     config_data = ""
     config_key = ""
-    pe = pefile.PE(data=data)
+    try:
+        pe = pefile.PE(data=data)
 
-    if len(pe.sections) == 5:
-        section_names = getSectionNames(pe.sections)
-        required_sections = (b".text", b".rdata", b".data", b".reloc")
+        if len(pe.sections) == 5:
+            section_names = getSectionNames(pe.sections)
+            required_sections = (b".text", b".rdata", b".data", b".reloc")
 
-        # print section_names
-        if all(sections in section_names for sections in required_sections):
-            # print("all required section names found")
-            config_section_name = [resource for resource in section_names if resource not in required_sections][0]
-            config_key, config_data = getREvilKeyAndConfig(pe.sections, config_section_name)
-            if config_key and config_data:
-                config = decodeREvilConfig(config_key, config_data)
-                if config:
-                    return {"family": "REvil", "other": config}
+            # print section_names
+            if all(sections in section_names for sections in required_sections):
+                # print("all required section names found")
+                config_section_name = [resource for resource in section_names if resource not in required_sections][0]
+                config_key, config_data = getREvilKeyAndConfig(pe.sections, config_section_name)
+                if config_key and config_data:
+                    config = decodeREvilConfig(config_key, config_data)
+                    if config:
+                        return {"family": "REvil", "other": config}
+    except pefile.PEFormatError:
+        # This isn't a PE file, therefore unlikely to extract a configuration
+        pass
     return {}

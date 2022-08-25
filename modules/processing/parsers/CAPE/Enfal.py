@@ -49,11 +49,11 @@ def yara_scan(raw_data, rule_name):
 
 
 def string_from_offset(data, offset):
-    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def list_from_offset(data, offset):
-    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    string = data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
     return string.split(b",")
 
 
@@ -74,11 +74,11 @@ def extract_config(filebuf):
         if c2_url:
             http["uri"] = c2_url
 
-        if filebuf[yara_offset + 0x13B0 : yara_offset + 0x13B1] == "S":
+        if filebuf[yara_offset + 0x13B0: yara_offset + 0x13B1] == "S":
             registrypath = string_from_offset(filebuf, yara_offset + 0x13B0)
-        elif filebuf[yara_offset + 0x13C0 : yara_offset + 0x13C1] == "S":
+        elif filebuf[yara_offset + 0x13C0: yara_offset + 0x13C1] == "S":
             registrypath = string_from_offset(filebuf, yara_offset + 0x13C0)
-        elif filebuf[yara_offset + 0x13D0 : yara_offset + 0x13D1] == "S":
+        elif filebuf[yara_offset + 0x13D0: yara_offset + 0x13D1] == "S":
             registrypath = string_from_offset(filebuf, yara_offset + 0x13D0)
         else:
             registrypath = ""
@@ -86,17 +86,17 @@ def extract_config(filebuf):
         if registrypath:
             return_conf["registry"] = [{"key": registrypath, "usage": "c2"}]
 
-        if filebuf[yara_offset + 0x14A2 : yara_offset + 0x14A3] == "C":
+        if filebuf[yara_offset + 0x14A2: yara_offset + 0x14A3] == "C":
             servicename = ""
             filepaths = list_from_offset(filebuf, yara_offset + 0x14A2)
             filepaths[0] = filepaths[0].split(b" ", 1)[0]
-        elif filebuf[yara_offset + 0x14B0 : yara_offset + 0x14B1] != "\0":
+        elif filebuf[yara_offset + 0x14B0: yara_offset + 0x14B1] != "\0":
             servicename = string_from_offset(filebuf, yara_offset + 0x14B0)
             filepaths = list_from_offset(filebuf, yara_offset + 0x14C0)
-        elif filebuf[yara_offset + 0x14C0 : yara_offset + 0x14C1] != "\0":
+        elif filebuf[yara_offset + 0x14C0: yara_offset + 0x14C1] != "\0":
             servicename = string_from_offset(filebuf, yara_offset + 0x14C0)
             filepaths = list_from_offset(filebuf, yara_offset + 0x14D0)
-        elif filebuf[yara_offset + 0x14D0 : yara_offset + 0x14D1] != "\0":
+        elif filebuf[yara_offset + 0x14D0: yara_offset + 0x14D1] != "\0":
             servicename = string_from_offset(filebuf, yara_offset + 0x14D0)
             filepaths = list_from_offset(filebuf, yara_offset + 0x14E0)
         else:

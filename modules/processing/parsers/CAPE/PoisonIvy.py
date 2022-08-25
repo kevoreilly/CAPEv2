@@ -33,7 +33,7 @@ def walk_data(data):
     max_count = 0
     while offset < EOF and max_count < 22:
         try:
-            length = calc_length(stream[offset + 2 : offset + 4])
+            length = calc_length(stream[offset + 2: offset + 4])
             temp = [chr(stream[i]) for i in range(offset + 4, offset + 4 + length)]
             date_type = bytetohex(data[offset] + data[offset + 1])
             this.append((date_type, "".join(temp)))
@@ -53,13 +53,13 @@ def walk_domain(raw_stream):
         temp = [chr(stream[i]) for i in range(offset + 1, offset + 1 + length)]
         domain = "".join(temp)
 
-        port = calc_length(raw_stream[offset + length + 2 : offset + length + 4])
+        port = calc_length(raw_stream[offset + length + 2: offset + length + 4])
         offset += length + 4
         domains.append((domain, port))
     return domains
 
 
-def extract_config(config_raw):
+def extract_final_config(config_raw):
     config = {}
 
     for field in config_raw:
@@ -126,7 +126,7 @@ def extract_config(data):
         # If the split works try to walk the strings.
         two = walk_data(one)
         # Let's Process this and format the config.
-        final_config = extract_config(two)
+        final_config = extract_final_config(two)
         domain_data = domain_parse(final_config)
         return [final_config, domain_data]
     except Exception:

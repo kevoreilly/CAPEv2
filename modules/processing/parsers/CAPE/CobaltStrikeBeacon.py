@@ -147,7 +147,7 @@ class packedSetting:
             return None
 
         repr_len = len(self.binary_repr())
-        conf_data = full_config_data[data_offset + repr_len: data_offset + repr_len + self.length]
+        conf_data = full_config_data[data_offset + repr_len : data_offset + repr_len + self.length]
         if self.datatype == confConsts.TYPE_SHORT:
             conf_data = unpack(">H", conf_data)[0]
             if not conf_data:
@@ -194,8 +194,8 @@ class packedSetting:
                     # Only EXECUTE_TYPE for now
                     else:
                         # Skipping unknown short value in the start
-                        string1 = netunpack(b"I$", conf_data[i + 3:])[0].decode()
-                        string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1):])[0].decode()
+                        string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
+                        string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
                         ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
                         i += len(string1) + len(string2) + 11
 
@@ -204,10 +204,10 @@ class packedSetting:
                     return "Empty"
 
                 prepend_length = unpack(">I", conf_data[:4])[0]
-                prepend = conf_data[4: 4 + prepend_length].hex()
+                prepend = conf_data[4 : 4 + prepend_length].hex()
                 append_length_offset = prepend_length + 4
-                append_length = unpack(">I", conf_data[append_length_offset: append_length_offset + 4])[0]
-                append = conf_data[append_length_offset + 4: append_length_offset + 4 + append_length].hex()
+                append_length = unpack(">I", conf_data[append_length_offset : append_length_offset + 4])[0]
+                append = conf_data[append_length_offset + 4 : append_length_offset + 4 + append_length].hex()
                 ret_arr = [
                     prepend,
                     append if append_length < 256 and append != bytes(append_length) else "Empty",
@@ -336,11 +336,9 @@ class BeaconSettings:
         self.settings["ProcInject_PrependAppend_x64"] = packedSetting(
             47, confConsts.TYPE_STR, 256, isBlob=True, isProcInjectTransform=True
         )
-        self.settings["ProcInject_Execute"] = packedSetting(
-            51, confConsts.TYPE_STR, 128, isBlob=True, enum=self.EXECUTE_TYPE)
+        self.settings["ProcInject_Execute"] = packedSetting(51, confConsts.TYPE_STR, 128, isBlob=True, enum=self.EXECUTE_TYPE)
         # If True then allocation is using NtMapViewOfSection
-        self.settings["ProcInject_AllocationMethod"] = packedSetting(
-            52, confConsts.TYPE_SHORT, enum=self.ALLOCATION_FUNCTIONS)
+        self.settings["ProcInject_AllocationMethod"] = packedSetting(52, confConsts.TYPE_SHORT, enum=self.ALLOCATION_FUNCTIONS)
 
         # Unknown data, silencing for now
         # self.settings["ProcInject_Stub"] = packedSetting(53, confConsts.TYPE_STR, 16, isBlob=True)
@@ -370,10 +368,10 @@ class cobaltstrikeConfig:
 
         if encoded_config_offset >= 0:
             full_config_data = cobaltstrikeConfig.decode_config(
-                self.data[encoded_config_offset: encoded_config_offset + confConsts.CONFIG_SIZE], version=version
+                self.data[encoded_config_offset : encoded_config_offset + confConsts.CONFIG_SIZE], version=version
             )
         else:
-            full_config_data = self.data[decoded_config_offset: decoded_config_offset + confConsts.CONFIG_SIZE]
+            full_config_data = self.data[decoded_config_offset : decoded_config_offset + confConsts.CONFIG_SIZE]
 
         settings = BeaconSettings(version).settings.items()
         for conf_name, packed_conf in settings:
@@ -442,10 +440,10 @@ class cobaltstrikeConfig:
         offset = 0
         key_found = False
         while offset < len(data):
-            key = data[offset: offset + 4]
+            key = data[offset : offset + 4]
             if key != bytes(4) and data.count(key) >= THRESHOLD:
                 key_found = True
-                size = int.from_bytes(data[offset - 4: offset], "little")
+                size = int.from_bytes(data[offset - 4 : offset], "little")
                 encrypted_data_offset = offset + 16 - (offset % 16)
                 break
 
@@ -456,7 +454,7 @@ class cobaltstrikeConfig:
             return None
 
         # decrypt and parse
-        enc_data = data[encrypted_data_offset: encrypted_data_offset + size]
+        enc_data = data[encrypted_data_offset : encrypted_data_offset + size]
         dec_data = [c ^ key[i % 4] for i, c in enumerate(enc_data)]
         dec_data = bytes(dec_data)
         return cobaltstrikeConfig(dec_data).parse_config(version, quiet, as_json)
@@ -486,59 +484,59 @@ if __name__ == "__main__":
 def beacon_settings_to_maco(output: dict):
     if not output:
         return
-    config = {'family': 'Cobalt StrikeBeacon'}
+    config = {"family": "Cobalt StrikeBeacon"}
 
     # SSH details
     ssh = {
-        'hostname': output.pop('SSH_Host', None),
-        'port': output.pop('SSH_Port', None),
-        'username': output.pop('SSH_Username', None),
-        'password': output.pop('SSH_Password_Plaintext', None),
-        'public_key': output.pop('SSH_Password_Pubkey', None),
-        'usage': 'c2'
+        "hostname": output.pop("SSH_Host", None),
+        "port": output.pop("SSH_Port", None),
+        "username": output.pop("SSH_Username", None),
+        "password": output.pop("SSH_Password_Plaintext", None),
+        "public_key": output.pop("SSH_Password_Pubkey", None),
+        "usage": "c2",
     }
     [ssh.pop(k) for k in list(ssh.keys()) if not ssh[k]]
     if len(ssh.keys()) > 1:
-        config['ssh'] = [ssh]
+        config["ssh"] = [ssh]
 
     # HTTP details
     http = []
-    c2_domain, c2_get_path = output.pop('C2Server', ',').split(',')
-    c2_post_path = output.pop('HttpPostUri', None)
+    c2_domain, c2_get_path = output.pop("C2Server", ",").split(",")
+    c2_post_path = output.pop("HttpPostUri", None)
     if c2_domain:
-        protocol = output.get('BeaconType')[0]
-        if protocol in ['HTTPS', 'HTTP']:
-            port = output.pop('Port', None)
+        protocol = output.get("BeaconType")[0]
+        if protocol in ["HTTPS", "HTTP"]:
+            port = output.pop("Port", None)
             if not port:
-                port = 443 if protocol == 'HTTPS' else 80
-            user_agent = output.pop('UserAgent', None)
+                port = 443 if protocol == "HTTPS" else 80
+            user_agent = output.pop("UserAgent", None)
             http_get = {
-                'uri': f'{protocol.lower()}://{c2_domain}{c2_get_path}',
-                'protocol': protocol.lower(),
-                'hostname': c2_domain,
-                'port': port,
-                'path': c2_get_path,
-                'method': output.pop('HttpGet_Verb', 'GET')
+                "uri": f"{protocol.lower()}://{c2_domain}{c2_get_path}",
+                "protocol": protocol.lower(),
+                "hostname": c2_domain,
+                "port": port,
+                "path": c2_get_path,
+                "method": output.pop("HttpGet_Verb", "GET"),
             }
-            http_get.update({'user_agent': user_agent}) if user_agent else None
+            http_get.update({"user_agent": user_agent}) if user_agent else None
             http.append(http_get)
             if c2_post_path:
                 http_post = {
-                    'uri': f'{protocol.lower()}://{c2_domain}{c2_get_path}',
-                    'protocol': protocol.lower(),
-                    'hostname': c2_domain,
-                    'port': port,
-                    'path': c2_post_path,
-                    'method': output.pop('HttpPost_Verb', 'POST')
+                    "uri": f"{protocol.lower()}://{c2_domain}{c2_get_path}",
+                    "protocol": protocol.lower(),
+                    "hostname": c2_domain,
+                    "port": port,
+                    "path": c2_post_path,
+                    "method": output.pop("HttpPost_Verb", "POST"),
                 }
-                http_post.update({'user_agent': user_agent}) if user_agent else None
+                http_post.update({"user_agent": user_agent}) if user_agent else None
                 http.append(http_post)
-        config['http'] = http
+        config["http"] = http
 
-    config.update({'pipe': [output.pop('PipeName')]}) if output.get('PipeName') else None
-    config.update({'sleep_delay': output.pop('SleepTime')}) if output.get('SleepTime') else None
+    config.update({"pipe": [output.pop("PipeName")]}) if output.get("PipeName") else None
+    config.update({"sleep_delay": output.pop("SleepTime")}) if output.get("SleepTime") else None
     # Other
-    config['other'] = output
+    config["other"] = output
     return config
 
 

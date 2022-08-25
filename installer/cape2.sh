@@ -1193,9 +1193,6 @@ function install_guacamole() {
     mkdir -p /var/www/guacrecordings && chow ${USER}:${USER} /var/www/guacrecordings
     echo "/opt/CAPEv2/storage/guacrecordings /var/log/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
     sudo mount -a
-    [25/Aug/2022 07:03:27] "GET /static/js/playback.js HTTP/1.1" 404 1803
-    [25/Aug/2022 07:03:27] "GET /static/css/playback.css HTTP/1.1" 404 1809
-    [25/Aug/2022 07:03:27] "GET /static/js/guacamole-common-js/1.4.0-all.min.js HTTP/1.1" 404 1878
 }
 
 function install_DIE() {

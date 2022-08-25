@@ -1145,8 +1145,11 @@ function install_volatility3() {
 
 function install_guacamole() {
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
-    sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev libfreerdp2-2 #libfreerdp-dev
-    sudo apt install freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+    sudo add-apt-repository ppa:remmina-ppa-team/remmina-next-daily
+    sudo apt update
+    sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
+    sudo apt install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+    sudo apt install -y bindfs
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
     mkdir /tmp/guac-build && cd /tmp/guac-build || return
     wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz
@@ -1155,9 +1158,21 @@ function install_guacamole() {
     make -j"$(getconf _NPROCESSORS_ONLN)"
     sudo checkinstall -D --pkgname=guacamole-server-guacamole --pkgversion="$guacamole_version" --default
     sudo ldconfig
-    sudo systemctl enable guacd
-    sudo systemctl start guacd
 
+    # ToDo https://github.com/enzok/guac-session
+    cp /opt/guac-session/extra/guacd.service /lib/systemd/system/guacd.service
+    cp /opt/guac-session/extra/guac-web.service /lib/systemd/system/guac-web.service
+
+    systemctl daemon-reload
+    systemctl enable guacd.service guac-web.service
+    systemctl start guacd.service guac-web.service
+
+    mkdir -p /var/www/guacrecordings && chow ${USER}:${USER} /var/www/guacrecordings
+    echo "/opt/CAPEv2/storage/guacrecordings /var/log/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
+    sudo mount -a
+    [25/Aug/2022 07:03:27] "GET /static/js/playback.js HTTP/1.1" 404 1803
+    [25/Aug/2022 07:03:27] "GET /static/css/playback.css HTTP/1.1" 404 1809
+    [25/Aug/2022 07:03:27] "GET /static/js/guacamole-common-js/1.4.0-all.min.js HTTP/1.1" 404 1878
 }
 
 function install_DIE() {

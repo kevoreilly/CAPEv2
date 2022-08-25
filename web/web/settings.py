@@ -468,6 +468,7 @@ LOGGING = {
 
 SILENCED_SYSTEM_CHECKS = [
     "admin.E408",
+    "models.W042",
     #'captcha.recaptcha_test_key_error'
 ]
 

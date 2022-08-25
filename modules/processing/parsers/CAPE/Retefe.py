@@ -73,9 +73,11 @@ def extract_config(filebuf):
     yara_matches = yara_scan(filebuf)
 
     if not all(
-        [yara_matches.get(key)
-         for key
-         in ("$retefe_xor_seed", "$retefe_xor_seed_2ndarg", "$retefe_shift_and_sub_match", "$retefe_encoded_buffer")]):
+        [
+            yara_matches.get(key)
+            for key in ("$retefe_xor_seed", "$retefe_xor_seed_2ndarg", "$retefe_shift_and_sub_match", "$retefe_encoded_buffer")
+        ]
+    ):
         return
 
     # Offset to seed for xor
@@ -87,17 +89,17 @@ def extract_config(filebuf):
     offset4 = int(yara_matches["$retefe_encoded_buffer"])
 
     # Offset starts at match, we want end of match
-    seed_val = struct.unpack("<i", filebuf[offset + 10: offset + 14])[0] - 1  # -1 because of indexing in code
+    seed_val = struct.unpack("<i", filebuf[offset + 10 : offset + 14])[0] - 1  # -1 because of indexing in code
     # print(f"Found seed (and buffer size) value {hex(seed_val)}")
     # Offset starts at match, we want end of match
-    power_to_val = struct.unpack("<i", filebuf[offset2 + 14: offset2 + 18])[0]
+    power_to_val = struct.unpack("<i", filebuf[offset2 + 14 : offset2 + 18])[0]
     # print(f"Found power to value {hex(power_to_val)}")
-    shift_val = struct.unpack("b", filebuf[offset3 + 2: offset3 + 3])[0]
+    shift_val = struct.unpack("b", filebuf[offset3 + 2 : offset3 + 3])[0]
     # print(f"Found shift left value {hex(shift_val)}")
-    subtract_val = struct.unpack("<i", filebuf[offset3 + 4: offset3 + 8])[0]
+    subtract_val = struct.unpack("<i", filebuf[offset3 + 4 : offset3 + 8])[0]
     # print(f"Found subtract value {hex(subtract_val)}")
     # (match length before instruction) + 7 (instruction length)
-    buffer_place = struct.unpack("<i", filebuf[offset4 + 16: offset4 + 20])[0] + 13 + 7
+    buffer_place = struct.unpack("<i", filebuf[offset4 + 16 : offset4 + 20])[0] + 13 + 7
     # print(f"Found buffer place arg {hex(buffer_place)}")
     xor_arr = pwd_calc(seed_val, power_to_val, shift_val, subtract_val)
     # print(f"XOR array that will be used for decryption {xor_arr}")
@@ -112,7 +114,7 @@ def extract_config(filebuf):
     # Encoded buffer rva address :
     rva = rva_next_instr + text_va_base + buffer_place
     # print(f"Calculated RVA for encoded buffer is {hex(rva)}")
-    buffer = pe.get_memory_mapped_image()[rva: rva + seed_val]
+    buffer = pe.get_memory_mapped_image()[rva : rva + seed_val]
     n = 0
     result = ""
     for ch in buffer:

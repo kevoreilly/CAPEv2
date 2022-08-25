@@ -65,9 +65,9 @@ def pe_data(pe, va, size):
 
 def string_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
-    string_rva = struct.unpack("i", pe.__data__[offset: offset + 4])[0] - image_base
+    string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    return pe.__data__[string_offset: string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 map_offset = {
@@ -92,7 +92,7 @@ def extract_config(filebuf):
         c2_address = string_from_va(pe, yara_offset + values[0])
         if c2_address:
             c2_tcp["server_ip"] = c2_address
-        port = str(struct.unpack("h", filebuf[yara_offset + values[1]: yara_offset + values[1] + 2])[0])
+        port = str(struct.unpack("h", filebuf[yara_offset + values[1] : yara_offset + values[1] + 2])[0])
         if port:
             c2_tcp["server_port"] = port
         missionid = string_from_va(pe, yara_offset + values[3])

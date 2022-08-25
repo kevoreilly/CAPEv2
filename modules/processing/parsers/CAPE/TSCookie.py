@@ -102,7 +102,7 @@ def load_rc4key(data):
         mk = re.search(pattern, data)
         key_end = ""
         if mk:
-            key_end = data[mk.end() + 1: mk.end() + 5]
+            key_end = data[mk.end() + 1 : mk.end() + 5]
             break
     return key_end
 
@@ -113,9 +113,9 @@ def load_resource(pe, data):
         mr = re.search(pattern, data)
         if mr:
             try:
-                (resource_name_rva,) = unpack("=I", data[mr.start() + 2: mr.start() + 6])
+                (resource_name_rva,) = unpack("=I", data[mr.start() + 2 : mr.start() + 6])
                 rn_addr = pe.get_physical_by_rva(resource_name_rva - pe.NT_HEADERS.OPTIONAL_HEADER.ImageBase)
-                resource_name = data[rn_addr: rn_addr + 4]
+                resource_name = data[rn_addr : rn_addr + 4]
                 resource_id = ord(unpack("c", data[mr.start() + 7])[0])
                 if resource_id > 200:
                     resource_id = ord(unpack("c", data[mr.start() + 8])[0])
@@ -134,7 +134,7 @@ def load_resource(pe, data):
                     try:
                         data_rva = entry.directory.entries[0].data.struct.OffsetToData
                         size = entry.directory.entries[0].data.struct.Size
-                        rc_data = pe.get_memory_mapped_image()[data_rva: data_rva + size]
+                        rc_data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
                     except Exception:
                         return
 
@@ -151,9 +151,9 @@ def extract_config(data):
         mc = re.search(pattern, data)
         if mc:
             try:
-                (config_rva,) = unpack("=I", data[mc.start() + 3: mc.start() + 7])
+                (config_rva,) = unpack("=I", data[mc.start() + 3 : mc.start() + 7])
                 config_addr = dll.get_physical_by_rva(config_rva - dll.NT_HEADERS.OPTIONAL_HEADER.ImageBase)
-                enc_config_data = data[config_addr: config_addr + CONFIG_SIZE]
+                enc_config_data = data[config_addr : config_addr + CONFIG_SIZE]
             except Exception:
                 return
 

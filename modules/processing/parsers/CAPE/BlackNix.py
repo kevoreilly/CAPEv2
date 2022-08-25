@@ -12,7 +12,7 @@ def extract_raw_config(raw_data):
         if str(entry.name) == "SETTINGS":
             data_rva = entry.directory.entries[0].data.struct.OffsetToData
             size = entry.directory.entries[0].data.struct.Size
-            data = pe.get_memory_mapped_image()[data_rva: data_rva + size]
+            data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
             return data.split("}")
 
 

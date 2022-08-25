@@ -64,7 +64,7 @@ def get_salt():
 
 def decrypt(key, ciphertext):
     aes_key = PBKDF2(key, get_salt(), 32, 50000)
-    cipher = AES.new(aes_key, AES.MODE_CBC, ciphertext[32: 32 + 16])
+    cipher = AES.new(aes_key, AES.MODE_CBC, ciphertext[32 : 32 + 16])
     plaintext = cipher.decrypt(ciphertext[48:]).decode("ascii", "ignore").strip()
     return plaintext
 
@@ -100,9 +100,9 @@ def extract_config(filebuf):
         if match[1] == "$magic_cslr_0":
             addr = match[0]
 
-    strings_offset = struct.unpack("<I", filebuf[addr + 0x40: addr + 0x44])[0]
-    strings_size = struct.unpack("<I", filebuf[addr + 0x44: addr + 0x48])[0]
-    data = filebuf[addr + strings_offset: addr + strings_offset + strings_size]
+    strings_offset = struct.unpack("<I", filebuf[addr + 0x40 : addr + 0x44])[0]
+    strings_size = struct.unpack("<I", filebuf[addr + 0x44 : addr + 0x48])[0]
+    data = filebuf[addr + strings_offset : addr + strings_offset + strings_size]
     data = data.split(b"\x00\x00")
     key = base64.b64decode(get_string(data, 7))
     log.debug("extracted key: " + str(key))

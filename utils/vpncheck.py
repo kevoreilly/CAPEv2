@@ -45,7 +45,8 @@ if __name__ == "__main__":
             print("Not a configured VPN", vpn)
             continue
 
-        if not rooter("nic_available", vpns[vpn].interface):
+        is_nic_available = rooter("nic_available", vpns[vpn].interface)["output"]
+        if not is_nic_available:
             print("VPN is no longer available", vpn, file=sys.stderr)
             error = 1
             continue

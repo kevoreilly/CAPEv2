@@ -16,6 +16,7 @@ import shutil
 import sys
 import threading
 import time
+import timeit
 import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -118,6 +119,10 @@ except ImportError:
     required("flask-restful")
 
 session = create_session(reporting_conf.distributed.db, echo=False)
+
+binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
+if not os.path.exists(binaries_folder):
+    os.makedirs(binaries_folder, mode=0o755)
 
 
 def node_status(url, name, apikey):
@@ -456,7 +461,7 @@ class Retriever(threading.Thread):
 
     def notification_loop(self):
         urls = reporting_conf.callback.url.split(",")
-        # headers = {"x-api-key": reporting_conf.callback.key}
+        headers = {"x-api-key": reporting_conf.callback.key}
 
         db = session()
         while True:
@@ -468,8 +473,7 @@ class Retriever(threading.Thread):
                     log.debug("reporting main_task_id: {}".format(task.main_task_id))
                     for url in urls:
                         try:
-                            #  headers=headers,
-                            res = requests.post(url, data=json.dumps({"task_id": int(task.main_task_id)}))
+                            res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(task.main_task_id)}))
                             if res and res.ok:
                                 # log.info(res.content)
                                 task.notificated = True
@@ -616,37 +620,38 @@ class Retriever(threading.Thread):
                 main_db.set_status(t.main_task_id, TASK_REPORTED)
 
                 # Fetch each requested report.
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
+                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
                 # ToDo option
                 node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
-                start_copy = datetime.now()
+                start_copy = timeit.default_timer()
                 copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
+                timediff = timeit.default_timer() - start_copy
                 log.info(
-                    f"It took {datetime.now()-start_copy} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
+                    f"It took {timediff:.2f} seconds to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
                 )
 
                 if not copied:
                     log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
                     continue
 
+                # this doesn't exist for some reason
                 if os.path.exists(t.path):
                     sample = open(t.path, "rb").read()
                     sample_sha256 = hashlib.sha256(sample).hexdigest()
-                    destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")
-                    if not os.path.exists(destination):
-                        os.makedirs(destination, mode=0o755)
-                    destination = os.path.join(destination, sample_sha256)
+                    destination = os.path.join(binaries_folder, sample_sha256)
                     if not os.path.exists(destination) and os.path.exists(t.path):
                         try:
                             shutil.move(t.path, destination)
                         except FileNotFoundError as e:
+                            print(f"Failed to move: {t.file} - {e}")
                             pass
 
                     # creating link to analysis folder
-                    if os.path.exists(t.path):
+                    if os.path.exists(destination):
                         try:
                             os.symlink(destination, os.path.join(report_path, "binary"))
                         except Exception as e:
+                            print(f"Failed link binary: {e}")
                             pass
 
                 t.retrieved = True
@@ -654,7 +659,7 @@ class Retriever(threading.Thread):
                 db.commit()
 
                 """
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
+                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
                 if not os.path.exists(report_path):
                     os.makedirs(report_path, mode=0o755)
 

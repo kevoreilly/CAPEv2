@@ -4,7 +4,7 @@
 
 import json
 import os
-from datetime import datetime
+import timeit
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
@@ -91,7 +91,7 @@ class ProcDump(Processing):
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
             if HAVE_FLARE_CAPA:
-                pretime = datetime.now()
+                pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "procdump")
                 if capa_details:
                     file_info["flare_capa"] = capa_details

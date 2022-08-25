@@ -26,7 +26,7 @@ if processing_conf.flare_capa.enabled:
     try:
         from capa.version import __version__ as capa_version
 
-        if capa_version[0] != "3":
+        if capa_version[0] != "4":
             print("FLARE-CAPA missed, pip3 install git+https://github.com/mandiant/capa")
         else:
             import capa.engine

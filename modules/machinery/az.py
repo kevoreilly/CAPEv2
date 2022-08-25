@@ -6,6 +6,7 @@ import logging
 import socket
 import threading
 import time
+import timeit
 
 try:
     # Azure-specific imports
@@ -457,43 +458,23 @@ class Azure(Machinery):
                 with reimage_lock:
                     label_in_reimage_vm_list = label in [f"{vm['vmss']}_{vm['id']}" for vm in reimage_vm_list]
         else:
-            self._delete_machine_from_db(label)
-            with vms_currently_being_deleted_lock:
-                vms_currently_being_deleted.append(label)
-            with delete_lock:
-                delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
+            self.delete_machine(label)
 
-    def availables(self, label=None, platform=None, tags=None):
-        if all(param is None for param in [label, platform, tags]):
-            return super(Azure, self).availables()
-        else:
-            return self._get_specific_availables(label=label, platform=platform, tags=tags)
+    def availables(self, machine_id=None, platform=None, tags=None, arch=None):
+        """
+        Overloading abstracts.py:availables() to utilize the auto-scale option.
+        """
+        if tags:
+            for tag in tags:
+                # If VMSS is in the "wait" state, then WAIT
+                vmss_name = next((name for name, vals in self.required_vmsss.items() if vals["tag"] == tag), None)
+                if vmss_name is None:
+                    return 0
+                if machine_pools[vmss_name]["wait"]:
+                    log.debug("Machinery is not ready yet...")
+                    return 0
 
-    def _get_specific_availables(self, label=None, platform=None, tags=None):
-        session = self.db.Session()
-        try:
-            machines = session.query(Machine)
-            # Note that label > platform > tags
-            if label:
-                machines = machines.filter_by(locked=False).filter_by(label=label)
-            elif platform:
-                machines = machines.filter_by(locked=False).filter_by(platform=platform)
-            elif tags:
-                for tag in tags:
-                    # If VMSS is in the "wait" state, then WAIT
-                    vmss_name = next((name for name, vals in self.required_vmsss.items() if vals["tag"] == tag), None)
-                    if vmss_name is None:
-                        return 0
-                    if machine_pools[vmss_name]["wait"]:
-                        log.debug("Machinery is not ready yet...")
-                        return 0
-                    machines = machines.filter_by(locked=False).filter(Machine.tags.any(name=tag))
-            return machines.count()
-        except SQLAlchemyError as e:
-            log.exception("Database error getting specific available machines: {0}".format(e))
-            return 0
-        finally:
-            session.close()
+        return super(Azure, self).availables(machine_id=machine_id, platform=platform, tags=tags, arch=arch)
 
     def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
         """
@@ -549,7 +530,7 @@ class Azure(Machinery):
             vmss_vm_nics = [vmss_vm_nic for vmss_vm_nic in paged_vmss_vm_nics]
 
             # This will be used if we are in the initializing phase of the system
-            ready_vmss_vm_threads = []
+            ready_vmss_vm_threads = {}
             with vms_currently_being_deleted_lock:
                 vms_to_avoid_adding = vms_currently_being_deleted
             for vmss_vm in paged_vmss_vms:
@@ -615,14 +596,16 @@ class Azure(Machinery):
                             private_ip,
                         ),
                     )
-                    ready_vmss_vm_threads.append(thr)
+                    ready_vmss_vm_threads[vmss_vm.name] = thr
                     thr.start()
 
             if self.initializing:
-                for thr in ready_vmss_vm_threads:
+                for vm, thr in ready_vmss_vm_threads.items():
                     try:
                         thr.join()
                     except CuckooGuestCriticalTimeout:
+                        log.debug(f"Rough start for {vm}, deleting.")
+                        self.delete_machine(vm)
                         raise
         except Exception as e:
             log.error(repr(e), exc_info=True)
@@ -646,30 +629,20 @@ class Azure(Machinery):
         for machine in self.db.list_machines():
             # If machine entry in database is part of VMSS but machine in VMSS does not exist, delete
             if vmss_name in machine.label and machine.label not in vmss_vm_names:
-                self._delete_machine_from_db(machine.label)
+                self.delete_machine(machine.label, delete_from_vmss=False)
 
-    def _delete_machine_from_db(self, machine_name):
+    def delete_machine(self, label, delete_from_vmss=True):
         """
-        Implementing machine deletion from Cuckoo's database.
-        This was not implemented in database.py, so implemented here in the machinery
-        TODO: move this method to database.py
-        @param machine_name: the name of the machine to be deleted
-        @return: End method call
+        Overloading abstracts.py:delete_machine()
         """
-        session = self.db.Session()
-        try:
-            machine = session.query(Machine).filter_by(label=machine_name).first()
-            if machine:
-                session.delete(machine)
-                session.commit()
-            else:
-                log.warning(f"{machine_name} does not exist in the database.")
-        except SQLAlchemyError as exc:
-            log.debug(f"Database error removing machine: '{exc}'.")
-            session.rollback()
-            return
-        finally:
-            session.close()
+        _ = super(Azure, self).delete_machine(label)
+
+        if delete_from_vmss:
+            vmss_name, instance_id = label.split("_")
+            with vms_currently_being_deleted_lock:
+                vms_currently_being_deleted.append(label)
+            with delete_lock:
+                delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
 
     @staticmethod
     def _thr_wait_for_ready_machine(machine_name, machine_ip):
@@ -680,8 +653,8 @@ class Azure(Machinery):
         @return: End method call
         """
         # Majority of this code is copied from cuckoo/core/guest.py:GuestManager.wait_available()
-        start = time.time()
-        end = start + Config("cuckoo").timeouts.vm_state
+        timeout = Config("cuckoo").timeouts.vm_state
+        start = timeit.default_timer()
         while True:
             try:
                 socket.create_connection((machine_ip, CUCKOO_GUEST_PORT), 1).close()
@@ -693,12 +666,12 @@ class Azure(Machinery):
                 log.debug(f"{machine_name}: Initializing...")
             time.sleep(10)
 
-            if time.time() >= end:
+            if timeit.default_timer() - start >= timeout:
                 # We didn't do it :(
                 raise CuckooGuestCriticalTimeout(
                     f"Machine {machine_name}: the guest initialization hit the critical " "timeout, analysis aborted."
                 )
-        log.debug(f"Machine {machine_name} was created and available in {round(time.time() - start)}s")
+        log.debug(f"Machine {machine_name} was created and available in {round(timeit.default_timer() - start)}s")
 
     @staticmethod
     def _azure_api_call(*args, **kwargs):
@@ -992,7 +965,7 @@ class Azure(Machinery):
                 # System is not at rest, but task queue is 0, therefore set machines in use to delete
                 elif relevant_task_queue == 0:
                     machine_pools[vmss_name]["is_scaling_down"] = True
-                    start_time = time.time()
+                    start_time = timeit.default_timer()
                     # Wait until currently locked machines are deleted to the number that we require
                     while number_of_relevant_machines > number_of_relevant_machines_required:
                         # Since we're sleeping 1 second between iterations of this while loop, if there are available
@@ -1008,7 +981,7 @@ class Azure(Machinery):
                         )
 
                         # We don't want to be stuck in this for longer than the timeout specified
-                        if time.time() - start_time > AZURE_TIMEOUT:
+                        if timeit.default_timer() - start_time > AZURE_TIMEOUT:
                             log.debug(f"Breaking out of the while loop within the scale down section for {vmss_name}.")
                             break
                         # Get the updated number of relevant machines required
@@ -1049,7 +1022,7 @@ class Azure(Machinery):
                 operation=self.compute_client.virtual_machine_scale_sets.get,
             )
             vmss.sku.capacity = number_of_relevant_machines_required
-            start_time = time.time()
+            start_time = timeit.default_timer()
 
             try:
                 Azure._wait_for_concurrent_operations_to_complete()
@@ -1072,7 +1045,8 @@ class Azure(Machinery):
                     is_platform_scaling[platform] = False
                 return
 
-            log.debug(f"The scaling of {vmss_name} took {round(time.time()-start_time)}s")
+            timediff = timeit.default_timer() - start_time
+            log.debug(f"The scaling of {vmss_name} took {round(timediff)}s")
             machine_pools[vmss_name]["size"] = number_of_relevant_machines_required
 
             # Alter the database based on if we scaled up or down
@@ -1102,14 +1076,15 @@ class Azure(Machinery):
         Provides method of handling Azure tasks that take too long to complete
         @param lro_poller_object: An LRO Poller Object for an Async Azure Task
         """
-        start_time = time.time()
+        start_time = timeit.default_timer()
         # TODO: Azure disregards the timeout passed to it in most cases, unless it has a custom poller
         try:
             lro_poller_result = lro_poller_object.result(timeout=AZURE_TIMEOUT)
         except Exception as e:
             raise CuckooMachineError(repr(e))
-        if (time.time() - start_time) >= AZURE_TIMEOUT:
-            raise CuckooMachineError(f"The task took {round(time.time() - start_time)}s to complete! Bad Azure!")
+        time_taken = timeit.default_timer() - start_time
+        if time_taken >= AZURE_TIMEOUT:
+            raise CuckooMachineError(f"The task took {round(time_taken)}s to complete! Bad Azure!")
         else:
             return lro_poller_result
 
@@ -1153,9 +1128,9 @@ class Azure(Machinery):
         """
         Waits until concurrent operations have reached an acceptable level to continue (less than 4)
         """
-        start_time = time.time()
+        start_time = timeit.default_timer()
         while current_vmss_operations == MAX_CONCURRENT_VMSS_OPERATIONS:
-            if (time.time() - start_time) > AZURE_TIMEOUT:
+            if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
                 log.debug("The timeout has been exceeded for the current concurrent VMSS operations to complete. Unleashing!")
                 break
             else:
@@ -1218,7 +1193,7 @@ class Azure(Machinery):
             instance_ids = list(set([vm["id"] for vm in vms_to_reimage_from_same_vmss]))
             try:
                 Azure._wait_for_concurrent_operations_to_complete()
-                start_time = time.time()
+                start_time = timeit.default_timer()
                 current_vmss_operations += 1
                 async_reimage_some_machines = Azure._azure_api_call(
                     self.options.az.sandbox_resource_group,
@@ -1253,7 +1228,7 @@ class Azure(Machinery):
                         with delete_lock:
                             delete_vm_list.append({"vmss": vmss_to_reimage, "id": instance_id, "time_added": time.time()})
 
-                    self._delete_machine_from_db(f"{vmss_to_reimage}_{instance_id}")
+                    self.delete_machine(f"{vmss_to_reimage}_{instance_id}", delete_from_vmss=False)
                     vms_currently_being_reimaged.remove(f"{vmss_to_reimage}_{instance_id}")
                     instance_ids.remove(instance_id)
 
@@ -1265,17 +1240,13 @@ class Azure(Machinery):
 
             # We wait because we want the machine to be fresh before another task is assigned to it
             while not async_reimage_some_machines.done():
-                if (time.time() - start_time) > AZURE_TIMEOUT:
+                if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
                     log.debug(
                         f"Reimaging machines {instance_ids} in {vmss_to_reimage} took too long, deleting them from the DB and the VMSS."
                     )
                     # That sucks, now we have to delete each one
                     for instance_id in instance_ids:
-                        self._delete_machine_from_db(f"{vmss_to_reimage}_{instance_id}")
-                        with vms_currently_being_deleted_lock:
-                            vms_currently_being_deleted.append(f"{vmss_to_reimage}_{instance_id}")
-                        with delete_lock:
-                            delete_vm_list.append({"vmss": vmss_to_reimage, "id": instance_id, "time_added": time.time()})
+                        self.delete_machine(f"{vmss_to_reimage}_{instance_id}")
                     break
                 time.sleep(2)
 
@@ -1284,7 +1255,8 @@ class Azure(Machinery):
                 vms_currently_being_reimaged.remove(f"{vm['vmss']}_{vm['id']}")
 
             current_vmss_operations -= 1
-            log.debug(f"Reimaging instances {instance_ids} in {vmss_to_reimage} took {round(time.time() - start_time)}s")
+            timediff = timeit.default_timer() - start_time
+            log.debug(f"Reimaging instances {instance_ids} in {vmss_to_reimage} took {round(timediff)}s")
 
     def _thr_delete_list_reader(self):
         global current_vmss_operations
@@ -1317,7 +1289,7 @@ class Azure(Machinery):
             instance_ids = list(set([vm["id"] for vm in vms_to_delete_from_same_vmss]))
             try:
                 Azure._wait_for_concurrent_operations_to_complete()
-                start_time = time.time()
+                start_time = timeit.default_timer()
                 current_vmss_operations += 1
                 async_delete_some_machines = Azure._azure_api_call(
                     self.options.az.sandbox_resource_group,
@@ -1336,7 +1308,7 @@ class Azure(Machinery):
 
             # We wait because we want the machine to be fresh before another task is assigned to it
             while not async_delete_some_machines.done():
-                if (time.time() - start_time) > AZURE_TIMEOUT:
+                if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
                     log.debug(f"Deleting machines {instance_ids} in {vmss_to_delete} took too long.")
                     break
                 time.sleep(2)
@@ -1346,4 +1318,4 @@ class Azure(Machinery):
                     vms_currently_being_deleted.remove(f"{vmss_to_delete}_{instance_id}")
 
             current_vmss_operations -= 1
-            log.debug(f"Deleting instances {instance_ids} in {vmss_to_delete} took {round(time.time() - start_time)}s")
+            log.debug(f"Deleting instances {instance_ids} in {vmss_to_delete} took {round(timeit.default_timer() - start_time)}s")

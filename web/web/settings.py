@@ -493,7 +493,7 @@ LOGGING = {
 }
 
 LOG_LEVEL = "INFO" if not DEBUG else "DEBUG"
-
+LOGGING_CONFIG = None
 logging.config.dictConfig(
     {
         "version": 1,

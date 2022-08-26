@@ -1166,11 +1166,22 @@ function install_guacamole() {
     sudo add-apt-repository ppa:remmina-ppa-team/remmina-next-daily
     sudo apt update
     sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
-    sudo apt install freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+    sudo apt install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+    sudo apt install -y bindfs
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
-    mkdir /tmp/guac-build && cd /tmp/guac-build || return
-    wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz
-    wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz.asc
+
+
+    if [ ! -d "tmp/guac-build" ] ; then
+       mkdir /tmp/guac-build
+    fi
+    cd /tmp/guac-build || return
+
+    if [ ! -f "guacamole-server-"$guacamole_version".tar.gz" ] ; then
+        wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz
+        wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz.asc
+        tar xf guacamole-server-"$guacamole_version".tar.gz
+    fi
+    cd guacamole-server-"$guacamole_version" || return
     CFLAGS=-Wno-error ./configure --with-systemd-dir=/etc/systemd/system/
     mkdir -p /tmp/guacamole-"${guacamole_version}"_builded/DEBIAN
     echo -e "Package: guacamole\nVersion: ${guacamole_version}\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Guacamole ${guacamole_version}" > /tmp/guacamole-"${guacamole_version}"_builded/DEBIAN/control
@@ -1178,10 +1189,32 @@ function install_guacamole() {
     USE_SYSTEM=1 dpkg-deb --build --root-owner-group /tmp/guacamole-"${guacamole_version}"_builded
     sudo dpkg -i --force-overwrite /tmp/guacamole-"${guacamole_version}"_builded.deb
     sudo ldconfig
-    sudo systemctl enable guacd
-    sudo systemctl start guacd
 
-    # ToDo https://github.com/enzok/guac-session
+    pip3 install -U 'Twisted[tls,http2]'
+
+    # ToDo integrate into CAPE
+    if [ ! -d "/opt/guac-session" ] ; then
+        git clone https://github.com/enzok/guac-session /opt/guac-session
+    fi
+
+    if [ ! -f "/opt//lib/systemd/system/guac-web.service" ] ; then
+        cp /opt/guac-session/extra/guacd.service /lib/systemd/system/guacd.service
+        cp /opt/guac-session/extra/guac-web.service /lib/systemd/system/guac-web.service
+    fi
+
+    if [ ! -d "/var/www/guacrecordings" ] ; then
+        sudo mkdir -p /var/www/guacrecordings && chow ${USER}:${USER} /var/www/guacrecordings
+    fi
+
+    if grep -q '/var/log/www/guacrecordings' /etc/fstab; then
+        echo "/opt/CAPEv2/storage/guacrecordings /var/log/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
+    fi
+
+    sudo mount -a
+
+    systemctl daemon-reload
+    systemctl enable guacd.service guac-web.service
+    systemctl start guacd.service guac-web.service
 }
 
 function install_DIE() {

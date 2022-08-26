@@ -19,3 +19,4 @@ This chapter explains how to use CAPE.
     utilities
     performance
     monitor
+    interactive_desktop

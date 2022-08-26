@@ -2,9 +2,13 @@ from base64 import urlsafe_b64decode
 from uuid import NAMESPACE_DNS, uuid3
 from xml.etree import ElementTree as ET
 
-import libvirt
 from django.shortcuts import render
 
+
+try:
+    import libvirt
+except ImportError:
+    print("Missed python-libvirt. Use extra/poetry_libvirt_installer.sh")
 
 def index(request, task_id, session_data):
     dsn = "qemu:///system"

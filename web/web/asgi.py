@@ -28,7 +28,7 @@ application = ProtocolTypeRouter(
     }
 )
 
-# Add / and /web (relative to cuckoo-modified install location) to our path
+# Add / and /web (relative to CAPE install location) to our path
 webdir = abspath(join(dirname(abspath(__file__)), ".."))
 sys.path.append(abspath(join(webdir, "..")))
 sys.path.append(webdir)

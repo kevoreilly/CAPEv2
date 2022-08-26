@@ -27,6 +27,9 @@ Go to ``/opt/CAPEv2/guac-session`` folder and create config::
     # edit .env
     $ systemctl restart guac-web.service
 
+Web server configuration
+========================
+
 You need to edit ``NGINX`` config to be able to use this. Example config
 
 .. code-block::

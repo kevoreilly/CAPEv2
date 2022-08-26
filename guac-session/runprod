@@ -1,0 +1,3 @@
+#python3 manage.py runserver_plus 0.0.0.0:8008 --traceback --keep-meta-shutdown
+#python3 manage.py runserver 0.0.0.0:8008
+poetry run gunicorn --bind 0.0.0.0:8008 guac-session.asgi -D -t 180 -w 4 -k uvicorn.workers.UvicornWorker --capture-output --enable-stdio-inheritance

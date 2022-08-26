@@ -1,0 +1,4 @@
+# guacd writes recording file with owner read/write permissions only
+# using bindfs as work around, unless someone can provide an easier solution
+
+/opt/guacrecordings /opt/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0

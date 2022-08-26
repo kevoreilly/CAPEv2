@@ -15,8 +15,6 @@
                     case 'remote session':
                         var task_url = location.origin + 'submit/status/{{task_id}}';
                         break;
-                    case 'playback':
-                        var task_url = location.origin + 'analysis/{{task_id}}';
                 }
                 document.getElementById("taskStatus").addEventListener("click", function() {
                     location.replace(task_url);

@@ -1205,6 +1205,10 @@ function install_guacamole() {
         echo "/opt/CAPEv2/storage/guacrecordings /var/log/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
     fi
 
+    cd /opt/CAPEv2
+    poetry install
+    cd ..
+
     sudo mount -a
 
     systemctl daemon-reload

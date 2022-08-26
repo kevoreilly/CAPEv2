@@ -9,8 +9,9 @@ Instalation
 
 .. warning::
 
-    This section is not user friendly YET!
-    We still have to integrate that to CAPE to be all in one.
+    * This section is not user friendly YET!
+    * We still have to integrate that to CAPE to be all in one.
+    * Doesn't support cluster mode.
 
 To install dependencies please run::
 
@@ -21,7 +22,7 @@ New services added::
     $ systemctl status guacd.service
     $ systemctl status guac-web.service
 
-Go to ``/opt/CAPEv2/guac-session`` folder and create config::
+Go to ``/opt/CAPEv2/guac-session`` folder and create the config::
 
     $ cp sample.env .env
     # edit .env
@@ -30,9 +31,9 @@ Go to ``/opt/CAPEv2/guac-session`` folder and create config::
 Web server configuration
 ========================
 
-You need to edit ``NGINX`` config to be able to use this. Example config
+You need to edit ``NGINX`` config to be able to use interactive mode, Example config.
 
-.. code-block::
+.. code-block:: python
 
     map $http_upgrade $connection_upgrade {
         default upgrade;
@@ -76,7 +77,6 @@ You need to edit ``NGINX`` config to be able to use this. Example config
             autoindex_localtime on;
         }
     }
-
 
 Virtual machine configuration
 =============================

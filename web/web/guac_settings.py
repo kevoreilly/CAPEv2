@@ -1,9 +1,9 @@
 import logging.config
 import os
 import sys
+from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
-from pathlib import Path
 
 CUCKOO_PATH = os.path.join(os.getcwd(), "..")
 sys.path.append(CUCKOO_PATH)
@@ -39,7 +39,9 @@ DEBUG = True
 
 LOGGING_CONFIG = None
 
-ALLOWED_HOSTS = ["*",]
+ALLOWED_HOSTS = [
+    "*",
+]
 
 INSTALLED_APPS = [
     "channels",

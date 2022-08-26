@@ -1,5 +1,5 @@
-from django.conf.urls.static import static
 from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import include, re_path
 
 urlpatterns = [

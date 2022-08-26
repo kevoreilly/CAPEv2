@@ -1,11 +1,11 @@
 import logging.config
 import os
-
 from distutils.util import strtobool
-from django.utils.log import DEFAULT_LOGGING
-from dotenv import load_dotenv
 from json import loads
 from pathlib import Path
+
+from django.utils.log import DEFAULT_LOGGING
+from dotenv import load_dotenv
 
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / "subdir".
@@ -113,9 +113,7 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": (
-            "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-        ),
+        "NAME": ("django.contrib.auth.password_validation.UserAttributeSimilarityValidator"),
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",

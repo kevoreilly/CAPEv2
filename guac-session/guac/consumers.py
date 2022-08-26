@@ -2,11 +2,11 @@ import asyncio
 import logging
 import os
 import urllib.parse
+from distutils.util import strtobool
 
 from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
-from distutils.util import strtobool
 from dotenv import load_dotenv
 from guacamole.client import GuacamoleClient
 
@@ -40,7 +40,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             guest_host = "localhost"
             ports = params.get("vncport", ["5900"])
             guest_port = int(ports[0])
-        
+
         guacd_recording_name = params.get("recording_name", ["task-recording"])[0]
 
         self.client = GuacamoleClient(guacd_hostname, guacd_port)

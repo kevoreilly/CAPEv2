@@ -1,9 +1,9 @@
-import libvirt
-
 from base64 import urlsafe_b64decode
-from django.shortcuts import render
-from uuid import uuid3, NAMESPACE_DNS
+from uuid import NAMESPACE_DNS, uuid3
 from xml.etree import ElementTree as ET
+
+import libvirt
+from django.shortcuts import render
 
 
 def index(request, task_id, session_data):
@@ -12,9 +12,7 @@ def index(request, task_id, session_data):
     recording_name = ""
     if conn:
         try:
-            session_id, label, guest_ip = (
-                urlsafe_b64decode(session_data).decode("utf8").split("|")
-            )
+            session_id, label, guest_ip = urlsafe_b64decode(session_data).decode("utf8").split("|")
             recording_name = f"{task_id}_{session_id}"
             dom = conn.lookupByName(label)
             if dom:

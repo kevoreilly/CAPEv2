@@ -54,5 +54,4 @@ urlpatterns = [
     ),
     re_path(r"^dashboard/", include(dashboard)),
     re_path(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name="statistics_data"),
-    re_path(r"^guac/", include(guac)),
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+]

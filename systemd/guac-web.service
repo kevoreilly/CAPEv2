@@ -2,7 +2,7 @@
 Description=Guacamole ASGI app
 
 [Service]
-WorkingDirectory=/opt/CAPEv2/guac-session
+WorkingDirectory=/opt/CAPEv2/web
 ExecStart=/usr/local/poetry/bin/poetry run gunicorn --bind 127.0.0.1:8008 guac-session.asgi -t 180 -w 4 -k uvicorn.workers.UvicornWorker --capture-output --enable-stdio-inheritance
 User=cape
 Group=cape

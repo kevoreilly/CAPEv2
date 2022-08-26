@@ -1,12 +1,9 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-import logging
 import os
 import sys
 from pathlib import Path
-
-from django.utils.log import DEFAULT_LOGGING
 
 try:
     import re2 as re
@@ -158,8 +155,6 @@ MEDIA_URL = ""
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.
 # Example: "/home/media/media.lawrence.com/static/"
 STATIC_ROOT = ""
-# From guac
-# STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # URL prefix for static files.
 # Example: "http://media.lawrence.com/static/"
@@ -232,12 +227,8 @@ ROOT_URLCONF = "web.urls"
 
 # Python dotted path to the WSGI application used by Django's runserver_plus.
 WSGI_APPLICATION = "web.wsgi.application"
-ASGI_APPLICATION = "web.asgi.application"
-
 
 INSTALLED_APPS = [
-    "channels",
-    "guac",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -367,21 +358,6 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
 ]
 
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": ("django.contrib.auth.password_validation.UserAttributeSimilarityValidator"),
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
-]
-
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -492,67 +468,6 @@ LOGGING = {
     },
 }
 
-LOG_LEVEL = "INFO" if not DEBUG else "DEBUG"
-LOGGING_CONFIG = None
-logging.config.dictConfig(
-    {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "default": {
-                "format": "%(levelname)s:%(name)s:%(message)s",
-            },
-            "django.server": DEFAULT_LOGGING["formatters"]["django.server"],
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "default",
-            },
-            "file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": BASE_DIR / "guac-server.log",
-                "formatter": "default",
-                "maxBytes": 1024 * 1024 * 100,  # 100 mb
-            },
-            "gunicorn": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "formatter": "default",
-                "filename": BASE_DIR / "gunicorn.log",
-                "maxBytes": 1024 * 1024 * 100,  # 100 mb
-            },
-            "django.server": DEFAULT_LOGGING["handlers"]["django.server"],
-        },
-        "loggers": {
-            "": {
-                "handlers": ["console"],
-                "level": LOG_LEVEL,
-                "propagate": True,
-            },
-            "django.utils.autoreload": {
-                "handlers": ["console"],
-                "level": "ERROR",
-            },
-            "django": {
-                "handlers": ["file"],
-                "level": LOG_LEVEL,
-                "propagate": False,
-            },
-            "guac-session": {
-                "handlers": ["file"],
-                "level": LOG_LEVEL,
-                "propagate": False,
-            },
-            "gunicorn.errors": {
-                "level": LOG_LEVEL,
-                "handlers": ["gunicorn"],
-                "propagate": True,
-            },
-            "django.server": DEFAULT_LOGGING["loggers"]["django.server"],
-        },
-    }
-)
-
 SILENCED_SYSTEM_CHECKS = [
     "admin.E408",
     "models.W042",
@@ -580,11 +495,6 @@ CSP_STYLE_SRC = ["'self'"]
 CSP_IMG_SRC = ["'self'"]
 
 RATELIMIT_ERROR_MSG = "Too many request without auth! You have exceed your free request per minute for anon users. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Hack to import local settings.
 try:

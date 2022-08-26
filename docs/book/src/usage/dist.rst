@@ -274,8 +274,10 @@ Good practice for production
 The number of retrieved threads can be configured in reporting.conf
 
 Installation of "uwsgi"::
+
+    # nginx is optional
     # apt-get install uwsgi uwsgi-plugin-python nginx
-    # nginx is only required if you want to use basic web auth
+
 
 Is better if you run "web" and "dist.py" as uwsgi application
 

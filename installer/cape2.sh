@@ -1171,7 +1171,7 @@ function install_guacamole() {
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
 
 
-    if [ ! -d "tmp/guac-build" ] ; then
+    if [ ! -d "/tmp/guac-build" ] ; then
        mkdir /tmp/guac-build
     fi
     cd /tmp/guac-build || return
@@ -1192,14 +1192,9 @@ function install_guacamole() {
 
     pip3 install -U 'Twisted[tls,http2]'
 
-    # ToDo integrate into CAPE
-    if [ ! -d "/opt/guac-session" ] ; then
-        git clone https://github.com/enzok/guac-session /opt/guac-session
-    fi
-
-    if [ ! -f "/opt//lib/systemd/system/guac-web.service" ] ; then
-        cp /opt/guac-session/extra/guacd.service /lib/systemd/system/guacd.service
-        cp /opt/guac-session/extra/guac-web.service /lib/systemd/system/guac-web.service
+    if [ ! -f "/opt/lib/systemd/system/guac-web.service" ] ; then
+        cp /opt/CAPEv2/systemd/guacd.service /lib/systemd/system/guacd.service
+        cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
     fi
 
     if [ ! -d "/var/www/guacrecordings" ] ; then

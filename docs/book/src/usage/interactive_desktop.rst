@@ -21,13 +21,12 @@ Instalation
     $ systemctl status guacd.service
     $ systemctl status guac-web.service
 
-* Instalation generates ``/opt/guac-session`` folder with the project.
-* You need to create configuration by copying and editing .env::
+* Go to ``/opt/CAPEv2/guac-session`` folder and create config.
 
     $ cp sample.env .env # edit .env
     $ systemctl restart guac-web.service
 
-You need to edit ``NGINX`` config to be able to use this. Example config::
+You need to edit ``NGINX`` config to be able to use this. Example config
 
 .. code-block::
 
@@ -53,9 +52,8 @@ You need to edit ``NGINX`` config to be able to use this. Example config::
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         }
-        location ~* ^/static/(.+)$ {
-            root /;
-            try_files /opt/CAPEv2/web/static/$1  /opt/guac-session/static/$1 =404;
+        location /static/ {
+            alias /opt/CAPEv2/web/static/;
         }
         location /guac {
             proxy_pass http://nodeserver2;
@@ -85,7 +83,12 @@ Virtual machine configuration
 Having troubles?
 ================
 
-To test if your ``guacamole`` working correctly you can use this code::
+To test if your ``guacamole`` working correctly you can use this code
+
+.. warning::
+
+    If you have opened VM in ``virt-manager`` you won't be able to get it via browser.
+    Close virt-manager VM view and refresh tab in browser.
 
 .. code-block:: python
 

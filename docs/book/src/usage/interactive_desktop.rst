@@ -22,16 +22,10 @@ New services added::
     $ systemctl status guacd.service
     $ systemctl status guac-web.service
 
-Go to ``/opt/CAPEv2/guac-session`` folder and create the config::
-
-    $ cp sample.env .env
-    # edit .env
-    $ systemctl restart guac-web.service
-
 Web server configuration
 ========================
 
-Enable ``guacamole`` in ``conf/web.conf`` and restart ``cape-web.service``::
+Enable and configure ``guacamole`` in ``conf/web.conf`` and restart ``cape-web.service``::
 
     $ systemctl restart cape-web
 

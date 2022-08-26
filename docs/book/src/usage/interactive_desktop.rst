@@ -21,7 +21,7 @@ New services added::
     $ systemctl status guacd.service
     $ systemctl status guac-web.service
 
-Go to ``/opt/CAPEv2/guac-session`` folder and create config.
+Go to ``/opt/CAPEv2/guac-session`` folder and create config::
 
     $ cp sample.env .env
     # edit .env

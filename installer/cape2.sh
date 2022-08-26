@@ -1198,7 +1198,7 @@ function install_guacamole() {
     fi
 
     if [ ! -d "/var/www/guacrecordings" ] ; then
-        sudo mkdir -p /var/www/guacrecordings && chow ${USER}:${USER} /var/www/guacrecordings
+        sudo mkdir -p /var/www/guacrecordings && chown ${USER}:${USER} /var/www/guacrecordings
     fi
 
     if grep -q '/var/log/www/guacrecordings' /etc/fstab; then

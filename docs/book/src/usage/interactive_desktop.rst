@@ -31,6 +31,10 @@ Go to ``/opt/CAPEv2/guac-session`` folder and create the config::
 Web server configuration
 ========================
 
+Enable ``guacamole`` in ``web.conf`` and restart cape-web.service::
+
+    $ systemctl restart cape-web
+
 You need to edit ``NGINX`` config to be able to use interactive mode, Example config.
 
 .. code-block:: python

@@ -85,6 +85,11 @@ Having troubles?
 
 To test if your ``guacamole`` working correctly you can use this code
 
+.. warning::
+
+    If you have opened VM in ``virt-manager`` you won't be able to get it via browser.
+    Close virt-manager VM view and refresh tab in browser.
+
 .. code-block:: python
 
     from uuid import uuid3, NAMESPACE_DNS

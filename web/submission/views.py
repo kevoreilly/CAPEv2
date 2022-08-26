@@ -8,13 +8,15 @@ import os
 import random
 import sys
 import tempfile
-
 from base64 import urlsafe_b64encode
+
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 sys.path.append(settings.CUCKOO_PATH)
+from uuid import NAMESPACE_DNS, uuid3
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
@@ -35,8 +37,6 @@ from lib.cuckoo.common.web_utils import (
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
-from uuid import uuid3, NAMESPACE_DNS
-
 # this required for hash searches
 cfg = Config("cuckoo")
 routing = Config("routing")
@@ -54,6 +54,7 @@ from urllib3 import disable_warnings
 disable_warnings()
 
 logger = logging.getLogger(__name__)
+
 
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
@@ -638,5 +639,5 @@ def remote_session(request, task_id):
             "running": machine_status,
             "task_id": task_id,
             "session_data": session_data,
-        }
+        },
     )

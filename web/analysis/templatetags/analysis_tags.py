@@ -7,11 +7,11 @@ except ImportError:
     import re
 
 from collections import OrderedDict
+from uuid import NAMESPACE_DNS, uuid3
 
 from django.template.defaultfilters import register
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
-from uuid import uuid3, NAMESPACE_DNS
 
 
 @register.filter("is_string")

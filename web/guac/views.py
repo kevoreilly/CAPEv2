@@ -1,5 +1,4 @@
 from base64 import urlsafe_b64decode
-from uuid import NAMESPACE_DNS, uuid3
 from xml.etree import ElementTree as ET
 
 from django.shortcuts import render
@@ -48,23 +47,3 @@ def index(request, task_id, session_data):
             )
         else:
             return render(request, "guac/wait.html", {"task_id": task_id})
-
-
-def playback(request, task_id):
-    session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-    playback_url = f"{task_id}_{session_id}"
-
-    if playback_url:
-        return render(
-            request,
-            "guac/playback.html",
-            {
-                "playback_url": playback_url,
-            },
-        )
-    else:
-        return render(
-            request,
-            "guac/error.html",
-            {"error_msg": f"File does not exist: {playback_url}", "error": "playback"},
-        )

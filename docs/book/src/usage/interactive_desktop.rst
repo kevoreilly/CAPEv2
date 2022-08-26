@@ -9,8 +9,6 @@ Instalation
 
 .. warning::
 
-    * This section is not user friendly YET!
-    * We still have to integrate that to CAPE to be all in one.
     * Doesn't support cluster mode.
 
 To install dependencies please run::
@@ -29,7 +27,7 @@ Enable and configure ``guacamole`` in ``conf/web.conf`` and restart ``cape-web.s
 
     $ systemctl restart cape-web
 
-You need to edit ``NGINX`` config to be able to use interactive mode, Example config.
+In case you using ``NGINX``, you need to configure it, to be able to use interactive mode, Example config.
 
 .. code-block:: python
 
@@ -40,10 +38,6 @@ You need to edit ``NGINX`` config to be able to use interactive mode, Example co
     upstream nodeserver1 {
         # CAPE
         server 127.0.0.1:8000;
-    }
-    upstream nodeserver2 {
-        # guac-session
-        server 127.0.0.1:8008;
     }
     server {
         listen <YOUR_DESIRED_IP>;
@@ -59,7 +53,7 @@ You need to edit ``NGINX`` config to be able to use interactive mode, Example co
             alias /opt/CAPEv2/web/static/;
         }
         location /guac {
-            proxy_pass http://nodeserver2;
+            proxy_pass http://nodeserver1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_buffering off;
@@ -109,4 +103,4 @@ To test if your ``guacamole`` working correctly you can use this code
 * If that doesn't work, check logs::
 
     $ systemctl status guacd or journalctl -u guacd
-    $ cat /opt/CAPEv2/guac-session/guac-server.log
+    $ cat /opt/CAPEv2/web/guac-server.log

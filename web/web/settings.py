@@ -3,7 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 import os
 import sys
+import logging
 from pathlib import Path
+
+from django.utils.log import DEFAULT_LOGGING
 
 try:
     import re2 as re
@@ -488,6 +491,67 @@ LOGGING = {
         },
     },
 }
+
+LOG_LEVEL = "INFO" if not DEBUG else "DEBUG"
+
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(levelname)s:%(name)s:%(message)s",
+            },
+            "django.server": DEFAULT_LOGGING["formatters"]["django.server"],
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "default",
+            },
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": BASE_DIR / "guac-server.log",
+                "formatter": "default",
+                "maxBytes": 1024 * 1024 * 100,  # 100 mb
+            },
+            "gunicorn": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "formatter": "default",
+                "filename": BASE_DIR / "gunicorn.log",
+                "maxBytes": 1024 * 1024 * 100,  # 100 mb
+            },
+            "django.server": DEFAULT_LOGGING["handlers"]["django.server"],
+        },
+        "loggers": {
+            "": {
+                "handlers": ["console"],
+                "level": LOG_LEVEL,
+                "propagate": True,
+            },
+            "django.utils.autoreload": {
+                "handlers": ["console"],
+                "level": "ERROR",
+            },
+            "django": {
+                "handlers": ["file"],
+                "level": LOG_LEVEL,
+                "propagate": False,
+            },
+            "guac-session": {
+                "handlers": ["file"],
+                "level": LOG_LEVEL,
+                "propagate": False,
+            },
+            "gunicorn.errors": {
+                "level": LOG_LEVEL,
+                "handlers": ["gunicorn"],
+                "propagate": True,
+            },
+            "django.server": DEFAULT_LOGGING["loggers"]["django.server"],
+        },
+    }
+)
 
 SILENCED_SYSTEM_CHECKS = [
     "admin.E408",

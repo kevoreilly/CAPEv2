@@ -171,8 +171,11 @@ def index(request, resubmit_hash=False):
 
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
-            if web_conf.guacamole.enabled:
-                remote_console = True
+
+        if web_conf.guacamole.enabled and request.POST.get("interactive_desktop"):
+            remote_console = True
+            if "nohuman=yes," not in options:
+                options += "nohuman=yes,"
 
         if request.POST.get("tor"):
             options += "tor=yes,"

@@ -1,17 +1,16 @@
 import asyncio
 import logging
-import os
 import urllib.parse
-from distutils.util import strtobool
+
+from lib.cuckoo.common.config import Config
 
 from asgiref.sync import sync_to_async
-from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
-from dotenv import load_dotenv
 from guacamole.client import GuacamoleClient
 
-load_dotenv()
+
 logger = logging.getLogger("guac-session")
+web_cfg = Config("web")
 
 
 class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
@@ -22,20 +21,20 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         """
         Initiate the GuacamoleClient and create a connection to it.
         """
-        guacd_hostname = os.getenv("GUACD_SERVICE_HOST", "localhost")
-        guacd_port = int(os.getenv("GUACD_SERVICE_PORT", "4822"))
-        guacd_recording_path = os.getenv("GUACD_RECORDING_PATH", "")
-        guest_protocol = os.getenv("GUEST_PROTOCOL", "vnc")
-        guest_width = int(os.getenv("GUEST_WIDTH", "1280"))
-        guest_height = int(os.getenv("GUEST_HEIGHT", "1024"))
-        guest_username = os.getenv("GUEST_USERNAME", "")
-        guest_password = os.getenv("GUEST_PASSWORD", "")
+        guacd_hostname = web_cfg.guacamole.guacd_host or "localhost"
+        guacd_port = int(web_cfg.guacamole.guacd_port) or 4822
+        guacd_recording_path = web_cfg.guacamole.guacd_recording_path or ""
+        guest_protocol = web_cfg.guacamole.guest_protocol or "vnc"
+        guest_width = int(web_cfg.guacamole.guest_width) or 1280
+        guest_height = int(web_cfg.guacamole.guest_height) or 1024
+        guest_username = web_cfg.guacamole.username or ""
+        guest_password = web_cfg.guacamole.password or ""
 
         params = urllib.parse.parse_qs(self.scope["query_string"].decode())
 
         if "rdp" in guest_protocol:
             guest_host = params.get("guest_ip", "")
-            guest_port = int(os.getenv("GUEST_RDP_PORT", "3389"))
+            guest_port = int(web_cfg.guacamole.guest_rdp_port) or 3389
         else:
             guest_host = "localhost"
             ports = params.get("vncport", ["5900"])

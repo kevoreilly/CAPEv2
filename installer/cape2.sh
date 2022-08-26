@@ -1201,8 +1201,8 @@ function install_guacamole() {
         sudo mkdir -p /var/www/guacrecordings && chown ${USER}:${USER} /var/www/guacrecordings
     fi
 
-    if grep -q '/var/log/www/guacrecordings' /etc/fstab; then
-        echo "/opt/CAPEv2/storage/guacrecordings /var/log/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
+    if grep -q '/var/www/guacrecordings' /etc/fstab; then
+        echo "/opt/CAPEv2/storage/guacrecordings /var/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
     fi
 
     cd /opt/CAPEv2

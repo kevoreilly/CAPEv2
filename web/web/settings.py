@@ -111,9 +111,11 @@ USE_I18N = True
 USE_L10N = True
 
 # Disabling time zone support and using local time for web interface and storage.
-# See: https://docs.djangoproject.com/en/1.5/ref/settings/#time-zone
-USE_TZ = True
+# https://docs.djangoproject.com/en/4.0/topics/i18n/
+LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
 
 # Unique secret key generator.
 # Secret key will be placed in secret_key.py file.
@@ -153,6 +155,8 @@ MEDIA_URL = ""
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.
 # Example: "/home/media/media.lawrence.com/static/"
 STATIC_ROOT = ""
+# From guac
+# STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # URL prefix for static files.
 # Example: "http://media.lawrence.com/static/"
@@ -225,8 +229,12 @@ ROOT_URLCONF = "web.urls"
 
 # Python dotted path to the WSGI application used by Django's runserver_plus.
 WSGI_APPLICATION = "web.wsgi.application"
+ASGI_APPLICATION = "web.asgi.application"
+
 
 INSTALLED_APPS = [
+    "channels",
+    "guac",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -354,6 +362,21 @@ INSTALLED_APPS = [
     "captcha",  # https://pypi.org/project/django-recaptcha/
     "rest_framework",
     "rest_framework.authtoken",
+]
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": ("django.contrib.auth.password_validation.UserAttributeSimilarityValidator"),
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
 ]
 
 if api_cfg.api.token_auth_enabled:
@@ -493,6 +516,11 @@ CSP_STYLE_SRC = ["'self'"]
 CSP_IMG_SRC = ["'self'"]
 
 RATELIMIT_ERROR_MSG = "Too many request without auth! You have exceed your free request per minute for anon users. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Hack to import local settings.
 try:

@@ -10,6 +10,8 @@ from django.contrib.auth import views as auth_views
 from django.urls import path, re_path
 from django.views.generic.base import TemplateView
 
+from django.conf.urls.static import static
+
 if settings.NOCAPTCHA:
     from captcha_admin import admin
 else:
@@ -28,6 +30,7 @@ from apiv2 import urls as apiv2
 from compare import urls as compare
 from dashboard import urls as dashboard
 from submission import urls as submission
+from guac import urls as guac
 
 handler403 = "web.views.handler403"
 handler404 = "web.views.handler404"
@@ -52,4 +55,5 @@ urlpatterns = [
     ),
     re_path(r"^dashboard/", include(dashboard)),
     re_path(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name="statistics_data"),
-]
+    re_path(r"^guac/", include(guac)),
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

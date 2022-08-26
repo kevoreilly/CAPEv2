@@ -1,5 +1,5 @@
 ### [26-08-2022]
-* [Interactive mode](https://github.com/kevoreilly/CAPEv2/pull/1065) thanks to @enzok. [Docs](https://capev2.readthedocs.io/en/latest/usage/interactive_desktop.html)
+* [Interactive mode](https://github.com/kevoreilly/CAPEv2/pull/1065) thanks to @enzok based on his [guac-session](https://github.com/enzok/guac-session/). [Docs](https://capev2.readthedocs.io/en/latest/usage/interactive_desktop.html)
 
 ### [18-8-2022]
 * Function `yara_detected` now returns 4 arguments. 4th is file metadata

@@ -8,25 +8,29 @@ Please read https://channels.readthedocs.io/en/latest/deploying.html#nginx-super
 """
 
 # These lines ensure that imports used by the ASGI daemon can be found
+from os import chdir, environ
 import sys
 from os.path import abspath, dirname, join
+
+from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
+from django.core.asgi import get_asgi_application
+
+environ.setdefault("DJANGO_SETTINGS_MODULE", "web.settings")
+
+django_asgi_app = get_asgi_application()
+
+import guac.routing
+
+application = ProtocolTypeRouter(
+    {
+        "websocket": AuthMiddlewareStack(URLRouter(guac.routing.websocket_urlpatterns)),
+    }
+)
 
 # Add / and /web (relative to cuckoo-modified install location) to our path
 webdir = abspath(join(dirname(abspath(__file__)), ".."))
 sys.path.append(abspath(join(webdir, "..")))
 sys.path.append(webdir)
 
-# Have ASGI run out of the WebDir
-from os import chdir, environ
-
 chdir(webdir)
-
-# Set django settings
-environ.setdefault("DJANGO_SETTINGS_MODULE", "web.settings")
-
-# This application object is used by any ASGI server configured to use this
-# file. This includes Django's development server, if the ASGI_APPLICATION
-# setting points here.
-from django.core.asgi import get_asgi_application
-
-application = get_asgi_application()

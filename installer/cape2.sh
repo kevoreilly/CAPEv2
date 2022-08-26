@@ -1169,9 +1169,19 @@ function install_guacamole() {
     sudo apt install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
     sudo apt install -y bindfs
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
-    mkdir /tmp/guac-build && cd /tmp/guac-build || return
-    wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz
-    wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz.asc
+
+
+    if [ ! -d "tmp/guac-build" ] ; then
+       mkdir /tmp/guac-build
+    fi
+    cd /tmp/guac-build || return
+
+    if [ ! -f "guacamole-server-"$guacamole_version".tar.gz" ] ; then
+        wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz
+        wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz.asc
+        tar xf guacamole-server-"$guacamole_version".tar.gz
+    fi
+    cd guacamole-server-"$guacamole_version" || return
     CFLAGS=-Wno-error ./configure --with-systemd-dir=/etc/systemd/system/
     mkdir -p /tmp/guacamole-"${guacamole_version}"_builded/DEBIAN
     echo -e "Package: guacamole\nVersion: ${guacamole_version}\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Guacamole ${guacamole_version}" > /tmp/guacamole-"${guacamole_version}"_builded/DEBIAN/control
@@ -1182,11 +1192,20 @@ function install_guacamole() {
 
     pip3 install -U 'Twisted[tls,http2]'
 
-    # ToDo https://github.com/enzok/guac-session
-    cp /opt/guac-session/extra/guacd.service /lib/systemd/system/guacd.service
-    cp /opt/guac-session/extra/guac-web.service /lib/systemd/system/guac-web.service
+    # ToDo integrate into CAPE
+    if [ ! -d "/opt/guac-session" ] ; then
+        git clone https://github.com/enzok/guac-session /opt/guac-session
+    fi
 
-    mkdir -p /var/www/guacrecordings && chow ${USER}:${USER} /var/www/guacrecordings
+    if [ ! -f "/opt//lib/systemd/system/guac-web.service" ] ; then
+        cp /opt/guac-session/extra/guacd.service /lib/systemd/system/guacd.service
+        cp /opt/guac-session/extra/guac-web.service /lib/systemd/system/guac-web.service
+    fi
+
+    if [ ! -d "/var/www/guacrecordings" ] ; then
+        sudo mkdir -p /var/www/guacrecordings && chow ${USER}:${USER} /var/www/guacrecordings
+    fi
+
     if grep -q '/var/log/www/guacrecordings' /etc/fstab; then
         echo "/opt/CAPEv2/storage/guacrecordings /var/log/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
     fi

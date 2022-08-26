@@ -31,7 +31,7 @@ Go to ``/opt/CAPEv2/guac-session`` folder and create the config::
 Web server configuration
 ========================
 
-Enable ``guacamole`` in ``web.conf`` and restart cape-web.service::
+Enable ``guacamole`` in ``conf/web.conf`` and restart ``cape-web.service``::
 
     $ systemctl restart cape-web
 

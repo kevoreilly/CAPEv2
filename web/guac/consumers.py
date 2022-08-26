@@ -2,12 +2,11 @@ import asyncio
 import logging
 import urllib.parse
 
-from lib.cuckoo.common.config import Config
-
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from guacamole.client import GuacamoleClient
 
+from lib.cuckoo.common.config import Config
 
 logger = logging.getLogger("guac-session")
 web_cfg = Config("web")

@@ -12,18 +12,19 @@ Instalation
     This section is not user friendly YET!
     We still have to integrate that to CAPE to be all in one.
 
-* To install dependencies please run::
+To install dependencies please run::
 
     $ sudo ./installer/cape2.sh guacamole
 
-* New services added::
+New services added::
 
     $ systemctl status guacd.service
     $ systemctl status guac-web.service
 
-* Go to ``/opt/CAPEv2/guac-session`` folder and create config.
+Go to ``/opt/CAPEv2/guac-session`` folder and create config.
 
-    $ cp sample.env .env # edit .env
+    $ cp sample.env .env
+    # edit .env
     $ systemctl restart guac-web.service
 
 You need to edit ``NGINX`` config to be able to use this. Example config
@@ -107,4 +108,4 @@ To test if your ``guacamole`` working correctly you can use this code
 * If that doesn't work, check logs::
 
     $ systemctl status guacd or journalctl -u guacd
-    $ cat /opt/guac-session/guac-server.log
+    $ cat /opt/CAPEv2/guac-session/guac-server.log

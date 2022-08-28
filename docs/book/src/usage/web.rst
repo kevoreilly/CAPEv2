@@ -93,6 +93,58 @@ To get rid of many bots/scrappers so we suggest deploying this amazing project `
 .. _`ReCaptcha`: https://www.google.com/recaptcha/admin/
 
 
+Best practices for production
+=============================
+We suggest to use ``uwsgi/gunicorn`` + ``NGINX``.
+
+`UWSGI documentation`_
+
+Instalation::
+
+    # nginx is optional
+    # sudo apt-get install uwsgi uwsgi-plugin-python nginx
+
+To enable ``uwsgi`` create ``/etc/uwsgi/apps-enabled/cape.ini``:
+
+.. code-block:: python
+
+    [uwsgi]
+    lazy-apps = True
+    vacuum = True
+    ; if using with NGINX
+    ;http-socket = 127.0.0.1:8000
+    ; if standalone
+    http-socket = 0.0.0.0:8000
+    static-map = /static=/opt/CAPEv2/web/static
+    plugins = python38
+    callable = application
+    chdir = /opt/CAPEv2/web
+    file = web/wsgi.py
+    env = DJANGO_SETTINGS_MODULE=web.settings
+    uid = cape
+    gid = cape
+    enable-threads = true
+    master = true
+    processes = 10
+    workers = 10
+    ;max-requests = 300
+    manage-script-name = true
+    ;disable-logging = True
+    listen = 2056
+    ;harakiri = 30
+    hunder-lock = True
+    #max-worker-lifetime = 30
+    ;Some files found in this directory are processed by uWSGI init.d script as
+    ;uWSGI configuration files.
+
+
+.. _`UWSGI documentation`: https://uwsgi-docs.readthedocs.io/en/latest/
+
+Start uwsgi with::
+
+    $ systemctl restart uwsgi
+
+
 Some extra security TIP(s)
 ==========================
 * `ModSecurity tutorial`_ - rejects requests

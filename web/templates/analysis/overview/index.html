@@ -73,6 +73,9 @@
 {% include "analysis/overview/_signatures.html" %}
 
 {% include "analysis/overview/_screenshots.html" %}
+{% if config.guacamole %}
+    {% include "analysis/overview/_playback.html" %}
+{% endif %}
 <hr />
 <div class="row">
     <div class="col-md-6 mx-auto">{% include "analysis/network/_hosts_not_ajax.html" %}</div>

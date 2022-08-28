@@ -1,6 +1,6 @@
-===========
-REST API v2
-===========
+========
+REST API
+========
 
 To see the current hosted REST API documentation head to ``/apiv2/``. You will find all endpoints and details on how to do requests.
 
@@ -54,55 +54,9 @@ To generate a user authorization token:
     All documentation below this warning is deprecated.
 
 
-======================
-REST API v1 DEPRECATED
-======================
-
-To see the current REST API see ``/api/`` you will find all endpoints and details on how to do requests
-
-
-`API example`: https://capesandbox.com/api/
-
-To enable auth on this API you can use htpasswd::
-
-    $ apt install htpasswd
-
-.. _`htpasswd`: https://httpd.apache.org/docs/2.4/programs/htpasswd.html
-
-Once you have enabled it, you can just specify ``username`` and ``password`` as ``GET/POST`` parameters, and you will have unlimited API on limited for the rest
-
-.. code-block:: python
-
-    # Simple example of authentificated api usage, just include username and password in each request
-    import requests
-    requests.get(URL, params={"username":"<your_username>", "password": "<your apikey>"})
-    requests.get(URL, data={"username":"<your_username>", "password": "<your apikey>"})
-
-
-==============================
-REST API deprecated aka api.py
-==============================
-
-As mentioned in :doc:`submit`, CAPE provides a simple and lightweight REST
-API server implemented in `Bottle.py`_, therefore to make the service
-work you'll need it installed. Bottle release must be 0.10 or above.
-
-With Pip::
-
-    $ pip3 install bottle
-
-.. _`Bottle.py`: http://www.bottlepy.org
-
-Starting the API server
-=======================
-
-To start the API server you can simply do::
-
-    $ ./utils/api.py
-
-By default, it will bind the service on **localhost:8090**. If you want to change those values, you can for example do this::
-
-    $ ./utils/api.py --host 0.0.0.0 --port 1337
+=================
+api.py DEPRECATED
+=================
 
 Resources
 =========

@@ -8,12 +8,15 @@ import os
 import random
 import sys
 import tempfile
+from base64 import urlsafe_b64encode
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 sys.path.append(settings.CUCKOO_PATH)
+from uuid import NAMESPACE_DNS, uuid3
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
@@ -117,6 +120,7 @@ def get_platform(magic):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, resubmit_hash=False):
+    remote_console = False
     if request.method == "POST":
 
         (
@@ -167,6 +171,11 @@ def index(request, resubmit_hash=False):
 
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
+
+        if web_conf.guacamole.enabled and request.POST.get("interactive_desktop"):
+            remote_console = True
+            if "nohuman=yes," not in options:
+                options += "nohuman=yes,"
 
         if request.POST.get("tor"):
             options += "tor=yes,"
@@ -495,6 +504,7 @@ def index(request, resubmit_hash=False):
                 "tasks_count": tasks_count,
                 "errors": details["errors"],
                 "existent_tasks": existent_tasks,
+                "remote_console": remote_console,
             }
             return render(request, "submission/complete.html", data)
         else:
@@ -605,3 +615,32 @@ def status(request, task_id):
         status = "processing"
 
     return render(request, "submission/status.html", {"completed": completed, "status": status, "task_id": task_id})
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def remote_session(request, task_id):
+    task = db.view_task(task_id)
+    if not task:
+        return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
+
+    machine_status = False
+    label = ""
+    session_data = ""
+
+    if task.status == "running":
+        machine = db.view_machine(task.machine)
+        label = machine.label
+        guest_ip = machine.ip
+        machine_status = True
+        session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
+        session_data = urlsafe_b64encode(f"{session_id}|{label}|{guest_ip}".encode("utf8")).decode("utf8")
+
+    return render(
+        request,
+        "submission/remote_status.html",
+        {
+            "running": machine_status,
+            "task_id": task_id,
+            "session_data": session_data,
+        },
+    )

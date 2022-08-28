@@ -7,6 +7,7 @@ except ImportError:
     import re
 
 from collections import OrderedDict
+from uuid import NAMESPACE_DNS, uuid3
 
 from django.template.defaultfilters import register
 from django.utils.html import escape
@@ -238,3 +239,9 @@ def malware_config(obj, *args, **kwargs):
         result.write('<pre style="margin: 0">' + escape(str(obj)) + "</pre>")
 
     return mark_safe(result.getvalue())
+
+
+@register.filter(name="playback_url")
+def playback_url(task_id):
+    session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
+    return f"{task_id}_{session_id}"

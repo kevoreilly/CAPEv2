@@ -111,9 +111,11 @@ USE_I18N = True
 USE_L10N = True
 
 # Disabling time zone support and using local time for web interface and storage.
-# See: https://docs.djangoproject.com/en/1.5/ref/settings/#time-zone
-USE_TZ = True
+# https://docs.djangoproject.com/en/4.0/topics/i18n/
+LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
 
 # Unique secret key generator.
 # Secret key will be placed in secret_key.py file.

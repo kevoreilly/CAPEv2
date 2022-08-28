@@ -6,6 +6,7 @@ from analysis import views as analysis_views
 from dashboard import views as dashboard_views
 from django.conf import settings
 from django.conf.urls import include
+from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.urls import path, re_path
 from django.views.generic.base import TemplateView
@@ -27,6 +28,7 @@ from analysis import urls as analysis
 from apiv2 import urls as apiv2
 from compare import urls as compare
 from dashboard import urls as dashboard
+from guac import urls as guac
 from submission import urls as submission
 
 handler403 = "web.views.handler403"

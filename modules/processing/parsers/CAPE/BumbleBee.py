@@ -128,6 +128,8 @@ def extract_config(data):
 
     # Extract config ciphertext
     config_match = regex.search(data)
+    if not config_match:
+        return cfg
     campaign_id, botnet_id, c2s = extract_config_data(data, pe, config_match)
 
     # RC4 Decrypt

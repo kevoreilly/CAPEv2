@@ -65,7 +65,7 @@ def extract_rdata(pe):
 
 
 def extract_config(filebuf):
-    cfg = {}
+    cfg = {"family": "Dridex"}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
     line, c2va_offset, delta = 0, 0, 0
@@ -121,7 +121,8 @@ def extract_config(filebuf):
         port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])
 
         if c2_address and port:
-            cfg.setdefault("address", []).append(f"{c2_address}:{port}")
+            cfg.setdefault("tcp", [])
+            cfg.append({"server_ip": c2_address, "server_port": port, "usage": "c2"})
 
         c2_offset += 6 + delta
 
@@ -144,14 +145,14 @@ def extract_config(filebuf):
                 )
             for item in raw.split(b"\x00"):
                 if len(item) == LEN_BLOB_KEY - 1:
-                    cfg["RC4 key"] = item.split(b";", 1)[0].decode()
+                    cfg["encryption"] = [{"algorithm": "RSA", "public_key": item.split(b";", 1)[0].decode(), "usage": "ransom"}]
 
     if botnet_code:
         botnet_rva = struct.unpack("i", filebuf[botnet_code + 23 : botnet_code + 27])[0] - image_base
     if botnet_rva:
         botnet_offset = pe.get_offset_from_rva(botnet_rva)
         botnet_id = struct.unpack("H", filebuf[botnet_offset : botnet_offset + 2])[0]
-        cfg["Botnet ID"] = str(botnet_id)
+        cfg["other"] = {"Botnet ID": str(botnet_id)}  # Might fall under identifier?
 
         return cfg
 

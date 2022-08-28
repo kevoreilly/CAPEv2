@@ -19,6 +19,9 @@ import struct
 
 import pefile
 
+AUTHOR = "R3MRUM"
+DESCRIPTION = "REvil configuration parser."
+
 
 def getSectionNames(sections):
     return [section.Name.partition(b"\0")[0] for section in sections]
@@ -44,10 +47,14 @@ def decodeREvilConfig(config_key, config_data):
 
     # print(f"Key:\t{key}")
 
+    if not encoded_config:
+        # No config to decode
+        return
+
     ECX = EAX = ESI = 0
 
     for char in init255:
-        ESI = ((char & 0xFF) + (ord(key[EAX % len(key)]) + ESI)) & 0xFF
+        ESI = ((char & 0xFF) + (key[EAX % len(key)] + ESI)) & 0xFF
         init255[EAX] = init255[ESI] & 0xFF
         EAX += 1
         init255[ESI] = char & 0xFF
@@ -61,7 +68,7 @@ def decodeREvilConfig(config_key, config_data):
         ESI = (ESI + DL) & 0xFF
         init255[ECX] = init255[ESI]
         init255[ESI] = DL
-        decoded_config.append((init255[((init255[ECX] + DL) & 0xFF)]) ^ ord(char))
+        decoded_config.append((init255[((init255[ECX] + DL) & 0xFF)]) ^ char)
         EAX = LOCAL1
 
     return json.loads("".join(map(chr, decoded_config)))
@@ -70,16 +77,23 @@ def decodeREvilConfig(config_key, config_data):
 def extract_config(data):
     config_data = ""
     config_key = ""
-    pe = pefile.PE(data=data)
+    try:
+        pe = pefile.PE(data=data)
 
-    if len(pe.sections) == 5:
-        section_names = getSectionNames(pe.sections)
-        required_sections = (".text", ".rdata", ".data", ".reloc")
+        if len(pe.sections) == 5:
+            section_names = getSectionNames(pe.sections)
+            required_sections = (b".text", b".rdata", b".data", b".reloc")
 
-        # print section_names
-        if all(sections in section_names for sections in required_sections):
-            # print("all required section names found")
-            config_section_name = [resource for resource in section_names if resource not in required_sections][0]
-            config_key, config_data = getREvilKeyAndConfig(pe.sections, config_section_name)
-            if config_key and config_data:
-                return decodeREvilConfig(config_key, config_data)
+            # print section_names
+            if all(sections in section_names for sections in required_sections):
+                # print("all required section names found")
+                config_section_name = [resource for resource in section_names if resource not in required_sections][0]
+                config_key, config_data = getREvilKeyAndConfig(pe.sections, config_section_name)
+                if config_key and config_data:
+                    config = decodeREvilConfig(config_key, config_data)
+                    if config:
+                        return {"family": "REvil", "other": config}
+    except pefile.PEFormatError:
+        # This isn't a PE file, therefore unlikely to extract a configuration
+        pass
+    return {}

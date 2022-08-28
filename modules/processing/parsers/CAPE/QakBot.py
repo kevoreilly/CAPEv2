@@ -2,9 +2,6 @@
     Qakbot decoder for Core/Main DLL
 """
 
-DESCRIPTION = "Qakbot configuration parser."
-AUTHOR = "threathive, r1n9w0rm"
-
 import datetime
 import hashlib
 import logging
@@ -13,6 +10,10 @@ import struct
 
 import pefile
 from Cryptodome.Cipher import ARC4
+
+DESCRIPTION = "Qakbot configuration parser."
+AUTHOR = "threathive, r1n9w0rm"
+
 
 try:
     HAVE_BLZPACK = True
@@ -180,6 +181,7 @@ def extract_config(filebuf):
             for entry in rsrc.directory.entries:
                 if entry.name is not None:
                     # log.info("id: %s", entry.name)
+                    end_config["family"] = "QakBot"
                     controllers = []
                     config = {}
                     offset = entry.directory.entries[0].data.struct.OffsetToData
@@ -189,7 +191,7 @@ def extract_config(filebuf):
                         # we found the parent process and still need to decrypt/(blzpack) decompress the main DLL
                         dec_bytes = decrypt_data(res_data)
                         decompressed = decompress(dec_bytes)
-                        end_config["Loader Build"] = parse_build(pe).decode()
+                        end_config["version"] = parse_build(pe).decode()
                         pe2 = pefile.PE(data=decompressed)
                         for rsrc in pe2.DIRECTORY_ENTRY_RESOURCE.entries:
                             for entry in rsrc.directory.entries:
@@ -201,7 +203,7 @@ def extract_config(filebuf):
                                         dec_bytes = decrypt_data(res_data)
                                         config = parse_config(dec_bytes)
                                         # log.info("qbot_config: %s", config)
-                                        end_config["Core DLL Build"] = parse_build(pe2).decode()
+                                        end_config.setdefault("other", {})["Core DLL Build"] = parse_build(pe2).decode()
                                     elif str(entry.name) == "311":
                                         dec_bytes = decrypt_data(res_data)
                                         controllers = parse_controllers(dec_bytes)
@@ -223,13 +225,14 @@ def extract_config(filebuf):
                     elif str(entry.name) in ("26F517AB", "EBBA", "102"):
                         dec_bytes = decrypt_data3(res_data)
                         controllers = parse_binary_c2_2(dec_bytes)
-                    end_config["Loader Build"] = parse_build(pe).decode()
+                    end_config["version"] = parse_build(pe).decode()
                     for k, v in config.items():
                         # log.info({ k: v })
-                        end_config.setdefault(k, v)
+                        end_config.setdefault("other", {})[k] = v
                     # log.info("controllers: %s", controllers)
                     for controller in controllers:
-                        end_config.setdefault("address", []).append(controller)
+                        ip, port = controller.split(":", 1)
+                        end_config.setdefault("tcp", []).append({"server_ip": ip, "server_port": port})
     except Exception as e:
         log.warning(e)
 

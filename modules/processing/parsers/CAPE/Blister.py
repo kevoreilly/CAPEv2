@@ -20,6 +20,10 @@ from malduck import lznt1
 log = logging.getLogger(__name__)
 
 # https://github.com/Robin-Pwner/Rabbit-Cipher/
+AUTHOR = "Based on work of soolidsnake"
+DESCRIPTION = "Blister configuration parser."
+
+
 def ROTL8(v, n):
     return ((v << n) & 0xFF) | ((v >> (8 - n)) & 0xFF)
 
@@ -436,12 +440,14 @@ if __name__ == "__main__":
     main()
 
 # CAPE: Derived from decrypt_memory()
+
+
 def extract_config(data):
     try:
         pe = pefile.PE(data=data)
     except Exception:
         log.info("Not a PE file")
-        return -1
+        return {}
 
     if pe.FILE_HEADER.Machine == 0x8664:
         arch_size = 8
@@ -468,7 +474,7 @@ def extract_config(data):
 
     if not key_offset or not tag_offset:
         log.info("Error: signature not found")
-        return -1
+        return {}
 
     key_offset = key_offset[0].strings[0][0]
     tag_offset = tag_offset[0].strings[0][0]
@@ -516,7 +522,7 @@ def extract_config(data):
         key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     else:
         log.info("key_pattern_rule: Error signature not found")
-        return 0
+        return {}
 
     config_tag = (u32(key)) ^ (u32(key_pattern))
 
@@ -524,7 +530,7 @@ def extract_config(data):
 
     if encrypted_config_offset == -1:
         log.info("Encrypted config not found")
-        return -1
+        return {}
 
     config_size = 0x644
 
@@ -556,7 +562,7 @@ def extract_config(data):
         elif (flag & 0x10) != 0:
             injection_method = "Process hollowing IE or Werfault"
 
-    config = {
+    config_raw = {
         "Flag": hex(flag),
         "Payload export hash": hex(u32(payload_export_hash)),
         "Payload filename": w_payload_filename_and_cmdline,
@@ -567,6 +573,26 @@ def extract_config(data):
         "Persistence": persistance,
         "Sleep after injection": sleep_after_injection,
         "Injection method": injection_method,
+    }
+
+    config = {
+        "sleep_delay": config_raw["Sleep after injection"],
+        "binaries": [
+            {
+                "datatype": "payload",
+                "other": {
+                    "Payload filename": config_raw["Payload filename"],
+                    "Payload export hash": config_raw["Payload export hash"],
+                },
+            }
+        ],
+        "encryptions": {"algorithm": "rabbit", "key": config_raw["Rabbit key"], "seed": config_raw["Rabbit IV"]},
+        "other": {
+            "Compressed data size": config_raw["Compressed data size"],
+            "Uncompressed data size": config_raw["Uncompressed data size"],
+            "Persistence": config_raw["Persistence"],
+            "Injection method": config_raw["Injection method"],
+        },
     }
 
     return config

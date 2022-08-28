@@ -29,6 +29,9 @@ import pefile
 import yara
 from Cryptodome.Cipher import AES
 
+AUTHOR = "Jason Reaves, Graham Austin"
+DESCRIPTION = "TrickBot configuration parser."
+
 rule_source = """
 rule TrickBot
 {
@@ -195,4 +198,6 @@ def extract_config(data):
 
         raw_config[tag] = val
 
+    if raw_config:
+        raw_config = dict(family="TrickBot", other=raw_config)
     return raw_config

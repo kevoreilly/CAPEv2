@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import struct
 
 import pefile
@@ -37,8 +36,9 @@ def extract_config(filebuf):
                 if n > 32:
                     break
             campaign, c2 = struct.unpack("I30s", bytes(dec))
-            cfg["C2"] = c2.split(b"\00", 1)[0].decode()
-            cfg["Campaign"] = campaign
+            cfg["family"] = "IcedIDLoader"
+            cfg["tcp"] = [{"server_domain": c2.split(b"\00", 1)[0].decode(), "usage": "c2"}]
+            cfg["campaign_id"] = campaign
             return cfg
 
 

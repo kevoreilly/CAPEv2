@@ -1,3 +1,6 @@
+### [28-08-2022] [Maco - Malware config extractor framework](https://github.com/CybercentreCanada/Maco)
+* [MACO foramt for malware configs](https://github.com/kevoreilly/CAPEv2/pull/1037)
+
 ### [26-08-2022]
 * [Interactive mode](https://github.com/kevoreilly/CAPEv2/pull/1065) thanks to @enzok based on his [guac-session](https://github.com/enzok/guac-session/). [Docs](https://capev2.readthedocs.io/en/latest/usage/interactive_desktop.html)
 

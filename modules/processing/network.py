@@ -3,20 +3,25 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
+import binascii
+import ipaddress
+import logging
 import os
-import sys
 import socket
 import struct
+import sys
 import tempfile
-import logging
-import binascii
-import dns.resolver
 import traceback
-from collections import OrderedDict
-from urllib.parse import urlunparse
-from hashlib import md5, sha1, sha256
-from json import loads
 from base64 import b64encode
+from collections import OrderedDict
+from hashlib import md5
+from hashlib import sha1
+from hashlib import sha256
+from json import loads
+from urllib.parse import urlunparse
+
+import dns.resolver
 
 try:
     import re2 as re
@@ -27,7 +32,6 @@ except ImportError:
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
 sys.path.append(CUCKOO_ROOT)
 
-
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dns import resolve
@@ -36,7 +40,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from dns.reversename import from_address
-from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
+from lib.cuckoo.common.safelist import is_safelisted_domain
 from data.safelist.domains import domain_passlist_re
 
 try:
@@ -65,7 +69,6 @@ try:
 except ImportError:
     print("Missed dependency: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
 
-
 # Imports for the batch sort.
 # http://stackoverflow.com/questions/10665925/how-to-sort-huge-files-with-python
 # http://code.activestate.com/recipes/576755/
@@ -86,6 +89,7 @@ passlist_file = proc_cfg.network.dnswhitelist_file
 
 enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
+network_passlist_file = proc_cfg.network.network_passlist_file
 
 # Be less verbose about httpreplay logging messages.
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
@@ -98,11 +102,21 @@ if enabled_passlist and passlist_file:
                 continue
             domain_passlist_re.append(domain)
 
-
 ip_passlist = set()
+network_passlist = []
+
 if enabled_ip_passlist and ip_passlist_file:
     with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
         ip_passlist = set(f.read().split("\n"))
+
+    if os.path.exists(network_passlist_file):
+        with open(os.path.join(CUCKOO_ROOT, network_passlist_file), "r") as f:
+            for cidr in list(set(f.read().splitlines())):
+                if cidr.startswith("#") or len(domain.strip()) == 0:
+                    # comment or empty line
+                    continue
+
+                network_passlist.append(ipaddress.ip_network(cidr))
 
 
 class Pcap:
@@ -260,7 +274,8 @@ class Pcap:
                 ip = convert_to_printable(connection["dst"])
 
                 if ip not in self.hosts:
-                    if ip in ip_passlist:
+                    ip_address = ipaddress.ip_address(ip)
+                    if ip in ip_passlist or any(ip_address in network for network in network_passlist):
                         return False
                     self.hosts.append(ip)
 
@@ -297,7 +312,8 @@ class Pcap:
                 if hostname:
                     break
 
-            enriched_hosts.append({"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa})
+            enriched_hosts.append(
+                {"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa})
         return enriched_hosts
 
     def _tcp_dissect(self, conn, data):
@@ -550,9 +566,9 @@ class Pcap:
             entry = {"count": 1}
 
             if "host" in http.headers and re.match(
-                "^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$",
-                http.headers["host"],
-                re.IGNORECASE,
+                    "^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$",
+                    http.headers["host"],
+                    re.IGNORECASE,
             ):
                 entry["host"] = convert_to_printable(http.headers["host"])
             else:
@@ -752,10 +768,11 @@ class Pcap:
 
                     if tcp.data:
                         self._tcp_dissect(connection, tcp.data)
-                        src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
+                        src, sport, dst, dport = (
+                            connection["src"], connection["sport"], connection["dst"], connection["dport"])
                         if not (
-                            (dst, dport, src, sport) in self.tcp_connections_seen
-                            or (src, sport, dst, dport) in self.tcp_connections_seen
+                                (dst, dport, src, sport) in self.tcp_connections_seen
+                                or (src, sport, dst, dport) in self.tcp_connections_seen
                         ):
                             self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                             self.tcp_connections_seen.add((src, sport, dst, dport))
@@ -784,10 +801,11 @@ class Pcap:
                     if len(udp.data) > 0:
                         self._udp_dissect(connection, udp.data)
 
-                    src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
+                    src, sport, dst, dport = (
+                        connection["src"], connection["sport"], connection["dst"], connection["dport"])
                     if not (
-                        (dst, dport, src, sport) in self.udp_connections_seen
-                        or (src, sport, dst, dport) in self.udp_connections_seen
+                            (dst, dport, src, sport) in self.udp_connections_seen
+                            or (src, sport, dst, dport) in self.udp_connections_seen
                     ):
                         self.udp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.udp_connections_seen.add((src, sport, dst, dport))
@@ -903,7 +921,9 @@ class Pcap2(object):
         try:
             l = sorted(r.process(), key=lambda x: x[1])
         except TypeError as e:
-            log.warning("You running old httpreplay {}: pip3 install -U git+https://github.com/CAPESandbox/httpreplay".format(e))
+            log.warning(
+                "You running old httpreplay {}: pip3 install -U git+https://github.com/CAPESandbox/httpreplay".format(
+                    e))
             traceback.print_exc()
             return results
         except Exception as e:
@@ -1010,13 +1030,14 @@ class Pcap2(object):
                         try:
                             c = 0
                             for i in range(3):
-                                data = recv.body[c : c + 16]
+                                data = recv.body[c: c + 16]
                                 if not data:
                                     continue
                                 s1 = " ".join([f"{i:02x}" for i in data])  # hex string
                                 s1 = s1[0:23] + " " + s1[23:]  # insert extra space between groups of 8 hex values
-                                s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data])  # ascii string; chained comparison
-                                resp_preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
+                                s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in
+                                              data])  # ascii string; chained comparison
+                                resp_preview.append(f"{i * 16:08x}  {s1:<48}  |{s2}|")
                                 c += 16
                         except Exception as e:
                             log.info(e)
@@ -1107,9 +1128,9 @@ class NetworkAnalysis(Processing):
         for entry in open(dump_tls_log, "r").readlines() or []:
             try:
                 for m in re.finditer(
-                    r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
-                    entry,
-                    re.I,
+                        r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
+                        entry,
+                        re.I,
                 ):
                     try:
                         client_random = binascii.a2b_hex(m.group("client_random").strip())

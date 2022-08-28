@@ -23,6 +23,40 @@ import pefile
 from netstruct import unpack as netunpack
 
 log = logging.getLogger(__name__)
+AUTHOR = "Gal Kristal from SentinelOne"
+DESCRIPTION = "Parses CobaltStrike Beacon's configuration from PE file or memory dump."
+rule_source = """
+rule CobaltStrikeBeacon
+{
+    meta:
+        author = "ditekshen, enzo & Elastic"
+        description = "Cobalt Strike Beacon Payload"
+        cape_type = "CobaltStrikeBeacon Payload"
+    strings:
+        $s1 = "%%IMPORT%/%" fullword ascii
+        $s2 = "www6.%%x%%x.%%s" fullword ascii
+        $s3 = "cdn.%%x%%x.%%s" fullword ascii
+        $s4 = "api.%%x%%x.%%s" fullword ascii
+        $s5 = "%%s (admin)" fullword ascii
+        $s6 = "could not spawn %%s: %%d" fullword ascii
+        $s7 = "Could not kill %%d: %%d" fullword ascii
+        $s8 = "Could not connect to pipe (%%s): %%d" fullword ascii
+        $s9 = /%%s\\.\\d[(%%08x).]+\\.%%x%%x\\.%%s/ ascii
+        $pwsh1 = "IEX (New-Object Net.Webclient).DownloadString('http" ascii
+        $pwsh2 = "powershell -nop -exec bypass -EncodedCommand \\"%%s\\"" fullword ascii
+        $ver3a = {69 68 69 68 69 6b ?? ?? 69}
+        $ver3b = {69 69 69 69}
+        $ver4a = {2e 2f 2e 2f 2e 2c ?? ?? 2e}
+        $ver4b = {2e 2e 2e 2e}
+        $a1 = "%%02d/%%02d/%%02d %%02d:%%02d:%%02d" xor(0x00-0xff)
+        $a2 = "Started service %%s on %%s" xor(0x00-0xff)
+        $a3 = "%%s as %%s\\\\%%s: %%d" xor(0x00-0xff)
+        $b_x64 = {4C 8B 53 08 45 8B 0A 45 8B 5A 04 4D 8D 52 08 45 85 C9 75 05 45 85 DB 74 33 45 3B CB 73 E6 49 8B F9 4C 8B 03}
+        $b_x86 = {8B 46 04 8B 08 8B 50 04 83 C0 08 89 55 08 89 45 0C 85 C9 75 04 85 D2 74 23 3B CA 73 E6 8B 06 8D 3C 08 33 D2}
+    condition:
+        all of ($ver3*) or all of ($ver4*) or 2 of ($a*) or any of ($b*) or 5 of ($s*) or (all of ($pwsh*) and 2 of ($s*)) or (#s9 > 6 and 4 of them)
+}
+"""
 
 COLUMN_WIDTH = 35
 SUPPORTED_VERSIONS = (3, 4)
@@ -110,7 +144,7 @@ class packedSetting:
     def pretty_repr(self, full_config_data):
         data_offset = full_config_data.find(self.binary_repr())
         if data_offset < 0:
-            return "Not Found"
+            return None
 
         repr_len = len(self.binary_repr())
         conf_data = full_config_data[data_offset + repr_len : data_offset + repr_len + self.length]
@@ -343,6 +377,10 @@ class cobaltstrikeConfig:
         for conf_name, packed_conf in settings:
             parsed_setting = packed_conf.pretty_repr(full_config_data)
 
+            if parsed_setting == None:
+                # Nothing of value
+                continue
+
             if as_json:
                 parsed_config[conf_name] = parsed_setting
                 continue
@@ -443,9 +481,69 @@ if __name__ == "__main__":
         print(json.dumps(parsed_config, cls=Base64Encoder))
 
 
+def beacon_settings_to_maco(output: dict):
+    if not output:
+        return
+    config = {"family": "Cobalt StrikeBeacon"}
+
+    # SSH details
+    ssh = {
+        "hostname": output.pop("SSH_Host", None),
+        "port": output.pop("SSH_Port", None),
+        "username": output.pop("SSH_Username", None),
+        "password": output.pop("SSH_Password_Plaintext", None),
+        "public_key": output.pop("SSH_Password_Pubkey", None),
+        "usage": "c2",
+    }
+    [ssh.pop(k) for k in list(ssh.keys()) if not ssh[k]]
+    if len(ssh.keys()) > 1:
+        config["ssh"] = [ssh]
+
+    # HTTP details
+    http = []
+    c2_domain, c2_get_path = output.pop("C2Server", ",").split(",")
+    c2_post_path = output.pop("HttpPostUri", None)
+    if c2_domain:
+        protocol = output.get("BeaconType")[0]
+        if protocol in ["HTTPS", "HTTP"]:
+            port = output.pop("Port", None)
+            if not port:
+                port = 443 if protocol == "HTTPS" else 80
+            user_agent = output.pop("UserAgent", None)
+            http_get = {
+                "uri": f"{protocol.lower()}://{c2_domain}{c2_get_path}",
+                "protocol": protocol.lower(),
+                "hostname": c2_domain,
+                "port": port,
+                "path": c2_get_path,
+                "method": output.pop("HttpGet_Verb", "GET"),
+            }
+            http_get.update({"user_agent": user_agent}) if user_agent else None
+            http.append(http_get)
+            if c2_post_path:
+                http_post = {
+                    "uri": f"{protocol.lower()}://{c2_domain}{c2_get_path}",
+                    "protocol": protocol.lower(),
+                    "hostname": c2_domain,
+                    "port": port,
+                    "path": c2_post_path,
+                    "method": output.pop("HttpPost_Verb", "POST"),
+                }
+                http_post.update({"user_agent": user_agent}) if user_agent else None
+                http.append(http_post)
+        config["http"] = http
+
+    config.update({"pipe": [output.pop("PipeName")]}) if output.get("PipeName") else None
+    config.update({"sleep_delay": output.pop("SleepTime")}) if output.get("SleepTime") else None
+    # Other
+    config["other"] = output
+    return config
+
+
 # CAPE
 def extract_config(data):
     output = cobaltstrikeConfig(data).parse_config(quiet=False, as_json=True)
     if output is None:
         output = cobaltstrikeConfig(data).parse_encrypted_config(quiet=False, as_json=True)
-    return output
+
+    return beacon_settings_to_maco(output)

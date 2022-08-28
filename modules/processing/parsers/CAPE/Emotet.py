@@ -27,6 +27,7 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 AUTHOR = "kevoreilly"
+DESCRIPTION = "Emotet configuration parser."
 
 rule_source = """
 rule Emotet
@@ -186,7 +187,7 @@ def extract_emotet_rsakey(pe):
 
 
 def extract_config(filebuf):
-    conf_dict = {}
+    conf_dict = {"family": "Emotet", "tcp": []}
     pe = None
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)
@@ -223,7 +224,7 @@ def extract_config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if not c2_address or not port:
                 return
-            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            conf_dict["tcp"].append({"server_ip": c2_address, "server_port": port, "usage": "c2"})
             c2_list_offset += 8
     elif yara_matches.get("$snippet4"):
         c2list_va_offset = int(yara_matches["$snippet4"])
@@ -244,7 +245,7 @@ def extract_config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if not c2_address or not port:
                 return
-            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            conf_dict["tcp"].append({"server_ip": c2_address, "server_port": port, "usage": "c2"})
             c2_list_offset += 8
     elif any(
         yara_matches.get(name, False)
@@ -297,7 +298,7 @@ def extract_config(filebuf):
                 port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
                 if not c2_address or not port:
                     break
-                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+                conf_dict["tcp"].append({"server_ip": c2_address, "server_port": port, "usage": "c2"})
                 c2found = True
                 c2_list_offset += 8
     elif yara_matches.get("$snippet6"):
@@ -323,7 +324,7 @@ def extract_config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if not c2_address or not port:
                 break
-            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            conf_dict["tcp"].append({"server_ip": c2_address, "server_port": port, "usage": "c2"})
             c2found = True
             c2_list_offset += 8
     elif yara_matches.get("$snippet7"):
@@ -349,7 +350,7 @@ def extract_config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if not c2_address or not port:
                 break
-            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            conf_dict["tcp"].append({"server_ip": c2_address, "server_port": port, "usage": "c2"})
             c2found = True
             c2_list_offset += 8
     elif yara_matches.get("$snippetA"):
@@ -371,7 +372,7 @@ def extract_config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if not c2_address or not port:
                 break
-            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            conf_dict["tcp"].append({"server_ip": c2_address, "server_port": port, "usage": "c2"})
             c2found = True
             c2_list_offset += 8
     elif yara_matches.get("$snippetD"):
@@ -472,7 +473,7 @@ def extract_config(filebuf):
             port = str(struct.unpack(">H", c2_list[offset + 4 : offset + 6])[0])
             if not c2_address or not port:
                 break
-            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            conf_dict["tcp"].append({"server_ip": c2_address, "server_port": port, "usage": "c2"})
             c2found = True
             offset += 8
 
@@ -485,7 +486,7 @@ def extract_config(filebuf):
         log.error(e)
     if pem_key:
         # self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode()})
-        conf_dict.setdefault("RSA public key", pem_key.exportKey().decode())
+        conf_dict.setdefault("encryption", []).append({"algorithm": "RSA", "public_key": pem_key.exportKey().decode()})
     else:
         if yara_matches.get("$ref_rsa"):
             ref_rsa_offset = int(yara_matches["$ref_rsa"])
@@ -518,7 +519,9 @@ def extract_config(filebuf):
             seq = asn1.DerSequence()
             seq.decode(rsa_key)
             # self.reporter.add_metadata("other", {"RSA public key": RSA.construct((seq[0], seq[1])).exportKey()})
-            conf_dict.setdefault("RSA public key", RSA.construct((seq[0], seq[1])).exportKey())
+            conf_dict.setdefault("encryption", []).append(
+                {"algorithm": "RSA", "public_key": RSA.construct((seq[0], seq[1])).exportKey()}
+            )
         else:
             ref_ecc_offset = 0
             delta1 = 0
@@ -645,26 +648,32 @@ def extract_config(filebuf):
                 eck_offset += 8
                 eck_key = xor_data(filebuf[eck_offset : eck_offset + size], key)
                 key_len = struct.unpack("<I", eck_key[4:8])[0]
-                conf_dict.setdefault(
-                    "ECC ECK1",
-                    ECC.construct(
-                        curve="p256",
-                        point_x=int.from_bytes(eck_key[8 : 8 + key_len], "big"),
-                        point_y=int.from_bytes(eck_key[8 + key_len :], "big"),
-                    ).export_key(format="PEM"),
+                conf_dict.setdefault("encryption", []).append(
+                    {
+                        "algorithm": "ECC",  # ECK1 : Data encryption
+                        "public_key": ECC.construct(
+                            curve="p256",
+                            point_x=int.from_bytes(eck_key[8 : 8 + key_len], "big"),
+                            point_y=int.from_bytes(eck_key[8 + key_len :], "big"),
+                        ).export_key(format="PEM"),
+                        "usage": "communication",
+                    }
                 )
                 key = filebuf[ecs_offset : ecs_offset + 4]
                 size = struct.unpack("I", filebuf[ecs_offset + 4 : ecs_offset + 8])[0] ^ struct.unpack("I", key)[0]
                 ecs_offset += 8
                 ecs_key = xor_data(filebuf[ecs_offset : ecs_offset + size], key)
                 key_len = struct.unpack("<I", ecs_key[4:8])[0]
-                conf_dict.setdefault(
-                    "ECC ECS1",
-                    ECC.construct(
-                        curve="p256",
-                        point_x=int.from_bytes(ecs_key[8 : 8 + key_len], "big"),
-                        point_y=int.from_bytes(ecs_key[8 + key_len :], "big"),
-                    ).export_key(format="PEM"),
+                conf_dict.setdefault("encryption", []).append(
+                    {
+                        "algorithm": "ECC",  # ECS1 : Data validation
+                        "public_key": ECC.construct(
+                            curve="p256",
+                            point_x=int.from_bytes(ecs_key[8 : 8 + key_len], "big"),
+                            point_y=int.from_bytes(ecs_key[8 + key_len :], "big"),
+                        ).export_key(format="PEM"),
+                        "usage": "communication",
+                    }
                 )
     return conf_dict
 

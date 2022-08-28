@@ -12,13 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-DESCRIPTION = "SmokeLoader configuration parser."
-AUTHOR = "kevoreilly"
-
 import struct
 
 import pefile
 import yara
+
+AUTHOR = "kevoreilly"
+DESCRIPTION = "SmokeLoader configuration parser."
 
 rule_source = """
 rule SmokeLoader
@@ -66,10 +66,10 @@ def extract_config(filebuf):
     except Exception:
         image_base = 0
 
-    end_config = {}
-    matches = yara_scan(filebuf, "$")
-    if matches["$ref64_1"]:
-        table_ref_offset = int(matches["$ref64_1"])
+    end_config = {"family": "SmokeLoader"}
+    table_ref = yara_scan(filebuf, "$ref64_1")
+    if table_ref:
+        table_ref_offset = int(table_ref["$ref64_1"])
         table_delta = struct.unpack("i", filebuf[table_ref_offset + 62 : table_ref_offset + 66])[0]
         table_offset = table_ref_offset + table_delta + 66
 
@@ -94,15 +94,17 @@ def extract_config(filebuf):
                     c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
                     c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                     if c2_url:
-                        end_config.setdefault("address", []).append(c2_url)
+                        end_config.setdefault("http", []).append({"uri": c2_url, "usage": "c2"})
                 except Exception:
                     table_loop = False
             else:
                 table_loop = False
             table_offset += 8
         return end_config
-    elif matches["$ref64_2"]:
-        table_ref_offset = int(matches["$ref64_1"])
+    else:
+        table_ref = yara_scan(filebuf, "$ref64_2")
+    if table_ref:
+        table_ref_offset = int(table_ref["$ref64_2"])
         table_delta = struct.unpack("i", filebuf[table_ref_offset + 26 : table_ref_offset + 30])[0]
         table_offset = table_ref_offset + table_delta + 30
 
@@ -117,13 +119,15 @@ def extract_config(filebuf):
             try:
                 c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                 if c2_url:
-                    end_config.setdefault("address", []).append(c2_url)
+                    end_config.setdefault("http", []).append({"uri": c2_url, "usage": "c2"})
             except Exception:
                 pass
             table_offset += 8
         return end_config
-    elif matches["$ref32_1"]:
-        table_ref_offset = int(matches["$ref32_1"])
+    else:
+        table_ref = yara_scan(filebuf, "$ref32_1")
+    if table_ref:
+        table_ref_offset = int(table_ref["$ref32_1"])
         table_rva = struct.unpack("i", filebuf[table_ref_offset + 55 : table_ref_offset + 59])[0] - image_base
         table_offset = pe.get_offset_from_rva(table_rva)
 
@@ -148,7 +152,7 @@ def extract_config(filebuf):
                     c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
                     c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                     if c2_url:
-                        end_config.setdefault("address", []).append(c2_url)
+                        end_config.setdefault("http", []).append({"uri": c2_url, "usage": "c2"})
                 except Exception:
                     table_loop = False
             else:

@@ -1,21 +1,25 @@
 import string
 import xml.etree.ElementTree as ET
-from io import StringIO
-from zipfile import ZipFile
+from io import BytesIO, StringIO
+from zipfile import BadZipFile, ZipFile
 
 from Cryptodome.Cipher import ARC4
 
 
 def extract_embedded(zip_data):
     raw_embedded = None
-    archive = StringIO(zip_data)
-    with ZipFile(archive) as zip:
-        for name in zip.namelist():  # get all the file names
-            if name == "load/ID":  # contains first part of key
-                partial_key = zip.read(name)
-                enckey = f"{partial_key}DESW7OWKEJRU4P2K"  # complete key
-            if name == "load/MANIFEST.MF":  # this is the embedded jar
-                raw_embedded = zip.read(name)
+    archive = BytesIO(zip_data) if isinstance(zip_data, bytes) else StringIO(zip_data)
+    try:
+        with ZipFile(archive) as zip:
+            for name in zip.namelist():  # get all the file names
+                if name == "load/ID":  # contains first part of key
+                    partial_key = zip.read(name)
+                    enckey = f"{partial_key}DESW7OWKEJRU4P2K"  # complete key
+                if name == "load/MANIFEST.MF":  # this is the embedded jar
+                    raw_embedded = zip.read(name)
+    except BadZipFile:
+        # File is not a zip
+        pass
     if raw_embedded is None:
         return None
     # Decrypt the raw file
@@ -47,16 +51,22 @@ def parse_config(config):
         else:
             raw_config[child.attrib["key"]] = child.text
     return {
-        "Version": raw_config["Version"],
-        "Delay": raw_config["delay"],
-        "Domain": raw_config["dns"],
-        "Extension": raw_config["extensionname"],
-        "Install": raw_config["install"],
-        "Port1": raw_config["p1"],
-        "Port2": raw_config["p2"],
-        "Password": raw_config["password"],
-        "PluginFolder": raw_config["pluginfoldername"],
-        "Prefix": raw_config["prefix"],
+        "family": "unrecom",
+        "version": raw_config["Version"],
+        "sleep_delay": [raw_config["delay"]],
+        "password": [raw_config["password"]],
+        "paths": [
+            {"path": raw_config["pluginfoldername"], "usage": "plugins"},
+            {"path": raw_config["install"], "usage": "install"},
+        ],
+        "other": {
+            # Need context around how these are used TCP/HTTP connections
+            "Prefix": raw_config["prefix"],
+            "Domain": raw_config["dns"],
+            "Extension": raw_config["extensionname"],
+            "Port1": raw_config["p1"],
+            "Port2": raw_config["p2"],
+        },
     }
 
 

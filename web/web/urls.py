@@ -28,7 +28,6 @@ from analysis import urls as analysis
 from apiv2 import urls as apiv2
 from compare import urls as compare
 from dashboard import urls as dashboard
-from guac import urls as guac
 from submission import urls as submission
 
 handler403 = "web.views.handler403"

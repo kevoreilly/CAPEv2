@@ -109,14 +109,14 @@ if enabled_ip_passlist and ip_passlist_file:
     with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
         ip_passlist = set(f.read().split("\n"))
 
-    if os.path.exists(network_passlist_file):
+    if os.path.isfile(network_passlist_file):
         with open(os.path.join(CUCKOO_ROOT, network_passlist_file), "r") as f:
-            for cidr in list(set(f.read().splitlines())):
-                if cidr.startswith("#") or len(domain.strip()) == 0:
+            for cidr in set(f.read().splitlines()):
+                if cidr.startswith("#") or len(cidr.strip()) == 0:
                     # comment or empty line
                     continue
 
-                network_passlist.append(ipaddress.ip_network(cidr))
+                network_passlist.append(ipaddress.ip_network(cidr.strip()))
 
 
 class Pcap:

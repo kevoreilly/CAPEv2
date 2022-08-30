@@ -229,5 +229,6 @@ class Evtx(Thread, Auxiliary):
         return False
 
     def stop(self):
-        self.collect_windows_logs()
+        if self.enabled:
+            self.collect_windows_logs()
         return True

@@ -541,10 +541,16 @@ class Pcap:
             if entry["port"] != 80 and ":" not in netloc:
                 netloc += f":{entry['port']}"
 
-            entry["data"] = convert_to_printable(tcpdata)
-            entry["uri"] = convert_to_printable(urlunparse(("http", netloc, http.uri, None, None, None)))
+            # Sometimes the host is found inside the path in the HTTP headers. When that happens, parse the host outside of the path.
+            path = http.uri
+            if netloc and netloc in http.uri:
+                path = http.uri.split(netloc)[1]
+            elif entry["host"] and entry["host"] in http.uri:
+                path = http.uri.split(entry["host"])[1]
+
+            entry["uri"] = convert_to_printable(urlunparse(("http", netloc, path, None, None, None)))
             entry["body"] = convert_to_printable(http.body)
-            entry["path"] = convert_to_printable(http.uri)
+            entry["path"] = convert_to_printable(path)
             entry["user-agent"] = convert_to_printable(http.headers["user-agent"]) if "user-agent" in http.headers else ""
             entry["version"] = convert_to_printable(http.version)
             entry["method"] = convert_to_printable(http.method)

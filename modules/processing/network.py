@@ -548,6 +548,7 @@ class Pcap:
             elif entry["host"] and entry["host"] in http.uri:
                 path = http.uri.split(entry["host"])[1]
 
+            entry["data"] = convert_to_printable(tcpdata)
             entry["uri"] = convert_to_printable(urlunparse(("http", netloc, path, None, None, None)))
             entry["body"] = convert_to_printable(http.body)
             entry["path"] = convert_to_printable(path)

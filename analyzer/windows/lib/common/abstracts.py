@@ -73,7 +73,7 @@ class Package:
         @return: executable path
         """
         for path in self.enum_paths():
-            if os.path.isfile(path):
+            if application in path and os.path.isfile(path):
                 return path
 
         raise CuckooPackageError(f"Unable to find any {application} executable")

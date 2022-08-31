@@ -293,7 +293,7 @@
                 {% if config.virustotal and not sub_file.virustotal and on_demand.virustotal %}
                     <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" id tab_name sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Fetch VirusTotal results"><span class="fas fa-cogs"></span> VirusTotal</a>
                 {% endif %}
-                {% if config.vtupload and tlp != "Red" %}
+                {% if config.vtupload and analysis.info.tlp != "Red" %}
                     <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id sub_file.name sub_file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
                 {% endif %}
                 {% if sub_file.data %}

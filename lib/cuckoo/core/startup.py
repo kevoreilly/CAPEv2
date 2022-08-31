@@ -129,7 +129,7 @@ def create_structure():
         os.path.join("storage", "analyses"),
         os.path.join("storage", "binaries"),
         os.path.join("data", "feeds"),
-        os.path.join("data", "guacrecordings"),
+        os.path.join("storage", "guacrecordings"),
     ]
 
     try:

@@ -92,6 +92,8 @@ sandbox_packages = (
     "Shellcode",
     "Shellcode_x64",
     "generic",
+    "iso",
+    "vhd",
 )
 
 log = logging.getLogger(__name__)
@@ -1614,6 +1616,8 @@ class Database(object, metaclass=Singleton):
                             package = "regsvr"
                         elif "xlAutoOpen" in dll_exports:
                             package = "xls"
+                    if package in ["iso", "vhd"]:
+                        package = "archive"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers

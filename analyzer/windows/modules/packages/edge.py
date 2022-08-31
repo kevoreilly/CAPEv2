@@ -1,5 +1,6 @@
 from lib.common.abstracts import Package
 
+
 class Edge(Package):
     """Edge analysis package."""
 

@@ -91,6 +91,7 @@ sandbox_packages = (
     "xslt",
     "Shellcode",
     "Shellcode_x64",
+    "generic",
 )
 
 log = logging.getLogger(__name__)
@@ -1595,7 +1596,13 @@ class Database(object, metaclass=Singleton):
             if not config and not only_extraction:
                 if not package:
                     f = SflockFile.from_path(file)
-                    tmp_package = sflock_identify(f)
+
+                    try:
+                        tmp_package = sflock_identify(f)
+                    except Exception as e:
+                        log.error(f"Failed to sflock_ident due to {e}")
+                        tmp_package = "generic"
+
                     if tmp_package and tmp_package in sandbox_packages:
                         package = tmp_package
                     else:

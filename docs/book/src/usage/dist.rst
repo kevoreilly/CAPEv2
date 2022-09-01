@@ -276,14 +276,14 @@ The number of retrieved threads can be configured in reporting.conf
 Installation of "uwsgi"::
 
     # nginx is optional
-    # apt-get install uwsgi uwsgi-plugin-python nginx
+    # apt-get install uwsgi uwsgi-plugin-python3 nginx
 
 
-Is better if you run "web" and "dist.py" as uwsgi application
+It's better if you run "web" and "dist.py" as uwsgi application
 
-uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
+uwsgi config for dist.py - Paste the following into /opt/CAPE/utils/dist.ini::
 
-    [uwsgi]
+        [uwsgi]
         ; you might need to adjust plugin-dir path for your system
         ; plugins-dir = /usr/lib/uwsgi/plugins
         plugins = python38
@@ -319,9 +319,9 @@ To run your api with config just execute as::
     # WEBGUI is started by systemd as cape-web.service
     $ uwsgi --ini /opt/CAPEv2/utils/dist.ini
 
-To add your application to auto start after boot, move your config file to::
+To add your application to auto start after boot, copy your config file to::
 
-    mv /opt/CAPEv2/utils/dist.ini /etc/uwsgi/apps-available/cape_dist.ini
+    cp /opt/CAPEv2/utils/dist.ini /etc/uwsgi/apps-available/cape_dist.ini
     ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
 
     service uwsgi restart

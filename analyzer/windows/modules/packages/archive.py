@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 FILE_NAME_REGEX = re.compile("[\s]{2}([a-zA-Z0-9\.\-_\\\\]+)\\r")
 EXE_REGEX = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1)$", flags=re.IGNORECASE)
 
+
 class Archive(Package):
     """Archive analysis package."""
 
@@ -47,16 +48,14 @@ class Archive(Package):
         log.debug(p.stdout + p.stderr)
         if b"Wrong password" in stderr:
             shutil.rmtree(extract_path, ignore_errors=True)
-            p = subprocess.run(
-                [seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path], capture_output=True
-            )
+            p = subprocess.run([seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path], capture_output=True)
             stdoutput, stderr = p.stdout, p.stderr
             log.debug(p.stdout + p.stderr)
             if b"Wrong password" in stderr:
-                raise 
+                raise
         elif b"Can not open the file as archive" in stdoutput:
             raise TypeError
-            
+
     def get_file_names(self, archive_path):
         """Get the file names from archive file.
         @param archive_path: archive file path

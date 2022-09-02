@@ -1,3 +1,6 @@
+### [2-9-2022]
+* Monitor update: Fix issue with incorrect prototype for NtCreateThreadEx hook
+
 ### [28-08-2022] [Maco - Malware config extractor framework](https://github.com/CybercentreCanada/Maco)
 * [MACO foramt for malware configs](https://github.com/kevoreilly/CAPEv2/pull/1037)
 

@@ -94,6 +94,7 @@ sandbox_packages = (
     "generic",
     "iso",
     "vhd",
+    "udf",
 )
 
 log = logging.getLogger(__name__)
@@ -1616,7 +1617,7 @@ class Database(object, metaclass=Singleton):
                             package = "regsvr"
                         elif "xlAutoOpen" in dll_exports:
                             package = "xls"
-                    if package in ["iso", "vhd"]:
+                    if package in ["iso", "udf", "vhd"]:
                         package = "archive"
 
                 # ToDo better solution? - Distributed mode here:

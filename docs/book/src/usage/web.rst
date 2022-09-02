@@ -104,7 +104,7 @@ Instalation::
     # nginx is optional
     # sudo apt-get install uwsgi uwsgi-plugin-python nginx
 
-To enable ``uwsgi`` create ``/etc/uwsgi/apps-enabled/cape.ini``:
+To enable ``uwsgi`` copy ``/opt/CAPE/uwsgi/cape.ini`` to ``/etc/uwsgi/apps-enabled/cape.ini``:
 
 .. code-block:: python
 

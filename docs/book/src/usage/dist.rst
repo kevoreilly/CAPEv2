@@ -281,7 +281,7 @@ Installation of "uwsgi"::
 
 It's better if you run "web" and "dist.py" as uwsgi application
 
-uwsgi config for dist.py - Paste the following into /opt/CAPE/utils/dist.ini::
+uwsgi config for dist.py - Found at ``/opt/CAPE/uwsgi/capedist.ini``::
 
         [uwsgi]
         ; you might need to adjust plugin-dir path for your system
@@ -317,11 +317,11 @@ uwsgi config for dist.py - Paste the following into /opt/CAPE/utils/dist.ini::
 To run your api with config just execute as::
 
     # WEBGUI is started by systemd as cape-web.service
-    $ uwsgi --ini /opt/CAPEv2/utils/dist.ini
+    $ uwsgi --ini /opt/CAPEv2/uwsgi/capedist.ini
 
 To add your application to auto start after boot, copy your config file to::
 
-    cp /opt/CAPEv2/utils/dist.ini /etc/uwsgi/apps-available/cape_dist.ini
+    cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
     ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
 
     service uwsgi restart

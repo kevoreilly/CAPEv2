@@ -19,7 +19,7 @@ from lib.common.exceptions import CuckooPackageError
 log = logging.getLogger(__name__)
 
 
-FILE_NAME_REGEX = re.compile("[\s]{2}([a-zA-Z0-9\.\-_\\\\]+)\\r")
+FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
 EXE_REGEX = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1)$", flags=re.IGNORECASE)
 
 
@@ -144,7 +144,16 @@ class Archive(Package):
 
         log.debug(file_names)
         self.extract_archive(path, root, password)
-        log.debug([item for item in os.walk(root)])
+
+        # Handle special characters that 7ZIP cannot
+        # We have the file names according to 7ZIP output (file_names)
+        # We have the file names that were actually extracted (files at root)
+        # If these values are different, replace all
+        files_at_root = [f for _, _, files in os.walk(root) for f in files]
+        log.debug(files_at_root)
+        if set(file_names) != set(files_at_root):
+            log.debug(f"Replacing {file_names} with {files_at_root}")
+            file_names = files_at_root
 
         file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.

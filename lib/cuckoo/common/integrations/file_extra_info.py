@@ -410,12 +410,11 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
                 [selfextract_conf.msi_extract.binary, file, "--directory", tempdir], universal_newlines=True
             )
             if output:
-                if output:
-                    files = [
-                        extracted_file
-                        for extracted_file in list(filter(None, output.split("\n")))
-                        if os.path.isfile(os.path.join(tempdir, extracted_file))
-                    ]
+                files = [
+                    extracted_file
+                    for extracted_file in list(filter(None, output.split("\n")))
+                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                ]
             else:
                 output = subprocess.check_output(
                     [

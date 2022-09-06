@@ -441,7 +441,6 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
         except Exception as e:
             log.error(e, exc_info=True)
 
-
     return "MsiExtract", metadata
 
 

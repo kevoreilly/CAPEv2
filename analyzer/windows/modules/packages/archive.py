@@ -136,7 +136,12 @@ class Archive(Package):
 
         archive_name = path.split("\\")[-1].split(".")[0]
         root = os.path.join(os.environ["TEMP"], archive_name)
-        os.mkdir(root)
+
+        # Check if root exists already due to the file path
+        if os.path.exists(root) and os.path.isfile(root):
+            root = os.path.join(os.environ["TEMP"], "extracted_iso", archive_name)
+
+        os.makedirs(root)
 
         file_names = self.get_file_names(path)
         if not len(file_names):

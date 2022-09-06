@@ -131,7 +131,6 @@ class Archive(Package):
             file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
-
     def start(self, path):
         password = self.options.get("password", "")
 

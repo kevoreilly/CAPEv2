@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -364,7 +365,11 @@ def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_d
     if "Mono" not in filetype:
         return
 
-    if not os.path.exists(selfextract_conf.de4dot_deobfuscate.binary):
+    de4dot_binary = shlex.split(selfextract_conf.de4dot_deobfuscate.binary.strip())
+    if not de4dot_binary:
+        log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
+        return
+    if not os.path.exists(de4dot_binary[0]):
         log.error("Missed dependency: sudo apt install de4dot")
         return
     metadata = []
@@ -374,10 +379,11 @@ def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_d
             dest_path = os.path.join(tempdir, os.path.basename(file))
             output = subprocess.check_output(
                 [
-                    selfextract_conf.de4dot_deobfuscate.binary,
+                    *de4dot_binary,
+                    *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
                     "-f",
                     file,
-                    f"-o",
+                    "-o",
                     dest_path,
                 ],
                 universal_newlines=True,

@@ -96,38 +96,8 @@ class Archive(Package):
 
         return file_names
 
-    def start(self, path):
-        password = self.options.get("password", "")
-
-        archive_name = path.split("\\")[-1].split(".")[0]
-        root = os.path.join(os.environ["TEMP"], archive_name)
-        os.mkdir(root)
-
-        file_names = self.get_file_names(path)
-        if not len(file_names):
-            raise CuckooPackageError("Empty archive")
-
-        log.debug(file_names)
-        self.extract_archive(path, root, password)
-        log.debug([item for item in os.walk(root)])
-
-        file_name = self.options.get("file")
-        # If no file name is provided via option, take the first file.
-        if not file_name:
-            # Attempt to find a valid exe extension in the archive
-            for f in file_names:
-                log.debug(f)
-                if re.search(EXE_REGEX, f):
-                    log.debug("hit")
-                    file_name = f
-                    break
-            # Default to the first one if none found
-            file_name = file_name or file_names[0]
-            log.debug("Missing file option, auto executing: %s", file_name)
-
-        file_path = os.path.join(root, file_name)
+    def execute_interesting_file(self, file_name: str, file_path: str):
         log.debug('file_name: "%s"', file_name)
-
         if file_name.lower().endswith(".lnk"):
             cmd_path = self.get_path("cmd.exe")
             cmd_args = f'/c start /wait "" "{file_path}"'
@@ -155,8 +125,48 @@ class Archive(Package):
             return self.execute(rundll32, dll_args, file_path)
         elif file_name.lower().endswith(".ps1"):
             powershell = self.get_path_app_in_path("powershell.exe")
-            args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
+            args = f'-NoProfile -ExecutionPolicy bypass -File "{file_path}"'
             return self.execute(powershell, args, file_path)
         else:
-            path = check_file_extension(path, ".exe")
+            file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)
+
+
+    def start(self, path):
+        password = self.options.get("password", "")
+
+        archive_name = path.split("\\")[-1].split(".")[0]
+        root = os.path.join(os.environ["TEMP"], archive_name)
+        os.mkdir(root)
+
+        file_names = self.get_file_names(path)
+        if not len(file_names):
+            raise CuckooPackageError("Empty archive")
+
+        log.debug(file_names)
+        self.extract_archive(path, root, password)
+        log.debug([item for item in os.walk(root)])
+
+        file_name = self.options.get("file")
+        # If no file name is provided via option, discover files to execute.
+        if not file_name:
+            # Attempt to find at least one valid exe extension in the archive
+            interesting_files = []
+            ret_list = []
+            for f in file_names:
+                if re.search(EXE_REGEX, f):
+                    interesting_files.append(f)
+
+            if not interesting_files:
+                log.debug("No interesting files found, auto executing the first file: %s", file_names[0])
+                interesting_files.append(file_names[0])
+
+            log.debug("Missing file option, auto executing: %s", interesting_files)
+            for interesting_file in interesting_files:
+                file_path = os.path.join(root, interesting_file)
+                ret_list.append(self.execute_interesting_file(interesting_file, file_path))
+
+            return ret_list
+        else:
+            file_path = os.path.join(root, file_name)
+            return self.execute_interesting_file(file_name, file_path)

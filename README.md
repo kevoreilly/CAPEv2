@@ -144,5 +144,9 @@ git push
 * We suggest using only pure Python with entry point `def config(data):` that will be called by `cape_utils.py` and 0 complications.
     * As a bonus, you can reuse your extractors in other projects.
 
+### Special note about 3rd part dependencies:
+* They becoming a headache, specially those that using `pefile` as each pins version that they want. 
+    * Our suggestion is clone/fork them, remove `pefile` dependency as you already have it installed. Volia no more pain.
+
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)

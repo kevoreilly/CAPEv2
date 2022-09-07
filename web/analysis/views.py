@@ -2116,7 +2116,9 @@ def statistics_data(request, days=7):
         except Exception as e:
             # psycopg2.OperationalError
             print(e)
-            return render(request, "error.html", {"error": "Please restart your database. Probably it had an update or it just down"})
+            return render(
+                request, "error.html", {"error": "Please restart your database. Probably it had an update or it just down"}
+            )
         return render(request, "statistics.html", {"statistics": details, "days": days})
     else:
         return render(request, "error.html", {"error": "Provide days as number"})

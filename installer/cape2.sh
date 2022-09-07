@@ -509,7 +509,7 @@ function install_suricata() {
     # Download etupdate to update Emerging Threats Open IDS rules:
     pip3 install suricata-update
     mkdir -p "/etc/suricata/rules"
-    if ! crontab -l | grep -q '15 * * * * /usr/bin/suricata-update'; then
+    if ! crontab -l | grep -q -F '15 * * * * /usr/bin/suricata-update'; then
         crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/suricatasc -c reload-rules /tmp/suricata-command.socket &>/dev/null"; } | crontab -
     fi
     if [ -d /usr/share/suricata/rules/ ]; then

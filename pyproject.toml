@@ -16,7 +16,7 @@ pymisp = "2.4.144"
 cryptography = "3.3.2"
 requests = {version = "2.27.1", extras = ["security", "socks"]}
 pyOpenSSL = "20.0.1"
-pefile = "2021.9.3"
+pefile = "*"
 tldextract = "3.1.0"
 oletools = "0.60"
 olefile = "0.46"

@@ -124,8 +124,10 @@ function install_crowdsecurity() {
 function install_docker() {
     # https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
     sudo apt install apt-transport-https ca-certificates curl software-properties-common
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
+    echo "deb [signed-by=/etc/apt/keyrings/docker.gpg arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+
     sudo apt update
     sudo apt install docker-ce
     sudo usermod -aG docker ${USER}
@@ -588,6 +590,9 @@ function install_yara() {
     cd /tmp || return
     git clone --recursive https://github.com/VirusTotal/yara-python
     cd yara-python
+    # Temp workarond to fix issues compiling yara-python https://github.com/VirusTotal/yara-python/issues/212
+    # partially applying PR https://github.com/VirusTotal/yara-python/pull/210/files
+    sed -i "191 i \ \ \ \ # Needed to build tlsh'\n    module.define_macros.extend([('BUCKETS_128', 1), ('CHECKSUM_1B', 1)])\n    # Needed to build authenticode parser\n    module.libraries.append('ssl')"
     python3 setup.py build --enable-cuckoo --enable-magic --enable-dotnet --enable-profiling
     cd ..
     pip3 install ./yara-python
@@ -604,10 +609,9 @@ function install_mongo(){
         MONGO_VERSION="4.4"
     fi
 
-    wget -qO - https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc | sudo apt-key add -
-    # mongo 22 uses repo of 20
-    # echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
-    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
+    sudo curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
+    echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
+
     apt update 2>/dev/null
     # From Ubuntu version 20 repo we need to add extra dependency libssl1.1
     curl -LO http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
@@ -669,9 +673,15 @@ EOF
 }
 
 function install_elastic() {
-    # https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-elasticsearch-on-ubuntu-20-04
-    curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
-    echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
+    
+    sudo curl -fsSL "https://artifacts.elastic.co/GPG-KEY-elasticsearch" | sudo gpg --dearmor -o /etc/apt/keyrings/elasticsearch-keyring.gpg --yes
+    
+    # Elasticsearch 7.x
+    echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/7.x/apt stable main" > /etc/apt/sources.list.d/elastic-7.x.list
+
+    # Elasticsearch 8.x
+    # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
+
     apt update && apt install elasticsearch
     pip3 install elasticsearch
     systemctl enable elasticsearch
@@ -680,8 +690,8 @@ function install_elastic() {
 function install_postgresql() {
     echo "[+] Installing PostgreSQL"
 
-    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-    echo "deb [ arch=amd64 ] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+    sudo curl -fsSL "https://www.postgresql.org/media/keys/ACCC4CF8.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg --yes
+    echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
     sudo apt update -y
     sudo apt -y install libpq-dev postgresql postgresql-client
@@ -768,13 +778,14 @@ function dependencies() {
     usermod -a -G systemd-journal ${USER}
 
     # https://www.torproject.org/docs/debian.html.en
-    echo "deb [ arch=amd64 ] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list
-    echo "deb-src http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list
     sudo apt install gnupg2 -y
-    gpg --keyserver keyserver.ubuntu.com --recv A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
-    #gpg2 --recv A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
-    #gpg2 --export A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89 | apt-key add -
-    wget -qO - https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo apt-key add -
+
+    sudo curl -fsSL https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo gpg --dearmor -o /etc/apt/keyrings/torproject.gpg --yes
+    
+    echo "deb [signed-by=/etc/apt/keyrings/torproject.gpg arch=amd64] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
+    echo "deb-src [signed-by=/etc/apt/keyrings/torproject.gpg arch=amd64] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
+    
+
     sudo apt update 2>/dev/null
     apt install tor deb.torproject.org-keyring libzstd1 -y
 
@@ -977,8 +988,8 @@ function install_CAPE() {
 
     cd CAPEv2 || return
     pip3 install poetry
-    CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} poetry install
-    sudo -u ${USER} poetry run extra/poetry_libvirt_installer.sh
+    CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
+    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
@@ -1206,7 +1217,7 @@ function install_guacamole() {
     fi
 
     cd /opt/CAPEv2
-    poetry install
+    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     cd ..
 
     sudo mount -a

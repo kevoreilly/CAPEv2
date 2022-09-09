@@ -12,14 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+DESCRIPTION = "RedLeaf configuration parser."
+AUTHOR = "kevoreilly"
+
 import struct
 
 import pefile
 import yara
-
-DESCRIPTION = "RedLeaf configuration parser."
-AUTHOR = "kevoreilly"
-
 
 rule_source = """
 rule RedLeaf
@@ -90,21 +89,21 @@ def extract_config(filebuf):
     end_config = {}
     c2_address = tmp_config[8 : 8 + MAX_IP_STRING_SIZE]
     if c2_address:
-        end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
+        end_config.setdefault("c2_address", []).append(c2_address)
     c2_address = tmp_config[0x48 : 0x48 + MAX_IP_STRING_SIZE]
     if c2_address:
-        end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
+        end_config.setdefault("c2_address", []).append(c2_address)
     c2_address = tmp_config[0x88 : 0x88 + MAX_IP_STRING_SIZE]
     if c2_address:
-        end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
+        end_config.setdefault("c2_address", []).append(c2_address)
     missionid = string_from_offset(tmp_config, 0x1EC)
     if missionid:
-        end_config["campaign_id"] = missionid
+        end_config["missionid"] = missionid
     mutex = unicode_string_from_offset(tmp_config, 0x508)
     if mutex:
-        end_config["mutex"] = [mutex]
+        end_config["mutex"] = mutex
     key = string_from_offset(tmp_config, 0x832)
     if key:
-        end_config["encryption"] = [{"algorithm": "RC4", "key": key}]
+        end_config["key"] = key
 
     return end_config

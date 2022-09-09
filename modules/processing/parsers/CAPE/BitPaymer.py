@@ -12,15 +12,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+DESCRIPTION = "BitPaymer configuration parser."
+AUTHOR = "kevoreilly"
+
 import string
 
 import pefile
 import yara
 from Cryptodome.Cipher import ARC4
-
-DESCRIPTION = "BitPaymer configuration parser."
-AUTHOR = "kevoreilly"
-
 
 rule_source = """
 rule BitPaymer
@@ -84,7 +83,7 @@ def extract_config(file_data):
         for item in raw.split(b"\x00"):
             data = "".join(convert_char(c) for c in item)
             if len(data) == 760:
-                config["encryption"] = [{"algorithm": "RSA", "public_key": data}]
+                config["RSA public key"] = data
             elif len(data) > 1 and "\\x" not in data:
-                config["decoded_strings"] = [data]
+                config["strings"] = data
     return config

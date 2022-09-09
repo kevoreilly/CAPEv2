@@ -1,2 +1,2 @@
-def extract_config(data: bytes):
+def extract_config():
     pass

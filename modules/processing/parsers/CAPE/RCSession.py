@@ -12,14 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+DESCRIPTION = "RCSession configuration parser."
+AUTHOR = "kevoreilly"
+
 import struct
 
 import pefile
 import yara
-
-DESCRIPTION = "RCSession configuration parser."
-AUTHOR = "kevoreilly"
-
 
 rule_source = """
 rule RCSession
@@ -94,33 +93,29 @@ def extract_config(filebuf):
     config_offset = pe.get_offset_from_rva(config_rva)
     size = struct.unpack("i", filebuf[yara_offset + 88 : yara_offset + 92])[0]
     key = struct.unpack("i", filebuf[config_offset + 128 : config_offset + 132])[0]
-    end_config = {"family": "RCSession"}
+    end_config = {}
     tmp_config = decode(filebuf[config_offset : config_offset + size], size, key)
 
     c2_address = str(tmp_config[156 : 156 + MAX_IP_STRING_SIZE])
     if c2_address:
-        end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
+        end_config.setdefault("c2_address", []).append(c2_address)
     c2_address = str(tmp_config[224 : 224 + MAX_IP_STRING_SIZE])
     if c2_address:
-        end_config.setdefault("tcp", []).append({"server_ip": c2_address, "usage": "c2"})
+        end_config.setdefault("c2_address", []).append(c2_address)
     installdir = unicode_string_from_offset(bytes(tmp_config), 0x2A8, 128)
     if installdir:
-        end_config.setdefault("paths", []).append({"path": installdir, "usage": "install"})
+        end_config["directory"] = installdir
     executable = unicode_string_from_offset(tmp_config, 0x4B0, 128)
     if executable:
-        end_config.setdefault("paths", []).append({"path": executable, "usage": "install"})
+        end_config["filename"] = executable
     servicename = unicode_string_from_offset(tmp_config, 0x530, 128)
-    service = {}
     if servicename:
-        service["name"] = servicename
+        end_config["servicename"] = servicename
     displayname = unicode_string_from_offset(tmp_config, 0x738, 128)
     if displayname:
-        service["display_name"] = displayname
+        end_config["servicedisplayname"] = displayname
     description = unicode_string_from_offset(tmp_config, 0x940, 512)
     if description:
-        service["description"] = description
-
-    if service:
-        end_config["services"] = [service]
+        end_config["servicedescription"] = description
 
     return end_config

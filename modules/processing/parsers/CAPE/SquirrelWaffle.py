@@ -17,9 +17,6 @@ from itertools import cycle
 import pefile
 import yara
 
-AUTHOR = "kevoreilly"
-DESCRIPTION = "SquirrelWaffle configuration parser."
-
 rule_source = """
 rule SquirrelWaffle
 {
@@ -72,13 +69,12 @@ def extract_config(data):
                     if "\r\n" in decrypted and "|" not in decrypted:
                         config["IP Blocklist"] = list(filter(None, decrypted.split("\r\n")))
                     elif "|" in decrypted and "." in decrypted and "\r\n" not in decrypted:
-                        config.setdefault("http", []).extend([{"uri": uri} for uri in list(filter(None, decrypted.split("|")))])
+                        config["URLs"] = list(filter(None, decrypted.split("|")))
                 except Exception:
                     continue
         matches = yara_rules.match(data=data)
         if not matches:
             return config
-        config["family"] = "SquirrelWaffle"
         for match in matches:
             if match.rule != "SquirrelWaffle":
                 continue
@@ -87,5 +83,5 @@ def extract_config(data):
                     c2key_offset = int(item[0])
                     key_rva = struct.unpack("i", data[c2key_offset + 28 : c2key_offset + 32])[0] - pe.OPTIONAL_HEADER.ImageBase
                     key_offset = pe.get_offset_from_rva(key_rva)
-                    config.setdefault("other", {})["C2 key"] = string_from_offset(data, key_offset).decode()
+                    config["C2 key"] = string_from_offset(data, key_offset).decode()
                     return config

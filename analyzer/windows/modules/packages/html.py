@@ -18,7 +18,7 @@ class HTML(Package):
     ]
 
     def start(self, path):
-        iexplore = self.get_path("browser")
+        iexplore = self.get_path("iexplore.exe")
 
         # Travelling inside malware universe you should bring a towel with you.
         # If a file detected as HTML is submitted without a proper extension,

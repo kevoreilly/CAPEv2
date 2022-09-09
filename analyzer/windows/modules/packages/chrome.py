@@ -13,6 +13,6 @@ class Chrome(Package):
     ]
 
     def start(self, url):
-        chrome = self.get_path("Google Chrome")
+        chrome = self.get_path("chrome.exe")
         # pass the URL instead of a filename in this case
         return self.execute(chrome, f'"{url}"', url)

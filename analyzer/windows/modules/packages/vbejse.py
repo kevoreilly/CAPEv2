@@ -15,7 +15,7 @@ class VBSJSE(Package):
     ]
 
     def start(self, path):
-        wscript = self.get_path("WScript")
+        wscript = self.get_path("wscript.exe")
         # We are here bcz of no extension
         copyfile(path, f"{path}.vbe")
         copyfile(path, f"{path}.jse")

@@ -4,7 +4,7 @@
 
 import tempfile
 
-from lib.common.abstracts import Package
+from lib.common.abstracts import CuckooPackageError, Package
 
 
 class Applet(Package):
@@ -32,7 +32,11 @@ class Applet(Package):
         return file_path
 
     def start(self, path):
-        browser = self.get_path("browser")
+        try:
+            browser = self.get_path("firefox.exe")
+        except CuckooPackageError:
+            browser = self.get_path("iexplore.exe")
+
         class_name = self.options.get("class")
         html_path = self.make_html(path, class_name)
         return self.execute(browser, f'"{html_path}"', html_path)

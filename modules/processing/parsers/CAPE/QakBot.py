@@ -217,10 +217,10 @@ def extract_config(filebuf):
                     elif str(entry.name) in ("524", "5812"):
                         dec_bytes = decrypt_data2(res_data)
                         config = parse_config(dec_bytes)
-                    elif str(entry.name) in ("18270D2E", "BABA", "103"):
+                    elif str(entry.name) in ("18270D2E", "BABA", "103", "89210AF9"):
                         dec_bytes = decrypt_data3(res_data)
                         config = parse_config(dec_bytes)
-                    elif str(entry.name) in ("26F517AB", "EBBA", "102"):
+                    elif str(entry.name) in ("26F517AB", "EBBA", "102", "3C91E639"):
                         dec_bytes = decrypt_data3(res_data)
                         controllers = parse_binary_c2_2(dec_bytes)
                     end_config["Loader Build"] = parse_build(pe).decode()

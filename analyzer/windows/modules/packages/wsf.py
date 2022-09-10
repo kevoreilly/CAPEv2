@@ -15,7 +15,7 @@ class WSF(Package):
     ]
 
     def start(self, path):
-        wscript = self.get_path("WScript")
+        wscript = self.get_path("wscript.exe")
         # Enforce the .wsf file extension as is required by wscript.
         path = check_file_extension(path, ".wsf")
         return self.execute(wscript, f'"{path}"', path)

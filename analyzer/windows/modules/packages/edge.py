@@ -9,5 +9,5 @@ class Edge(Package):
     ]
 
     def start(self, url):
-        edge = self.get_path("Microsoft Edge")
+        edge = self.get_path("msedge.exe")
         return self.execute(edge, f'"{url}"', url)

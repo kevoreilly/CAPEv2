@@ -215,9 +215,9 @@ require a static IP address which should then be configured in the
 .. _InetSim: http://www.inetsim.org/
 .. _REMnux: https://remnux.org/
 
-.. _routing_tor:
-
 We ``suggest running it on a virtual machine`` to avoid any possible leaks
+
+.. _routing_tor:
 
 Tor Routing
 ^^^^^^^^^^^

@@ -16,7 +16,8 @@ machinery choice.
     In case if you see proxy IP:PORT in networking for example as tor `9040` port.
     It happens due that you have installed `docker` on your host and it breaks some networking filters.
 
-To fix proxy IP:PORT problem, you need to run following commands as root::
+To fix proxy IP:PORT problem, you need to run following script.
+Save it to file, give execution permission with sudo a+x iptables_fix.sh and run it with proper arguments::
 
     !/bin/bash
     # Fix when docker breaks your iptables

@@ -1,3 +1,6 @@
+### [12-9-2022]
+* Monitor update: TLSdump on Win10 & other improvements (see capemon repo for details)
+
 ### [2-9-2022]
 * Monitor update: Fix issue with incorrect prototype for NtCreateThreadEx hook
 

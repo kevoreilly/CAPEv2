@@ -288,8 +288,8 @@ class ParseProcessLog(list):
             log.debug("Unable to parse process log row: %s", e)
             return None
 
-        # Now walk through the remaining columns, which will contain API
-        # arguments.
+        # Now walk through the remaining columns, which will contain API arguments.
+
         for api_arg in row[9:]:
             # Split the argument name with its value based on the separator.
             try:
@@ -299,6 +299,7 @@ class ParseProcessLog(list):
                 continue
 
             argument = {"name": arg_name}
+            arg_value_raw = arg_value
             if isinstance(arg_value, bytes):
                 arg_value = bytes2str(arg_value)
 
@@ -311,10 +312,15 @@ class ParseProcessLog(list):
                 log.error(arg_value, exc_info=True)
                 continue
             if not self.reporting_mode:
-                argument["raw_value"] = arg_value
+                if isinstance(arg_value_raw, bytes):
+                    argument["raw_value"] = bytes.hex(arg_value_raw)
+                else:
+                    argument["raw_value"] = arg_value
+
             pretty = pretty_print_arg(category, api_name, arg_name, argument["value"])
             if pretty:
                 argument["pretty_value"] = pretty
+
             arguments.append(argument)
 
         call = {

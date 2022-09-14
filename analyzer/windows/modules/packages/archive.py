@@ -96,11 +96,11 @@ class Archive(Package):
 
         return file_names
 
-    def execute_interesting_file(self, file_name: str, file_path: str):
+    def execute_interesting_file(self, root: str, file_name: str, file_path: str):
         log.debug('file_name: "%s"', file_name)
         if file_name.lower().endswith(".lnk"):
             cmd_path = self.get_path("cmd.exe")
-            cmd_args = f'/c start /wait "" "{file_path}"'
+            cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
         elif file_name.lower().endswith(".msi"):
             msi_path = self.get_path("msiexec.exe")
@@ -183,9 +183,9 @@ class Archive(Package):
             log.debug("Missing file option, auto executing: %s", interesting_files)
             for interesting_file in interesting_files:
                 file_path = os.path.join(root, interesting_file)
-                ret_list.append(self.execute_interesting_file(interesting_file, file_path))
+                ret_list.append(self.execute_interesting_file(root, interesting_file, file_path))
 
             return ret_list
         else:
             file_path = os.path.join(root, file_name)
-            return self.execute_interesting_file(file_name, file_path)
+            return self.execute_interesting_file(root, file_name, file_path)

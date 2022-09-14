@@ -44,6 +44,6 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
 
-      - uses: trailofbits/gh-action-pip-audit@v1.0.0
+      - uses: pypa/gh-action-pip-audit@v1.0.0
         with:
           virtual-environment: .venv/

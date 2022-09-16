@@ -564,6 +564,7 @@ class RunSignatures:
                     continue
                 else:
                     if result and not sig.matched:
+                        matched.append(sig.as_result())
                         if hasattr(sig, "ttps"):
                             [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttps]
 

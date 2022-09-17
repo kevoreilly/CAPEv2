@@ -1,3 +1,6 @@
+### [17-9-2022]
+* Monitor update: misc fixes (see capemon repo for details)
+
 ### [12-9-2022]
 * Monitor update: TLSdump on Win10 & other improvements (see capemon repo for details)
 

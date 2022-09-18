@@ -1049,7 +1049,7 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
             print(term, value, e)
     elif term == "configs":
         # check if family name is string only maybe?
-        query_val = {f"{search_term_map[term]}.{value}": {"$exist": True}, "$options": "-i"}
+        query_val = {f"{search_term_map[term]}.{value}": {"$exist": True}, "$options": "i"}
     elif term == "ttp":
         if validate_ttp(value):
             query_val = value.upper()
@@ -1058,7 +1058,7 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
     elif term == "malscore":
         query_val = {"$gte": float(value)}
     else:
-        query_val = {"$regex": value, "$options": "-i"}
+        query_val = {"$regex": value, "$options": "i"}
 
     if term not in search_term_map:
         return None

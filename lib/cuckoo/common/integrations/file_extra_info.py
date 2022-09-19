@@ -532,9 +532,9 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
 
 
 def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
-    # TODO: maybe check yara for UPX?
-    # hit["name"] == "UPX":
-    if "UPX compressed" not in filetype:
+    if "UPX compressed" not in filetype and \
+        all("UPX" not in string for string in data_dictionary.get("die", {})) and \
+        all(block.get("name") != "UPX" for block in data_dictionary.get("yara", {})):
         return
 
     metadata = []

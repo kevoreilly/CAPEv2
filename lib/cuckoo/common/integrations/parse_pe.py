@@ -147,7 +147,13 @@ class PortableExecutable:
         """@param file_path: file path."""
         self.file_path = file_path
         self._file_data = None
-        # pe = None
+        self.pe = None
+        self.HAVE_PE = False
+        try:
+            self.pe = pefile.PE(self.file_path)
+            self.HAVE_PE = True
+        except Exception as e:
+            log.error("PE type not recognised: %s", e)
         # self.results = results
 
     @property
@@ -804,12 +810,10 @@ class PortableExecutable:
 
     def get_dll_exports(self) -> str:
         file_type = self._get_filetype(self.file_data)
-        if HAVE_PEFILE and file_type and ("PE32" in file_type or "MS-DOS executable" in file_type):
+        if HAVE_PEFILE and file_type and ("PE32" in file_type or "MS-DOS executable" in file_type) and self.HAVE_PE:
             try:
-                pe = pefile.PE(self.file_path)
-                if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                     exports = []
-                    for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
+                    for exported_symbol in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
                         try:
                             if not exported_symbol.name:
                                 continue
@@ -869,29 +873,27 @@ class PortableExecutable:
         if not IsPEImage(contents):
             return {}
 
-        try:
-            pe = pefile.PE(self.file_path)
-        except Exception as e:
-            log.error("PE type not recognised: %s", e)
+        if not self.HAVE_PE:
             return {}
+
         peresults = {
             "guest_signers": self.get_guest_digital_signers(task_id),
-            "digital_signers": self.get_digital_signers(pe),
-            "imagebase": self.get_imagebase(pe),
-            "entrypoint": self.get_entrypoint(pe),
-            "ep_bytes": self.get_ep_bytes(pe),
-            "peid_signatures": self.get_peid_signatures(pe),
-            "reported_checksum": self.get_reported_checksum(pe),
-            "actual_checksum": self.get_actual_checksum(pe),
-            "osversion": self.get_osversion(pe),
-            "pdbpath": self.get_pdb_path(pe),
-            "imports": self.get_imported_symbols(pe),
-            "exported_dll_name": self.get_exported_dll_name(pe),
-            "exports": self.get_exported_symbols(pe),
-            "dirents": self.get_directory_entries(pe),
-            "sections": self.get_sections(pe),
-            "overlay": self.get_overlay(pe),
-            "resources": self.get_resources(pe),
+            "digital_signers": self.get_digital_signers(self.pe),
+            "imagebase": self.get_imagebase(self.pe),
+            "entrypoint": self.get_entrypoint(self.pe),
+            "ep_bytes": self.get_ep_bytes(self.pe),
+            "peid_signatures": self.get_peid_signatures(self.pe),
+            "reported_checksum": self.get_reported_checksum(self.pe),
+            "actual_checksum": self.get_actual_checksum(self.pe),
+            "osversion": self.get_osversion(self.pe),
+            "pdbpath": self.get_pdb_path(self.pe),
+            "imports": self.get_imported_symbols(self.pe),
+            "exported_dll_name": self.get_exported_dll_name(self.pe),
+            "exports": self.get_exported_symbols(self.pe),
+            "dirents": self.get_directory_entries(self.pe),
+            "sections": self.get_sections(self.pe),
+            "overlay": self.get_overlay(self.pe),
+            "resources": self.get_resources(self.pe),
             "versioninfo": self.get_versioninfo(pe),
             "imphash": self.get_imphash(pe),
             "timestamp": self.get_timestamp(pe),

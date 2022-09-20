@@ -895,19 +895,19 @@ class PortableExecutable:
             "sections": self.get_sections(self.pe),
             "overlay": self.get_overlay(self.pe),
             "resources": self.get_resources(self.pe),
-            "versioninfo": self.get_versioninfo(pe),
-            "imphash": self.get_imphash(pe),
-            "timestamp": self.get_timestamp(pe),
+            "versioninfo": self.get_versioninfo(self.pe),
+            "imphash": self.get_imphash(self.pe),
+            "timestamp": self.get_timestamp(self.pe),
         }
         (
             peresults["icon"],
             peresults["icon_hash"],
             peresults["icon_fuzzy"],
             peresults["icon_dhash"],
-        ) = self.get_icon_info(pe)
+        ) = self.get_icon_info(self.pe)
 
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len(peresults["imports"])
 
-        pe.close()
+        self.pe.close()
         return peresults

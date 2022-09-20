@@ -812,6 +812,7 @@ class PortableExecutable:
         file_type = self._get_filetype(self.file_data)
         if HAVE_PEFILE and file_type and ("PE32" in file_type or "MS-DOS executable" in file_type) and self.HAVE_PE:
             try:
+                if hasattr(self.pe, "DIRECTORY_ENTRY_EXPORT"):
                     exports = []
                     for exported_symbol in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
                         try:

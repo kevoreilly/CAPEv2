@@ -883,14 +883,22 @@ class Scheduler:
                 specific_pending_task_counts[task.platform] += 1
             if task.machine:
                 specific_pending_task_counts[task.machine] += 1
+        specific_locked_machine_counts = defaultdict(int)
+        for machine in self.db.list_machines(locked=True):
+            for tag in machine.tags:
+                if tag:
+                    specific_locked_machine_counts[tag.name] += 1
+            if machine.platform:
+                specific_locked_machine_counts[machine.platform] += 1
 
         log.debug(
-            "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Total Machines: %d;",
+            "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Specific Locked Machines: %s; # Total Machines: %d;",
             self.db.count_tasks(status=TASK_PENDING),
             dict(specific_pending_task_counts),
             self.db.count_machines_available(),
             dict(specific_available_machine_counts),
             len(self.db.list_machines(locked=True)),
+            dict(specific_locked_machine_counts),
             len(self.db.list_machines()),
         )
         threading.Timer(10, self._thr_periodic_log).start()

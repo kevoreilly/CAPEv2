@@ -15,6 +15,7 @@ rule Vidar
         $s5 = "CC\\%s_%s.txt" fullword ascii wide
         $s6 = "History\\%s_%s.txt" fullword ascii wide
         $s7 = "Autofill\\%s_%s.txt" fullword ascii wide
+        $s8 = "\Downloads\%s_%s.txt" fullword ascii wide
         $xor_dec = {0F B6 0C 0? C1 E? ?? 33 ?9 81 E? [4] 40 89 ?E [4] 83 F8}
     condition:
         uint16be(0) == 0x4d5a and $wallet and ($decode or $xor_dec or (3 of ($s*)))

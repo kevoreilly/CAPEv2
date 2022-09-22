@@ -15,6 +15,7 @@ try:
     from azure.mgmt.compute import ComputeManagementClient, models
     from azure.mgmt.network import NetworkManagementClient
     from msrest.polling import LROPoller
+
     HAVE_AZURE = True
 except ImportError:
     HAVE_AZURE = False
@@ -65,7 +66,7 @@ is_platform_scaling = {}
 # With this ^ in mind, we are only going to be running at most FOUR operations on any VMSS in a resource group at once,
 # and since this is a restriction that we must live with, we will using a Flexible Orchestration for the VMSS, which allows
 # scaling / updating as well as fine-grained reimage/delete calls that are per-VM and not actioned on the VMSS. Therefore we can avoid this
-# concurrent preemption limit for reimaging and deleting VMs. 
+# concurrent preemption limit for reimaging and deleting VMs.
 
 # This is hard cap of 4 given the maximum preemption chain length of 4
 MAX_CONCURRENT_VMSS_OPERATIONS = 4
@@ -192,17 +193,11 @@ class Azure(Machinery):
 
         # Instantiates an Azure NetworkManagementClient using
         # ClientSecretCredential and subscription ID
-        self.network_client = NetworkManagementClient(
-            credential=credentials,
-            subscription_id=self.options.az.subscription_id
-        )
+        self.network_client = NetworkManagementClient(credential=credentials, subscription_id=self.options.az.subscription_id)
 
         # Instantiates an Azure ComputeManagementClient using
         # ClientSecretCredential and subscription ID
-        self.compute_client = ComputeManagementClient(
-            credential=credentials,
-            subscription_id=self.options.az.subscription_id
-        )
+        self.compute_client = ComputeManagementClient(credential=credentials, subscription_id=self.options.az.subscription_id)
 
         # Refresh clients every half hour
         threading.Timer(1800, self._thr_refresh_clients).start()
@@ -349,9 +344,7 @@ class Azure(Machinery):
                 # Reimage VMSS!
                 thr = threading.Thread(
                     target=self._thr_reimage_vmss,
-                    args=(
-                        vmss,
-                    ),
+                    args=(vmss,),
                 )
                 vmss_reimage_threads.append(thr)
                 thr.start()
@@ -418,7 +411,7 @@ class Azure(Machinery):
                 self.options.az.sandbox_resource_group,
                 label,
                 polling_interval=1,
-                operation=self.compute_client.virtual_machines.begin_reimage
+                operation=self.compute_client.virtual_machines.begin_reimage,
             )
             while not async_reimage_one.done():
                 if (time.time() - start_time) > AZURE_TIMEOUT:
@@ -620,7 +613,7 @@ class Azure(Machinery):
                     self.options.az.sandbox_resource_group,
                     label,
                     polling_interval=1,
-                    operation=self.compute_client.virtual_machines.begin_delete
+                    operation=self.compute_client.virtual_machines.begin_delete,
                 )
             except Exception as exc:
                 log.error(repr(exc), exc_info=True)
@@ -696,7 +689,9 @@ class Azure(Machinery):
         except Exception as exc:
             # For ClientRequestErrors, they do not have the attribute 'error'
             error = exc.error.error if getattr(exc, "error", False) else exc
-            log.warning(f"Failed to {api_call} due to the Azure error '{error}': '{exc.message if hasattr(exc, 'message') else repr(exc)}'.")
+            log.warning(
+                f"Failed to {api_call} due to the Azure error '{error}': '{exc.message if hasattr(exc, 'message') else repr(exc)}'."
+            )
             if "NotFound" in repr(exc) or (hasattr(exc, "status_code") and exc.status_code == 404):
                 # Note that this exception is used to represent if an Azure resource
                 # has not been found, not just machines
@@ -789,7 +784,7 @@ class Azure(Machinery):
                 vmss_name,
                 vmss,
                 polling_interval=1,
-                operation=self.compute_client.virtual_machine_scale_sets.begin_create_or_update
+                operation=self.compute_client.virtual_machine_scale_sets.begin_create_or_update,
             )
             _ = self._handle_poller_result(async_vmss_creation)
 
@@ -809,9 +804,7 @@ class Azure(Machinery):
         """
         # Reset all machines via individual reimage calls (I know)
         paged_vmss_vms = Azure._azure_api_call(
-            self.options.az.sandbox_resource_group,
-            vmss_name,
-            operation=self.compute_client.virtual_machine_scale_set_vms.list
+            self.options.az.sandbox_resource_group, vmss_name, operation=self.compute_client.virtual_machine_scale_set_vms.list
         )
         for vmss_vm in paged_vmss_vms:
             try:
@@ -819,7 +812,7 @@ class Azure(Machinery):
                     self.options.az.sandbox_resource_group,
                     vmss_vm.name,
                     polling_interval=1,
-                    operation=self.compute_client.virtual_machines.begin_reimage
+                    operation=self.compute_client.virtual_machines.begin_reimage,
                 )
                 _ = self._handle_poller_result(async_reimage_one)
             except CuckooMachineError as e:
@@ -830,7 +823,7 @@ class Azure(Machinery):
                         self.options.az.sandbox_resource_group,
                         vmss_name,
                         polling_interval=1,
-                        operation=self.compute_client.virtual_machine_scale_sets.restart
+                        operation=self.compute_client.virtual_machine_scale_sets.restart,
                     )
                     _ = self._handle_poller_result(async_restart_vmss)
                 else:
@@ -909,10 +902,7 @@ class Azure(Machinery):
                     number_of_relevant_machines_required = self.options.az.initial_pool_size
 
             # Let's confirm that this number is actually achievable
-            usages = Azure._azure_api_call(
-                self.options.az.region_name,
-                operation=self.compute_client.usage.list
-            )
+            usages = Azure._azure_api_call(self.options.az.region_name, operation=self.compute_client.usage.list)
             usage_to_look_for = None
             if self.options.az.spot_instances:
                 usage_to_look_for = "lowPriorityCores"
@@ -960,7 +950,9 @@ class Azure(Machinery):
             if number_of_relevant_machines_required < initial_capacity:
                 # Creating these variables to be used to assist with the scaling down process
                 initial_number_of_locked_relevant_machines = len([machine for machine in relevant_machines if machine.locked])
-                initial_number_of_unlocked_relevant_machines = number_of_relevant_machines - initial_number_of_locked_relevant_machines
+                initial_number_of_unlocked_relevant_machines = (
+                    number_of_relevant_machines - initial_number_of_locked_relevant_machines
+                )
 
                 # The system is at rest when no relevant tasks are in the queue and no relevant machines are locked
                 if relevant_task_queue == 0 and initial_number_of_locked_relevant_machines == 0:
@@ -1140,4 +1132,3 @@ class Azure(Machinery):
                 break
             else:
                 time.sleep(1)
-

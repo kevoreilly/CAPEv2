@@ -851,10 +851,16 @@ class PortableExecutable:
                 try:
                     if not exp.name:
                         continue
-                    if exp.name.decode() in ['DllInstall', 'DllRegisterServer', 'xlAutoOpen']:
+                    if exp.name.decode() in ["DllInstall", "DllRegisterServer", "xlAutoOpen"]:
                         return exp.name.decode()
                     entry = self.pe.get_offset_from_rva(exp.address)
-                    if self.is_64bit() and self.file_data[entry] == 0xB9 and self.file_data[entry+5] in [0xE8, 0xE9] or self.file_data[entry+4] == 0xB9 and self.file_data[entry+9] in [0xE8, 0xE9]:
+                    if (
+                        self.is_64bit()
+                        and self.file_data[entry] == 0xB9
+                        and self.file_data[entry + 5] in [0xE8, 0xE9]
+                        or self.file_data[entry + 4] == 0xB9
+                        and self.file_data[entry + 9] in [0xE8, 0xE9]
+                    ):
                         return exp.name.decode()
                 except Exception as e:
                     log.error(e, exc_info=True)

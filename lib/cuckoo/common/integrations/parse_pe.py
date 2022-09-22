@@ -164,6 +164,16 @@ class PortableExecutable:
                     self._file_data = f.read()
         return self._file_data
 
+    def is_64bit(self) -> bool:
+        """Determines if a PE is 64bit.
+        @return: True if 64bit, False if not
+        """
+        if not self.pe:
+            return None
+        if self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64:
+            return True
+        return False
+
     # Obtained from
     # https://github.com/erocarrera/pefile/blob/master/pefile.py
     # Copyright Ero Carrera and released under the MIT License:
@@ -831,6 +841,24 @@ class PortableExecutable:
                 log.error(e, exc_info=True)
 
         return ""
+
+    def choose_dll_export(self) -> str:
+        if not self.pe:
+            return None
+        if hasattr(self.pe, "DIRECTORY_ENTRY_EXPORT"):
+            exports = []
+            for exp in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
+                try:
+                    if not exp.name:
+                        continue
+                    if exp.name.decode() in ['DllInstall', 'DllRegisterServer', 'xlAutoOpen']:
+                        return exp.name.decode()
+                    entry = self.pe.get_offset_from_rva(exp.address)
+                    if self.is_64bit() and self.file_data[entry] == 0xB9 and self.file_data[entry+5] in [0xE8, 0xE9] or self.file_data[entry+4] == 0xB9 and self.file_data[entry+9] in [0xE8, 0xE9]:
+                        return exp.name.decode()
+                except Exception as e:
+                    log.error(e, exc_info=True)
+        return None
 
     def get_entrypoint(self, pe: pefile.PE) -> str:
         """Get entry point (PE).

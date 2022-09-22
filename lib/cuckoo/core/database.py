@@ -1609,20 +1609,24 @@ class Database(object, metaclass=Singleton):
                     if tmp_package and tmp_package in sandbox_packages:
                         package = tmp_package
                     else:
-                        log.info("Does sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
+                        log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
                     del f
                     if package == "dll" and "function" not in options:
-                        dll_exports = PortableExecutable(file).get_dll_exports()
-                        if "DllRegisterServer" in dll_exports:
+                        dll_export = PortableExecutable(file).choose_dll_export()
+                        if dll_export == "DllRegisterServer":
                             package = "regsvr"
-                        elif "xlAutoOpen" in dll_exports:
+                        elif dll_export == "xlAutoOpen":
                             package = "xls"
+                        elif dll_export:
+                            if options:
+                                options += f",function={dll_export}"
+                            else:
+                                options = f"function={dll_export}"
                     if package in ["iso", "udf", "vhd"]:
                         package = "archive"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
-                options = original_options
                 if static and not config and repconf.distributed.enabled:
                     if options:
                         options += ",dist_extract=1"

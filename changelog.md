@@ -1,3 +1,6 @@
+### [24-9-2022]
+* Monitor update: Per-api total cap (api-cap=X) and Javascript (wscript) hookset
+
 ### [17-9-2022]
 * Monitor update: misc fixes (see capemon repo for details)
 

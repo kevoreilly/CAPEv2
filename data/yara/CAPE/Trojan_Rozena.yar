@@ -1,7 +1,6 @@
 rule Trojan_Rozena {
     meta:
         author = "vxremalware"
-        threat_name = "Linux.Trojan.Rozena"
         scan_context = "file, memory"
         os = "Windows"
     strings:

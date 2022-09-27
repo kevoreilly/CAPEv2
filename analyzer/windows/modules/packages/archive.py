@@ -128,7 +128,8 @@ class Archive(Package):
             args = f'-NoProfile -ExecutionPolicy bypass -File "{file_path}"'
             return self.execute(powershell, args, file_path)
         else:
-            file_path = check_file_extension(file_path, ".exe")
+            if not file_path.endswith(".bat"):
+                file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
     def start(self, path):

@@ -47,7 +47,7 @@ def flare_capa():
         os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
 
         # shutil.rmtree((os.path.join(dest_folder, "capa-signatures")), ignore_errors=True)
-        capa_sigs_path = os.path.join(dest_folder, "flare-signatures")
+        capa_sigs_path = os.path.join(dest_folder, "capa-signatures")
         if not os.path.isdir(capa_sigs_path):
             os.mkdir(capa_sigs_path)
         for url in signature_urls:
@@ -104,6 +104,10 @@ def install(enabled, force, rewrite, filepath, access_token=None):
                 ).data
             else:
                 data = http.request("GET", URL, headers={"PRIVATE-TOKEN": access_token}).data
+
+            if b"Not Found" == data:
+                print("You don't have permissions to access this repo")
+                sys.exit(-1)
             t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
         except Exception as e:
             print("ERROR: Unable to download archive: %s" % e)

@@ -365,7 +365,7 @@ if api_cfg.api.token_auth_enabled:
             "rest_framework.authentication.SessionAuthentication",
         ],
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-        "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle", "apiv2.throttling.SubscriptionRateThrottle"],
+        "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
         "DEFAULT_THROTTLE_RATES": {
             "user": api_cfg.api.default_user_ratelimit,
             "subscription": api_cfg.api.default_subscription_ratelimit,

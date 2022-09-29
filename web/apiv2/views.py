@@ -2073,7 +2073,7 @@ def tasks_config(request, task_id, cape_name=False):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
 
-    if not buf.get("CAPE"):
+    if buf and not buf.get("CAPE"):
         resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
         return Response(resp)
 

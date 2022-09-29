@@ -23,6 +23,7 @@ FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,
 EXE_REGEX = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db)$", flags=re.IGNORECASE)
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
+
 class Archive(Package):
     """Archive analysis package."""
 
@@ -134,7 +135,7 @@ class Archive(Package):
             args = f'-NoProfile -ExecutionPolicy bypass -File "{file_path}"'
             return self.execute(powershell, args, file_path)
         else:
-            file_path = check_file_extension(file_path, ".exe")            
+            file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
     def start(self, path):

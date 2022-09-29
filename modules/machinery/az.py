@@ -279,7 +279,7 @@ class Azure(Machinery):
                         self.options.az.sandbox_resource_group,
                         vmss.name,
                         polling_interval=1,
-                        operation=self.compute_client.virtual_machine_scale_sets.delete,
+                        operation=self.compute_client.virtual_machine_scale_sets.begin_delete,
                     )
                     _ = self._handle_poller_result(async_delete_vmss)
                 # NEXT
@@ -330,7 +330,7 @@ class Azure(Machinery):
                 Azure._azure_api_call(
                     self.options.az.sandbox_resource_group,
                     vmss.name,
-                    operation=self.compute_client.virtual_machine_scale_sets.delete,
+                    operation=self.compute_client.virtual_machine_scale_sets.begin_delete,
                 )
 
         try:

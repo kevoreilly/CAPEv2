@@ -20,8 +20,8 @@ log = logging.getLogger(__name__)
 
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
-EXE_REGEX = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1)$", flags=re.IGNORECASE)
-
+EXE_REGEX = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db)$", flags=re.IGNORECASE)
+PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 class Archive(Package):
     """Archive analysis package."""
@@ -98,7 +98,7 @@ class Archive(Package):
 
     def execute_interesting_file(self, root: str, file_name: str, file_path: str):
         log.debug('file_name: "%s"', file_name)
-        if file_name.lower().endswith(".lnk"):
+        if file_name.lower().endswith(".lnk") or file_name.lower().endswith(".bat"):
             cmd_path = self.get_path("cmd.exe")
             cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
@@ -107,10 +107,16 @@ class Archive(Package):
             msi_args = f'/I "{file_path}"'
             return self.execute(msi_path, msi_args, file_path)
         elif file_name.lower().endswith((".js", ".jse", ".vbs", ".vbe", ".wsf")):
+            cmd_path = self.get_path("cmd.exe")
             wscript = self.get_path_app_in_path("wscript.exe")
-            wscript_args = f'"{file_path}"'
-            return self.execute(wscript, wscript_args, file_path)
-        elif file_name.lower().endswith(".dll"):
+            cmd_args = f'/c "cd ^"{root}^" && {wscript} ^"{file_path}^"'
+            return self.execute(cmd_path, cmd_args, file_path)
+        elif file_name.lower().endswith(".db") or file_name.lower().endswith(".dll"):
+            # We are seeing techniques where dll files are named with the .db extension
+            if file_name.lower().endswith(".db"):
+                with open(file_path, "rb") as f:
+                    if not any(PE_indicator in f.read() for PE_indicator in PE_INDICATORS):
+                        return
             rundll32 = self.get_path_app_in_path("rundll32.exe")
             function = self.options.get("function", "#1")
             arguments = self.options.get("arguments")
@@ -128,8 +134,7 @@ class Archive(Package):
             args = f'-NoProfile -ExecutionPolicy bypass -File "{file_path}"'
             return self.execute(powershell, args, file_path)
         else:
-            if not file_path.endswith(".bat"):
-                file_path = check_file_extension(file_path, ".exe")
+            file_path = check_file_extension(file_path, ".exe")            
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
     def start(self, path):

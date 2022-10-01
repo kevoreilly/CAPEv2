@@ -1,3 +1,6 @@
+### [1-10-2022]
+* Monitor update: GetSystemInfo anti-vm improvement & 64-bit hooking engine fix
+
 ### [24-9-2022]
 * Monitor update: Per-api total cap (api-cap=X) and Javascript (wscript) hookset
 

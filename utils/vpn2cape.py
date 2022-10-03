@@ -4,37 +4,37 @@ import re
 import sys
 
 #
-#   VPN intergrator for CAPE
-#   Quick and Dirty script by doomedraven to preparate configs for vpn integration
+#   VPN integrator for CAPE
+#   Quick and Dirty script by doomedraven to prepare configs for vpn integration
 
 
-def main():
+def main(folder, port):
+    idx_start = 1000
     rt_table = {}
     templates = []
     paths = []
     vpns = []
     template = """
 [vpn_{id}]
-# rename this to something different, you will use thil field to see in webgui or set in routing.conf
 name = {vpn_path}
 description = {description}
 interface = tun{id}
 rt_table = {rt}
 """
 
-    files = os.listdir(sys.argv[1])
+    files = os.listdir(folder)
     for index, file in enumerate(files):
         if file.endswith(".ovpn"):
-            path = os.path.join(sys.argv[1], file)
+            path = os.path.join(folder, file)
             tmp = open(path, "rt").read()
             write = 0
 
             # rt_table
             rt = ""
-            rt = re.findall("remote\s(.*)\s1194", tmp)
+            rt = re.findall(f"remote\s(.*)\s{port}", tmp)
             if rt:
-                # start from id 5
-                rt_table.setdefault(str(index + 5), rt[0])
+                # start from id idx_start
+                rt_table.setdefault(str(index + idx_start), rt[0])
                 rt = rt[0]
 
             # add read login data from conf file
@@ -49,27 +49,35 @@ rt_table = {rt}
                 tmp += "\nping 10"
                 tmp += "\nping-restart 60"
                 tmp += "\npull-filter ignore auth-token"
+                tmp += "\npull-filter ignore ifconfig-ipv6"
+                tmp += "\npull-filter ignore route-ipv6"
                 write = 1
 
             # check device
-            dev = re.findall("dev tun\\b", tmp)
+            dev = re.findall("dev tun0", tmp)
             if dev:
-                tmp = tmp.replace("dev tun", "dev tun{0}".format(index + 1))
-                # print(file, 'dev tun{0}'.format(index+1))
+                tmp = tmp.replace("dev tun0", f"dev tun{index + idx_start}")
+                #print(file, f"dev tun{index+idx_start}")
                 write = 1
 
-            # tempalte for CAPE's routing.conf
+            # template for CAPE's routing.conf
             print(
                 template.format(
-                    vpn_name=file.rsplit("/", 1)[-1], vpn_path=path, description=file.split(".ovpn", 1)[0], id=index + 1, rt=rt
+                    vpn_path=path,
+                    description=file.split(".ovpn", 1)[0],
+                    id=index + idx_start,
+                    rt=rt,
                 )
             )
-            vpns.append("vpn_{0}".format(index + 1))
+            vpns.append(f"vpn_{index + idx_start}")
 
             file = file.replace(" ", "\ ")
-            paths.append("sudo openvpn --config {0} --script-security 2 --route-noexec --route-up utils/route.py &".format(file))
+            paths.append(
+                f"sudo openvpn --config {file} &"
+            )
+
             if write:
-                # updatign config
+                # updating config
                 tmp2 = open(path, "wt")
                 tmp2.write(tmp)
                 tmp2.close()
@@ -79,14 +87,14 @@ rt_table = {rt}
         print(", ".join(vpns))
 
     if templates:
-        print("\n\n\n[+] Tempaltes for CAPE's routing.conf")
+        print("\n\n\n[+] Templates for CAPE's routing.conf")
         for template in templates:
             print(template)
 
     if rt_table:
         print("\n\n\n[+] rt_table for /etc/iproute2/rt_tables")
         for route in sorted(rt_table, key=int):
-            print("{0} {1}".format(route, rt_table[route]))
+            print(f"{route} {rt_table[route]}")
 
     if paths:
         print("\n\n\n[+] Paths to execute all in one")
@@ -97,4 +105,8 @@ rt_table = {rt}
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("-f", "--folder", action="store", help="Path to folder with ovpn configs")
-    main()
+    p.add_argument("-p", "--port", action="store", help="Port used by vpn server")
+    args = p.parse_args()
+    folder = args.folder
+    port = args.port
+    main(folder, port)

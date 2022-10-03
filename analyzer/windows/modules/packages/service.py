@@ -63,13 +63,13 @@ class Service(Package):
 
     def start(self, path):
         try:
-            servicename = self.options.get("servicename", "CAPEService")
-            servicedesc = self.options.get("servicedesc", "CAPE Service")
+            servicename = self.options.get("servicename", "CAPEService").encode("utf8")
+            servicedesc = self.options.get("servicedesc", "CAPE Service").encode("utf8")
             arguments = self.options.get("arguments")
             path = check_file_extension(path, ".exe")
-            binPath = f'"{path}"'
+            binpath = f'"{path}"'.encode("utf8")
             if arguments:
-                binPath += f" {arguments}"
+                binpath += f" {arguments}"
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
             if scm_handle == 0:
                 log.info("Failed to open SCManager")
@@ -83,7 +83,7 @@ class Service(Package):
                 SERVICE_WIN32_OWN_PROCESS,
                 SERVICE_DEMAND_START,
                 SERVICE_ERROR_IGNORE,
-                binPath,
+                binpath,
                 None,
                 None,
                 None,

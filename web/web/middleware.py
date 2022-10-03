@@ -23,7 +23,7 @@ redirect_url = "https://your_custom_auth_server?redirrect="
 # you need to uncomment in web/web/settings.py in Section MIDDLEWARE list -> "web.middleware.CustoAuth",
 
 
-class CustoAuth(MiddlewareMixin):
+class CustomAuth(MiddlewareMixin):
     def check_auth(self, request):
         """Place custom auth logic here
         Return True on authentificated user

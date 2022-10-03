@@ -1200,12 +1200,12 @@ class Azure(Machinery):
                 # This means that the machine has been deleted
                 # If BadRequest: The VM x creation in Virtual Machine Scale Set <vmss name>> with ephemeral disk is not complete. Please trigger a restart if required'
                 # This means Azure has failed us
-                instance_ids_that_should_not_be_reimaged_again = []
+                instance_ids_that_should_not_be_reimaged_again = set()
                 if "InvalidParameter" in repr(exc) or "BadRequest" in repr(exc):
                     # Parse out the instance ID(s) in this error so we know which instances don't exist
-                    instance_ids_that_should_not_be_reimaged_again = [
+                    instance_ids_that_should_not_be_reimaged_again = {
                         substring for substring in repr(exc).split() if substring.isdigit()
-                    ]
+                    }
                 current_vmss_operations -= 1
 
                 for instance_id in instance_ids_that_should_not_be_reimaged_again:
@@ -1244,7 +1244,9 @@ class Azure(Machinery):
 
             # Clean up
             for vm in vms_to_reimage_from_same_vmss:
-                vms_currently_being_reimaged.remove(f"{vm['vmss']}_{vm['id']}")
+                vm_id = f"{vm['vmss']}_{vm['id']}"
+                if vm_id in vms_currently_being_reimaged:
+                    vms_currently_being_reimaged.remove(vm_id)
 
             current_vmss_operations -= 1
             timediff = timeit.default_timer() - start_time

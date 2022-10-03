@@ -1,12 +1,12 @@
 import ctypes
 import logging
 import sys
+from winreg import HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_EXPAND_SZ, REG_MULTI_SZ, REG_SZ, CloseKey, CreateKeyEx, SetValueEx
 
 from lib.api.process import Process
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.defines import ADVAPI32, KERNEL32
-from winreg import HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_SZ, REG_EXPAND_SZ, REG_MULTI_SZ, CreateKeyEx, SetValueEx, CloseKey
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1

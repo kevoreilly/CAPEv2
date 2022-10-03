@@ -57,7 +57,7 @@ rt_table = {rt}
             dev = re.findall("dev tun0", tmp)
             if dev:
                 tmp = tmp.replace("dev tun0", f"dev tun{index + idx_start}")
-                #print(file, f"dev tun{index+idx_start}")
+                # print(file, f"dev tun{index+idx_start}")
                 write = 1
 
             # template for CAPE's routing.conf
@@ -72,9 +72,7 @@ rt_table = {rt}
             vpns.append(f"vpn_{index + idx_start}")
 
             file = file.replace(" ", "\ ")
-            paths.append(
-                f"sudo openvpn --config {file} &"
-            )
+            paths.append(f"sudo openvpn --config {file} &")
 
             if write:
                 # updating config

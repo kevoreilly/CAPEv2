@@ -99,7 +99,7 @@ class Archive(Package):
 
     def execute_interesting_file(self, root: str, file_name: str, file_path: str):
         log.debug('file_name: "%s"', file_name)
-        if file_name.lower().endswith(".lnk") or file_name.lower().endswith(".bat"):
+        if file_name.lower().endswith((".lnk", ".bat")):
             cmd_path = self.get_path("cmd.exe")
             cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
@@ -112,7 +112,7 @@ class Archive(Package):
             wscript = self.get_path_app_in_path("wscript.exe")
             cmd_args = f'/c "cd ^"{root}^" && {wscript} ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
-        elif file_name.lower().endswith(".db") or file_name.lower().endswith(".dll"):
+        elif file_name.lower().endswith((".db", ".dll")):
             # We are seeing techniques where dll files are named with the .db extension
             if file_name.lower().endswith(".db"):
                 with open(file_path, "rb") as f:

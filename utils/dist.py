@@ -38,11 +38,12 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
-from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.utils import get_options, get_file_size
 from lib.cuckoo.core.database import (
     TASK_DISTRIBUTED,
     TASK_DISTRIBUTED_COMPLETED,
     TASK_FAILED_REPORTING,
+    TASK_BANNED,
     TASK_PENDING,
     TASK_REPORTED,
     TASK_RUNNING,
@@ -53,8 +54,9 @@ from lib.cuckoo.core.database import Task as MD_Task
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
 reporting_conf = Config("reporting")
+web_conf = Config("web")
 
-zip_pwd = Config("web").zipped_download.zip_pwd
+zip_pwd = web_conf.zipped_download.zip_pwd
 if not isinstance(zip_pwd, bytes):
     zip_pwd = zip_pwd.encode()
 
@@ -843,6 +845,22 @@ class StatusThread(threading.Thread):
                 return True
             if main_db_tasks:
                 for t in main_db_tasks:
+
+                    # Check if file exist, if no wipe from db and continue, rare cases
+                    if t.category in ("file", "pcap", "static"):
+
+                        if not os.path.exists(t.target):
+                            log.info(f"Task id: {t.id} - File doesn't exist: {t.target}")
+                            main_db.set_status(task.main_task_id, TASK_BANNED)
+                            continue
+
+                        # We can't upload size bigger than X to our workers. In case we extract archive that contains bigger file.
+                        file_size = get_file_size(t.target)
+                        if file_size > web_conf.general.max_sample_size:
+                            log.warning(f"File size: {file_size} is bigger than allowed: {web_conf.general.max_sample_size}")
+                            main_db.set_status(task.main_task_id, TASK_BANNED)
+                            continue
+
                     force_push = False
                     try:
                         options = get_options(t.options)
@@ -870,12 +888,6 @@ class StatusThread(threading.Thread):
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
                             # db.delete(task)
                         db.commit()
-                        continue
-
-                    # Check if file exist, if no wipe from db and continue, rare cases
-                    if t.category in ("file", "pcap", "static") and not os.path.exists(t.target):
-                        log.info(f"Task id: {t.id} - File doesn't exist: {t.target}")
-                        main_db.delete_task(t.id)
                         continue
 
                     # Convert array of tags into comma separated list

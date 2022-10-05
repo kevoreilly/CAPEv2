@@ -38,12 +38,12 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
-from lib.cuckoo.common.utils import get_options, get_file_size
+from lib.cuckoo.common.utils import get_file_size, get_options
 from lib.cuckoo.core.database import (
+    TASK_BANNED,
     TASK_DISTRIBUTED,
     TASK_DISTRIBUTED_COMPLETED,
     TASK_FAILED_REPORTING,
-    TASK_BANNED,
     TASK_PENDING,
     TASK_REPORTED,
     TASK_RUNNING,

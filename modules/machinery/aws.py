@@ -1,7 +1,12 @@
 import logging
+import sys
 import time
 
-import boto3
+try:
+    import boto3
+except ImportError:
+    sys.exit("Missed boto3 dependency: pip3 install boto3")
+
 from sqlalchemy.exc import SQLAlchemyError
 
 from lib.cuckoo.common.abstracts import Machinery

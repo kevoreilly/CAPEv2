@@ -379,7 +379,7 @@ class GuestManager:
 
             try:
                 status = self.get("/status", timeout=5).json()
-            except CuckooGuestError:
+            except (CuckooGuestError, requests.exceptions.ReadTimeout):
                 # this might fail due to timeouts or just temporary network
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover

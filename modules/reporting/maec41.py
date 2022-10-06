@@ -34,6 +34,7 @@ try:
     HAVE_MAEC = True
 except ImportError as e:
     HAVE_MAEC = False
+    print("pip3 install maec=4.1.0.17\npip3 install mixbox=1.0.5")
 
 
 api_call_mappings = {

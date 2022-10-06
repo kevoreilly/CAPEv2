@@ -85,6 +85,11 @@ try:
 except AttributeError:
     zippwd = b"infected"
 
+try:
+    import re2 as re
+except ImportError:
+    import re
+
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
 # Config variables
@@ -884,6 +889,27 @@ def tasks_view(request, task_id):
     if task.sample_id:
         sample = db.view_sample(task.sample_id)
         entry["sample"] = sample.to_dict()
+
+    if task.status == TASK_RECOVERED and task.custom:
+        m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+        if m:
+            task_id = int(m.group("taskid"))
+            task = db.view_task(task_id, details=True)
+            resp["error"] = False
+            if task:
+                entry = task.to_dict()
+                if entry["category"] != "url":
+                    entry["target"] = entry["target"].rsplit("/", 1)[-1]
+                    entry["guest"] = {}
+                if task.guest:
+                    entry["guest"] = task.guest.to_dict()
+                entry["errors"] = []
+                for error in task.errors:
+                    entry["errors"].append(error.message)
+                entry["sample"] = {}
+                if task.sample_id:
+                    sample = db.view_sample(task.sample_id)
+                    entry["sample"] = sample.to_dict()
 
     if repconf.mongodb.enabled:
         rtmp = mongo_find_one(

@@ -1,3 +1,7 @@
+### [6.10.2022]
+* Some not core dependencies are commented out and won't be installed anympore by default.
+* Our idea is to leave CAPE core with core dependencies to avoid conflicts with another libraries.
+
 ### [1-10-2022]
 * Monitor update: GetSystemInfo anti-vm improvement & 64-bit hooking engine fix
 

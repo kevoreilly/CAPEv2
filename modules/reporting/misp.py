@@ -32,7 +32,7 @@ try:
     pymisp_logger.setLevel(logging.ERROR)
 except ImportError:
     HAVE_PYMISP = True
-    print("pip3 install pymisp")
+    print("pip3 install pymisp=2.4.144")
 
 log = logging.getLogger(__name__)
 logging.getLogger("pymisp").setLevel(logging.WARNING)

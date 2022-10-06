@@ -1922,7 +1922,7 @@ class Database(object, metaclass=Singleton):
             log.warning("Unable to find valid target for task: %s", task_id)
             return
 
-        return add(
+        new_task_id = add(
             task_target,
             task.timeout,
             task.package,
@@ -1937,6 +1937,18 @@ class Database(object, metaclass=Singleton):
             task.clock,
             tlp=task.tlp,
         )
+
+        session = self.Session()
+        session.query(Task).get(task_id).custom = f"Recovery_{new_task_id}"
+        try:
+            session.commit()
+        except SQLAlchemyError as e:
+            log.debug("Database error rescheduling task: %s", e)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+        return new_task_id
 
     @classlock
     def count_matching_tasks(self, category=None, status=None, not_status=None):

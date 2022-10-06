@@ -200,6 +200,26 @@ def forward_reject_disable(src, dst, ipaddr, reject_segments):
     run_iptables("-D", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
 
 
+def hostports_reject_enable(src, ipaddr, reject_hostports):
+    """Enable drop a specific IP address from one interface to host ports."""
+    run_iptables(
+        "-A", "INPUT", "-i", src, "--source", ipaddr, "-p", "tcp", "-m", "multiport", "--dport", reject_hostports, "-j", "REJECT"
+    )
+    run_iptables(
+        "-A", "INPUT", "-i", src, "--source", ipaddr, "-p", "udp", "-m", "multiport", "--dport", reject_hostports, "-j", "REJECT"
+    )
+
+
+def hostports_reject_disable(src, ipaddr, reject_hostports):
+    """Disable drop a specific IP address from one interface to host ports."""
+    run_iptables(
+        "-D", "INPUT", "-i", src, "--source", ipaddr, "-p", "tcp", "-m", "multiport", "--dport", reject_hostports, "-j", "REJECT"
+    )
+    run_iptables(
+        "-D", "INPUT", "-i", src, "--source", ipaddr, "-p", "udp", "-m", "multiport", "--dport", reject_hostports, "-j", "REJECT"
+    )
+
+
 def srcroute_enable(rt_table, ipaddr):
     """Enable routing policy for specified source IP address."""
     run(settings.ip, "rule", "add", "from", ipaddr, "table", rt_table)
@@ -540,6 +560,8 @@ handlers = {
     "forward_disable": forward_disable,
     "forward_reject_enable": forward_reject_enable,
     "forward_reject_disable": forward_reject_disable,
+    "hostports_reject_enable": hostports_reject_enable,
+    "hostports_reject_disable": hostports_reject_disable,
     "srcroute_enable": srcroute_enable,
     "srcroute_disable": srcroute_disable,
     "inetsim_enable": inetsim_enable,

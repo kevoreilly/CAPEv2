@@ -851,14 +851,14 @@ class StatusThread(threading.Thread):
 
                         if not os.path.exists(t.target):
                             log.info(f"Task id: {t.id} - File doesn't exist: {t.target}")
-                            main_db.set_status(task.main_task_id, TASK_BANNED)
+                            main_db.set_status(t.id, TASK_BANNED)
                             continue
 
                         # We can't upload size bigger than X to our workers. In case we extract archive that contains bigger file.
                         file_size = get_file_size(t.target)
                         if file_size > web_conf.general.max_sample_size:
                             log.warning(f"File size: {file_size} is bigger than allowed: {web_conf.general.max_sample_size}")
-                            main_db.set_status(task.main_task_id, TASK_BANNED)
+                            main_db.set_status(t.id, TASK_BANNED)
                             continue
 
                     force_push = False

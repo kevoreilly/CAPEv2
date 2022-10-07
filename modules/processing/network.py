@@ -17,6 +17,7 @@ import tempfile
 import traceback
 from base64 import b64encode
 from collections import OrderedDict, namedtuple
+from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
@@ -217,17 +218,14 @@ class Pcap:
             ("224.0.0.0", 4),
         )
 
-        try:
+        with suppress(Exception):
             ipaddr = struct.unpack(">I", socket.inet_aton(ip))[0]
             for netaddr, bits in networks:
                 network_low = struct.unpack(">I", socket.inet_aton(netaddr))[0]
                 network_high = network_low | (1 << (32 - bits)) - 1
                 if ipaddr <= network_high and ipaddr >= network_low:
                     return True
-        except Exception:
-            pass
 
-        return False
 
     def _get_cn(self, ip):
         cn = "unknown"
@@ -275,10 +273,8 @@ class Pcap:
             inaddrarpa = ""
             hostname = ""
             if cfg.processing.reverse_dns:
-                try:
+                with suppress(Exception):
                     inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text()
-                except Exception:
-                    pass
             for request in self.dns_requests.values():
                 for answer in request["answers"]:
                     if answer["data"] == ip:
@@ -1139,11 +1135,9 @@ def batch_sort(input_iterator, output_path, buffer_size=32000, output_class=None
         output_file.close()
     finally:
         for chunk in chunks:
-            try:
+            with suppress(Exception):
                 chunk.close()
                 os.remove(chunk.name)
-            except Exception:
-                pass
 
 
 # magic

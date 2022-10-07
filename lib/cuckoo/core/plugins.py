@@ -10,6 +10,7 @@ import pkgutil
 import sys
 import timeit
 from collections import defaultdict
+from contextlib import suppress
 from distutils.version import StrictVersion
 
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
@@ -99,8 +100,7 @@ def register_plugin(group, name):
 def list_plugins(group=None):
     if group:
         return _modules[group]
-    else:
-        return _modules
+    return _modules
 
 
 class RunAuxiliary:
@@ -387,13 +387,10 @@ class RunSignatures:
         """
         filename = os.path.join(CUCKOO_ROOT, "data", "signature_overlay.json")
 
-        try:
+        with suppress(IOError):
             with open(filename) as fh:
                 odata = json.load(fh)
                 return odata
-        except IOError:
-            pass
-
         return {}
 
     def _apply_overlay(self, signature, overlay):

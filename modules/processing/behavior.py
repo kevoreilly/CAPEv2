@@ -6,6 +6,7 @@ import datetime
 import logging
 import os
 import struct
+from contextlib import suppress
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
@@ -70,12 +71,10 @@ class ParseProcessLog(list):
             self.api_call_cache = []
             self.api_pointer = 0
 
-            try:
+            with suppress(StopIteration):
                 while True:
                     i = self.cacheless_next()
                     self.api_call_cache.append(i)
-            except StopIteration:
-                pass
             self.api_call_cache.append(None)
 
     def parse_first_and_reset(self):

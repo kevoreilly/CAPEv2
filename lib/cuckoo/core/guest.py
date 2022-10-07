@@ -234,7 +234,6 @@ class GuestManager:
                     data = {"filepath": os.path.join(self.determine_temp_path(), xf)}
                     files = {"file": (xf, open(target, "rb"))}
                     self.post("/store", files=files, data=data)
-        return
 
     def upload_scripts(self):
         """Upload various scripts such as pre_script and during_scripts."""
@@ -253,7 +252,6 @@ class GuestManager:
             data = {"filepath": os.path.join(self.determine_temp_path(), basename).replace("/", "\\")}
             files = {"file": (basename, open(name, "rb"))}
             self.post("/store", files=files, data=data)
-        return
 
     def start_analysis(self, options):
         """Start the analysis by uploading all required files.
@@ -322,7 +320,7 @@ class GuestManager:
         # self.aux.callback("prepare_guest")
 
         # If the target is a file, upload it to the guest.
-        if options["category"] == "file" or options["category"] == "archive":
+        if options["category"] in ("file", "archive"):
             data = {
                 "filepath": os.path.join(self.determine_temp_path(), options["file_name"]),
             }

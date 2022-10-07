@@ -186,7 +186,7 @@ class AnalysisManager(threading.Thread):
 
             # If the user specified a specific machine ID, a platform to be
             # used or machine tags acquire the machine accordingly.
-            task_archs = [tag.name for tag in self.task.tags if tag.name in ["x86", "x64"]]
+            task_archs = [tag.name for tag in self.task.tags if tag.name in ("x86", "x64")]
             task_tags = [tag.name for tag in self.task.tags if tag.name not in task_archs]
 
             # In some cases it's possible that we enter this loop without
@@ -265,7 +265,7 @@ class AnalysisManager(threading.Thread):
         return options
 
     def category_checks(self):
-        if self.task.category in ["file", "pcap", "static"]:
+        if self.task.category in ("file", "pcap", "static"):
             sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.

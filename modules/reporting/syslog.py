@@ -147,7 +147,7 @@ class Syslog(Report):
                 syslog += 'Total_UDP="0" '
         # VT stats if available
         if "virustotal" in results:
-            if all(val in list(results["virustotal"].keys()) for val in ["positives", "total"]):
+            if all(val in list(results["virustotal"].keys()) for val in ("positives", "total")):
                 VT_bad = str(results["virustotal"]["positives"])
                 VT_total = str(results["virustotal"]["total"])
                 syslog += f'Virustotal="{VT_bad}/{VT_total}" '

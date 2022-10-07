@@ -151,7 +151,7 @@ def disable_nat(interface):
 def init_rttable(rt_table, interface):
     """Initialise routing table for this interface using routes
     from main table."""
-    if rt_table in ["local", "main", "default"]:
+    if rt_table in ("local", "main", "default"):
         return
 
     stdout, _ = run(settings.ip, "route", "list", "dev", interface)
@@ -163,7 +163,7 @@ def init_rttable(rt_table, interface):
 
 def flush_rttable(rt_table):
     """Flushes specified routing table entries."""
-    if rt_table in ["local", "main", "default"]:
+    if rt_table in ("local", "main", "default"):
         return
 
     run(settings.ip, "route", "flush", "table", rt_table)

@@ -5,6 +5,7 @@
 import base64
 import codecs
 import os
+from contextlib import suppress
 from io import BytesIO
 
 import PIL
@@ -53,13 +54,10 @@ class ReportHTMLSummary(Report):
                 output = BytesIO()
 
                 # resize the image to thumbnail size, as weasyprint can't handle resizing
-                try:
+                with suppress(Exception):
                     img = Image.open(shot_path)
                     img = img.resize((150, 100), PIL.Image.ANTIALIAS)
                     img.save(output, format="JPEG")
-                except Exception as e:
-                    # print(e)
-                    pass
 
                 shot = {}
                 shot["id"] = os.path.splitext(File(shot_path).get_name())[0]

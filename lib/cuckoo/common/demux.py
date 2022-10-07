@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import tempfile
+from pathlib import Path
 from typing import List
 
 from lib.cuckoo.common.config import Config
@@ -136,8 +137,7 @@ def demux_office(filename: bytes, password: str) -> List[bytes]:
         d = ofile.decrypt(password)
         # TODO: add decryption verification checks
         if hasattr(d, "contents") and "Encrypted" not in d.magic:
-            with open(decrypted_name, "wb") as outs:
-                outs.write(d.contents)
+            _ = Path(decrypted_name).write_bytes(d.contents)
             retlist.append(decrypted_name)
     else:
         raise CuckooDemuxError("MS Office decryptor not available")
@@ -166,8 +166,7 @@ def _sf_chlildren(child: sfFile) -> bytes:
         try:
             if child.contents:
                 path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()).encode())
-                with open(path_to_extract, "wb") as f:
-                    f.write(child.contents)
+                _ = Path(path_to_extract).write_bytes(child.contents)
         except Exception as e:
             log.error(e, exc_info=True)
     return path_to_extract

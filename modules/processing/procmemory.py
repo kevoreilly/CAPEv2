@@ -65,7 +65,6 @@ class ProcessMemory(Processing):
                         return lastmemmap["start"]
                 lastoffset = offset
             lastmemmap = memmap
-        return
 
     def run(self):
         """Run analysis.

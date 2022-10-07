@@ -65,7 +65,7 @@ class ConsoleHandler(logging.StreamHandler):
 
         if record.levelname == "WARNING":
             colored.msg = yellow(record.msg)
-        elif record.levelname == "ERROR" or record.levelname == "CRITICAL":
+        elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
             if "analysis procedure completed" in record.msg:

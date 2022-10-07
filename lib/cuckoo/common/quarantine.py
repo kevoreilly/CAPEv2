@@ -8,6 +8,7 @@ import logging
 import os
 import struct
 from binascii import crc32
+from pathlib import Path
 
 from lib.cuckoo.common.utils import store_temp_file
 
@@ -173,7 +174,7 @@ def sep_unquarantine(f):
             elif decode_next_container:
                 extralen = 0
                 decode_next_container = False
-            elif codeval in [0x10, 0x8]:
+            elif codeval in (0x10, 0x8):
                 if codeval == 0x8:
                     xor_next_container = True
                     lastlen = struct.unpack_from("<Q", data[offset + 5 : offset + 5 + 8])[0]
@@ -602,8 +603,7 @@ def kav_unquarantine(file):
 
 
 def trend_unquarantine(f):
-    with open(f, "rb") as quarfile:
-        qdata = quarfile.read()
+    qdata = Path(f).read_bytes()
 
     data = bytearray_xor(bytearray(qdata), 0xFF)
 

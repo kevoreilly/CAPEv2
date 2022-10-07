@@ -401,5 +401,3 @@ class SubmitCAPE(Report):
 
         if children:
             results["CAPE_children"] = children
-
-        return

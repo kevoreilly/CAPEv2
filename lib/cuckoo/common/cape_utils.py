@@ -3,6 +3,7 @@ import logging
 import os
 import tempfile
 from collections.abc import Iterable, Mapping
+from pathlib import Path
 from types import ModuleType
 from typing import Dict, Tuple
 
@@ -229,8 +230,7 @@ def convert(data):
         return dict(list(map(convert, data.items())))
     elif isinstance(data, Iterable):
         return type(data)(list(map(convert, data)))
-    else:
-        return data
+    return data
 
 
 def static_config_parsers(cape_name, file_path, file_data):
@@ -403,8 +403,7 @@ def static_extraction(path):
         if not hits:
             return False
         # Get the file data
-        with open(path, "rb") as file_open:
-            file_data = file_open.read()
+        file_data = Path(path).read_bytes()
         for hit in hits:
             cape_name = File.get_cape_name_from_yara_hit(hit)
             config = static_config_parsers(cape_name, path, file_data)

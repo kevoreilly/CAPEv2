@@ -18,10 +18,12 @@ import threading
 import time
 import timeit
 import zipfile
+from contextlib import suppress
 from datetime import datetime, timedelta
 from io import BytesIO
 from itertools import combinations
 from logging import handlers
+from pathlib import Path
 from zipfile import ZipFile
 
 from sqlalchemy import and_, or_
@@ -108,10 +110,8 @@ try:
 except ImportError:
     required("requests")
 
-try:
+with suppress(AttributeError):
     requests.packages.urllib3.disable_warnings()
-except AttributeError:
-    pass
 
 try:
     from flask_restful import Api as RestApi
@@ -148,8 +148,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         if not r.ok:
             log.error(f"Error fetching task list. Status code: {r.status_code} - {r.url}")
             log.info("Saving error to /tmp/dist_error.html")
-            with open("/tmp/dist_error.html", "wb") as f:
-                f.write(r.content)
+            _ = Path("/tmp/dist_error.html").write_bytes(r.content)
             return []
         return r.json().get("data", [])
     except Exception as e:
@@ -819,7 +818,7 @@ class StatusThread(threading.Thread):
         try:
             node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=node_id).first()
         except (OperationalError, SQLAlchemyError) as e:
-            log.warning(f"Got an operational Exception when trying to submit tasks: {str(e)}")
+            log.warning(f"Got an operational Exception when trying to submit tasks: {e}")
             return False
 
         if node.name not in SERVER_TAGS:
@@ -949,7 +948,7 @@ class StatusThread(threading.Thread):
                             else:
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
                         limit += 1
-                        if limit == pend_tasks_num or limit == len(main_db_tasks):
+                        if limit in (pend_tasks_num, len(main_db_tasks)):
                             db.commit()
                             log.info("Pushed all tasks")
                             return True
@@ -1060,7 +1059,7 @@ class StatusThread(threading.Thread):
                     or []
                 ):
                     if node.name in STATUSES:
-                        del STATUSES[node.name]
+                        STATUSES.pop(node.name)
 
                 # Request a status update on all CAPE nodes.
                 for node in (
@@ -1079,7 +1078,7 @@ class StatusThread(threading.Thread):
                             # node.enabled = False
                             db.commit()
                             if node.name in STATUSES:
-                                del STATUSES[node.name]
+                                STATUSES.pop(node.name)
                         continue
                     failed_count[node.name] = 0
                     log.info("Status.. %s -> %s", node.name, status["tasks"])

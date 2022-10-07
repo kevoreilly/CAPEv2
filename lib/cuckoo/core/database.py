@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import sys
+from contextlib import suppress
 from datetime import datetime, timedelta
 
 # Sflock does a good filetype recon
@@ -182,8 +183,7 @@ def _get_linux_vm_tag(mgtype):
         return "x32"
     elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
         return "x64"
-    else:
-        return "x64"
+    return "x64"
 
 
 class Machine(Base):
@@ -594,10 +594,8 @@ class Database(object, metaclass=Singleton):
 
     def __del__(self):
         """Disconnects pool."""
-        try:
+        with suppress(KeyError, AttributeError):
             self.engine.dispose()
-        except (KeyError, AttributeError):
-            pass
 
     def _connect_database(self, connection_string):
         """Connect to a Database.
@@ -813,7 +811,7 @@ class Database(object, metaclass=Singleton):
         @return: boolean indicating if a relevant machine is available
         """
         # Are there available machines that match up with a task?
-        task_archs = [tag.name for tag in task.tags if tag.name in ["x86", "x64"]]
+        task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
         task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
         relevant_available_machines = self.list_machines(
             locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs
@@ -822,8 +820,7 @@ class Database(object, metaclass=Singleton):
             # There are? Awesome!
             self.set_status(task_id=task.id, status=TASK_RUNNING)
             return True
-        else:
-            return False
+        return False
 
     @classlock
     def fetch_task(self, categories: list = []):
@@ -1183,7 +1180,7 @@ class Database(object, metaclass=Singleton):
     @classlock
     def register_sample(self, obj, source_url=False):
         sample_id = None
-        if isinstance(obj, File) or isinstance(obj, PCAP) or isinstance(obj, Static):
+        if isinstance(obj, (File, PCAP, Static)):
             session = self.Session()
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
@@ -1229,8 +1226,7 @@ class Database(object, metaclass=Singleton):
                 session.close()
 
             return sample_id
-        else:
-            return None
+        return None
 
     @classlock
     def add(
@@ -1294,7 +1290,7 @@ class Database(object, metaclass=Singleton):
         if not priority:
             priority = 1
 
-        if isinstance(obj, File) or isinstance(obj, PCAP) or isinstance(obj, Static):
+        if isinstance(obj, (File, PCAP, Static)):
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
@@ -1364,7 +1360,7 @@ class Database(object, metaclass=Singleton):
             except OperationalError:
                 return None
 
-            if isinstance(obj, PCAP) or isinstance(obj, Static):
+            if isinstance(obj, (PCAP, Static)):
                 # since no VM will operate on this PCAP
                 task.started_on = datetime.now()
 
@@ -1622,7 +1618,7 @@ class Database(object, metaclass=Singleton):
                                 options += f",function={dll_export}"
                             else:
                                 options = f"function={dll_export}"
-                    if package in ["iso", "udf", "vhd"]:
+                    if package in ("iso", "udf", "vhd"):
                         package = "archive"
 
                 # ToDo better solution? - Distributed mode here:
@@ -2662,7 +2658,7 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         _ = (
             session.query(Task)
-            .filter(Task.user_id == int(user_id))
+            .filter(Task.user_id == user_id)
             .filter(Task.status == TASK_PENDING)
             .update({Task.status: TASK_BANNED}, synchronize_session=False)
         )

@@ -128,8 +128,7 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
             return
 
         if not file_data:
-            with open(extracted_path, "rb") as f:
-                file_data = f.read()
+            file_data = Path(extracted_path).read_bytes()
 
         if len(file_data) > buf:
             data = file_data[:buf] + b" <truncated>"
@@ -422,8 +421,7 @@ def wide2str(string: Tuple[str, bytes]):
         return string
     if isinstance(string, bytes):
         return string.decode("utf-16")
-    else:
-        return string.encode().decode("utf-16")
+    return string.encode().decode("utf-16")
 
 
 def sanitize_pathname(s: str):
@@ -554,7 +552,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
     elif arg_name in {"Protection", "Win32Protect", "NewAccessProtection", "OldAccessProtection", "OldProtection"}:
         return pp_funcs.arg_name_protection_and_others(arg_val)
     elif (
-        api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"] and arg_name == "CreationFlags"
+        api_name in ("CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW") and arg_name == "CreationFlags"
     ):
         return pp_funcs.api_name_in_creation(arg_val)
     elif api_name in {"MoveFileWithProgressW", "MoveFileWithProgressTransactedW"} and arg_name == "Flags":
@@ -577,7 +575,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
 
     elif api_name == "InternetSetOptionA" and arg_name == "Option":
         return pp_funcs.api_name_internetsetoptiona_arg_name_option(arg_val)
-    elif api_name in ["socket", "WSASocketA", "WSASocketW"]:
+    elif api_name in ("socket", "WSASocketA", "WSASocketW"):
         return pp_funcs.api_name_socket(arg_val, arg_name)
     elif arg_name == "FileInformationClass":
         return pp_funcs.arg_name_fileinformationclass(arg_val)

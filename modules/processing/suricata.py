@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import time
+from contextlib import suppress
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
@@ -112,15 +113,11 @@ class Suricata(Processing):
         all_log_paths = [x[1] for x in separate_log_paths] + [SURICATA_EVE_LOG_FULL_PATH, SURICATA_FILE_LOG_FULL_PATH]
         for log_path in all_log_paths:
             if os.path.exists(log_path):
-                try:
+                with suppress(Exception):
                     os.unlink(log_path)
-                except Exception:
-                    pass
         if os.path.isdir(SURICATA_FILES_DIR_FULL_PATH):
-            try:
+            with suppress(Exception):
                 shutil.rmtree(SURICATA_FILES_DIR_FULL_PATH, ignore_errors=True)
-            except Exception:
-                pass
 
         if not os.path.exists(SURICATA_CONF):
             log.warning("Unable to Run Suricata: Conf File %s does not exist", SURICATA_CONF)
@@ -332,12 +329,10 @@ class Suricata(Processing):
                         if pefile_object:
                             self.results.setdefault("pefiles", {})
                             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
-                        try:
+                        with suppress(UnicodeDecodeError):
                             with open(file_info["path"], "r") as drop_open:
                                 filedata = drop_open.read(SURICATA_FILE_BUFFER + 1)
                             file_info["data"] = convert_to_printable_and_truncate(filedata, SURICATA_FILE_BUFFER)
-                        except UnicodeDecodeError:
-                            pass
                         if file_info:
                             sfile["file_info"] = file_info
                     suricata["files"].append(sfile)

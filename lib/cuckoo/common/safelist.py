@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os.path
+from pathlib import Path
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
@@ -20,9 +21,7 @@ def _load_safelist(wlset, wl_file):
     if not os.path.exists(wl_path):
         return
 
-    with open(wl_path, "rb") as fp:
-        safelist = fp.read()
-
+    safelist = Path(wl_path).read_bytes()
     for entry in safelist.split("\n"):
         entry = entry.strip()
         if entry and not entry.startswith("#"):

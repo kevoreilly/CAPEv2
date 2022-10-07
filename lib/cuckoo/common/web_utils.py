@@ -1247,7 +1247,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             details["errors"].append({sample.name: "You uploaded an empty file."})
             continue
 
-        elif not web_cfg.general.allow_ignore_size and "bypass_size_check" not in details["options"]:
+        elif not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
             if  sample.size > web_cfg.general.max_sample_size:
                 details["errors"].append(
                     {

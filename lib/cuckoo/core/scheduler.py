@@ -531,7 +531,7 @@ class AnalysisManager(threading.Thread):
             if routing.routing.reject_segments != "none":
                 self.reject_segments = routing.routing.reject_segments
             if routing.routing.reject_hostports != "none":
-                self.reject_hostports = routing.routing.reject_hostports
+                self.reject_hostports = str(routing.routing.reject_hostports)
         elif self.route in vpns:
             self.interface = vpns[self.route].interface
             self.rt_table = vpns[self.route].rt_table

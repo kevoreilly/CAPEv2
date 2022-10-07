@@ -1246,11 +1246,15 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         if not sample.size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
             continue
-        elif sample.size > web_cfg.general.max_sample_size:
-            details["errors"].append(
-                {sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."}
-            )
-            continue
+
+        elif not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
+            if  sample.size > web_cfg.general.max_sample_size:
+                details["errors"].append(
+                    {
+                        sample.name: f"You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf. Sample size is: {sample.size/float(1<<20):,.0f} Allowed size is:{web_cfg.general.max_sample_size/float(1<<20):,.0f} "
+                    }
+                )
+                continue
 
         if opt_filename:
             filename = opt_filename

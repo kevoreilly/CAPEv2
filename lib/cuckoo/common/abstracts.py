@@ -12,6 +12,7 @@ import time
 import timeit
 import xml.etree.ElementTree as ET
 from typing import Dict, List
+from pathlib import Path
 
 try:
     import dns.resolver

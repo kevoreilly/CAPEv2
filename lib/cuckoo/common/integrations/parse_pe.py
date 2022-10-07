@@ -161,7 +161,7 @@ class PortableExecutable:
     def file_data(self):
         if not self._file_data:
             if os.path.exists(self.file_path):
-                self._file_data = Path(self._file_path).read_bytes()
+                self._file_data = Path(self.file_path).read_bytes()
         return self._file_data
 
     def is_64bit(self) -> bool:

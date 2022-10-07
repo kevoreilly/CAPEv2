@@ -845,7 +845,7 @@ class StatusThread(threading.Thread):
                 return True
             if main_db_tasks:
                 for t in main_db_tasks:
-
+                    options = get_options(t.options)
                     # Check if file exist, if no wipe from db and continue, rare cases
                     if t.category in ("file", "pcap", "static"):
 
@@ -854,16 +854,16 @@ class StatusThread(threading.Thread):
                             main_db.set_status(t.id, TASK_BANNED)
                             continue
 
-                        # We can't upload size bigger than X to our workers. In case we extract archive that contains bigger file.
-                        file_size = get_file_size(t.target)
-                        if file_size > web_conf.general.max_sample_size:
-                            log.warning(f"File size: {file_size} is bigger than allowed: {web_conf.general.max_sample_size}")
-                            main_db.set_status(t.id, TASK_BANNED)
-                            continue
+                        if not web_conf.general.allow_ignore_size and "ignore_size_check" not in options:
+                            # We can't upload size bigger than X to our workers. In case we extract archive that contains bigger file.
+                            file_size = get_file_size(t.target)
+                            if file_size > web_conf.general.max_sample_size:
+                                log.warning(f"File size: {file_size} is bigger than allowed: {web_conf.general.max_sample_size}")
+                                main_db.set_status(t.id, TASK_BANNED)
+                                continue
 
                     force_push = False
                     try:
-                        options = get_options(t.options)
                         # check if node exist and its correct
                         if options.get("node"):
                             requested_node = options.get("node")

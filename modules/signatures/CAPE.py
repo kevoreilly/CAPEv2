@@ -77,7 +77,7 @@ class CAPE_RegBinary(Signature):
         self.reg_binary = False
 
     def on_call(self, call, process):
-        if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
+        if call["api"] in ("RegSetValueExA", "RegSetValueExW"):
             buf = self.get_argument(call, "Buffer")
             size = self.get_argument(call, "BufferLength")
             if buf:
@@ -210,7 +210,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
         elif call["api"] == "NtMapViewOfSection":
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
-        elif call["api"] == "VirtualAllocEx" or call["api"] == "NtAllocateVirtualMemory":
+        elif call["api"] in ("VirtualAllocEx", "NtAllocateVirtualMemory"):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
         elif (
@@ -282,7 +282,7 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.thread_map = {}
             self.lastprocess = process
 
-        if process.get("process_name") in ["acrord32.exe"]:
+        if process.get("process_name") in ("acrord32.exe",):
             return False
 
         if call["api"] == "CreateProcessInternalW":
@@ -293,21 +293,18 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.process_map[phandle] = pid
             self.thread_handles.add(thandle)
             self.thread_map[thandle] = pid
-        elif (call["api"] == "NtUnmapViewOfSection" or call["api"] == "NtAllocateVirtualMemory") and self.sequence == 0:
+        elif call["api"] in ("NtUnmapViewOfSection", "NtAllocateVirtualMemory") and self.sequence == 0:
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.sequence = 1
         elif call["api"] == "NtGetContextThread" and self.sequence == 0:
             if self.get_argument(call, "ThreadHandle") in self.thread_handles:
                 self.sequence = 1
         elif (
-            call["api"] == "NtWriteVirtualMemory"
-            or call["api"] == "NtWow64WriteVirtualMemory64"
-            or call["api"] == "WriteProcessMemory"
-            or call["api"] == "NtMapViewOfSection"
-        ) and (self.sequence == 1 or self.sequence == 2):
+            call["api"] in ("NtWriteVirtualMemory", "NtWow64WriteVirtualMemory64", "WriteProcessMemory", "NtMapViewOfSection")
+        ) and self.sequence == 1 or self.sequence == 2:
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.sequence += 1
-        elif (call["api"] == "NtSetContextThread") and (self.sequence == 1 or self.sequence == 2):
+        elif call["api"] == "NtSetContextThread" and (self.sequence == 1 or self.sequence == 2):
             if self.get_argument(call, "ThreadHandle") in self.thread_handles:
                 self.sequence += 1
         elif call["api"] == "NtResumeThread" and (self.sequence == 2 or self.sequence == 3):
@@ -390,7 +387,7 @@ class CAPE_InjectionSetWindowLong(Signature):
             handle = self.get_argument(call, "ProcessHandle")
             if handle != "0xffffffff":
                 self.sharedmap = True
-        elif call["api"] == "NtOpenSection" or call["api"] == "NtCreateSection":
+        elif call["api"] in ("NtOpenSection", "NtCreateSection"):
             name = self.get_argument(call, "ObjectAttributes")
             if name.lower() in self.sharedsections:
                 self.sharedmap = True
@@ -431,15 +428,10 @@ class CAPE_Injection(Signature):
             self.write_handles = set()
             self.lastprocess = process
 
-        if call["api"] == "CreateProcessInternalW" or call["api"] == "OpenProcess" or call["api"] == "NtOpenProcess":
+        if call["api"] in ("CreateProcessInternalW", "OpenProcess", "NtOpenProcess"):
             phandle = self.get_argument(call, "ProcessHandle")
             self.process_handles.add(phandle)
-        elif (
-            call["api"] == "NtWriteVirtualMemory"
-            or call["api"] == "NtWow64WriteVirtualMemory64"
-            or call["api"] == "WriteProcessMemory"
-            or call["api"] == "NtMapViewOfSection"
-        ):
+        elif call["api"] in ("NtWriteVirtualMemory", "NtWow64WriteVirtualMemory64", "WriteProcessMemory", "NtMapViewOfSection"):
             whandle = self.get_argument(call, "ProcessHandle")
             self.write_handles.add(whandle)
 
@@ -472,12 +464,12 @@ class CAPE_EvilGrab(Signature):
         self.reg_binary = False
 
     def on_call(self, call, process):
-        if call["api"] == "RegCreateKeyExA" or call["api"] == "RegCreateKeyExW":
+        if call["api"] in ("RegCreateKeyExA", "RegCreateKeyExW"):
             buf = self.get_argument(call, "SubKey")
             if buf == "Software\\rar":
                 self.reg_evilgrab_keyname = True
 
-        if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
+        if call["api"] in ("RegSetValueExA", "RegSetValueExW"):
             length = self.get_argument(call, "BufferLength")
             if length and int(length) > 0x10000 and self.reg_evilgrab_keyname:
                 self.reg_binary = True
@@ -485,8 +477,7 @@ class CAPE_EvilGrab(Signature):
     def on_complete(self):
         if self.reg_binary:
             return True
-        else:
-            return False
+        return False
 
 
 class CAPE_PlugX(Signature):
@@ -558,7 +549,7 @@ class CAPE_Doppelganging(Signature):
             self.filehandle = None
             self.sectionhandle = None
 
-        if call["api"] == "CreateFileTransactedA" or call["api"] == "CreateFileTransactedW":
+        if call["api"] in ("CreateFileTransactedA", "CreateFileTransactedW"):
             self.filehandle = self.get_argument(call, "FileHandle")
         elif call["api"] == "NtCreateSection":
             if self.filehandle and self.filehandle == self.get_argument(call, "FileHandle"):

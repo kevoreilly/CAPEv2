@@ -4,6 +4,7 @@
 
 import logging
 import os
+from contextlib import suppress
 
 from lib.common.constants import PATHS
 from lib.common.results import NetlogHandler
@@ -17,10 +18,8 @@ def create_folders():
         if os.path.exists(folder):
             continue
 
-        try:
+        with suppress(OSError):
             os.makedirs(folder)
-        except OSError:
-            pass
 
 
 def init_logging():

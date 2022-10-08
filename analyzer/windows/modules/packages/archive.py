@@ -92,7 +92,7 @@ class Archive(Package):
                         file_names.append(file_name)
             else:
                 # Table Headers
-                if all(item.lower() in line.lower() for item in ["Date", "Time", "Attr", "Size", "Compressed", "Name"]):
+                if all(item.lower() in line.lower() for item in ("Date", "Time", "Attr", "Size", "Compressed", "Name")):
                     in_table = True
 
         return file_names

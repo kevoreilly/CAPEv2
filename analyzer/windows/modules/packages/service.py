@@ -95,7 +95,7 @@ class Service(Package):
                 log.info(ctypes.FormatError())
                 return
             log.info("Created service (handle: 0x%s)", service_handle)
-            servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid, suspended=False)
+            servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid)
             filepath = servproc.get_filepath()
             servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
             servproc.close()

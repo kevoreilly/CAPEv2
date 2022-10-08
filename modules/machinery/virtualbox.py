@@ -95,7 +95,7 @@ class VirtualBox(Machinery):
         """
         log.debug("Stopping vm %s", label)
 
-        if self._status(label) in [self.POWEROFF, self.ABORTED]:
+        if self._status(label) in (self.POWEROFF, self.ABORTED):
             raise CuckooMachineError(f"Trying to stop an already stopped vm {label}")
 
         try:

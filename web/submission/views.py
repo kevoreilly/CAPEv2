@@ -9,6 +9,7 @@ import random
 import sys
 import tempfile
 from base64 import urlsafe_b64encode
+from contextlib import suppress
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -114,8 +115,7 @@ def force_int(value):
 def get_platform(magic):
     if magic and any(x in magic for x in VALID_LINUX_TYPES):
         return "linux"
-    else:
-        return "windows"
+    return "windows"
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -415,10 +415,8 @@ def index(request, resubmit_hash=False):
                 if path.lower().endswith(b".saz"):
                     saz = saz_to_pcap(path)
                     if saz:
-                        try:
+                        with suppress(Exception):
                             os.remove(path)
-                        except Exception as e:
-                            pass
                         path = saz
                     else:
                         details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
@@ -576,7 +574,7 @@ def index(request, resubmit_hash=False):
             if web_conf.general.get("existent_tasks", False):
                 records = perform_search("target_sha256", resubmit_hash, search_limit=5)
                 for record in records:
-                    existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                    existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                     existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         return render(

@@ -80,8 +80,7 @@ def mongo_find(collection: str, query, projection=False, sort=None):
         sort = [("_id", -1)]
     if projection:
         return getattr(results_db, collection).find(query, projection, sort=sort)
-    else:
-        return getattr(results_db, collection).find(query, sort=sort)
+    return getattr(results_db, collection).find(query, sort=sort)
 
 
 @graceful_auto_reconnect
@@ -90,8 +89,7 @@ def mongo_find_one(collection: str, query, projection=False, sort=None):
         sort = [("_id", -1)]
     if projection:
         return getattr(results_db, collection).find_one(query, projection, sort=sort)
-    else:
-        return getattr(results_db, collection).find_one(query, sort=sort)
+    return getattr(results_db, collection).find_one(query, sort=sort)
 
 
 @graceful_auto_reconnect

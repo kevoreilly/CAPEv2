@@ -84,7 +84,7 @@ class AWS(Machinery):
         for machine in self.db.get_available_machines():
             if num_of_machines_to_start <= 0:
                 break
-            if self._status(machine.label) in [AWS.POWEROFF, AWS.STOPPING]:
+            if self._status(machine.label) in (AWS.POWEROFF, AWS.STOPPING):
                 self.ec2_machines[machine.label].start()  # not using self.start() to avoid _wait_ method
                 num_of_machines_to_start -= 1
 
@@ -243,7 +243,7 @@ class AWS(Machinery):
                 status = AWS.PENDING
             elif state == "stopping":
                 status = AWS.STOPPING
-            elif state in ["shutting-down", "terminated"]:
+            elif state in ("shutting-down", "terminated"):
                 status = AWS.ERROR
             else:
                 status = AWS.ERROR

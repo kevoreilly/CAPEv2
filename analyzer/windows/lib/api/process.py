@@ -491,7 +491,6 @@ class Process:
         KERNEL32.WaitForSingleObject(self.terminate_event_handle, 5000)
         log.info("Termination confirmed for process %d", self.pid)
         KERNEL32.CloseHandle(self.terminate_event_handle)
-        return
 
     def terminate(self):
         """Terminate process.

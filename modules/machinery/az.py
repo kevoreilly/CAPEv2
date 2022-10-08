@@ -71,12 +71,12 @@ is_platform_scaling = {}
 MAX_CONCURRENT_VMSS_OPERATIONS = 4
 
 # These global lists will be used for maintaining lists of ongoing operations on specific machines
-vms_currently_being_reimaged = list()
-vms_currently_being_deleted = list()
+vms_currently_being_reimaged = []
+vms_currently_being_deleted = []
 
 # These global lists will be used as a FIFO queue of sorts, except when used as a list
-reimage_vm_list = list()
-delete_vm_list = list()
+reimage_vm_list = []
+delete_vm_list = []
 
 # These are locks to provide for thread-safe operations
 reimage_lock = threading.Lock()
@@ -117,7 +117,7 @@ class Azure(Machinery):
 
         # Replace a list of IDs with dictionary representations
         scale_sets = mmanager_opts.pop("scale_sets")
-        mmanager_opts["scale_sets"] = dict()
+        mmanager_opts["scale_sets"] = {}
 
         for scale_set_id in scale_sets:
             try:
@@ -1145,7 +1145,7 @@ class Azure(Machinery):
 
             with reimage_lock:
                 # If there are no jobs in the reimage_vm_list, then sleep on it!
-                if len(reimage_vm_list) <= 0:
+                if not reimage_vm_list:
                     continue
 
                 # Stage 1: Determine from the list of VMs to be reimaged which VMs should be reimaged
@@ -1263,7 +1263,7 @@ class Azure(Machinery):
                 continue
 
             with delete_lock:
-                if len(delete_vm_list) <= 0:
+                if not delete_vm_list:
                     continue
 
                 # Biggest batch only

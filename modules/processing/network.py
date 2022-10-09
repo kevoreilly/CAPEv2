@@ -95,7 +95,7 @@ logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 comment_re = re.compile(r"\s*#.*")
 if enabled_passlist and passlist_file:
-    f = Path(CUCKOO_ROOT / passlist_file).read_text()
+    f = Path(os.path.join(CUCKOO_ROOT, passlist_file)).read_text()
     for domain in f.splitlines():
         domain = comment_re.sub("", domain).strip()
         if domain:
@@ -103,7 +103,7 @@ if enabled_passlist and passlist_file:
 
 ip_passlist = set()
 if enabled_ip_passlist and ip_passlist_file:
-    f = Path(CUCKOO_ROOT / ip_passlist_file).read_text()
+    f = Path(os.path.join(CUCKOO_ROOT, ip_passlist_file)).read_text()
     for ip in f.splitlines():
         ip = comment_re.sub("", ip).strip()
         if ip:

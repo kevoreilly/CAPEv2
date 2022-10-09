@@ -15,6 +15,7 @@ import sys
 import timeit
 import traceback
 from ctypes import POINTER, byref, c_int, c_ulong, c_void_p, cast, create_string_buffer, create_unicode_buffer, sizeof
+from pathlib import Path
 from shutil import copy
 from threading import Lock
 from urllib.parse import urlencode
@@ -227,7 +228,7 @@ class Analyzer:
         # Create the folders used for storing the results.
         create_folders()
 
-        add_protected_path(os.getcwd().encode())
+        add_protected_path(Path.cwd().encode())
         add_protected_path(PATHS["root"].encode())
 
         # Initialize logging.
@@ -333,7 +334,7 @@ class Analyzer:
         global LOADER64
         global ANALYSIS_TIMED_OUT
 
-        log.debug("Starting analyzer from: %s", os.getcwd())
+        log.debug("Starting analyzer from: %s", Path.cwd())
         log.debug("Storing results at: %s", PATHS["root"])
         log.debug("Pipe server name: %s", PIPE)
         log.debug("Python path: %s", os.path.dirname(sys.executable))

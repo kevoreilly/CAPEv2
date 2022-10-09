@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import time
 from contextlib import suppress
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
@@ -338,10 +339,7 @@ class Suricata(Processing):
                     suricata["files"].append(sfile)
 
             if HAVE_ORJSON:
-                with open(SURICATA_FILE_LOG_FULL_PATH, "wb") as drop_log:
-                    drop_log.write(
-                        orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default)
-                    )  # orjson.OPT_SORT_KEYS |
+                _ = Path(SURICATA_FILE_LOG_FULL_PATH).write_bytes(orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default))  # orjson.OPT_SORT_KEYS |
             else:
                 with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
                     json.dump(suricata["files"], drop_log, indent=4)

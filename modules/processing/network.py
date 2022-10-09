@@ -21,6 +21,7 @@ from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
+from pathlib import Path
 from urllib.parse import urlunparse
 
 import dns.resolver
@@ -94,19 +95,19 @@ logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 comment_re = re.compile(r"\s*#.*")
 if enabled_passlist and passlist_file:
-    with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
-        for domain in f.readlines():
-            domain = comment_re.sub("", domain).strip()
-            if domain:
-                domain_passlist_re.append(domain)
+    f = Path(CUCKOO_ROOT / passlist_file).read_text()
+    for domain in f.splitlines():
+        domain = comment_re.sub("", domain).strip()
+        if domain:
+            domain_passlist_re.append(domain)
 
 ip_passlist = set()
 if enabled_ip_passlist and ip_passlist_file:
-    with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
-        for ip in f.readlines():
-            ip = comment_re.sub("", ip).strip()
-            if ip:
-                ip_passlist.add(ip)
+    f = Path(CUCKOO_ROOT / ip_passlist_file).read_text()
+    for ip in f.splitlines():
+        ip = comment_re.sub("", ip).strip()
+        if ip:
+            ip_passlist.add(ip)
 
 
 class Pcap:
@@ -243,7 +244,7 @@ class Pcap:
         """Add IPs to unique list.
         @param connection: connection data
         """
-        try:
+        with suppress(Exception):
             if connection["dst"] not in self.hosts:
                 ip = convert_to_printable(connection["dst"])
 
@@ -257,8 +258,6 @@ class Pcap:
                     # first packet they appear in.
                     if not self._is_private_ip(ip):
                         self.unique_hosts.append(ip)
-        except Exception:
-            pass
 
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
@@ -948,8 +947,7 @@ class Pcap2:
                         req_sha256 = sha256(sent.body).hexdigest()
 
                         req_path = os.path.join(self.network_path, req_sha1)
-                        with open(req_path, "wb") as f:
-                            f.write(sent.body)
+                        _ = Path(req_path).write_bytes(sent.body)
 
                         # It's not perfect yet, but it'll have to do.
                         tmp_dict["req"] = {
@@ -964,8 +962,7 @@ class Pcap2:
                         resp_sha1 = sha1(recv.body).hexdigest()
                         resp_sha256 = sha256(recv.body).hexdigest()
                         resp_path = os.path.join(self.network_path, resp_sha256)
-                        with open(resp_path, "wb") as f:
-                            f.write(recv.body)
+                        _ = Path(resp_path).write_bytes(recv.body)
                         resp_preview = []
                         try:
                             c = 0

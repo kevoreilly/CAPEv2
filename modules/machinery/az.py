@@ -950,7 +950,7 @@ class Azure(Machinery):
                 )
 
                 # The system is at rest when no relevant tasks are in the queue and no relevant machines are locked
-                if relevant_task_queue == 0 and initial_number_of_locked_relevant_machines == 0:
+                if relevant_task_queue == initial_number_of_locked_relevant_machines == 0:
                     # The VMSS will scale in via the ScaleInPolicy.
                     machine_pools[vmss_name]["wait"] = True
                     log.debug(f"System is at rest, scale down {vmss_name} capacity and delete machines.")
@@ -1060,7 +1060,7 @@ class Azure(Machinery):
             if platform:
                 is_platform_scaling[platform] = False
             log.error(repr(exc), exc_info=True)
-            log.debug(f"Scaling {vmss_name} has completed with errors {repr(exc)}.")
+            log.debug(f"Scaling {vmss_name} has completed with errors {exc!r}.")
 
     @staticmethod
     def _handle_poller_result(lro_poller_object):

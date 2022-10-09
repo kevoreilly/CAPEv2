@@ -141,7 +141,7 @@ def decoder(data):
     key = find_key(img)
     iv = find_iv(img)
     confs = find_conf(img)
-    if iv not in [b"", -1] and confs != []:
+    if iv not in (b"", -1) and confs != []:
         for conf in confs:
             dec = DES3.new(key, DES3.MODE_CBC, iv)
             temp = dec.decrypt(conf)
@@ -156,7 +156,6 @@ def extract_config(filebuf):
 
 
 if __name__ == "__main__":
-    with open(sys.argv[1], "rb") as f:
-        data = f.read()
-
+    from pathlib import Path
+    data = Path(sys.argv[1]).read_bytes()
     print(extract_config(data))

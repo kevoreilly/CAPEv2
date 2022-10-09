@@ -16,11 +16,17 @@ import logging
 import re
 from base64 import b64encode
 from collections import OrderedDict
+from pathlib import Path
 from socket import inet_ntoa
 from struct import unpack
 
 import pefile
-from netstruct import unpack as netunpack
+
+try:
+    from netstruct import unpack as netunpack
+    HAVE_NETSTRUCT = True
+except ImportError:
+    HAVE_NETSTRUCT = False
 
 log = logging.getLogger(__name__)
 
@@ -125,7 +131,7 @@ class packedSetting:
             elif self.mask:
                 ret_arr = []
                 for k, v in self.mask.items():
-                    if k == 0 and k == conf_data:
+                    if k == 0  == conf_data:
                         ret_arr.append(v)
                     if k & conf_data:
                         ret_arr.append(v)
@@ -159,10 +165,11 @@ class packedSetting:
 
                     # Only EXECUTE_TYPE for now
                     else:
-                        # Skipping unknown short value in the start
-                        string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
-                        string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
-                        ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
+                        if HAVE_NETSTRUCT:
+                            # Skipping unknown short value in the start
+                            string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
+                            string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
+                            ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
                         i += len(string1) + len(string2) + 11
 
             elif self.is_transform:
@@ -434,8 +441,7 @@ if __name__ == "__main__":
         type=int,
     )
     args = parser.parse_args()
-    with open(args.path, "rb") as f:
-        data = f.read()
+    data = Path(args.path).read_bytes()
     parsed_config = cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
     if parsed_config is None:
         parsed_config = cobaltstrikeConfig(data).parse_encrypted_config(quiet=args.quiet, as_json=args.json)
@@ -445,7 +451,7 @@ if __name__ == "__main__":
 
 # CAPE
 def extract_config(data):
-    output = cobaltstrikeConfig(data).parse_config(quiet=False, as_json=True)
+    output = cobaltstrikeConfig(data).parse_config(as_json=True)
     if output is None:
-        output = cobaltstrikeConfig(data).parse_encrypted_config(quiet=False, as_json=True)
+        output = cobaltstrikeConfig(data).parse_encrypted_config(as_json=True)
     return output

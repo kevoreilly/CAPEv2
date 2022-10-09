@@ -14,6 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from ctypes import byref, c_int, c_ulong, create_string_buffer, sizeof
+from pathlib import Path
 from shutil import copy
 
 from lib.common.constants import (
@@ -319,9 +320,7 @@ class Process:
         log.info("[-] Application name : %s", new_exe)
         log.info("[-] Service : %s", service_name)
 
-        with open(new_inf, "w") as fh:
-            fh.write(inf_data)
-
+        _ = Path(new_inf).write_text(inf_data)
         os_is_64bit = is_os_64bit()
         if os_is_64bit:
             wow64 = c_ulong(0)

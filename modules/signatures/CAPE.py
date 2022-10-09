@@ -304,10 +304,10 @@ class CAPE_InjectionProcessHollowing(Signature):
         ) and self.sequence == 1 or self.sequence == 2:
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.sequence += 1
-        elif call["api"] == "NtSetContextThread" and (self.sequence == 1 or self.sequence == 2):
+        elif call["api"] == "NtSetContextThread" and self.sequence in (1, 2):
             if self.get_argument(call, "ThreadHandle") in self.thread_handles:
                 self.sequence += 1
-        elif call["api"] == "NtResumeThread" and (self.sequence == 2 or self.sequence == 3):
+        elif call["api"] == "NtResumeThread" and self.sequence in (2, 3):
             handle = self.get_argument(call, "ThreadHandle")
             if handle in self.thread_handles:
                 desc = "{0}({1}) -> {2}({3})".format(
@@ -318,7 +318,7 @@ class CAPE_InjectionProcessHollowing(Signature):
                 )
                 self.data.append({"injection": desc})
                 return True
-        elif call["api"] == "NtResumeProcess" and (self.sequence == 2 or self.sequence == 3):
+        elif call["api"] == "NtResumeProcess" and self.sequence in (2, 3):
             handle = self.get_argument(call, "ProcessHandle")
             if handle in self.process_handles:
                 desc = "{0}({1}) -> {2}({3})".format(

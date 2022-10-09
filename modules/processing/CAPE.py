@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import timeit
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import pe_map, plugx_parser, static_config_parsers
@@ -153,8 +154,7 @@ class CAPE(Processing):
         )
 
         # Get the file data
-        with open(file_info["path"], "rb") as file_open:
-            file_data = file_open.read()
+        file_data = Path(file_info["path"]).read_text()
 
         if metadata.get("pids", False):
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
@@ -276,8 +276,7 @@ class CAPE(Processing):
             if extracted_file.get("data", b""):
                 extracted_file_data = make_bytes(extracted_file["data"])
             else:
-                with open(extracted_file["path"], "rb") as fil:
-                    extracted_file_data = fil.read()
+                extracted_file_data = Path(extracted_file["path"]).read_bytes()
             for yara in yara_hits:
                 all_files.append(
                     (

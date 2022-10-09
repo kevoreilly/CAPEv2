@@ -16,6 +16,7 @@ DESCRIPTION = "SmokeLoader configuration parser."
 AUTHOR = "kevoreilly"
 
 import struct
+from contextlib import suppress
 
 import pefile
 import yara
@@ -114,12 +115,10 @@ def extract_config(filebuf):
                 c2_offset = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0] & 0xFFFF
             c2_size = struct.unpack("B", filebuf[c2_offset : c2_offset + 1])[0]
             c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
-            try:
+            with suppress(Exception):
                 c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                 if c2_url:
                     end_config.setdefault("address", []).append(c2_url)
-            except Exception:
-                pass
             table_offset += 8
         return end_config
     elif matches["$ref32_1"]:

@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import tempfile
+from pathlib import Path
 
 from lib.common.abstracts import CuckooPackageError, Package
 
@@ -26,8 +27,7 @@ class Applet(Package):
         """
 
         _, file_path = tempfile.mkstemp(suffix=".html")
-        with open(file_path, "w") as file_handle:
-            file_handle.write(html)
+        _ = Path(file_path).write_text(html)
 
         return file_path
 

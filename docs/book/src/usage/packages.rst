@@ -28,7 +28,9 @@ The following is a list of the existing packages in alphabetical order:
 
     * ``archive``: used to run and analyze **archives such as ISO, VHD and anything else that 7-Zip can extract**.
 
-        *NB*: Passing ``file=`` as a task option will ensure that the entire archive is passed to the victim VM and extracted there, 
+        Explanation how it works can be found here `cccs_talk <https://youtu.be/-70Mlkmtdds?t=13013>`_.
+
+        *NB*: Passing ``file=`` as a task option will ensure that the entire archive is passed to the victim VM and extracted there,
         prior to executing files of interest within in the extracted folder.
 
         **Options**:

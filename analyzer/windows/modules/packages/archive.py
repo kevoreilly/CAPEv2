@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
-EXE_REGEX = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db)$", flags=re.IGNORECASE)
+EXE_REGEX = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat)$", flags=re.IGNORECASE)
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 

@@ -154,7 +154,7 @@ class CAPE(Processing):
         )
 
         # Get the file data
-        file_data = Path(file_info["path"]).read_text()
+        file_data = Path(file_info["path"]).read_bytes()
 
         if metadata.get("pids", False):
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])

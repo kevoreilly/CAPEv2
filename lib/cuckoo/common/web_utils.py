@@ -448,6 +448,7 @@ def get_file_content(paths):
         paths = [paths]
     for path in paths:
         if os.path.exists(path):
+            path = path.decode() if isinstance(path, bytes) else path
             content = Path(path).read_bytes()
             break
     return content

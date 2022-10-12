@@ -228,7 +228,7 @@ class Analyzer:
         # Create the folders used for storing the results.
         create_folders()
 
-        add_protected_path(Path.cwd().encode())
+        add_protected_path(Path.cwd().__bytes__())
         add_protected_path(PATHS["root"].encode())
 
         # Initialize logging.

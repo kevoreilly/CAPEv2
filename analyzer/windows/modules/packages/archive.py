@@ -15,6 +15,7 @@ except ImportError:
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
+from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +29,10 @@ PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 class Archive(Package):
     """Archive analysis package."""
+    def __init__(self, options={}, config=None):
+        self.config = config
+        self.options = options
+        self.options["disable_hook_content"] = 4
 
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),
@@ -46,12 +51,12 @@ class Archive(Package):
         @param password: archive password
         """
         log.debug([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path])
-        p = subprocess.run([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path], capture_output=True)
+        p = subprocess.run([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path], stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         stdoutput, stderr = p.stdout, p.stderr
         log.debug(p.stdout + p.stderr)
         if b"Wrong password" in stderr:
             shutil.rmtree(extract_path, ignore_errors=True)
-            p = subprocess.run([seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path], capture_output=True)
+            p = subprocess.run([seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path], stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
             stdoutput, stderr = p.stdout, p.stderr
             log.debug(p.stdout + p.stderr)
             if b"Wrong password" in stderr:
@@ -66,7 +71,7 @@ class Archive(Package):
         @return: A list of file names
         """
         log.debug([seven_zip_path, "l", archive_path])
-        p = subprocess.run([seven_zip_path, "l", archive_path], capture_output=True)
+        p = subprocess.run([seven_zip_path, "l", archive_path], stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         stdoutput = p.stdout.decode()
         stdoutput_lines = stdoutput.split("\n")
 
@@ -141,22 +146,27 @@ class Archive(Package):
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
     def start(self, path):
+        # TODO: This does not work... WHY?!
         # Is 7z in analyzer/windows/bin?
-        seven_zip_path = os.path.join(os.getcwd(), "bin", "7z.exe")
-        if not os.path.exists(seven_zip_path):
-            # Let's hope it's in the VM image
-            seven_zip_path = self.get_path("7z.exe")
+        # seven_zip_path = os.path.join(os.getcwd(), "bin", "7z.exe")
+        # if not os.path.exists(seven_zip_path):
+        # Let's hope it's in the VM image
+        seven_zip_path = self.get_path_app_in_path("7z.exe")
 
         password = self.options.get("password", "")
 
         archive_name = path.split("\\")[-1].split(".")[0]
-        root = os.path.join(os.environ["TEMP"], archive_name)
+
+        # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
+        # actors are using LNK files that use relative directory traversal at arbitrary depth.
+        # They expect to find the root of the drive.
+        root = os.path.join("C:\\", archive_name)
 
         # Check if root exists already due to the file path
         if os.path.exists(root) and os.path.isfile(root):
-            root = os.path.join(os.environ["TEMP"], "extracted_iso", archive_name)
+            root = os.path.join("C:\\", "extracted_iso", archive_name)
 
-        os.makedirs(root)
+        os.makedirs(root, exist_ok=True)
 
         file_names = self.get_file_names(seven_zip_path, path)
         if not len(file_names):
@@ -174,6 +184,28 @@ class Archive(Package):
         if set(file_names) != set(files_at_root):
             log.debug(f"Replacing {file_names} with {files_at_root}")
             file_names = files_at_root
+
+        # Upload each file that was extracted, for further analysis
+        for entry in files_at_root:
+            try:
+                file_path = os.path.join(root, entry)
+                log.info("Uploading {0} to host".format(file_path))
+                filename = "files/{0}".format(entry)
+                upload_to_host(file_path, filename, duplicated=False)
+            except Exception as e:
+                log.warning(f"Couldn't upload file {entry} to host {e}")
+
+        # Copy these files to the root directory, just in case!
+        dirs = []
+        for item in os.listdir(root):
+            d = os.path.join(root, item)
+            if os.path.isdir(d):
+                if d not in dirs:
+                    dirs.append(d)
+                    try:
+                        shutil.copytree(d, os.path.join("C:\\", item))
+                    except Exception as e:
+                        log.warning(f"Couldn't copy {d} to root of C: {e}")
 
         file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.

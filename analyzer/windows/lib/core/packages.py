@@ -130,5 +130,7 @@ def choose_package(file_type, file_name, exports, target):
         return "ichitaro"
     elif file_name.endswith(".reg"):
         return "reg"
+    elif "ISO 9660" in file_type or file_name.endswith((".iso", ".udf", ".vhd")):
+        return "archive"
     else:
         return "generic"

@@ -29,6 +29,7 @@ PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 class Archive(Package):
     """Archive analysis package."""
+
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
@@ -51,12 +52,22 @@ class Archive(Package):
         @param password: archive password
         """
         log.debug([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path])
-        p = subprocess.run([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path], stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        p = subprocess.run(
+            [seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path],
+            stdin=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
         stdoutput, stderr = p.stdout, p.stderr
         log.debug(p.stdout + p.stderr)
         if b"Wrong password" in stderr:
             shutil.rmtree(extract_path, ignore_errors=True)
-            p = subprocess.run([seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path], stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+            p = subprocess.run(
+                [seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path],
+                stdin=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+            )
             stdoutput, stderr = p.stdout, p.stderr
             log.debug(p.stdout + p.stderr)
             if b"Wrong password" in stderr:
@@ -71,7 +82,9 @@ class Archive(Package):
         @return: A list of file names
         """
         log.debug([seven_zip_path, "l", archive_path])
-        p = subprocess.run([seven_zip_path, "l", archive_path], stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        p = subprocess.run(
+            [seven_zip_path, "l", archive_path], stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+        )
         stdoutput = p.stdout.decode()
         stdoutput_lines = stdoutput.split("\n")
 

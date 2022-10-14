@@ -248,10 +248,13 @@ class Office:
         officeresults = {"Metadata": {}}
         macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "macros")
         if olefile.isOleFile(filepath):
-            with olefile.OleFileIO(filepath) as ole:
-                meta = ole.get_metadata()
-                # must be left this way or we won't see the results
-                officeresults["Metadata"] = self._get_meta(meta)
+            try:
+                with olefile.OleFileIO(filepath) as ole:
+                    meta = ole.get_metadata()
+                    # must be left this way or we won't see the results
+                    officeresults["Metadata"] = self._get_meta(meta)
+            except AttributeError as e:
+                log.error("Problems with olefile library: %s", e)
         else:
             with contextlib.suppress(KeyError):
                 officeresults["Metadata"] = self._get_xml_meta(filepath)

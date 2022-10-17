@@ -8,12 +8,13 @@
 import binascii
 import json
 import logging
-import pefile
 import os
 import sys
-import yara
 from optparse import OptionParser
 from struct import pack, unpack
+
+import pefile
+import yara
 
 from lib.cuckoo.common.integrations.lznt1 import lznt1
 

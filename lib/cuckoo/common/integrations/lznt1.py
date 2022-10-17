@@ -82,9 +82,7 @@ def decompress_data(cdata: bytes) -> bytes:
 
                     if header & mask:
                         pointer = struct.unpack("<H", in_fd.read(2))[0]
-                        displacement = DISPLACEMENT_TABLE[
-                            output_fd.tell() - uncompressed_chunk_offset - 1
-                        ]
+                        displacement = DISPLACEMENT_TABLE[output_fd.tell() - uncompressed_chunk_offset - 1]
 
                         symbol_offset = (pointer >> (12 - displacement)) + 1
                         symbol_length = (pointer & (0xFFF >> displacement)) + 3

@@ -68,7 +68,7 @@ try:
     HAVE_BAT_DECODER = True
 except ImportError:
     HAVE_BAT_DECODER = False
-    print("Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
+    print("OPTIONAL! Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
 processing_conf = Config("processing")
 selfextract_conf = Config("selfextract")

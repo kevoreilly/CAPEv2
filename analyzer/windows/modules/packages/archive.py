@@ -13,7 +13,7 @@ except ImportError:
     import re
 
 from pathlib import Path
-    
+
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError

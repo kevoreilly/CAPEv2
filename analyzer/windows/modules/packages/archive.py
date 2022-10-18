@@ -12,6 +12,8 @@ try:
 except ImportError:
     import re
 
+from pathlib import Path
+    
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
@@ -203,10 +205,10 @@ class Archive(Package):
             try:
                 file_path = os.path.join(root, entry)
                 log.info("Uploading {0} to host".format(file_path))
-                filename = "files/{0}".format(entry)
+                filename = "files/{0}".format(Path(entry).name)
                 upload_to_host(file_path, filename, duplicated=False)
             except Exception as e:
-                log.warning(f"Couldn't upload file {entry} to host {e}")
+                log.warning(f"Couldn't upload file {Path(entry).name} to host {e}")
 
         # Copy these files to the root directory, just in case!
         dirs = []

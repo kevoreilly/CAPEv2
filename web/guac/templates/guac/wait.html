@@ -2,9 +2,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    <script src="https://code.jquery.com/jquery-latest.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <link rel="icon" href="{% static 'img/cape.png' %}">
+    <script src="{% static 'js/jquery.js' %}"></script>
+    <script src="{% static 'js/jquery-ui.min.js' %}"></script>
     <meta charset="utf-8"/>
     <title>Guacamole Console</title>
 </head>
@@ -22,7 +22,12 @@
                 }, false);
             </script>
         </div>
-        <script type="text/JavaScript">setTimeout("location.reload(true);",5000);</script>
+        <script type="text/JavaScript">
+            function reloadpage() {
+                location.reload(true);
+            }
+            setTimeout(reloadpage, 5000);
+        </script>
     {% endblock %}
 </body>
 </html>

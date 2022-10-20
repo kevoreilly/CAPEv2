@@ -27,7 +27,7 @@ function initExamplePlayer(playback_url) {
      * @type String
      */
 
-     var terminal_url = 'https://' +  location.hostname + "/recordings/playback/recfile/" + playback_url;
+     var terminal_url = location.origin + "/recordings/playback/recfile/" + playback_url;
      var RECORDING_URL = terminal_url;
 
     /**

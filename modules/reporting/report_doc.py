@@ -5,12 +5,17 @@
 import logging
 import os
 
+from elasticsearch.helpers import parallel_bulk
+
 from dev_utils.elasticsearchdb import get_daily_calls_index
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 
 log = logging.getLogger(__name__)
 repconf = Config("reporting")
+
+CHUNK_CALL_SIZE = 100
+
 
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_insert_one
@@ -84,6 +89,12 @@ def get_json_document(results, analysis_path):
     return report
 
 
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+
 def insert_calls(report, elastic_db=None, mongodb=False):
     ## Behaviour envolves storing stuffs in the DB
     # Store chunks of API calls in a different collection and reference
@@ -95,41 +106,56 @@ def insert_calls(report, elastic_db=None, mongodb=False):
         new_process = dict(process)
         chunk = []
         chunks_ids = []
+
+        # Upload for mongoDB
         # Loop on each process call.
-        for _, call in enumerate(process["calls"]):
-            # If the chunk size is 100 or if the loop is completed then store the chunk in DB.
-            if len(chunk) == 100:
-                to_insert = {"pid": process["process_id"], "calls": chunk}
-                if mongodb:
+        if mongodb:
+            for _, call in enumerate(process["calls"]):
+                # If the chunk size is CHUNK_CALL_SIZE or if the loop is completed then store the chunk in DB.
+                if len(chunk) == CHUNK_CALL_SIZE:
+                    to_insert = {"pid": process["process_id"], "calls": chunk}
                     try:
                         chunk_id = mongo_insert_one("calls", to_insert).inserted_id
                     except Exception as e:
                         chunk_id = None
-                elif elastic_db is not None:
-                    chunk_id = elastic_db.index(index=get_daily_calls_index(), body=to_insert)["_id"]
-                else:
-                    chunk_id = None
-                if chunk_id:
-                    chunks_ids.append(chunk_id)
-                # Reset the chunk.
-                chunk = []
-            # Append call to the chunk.
-            chunk.append(call)
-        # Store leftovers.
-        if chunk:
-            to_insert = {"pid": process["process_id"], "calls": chunk}
-            if mongodb:
+
+                    if chunk_id:
+                        chunks_ids.append(chunk_id)
+                    # Reset the chunk.
+                    chunk = []
+                # Append call to the chunk.
+                chunk.append(call)
+
+            # Store leftovers.
+            if chunk:
+                to_insert = {"pid": process["process_id"], "calls": chunk}
                 try:
                     chunk_id = mongo_insert_one("calls", to_insert).inserted_id
                 except Exception as e:
                     chunk_id = None
-            elif elastic_db is not None:
-                chunk_id = elastic_db.index(index=get_daily_calls_index(), body=to_insert)["_id"]
-            else:
-                chunk_id = None
 
-            if chunk_id:
-                chunks_ids.append(chunk_id)
+                if chunk_id:
+                    chunks_ids.append(chunk_id)
+
+        elif elastic_db is not None:
+            # Upload with parallel bulk for elastic
+            def gendata(p_call_chunks, process_id):
+                for call_chunk in p_call_chunks:
+                    yield {
+                        "_index": get_daily_calls_index(),
+                        "_op_type": "index",
+                        "_source": {
+                            "pid": process_id,
+                            "calls": call_chunk
+                        }
+                    }
+
+            for res in parallel_bulk(
+                elastic_db,
+                gendata(chunks(process["calls"], CHUNK_CALL_SIZE), process["process_id"])
+            ):
+                if res[0]:
+                    chunks_ids.append(res[1]["index"]["_id"])
 
         # Add list of chunks.
         new_process["calls"] = chunks_ids

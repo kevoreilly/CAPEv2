@@ -8,7 +8,7 @@
 
 import datetime
 import logging
-from typing import Iterable
+from typing import Iterable, List
 
 from lib.cuckoo.common.config import Config
 
@@ -22,7 +22,7 @@ if repconf.elasticsearchdb.enabled:
         http_auth=(repconf.elasticsearchdb.get("username"), repconf.elasticsearchdb.get("password")),
         use_ssl=repconf.elasticsearchdb.get("use_ssl", False),
         verify_certs=repconf.elasticsearchdb.get("verify_certs", False),
-        timeout=60,
+        timeout=120,
     )
 
     ANALYSIS_INDEX_PREFIX = f"{repconf.elasticsearchdb.index}-analysis-"
@@ -32,7 +32,7 @@ if repconf.elasticsearchdb.enabled:
 
 log = logging.getLogger(__name__)
 
-ANALYSIS_INDEX_MAPPING = {
+ANALYSIS_INDEX_MAPPING_SETTINGS = {
     "mappings": {
         "properties": {
             "info": {
@@ -42,7 +42,23 @@ ANALYSIS_INDEX_MAPPING = {
                 }
             },
             "network": {"properties": {"dead_hosts": {"type": "keyword"}}},
+            "target": {"properties": {"file": {"properties": {"tlsh": {"type": "keyword"}}}}},
+            "dropped": {"properties": {"tlsh": {"type": "keyword"}}},
+            "CAPE": {"properties": {"payloads": {"properties": {"tlsh": {"type": "keyword"}}}}},
         }
+    },
+    "settings": {
+        "index.blocks.read_only_allow_delete": "false",
+        "index.priority": "1",
+        "index.query.default_field": [
+            "*"
+        ],
+        "index.refresh_interval": "1s",
+        "index.write.wait_for_active_shards": "1",
+        "index.routing.allocation.include._tier_preference": "data_content",
+        "index.number_of_replicas": "1",
+        "index.mapping.total_fields.limit": 20000,
+        "index.mapping.depth.limit": 1000
     }
 }
 
@@ -71,7 +87,7 @@ def get_analysis_index() -> str:
     return f"{ANALYSIS_INDEX_PREFIX}*"
 
 
-def get_calls_index() -> str:
+def get_calls_index():
     return f"{CALLS_INDEX_PREFIX}*"
 
 
@@ -85,7 +101,7 @@ def delete_analysis_and_related_calls(task_id: str):
                 for call in process["calls"]:
                     elastic_handler.delete_by_query(index=get_calls_index(), body={"query": {"match": {"_id": call}}})
 
-            elastic_handler.delete_by_query(index=get_analysis_index(), query=get_query_by_info_id(task_id))
+            elastic_handler.delete_by_query(index=get_analysis_index(), body={"query": get_query_by_info_id(task_id)})
         log.debug("Deleted previous ElasticsearchDB data for Task %s" % task_id)
 
 
@@ -99,15 +115,19 @@ def scroll_docs(index: str, query: dict, timeout: int = 600, _source: Iterable[s
     )
 
 
-def all_docs(index: str, query: dict, _source: Iterable[str] = ()) -> dict:
+def all_docs(index: str, query: dict, _source: Iterable[str] = ()) -> List[dict]:
     # Scroll documents
     result_scroll = scroll_docs(index=index, query=query, _source=_source)
     hits = result_scroll["hits"]["hits"]
 
-    while result_scroll["hits"]["hits"]:
-        result_scroll = scroll(result_scroll["_scroll_id"])
+    if "_scroll_id" not in result_scroll:
+        return []
+
+    while len(result_scroll["hits"]["hits"]) > 0:
         # Process current batch of hits
         hits.extend(result_scroll["hits"]["hits"])
+
+        result_scroll = scroll(result_scroll["_scroll_id"])
 
     elastic_handler.clear_scroll(scroll_id=result_scroll["_scroll_id"])
 

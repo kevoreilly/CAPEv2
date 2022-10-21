@@ -92,7 +92,7 @@ def get_json_document(results, analysis_path):
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+        yield lst[i : i + n]
 
 
 def insert_calls(report, elastic_db=None, mongodb=False):
@@ -144,16 +144,10 @@ def insert_calls(report, elastic_db=None, mongodb=False):
                     yield {
                         "_index": get_daily_calls_index(),
                         "_op_type": "index",
-                        "_source": {
-                            "pid": process_id,
-                            "calls": call_chunk
-                        }
+                        "_source": {"pid": process_id, "calls": call_chunk},
                     }
 
-            for res in parallel_bulk(
-                elastic_db,
-                gendata(chunks(process["calls"], CHUNK_CALL_SIZE), process["process_id"])
-            ):
+            for res in parallel_bulk(elastic_db, gendata(chunks(process["calls"], CHUNK_CALL_SIZE), process["process_id"])):
                 if res[0]:
                     chunks_ids.append(res[1]["index"]["_id"])
 

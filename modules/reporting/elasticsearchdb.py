@@ -62,7 +62,6 @@ class ElasticSearchDB(Report):
                 self.es.indices.create(
                     index=get_daily_analysis_index(),
                     body=ANALYSIS_INDEX_MAPPING_SETTINGS,
-
                 )
         except (RequestError, AuthorizationException) as e:
             raise CuckooDependencyError(f"Unable to create Elasticsearch index {e}")
@@ -78,10 +77,22 @@ class ElasticSearchDB(Report):
     def format_dates(self, report):
         info = report["info"]
 
-        report["info"]["started"] = datetime.strptime(info["started"], "%Y-%m-%d %H:%M:%S") if isinstance(info["started"], str) else info["started"]
-        report["info"]["ended"] = datetime.strptime(info["ended"], "%Y-%m-%d %H:%M:%S") if isinstance(info["ended"], str) else info["ended"]
-        report["info"]["machine"]["started_on"] = datetime.strptime(info["machine"]["started_on"], "%Y-%m-%d %H:%M:%S") if isinstance(info["machine"]["started_on"], str) else info["machine"]["started_on"]
-        report["info"]["machine"]["shutdown_on"] = datetime.strptime(info["machine"]["shutdown_on"], "%Y-%m-%d %H:%M:%S") if isinstance(info["machine"]["shutdown_on"], str) else info["machine"]["shutdown_on"]
+        report["info"]["started"] = (
+            datetime.strptime(info["started"], "%Y-%m-%d %H:%M:%S") if isinstance(info["started"], str) else info["started"]
+        )
+        report["info"]["ended"] = (
+            datetime.strptime(info["ended"], "%Y-%m-%d %H:%M:%S") if isinstance(info["ended"], str) else info["ended"]
+        )
+        report["info"]["machine"]["started_on"] = (
+            datetime.strptime(info["machine"]["started_on"], "%Y-%m-%d %H:%M:%S")
+            if isinstance(info["machine"]["started_on"], str)
+            else info["machine"]["started_on"]
+        )
+        report["info"]["machine"]["shutdown_on"] = (
+            datetime.strptime(info["machine"]["shutdown_on"], "%Y-%m-%d %H:%M:%S")
+            if isinstance(info["machine"]["shutdown_on"], str)
+            else info["machine"]["shutdown_on"]
+        )
 
         for dropped in report["dropped"]:
             if "pe" in dropped:

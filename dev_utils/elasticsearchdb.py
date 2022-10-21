@@ -50,16 +50,14 @@ ANALYSIS_INDEX_MAPPING_SETTINGS = {
     "settings": {
         "index.blocks.read_only_allow_delete": "false",
         "index.priority": "1",
-        "index.query.default_field": [
-            "*"
-        ],
+        "index.query.default_field": ["*"],
         "index.refresh_interval": "1s",
         "index.write.wait_for_active_shards": "1",
         "index.routing.allocation.include._tier_preference": "data_content",
         "index.number_of_replicas": "1",
         "index.mapping.total_fields.limit": 20000,
-        "index.mapping.depth.limit": 1000
-    }
+        "index.mapping.depth.limit": 1000,
+    },
 }
 
 

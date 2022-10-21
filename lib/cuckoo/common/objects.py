@@ -502,7 +502,7 @@ class File:
         @return: TLSH.
         """
         if not hasattr(self, "_tlsh_hash"):
-            return False
+            return None
         if not self._tlsh_hash:
             self.calc_hashes()
         return self._tlsh_hash

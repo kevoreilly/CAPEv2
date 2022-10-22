@@ -18,6 +18,7 @@ if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_insert_one
 elif repconf.elasticsearchdb.enabled:
     from elasticsearch.helpers import parallel_bulk
+
     from dev_utils.elasticsearchdb import get_daily_calls_index
 
 

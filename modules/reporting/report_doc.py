@@ -5,9 +5,6 @@
 import logging
 import os
 
-from elasticsearch.helpers import parallel_bulk
-
-from dev_utils.elasticsearchdb import get_daily_calls_index
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 
@@ -19,6 +16,9 @@ CHUNK_CALL_SIZE = 100
 
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_insert_one
+elif repconf.elasticsearchdb.enabled:
+    from elasticsearch.helpers import parallel_bulk
+    from dev_utils.elasticsearchdb import get_daily_calls_index
 
 
 def ensure_valid_utf8(obj):

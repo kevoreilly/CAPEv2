@@ -11,6 +11,8 @@ User=cape
 Group=cape
 Restart=always
 RestartSec=5m
+# In case if you behind of proxy, set your proxy in /etc/environment and uncomment next line
+# EnvironmentFile=/etc/environment
 
 [Install]
 WantedBy=multi-user.target

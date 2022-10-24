@@ -31,14 +31,17 @@ log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
 
-def flare_capa():
+def flare_capa(proxy):
     signature_urls = (
         "https://github.com/mandiant/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig",
         "https://github.com/mandiant/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig",
         "https://github.com/mandiant/capa/raw/master/sigs/3_flare_common_libs.sig",
     )
     try:
-        http = urllib3.PoolManager()
+        if proxy:
+            http = urllib3.ProxyManager(proxy)
+        else:
+            http = urllib3.PoolManager()
         data = http.request("GET", "https://github.com/mandiant/capa-rules/archive/master.zip").data
         dest_folder = os.path.join(CUCKOO_ROOT, "data")
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
@@ -89,13 +92,16 @@ def mitre():
     mitre.update()
 
 
-def install(enabled, force, rewrite, filepath, access_token=None):
+def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
     if filepath and os.path.exists(filepath):
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:
         print(f"Downloading modules from {URL}")
         try:
-            http = urllib3.PoolManager()
+            if proxy:
+                http = urllib3.ProxyManager(proxy)
+            else:
+                http = urllib3.PoolManager()
             if access_token is None:
                 data = http.request("GET", URL).data
             elif "github" in URL:
@@ -210,6 +216,7 @@ def main():
     parser.add_argument(
         "-t", "--token", help="Access token to download private repositories", action="store", default=None, required=False
     )
+    parser.add_argument("--proxy", help="Proxy to use. Ex http://127.0.0.1:8080", action="store", required=False)
     args = parser.parse_args()
 
     URL = args.url or URL.format(args.branch)
@@ -235,7 +242,7 @@ def main():
             enabled.append("data")
 
     if args.capa_rules:
-        flare_capa()
+        flare_capa(args.proxy)
         if not enabled:
             return
 

@@ -256,7 +256,7 @@ def main():
         parser.print_help()
         return
 
-    install(enabled, args.force, args.rewrite, args.file, args.token)
+    install(enabled, args.force, args.rewrite, args.file, args.token, args.proxy)
 
 
 if __name__ == "__main__":

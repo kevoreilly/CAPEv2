@@ -1263,20 +1263,22 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
     for sample in samples:
         # Error if there was only one submitted sample and it's empty.
         # But if there are multiple and one was empty, just ignore it.
-        size = sample.size
-        data = sample.read()
-        if not size:
+        data = False
+        if not sample.size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
             continue
         elif not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
-            if size > web_cfg.general.max_sample_size:
-                if web_cfg.general.enable_trim and HAVE_PEFILE:
+            if sample.size > web_cfg.general.max_sample_size:
+                size = sample.size
+                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(data):
                     try:
-                        pe = pefile.PE(data=data, fast_load=True)
+                        # check if we deal with PE/DLL
+                        pe = pefile.PE(data=sample.chunks().__next__(), fast_load=True)
                         if pe:
                             overlay_data_offset = pe.get_overlay_data_start_offset()
                             if overlay_data_offset is not None:
                                 size = overlay_data_offset
+                                data = data[:size]
                             pe.close()
                     except Exception as e:
                         log.info(e)
@@ -1294,7 +1296,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
         # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
         try:
-            path = store_temp_file(data[:size], filename)
+            path = store_temp_file(data or sample.read(), filename)
         except OSError:
             details["errors"].append(
                 {filename: "Your specified temp folder, disk is out of space. Clean some space before continue."}

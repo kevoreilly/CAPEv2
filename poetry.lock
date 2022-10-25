@@ -1,6 +1,6 @@
 [[package]]
 name = "anyio"
-version = "3.6.1"
+version = "3.6.2"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
 category = "main"
 optional = false
@@ -13,7 +13,7 @@ sniffio = ">=1.1"
 [package.extras]
 doc = ["packaging", "sphinx-rtd-theme", "sphinx-autodoc-typehints (>=1.2.0)"]
 test = ["coverage[toml] (>=4.5)", "hypothesis (>=4.0)", "pytest (>=7.0)", "pytest-mock (>=3.6.1)", "trustme", "contextlib2", "uvloop (<0.15)", "mock (>=4)", "uvloop (>=0.15)"]
-trio = ["trio (>=0.16)"]
+trio = ["trio (>=0.16,<0.22)"]
 
 [[package]]
 name = "asgiref"
@@ -230,11 +230,11 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "colorama"
-version = "0.4.5"
+version = "0.4.6"
 description = "Cross-platform colored terminal text."
 category = "main"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 
 [[package]]
 name = "colorclass"
@@ -324,7 +324,7 @@ python-versions = "*"
 
 [[package]]
 name = "django"
-version = "4.0.7"
+version = "4.0.8"
 description = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 category = "main"
 optional = false
@@ -337,8 +337,8 @@ sqlparse = ">=0.2.2"
 tzdata = {version = "*", markers = "sys_platform == \"win32\""}
 
 [package.extras]
-bcrypt = ["bcrypt"]
 argon2 = ["argon2-cffi (>=19.1.0)"]
+bcrypt = ["bcrypt"]
 
 [[package]]
 name = "django-allauth"
@@ -616,7 +616,7 @@ idna = ">=2.5"
 
 [[package]]
 name = "identify"
-version = "2.5.6"
+version = "2.5.7"
 description = "File identification library for Python"
 category = "dev"
 optional = false
@@ -635,13 +635,14 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "incremental"
-version = "21.3.0"
-description = "A small library that versions your Python projects."
+version = "22.10.0"
+description = "\"A small library that versions your Python projects.\""
 category = "main"
 optional = false
 python-versions = "*"
 
 [package.extras]
+mypy = ["click (>=6.0)", "twisted (>=16.4.0)", "mypy (==0.812)"]
 scripts = ["click (>=6.0)", "twisted (>=16.4.0)"]
 
 [[package]]
@@ -762,7 +763,7 @@ python-versions = "*"
 
 [[package]]
 name = "oauthlib"
-version = "3.2.1"
+version = "3.2.2"
 description = "A generic, spec-compliant, thorough implementation of the OAuth request-signing logic"
 category = "main"
 optional = false
@@ -1069,11 +1070,14 @@ tests = ["pytest (>=6.0.0,<7.0.0)", "coverage[toml] (==5.0.4)"]
 
 [[package]]
 name = "pymongo"
-version = "4.2.0"
+version = "4.3.2"
 description = "Python driver for MongoDB <http://www.mongodb.org>"
 category = "main"
 optional = false
 python-versions = ">=3.7"
+
+[package.dependencies]
+dnspython = ">=1.16.0,<3.0.0"
 
 [package.extras]
 aws = ["pymongo-auth-aws (<2.0.0)"]
@@ -1081,7 +1085,6 @@ encryption = ["pymongocrypt (>=1.3.0,<2.0.0)"]
 gssapi = ["pykerberos"]
 ocsp = ["pyopenssl (>=17.2.0)", "requests (<3.0.0)", "service-identity (>=18.1.0)", "certifi"]
 snappy = ["python-snappy"]
-srv = ["dnspython (>=1.16.0,<3.0.0)"]
 zstd = ["zstandard"]
 
 [[package]]
@@ -1644,7 +1647,7 @@ twisted = ["zope.interface (>=5.2.0)", "twisted (>=20.3.0)"]
 
 [[package]]
 name = "types-cryptography"
-version = "3.3.23"
+version = "3.3.23.1"
 description = "Typing stubs for cryptography"
 category = "main"
 optional = false
@@ -1660,7 +1663,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "tzdata"
-version = "2022.4"
+version = "2022.5"
 description = "Provider of IANA time zone data"
 category = "main"
 optional = false
@@ -1758,7 +1761,7 @@ testing = ["coverage (>=6.2)", "coverage-enable-subprocess (>=1)", "flaky (>=3.7
 
 [[package]]
 name = "watchfiles"
-version = "0.17.0"
+version = "0.18.0"
 description = "Simple, modern and high performance file watching and code reload in python."
 category = "main"
 optional = false
@@ -1841,7 +1844,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "f9cc74c739c41a8afcde56a237f352b4fa6691d1626c830fc4e18a5d02039952"
+content-hash = "b7a5282133222300169abc279fdefbf48c2c90ac17b433fc6d781d90940f5c77"
 
 [metadata.files]
 anyio = []

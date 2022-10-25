@@ -1258,6 +1258,22 @@ def download_from_vt(vtdl, details, opt_filename, settings):
     return details
 
 
+def trim_sample(sample, first_chunk: bytes, size: int):
+    data = False
+    try:
+        pe = pefile.PE(data=first_chunk, fast_load=True)
+        if pe:
+            overlay_data_offset = pe.get_overlay_data_start_offset()
+            if overlay_data_offset is not None:
+                # print(f"Sample size was: {size/float(1<<20):,.0f} and now is {overlay_data_offset/float(1<<20):,.0f}")
+                size = overlay_data_offset
+                data = sample.read()[:size]
+            pe.close()
+    except Exception as e:
+        log.info(e)
+
+    return data, size
+
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
     for sample in samples:
@@ -1270,17 +1286,9 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         elif not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
             if sample.size > web_cfg.general.max_sample_size:
                 size = sample.size
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(data):
-                    try:
-                        pe = pefile.PE(data=sample.chunks().__next__(), fast_load=True)
-                        if pe:
-                            overlay_data_offset = pe.get_overlay_data_start_offset()
-                            if overlay_data_offset is not None:
-                                size = overlay_data_offset
-                                data = data[:size]
-                            pe.close()
-                    except Exception as e:
-                        log.info(e)
+                first_chunk = sample.chunks().__next__()
+                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
+                    data, size = trim_sample(sample, first_chunk, size)
                 if size > web_cfg.general.max_sample_size:
                     details["errors"].append(
                         {

@@ -1258,17 +1258,18 @@ def download_from_vt(vtdl, details, opt_filename, settings):
     return details
 
 
-def trim_sample(data):
-    data = False
+def trim_sample(data, size):
     try:
         pe = pefile.PE(data=data, fast_load=True)
         if pe:
             data = pe.trim()
+            # print(f"Sample size was: {size/float(1<<20):,.0f} and now is {len(data)/float(1<<20):,.0f}")
             pe.close()
+            size = len(data)
     except Exception as e:
         log.info(e)
 
-    return data
+    return data, size
 
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
@@ -1283,7 +1284,8 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         elif not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
             if size > web_cfg.general.max_sample_size:
                 if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(data):
-                    data = trim_sample(data)
+                    data, size = trim_sample(data, size)
+
                 if size > web_cfg.general.max_sample_size:
                     details["errors"].append(
                         {

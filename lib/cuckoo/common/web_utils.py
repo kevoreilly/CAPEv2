@@ -1272,7 +1272,6 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
                 size = sample.size
                 if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(data):
                     try:
-                        # check if we deal with PE/DLL
                         pe = pefile.PE(data=sample.chunks().__next__(), fast_load=True)
                         if pe:
                             overlay_data_offset = pe.get_overlay_data_start_offset()

@@ -14,7 +14,7 @@ import requests
 from django.http import HttpResponse
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, PortableExecutable, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import (
     bytes2str,
@@ -712,9 +712,9 @@ def download_file(**kwargs):
             cape=cape,
             user_id=kwargs.get("user_id"),
             username=username,
-            source_url=kwargs.get("source_url", False),
+            source_url=kwargs.get("source_url", False)
             # parent_id=kwargs.get("parent_id"),
-            sample_parent_id=kwargs.get("sample_parent_id")
+            # sample_parent_id=kwargs.get("sample_parent_id")
         )
 
         try:
@@ -1258,34 +1258,30 @@ def download_from_vt(vtdl, details, opt_filename, settings):
     return details
 
 
-def trim_sample(data, size):
-    try:
-        pe = pefile.PE(data=data, fast_load=True)
-        if pe:
-            data = pe.trim()
-            # print(f"Sample size was: {size/float(1<<20):,.0f} and now is {len(data)/float(1<<20):,.0f}")
-            pe.close()
-            size = len(data)
-    except Exception as e:
-        log.info(e)
-
-    return data, size
-
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
     for sample in samples:
         # Error if there was only one submitted sample and it's empty.
         # But if there are multiple and one was empty, just ignore it.
         size = sample.size
-        data = sample.read()
-        sample_parent_id = None
         if not size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
             continue
-        elif not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
+        if not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
             if size > web_cfg.general.max_sample_size:
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(data):
-                    data, size = trim_sample(data, size)
+                if web_cfg.general.enable_trim and HAVE_PEFILE:
+                    for chunk in sample.chunks():
+                        try:
+                            pe = pefile.PE(data=chunk, fast_load=True)
+                            if pe:
+                                overlay_data_offset = PortableExecutable(pe).get_overlay_raw(pe)
+                                if overlay_data_offset is not None:
+                                    size = overlay_data_offset
+                                pe.close()
+                        except Exception as e:
+                            log.info(e)
+                            print("%s",e)
+                        break
                 if size > web_cfg.general.max_sample_size:
                     details["errors"].append(
                         {
@@ -1293,6 +1289,12 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
                         }
                     )
                     continue
+                data = sample.chunks(size).__next__()
+            else:
+                data = sample.read()
+        else:
+            data = sample.read()
+
         if opt_filename:
             filename = opt_filename
         else:
@@ -1300,16 +1302,12 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
         # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
         try:
-            path = store_temp_file(data, filename)
+            path = store_temp_file(data[:size], filename)
         except OSError:
             details["errors"].append(
-                {filename: "Your specified temp folder in cuckoo.conf, disk is out of space. Clean some space before continue."}
+                {filename: "Your specified temp folder, disk is out of space. Clean some space before continue."}
             )
             continue
-
-        # Trimmed. We need to registger sample parent id
-        if size != sample.size:
-            sample_parent_id = db.register_sample(File(path))
 
         sha256 = File(path).get_sha256()
 
@@ -1324,7 +1322,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             continue
 
         content = get_file_content(path)
-        list_of_files.append((content, path, sha256, sample_parent_id))
+        list_of_files.append((content, path, sha256))
 
     return list_of_files, details
 

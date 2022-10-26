@@ -217,6 +217,15 @@ class PortableExecutable:
 
         return None
 
+    def get_overlay_raw(self, pe: pefile.PE) -> int:
+        """Get information on the PE overlay
+        @return: overlay offset or None.
+        """
+        if not pe:
+            return None
+
+        return pe.sections[pe.FILE_HEADER.NumberOfSections-1].PointerToRawData + pe.sections[pe.FILE_HEADER.NumberOfSections-1].SizeOfRawData
+
     def get_overlay(self, pe: pefile.PE) -> dict:
         """Get information on the PE overlay
         @return: overlay dict or None.

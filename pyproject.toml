@@ -118,7 +118,7 @@ max-line-length = 132
 exclude = ".git,__pycache__,.cache,.venv"
 
 [tool.pytest.ini_options]
-django_find_project = False
+django_find_project = false
 DJANGO_SETTINGS_MODULE = "web.settings"
 pythonpath = "web"
 testpaths = "tests"

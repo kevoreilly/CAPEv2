@@ -714,7 +714,7 @@ def download_file(**kwargs):
             username=username,
             source_url=kwargs.get("source_url", False)
             # parent_id=kwargs.get("parent_id"),
-            # sample_parent_id=kwargs.get("sample_parent_id")
+            sample_parent_id=kwargs.get("sample_parent_id")
         )
 
         try:
@@ -1278,6 +1278,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         # But if there are multiple and one was empty, just ignore it.
         size = sample.size
         data = sample.read()
+        sample_parent_id = None
         if not size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
             continue
@@ -1285,7 +1286,6 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             if size > web_cfg.general.max_sample_size:
                 if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(data):
                     data, size = trim_sample(data, size)
-
                 if size > web_cfg.general.max_sample_size:
                     details["errors"].append(
                         {
@@ -1303,9 +1303,13 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             path = store_temp_file(data, filename)
         except OSError:
             details["errors"].append(
-                {filename: "Your specified temp folder, disk is out of space. Clean some space before continue."}
+                {filename: "Your specified temp folder in cuckoo.conf, disk is out of space. Clean some space before continue."}
             )
             continue
+
+        # Trimmed. We need to registger sample parent id
+        if size != sample.size:
+            sample_parent_id = db.register_sample(File(path))
 
         sha256 = File(path).get_sha256()
 
@@ -1320,7 +1324,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             continue
 
         content = get_file_content(path)
-        list_of_files.append((content, path, sha256))
+        list_of_files.append((content, path, sha256, sample_parent_id))
 
     return list_of_files, details
 

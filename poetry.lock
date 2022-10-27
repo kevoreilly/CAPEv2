@@ -697,7 +697,7 @@ i18n = ["Babel (>=2.7)"]
 
 [[package]]
 name = "jsbeautifier"
-version = "1.14.0"
+version = "1.14.7"
 description = "JavaScript unobfuscator and beautifier."
 category = "main"
 optional = false
@@ -1445,7 +1445,7 @@ tests = ["coverage[toml] (>=5.0.2)", "pytest"]
 
 [[package]]
 name = "sflock2"
-version = "0.3.33"
+version = "0.3.37"
 description = "Sample staging and detonation utility"
 category = "main"
 optional = false
@@ -1457,7 +1457,7 @@ cryptography = ">=2.1"
 olefile = ">=0.43"
 pefile = "*"
 python-magic = ">=0.4.13"
-unicorn = "*"
+unicorn = ">=2.0.0"
 
 [[package]]
 name = "six"
@@ -1876,7 +1876,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "ebdb3ebb991ec38b983115ee2060d68e7ae25b584159db434e0705877b24bd56"
+content-hash = "70464972e4cc186941ff351e28db4863aee5010e26497b7aee099724be8872f9"
 
 [metadata.files]
 anyio = []
@@ -2102,9 +2102,7 @@ jinja2 = [
     {file = "Jinja2-3.1.2-py3-none-any.whl", hash = "sha256:6088930bfe239f0e6710546ab9c19c9ef35e29792895fed6e6e31a023a182a61"},
     {file = "Jinja2-3.1.2.tar.gz", hash = "sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852"},
 ]
-jsbeautifier = [
-    {file = "jsbeautifier-1.14.0.tar.gz", hash = "sha256:84fdb008d8af89619269a6aca702288b48f837a99427a0f529aa57ecfb36ee3c"},
-]
+jsbeautifier = []
 lnkparse3 = [
     {file = "LnkParse3-1.2.0-py3-none-any.whl", hash = "sha256:b97f9a3dfffa62ecbd5f1f6561d8b5b75b0045241482b4a980657d5aac696ee3"},
     {file = "LnkParse3-1.2.0.tar.gz", hash = "sha256:102b2aba6c2896127cb719f814a8579210368f9277fd5ec0d0151fe070166e1d"},
@@ -2548,9 +2546,7 @@ requests-oauthlib = [
     {file = "requests_oauthlib-1.3.1-py2.py3-none-any.whl", hash = "sha256:2577c501a2fb8d05a304c09d090d6e47c306fef15809d102b327cf8364bddab5"},
 ]
 service-identity = []
-sflock2 = [
-    {file = "SFlock2-0.3.33.tar.gz", hash = "sha256:c04eaa1d528287c1d86fb66fdc37765ca21b91ed0cffdbd6589e1010aef7feb6"},
-]
+sflock2 = []
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
     {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},

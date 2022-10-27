@@ -465,14 +465,6 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "editorconfig"
-version = "0.12.3"
-description = "EditorConfig File Locator and Interpreter for Python"
-category = "main"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "execnet"
 version = "1.9.0"
 description = "execnet: rapid multi-Python deployment"
@@ -694,18 +686,6 @@ MarkupSafe = ">=2.0"
 
 [package.extras]
 i18n = ["Babel (>=2.7)"]
-
-[[package]]
-name = "jsbeautifier"
-version = "1.14.7"
-description = "JavaScript unobfuscator and beautifier."
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-editorconfig = ">=0.12.2"
-six = ">=1.13.0"
 
 [[package]]
 name = "lnkparse3"
@@ -1876,7 +1856,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "70464972e4cc186941ff351e28db4863aee5010e26497b7aee099724be8872f9"
+content-hash = "2bbf6195a1f6c66db6926f8e6ed448ca156212e915053f159015dc148df22bf4"
 
 [metadata.files]
 anyio = []
@@ -2056,10 +2036,6 @@ easygui = [
     {file = "easygui-0.98.3-py2.py3-none-any.whl", hash = "sha256:33498710c68b5376b459cd3fc48d1d1f33822139eb3ed01defbc0528326da3ba"},
     {file = "easygui-0.98.3.tar.gz", hash = "sha256:d653ff79ee1f42f63b5a090f2f98ce02335d86ad8963b3ce2661805cafe99a04"},
 ]
-editorconfig = [
-    {file = "EditorConfig-0.12.3-py3-none-any.whl", hash = "sha256:6b0851425aa875b08b16789ee0eeadbd4ab59666e9ebe728e526314c4a2e52c1"},
-    {file = "EditorConfig-0.12.3.tar.gz", hash = "sha256:57f8ce78afcba15c8b18d46b5170848c88d56fd38f05c2ec60dbbfcb8996e89e"},
-]
 execnet = []
 filelock = []
 fire = [
@@ -2102,7 +2078,6 @@ jinja2 = [
     {file = "Jinja2-3.1.2-py3-none-any.whl", hash = "sha256:6088930bfe239f0e6710546ab9c19c9ef35e29792895fed6e6e31a023a182a61"},
     {file = "Jinja2-3.1.2.tar.gz", hash = "sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852"},
 ]
-jsbeautifier = []
 lnkparse3 = [
     {file = "LnkParse3-1.2.0-py3-none-any.whl", hash = "sha256:b97f9a3dfffa62ecbd5f1f6561d8b5b75b0045241482b4a980657d5aac696ee3"},
     {file = "LnkParse3-1.2.0.tar.gz", hash = "sha256:102b2aba6c2896127cb719f814a8579210368f9277fd5ec0d0151fe070166e1d"},

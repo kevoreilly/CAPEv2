@@ -327,8 +327,8 @@ def tasks_create_file(request):
         opt_filename = get_user_filename(options, custom)
         list_of_tasks, details = process_new_task_files(request, files, details, opt_filename, unique)
 
-        for content, tmp_path, _ in list_of_tasks:
-
+        for content, tmp_path, _, parent_sample_id in list_of_tasks:
+            details["parent_sample_id"] = parent_sample_id
             if pcap:
                 if tmp_path.lower().endswith(".saz"):
                     saz = saz_to_pcap(tmp_path)
@@ -1066,8 +1066,7 @@ def tasks_reprocess(request, task_id):
 
     db.set_status(task_id, TASK_COMPLETED)
     resp["error"] = False
-    resp_fmt = "Task ID {0} with status {1} marked for reprocessing"
-    resp["data"] = resp_fmt.format(task_id, task.status)
+    resp["data"] = f"Task ID {task_id} with status {task.status} marked for reprocessing"
     return Response(resp)
 
 
@@ -1292,7 +1291,6 @@ def tasks_iocs(request, task_id, detail=None):
 
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
-        # Some of this categories can be improved even more, but this is just a start
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"behavior.calls": 0})
     if es_as_db and not buf:
         tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
@@ -1502,7 +1500,6 @@ def tasks_iocs(request, task_id, detail=None):
         data["trid"] = buf["trid"]
     else:
         data["trid"] = ["None matched"]
-
     resp = {"error": False, "data": data}
     return Response(resp)
 
@@ -1894,7 +1891,6 @@ def file(request, stype, value):
             resp["Content-Length"] = os.path.getsize(sample)
             resp["Content-Disposition"] = f"attachment; filename={file_hash}.bin"
         return resp
-
     else:
         resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
         return Response(resp)

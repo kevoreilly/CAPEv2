@@ -1266,6 +1266,7 @@ def trim_sample(first_chunk):
     except Exception as e:
         log.info(e)
 
+
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
     for sample in samples:

@@ -154,6 +154,7 @@ def decrypt_data2(data):
 
     return decrypted_data
 
+
 def decrypt_data3(data):
     if not data:
         return
@@ -190,6 +191,7 @@ def decrypt_data3(data):
 
     return decrypted_data
 
+
 def decrypt_data4(data):
     if not data:
         return
@@ -212,9 +214,10 @@ def decrypt_data4(data):
 
     return decrypted_data
 
+
 def extract_config(filebuf):
     end_config = {}
-    if filebuf[:2] == b'MZ':
+    if filebuf[:2] == b"MZ":
         try:
             pe = pefile.PE(data=filebuf, fast_load=False)
             # image_base = pe.OPTIONAL_HEADER.ImageBase
@@ -280,12 +283,12 @@ def extract_config(filebuf):
                             end_config.setdefault("address", []).append(controller)
         except Exception as e:
             log.warning(e)
-    elif filebuf[:1] == b'\x01':
-        controllers = parse_binary_c2(filebuf[:len(filebuf)-20])
+    elif filebuf[:1] == b"\x01":
+        controllers = parse_binary_c2(filebuf[: len(filebuf) - 20])
         for controller in controllers:
             end_config.setdefault("address", []).append(controller)
-    elif b'=' in filebuf:
-        config = parse_config(filebuf[:len(filebuf)-20])
+    elif b"=" in filebuf:
+        config = parse_config(filebuf[: len(filebuf) - 20])
         for k, v in config.items():
             end_config.setdefault(k, v)
     return end_config

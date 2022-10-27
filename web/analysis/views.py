@@ -2164,13 +2164,21 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
-    if category == "static":
-        path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
-        category = "target.file"
-    elif category == "dropped":
-        path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
+    # Self Extracted support folder
+    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", sha256)
+
+    if not os.path.exists(path):
+        extractedfile = False
+        if category == "static":
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
+            category = "target.file"
+        elif category == "dropped":
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
+        else:
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), category, sha256)
     else:
-        path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), category, sha256)
+        category = "target.file"
+        extractedfile = True
 
     if path and (not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH) or not os.path.exists(path)):
         return render(request, "error.html", {"error": "File not found: {}".format(path)})
@@ -2242,6 +2250,11 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             if servicedata:
                 if service == "xlsdeobf":
                     servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+                elif extractedfile:
+                    for block in servicedata.get("extracted_files", []):
+                        if block.get("sha256") == sha256:
+                            block[service] = details
+                            break
                 else:
                     servicedata.setdefault(service, details)
 

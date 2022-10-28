@@ -119,7 +119,7 @@ def get_platform(magic):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def index(request, resubmit_hash=False):
+def index(request, task_id=None, resubmit_hash=None):
     remote_console = False
     if request.method == "POST":
 
@@ -293,11 +293,11 @@ def index(request, resubmit_hash=False):
                 if len(hash) in (32, 40, 64):
                     paths = db.sample_path_by_hash(hash)
                 else:
-                    task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(hash), "binary")
+                    task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "binary")
                     if os.path.exists(task_binary):
                         paths.append(task_binary)
                     else:
-                        tmp_paths = db.find_sample(task_id=int(hash))
+                        tmp_paths = db.find_sample(task_id=task_id)
                         if not tmp_paths:
                             details["errors"].append({hash: "Task not found for resubmission"})
                             continue
@@ -317,6 +317,15 @@ def index(request, resubmit_hash=False):
                                         break
                             if path:
                                 paths.append(path)
+
+                if not paths:
+                    # Self Extracted support folder
+                    path = os.path.join(
+                        settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "selfextracted", hash
+                    )
+                    if os.path.exists(path):
+                        paths.append(path)
+
                 if not paths:
                     details["errors"].append({hash: "File not found on hdd for resubmission"})
                     continue

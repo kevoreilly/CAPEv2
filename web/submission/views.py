@@ -320,9 +320,7 @@ def index(request, task_id=None, resubmit_hash=None):
 
                 if not paths:
                     # Self Extracted support folder
-                    path = os.path.join(
-                        settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "selfextracted", hash
-                    )
+                    path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "selfextracted", hash)
                     if os.path.exists(path):
                         paths.append(path)
 

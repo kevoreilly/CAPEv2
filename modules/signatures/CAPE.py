@@ -122,7 +122,7 @@ class CAPE_Decryption(Signature):
 
 
 class CAPE_Unpacker(Signature):
-    name = "unpacker"
+    name = "Unpacker"
     description = "Behavioural detection: Executable code extraction - unpacking"
     severity = 1
     categories = ["allocation"]
@@ -490,7 +490,7 @@ class CAPE_EvilGrab(Signature):
 
 
 class CAPE_PlugX(Signature):
-    name = "plugx"
+    name = "PlugX"
     description = "Behavioural detection: PlugX"
     severity = 3
     categories = ["chinese", "malware"]

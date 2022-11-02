@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
 
-def flare_capa(proxy):
+def flare_capa(proxy=None):
     signature_urls = (
         "https://github.com/mandiant/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig",
         "https://github.com/mandiant/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig",

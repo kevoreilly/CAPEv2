@@ -89,9 +89,6 @@ unpack_map = {
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
 
-multi_block_config = ("SquirrelWaffle",)
-
-
 class CAPE(Processing):
     """CAPE output file processing."""
 
@@ -219,7 +216,7 @@ class CAPE(Processing):
                     plugx_config = plugx_parser.parse_config(file_data, len(file_data))
                     if plugx_config:
                         cape_name = "PlugX"
-                        self.update_cape_configs(cape_name, plugx_config)
+                        self.update_cape_configs(self.ensure_config_key(cape_name, plugx_config))
                         cape_names.add(cape_name)
                     else:
                         log.error("CAPE: PlugX config parsing failure - size many not be handled")
@@ -308,7 +305,7 @@ class CAPE(Processing):
 
             if cape_name and cape_name not in executed_config_parsers[tmp_path]:
                 tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
-                self.update_cape_configs(cape_name, tmp_config)
+                self.update_cape_configs(tmp_config)
                 executed_config_parsers[tmp_path].add(cape_name)
 
         if type_string:
@@ -320,7 +317,7 @@ class CAPE(Processing):
                     cape_name = tmp_cape_name
                     cape_names.add(cape_name)
                     log.info("CAPE: config returned for: %s", cape_name)
-                    self.update_cape_configs(cape_name, tmp_config)
+                    self.update_cape_configs(tmp_config)
 
         self.add_family_detections(file_info, cape_names)
 
@@ -408,19 +405,23 @@ class CAPE(Processing):
 
         return self.cape
 
-    def update_cape_configs(self, cape_name, config):
+    def update_cape_configs(self, config):
         """Add the given config to self.cape["configs"]."""
         if not config:
             return
 
-        config = self.ensure_config_key(cape_name, config)
+        updated = False
 
-        if config not in self.cape["configs"]:
-            if cape_name in multi_block_config and self.cape["configs"]:
-                # Some families may have multiple configs extracted. Squash them all
-                # together.
-                for conf in self.cape["configs"]:
-                    if cape_name in conf:
-                        conf[cape_name].update(config)
-            else:
-                self.cape["configs"].append(config)
+        for name, data in config.items():
+            break
+
+        # Some families may have multiple configs. Squash them all together.
+        if name not in self.cape["configs"]:
+            for current in self.cape["configs"]:
+                if name == list(current.keys())[0]:
+                    current[name].update(data)
+                    updated = True
+                    break
+
+        if updated == False:
+            self.cape["configs"].append(config)

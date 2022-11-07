@@ -89,6 +89,7 @@ unpack_map = {
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
 
+
 class CAPE(Processing):
     """CAPE output file processing."""
 

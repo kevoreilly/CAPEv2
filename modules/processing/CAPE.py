@@ -47,8 +47,8 @@ ssdeep_threshold = 95
 # CAPE output types
 # To correlate with cape\cape.h in monitor
 
-PROCDUMP = 0
-COMPRESSION = 1
+PROCDUMP = 1
+COMPRESSION = 2
 INJECTION_PE = 3
 INJECTION_SHELLCODE = 4
 UNPACKED_PE = 8

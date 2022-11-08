@@ -1,3 +1,7 @@
+### [7.11.2022]
+* Monitor updates: misc fixes & improvements (see capemon repo for details)
+* Fix merging of split configs per family in CAPE processing module
+
 ### [11.10.2022] Archive package
 * [archive package](https://github.com/kevoreilly/CAPEv2/blob/master/analyzer/windows/modules/packages/archive.py) by [@cccs-kevin](https://github.com/cccs-kevin) with a nice talk explaining how to detonate some kind of malware properly [here](https://youtu.be/-70Mlkmtdds?t=13013). Thank you Kevin and CCCS team for this contribution. [Documentation](https://capev2.readthedocs.io/en/latest/usage/packages.html).
 

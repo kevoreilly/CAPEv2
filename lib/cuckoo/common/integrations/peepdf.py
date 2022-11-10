@@ -88,6 +88,8 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
     metadata = {}
 
     base_uri = _set_base_uri(pdf)
+    if not base_uri:
+        base_uri = ""
 
     for i, body in enumerate(pdf.body):
         metatmp = pdf.getBasicMetadata(i)

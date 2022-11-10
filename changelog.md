@@ -1,5 +1,7 @@
 ### [10.11.2022]
-* Monitor update: fix stack recursion issue in 64-bit monitor
+* Monitor fixes:
+    * hook recursion issue in 64-bit monitor
+    * UNICODE_STRING comparison issue in add_all_dlls_to_dll_ranges()
 
 ### [7.11.2022]
 * Monitor updates: misc fixes & improvements (see capemon repo for details)

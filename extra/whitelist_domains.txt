@@ -33,6 +33,7 @@ crl\.microsoft\.com
 
 kms8\.msguides\.com
 outlook\.office365\.com
+s8\.uk\.to
 
 # Google
 update\.googleapis\.com$

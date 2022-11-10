@@ -1,3 +1,6 @@
+### [10.11.2022]
+* Monitor update: fix stack recursion issue in 64-bit monitor
+
 ### [7.11.2022]
 * Monitor updates: misc fixes & improvements (see capemon repo for details)
 * Fix merging of split configs per family in CAPE processing module

@@ -1,5 +1,10 @@
 ### [10.11.2022]
 * Monitor fixes:
+    * Fixes for CreateTimerQueueTimer hook affecting Emotet detonation
+    * Remove function name resolving via ScyllaGetExportNameByAddress() in thread & process hooks due to issues
+
+### [14.11.2022]
+* Monitor fixes:
     * hook recursion issue in 64-bit monitor
     * UNICODE_STRING comparison issue in add_all_dlls_to_dll_ranges()
 

@@ -112,12 +112,14 @@ rule Emotet
 
 MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 
+
 def first_match(matches, pattern):
     for match in matches:
         for item in match.strings:
             if pattern == item[1]:
                 return int(item[0])
     return 0
+
 
 def addresses_from_matches(matches, pattern):
     addresses = []
@@ -127,19 +129,22 @@ def addresses_from_matches(matches, pattern):
                 addresses.append(item[0])
     return addresses
 
+
 def c2_funcs_from_match(matches, pattern, data):
     addresses = []
-    hit = first_match(matches, pattern) + data[first_match(matches, pattern):].find(b'\x48\x8D\x05')
+    hit = first_match(matches, pattern) + data[first_match(matches, pattern) :].find(b"\x48\x8D\x05")
     next = 1
     while next > 0:
-        addresses.append(struct.unpack("i", data[hit+3:hit+7])[0] + hit + 7)
-        next = data[hit+7:hit+400].find(b'\x48\x8D\x05')
+        addresses.append(struct.unpack("i", data[hit + 3 : hit + 7])[0] + hit + 7)
+        next = data[hit + 7 : hit + 400].find(b"\x48\x8D\x05")
         if next != -1:
             hit += next + 7
     return addresses
 
+
 def xor_data(data, key):
     return bytes(c ^ k for c, k in zip(data, cycle(key)))
+
 
 def emotet_decode(data, size, xor_key):
     offset = 8
@@ -151,6 +156,7 @@ def emotet_decode(data, size, xor_key):
         decoded = xor_key ^ encoded_dw
         res += decoded.to_bytes(4, byteorder="little")
     return res
+
 
 # Thanks to Jason Reaves (@sysopfb), @pollo290987, phate1.
 def extract_emotet_rsakey(pe):
@@ -200,52 +206,56 @@ def extract_emotet_rsakey(pe):
             try:
                 seq.decode(pub_key)
             except ValueError as e:
-                #log.error(e)
+                # log.error(e)
                 return
             return RSA.construct((seq[0], seq[1]))
+
 
 stack = 0x80000
 code_base = 0x180001000
 
+
 def hook_instr(uc, address, size, mode):
     global call_count
     ins = uc.mem_read(address + size, 1)
-    if ins == (b'\xe8'):
+    if ins == (b"\xe8"):
         call_count = call_count + 1
     if call_count == 4:
         call_count = 0
-        uc.reg_write(UC_X86_REG_RAX, stack+0x400)
+        uc.reg_write(UC_X86_REG_RAX, stack + 0x400)
         uc.reg_write(UC_X86_REG_RIP, uc.reg_read(UC_X86_REG_RIP) + 9)
     return True
+
 
 def emulate(code, ep):
     global call_count
     call_count = 0
     try:
         uc = Uc(UC_ARCH_X86, UC_MODE_64)
-        size = int(len(code)/0x1000) * 0x1000
+        size = int(len(code) / 0x1000) * 0x1000
         if len(code) % 0x1000:
             size = size + 0x1000
         uc.mem_map(code_base, size)
         uc.mem_write(code_base, code)
         uc.mem_map(stack, 0x1000)
         uc.mem_map(0x0, 0x1000)
-        uc.reg_write(UC_X86_REG_RSP, stack+0x200)
-        uc.reg_write(UC_X86_REG_RCX, stack+0x104)
-        uc.reg_write(UC_X86_REG_RDX, stack+0x108)
-        uc.reg_write(UC_X86_REG_R9, stack+0x108)
+        uc.reg_write(UC_X86_REG_RSP, stack + 0x200)
+        uc.reg_write(UC_X86_REG_RCX, stack + 0x104)
+        uc.reg_write(UC_X86_REG_RDX, stack + 0x108)
+        uc.reg_write(UC_X86_REG_R9, stack + 0x108)
         uc.hook_add(UC_HOOK_CODE, hook_instr, user_data=UC_MODE_64)
-        uc.emu_start(code_base+ep, code_base+len(code))
+        uc.emu_start(code_base + ep, code_base + len(code))
     except unicorn.UcError as e:
         pass
     return uc
+
 
 def extract_config(filebuf):
     conf_dict = {}
     pe = None
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)
-        code = filebuf[pe.sections[0].PointerToRawData:pe.sections[0].PointerToRawData + pe.sections[0].SizeOfRawData]
+        code = filebuf[pe.sections[0].PointerToRawData : pe.sections[0].PointerToRawData + pe.sections[0].SizeOfRawData]
     except Exception:
         pass
 
@@ -541,13 +551,13 @@ def extract_config(filebuf):
             c2found = True
             offset += 8
     elif c2_funcs:
-            for address in c2_funcs:
-                uc = emulate(code, address - pe.sections[0].PointerToRawData)
-                c2_address = socket.inet_ntoa(struct.pack("!L", int.from_bytes(uc.mem_read(stack+0x104, 4), byteorder="big")))
-                port = str(int.from_bytes(uc.mem_read(stack+0x10A, 2), byteorder="little"))
-                if port != '0':
-                    conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
-                c2found = True
+        for address in c2_funcs:
+            uc = emulate(code, address - pe.sections[0].PointerToRawData)
+            c2_address = socket.inet_ntoa(struct.pack("!L", int.from_bytes(uc.mem_read(stack + 0x104, 4), byteorder="big")))
+            port = str(int.from_bytes(uc.mem_read(stack + 0x10A, 2), byteorder="little"))
+            if port != "0":
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            c2found = True
 
     if not c2found:
         return
@@ -555,7 +565,7 @@ def extract_config(filebuf):
     try:
         pem_key = extract_emotet_rsakey(pe)
     except ValueError as e:
-        #log.error(e)
+        # log.error(e)
         pass
     if pem_key:
         conf_dict.setdefault("RSA public key", pem_key.exportKey().decode())
@@ -743,9 +753,9 @@ def extract_config(filebuf):
             elif ecc_funcs:
                 for func in ecc_funcs:
                     uc = emulate(code, func - pe.sections[0].PointerToRawData)
-                    header = uc.mem_read(stack+0x400, 8)
+                    header = uc.mem_read(stack + 0x400, 8)
                     key_len = int.from_bytes(header[4:8], "little")
-                    key = uc.mem_read(stack+0x400, 2*key_len + 8)
+                    key = uc.mem_read(stack + 0x400, 2 * key_len + 8)
                     label = "ECC " + key[0:4].decode()
                     if label.startswith("EC"):
                         conf_dict.setdefault(
@@ -758,6 +768,7 @@ def extract_config(filebuf):
                         )
 
     return conf_dict
+
 
 def test_them_all(path):
     import os
@@ -783,6 +794,7 @@ def test_them_all(path):
                     log.info("[-] %s", file)
             except Exception as e:
                 log.exception("%s - %s", file, e)
+
 
 if __name__ == "__main__":
     import sys

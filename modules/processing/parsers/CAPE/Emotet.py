@@ -511,7 +511,6 @@ def extract_config(filebuf):
         c2_funcs = c2_funcs_from_match(yara_matches, "$snippetY", filebuf)
     elif first_match(yara_matches, "$snippetZ"):
         c2_funcs = c2_funcs_from_match(yara_matches, "$snippetZ", filebuf)
-        log.info("c2_funcs: %s", c2_funcs)
     if delta:
         if c2list_va_offset:
             c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
@@ -554,8 +553,9 @@ def extract_config(filebuf):
         for address in c2_funcs:
             uc = emulate(code, address - pe.sections[0].PointerToRawData)
             c2_address = socket.inet_ntoa(struct.pack("!L", int.from_bytes(uc.mem_read(stack + 0x104, 4), byteorder="big")))
+            flag = str(int.from_bytes(uc.mem_read(stack+0x108, 2), byteorder="little"))
             port = str(int.from_bytes(uc.mem_read(stack + 0x10A, 2), byteorder="little"))
-            if port != "0":
+            if flag == '1' and port != '0':
                 conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2found = True
 

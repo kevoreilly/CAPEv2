@@ -23,14 +23,14 @@ import yara
 from Cryptodome.PublicKey import ECC, RSA
 from Cryptodome.Util import asn1
 
+log = logging.getLogger()
+log.setLevel(logging.INFO)
+
 try:
     from unicorn import *
     from unicorn.x86_const import *
 except ImportError:
     log.error("Unicorn not installed")
-
-log = logging.getLogger()
-log.setLevel(logging.INFO)
 
 AUTHOR = "kevoreilly"
 

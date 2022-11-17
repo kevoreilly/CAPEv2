@@ -283,12 +283,12 @@ def extract_config(filebuf):
                             end_config.setdefault("address", []).append(controller)
         except Exception as e:
             log.warning(e)
-    elif filebuf[:1] == b'\x01':
-        controllers = parse_binary_c2(filebuf[:len(filebuf)-20], 8)
+    elif filebuf[:1] == b"\x01":
+        controllers = parse_binary_c2(filebuf[: len(filebuf) - 20], 8)
         for controller in controllers:
             end_config.setdefault("address", []).append(controller)
-    elif b'=' in filebuf:
-        config = parse_config(filebuf[:len(filebuf)-20])
+    elif b"=" in filebuf:
+        config = parse_config(filebuf[: len(filebuf) - 20])
         for k, v in config.items():
             end_config.setdefault(k, v)
     return end_config

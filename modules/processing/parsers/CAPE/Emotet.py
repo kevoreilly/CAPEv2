@@ -553,9 +553,9 @@ def extract_config(filebuf):
         for address in c2_funcs:
             uc = emulate(code, address - pe.sections[0].PointerToRawData)
             c2_address = socket.inet_ntoa(struct.pack("!L", int.from_bytes(uc.mem_read(stack + 0x104, 4), byteorder="big")))
-            flag = str(int.from_bytes(uc.mem_read(stack+0x108, 2), byteorder="little"))
+            flag = str(int.from_bytes(uc.mem_read(stack + 0x108, 2), byteorder="little"))
             port = str(int.from_bytes(uc.mem_read(stack + 0x10A, 2), byteorder="little"))
-            if flag == '1' and port != '0':
+            if flag == "1" and port != "0":
                 conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2found = True
 

@@ -57,7 +57,7 @@ def parse_config(data):
                 config[CONFIG.get(k, k)] = datetime.datetime.fromtimestamp(int(v)).strftime("%H:%M:%S %d-%m-%Y")
             else:
                 k = k[-2:]
-                config[CONFIG.get(k.decode(), f"ukn_{k.decode()}")] = v
+                config[CONFIG.get(k, k)] = v.decode()
         except Exception:
             log.info("Failed to parse config entry: %s", entry)
 
@@ -77,20 +77,20 @@ def parse_controllers(data):
     return controllers
 
 
-def parse_binary_c2(data):
+def parse_binary_c2(data, alignment):
     """
     Parses the binary CNC block format introduced Nov'20
     """
     length = len(data)
     controllers = []
-    for c2_offset in range(0, length, 7):
+    for c2_offset in range(0, length, alignment):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])
         controllers.append(f"{ip}:{port}")
     return controllers
 
 
-def parse_binary_c2_2(data):
+def parse_binary_c2_2(data, alignment):
     """
     Parses the binary CNC block format introduced April'21
     """
@@ -105,7 +105,7 @@ def parse_binary_c2_2(data):
     length = len(data)
 
     controllers = []
-    for c2_offset in range(0, length, 7):
+    for c2_offset in range(0, length, alignment):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])
         controllers.append(f"{ip}:{port}")
@@ -255,10 +255,10 @@ def extract_config(filebuf):
                             config = parse_config(dec_bytes)
                         elif str(entry.name) == "311":
                             dec_bytes = decrypt_data(res_data)
-                            controllers = parse_binary_c2(dec_bytes)
+                            controllers = parse_binary_c2(dec_bytes, 7)
                         elif str(entry.name) in ("118", "3719"):
                             dec_bytes = decrypt_data2(res_data)
-                            controllers = parse_binary_c2_2(dec_bytes)
+                            controllers = parse_binary_c2_2(dec_bytes, 7)
                         elif str(entry.name) in ("524", "5812"):
                             dec_bytes = decrypt_data2(res_data)
                             config = parse_config(dec_bytes)
@@ -267,13 +267,13 @@ def extract_config(filebuf):
                             config = parse_config(dec_bytes)
                         elif str(entry.name) in ("26F517AB", "EBBA", "102", "3C91E639"):
                             dec_bytes = decrypt_data3(res_data)
-                            controllers = parse_binary_c2_2(dec_bytes)
+                            controllers = parse_binary_c2_2(dec_bytes, 7)
                         elif str(entry.name) in ("89290AF9"):
                             dec_bytes = decrypt_data4(res_data)
                             config = parse_config(dec_bytes)
                         elif str(entry.name) in ("3C91E539"):
                             dec_bytes = decrypt_data4(res_data)
-                            controllers = parse_binary_c2_2(dec_bytes)
+                            controllers = parse_binary_c2_2(dec_bytes, 8)
                         end_config["Loader Build"] = parse_build(pe).decode()
                         for k, v in config.items():
                             # log.info({ k: v })
@@ -283,12 +283,12 @@ def extract_config(filebuf):
                             end_config.setdefault("address", []).append(controller)
         except Exception as e:
             log.warning(e)
-    elif filebuf[:1] == b"\x01":
-        controllers = parse_binary_c2(filebuf[: len(filebuf) - 20])
+    elif filebuf[:1] == b'\x01':
+        controllers = parse_binary_c2(filebuf[:len(filebuf)-20], 8)
         for controller in controllers:
             end_config.setdefault("address", []).append(controller)
-    elif b"=" in filebuf:
-        config = parse_config(filebuf[: len(filebuf) - 20])
+    elif b'=' in filebuf:
+        config = parse_config(filebuf[:len(filebuf)-20])
         for k, v in config.items():
             end_config.setdefault(k, v)
     return end_config

@@ -1,3 +1,7 @@
+### [17.11.2022]
+* QakBot config extraction update
+* Emotet detection & config extractor updates
+
 ### [10.11.2022]
 * Monitor fixes:
     * Fixes for CreateTimerQueueTimer hook affecting Emotet detonation

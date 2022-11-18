@@ -117,8 +117,8 @@ class Office:
                 log.error(e, exc_info=True)
 
         for elem in app._get_documentElement().childNodes:
-            n = elem._get_tagName()
             try:
+                n = elem._get_tagName()
                 data = app.getElementsByTagName(n)
                 if not data:
                     continue

@@ -355,7 +355,7 @@ class TestAnalysisManager:
             "digisig": True,
             "disguise": True,
             "sysmon": False,
-            "filepickup": False,
+            "filep_ickup": False,
             "filecollector": True,
             "permissions": False,
             "screenshots_linux": False,

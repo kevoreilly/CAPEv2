@@ -144,14 +144,17 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
 class PortableExecutable:
     """PE analysis."""
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str = False, data: bytes = False):
         """@param file_path: file path."""
         self.file_path = file_path
         self._file_data = None
         self.pe = None
         self.HAVE_PE = False
         try:
-            self.pe = pefile.PE(self.file_path)
+            if data:
+                self.pe = pefile.PE(data=data)
+            else:
+                self.pe = pefile.PE(self.file_path)
             self.HAVE_PE = True
         except Exception as e:
             log.error("PE type not recognised: %s", e)
@@ -216,6 +219,18 @@ class PortableExecutable:
             log.error(e, exc_info=True)
 
         return None
+
+    def get_overlay_raw(self) -> int:
+        """Get information on the PE overlay
+        @return: overlay offset or None.
+        """
+        if not self.pe:
+            return None
+
+        return (
+            self.pe.sections[self.pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
+            + self.pe.sections[self.pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
+        )
 
     def get_overlay(self, pe: pefile.PE) -> dict:
         """Get information on the PE overlay

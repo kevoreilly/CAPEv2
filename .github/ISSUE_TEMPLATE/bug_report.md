@@ -1,14 +1,17 @@
 ---
 name: Bug report
 about: Create a report to help us improve
+title: ''
+labels: ''
+assignees: ''
 
 ---
 
 ## About accounts on [capesandbox.com](https://capesandbox.com/)
-* Issues isn't the way to ask for account acctivation. Ping capesandbox in [Twitter](https://twitter.com/capesandbox) with your username
+* Issues isn't the way to ask for account activation. Ping capesandbox in [Twitter](https://twitter.com/capesandbox) with your username
 
-## This is opensource and you getting __free__ support so be friendly!
-* Free support from doomedraven ended, no whiskey no support. For something he updated the documentation :)
+## This is open source and you are getting __free__ support so be friendly!
+* Free support from doomedraven ended - no whiskey, no support. For updates check the documentation.
 
 # Prerequisites
 
@@ -19,7 +22,7 @@ Please answer the following questions for yourself before submitting an issue.
 - [ ] I checked the documentation and found no answer
 - [ ] I checked to make sure that this issue has not already been filed
 - [ ] I'm reporting the issue to the correct repository (for multi-repository projects)
-- [ ] I'm have read all configs with all optional parts
+- [ ] I have read and checked all configs (with all optional parts)
 
 
 # Expected Behavior
@@ -44,7 +47,7 @@ Please provide detailed steps for reproducing the issue.
 
 ## Context
 
-Please provide any relevant information about your setup. This is important in case the issue is not reproducible except for under certain conditions.
+Please provide any relevant information about your setup. This is important in case the issue is not reproducible except for under certain conditions. Operating system version, bitness, installed software versions, test sample details/hash/binary (if applicable).
 
 | Question         | Answer
 |------------------|--------------------

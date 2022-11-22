@@ -68,7 +68,7 @@ try:
     if httpreplay.__version__ == "0.3":
         HAVE_HTTPREPLAY = True
 except ImportError:
-    print("Missed dependency: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
+    print("OPTIONAL! Missed dependency: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
 except SystemError as e:
     print("httpreplay: %s", str(e))
 

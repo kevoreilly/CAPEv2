@@ -1,3 +1,24 @@
+### [17.11.2022]
+* QakBot config extraction update
+* Emotet detection & config extractor updates
+
+### [10.11.2022]
+* Monitor fixes:
+    * Fixes for CreateTimerQueueTimer hook affecting Emotet detonation
+    * Remove function name resolving via ScyllaGetExportNameByAddress() in thread & process hooks due to issues
+
+### [14.11.2022]
+* Monitor fixes:
+    * hook recursion issue in 64-bit monitor
+    * UNICODE_STRING comparison issue in add_all_dlls_to_dll_ranges()
+
+### [7.11.2022]
+* Monitor updates: misc fixes & improvements (see capemon repo for details)
+* Fix merging of split configs per family in CAPE processing module
+
+### [11.10.2022] Archive package
+* [archive package](https://github.com/kevoreilly/CAPEv2/blob/master/analyzer/windows/modules/packages/archive.py) by [@cccs-kevin](https://github.com/cccs-kevin) with a nice talk explaining how to detonate some kind of malware properly [here](https://youtu.be/-70Mlkmtdds?t=13013). Thank you Kevin and CCCS team for this contribution. [Documentation](https://capev2.readthedocs.io/en/latest/usage/packages.html).
+
 ### [6.10.2022]
 * Some not core dependencies are commented out and won't be installed anympore by default.
 * Our idea is to leave CAPE core with core dependencies to avoid conflicts with another libraries.

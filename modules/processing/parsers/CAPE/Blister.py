@@ -16,9 +16,11 @@ from struct import pack, unpack
 
 import pefile
 import yara
-from malduck import lznt1
+
+from lib.cuckoo.common.integrations.lznt1 import lznt1
 
 log = logging.getLogger(__name__)
+
 
 # https://github.com/Robin-Pwner/Rabbit-Cipher/
 def ROTL8(v, n):

@@ -28,6 +28,12 @@ from Cryptodome.Util import asn1
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
+try:
+    from unicorn import *
+    from unicorn.x86_const import *
+except ImportError:
+    log.error("Unicorn not installed")
+
 AUTHOR = "kevoreilly"
 
 rule_source = """
@@ -70,6 +76,8 @@ rule Emotet
         $snippetV = {81 74 [2] ED BC 9C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
         $snippetW = {4C 8D [2] 8B [2] 4C 8D 05 [4] F7 E1 2B CA D1 E9 03 CA C1 E9 06 89}
         $snippetX = {4C 8D 0? [2] (00|01) 00 [0-80] 48 8D [0-9] 81 75 [5] C7 45 [5-14] 81}
+        $snippetY = {(3D [4] 0F 84 [4] 3D [4] 0F 85 [3] ??|B8 [4] E9 [3] ??) 48 8D 05 [4] 48 89 (81 [3] ??|41 ??) 48 8D 05 [4] 48 89 (81 [3] ??|41 ??) 48 8D 05 [4] 48 89}
+        $snippetZ = {(48 8B D8 48 85 C0 0F 84 [4-9] E9 [4-190] ?? | 55 53 48 8D AC 24 [2] FF FF 48 81 EC [2] 00 00 48 8B [3] 00 00 [0-80] ??) 48 8D 05 [4] 48 89 (85 [3] ??|4? ??) [0-190] 48 8D 05 [4] 48 89 (85 [3] ??|4? ??) [0 - 300] 6B 85 ?0 01 00 00 ?? 89 85 ?0 01 00 00 C1 A? ?0 01 00 00}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -98,6 +106,7 @@ rule Emotet
         $ref_eccM = {4C 8D 0D [4] 81 B5 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] 6B 85}
         $ref_eccN = {4C 8D 05 [4-28] F7 E1 2B CA D1 E9 03 CA C1 E9 05 89 8D ?? 00 00 00 C1 AD ?? 00 00 00 ?? 81 B5 ?? 00 00 00}
         $ref_eccO = {4C 8D 0D [4] 8B 45 ?? 8D 0C ?? B8 [4] 03 C9 89 4D ?? 8B 4D ?? F7 E1 B8 [4] 2B CA D1 E9 03 CA C1 E9 05}
+        $ref_eccP = {40 55 48 8D 6C 24 ?? 48 81 EC [12-36] C7 45 [4] 00 [0-43] C7 45 [4] 00 [0-43] C7 45 [4] 00 [0-43] C7 45}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -106,15 +115,32 @@ rule Emotet
 MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 
 
-def yara_scan(raw_data):
-    addresses = {}
-    yara_rules = yara.compile(source=rule_source)
-    matches = yara_rules.match(data=raw_data)
+def first_match(matches, pattern):
     for match in matches:
-        if match.rule == "Emotet":
-            for item in match.strings:
-                addresses[item[1]] = item[0]
-    # log.debug(addresses)
+        for item in match.strings:
+            if pattern == item[1]:
+                return int(item[0])
+    return 0
+
+
+def addresses_from_matches(matches, pattern):
+    addresses = []
+    for match in matches:
+        for item in match.strings:
+            if item[1] == pattern:
+                addresses.append(item[0])
+    return addresses
+
+
+def c2_funcs_from_match(matches, pattern, data):
+    addresses = []
+    hit = first_match(matches, pattern) + data[first_match(matches, pattern) :].find(b"\x48\x8D\x05")
+    next = 1
+    while next > 0:
+        addresses.append(struct.unpack("i", data[hit + 3 : hit + 7])[0] + hit + 7)
+        next = data[hit + 7 : hit + 400].find(b"\x48\x8D\x05")
+        if next != -1:
+            hit += next + 7
     return addresses
 
 
@@ -182,9 +208,48 @@ def extract_emotet_rsakey(pe):
             try:
                 seq.decode(pub_key)
             except ValueError as e:
-                log.error(e)
+                # log.error(e)
                 return
             return RSA.construct((seq[0], seq[1]))
+
+
+stack = 0x80000
+code_base = 0x180001000
+
+
+def hook_instr(uc, address, size, mode):
+    global call_count
+    ins = uc.mem_read(address + size, 1)
+    if ins == (b"\xe8"):
+        call_count = call_count + 1
+    if call_count == 4:
+        call_count = 0
+        uc.reg_write(UC_X86_REG_RAX, stack + 0x400)
+        uc.reg_write(UC_X86_REG_RIP, uc.reg_read(UC_X86_REG_RIP) + 9)
+    return True
+
+
+def emulate(code, ep):
+    global call_count
+    call_count = 0
+    try:
+        uc = Uc(UC_ARCH_X86, UC_MODE_64)
+        size = int(len(code) / 0x1000) * 0x1000
+        if len(code) % 0x1000:
+            size = size + 0x1000
+        uc.mem_map(code_base, size)
+        uc.mem_write(code_base, code)
+        uc.mem_map(stack, 0x1000)
+        uc.mem_map(0x0, 0x1000)
+        uc.reg_write(UC_X86_REG_RSP, stack + 0x200)
+        uc.reg_write(UC_X86_REG_RCX, stack + 0x104)
+        uc.reg_write(UC_X86_REG_RDX, stack + 0x108)
+        uc.reg_write(UC_X86_REG_R9, stack + 0x108)
+        uc.hook_add(UC_HOOK_CODE, hook_instr, user_data=UC_MODE_64)
+        uc.emu_start(code_base + ep, code_base + len(code))
+    except unicorn.UcError as e:
+        pass
+    return uc
 
 
 def extract_config(filebuf):
@@ -192,6 +257,9 @@ def extract_config(filebuf):
     pe = None
     with suppress(Exception):
         pe = pefile.PE(data=filebuf, fast_load=False)
+        code = filebuf[pe.sections[0].PointerToRawData : pe.sections[0].PointerToRawData + pe.sections[0].SizeOfRawData]
+    except Exception:
+        pass
 
     if pe is None:
         return
@@ -201,10 +269,14 @@ def extract_config(filebuf):
     c2list_va_offset = 0
     c2_list_offset = 0
     delta = 0
+    c2_funcs = []
+    ecc_funcs = []
 
-    yara_matches = yara_scan(filebuf)
-    if yara_matches.get("$snippet3"):
-        c2list_va_offset = int(yara_matches["$snippet3"])
+    yara_rules = yara.compile(source=rule_source)
+    yara_matches = yara_rules.match(data=filebuf)
+
+    if first_match(yara_matches, "$snippet3"):
+        c2list_va_offset = first_match(yara_matches, "$snippet3")
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 2 : c2list_va_offset + 6])[0]
         c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x20000 else c2_list_va - image_base
         try:
@@ -225,8 +297,8 @@ def extract_config(filebuf):
                 return
             conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2_list_offset += 8
-    elif yara_matches.get("$snippet4"):
-        c2list_va_offset = int(yara_matches["$snippet4"])
+    elif first_match(yara_matches, "$snippet4"):
+        c2list_va_offset = first_match(yara_matches, "$snippet4")
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 8 : c2list_va_offset + 12])[0]
         c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x20000 else c2_list_va - image_base
         try:
@@ -247,34 +319,34 @@ def extract_config(filebuf):
             conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2_list_offset += 8
     elif any(
-        yara_matches.get(name, False)
+        first_match(yara_matches, name)
         for name in ("$snippet5", "$snippet8", "$snippet9", "$snippetB", "$snippetC", "$comboA1", "$comboA2")
     ):
         delta = 5
-        if yara_matches.get("$snippet5"):
-            refc2list = yara_matches.get("$snippet5")
-        elif yara_matches.get("$snippet8"):
-            refc2list = yara_matches.get("$snippet8")
-        elif yara_matches.get("$snippet9"):
-            refc2list = yara_matches.get("$snippet8")
-            c2list_va_offset = int(yara_matches["$snippet9"])
+        if first_match(yara_matches, "$snippet5"):
+            refc2list = first_match(yara_matches, "$snippet5")
+        elif first_match(yara_matches, "$snippet8"):
+            refc2list = first_match(yara_matches, "$snippet8")
+        elif first_match(yara_matches, "$snippet9"):
+            refc2list = first_match(yara_matches, "$snippet8")
+            c2list_va_offset = first_match(yara_matches, "$snippet9")
             tb = struct.unpack("b", filebuf[c2list_va_offset + 5 : c2list_va_offset + 6])[0]
             if tb == 0x48:
                 delta += 1
-        elif yara_matches.get("$snippetB"):
+        elif first_match(yara_matches, "$snippetB"):
             delta = 9
-            refc2list = yara_matches.get("$snippetB")
-        elif yara_matches.get("$snippetC"):
+            refc2list = first_match(yara_matches, "$snippetB")
+        elif first_match(yara_matches, "$snippetC"):
             delta = 8
-            refc2list = yara_matches.get("$snippetC")
-        elif yara_matches.get("$comboA1"):
-            refc2list = yara_matches.get("$comboA1")
-        elif yara_matches.get("$comboA2"):
+            refc2list = first_match(yara_matches, "$snippetC")
+        elif first_match(yara_matches, "$comboA1"):
+            refc2list = first_match(yara_matches, "$comboA1")
+        elif first_match(yara_matches, "$comboA2"):
             delta = 6
-            refc2list = yara_matches.get("$comboA2")
+            refc2list = first_match(yara_matches, "$comboA2")
 
         if refc2list:
-            c2list_va_offset = int(refc2list)
+            c2list_va_offset = refc2list
             c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
             c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x40000 else c2_list_va - image_base
             try:
@@ -300,8 +372,8 @@ def extract_config(filebuf):
                 conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
                 c2found = True
                 c2_list_offset += 8
-    elif yara_matches.get("$snippet6"):
-        c2list_va_offset = int(yara_matches["$snippet6"])
+    elif first_match(yara_matches, "$snippet6"):
+        c2list_va_offset = first_match(yara_matches, "$snippet6")
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 15 : c2list_va_offset + 19])[0]
         c2_list_rva = c2_list_va - image_base
         try:
@@ -326,8 +398,8 @@ def extract_config(filebuf):
             conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2found = True
             c2_list_offset += 8
-    elif yara_matches.get("$snippet7"):
-        c2list_va_offset = int(yara_matches["$snippet7"])
+    elif first_match(yara_matches, "$snippet7"):
+        c2list_va_offset = first_match(yara_matches, "$snippet7")
         delta = 26
         hb = struct.unpack("b", filebuf[c2list_va_offset + 29 : c2list_va_offset + 30])[0]
         if hb:
@@ -352,8 +424,8 @@ def extract_config(filebuf):
             conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2found = True
             c2_list_offset += 8
-    elif yara_matches.get("$snippetA"):
-        c2list_va_offset = int(yara_matches["$snippetA"])
+    elif first_match(yara_matches, "$snippetA"):
+        c2list_va_offset = first_match(yara_matches, "$snippetA")
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 24 : c2list_va_offset + 28])[0]
         c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x20000 else c2_list_va - image_base
         try:
@@ -374,69 +446,73 @@ def extract_config(filebuf):
             conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2found = True
             c2_list_offset += 8
-    elif yara_matches.get("$snippetD"):
+    elif first_match(yara_matches, "$snippetD"):
         delta = 6
-        c2list_va_offset = int(yara_matches["$snippetD"])
-    elif yara_matches.get("$snippetE"):
+        c2list_va_offset = first_match(yara_matches, "$snippetD")
+    elif first_match(yara_matches, "$snippetE"):
         delta = 13
-        c2list_va_offset = int(yara_matches["$snippetE"])
-    elif yara_matches.get("$snippetF"):
+        c2list_va_offset = first_match(yara_matches, "$snippetE")
+    elif first_match(yara_matches, "$snippetF"):
         delta = 9
-        c2list_va_offset = int(yara_matches["$snippetF"])
-    elif yara_matches.get("$snippetG"):
+        c2list_va_offset = first_match(yara_matches, "$snippetF")
+    elif first_match(yara_matches, "$snippetG"):
         delta = -4
-        c2list_va_offset = int(yara_matches["$snippetG"])
-    elif yara_matches.get("$snippetH"):
+        c2list_va_offset = first_match(yara_matches, "$snippetG")
+    elif first_match(yara_matches, "$snippetH"):
         delta = 12
-        c2list_va_offset = int(yara_matches["$snippetH"])
-    elif yara_matches.get("$snippetI"):
+        c2list_va_offset = first_match(yara_matches, "$snippetH")
+    elif first_match(yara_matches, "$snippetI"):
         delta = -4
-        c2list_va_offset = int(yara_matches["$snippetI"])
-    elif yara_matches.get("$snippetJ"):
+        c2list_va_offset = first_match(yara_matches, "$snippetI")
+    elif first_match(yara_matches, "$snippetJ"):
         delta = 14
-        c2list_va_offset = int(yara_matches["$snippetJ"])
-    elif yara_matches.get("$snippetK"):
+        c2list_va_offset = first_match(yara_matches, "$snippetJ")
+    elif first_match(yara_matches, "$snippetK"):
         delta = -5
-        c2list_va_offset = int(yara_matches["$snippetK"])
-    elif yara_matches.get("$snippetL"):
+        c2list_va_offset = first_match(yara_matches, "$snippetK")
+    elif first_match(yara_matches, "$snippetL"):
         delta = -4
-        c2list_va_offset = int(yara_matches["$snippetL"])
-    elif yara_matches.get("$snippetM"):
+        c2list_va_offset = first_match(yara_matches, "$snippetL")
+    elif first_match(yara_matches, "$snippetM"):
         delta = 12
-        c2list_va_offset = int(yara_matches["$snippetM"])
-    elif yara_matches.get("$snippetN"):
+        c2list_va_offset = first_match(yara_matches, "$snippetM")
+    elif first_match(yara_matches, "$snippetN"):
         delta = 9
-        c2list_va_offset = int(yara_matches["$snippetN"])
-    elif yara_matches.get("$snippetO"):
+        c2list_va_offset = first_match(yara_matches, "$snippetN")
+    elif first_match(yara_matches, "$snippetO"):
         delta = 5
-        c2list_va_offset = int(yara_matches["$snippetO"])
-    elif yara_matches.get("$snippetP"):
+        c2list_va_offset = first_match(yara_matches, "$snippetO")
+    elif first_match(yara_matches, "$snippetP"):
         delta = 17
-        c2list_va_offset = int(yara_matches["$snippetP"])
-    elif yara_matches.get("$snippetQ"):
+        c2list_va_offset = first_match(yara_matches, "$snippetP")
+    elif first_match(yara_matches, "$snippetQ"):
         delta = 5
-        c2list_va_offset = int(yara_matches["$snippetQ"])
-    elif yara_matches.get("$snippetR"):
+        c2list_va_offset = first_match(yara_matches, "$snippetQ")
+    elif first_match(yara_matches, "$snippetR"):
         delta = 18
-        c2list_va_offset = int(yara_matches["$snippetR"])
-    elif yara_matches.get("$snippetS"):
+        c2list_va_offset = first_match(yara_matches, "$snippetR")
+    elif first_match(yara_matches, "$snippetS"):
         delta = -4
-        c2list_va_offset = int(yara_matches["$snippetS"])
-    elif yara_matches.get("$snippetT"):
+        c2list_va_offset = first_match(yara_matches, "$snippetS")
+    elif first_match(yara_matches, "$snippetT"):
         delta = 13
-        c2list_va_offset = int(yara_matches["$snippetT"])
-    elif yara_matches.get("$snippetU"):
+        c2list_va_offset = first_match(yara_matches, "$snippetT")
+    elif first_match(yara_matches, "$snippetU"):
         delta = 13
-        c2list_va_offset = int(yara_matches["$snippetU"])
-    elif yara_matches.get("$snippetV"):
+        c2list_va_offset = first_match(yara_matches, "$snippetU")
+    elif first_match(yara_matches, "$snippetV"):
         delta = 14
-        c2list_va_offset = int(yara_matches["$snippetV"])
-    elif yara_matches.get("$snippetW"):
+        c2list_va_offset = first_match(yara_matches, "$snippetV")
+    elif first_match(yara_matches, "$snippetW"):
         delta = 10
-        c2_delta_offset = int(yara_matches["$snippetW"])
-    elif yara_matches.get("$snippetX"):
+        c2_delta_offset = first_match(yara_matches, "$snippetW")
+    elif first_match(yara_matches, "$snippetX"):
         delta = 3
-        c2_delta_offset = int(yara_matches["$snippetX"])
+        c2_delta_offset = first_match(yara_matches, "$snippetX")
+    elif first_match(yara_matches, "$snippetY"):
+        c2_funcs = c2_funcs_from_match(yara_matches, "$snippetY", filebuf)
+    elif first_match(yara_matches, "$snippetZ"):
+        c2_funcs = c2_funcs_from_match(yara_matches, "$snippetZ", filebuf)
     if delta:
         if c2list_va_offset:
             c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
@@ -475,6 +551,15 @@ def extract_config(filebuf):
             conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2found = True
             offset += 8
+    elif c2_funcs:
+        for address in c2_funcs:
+            uc = emulate(code, address - pe.sections[0].PointerToRawData)
+            c2_address = socket.inet_ntoa(struct.pack("!L", int.from_bytes(uc.mem_read(stack + 0x104, 4), byteorder="big")))
+            flag = str(int.from_bytes(uc.mem_read(stack + 0x108, 2), byteorder="little"))
+            port = str(int.from_bytes(uc.mem_read(stack + 0x10A, 2), byteorder="little"))
+            if flag == "1" and port != "0":
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            c2found = True
 
     if not c2found:
         return
@@ -482,13 +567,13 @@ def extract_config(filebuf):
     try:
         pem_key = extract_emotet_rsakey(pe)
     except ValueError as e:
-        log.error(e)
+        # log.error(e)
+        pass
     if pem_key:
-        # self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode()})
         conf_dict.setdefault("RSA public key", pem_key.exportKey().decode())
     else:
-        if yara_matches.get("$ref_rsa"):
-            ref_rsa_offset = int(yara_matches["$ref_rsa"])
+        if first_match(yara_matches, "$ref_rsa"):
+            ref_rsa_offset = first_match(yara_matches, "$ref_rsa")
             ref_rsa_va = 0
             zb = struct.unpack("b", filebuf[ref_rsa_offset + 31 : ref_rsa_offset + 32])[0]
             if not zb:
@@ -517,112 +602,113 @@ def extract_config(filebuf):
             rsa_key = xor_data(filebuf[ref_rsa_offset + 8 : ref_rsa_offset + 8 + xorsize], struct.pack("<I", key))
             seq = asn1.DerSequence()
             seq.decode(rsa_key)
-            # self.reporter.add_metadata("other", {"RSA public key": RSA.construct((seq[0], seq[1])).exportKey()})
             conf_dict.setdefault("RSA public key", RSA.construct((seq[0], seq[1])).exportKey())
         else:
             ref_ecc_offset = 0
             delta1 = 0
             delta2 = 0
-            if yara_matches.get("$ref_ecc1"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc1"])
+            if first_match(yara_matches, "$ref_ecc1"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc1")
                 delta1 = 9
                 delta2 = 62
-            elif yara_matches.get("$ref_ecc2"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc2"])
+            elif first_match(yara_matches, "$ref_ecc2"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc2")
                 delta1 = 22
                 delta2 = 71
-            elif yara_matches.get("$ref_ecc3"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc3"])
+            elif first_match(yara_matches, "$ref_ecc3"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc3")
                 delta1 = 8
                 delta2 = 47
-            elif yara_matches.get("$ref_ecc4"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc4"])
+            elif first_match(yara_matches, "$ref_ecc4"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc4")
                 delta1 = -4
                 delta2 = 49
-            elif yara_matches.get("$ref_ecc5"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc5"])
+            elif first_match(yara_matches, "$ref_ecc5"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc5")
                 delta1 = 15
                 delta2 = 65
-            elif yara_matches.get("$ref_ecc6"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc6"])
+            elif first_match(yara_matches, "$ref_ecc6"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc6")
                 delta1 = -4
                 delta2 = 48
-            elif yara_matches.get("$ref_ecc7"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc7"])
+            elif first_match(yara_matches, "$ref_ecc7"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc7")
                 delta1 = 23
                 delta2 = 47
-            elif yara_matches.get("$ref_ecc8"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc8"])
+            elif first_match(yara_matches, "$ref_ecc8"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc8")
                 delta1 = -5
                 delta2 = 44
-            elif yara_matches.get("$ref_ecc9"):
-                ref_ecc_offset = int(yara_matches["$ref_ecc9"])
+            elif first_match(yara_matches, "$ref_ecc9"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_ecc9")
                 delta1 = -4
                 delta2 = 24
-            elif yara_matches.get("$ref_eccA"):
-                ref_ecc_offset = int(yara_matches["$ref_eccA"])
+            elif first_match(yara_matches, "$ref_eccA"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccA")
                 delta1 = 12
                 delta2 = 55
-            elif yara_matches.get("$ref_eccB"):
-                ref_ecc_offset = int(yara_matches["$ref_eccB"])
+            elif first_match(yara_matches, "$ref_eccB"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccB")
                 delta1 = 15
                 delta2 = 58
-            elif yara_matches.get("$ref_eccC"):
-                ref_ecc_offset = int(yara_matches["$ref_eccC"])
+            elif first_match(yara_matches, "$ref_eccC"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccC")
                 delta1 = 8
                 delta2 = 37
-            elif yara_matches.get("$ref_eccD"):
-                ref_ecc_offset = int(yara_matches["$ref_eccD"])
+            elif first_match(yara_matches, "$ref_eccD"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccD")
                 delta1 = 26
                 delta2 = 72
-            elif yara_matches.get("$ref_eccE"):
-                ref_ecc_offset = int(yara_matches["$ref_eccE"])
+            elif first_match(yara_matches, "$ref_eccE"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccE")
                 delta1 = 8
                 delta2 = 36
-            elif yara_matches.get("$ref_eccF"):
-                ref_ecc_offset = int(yara_matches["$ref_eccF"])
+            elif first_match(yara_matches, "$ref_eccF"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccF")
                 delta1 = -4
                 delta2 = 48
-            elif yara_matches.get("$ref_eccG"):
-                ref_ecc_offset = int(yara_matches["$ref_eccG"])
+            elif first_match(yara_matches, "$ref_eccG"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccG")
                 delta1 = 30
                 delta2 = 76
-            if yara_matches.get("$ref_eccH"):
-                ref_ecc_offset = int(yara_matches["$ref_eccH"])
+            if first_match(yara_matches, "$ref_eccH"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccH")
                 delta1 = 9
                 delta2 = 59
-            if yara_matches.get("$ref_eccI"):
-                ref_ecc_offset = int(yara_matches["$ref_eccI"])
+            if first_match(yara_matches, "$ref_eccI"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccI")
                 delta1 = 22
                 delta2 = 58
-            if yara_matches.get("$ref_eccJ"):
-                ref_ecc_offset = int(yara_matches["$ref_eccJ"])
+            if first_match(yara_matches, "$ref_eccJ"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccJ")
                 delta1 = 10
                 delta2 = 245
-            if yara_matches.get("$ref_eccK"):
-                ref_ecc_offset = int(yara_matches["$ref_eccK"])
+            if first_match(yara_matches, "$ref_eccK"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccK")
                 delta1 = 14
                 delta2 = 166
-            if yara_matches.get("$ref_eccK"):
-                ref_ecc_offset = int(yara_matches["$ref_eccK"])
+            if first_match(yara_matches, "$ref_eccK"):
+                ref_ecc_offset = first_match(yara_matches, "$ref_eccK")
                 delta1 = 14
                 delta2 = 166
-            if yara_matches.get("$ref_eccL"):
-                ecc_delta_offset = int(yara_matches["$ref_eccL"])
+            if first_match(yara_matches, "$ref_eccL"):
+                ecc_delta_offset = first_match(yara_matches, "$ref_eccL")
                 delta1 = 8
                 delta2 = 97
-            if yara_matches.get("$ref_eccM"):
-                ecc_delta_offset = int(yara_matches["$ref_eccM"])
+            if first_match(yara_matches, "$ref_eccM"):
+                ecc_delta_offset = first_match(yara_matches, "$ref_eccM")
                 delta1 = 3
                 delta2 = 234
-            if yara_matches.get("$ref_eccN"):
-                ecc_delta_offset = int(yara_matches["$ref_eccN"])
+            if first_match(yara_matches, "$ref_eccN"):
+                ecc_delta_offset = first_match(yara_matches, "$ref_eccN")
                 delta1 = 3
                 delta2 = 107
-            if yara_matches.get("$ref_eccO"):
-                ecc_delta_offset = int(yara_matches["$ref_eccO"])
+            if first_match(yara_matches, "$ref_eccO"):
+                ecc_delta_offset = first_match(yara_matches, "$ref_eccO")
                 delta1 = 3
                 delta2 = 206
+            if first_match(yara_matches, "$ref_eccP"):
+                ecc_funcs = addresses_from_matches(yara_matches, "$ref_eccP")
             if delta1 or delta2:
                 if ref_ecc_offset:
                     ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
@@ -666,6 +752,23 @@ def extract_config(filebuf):
                         point_y=int.from_bytes(ecs_key[8 + key_len :], "big"),
                     ).export_key(format="PEM"),
                 )
+            elif ecc_funcs:
+                for func in ecc_funcs:
+                    uc = emulate(code, func - pe.sections[0].PointerToRawData)
+                    header = uc.mem_read(stack + 0x400, 8)
+                    key_len = int.from_bytes(header[4:8], "little")
+                    key = uc.mem_read(stack + 0x400, 2 * key_len + 8)
+                    label = "ECC " + key[0:4].decode()
+                    if label.startswith("EC"):
+                        conf_dict.setdefault(
+                            label,
+                            ECC.construct(
+                                curve="p256",
+                                point_x=int.from_bytes(key[8 : 8 + key_len], "big"),
+                                point_y=int.from_bytes(key[8 + key_len :], "big"),
+                            ).export_key(format="PEM"),
+                        )
+
     return conf_dict
 
 

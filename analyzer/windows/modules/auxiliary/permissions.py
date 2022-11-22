@@ -18,7 +18,7 @@ class Permissions(Auxiliary):
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
-        self.enabled = config.file_pickup
+        self.enabled = config.permissions
         self.startupinfo = STARTUPINFO()
         self.startupinfo.dwFlags |= STARTF_USESHOWWINDOW
 

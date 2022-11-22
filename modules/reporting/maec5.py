@@ -510,7 +510,6 @@ class MaecReport(Report):
                 real_obj_id = self.post_process_object(obj, arguments)
                 action[objects_class].append(real_obj_id)
 
-
     def post_process_object(self, obj, arguments):
         """Perform any necessary post-processing on Cyber Observable Objects"""
         protocol_mappings = {"1": "ftp", "3": "http"}

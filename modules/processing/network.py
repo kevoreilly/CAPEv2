@@ -227,7 +227,6 @@ class Pcap:
                 if ipaddr <= network_high and ipaddr >= network_low:
                     return True
 
-
     def _get_cn(self, ip):
         cn = "unknown"
         log = logging.getLogger("Processing.Pcap")

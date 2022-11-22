@@ -50,7 +50,9 @@ class LiteReport(Report):
         path = os.path.join(self.reports_path, "lite.json")
         try:
             if HAVE_ORJSON:
-                _ = Path(path).write_bytes(orjson.dumps(lite_report, option=orjson.OPT_INDENT_2, default=self.default))  # orjson.OPT_SORT_KEYS |
+                _ = Path(path).write_bytes(
+                    orjson.dumps(lite_report, option=orjson.OPT_INDENT_2, default=self.default)
+                )  # orjson.OPT_SORT_KEYS |
             else:
                 with open(path, "w") as report:
                     json.dump(lite_report, report, sort_keys=False, separators=(",", ":"), ensure_ascii=False)

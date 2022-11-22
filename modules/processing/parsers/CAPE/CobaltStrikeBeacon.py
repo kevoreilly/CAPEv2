@@ -24,6 +24,7 @@ import pefile
 
 try:
     from netstruct import unpack as netunpack
+
     HAVE_NETSTRUCT = True
 except ImportError:
     HAVE_NETSTRUCT = False
@@ -131,7 +132,7 @@ class packedSetting:
             elif self.mask:
                 ret_arr = []
                 for k, v in self.mask.items():
-                    if k == 0  == conf_data:
+                    if k == 0 == conf_data:
                         ret_arr.append(v)
                     if k & conf_data:
                         ret_arr.append(v)

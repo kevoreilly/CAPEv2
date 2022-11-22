@@ -300,8 +300,10 @@ class CAPE_InjectionProcessHollowing(Signature):
             if self.get_argument(call, "ThreadHandle") in self.thread_handles:
                 self.sequence = 1
         elif (
-            call["api"] in ("NtWriteVirtualMemory", "NtWow64WriteVirtualMemory64", "WriteProcessMemory", "NtMapViewOfSection")
-        ) and self.sequence == 1 or self.sequence == 2:
+            (call["api"] in ("NtWriteVirtualMemory", "NtWow64WriteVirtualMemory64", "WriteProcessMemory", "NtMapViewOfSection"))
+            and self.sequence == 1
+            or self.sequence == 2
+        ):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.sequence += 1
         elif call["api"] == "NtSetContextThread" and self.sequence in (1, 2):

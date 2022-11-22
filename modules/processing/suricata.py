@@ -124,7 +124,9 @@ class Suricata(Processing):
             log.warning("Unable to Run Suricata: Conf File %s does not exist", SURICATA_CONF)
             return suricata
         if not os.path.exists(self.pcap_path):
-            log.warning("Unable to Run Suricata: Pcap file %s does not exist. Did you run analysis with live connection?", self.pcap_path)
+            log.warning(
+                "Unable to Run Suricata: Pcap file %s does not exist. Did you run analysis with live connection?", self.pcap_path
+            )
             return suricata
 
         # Add to this if you wish to ignore any SIDs for the suricata alert logs
@@ -339,7 +341,9 @@ class Suricata(Processing):
                     suricata["files"].append(sfile)
 
             if HAVE_ORJSON:
-                _ = Path(SURICATA_FILE_LOG_FULL_PATH).write_bytes(orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default))  # orjson.OPT_SORT_KEYS |
+                _ = Path(SURICATA_FILE_LOG_FULL_PATH).write_bytes(
+                    orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default)
+                )  # orjson.OPT_SORT_KEYS |
             else:
                 with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
                     json.dump(suricata["files"], drop_log, indent=4)

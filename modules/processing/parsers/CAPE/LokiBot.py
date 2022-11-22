@@ -157,5 +157,6 @@ def extract_config(filebuf):
 
 if __name__ == "__main__":
     from pathlib import Path
+
     data = Path(sys.argv[1]).read_bytes()
     print(extract_config(data))

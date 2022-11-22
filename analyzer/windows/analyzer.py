@@ -1092,9 +1092,7 @@ class CommandPipeHandler:
                 # if tasklist previously failed to get the services.exe PID we'll be
                 # unable to inject
                 if self.analyzer.SERVICES_PID:
-                    servproc = Process(
-                        options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID
-                    )
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     filepath = servproc.get_filepath()
                     servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)

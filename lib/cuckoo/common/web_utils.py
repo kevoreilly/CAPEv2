@@ -217,6 +217,8 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
+    if web_cfg.general.get("top_detections", False) == False:
+        return False
 
     t = int(time.time())
 

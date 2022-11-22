@@ -258,8 +258,6 @@ def extract_config(filebuf):
     with suppress(Exception):
         pe = pefile.PE(data=filebuf, fast_load=False)
         code = filebuf[pe.sections[0].PointerToRawData : pe.sections[0].PointerToRawData + pe.sections[0].SizeOfRawData]
-    except Exception:
-        pass
 
     if pe is None:
         return

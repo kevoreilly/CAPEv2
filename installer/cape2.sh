@@ -503,7 +503,7 @@ fi
 
 function install_suricata() {
     echo '[+] Installing Suricata'
-
+    apt install libssl1.1 -y
     add-apt-repository ppa:oisf/suricata-stable -y
     apt install suricata -y
     touch /etc/suricata/threshold.config
@@ -615,8 +615,8 @@ function install_mongo(){
 
     apt update 2>/dev/null
     # From Ubuntu version 20 repo we need to add extra dependency libssl1.1
-    curl -LO http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
-    sudo dpkg -i ./libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
+    # curl -LO http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
+    # sudo dpkg -i ./libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
     apt install libpcre3-dev numactl -y
     apt install -y mongodb-org
     pip3 install pymongo -U
@@ -691,8 +691,8 @@ function install_elastic() {
 function install_postgresql() {
     echo "[+] Installing PostgreSQL"
 
-    sudo curl -fsSL "https://www.postgresql.org/media/keys/ACCC4CF8.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg --yes
-    echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+    curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null
+    echo "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
     sudo apt update -y
     sudo apt -y install libpq-dev postgresql postgresql-client
@@ -716,9 +716,9 @@ function dependencies() {
     #sudo canonical-livepatch enable APITOKEN
 
     # deps
-    apt install python3-pip build-essential libssl-dev python3-dev cmake -y
+    apt install python3-pip build-essential libssl-dev libssl1.1 python3-dev cmake -y
     apt install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
-    apt install upx-ucl libssl-dev wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
+    apt install upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
     apt install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
     apt install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt install openvpn wireguard -y
@@ -758,6 +758,7 @@ function dependencies() {
     sudo -u postgres -H sh -c "psql -c \"CREATE USER ${USER} WITH PASSWORD '$PASSWD'\"";
     sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}\"";
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER} to ${USER};\""
+    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE ${USER} OWNER TO ${USER};\""
     #exit
 
     apt install apparmor-utils -y
@@ -773,18 +774,17 @@ function dependencies() {
 
     groupadd pcap
     usermod -a -G pcap ${USER}
-    chgrp pcap /usr/bin/tcpdump
-    setcap cap_net_raw,cap_net_admin=eip /usr/bin/tcpdump
+    chgrp pcap /usr/sbin/tcpdump
+    setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
 
     usermod -a -G systemd-journal ${USER}
 
     # https://www.torproject.org/docs/debian.html.en
     sudo apt install gnupg2 -y
 
-    sudo curl -fsSL https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo gpg --dearmor -o /etc/apt/keyrings/torproject.gpg --yes
-    
-    echo "deb [signed-by=/etc/apt/keyrings/torproject.gpg arch=amd64] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
-    echo "deb-src [signed-by=/etc/apt/keyrings/torproject.gpg arch=amd64] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
+    wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/tor-archive-keyring.gpg >/dev/null
+    echo "deb     [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
+    echo "deb-src [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org '$(lsb_release -cs)' main" >> /etc/apt/sources.list.d/tor.list
     
 
     sudo apt update 2>/dev/null

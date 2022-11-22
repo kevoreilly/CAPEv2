@@ -656,7 +656,7 @@ class Pcap:
             return self.results
 
         if not os.path.exists(self.filepath):
-            log.warning('The PCAP file does not exist at path "%s"', self.filepath)
+            log.warning('The PCAP file does not exist at path "%s". Did you run analysis with live connection?', self.filepath)
             return self.results
 
         if os.path.getsize(self.filepath) == 0:

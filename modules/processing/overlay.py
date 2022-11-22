@@ -1,6 +1,7 @@
 import base64
 import logging
 import os
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
@@ -62,8 +63,7 @@ class extract_overlay_data(Processing):
                 os.makedirs(fld)
 
             fld = os.path.join(fld, "extracted_overlay")
-            with open(fld, "wb+") as f2:
-                f2.write(data)
+            _ = Path(fld).write_bytes(data)
 
             output["pe"]["overlay"]["fileinfo"] = process_overlay_file(fld).run()
 

@@ -42,14 +42,14 @@ class Dll(Package):
 
         # Does the user want us to run multiple exports that are available?
         enable_multi = self.options.get("enable_multi", "")
-        if enable_multi.lower() in ["on", "yes", "true"]:
+        if enable_multi.lower() in ("on", "yes", "true"):
             enable_multi = True
         else:
             enable_multi = False
 
         # Does the user want us to run multiple exports by name?
         use_export_name = self.options.get("use_export_name", "")
-        if use_export_name.lower() in ["on", "yes", "true"]:
+        if use_export_name.lower() in ("on", "yes", "true"):
             use_export_name = True
         else:
             use_export_name = False

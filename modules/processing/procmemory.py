@@ -4,6 +4,7 @@
 
 import logging
 import os
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
@@ -42,8 +43,7 @@ class ProcessMemory(Processing):
 
                 # save pe to disk
                 path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
-                with open(path, "wb") as f:
-                    f.write(data)
+                _ = Path(path).write_bytes(data)
 
                 data, pefile_object = File(path).get_all()
                 if pefile_object:
@@ -65,7 +65,6 @@ class ProcessMemory(Processing):
                         return lastmemmap["start"]
                 lastoffset = offset
             lastmemmap = memmap
-        return
 
     def run(self):
         """Run analysis.
@@ -138,8 +137,7 @@ class ProcessMemory(Processing):
 
                     proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
-                    with open(proc["strings_path"], "wb") as f:
-                        f.write(b"\n".join(strings))
+                    _ = Path(proc["strings_path"]).write_bytes(b"\n".join(strings))
                 procdump.close()
                 results.append(proc)
 

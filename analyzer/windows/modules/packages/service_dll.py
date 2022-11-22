@@ -129,7 +129,7 @@ class ServiceDll(Package):
                 return
             log.info("Created service %s (handle: 0x%s)", servicename.decode(), service_handle)
             self.set_keys(servicename.decode(), dllpath)
-            servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid, suspended=False)
+            servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid)
             filepath = servproc.get_filepath()
             servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
             servproc.close()

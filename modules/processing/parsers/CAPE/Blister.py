@@ -11,6 +11,7 @@ import logging
 import os
 import sys
 from optparse import OptionParser
+from pathlib import Path
 from struct import pack, unpack
 
 import pefile
@@ -259,7 +260,7 @@ def decrypt_memory(file):
             source="rule foo: bar {strings: $a = {8B 7D ?? B8 ?? ?? ?? ?? EB 0F 41 ?? B7 018B 34 87 49 03 F0 EB ??} condition: $a}"
         )
 
-    data = open(file, "rb").read()
+    data = Path(file).read_bytes()
 
     key_offset = key_rule.match(data=data)
     tag_offset = tag_rule.match(data=data)
@@ -396,8 +397,7 @@ def decrypt_memory(file):
     if MZ:
         uncompressed_payload = b"MZ" + uncompressed_payload[2:]
 
-    with open(save_payload_path, "wb") as f:
-        f.write(uncompressed_payload)
+    _ = Path(save_payload_path).write_bytes(uncompressed_payload)
 
 
 def main():

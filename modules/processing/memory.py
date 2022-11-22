@@ -9,6 +9,7 @@
 
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lib.cuckoo.common.abstracts import Processing
@@ -289,8 +290,7 @@ class VolatilityManager:
         if not self.voptions.basic.dostrings:
             return None
         try:
-            with open(self.memfile, "rb") as f:
-                data = f.read()
+            data = Path(self.memfile).read_bytes()
         except (IOError, OSError, MemoryError) as e:
             raise CuckooProcessingError(f"Error opening file {e}") from e
 
@@ -305,8 +305,8 @@ class VolatilityManager:
             upat = b"(?:[\x20-\x7e][\x00]){" + minchars + b",}"
 
         strings = re.findall(apat, data) + [ws.decode("utf-16le").encode() for ws in re.findall(upat, data)]
-        with open(f"{self.memfile}.strings", "wb") as f:
-            f.write(b"\n".join(strings))
+        _ = Path(f"{self.memfile}.strings").write_bytes(b"\n".join(strings))
+
         return f"{self.memfile}.strings"
 
     def cleanup(self):

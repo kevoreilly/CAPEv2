@@ -9,6 +9,7 @@ import random
 import shutil
 import tempfile
 import zipfile
+from contextlib import suppress
 from xml.dom.minidom import parse
 
 try:
@@ -212,8 +213,6 @@ def saz_to_pcap(sazpath):
 
     pktdump.close()
     if tmpdir:
-        try:
+        with suppress(Exception):
             shutil.rmtree(tmpdir)
-        except Exception:
-            pass
     return pcappath

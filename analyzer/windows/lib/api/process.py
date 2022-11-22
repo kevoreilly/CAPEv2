@@ -14,6 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from ctypes import byref, c_int, c_ulong, create_string_buffer, sizeof
+from pathlib import Path
 from shutil import copy
 
 from lib.common.constants import (
@@ -246,10 +247,10 @@ class Process:
         log.info("Starting kernel analysis")
         log.info("Installing driver")
         if is_os_64bit():
-            sys_file = os.path.join(os.getcwd(), "dll", "zer0m0n_x64.sys")
+            sys_file = os.path.join(Path.cwd(), "dll", "zer0m0n_x64.sys")
         else:
-            sys_file = os.path.join(os.getcwd(), "dll", "zer0m0n.sys")
-        exe_file = os.path.join(os.getcwd(), "dll", "logs_dispatcher.exe")
+            sys_file = os.path.join(Path.cwd(), "dll", "zer0m0n.sys")
+        exe_file = os.path.join(Path.cwd(), "dll", "logs_dispatcher.exe")
         if not os.path.isfile(sys_file) or not os.path.isfile(exe_file):
             log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
             return False
@@ -309,19 +310,17 @@ class Process:
             "Instance1.Flags = 0x0"
         )
 
-        new_inf = os.path.join(os.getcwd(), "dll", f"{service_name}.inf")
-        new_sys = os.path.join(os.getcwd(), "dll", f"{driver_name}.sys")
+        new_inf = os.path.join(Path.cwd(), "dll", f"{service_name}.inf")
+        new_sys = os.path.join(Path.cwd(), "dll", f"{driver_name}.sys")
         copy(sys_file, new_sys)
-        new_exe = os.path.join(os.getcwd(), "dll", f"{exe_name}.exe")
+        new_exe = os.path.join(Path.cwd(), "dll", f"{exe_name}.exe")
         copy(exe_file, new_exe)
         log.info("[-] Driver name : %s", new_sys)
         log.info("[-] Inf name : %s", new_inf)
         log.info("[-] Application name : %s", new_exe)
         log.info("[-] Service : %s", service_name)
 
-        with open(new_inf, "w") as fh:
-            fh.write(inf_data)
-
+        _ = Path(new_inf).write_text(inf_data)
         os_is_64bit = is_os_64bit()
         if os_is_64bit:
             wow64 = c_ulong(0)
@@ -376,7 +375,7 @@ class Process:
             bytes_returned = c_ulong(0)
             msg = f"{self.pid}_{ppid}_{os.getpid()}_{pi.dwProcessId}_{pid_vboxservice}_{pid_vboxtray}\0"
             KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, len(msg), None, 0, byref(bytes_returned), None)
-            msg = f"{os.getcwd()}\0"
+            msg = f"{Path.cwd()}\0"
             KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, msg, len(msg), None, 0, byref(bytes_returned), None)
         else:
             log.warning("Failed to access kernel driver")
@@ -491,7 +490,6 @@ class Process:
         KERNEL32.WaitForSingleObject(self.terminate_event_handle, 5000)
         log.info("Termination confirmed for process %d", self.pid)
         KERNEL32.CloseHandle(self.terminate_event_handle)
-        return
 
     def terminate(self):
         """Terminate process.
@@ -538,7 +536,7 @@ class Process:
 
     def write_monitor_config(self, interest=None, nosleepskip=False):
 
-        config_path = os.path.join(os.getcwd(), "dll", f"{self.pid}.ini")
+        config_path = os.path.join(Path.cwd(), "dll", f"{self.pid}.ini")
         log.info("Monitor config for process %s: %s", self.pid, config_path)
 
         # start the logserver for this monitored process
@@ -556,7 +554,7 @@ class Process:
             config.write(f"pipe={PIPE}\n")
             config.write(f"logserver={logserver_path}\n")
             config.write(f"results={PATHS['root']}\n")
-            config.write(f"analyzer={os.getcwd()}\n")
+            config.write(f"analyzer={Path.cwd()}\n")
             config.write(f"pythonpath={os.path.dirname(sys.executable)}\n")
             config.write(f"first-process={1 if firstproc else 0}\n")
             config.write(f"startup-time={Process.startup_time}\n")
@@ -617,8 +615,8 @@ class Process:
             dll = CAPEMON32_NAME
             bit_str = "32-bit"
 
-        bin_name = os.path.join(os.getcwd(), bin_name)
-        dll = os.path.join(os.getcwd(), dll)
+        bin_name = os.path.join(Path.cwd(), bin_name)
+        dll = os.path.join(Path.cwd(), dll)
 
         if not os.path.exists(bin_name):
             log.warning("Invalid loader path %s for injecting DLL in process with pid %d, injection aborted", bin_name, self.pid)
@@ -691,7 +689,7 @@ class Process:
             orig_bin_name = LOADER32_NAME
             bit_str = "32-bit"
 
-        bin_name = os.path.join(os.getcwd(), orig_bin_name)
+        bin_name = os.path.join(Path.cwd(), orig_bin_name)
 
         if os.path.exists(bin_name):
             ret = subprocess.call([bin_name, "dump", str(self.pid), file_path])

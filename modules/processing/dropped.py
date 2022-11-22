@@ -4,6 +4,7 @@
 
 import json
 import os
+from contextlib import suppress
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
@@ -62,14 +63,12 @@ class Dropped(Processing):
                 file_info["guest_paths"] = list({path.get("filepath") for path in meta.get(file_path, [])})
                 file_info["name"] = list({path.get("filepath", "").rsplit("\\", 1)[-1] for path in meta.get(file_path, [])})
 
-                try:
+                with suppress(UnicodeDecodeError):
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf + 1)
 
                     filedata = wide2str(filedata)
                     file_info["data"] = convert_to_printable_and_truncate(filedata, buf)
-                except UnicodeDecodeError:
-                    pass
                 dropped_files.append(file_info)
 
         for dir_name, _, file_names in os.walk(self.package_files):

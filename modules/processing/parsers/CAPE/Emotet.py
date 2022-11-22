@@ -16,7 +16,9 @@ import base64
 import logging
 import socket
 import struct
+from contextlib import suppress
 from itertools import cycle
+from pathlib import Path
 
 import pefile
 import yara
@@ -253,11 +255,9 @@ def emulate(code, ep):
 def extract_config(filebuf):
     conf_dict = {}
     pe = None
-    try:
+    with suppress(Exception):
         pe = pefile.PE(data=filebuf, fast_load=False)
         code = filebuf[pe.sections[0].PointerToRawData : pe.sections[0].PointerToRawData + pe.sections[0].SizeOfRawData]
-    except Exception:
-        pass
 
     if pe is None:
         return
@@ -784,9 +784,7 @@ def test_them_all(path):
         for sha256 in os.listdir(snipped):
             try:
                 file = os.path.join(snipped, sha256)
-                with open(file, "rb") as f:
-                    file_data = f.read()
-
+                file_data = Path(file).read_bytes()
                 result = extract_config(file_data)
                 if result:
                     log.info("[+] %s", file)
@@ -804,6 +802,5 @@ if __name__ == "__main__":
     if sys.argv[1] == "test":
         test_them_all(sys.argv[2])
     else:
-        with open(sys.argv[1], "rb") as f:
-            file_data = f.read()
-        print(extract_config(file_data))
+        data = Path(sys.argv[1]).read_bytes()
+        print(extract_config(data))

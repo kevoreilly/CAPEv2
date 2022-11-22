@@ -1,6 +1,7 @@
 import glob
 import logging
 import os
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 
@@ -26,8 +27,7 @@ class script_log_processing(Processing):
             file_name = os.path.basename(file_path)
             try:
                 log.info("Processing File: %s", file_path)
-                with open(file_path, "r") as f:
-                    file_data = f.read()
+                file_data = Path(file_path).read_text()
                 if file_name == "pre_script.log":
                     output["pre_script_log"] = file_data
                 elif file_name == "during_script.log":

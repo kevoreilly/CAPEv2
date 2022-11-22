@@ -93,7 +93,7 @@ def helper_percentages_elastic(es_obj, tid1, tid2, ignore_categories=None):
         ignore_categories = ["misc"]
     counts = {}
 
-    for tid in [tid1, tid2]:
+    for tid in (tid1, tid2):
         counts[tid] = {}
         results = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid))["hits"]["hits"]
         pids_calls = results[-1]["_source"] if results else None

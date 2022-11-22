@@ -11,6 +11,7 @@ import threading
 import time
 import timeit
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Dict, List
 
 try:
@@ -240,7 +241,7 @@ class Machinery:
         for machine in self.machines():
             # If this machine is already in the "correct" state, then we
             # go on to the next machine.
-            if machine.label in configured_vms and self._status(machine.label) in [self.POWEROFF, self.ABORTED]:
+            if machine.label in configured_vms and self._status(machine.label) in (self.POWEROFF, self.ABORTED):
                 continue
 
             # This machine is currently not in its correct state, we're going
@@ -282,8 +283,7 @@ class Machinery:
             return self.db.lock_machine(label=machine_id)
         elif platform:
             return self.db.lock_machine(platform=platform, tags=tags, arch=arch)
-        else:
-            return self.db.lock_machine(tags=tags, arch=arch)
+        return self.db.lock_machine(tags=tags, arch=arch)
 
     def release(self, label=None):
         """Release a machine.
@@ -1725,12 +1725,9 @@ class Feed:
             lock = threading.Lock()
             with lock:
                 if modified and self.data:
-                    with open(self.feedpath, "w") as feedfile:
-                        feedfile.write(self.data)
+                    _ = Path(self.feedpath).write_text(self.data)
                 elif self.downloaddata:
-                    with open(self.feedpath, "w") as feedfile:
-                        feedfile.write(self.downloaddata)
-        return
+                    y = Path(self.feedpath).write_text(self.downloaddata)
 
 
 class ProtocolHandler:

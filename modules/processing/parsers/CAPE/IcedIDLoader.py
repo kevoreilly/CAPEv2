@@ -12,8 +12,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import struct
+from contextlib import suppress
 
 import pefile
 
@@ -21,10 +21,8 @@ import pefile
 def extract_config(filebuf):
     cfg = {}
     pe = None
-    try:
+    with suppress(Exception):
         pe = pefile.PE(data=filebuf, fast_load=False)
-    except Exception:
-        pass
     if pe is None:
         return
     for section in pe.sections:
@@ -44,6 +42,6 @@ def extract_config(filebuf):
 
 if __name__ == "__main__":
     import sys
-
-    with open(sys.argv[1], "rb") as f:
-        print(extract_config(f.read()))
+    from pathlib import Path
+    data = Path(sys.argv[1]).read_bytes()
+    print(extract_config(data))

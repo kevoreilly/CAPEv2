@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
@@ -49,10 +50,7 @@ class LiteReport(Report):
         path = os.path.join(self.reports_path, "lite.json")
         try:
             if HAVE_ORJSON:
-                with open(path, "wb") as report:
-                    report.write(
-                        orjson.dumps(lite_report, option=orjson.OPT_INDENT_2, default=self.default)
-                    )  # orjson.OPT_SORT_KEYS |
+                _ = Path(path).write_bytes(orjson.dumps(lite_report, option=orjson.OPT_INDENT_2, default=self.default))  # orjson.OPT_SORT_KEYS |
             else:
                 with open(path, "w") as report:
                     json.dump(lite_report, report, sort_keys=False, separators=(",", ":"), ensure_ascii=False)

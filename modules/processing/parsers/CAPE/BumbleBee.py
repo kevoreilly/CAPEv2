@@ -1,9 +1,8 @@
 # Thanks to @MuziSec - https://github.com/MuziSec/malware_scripts/blob/main/bumblebee/extract_config.py
 #
 import logging
-import os
 import traceback
-from binascii import hexlify, unhexlify
+from contextlib import suppress
 
 import pefile
 import regex as re
@@ -96,10 +95,9 @@ def extract_config(data):
 
     cfg = {}
     pe = None
-    try:
+    with suppress(Exception):
         pe = pefile.PE(data=data, fast_load=False)
-    except Exception:
-        pass
+
     if pe is None:
         return
 

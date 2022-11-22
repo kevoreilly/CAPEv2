@@ -158,8 +158,6 @@ def extract_config(filebuf):
 
 if __name__ == "__main__":
     import sys
-
-    with open(sys.argv[1], "rb") as f:
-        data = f.read()
-
+    from pathlib import Path
+    data = Path(sys.argv[1]).read_bytes()
     print(extract_config(data))

@@ -6,6 +6,7 @@ import codecs
 import logging
 import os
 import time
+from contextlib import suppress
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
@@ -49,11 +50,9 @@ class AnalysisInfo(Processing):
             except (IOError, OSError) as e:
                 raise CuckooProcessingError(f"Error opening {self.log_path}: {e}") from e
             else:
-                try:
+                with suppress(Exception):
                     idx = analysis_log.index('INFO: Automatically selected analysis package "')
                     package = analysis_log[idx + 47 :].split('"', 1)[0]
-                except Exception:
-                    pass
         return package
 
     def run(self):

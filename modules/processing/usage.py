@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -52,8 +53,7 @@ class Usage(Processing):
         data = line_chart.render()
 
         usage_svg = os.path.join(aux_path, "usage.svg")
-        with open(usage_svg, "wb") as f:
-            f.write(data)
+        _ = Path(usage_svg).write_bytes(data)
 
         usage["cpu_usage"] = cpu_points
         usage["mem_usage"] = mem_points

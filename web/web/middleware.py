@@ -43,5 +43,4 @@ class CustomAuth(MiddlewareMixin):
         # Custom auth verification logic goes here, redirrect if Auth required
         if self.check_auth(request):
             return None
-        else:
-            return redirect(redirect_url + request_url)
+        return redirect(redirect_url + request_url)

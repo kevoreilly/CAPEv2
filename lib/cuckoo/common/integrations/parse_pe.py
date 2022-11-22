@@ -15,6 +15,7 @@ import os
 import struct
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 from PIL import Image
@@ -63,7 +64,7 @@ try:
         userdb_signatures.load(userdb_path)
         HAVE_USERDB = True
 except (ImportError, AttributeError) as e:
-    print(f"Failed to initialize peutils: {str(e)}")
+    print(f"Failed to initialize peutils: {e}")
 
 
 log = logging.getLogger(__name__)
@@ -163,8 +164,7 @@ class PortableExecutable:
     def file_data(self):
         if not self._file_data:
             if os.path.exists(self.file_path):
-                with open(self.file_path, "rb") as f:
-                    self._file_data = f.read()
+                self._file_data = Path(self.file_path).read_bytes()
         return self._file_data
 
     def is_64bit(self) -> bool:
@@ -866,15 +866,15 @@ class PortableExecutable:
                 try:
                     if not exp.name:
                         continue
-                    if exp.name.decode() in ["DllInstall", "DllRegisterServer", "xlAutoOpen"]:
+                    if exp.name.decode() in ("DllInstall", "DllRegisterServer", "xlAutoOpen"):
                         return exp.name.decode()
                     entry = self.pe.get_offset_from_rva(exp.address)
                     if (
                         self.is_64bit()
                         and self.file_data[entry] == 0xB9
-                        and self.file_data[entry + 5] in [0xE8, 0xE9]
+                        and self.file_data[entry + 5] in (0xE8, 0xE9)
                         or self.file_data[entry + 4] == 0xB9
-                        and self.file_data[entry + 9] in [0xE8, 0xE9]
+                        and self.file_data[entry + 9] in (0xE8, 0xE9)
                     ):
                         return exp.name.decode()
                 except Exception as e:

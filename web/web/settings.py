@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 import os
 import sys
+from contextlib import suppress
 from pathlib import Path
 
 try:
@@ -14,7 +15,7 @@ if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
     sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 
 # Cuckoo path.
-CUCKOO_PATH = os.path.join(os.getcwd(), "..")
+CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -129,8 +130,7 @@ except ImportError:
     key = get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)")
 
     # Write secret_key.py
-    with open(os.path.join(SETTINGS_DIR, "secret_key.py"), "w") as key_file:
-        key_file.write('SECRET_KEY = "{0}"'.format(key))
+    _ = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
 
     # Reload key.
     from .secret_key import *
@@ -161,7 +161,7 @@ STATIC_ROOT = ""
 STATIC_URL = "/static/"
 
 # Additional locations of static files
-STATICFILES_DIRS = (os.path.join(os.getcwd(), "static"),)
+STATICFILES_DIRS = (os.path.join(Path.cwd(), "static"),)
 
 # List of finder classes that know how to find static files in
 # various locations.
@@ -500,7 +500,5 @@ RATELIMIT_ERROR_MSG = "Too many request without auth! You have exceed your free 
 try:
     LOCAL_SETTINGS
 except NameError:
-    try:
+    with suppress(ImportError):
         from .local_settings import *
-    except ImportError:
-        pass

@@ -78,8 +78,6 @@ def get_version(string_list):
     elif "EncryptedCredentials" in string_list:
         print("    [-] Found Predator Pain v14")
         return "v14"
-    else:
-        return
 
 
 def config_12(string_list):

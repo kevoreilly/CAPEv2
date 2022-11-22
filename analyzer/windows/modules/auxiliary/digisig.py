@@ -7,6 +7,7 @@ import locale
 import logging
 import os
 from io import BytesIO
+from pathlib import Path
 
 from lib.api.utils import Utils
 from lib.common.abstracts import Auxiliary
@@ -109,7 +110,7 @@ class DigiSig(Auxiliary):
                 log.debug("Skipping authenticode validation, analysis is not a file")
                 return True
 
-            sign_path = os.path.join(os.getcwd(), "bin", "signtool.exe")
+            sign_path = os.path.join(Path.cwd(), "bin", "signtool.exe")
             if not os.path.exists(sign_path):
                 log.info("Skipping authenticode validation, signtool.exe was not found in bin/")
                 return True

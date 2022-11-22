@@ -121,5 +121,4 @@ class Rar(Package):
             cmd_path = self.get_path("cmd.exe")
             cmd_args = f'/c start /wait "" "{file_path}"'
             return self.execute(cmd_path, cmd_args, file_path)
-        else:
-            return self.execute(file_path, self.options.get("arguments"), file_path)
+        return self.execute(file_path, self.options.get("arguments"), file_path)

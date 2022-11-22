@@ -1,5 +1,6 @@
 import re
 import sys
+from pathlib import Path
 
 """
 rule pony {
@@ -24,8 +25,7 @@ dll_url = re.compile(b".*\\.dll$")
 
 def extract_config(memdump_path, read=False):
     if read:
-        with open(memdump_path, "rb") as f:
-            F = f.read()
+        F = Path(memdump_path).read_bytes()
     else:
         F = memdump_path
     """

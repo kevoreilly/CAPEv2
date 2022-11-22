@@ -278,8 +278,7 @@ class StapParser:
             return self.parse_array(argstr)
         elif self.is_string(argstr):
             return self.parse_string(argstr)
-        else:
-            return argstr
+        return argstr
 
     def parse_array(self, argstr):
         return [self.parse_arg(a) for a in argstr.lstrip("[").split(", ")]

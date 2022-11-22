@@ -5,7 +5,7 @@ from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
 
-CUCKOO_PATH = os.path.join(os.getcwd(), "..")
+CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
@@ -28,8 +28,7 @@ except ImportError:
     key = get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)")
 
     # Write secret_key.py
-    with open(os.path.join(SETTINGS_DIR, "secret_key.py"), "w") as key_file:
-        key_file.write('SECRET_KEY = "{0}"'.format(key))
+    y = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
 
     # Reload key.
     from .secret_key import *

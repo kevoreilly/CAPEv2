@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from collections import deque
+from contextlib import suppress
 from io import BytesIO
 
 from lib.cuckoo.common.abstracts import Report
@@ -95,11 +96,9 @@ class MISP(Report):
     def signature(self, results, event):
         for ttp in results.get("ttps", []) or []:
             for i in ttps_json.get("objects", []) or []:
-                try:
+                with suppress(Exception):
                     if i["external_references"][0]["external_id"] == ttp:
                         self.misp.tag(event, f'misp-galaxy:mitre-attack-pattern="{i["name"]}-{ttp}"')
-                except Exception:
-                    pass
 
     def sample_hashes(self, results, event):
         if results.get("target", {}).get("file", {}):

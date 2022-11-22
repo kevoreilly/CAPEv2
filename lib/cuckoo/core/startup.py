@@ -11,6 +11,8 @@ import platform
 import re
 import socket
 import sys
+from contextlib import suppress
+from pathlib import Path
 
 import modules.auxiliary
 import modules.feeds
@@ -77,7 +79,7 @@ def check_working_directory():
     if not os.path.exists(CUCKOO_ROOT):
         raise CuckooStartupError(f"You specified a non-existing root directory: {CUCKOO_ROOT}")
 
-    cwd = os.path.join(os.getcwd(), "cuckoo.py")
+    cwd = Path.cwd() / "cuckoo.py"
     if not os.path.exists(cwd):
         raise CuckooStartupError("You are not running Cuckoo from it's root directory")
 
@@ -159,7 +161,7 @@ class ConsoleHandler(logging.StreamHandler):
 
         if record.levelname == "WARNING":
             colored.msg = yellow(record.msg)
-        elif record.levelname == "ERROR" or record.levelname == "CRITICAL":
+        elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
             if "analysis procedure completed" in record.msg:
@@ -172,14 +174,12 @@ class ConsoleHandler(logging.StreamHandler):
 
 def check_linux_dist():
     ubuntu_versions = ("18.04", "20.04", "22.04")
-    try:
+    with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
             log.info(
                 f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS {ubuntu_versions}"
             )
-    except AttributeError:
-        pass
 
 
 def init_logging(level: int):

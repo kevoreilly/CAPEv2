@@ -1,0 +1,180 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Additional Configuration &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Saving the Virtual Machine" href="saving.html" />
+    <link rel="prev" title="Installing the Agent" href="agent.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="saving.html" title="Saving the Virtual Machine"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="agent.html" title="Installing the Agent"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" accesskey="U">Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Additional Configuration</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="additional-configuration">
+<h1>Additional Configuration<a class="headerlink" href="#additional-configuration" title="Permalink to this headline">¶</a></h1>
+<p>In this chapter we will enumerate several recommendations so as to make your Guest virtual machine as stealthy and operational as it gets.</p>
+<section id="disable-microsoft-store">
+<h2>Disable Microsoft Store<a class="headerlink" href="#disable-microsoft-store" title="Permalink to this headline">¶</a></h2>
+<p>Sometimes the Microsoft Store opens up as soon as an analysis starts. In order to disable it, you can remove the environment variable <code class="docutils literal notranslate"><span class="pre">%USERPROFILE%\AppData\Local\Microsoft\WindowsApps</span></code> from the user <code class="docutils literal notranslate"><span class="pre">PATH</span></code>, as specified in <a href="#id2"><span class="problematic" id="id3">`this issue`_</span></a>.</p>
+</section>
+<section id="reduce-overall-noise">
+<h2>Reduce Overall Noise<a class="headerlink" href="#reduce-overall-noise" title="Permalink to this headline">¶</a></h2>
+<p>Sometimes disabling all Windows services (like UAC, defender, update, aero, firewal, etc…) is necessary in order to make the analysis as fluent as possible. <a class="reference external" href="https://github.com/doomedraven">Doomedraven</a> created a script that automatically does just that. Make sure you check the <a class="reference external" href="https://github.com/doomedraven/Tools/blob/master/Windows/disable_win7noise.bat">script</a> out and use it to get rid of all unnecessary noise.</p>
+</section>
+<section id="pcap-generation">
+<h2>PCAP Generation<a class="headerlink" href="#pcap-generation" title="Permalink to this headline">¶</a></h2>
+<p>If you are facing problems related to either tcpdump or the PCAP generation, take a look at <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/issues/1234">this issue</a>. In short, these are the steps you have to check:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Make sure the user the <code class="docutils literal notranslate"><span class="pre">pcap</span></code> group exists in your system and that the user you use to launch CAPE (presumably the <cite>cape</cite> user) belongs to it as well as the <code class="docutils literal notranslate"><span class="pre">tcpdump</span></code> binary (lines 775-778 of the <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh#L775">installer</a>)</p>
+</div>
+<p>1.
+2.
+3.
+4.
+5.</p>
+<p>If you want the script to be launched at Windows’ boot, place the file
+in the admin startup folder. To access this folder, open the app
+launcher with <strong>Win+R</strong> and search for “shell:common startup” which
+will open the folder you want (usually
+<code class="docutils literal notranslate"><span class="pre">C:\ProgramData\Microsoft\Windows\Start</span> <span class="pre">Menu\Programs\StartUp</span></code>). Do
+not place the agent in the user startup folder (usually
+<code class="docutils literal notranslate"><span class="pre">C:\Users\&lt;Username&gt;\AppData\Roaming\Microsoft\Windows\Start</span>
+<span class="pre">Menu\Programs\Startup</span></code>) as it will launch the agent without admin
+privileges and therefore insufficient permissions resulting in the
+agent not being able to work as intended.</p>
+</section>
+<section id="windows-10">
+<h2>Windows 10+<a class="headerlink" href="#windows-10" title="Permalink to this headline">¶</a></h2>
+<p>To start the script at boot, you will need to set the agent to be run
+as a scheduler task. Dropping it in
+<code class="docutils literal notranslate"><span class="pre">C:\ProgramData\Microsoft\Windows\Start</span> <span class="pre">Menu\Programs\StartUp</span></code> will
+result in it being ran with improper privilege.</p>
+<ol class="arabic">
+<li><p>Open Windows menu (Win key) and search for <strong>Task Scheduler</strong>.</p></li>
+<li><p>Select <strong>Create Basic Task</strong> from the action list.</p>
+<img alt="../../_images/creating_task_scheduler_0.png" class="align-center" src="../../_images/creating_task_scheduler_0.png" />
+</li>
+<li><p>Give the task a name (for example <code class="docutils literal notranslate"><span class="pre">pizza.pyw</span></code>, the name is irrelevant as long as you don’t make any mention to CAPE or anything blatant for anti-VM detection algorithms) and click <strong>Next</strong>.</p></li>
+<li><p>Set the trigger as <strong>When I logon</strong> and click <strong>Next</strong>.</p></li>
+<li><p>In the <strong>Action</strong> window, select <strong>Start a program</strong> and click <strong>Next</strong>.</p></li>
+<li><p>In the <strong>Start a program</strong> window, select the path of the <em>agent.py</em>, and click <strong>Finish</strong>.</p></li>
+<li><p>After the task is created, click the <strong>Task Scheduler Library</strong> and
+find the one you just created. Right click on it and select
+<strong>Properties</strong>.</p>
+<img alt="../../_images/creating_task_scheduler_1.png" class="align-center" src="../../_images/creating_task_scheduler_1.png" />
+</li>
+<li><p>In the general tab tell it to <strong>Run with highest privileges</strong>.</p>
+<img alt="../../_images/creating_task_scheduler_2.png" class="align-center" src="../../_images/creating_task_scheduler_2.png" />
+</li>
+<li><p>Select <strong>OK</strong>.</p></li>
+</ol>
+<p>After that all is done, it will come up on the next restart/login.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Additional Configuration</a><ul>
+<li><a class="reference internal" href="#disable-microsoft-store">Disable Microsoft Store</a></li>
+<li><a class="reference internal" href="#reduce-overall-noise">Reduce Overall Noise</a></li>
+<li><a class="reference internal" href="#pcap-generation">PCAP Generation</a></li>
+<li><a class="reference internal" href="#windows-10">Windows 10+</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="agent.html"
+                          title="previous chapter">Installing the Agent</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="saving.html"
+                          title="next chapter">Saving the Virtual Machine</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/installation/guest/configuration.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="saving.html" title="Saving the Virtual Machine"
+             >next</a></li>
+        <li class="right" >
+          <a href="agent.html" title="Installing the Agent"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" >Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Additional Configuration</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

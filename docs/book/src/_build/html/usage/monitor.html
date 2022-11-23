@@ -1,0 +1,398 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>CAPE’s debugger &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Interactive session" href="interactive_desktop.html" />
+    <link rel="prev" title="Performance" href="performance.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="interactive_desktop.html" title="Interactive session"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="performance.html" title="Performance"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Usage</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">CAPE’s debugger</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="cape-s-debugger">
+<h1>CAPE’s debugger<a class="headerlink" href="#cape-s-debugger" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p>Is unique among Windows debuggers, and is one of the most powerful features of the sandbox, having been built from scratch with the overriding design principles of minimal (almost zero) use of Windows debugging interfaces, maximal use of the processor’s debugging hardware, and to be quick and easy to use.</p></li>
+<li><p>Here is a quick guide on getting started with the debugger:</p></li>
+<li><p>For starters it’s worth emphasising that the debugger is programmable but not interactive; you configure it when submitting a sample, allow it to run, then check the results at the end in the form of the debugger log (in the debugger tab).</p></li>
+</ul>
+<section id="breakpoints-bp0-bp1-bp2-bp3">
+<h2>Breakpoints: bp0, bp1, bp2, bp3<a class="headerlink" href="#breakpoints-bp0-bp1-bp2-bp3" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Perhaps the simplest of the debugger options is bp to set one of three CPU breakpoints. (For instruction traces to function properly, bp3 should be reserved for the debugger to maintain the ability to step over certain instructions during tracing.)</p></li>
+<li><p>The simplest form of this option is to set it to ‘ep’: <code class="docutils literal notranslate"><span class="pre">bp0=ep</span></code></p></li>
+<li><p>This will instruct the debugger to break on the entry point of the main executable of each process and begin tracing. (In the case of a DLL, this breakpoint will also be set on the entry point of the DLL). When the breakpoint hits, any corresponding actions will be performed (see later) and the instruction broken upon will be output to the log. As long as the count (see later) hasn’t been set to zero, the debugger will then proceed to trace the instruction flow in single-step mode.</p></li>
+<li><p>To target specific code regions more accurately, breakpoints on specific addresses can be used. These values are interpreted as RVA values unless they are above a hardcoded value (0x200000) in which case they are interpreted as VA values. This allows both RVAs and VAs to be used interchangeably, in most cases the debugger will recognise due to its size that a value is a VA, not an RVA, and set the breakpoint appropriately.</p></li>
+<li><p>There are four breakpoints in the Intel CPU to make use of, so we could in theory use all four directly. However, the debugger in CAPE exposes only the first three. The fourth (bp3) is kept free so that it can be used in stepping-over calls. There is no help from the hardware for a debugger feature like stepping over, so a breakpoint is needed to implement the depth feature but is also required for calls that CAPE debugger <em>must</em> step over, such as calls into kernel mode for example.</p></li>
+<li><dl class="simple">
+<dt>We set and use bp0 through bp2 as follows. These breakpoints will be applied to each thread of each process in the analysis:</dt><dd><ul>
+<li><p>bp0=ep,bp1=0x1234,bp2=0x5678</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="depth">
+<h2>Depth<a class="headerlink" href="#depth" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt>The behaviour of the instruction trace in single-step mode can be characterised in terms of whether it will step into a call, or over it. From this comes the concept of depth - the debugger will trace at the same depth in a trace by stepping-over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behaviour will be to step over all the subsequent calls (at least until a ret is encountered):</dt><dd><ul>
+<li><p>depth=0</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>If we set a depth of, say, three, then the debugger will step into calls into further levels of depth three times:</dt><dd><ul>
+<li><p>depth=3</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="count">
+<h2>Count<a class="headerlink" href="#count" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt>The other obvious characteristic of our trace is its length or count of instructions. This is set with the count option, for example:</dt><dd><ul>
+<li><p>count=10000</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>The count may also be specified as hexadecimal:</dt><dd><ul>
+<li><p>count=0xff00</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>To limit the size of the output, the debugger starts with some default values for some important parameters which are worth understanding to enable more advanced use. The first two parameters that are important are count and depth. As mentioned above, the default depth is zero and the default count is 0x4000.</p></li>
+</ul>
+</section>
+<section id="break-on-return">
+<h2>Break-on-return<a class="headerlink" href="#break-on-return" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Sometimes it might be more convenient or quicker to take advantage of the fact that a certain API call is made from an interesting code region, with its return or ‘caller’ address to the region in question accompanying the API output in the behavior log. We can tell the debugger to use that return address as a breakpoint with the break-on-return option, for example:</dt><dd><ul>
+<li><p>break-on-return=RtlDecompressBuffer</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="base-on-api">
+<h2>Base-on-api<a class="headerlink" href="#base-on-api" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Instead of breaking directly on the return address of an API, we may just wish to base our breakpoints on the same base address as a particular API. For this we use the base-on-api option, for example:</dt><dd><ul>
+<li><p>base-on-api=NtSetInformationThread</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>This option requires that the breakpoint RVA value be specified by one of the breakpoint options (bp, br).</p></li>
+</ul>
+</section>
+<section id="base-on-alloc">
+<h2>Base-on-alloc<a class="headerlink" href="#base-on-alloc" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt>An obvious restriction using this method is that the API call from which the image base is determined must be made before the code we wish to put a breakpoint on is executed. For this reason, there exists an alternative option, base-on-alloc, which will attempt to set the breakpoint RVA relative to every newly executable region (whether through allocation or protection). The advantage of this method is that the breakpoint will always be set before the code can execute, but the downside is that breakpoints may repeatedly be set needlessly with allocations that are not of interest. This is simply set by the option:</dt><dd><ul>
+<li><p>base-on-alloc=1</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="actions">
+<h2>Actions<a class="headerlink" href="#actions" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Often we might wish to perform an action when a breakpoint is hit. These actions can be defined by the actions: action0, action1, action2, and action3, each corresponding to a respective breakpoint. The action is specified by a simple string (not case sensitive). The list of actions is constantly growing, so if the need arises for further actions, they can be simply added.</p></li>
+<li><p>To divert the execution flow upon a conditional jump JZ - ‘flip’ the direction of a branch. Since this is one of the most useful actions, there are many actions to choose from.</p></li>
+<li><dl class="simple">
+<dt>For direct control over the instruction pointer:</dt><dd><ul>
+<li><p>Skip</p></li>
+<li><p>Jmp</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>To control the CPU zero flag:</dt><dd><ul>
+<li><p>SetZeroFlag, ClearZeroFlag, FlipZeroFlag</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>To control the sign flag:</dt><dd><ul>
+<li><p>SetSignFlag, ClearSignFlag, FlipSignFlag</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>The carry flag:</dt><dd><ul>
+<li><p>SetCarryFlag, ClearCarryFlag &amp; FlipCarryFlag</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>The ‘skip’ action is equivalent to ‘nopping out’ the instruction. The Jmp action results in the jump always being taken, no matter what the state of the flags or the condition. The remaining options set, clear, or flip the relevant flags. For example:</dt><dd><ul>
+<li><p>bp0=0x1234,action0=skip</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Hereupon breaking on the instruction at 0x1234, the instruction will be skipped.</p></li>
+<li><dl class="simple">
+<dt>Instruction traces can grow to be huge so often it’s important to be able to stop at a chosen point. To stop the trace at a given breakpoint, the action is simply:</dt><dd><ul>
+<li><p>Stop</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="type">
+<h2>Type<a class="headerlink" href="#type" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Although the debugger defaults to execution breakpoints, it is also possible to set data breakpoints either for read-only, or both read &amp; write. This is specified with the options: type0, type1, type2, and type3 for the corresponding breakpoint. The type option uses the following values:</p></li>
+<li><p>r - read only</p></li>
+<li><p>w - write and read</p></li>
+<li><p>x - execution</p></li>
+<li><dl class="simple">
+<dt>For example:</dt><dd><ul>
+<li><p>type0=w,type1=r</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="br0-br1-br2-br3">
+<h2>br0, br1, br2, br3<a class="headerlink" href="#br0-br1-br2-br3" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Sometimes it may be convenient to set a breakpoint on the return address of a function, for example when it might be easier to write a YARA signature to detect a function but when you wish to break after it has been executed.</p></li>
+<li><p>For this, the br options exist, where br0 will set a breakpoint on the return address of the function at the supplied address.</p></li>
+<li><dl class="simple">
+<dt>For example:</dt><dd><ul>
+<li><p>br0=0x4567</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Since the return address (for the breakpoint) is fetched from the top of the stack, the addresses supplied must either be the very first instruction of the function or certainly must come before any instruction that modifies the stack pointer such as push or pop.</p></li>
+</ul>
+</section>
+<section id="fake-rdtsc">
+<h2>Fake-rdtsc<a class="headerlink" href="#fake-rdtsc" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>To ‘emulate’ (skip and fake) the rdtsc instruction, the option fake-rdtsc=1 may be set. This will only have an affect on rdtsc instructions that are traced over by the debugger. If the debugger is not tracing at the time the CPU executes the instruction, it cannot of course fake the return value.</p></li>
+<li><dl class="simple">
+<dt>The effect of this setting is to allow the first traced rdtsc instruction to execute normally, but thereafter to fake the return value with the original return value plus whatever value is specified in the option. For example:</dt><dd><ul>
+<li><p>rdtsc=0x1000</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>This will result in each subsequent rdtsc instruction after the first being faked with a value that has incremented by 0x1000.</p></li>
+</ul>
+</section>
+<section id="practical-examples">
+<h2>Practical examples<a class="headerlink" href="#practical-examples" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>For more and latest versions of examples can be found <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/tree/master/analyzer/windows/data/yara">here</a></p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>rule Guloader
+<span class="o">{</span>
+    meta:
+        <span class="nv">author</span> <span class="o">=</span> <span class="s2">&quot;kevoreilly&quot;</span>
+        <span class="nv">description</span> <span class="o">=</span> <span class="s2">&quot;Guloader bypass&quot;</span>
+        <span class="nv">cape_options</span> <span class="o">=</span> <span class="s2">&quot;bp0=</span><span class="nv">$trap0</span><span class="s2">,bp0=</span><span class="nv">$trap1</span><span class="s2">+4,action0=skip,bp1=</span><span class="nv">$trap2</span><span class="s2">+11,bp1=</span><span class="nv">$trap3</span><span class="s2">+19,action1=skip,bp2=</span><span class="nv">$antihook</span><span class="s2">,action2=goto:ntdll::NtAllocateVirtualMemory,count=0,&quot;</span>
+    strings:
+        <span class="nv">$trap0</span> <span class="o">=</span> <span class="o">{</span>0F <span class="m">85</span> <span class="o">[</span><span class="m">2</span><span class="o">]</span> FF FF <span class="m">81</span> BD ?? <span class="m">00</span> <span class="m">00</span> <span class="m">00</span> <span class="o">[</span><span class="m">2</span><span class="o">]</span> <span class="m">00</span> <span class="m">00</span> 0F 8F <span class="o">[</span><span class="m">2</span><span class="o">]</span> FF FF <span class="m">39</span> D2 <span class="m">83</span> FF <span class="m">00</span><span class="o">}</span>
+        <span class="nv">$trap1</span> <span class="o">=</span> <span class="o">{</span><span class="m">49</span> <span class="m">83</span> F9 <span class="m">00</span> <span class="m">75</span> <span class="o">[</span><span class="m">1</span>-20<span class="o">]</span> <span class="m">83</span> FF <span class="m">00</span> <span class="o">[</span><span class="m">2</span>-6<span class="o">]</span> <span class="m">81</span> FF<span class="o">}</span>
+        <span class="nv">$trap2</span> <span class="o">=</span> <span class="o">{</span><span class="m">39</span> CB <span class="m">59</span> <span class="m">01</span> D7 <span class="m">49</span> <span class="m">85</span> C8 <span class="m">83</span> F9 <span class="m">00</span> <span class="m">75</span> B3<span class="o">}</span>
+        <span class="nv">$trap3</span> <span class="o">=</span> <span class="o">{</span><span class="m">61</span> 0F AE E8 0F <span class="m">31</span> 0F AE E8 C1 E2 <span class="m">20</span> <span class="m">09</span> C2 <span class="m">29</span> F2 <span class="m">83</span> FA <span class="m">00</span> 7E CE C3<span class="o">}</span>
+        <span class="nv">$antihook</span> <span class="o">=</span> <span class="o">{</span>FF <span class="m">34</span> <span class="m">08</span> <span class="o">[</span><span class="m">0</span>-48<span class="o">]</span> 8F <span class="m">04</span> 0B <span class="o">[</span><span class="m">0</span>-80<span class="o">]</span> <span class="m">83</span> C1 <span class="m">04</span> <span class="m">83</span> F9 <span class="m">18</span> <span class="m">75</span> <span class="o">[</span><span class="m">0</span>-128<span class="o">]</span> FF E3<span class="o">}</span>
+    condition:
+        <span class="m">2</span> of them
+<span class="o">}</span>
+
+rule GuloaderB
+<span class="o">{</span>
+    meta:
+        <span class="nv">author</span> <span class="o">=</span> <span class="s2">&quot;kevoreilly&quot;</span>
+        <span class="nv">description</span> <span class="o">=</span> <span class="s2">&quot;Guloader bypass 2021 Edition&quot;</span>
+        <span class="nv">cape_options</span> <span class="o">=</span> <span class="s2">&quot;bp0=</span><span class="nv">$trap0</span><span class="s2">+12,action0=ret,bp1=</span><span class="nv">$trap1</span><span class="s2">,action1=ret2,bp2=</span><span class="nv">$antihook</span><span class="s2">,action2=goto:ntdll::NtAllocateVirtualMemory,count=0,&quot;</span>
+    strings:
+        <span class="nv">$trap0</span> <span class="o">=</span> <span class="o">{</span><span class="m">81</span> C6 <span class="m">00</span> <span class="m">10</span> <span class="m">00</span> <span class="m">00</span> <span class="m">81</span> FE <span class="m">00</span> F0 FF 7F 0F <span class="m">84</span> <span class="o">[</span><span class="m">2</span><span class="o">]</span> <span class="m">00</span> <span class="m">00</span><span class="o">}</span>
+        <span class="nv">$trap1</span> <span class="o">=</span> <span class="o">{</span><span class="m">31</span> FF <span class="o">[</span><span class="m">0</span>-24<span class="o">]</span> <span class="o">(</span>B9<span class="p">|</span>C7 <span class="m">85</span> F8 <span class="m">00</span> <span class="m">00</span> <span class="m">00</span><span class="o">)</span> <span class="m">60</span> 5F A9 <span class="m">00</span><span class="o">}</span>
+        <span class="nv">$antihook</span> <span class="o">=</span> <span class="o">{</span>FF <span class="m">34</span> <span class="m">08</span> <span class="o">[</span><span class="m">0</span>-48<span class="o">]</span> 8F <span class="m">04</span> 0B <span class="o">[</span><span class="m">0</span>-80<span class="o">]</span> <span class="m">83</span> C1 <span class="m">04</span> <span class="m">83</span> F9 <span class="m">18</span> <span class="m">75</span> <span class="o">[</span><span class="m">0</span>-128<span class="o">]</span> FF E3<span class="o">}</span>
+    condition:
+        <span class="m">2</span> of them
+<span class="o">}</span>
+
+rule Pafish
+<span class="o">{</span>
+    meta:
+        <span class="nv">author</span> <span class="o">=</span> <span class="s2">&quot;kevoreilly&quot;</span>
+        <span class="nv">description</span> <span class="o">=</span> <span class="s2">&quot;Pafish bypass&quot;</span>
+        <span class="nv">cape_options</span> <span class="o">=</span> <span class="s2">&quot;bp0=</span><span class="nv">$rdtsc_vmexit</span><span class="s2">-2,action0=SetZeroFlag,count=1&quot;</span>
+    strings:
+        <span class="nv">$rdtsc_vmexit</span> <span class="o">=</span> <span class="o">{</span>8B <span class="m">45</span> E8 <span class="m">80</span> F4 <span class="m">00</span> <span class="m">89</span> C3 8B <span class="m">45</span> EC <span class="m">80</span> F4 <span class="m">00</span> <span class="m">89</span> C6 <span class="m">89</span> F0 <span class="m">09</span> D8 <span class="m">85</span> C0 <span class="m">75</span> <span class="m">07</span><span class="o">}</span>
+    condition:
+        uint16<span class="o">(</span><span class="m">0</span><span class="o">)</span> <span class="o">==</span> 0x5A4D and <span class="nv">$rdtsc_vmexit</span>
+<span class="o">}</span>
+
+rule Ursnif3
+<span class="o">{</span>
+    meta:
+        <span class="nv">author</span> <span class="o">=</span> <span class="s2">&quot;kevoreilly&quot;</span>
+        <span class="nv">description</span> <span class="o">=</span> <span class="s2">&quot;Ursnif Config Extraction&quot;</span>
+        <span class="nv">cape_options</span> <span class="o">=</span> <span class="s2">&quot;br0=</span><span class="nv">$crypto32</span><span class="s2">-73,instr0=cmp,dumpsize=eax,action0=dumpebx,dumptype0=0x24,count=1&quot;</span>
+    strings:
+        <span class="nv">$golden_ratio</span> <span class="o">=</span> <span class="o">{</span>8B <span class="m">70</span> EC <span class="m">33</span> <span class="m">70</span> F8 <span class="m">33</span> <span class="m">70</span> <span class="m">08</span> <span class="m">33</span> <span class="m">30</span> <span class="m">83</span> C0 <span class="m">04</span> <span class="m">33</span> F1 <span class="m">81</span> F6 B9 <span class="m">79</span> <span class="m">37</span> 9E C1 C6 0B <span class="m">89</span> <span class="m">70</span> <span class="m">08</span> <span class="m">41</span> <span class="m">81</span> F9 <span class="m">84</span> <span class="m">00</span> <span class="m">00</span> <span class="m">00</span><span class="o">}</span>
+        <span class="nv">$crypto32_1</span> <span class="o">=</span> <span class="o">{</span>8B C3 <span class="m">83</span> EB <span class="m">01</span> <span class="m">85</span> C0 <span class="m">75</span> 0D 0F B6 <span class="m">16</span> <span class="m">83</span> C6 <span class="m">01</span> <span class="m">89</span> <span class="m">74</span> <span class="m">24</span> <span class="m">14</span> 8D <span class="m">58</span> <span class="m">07</span> 8B C2 C1 E8 <span class="m">07</span> <span class="m">83</span> E0 <span class="m">01</span> <span class="m">03</span> D2 <span class="m">85</span> C0 0F <span class="m">84</span> AB <span class="m">01</span> <span class="m">00</span> <span class="m">00</span> 8B C3 <span class="m">83</span> EB <span class="m">01</span> <span class="m">85</span> C0 <span class="m">89</span> 5C <span class="m">24</span> <span class="m">20</span> <span class="m">75</span> <span class="m">13</span> 0F B6 <span class="m">16</span> <span class="m">83</span> C6 <span class="m">01</span> BB <span class="m">07</span> <span class="m">00</span> <span class="m">00</span> <span class="m">00</span><span class="o">}</span>
+        <span class="nv">$crypto32_2</span> <span class="o">=</span> <span class="o">{</span>8B <span class="m">45</span> EC 0F B6 <span class="m">38</span> FF <span class="m">45</span> EC <span class="m">33</span> C9 <span class="m">41</span> 8B C7 <span class="m">23</span> C1 <span class="m">40</span> <span class="m">40</span> D1 EF <span class="m">75</span> 1B <span class="m">89</span> 4D <span class="m">08</span> EB <span class="m">45</span><span class="o">}</span>
+    condition:
+        <span class="o">(</span><span class="nv">$golden_ratio</span><span class="o">)</span> and any of <span class="o">(</span><span class="nv">$crypto32</span>*<span class="o">)</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+</section>
+<section id="importing-instruction-traces-into-disassembler">
+<h2>Importing instruction traces into disassembler<a class="headerlink" href="#importing-instruction-traces-into-disassembler" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Highlight CFG in disassembler:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="m">1</span> Install lighthouse plugin from
+    pip3 install git+https://github.com/kevoreilly/lighthouse
+<span class="m">2</span> Load payload into IDA
+<span class="m">3</span> Check image base matches that from debugger log <span class="o">(</span><span class="k">if</span> not rebase<span class="o">)</span>
+<span class="m">4</span> Go to File -&gt; Load File -&gt; Code coverage file and load debugger logfile <span class="o">(</span>ignore any warnings - any address outside image base causes these<span class="o">)</span>
+</pre></div>
+</div>
+<img alt="../_images/debugger2disassembler.png" class="align-center" src="../_images/debugger2disassembler.png" />
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">CAPE’s debugger</a><ul>
+<li><a class="reference internal" href="#breakpoints-bp0-bp1-bp2-bp3">Breakpoints: bp0, bp1, bp2, bp3</a></li>
+<li><a class="reference internal" href="#depth">Depth</a></li>
+<li><a class="reference internal" href="#count">Count</a></li>
+<li><a class="reference internal" href="#break-on-return">Break-on-return</a></li>
+<li><a class="reference internal" href="#base-on-api">Base-on-api</a></li>
+<li><a class="reference internal" href="#base-on-alloc">Base-on-alloc</a></li>
+<li><a class="reference internal" href="#actions">Actions</a></li>
+<li><a class="reference internal" href="#type">Type</a></li>
+<li><a class="reference internal" href="#br0-br1-br2-br3">br0, br1, br2, br3</a></li>
+<li><a class="reference internal" href="#fake-rdtsc">Fake-rdtsc</a></li>
+<li><a class="reference internal" href="#practical-examples">Practical examples</a></li>
+<li><a class="reference internal" href="#importing-instruction-traces-into-disassembler">Importing instruction traces into disassembler</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="performance.html"
+                          title="previous chapter">Performance</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="interactive_desktop.html"
+                          title="next chapter">Interactive session</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/usage/monitor.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="interactive_desktop.html" title="Interactive session"
+             >next</a></li>
+        <li class="right" >
+          <a href="performance.html" title="Performance"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Usage</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">CAPE’s debugger</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

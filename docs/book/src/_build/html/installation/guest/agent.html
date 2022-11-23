@@ -1,0 +1,177 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Installing the Agent &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Saving the Virtual Machine" href="saving.html" />
+    <link rel="prev" title="Network Configuration" href="network.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="saving.html" title="Saving the Virtual Machine"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="network.html" title="Network Configuration"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" accesskey="U">Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Installing the Agent</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="installing-the-agent">
+<h1>Installing the Agent<a class="headerlink" href="#installing-the-agent" title="Permalink to this headline">¶</a></h1>
+<p>The CAPE agent is designed to be cross-platform, therefore you should
+be able to use it on Windows as well as on Linux and OS X. To make
+CAPE work properly, you’ll have to install and start this agent on
+every guest.</p>
+<p>In the <em>agent/</em> directory you will find an <em>agent.py</em> file, just copy
+it to the Guest operating system (in whatever way you want, perhaps in
+a temporary shared folder, downloading it from a Host webserver, or
+mounting a CDROM containing the <em>agent.py</em> file) and run it. This will
+launch the HTTP server which will listen for connections.</p>
+<p>On Windows, if you simply launch the script, a Python window will be
+spawned, with a title similar to <code class="docutils literal notranslate"><span class="pre">C:\Windows\py.exe</span></code>. If you want to hide this window you can rename the file from
+<em>agent.py</em> to <strong>agent.pyw</strong> which will prevent the window from
+spawning upon launching the script.</p>
+<p>Don’t forget to test the agent before saving the snapshot. You can do it both navigating to <code class="docutils literal notranslate"><span class="pre">VM_IP:8000</span></code> with a browser from your Host or be executing: <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">VM_IP:8000</span></code>. You should see an output similar to the following:</p>
+<blockquote>
+<div><img alt="../../_images/running_agentpy_within_guest_0.png" class="align-center" src="../../_images/running_agentpy_within_guest_0.png" />
+<img alt="../../_images/running_agentpy_within_guest_1.png" class="align-center" src="../../_images/running_agentpy_within_guest_1.png" />
+</div></blockquote>
+<section id="prior-to-windows-10">
+<h2>Prior To Windows 10<a class="headerlink" href="#prior-to-windows-10" title="Permalink to this headline">¶</a></h2>
+<p>If you want the script to be launched at Windows’ boot, place the file
+in the admin startup folder. To access this folder, open the app
+launcher with <strong>Win+R</strong> and search for “shell:common startup” which
+will open the folder you want (usually
+<code class="docutils literal notranslate"><span class="pre">C:\ProgramData\Microsoft\Windows\Start</span> <span class="pre">Menu\Programs\StartUp</span></code>). Do
+not place the agent in the user startup folder (usually
+<code class="docutils literal notranslate"><span class="pre">C:\Users\&lt;Username&gt;\AppData\Roaming\Microsoft\Windows\Start</span>
+<span class="pre">Menu\Programs\Startup</span></code>) as it will launch the agent without admin
+privileges and therefore insufficient permissions resulting in the
+agent not being able to work as intended.</p>
+</section>
+<section id="windows-10">
+<h2>Windows 10+<a class="headerlink" href="#windows-10" title="Permalink to this headline">¶</a></h2>
+<p>To start the script at boot, you will need to set the agent to be run
+as a scheduler task. Dropping it in
+<code class="docutils literal notranslate"><span class="pre">C:\ProgramData\Microsoft\Windows\Start</span> <span class="pre">Menu\Programs\StartUp</span></code> will
+result in it being ran with improper privilege.</p>
+<ol class="arabic">
+<li><p>Open Windows menu (Win key) and search for <strong>Task Scheduler</strong>.</p></li>
+<li><p>Select <strong>Create Basic Task</strong> from the action list.</p>
+<img alt="../../_images/creating_task_scheduler_0.png" class="align-center" src="../../_images/creating_task_scheduler_0.png" />
+</li>
+<li><p>Give the task a name (for example <code class="docutils literal notranslate"><span class="pre">pizza.pyw</span></code>, the name is irrelevant as long as you don’t make any mention to CAPE or anything blatant for anti-VM detection algorithms) and click <strong>Next</strong>.</p></li>
+<li><p>Set the trigger as <strong>When I logon</strong> and click <strong>Next</strong>.</p></li>
+<li><p>In the <strong>Action</strong> window, select <strong>Start a program</strong> and click <strong>Next</strong>.</p></li>
+<li><p>In the <strong>Start a program</strong> window, select the path of the <em>agent.py</em>, and click <strong>Finish</strong>.</p></li>
+<li><p>After the task is created, click the <strong>Task Scheduler Library</strong> and
+find the one you just created. Right click on it and select
+<strong>Properties</strong>.</p>
+<img alt="../../_images/creating_task_scheduler_1.png" class="align-center" src="../../_images/creating_task_scheduler_1.png" />
+</li>
+<li><p>In the general tab tell it to <strong>Run with highest privileges</strong>.</p>
+<img alt="../../_images/creating_task_scheduler_2.png" class="align-center" src="../../_images/creating_task_scheduler_2.png" />
+</li>
+<li><p>Select <strong>OK</strong>.</p></li>
+</ol>
+<p>After that all is done, it will come up on the next restart/login.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Installing the Agent</a><ul>
+<li><a class="reference internal" href="#prior-to-windows-10">Prior To Windows 10</a></li>
+<li><a class="reference internal" href="#windows-10">Windows 10+</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="network.html"
+                          title="previous chapter">Network Configuration</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="saving.html"
+                          title="next chapter">Saving the Virtual Machine</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/installation/guest/agent.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="saving.html" title="Saving the Virtual Machine"
+             >next</a></li>
+        <li class="right" >
+          <a href="network.html" title="Network Configuration"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" >Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Installing the Agent</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

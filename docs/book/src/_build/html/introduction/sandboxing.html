@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Sandboxing &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="What is CAPE?" href="what.html" />
+    <link rel="prev" title="Introduction" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="what.html" title="What is CAPE?"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="index.html" title="Introduction"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Introduction</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Sandboxing</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="sandboxing">
+<h1>Sandboxing<a class="headerlink" href="#sandboxing" title="Permalink to this headline">¶</a></h1>
+<p>As defined by <a class="reference external" href="http://en.wikipedia.org/wiki/Sandbox_%28computer_security%29">Wikipedia</a>, “<em>in computer security, a sandbox is a security
+mechanism for separating running programs. It is often used to execute untested
+code, or untrusted programs from unverified third-parties, suppliers, untrusted
+users and untrusted websites.</em>”.</p>
+<p>This concept applies to malware analysis’ sandboxing too: our goal is to run an
+unknown and untrusted application or file inside an isolated environment and get
+information about what the file does.</p>
+<p>Malware sandboxing is a practical application of the dynamical analysis
+approach: instead of statically analyzing the binary file, it gets executed and
+monitored in real-time.</p>
+<p>This approach obviously has pros and cons, but it’s a valuable technique to
+obtain additional details on the malware, such as its network behavior.
+Therefore it’s a good practice to perform both static and dynamic analysis while
+inspecting a malware, to gain a deeper understanding of it.</p>
+<p>Simple as it is, CAPE is a tool that allows you to perform sandboxed malware
+analysis.</p>
+<section id="using-a-sandbox">
+<h2>Using a Sandbox<a class="headerlink" href="#using-a-sandbox" title="Permalink to this headline">¶</a></h2>
+<p>Before starting to install, configure and use CAPE, you should take some
+time to think about what you want to achieve with it and how.</p>
+<p>Some questions you should ask yourself:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>What kind of files do I want to analyze?</p></li>
+<li><p>What volume of analyses do I want to be able to handle?</p></li>
+<li><p>Which platform do I want to use to run my analysis?</p></li>
+<li><p>What kind of information do I want about the file?</p></li>
+</ul>
+</div></blockquote>
+<p>The creation of the isolated environment (the virtual machine) is probably the
+most critical and important part of a sandbox deployment: it should be done
+carefully and with proper planning.</p>
+<p>Before getting your hands on the virtualization product of your choice, you should
+already have a design plan that defines:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Which operating system, language, and patching level to use.</p></li>
+<li><p>Which software to install and which versions (particularly important when analyzing exploits).</p></li>
+</ul>
+</div></blockquote>
+<p>Consider that automated malware analysis is not deterministic and its success
+might depend on a trillion of factors: you are trying to make a malware run
+in a virtualized system as it would do on a native one, which could be tricky to
+achieve and may not always succeed.
+Your goal should be both to create a system able to handle all the requirements
+you need as well as try to make it as realistic as possible.</p>
+<p>For example, you could consider leaving some intentional traces of normal usage,
+such as browsing history, cookies, documents, images, etc. If a malware sample is
+designed to operate, manipulate or steal such files you’ll be able to notice it.</p>
+<p>Virtualized operating systems usually carry a lot of traces with them which makes
+them very easily detectable. Even if you shouldn’t overestimate this problem,
+you might want to take care of this and try to hide as many virtualization
+traces as possible.
+There is a lot of literature on the Internet regarding virtualization detection
+techniques and countermeasures.</p>
+<p>Once you finished designing and preparing the prototype of the system you want, you
+can proceed with creating and deploying it. You will be always in time to
+change things or slightly fix them, but remember that good planning at the
+beginning always means fewer troubles in the long run.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Sandboxing</a><ul>
+<li><a class="reference internal" href="#using-a-sandbox">Using a Sandbox</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">Introduction</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="what.html"
+                          title="next chapter">What is CAPE?</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/introduction/sandboxing.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="what.html" title="What is CAPE?"
+             >next</a></li>
+        <li class="right" >
+          <a href="index.html" title="Introduction"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Introduction</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Sandboxing</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

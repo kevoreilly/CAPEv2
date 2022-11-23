@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Preparing the Host &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Installing CAPE" href="installation.html" />
+    <link rel="prev" title="Installation" href="../index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="installation.html" title="Installing CAPE"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="../index.html" title="Installation"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Installation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Preparing the Host</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="preparing-the-host">
+<h1>Preparing the Host<a class="headerlink" href="#preparing-the-host" title="Permalink to this headline">¶</a></h1>
+<p>Even though it’s reported to run on other operating systems too, CAPE is
+originally supposed to run on a <em>GNU/Linux</em> native system.
+For this documentation, we chose the <strong>latest Ubuntu LTS</strong> as the
+reference system for the commands examples.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing CAPE</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#automated-installation-read-the-full-page-before-you-start">Automated installation, read the full page before you start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#to-install-cape">To install CAPE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#to-install-kvm">To install KVM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#to-install-dependencies">To install dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#attention-cape-user"><strong>ATTENTION!</strong> <code class="docutils literal notranslate"><span class="pre">cape</span></code> user</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#cuckoo-conf">cuckoo.conf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#auxiliary-conf">auxiliary.conf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#machinery-conf">&lt;machinery&gt;.conf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#memory-conf">memory.conf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#processing-conf">processing.conf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#reporting-conf">reporting.conf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#routing-conf">routing.conf</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#using-environment-variables-in-config-files">Using environment variables in config files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="routing.html">Per-Analysis Network Routing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="routing.html#per-analysis-network-routing-options">Per-Analysis Network Routing Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="routing.html#using-per-analysis-network-routing">Using Per-Analysis Network Routing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="routing.html#configuring-iproute2">Configuring iproute2</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="routing.html#none-routing">None Routing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="routing.html#drop-routing">Drop Routing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="routing.html#internet-routing">Internet Routing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="routing.html#inetsim-routing">InetSim Routing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="routing.html#tor-routing">Tor Routing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="routing.html#vpn-routing">VPN Routing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="routing.html#socks-routing">SOCKS Routing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cloud.html">Deploying CAPE in the Cloud</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cloud.html#azure">Azure</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cloud.html#resource-groups">Resource groups</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cloud.html#networking">Networking</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cloud.html#credential-management">Credential Management</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="../index.html"
+                          title="previous chapter">Installation</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="installation.html"
+                          title="next chapter">Installing CAPE</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/installation/host/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="installation.html" title="Installing CAPE"
+             >next</a></li>
+        <li class="right" >
+          <a href="../index.html" title="Installation"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Preparing the Host</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

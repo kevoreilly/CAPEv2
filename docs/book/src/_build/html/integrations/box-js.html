@@ -1,0 +1,213 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Box-js &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Development" href="../development/index.html" />
+    <link rel="prev" title="Integrations" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../development/index.html" title="Development"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="index.html" title="Integrations"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Integrations</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Box-js</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="box-js">
+<h1>Box-js<a class="headerlink" href="#box-js" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="../installation/host/installation.html#installation"><span class="std std-ref">Installing CAPE</span></a></p></li>
+<li><p><a class="reference internal" href="#preparation"><span class="std std-ref">Preparation</span></a></p></li>
+<li><p><a class="reference internal" href="#starting"><span class="std std-ref">Starting box-js rest-api</span></a></p></li>
+<li><p><a class="reference internal" href="#restapi"><span class="std std-ref">Box-js rest-api endpoints</span></a></p></li>
+</ul>
+<ul id="installation">
+<li><p>Quick and dirty notes on how to integrate box-js to CAPE:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+$ sudo apt install docker.io nodejs git
+$ sudo usermod -aG docker cape
+# newgrp docker
+$ docker run hello-world
+$ sudo npm install -g --save npm@latest core-util-is hapi rimraf express express-fileupload
+$ git clone https://github.com/kirk-sayre-work/box-js /opt/box-js
+$ cd /opt/box-js
+$ sudo npm audit fix --force
+</pre></div>
+</div>
+</li>
+</ul>
+<section id="preparation">
+<span id="id1"></span><h2>Preparation<a class="headerlink" href="#preparation" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p>We will leave <code class="docutils literal notranslate"><span class="pre">fixing</span> <span class="pre">and</span> <span class="pre">hardening</span> <span class="pre">of</span> <span class="pre">box-js</span> <span class="pre">for</span> <span class="pre">you</span></code>, here are just a few examples:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">USERNAME</span><span class="o">=</span><span class="s2">&quot;CAPE&quot;</span>
+<span class="n">IP</span><span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span>
+<span class="n">sudo</span> <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s2">&quot;s|</span><span class="se">\\\\</span><span class="s2">SYSOP1~1</span><span class="se">\\\\</span><span class="s2">|</span><span class="se">\\\\</span><span class="s2">$USERNAME</span><span class="se">\\\\</span><span class="s2">|g&quot;</span> <span class="n">emulator</span><span class="o">/</span><span class="n">WScriptShell</span><span class="o">.</span><span class="n">js</span>
+<span class="n">sudo</span> <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s2">&quot;s|</span><span class="se">\\\\</span><span class="s2">Sysop12</span><span class="se">\\\\</span><span class="s2">|</span><span class="se">\\\\</span><span class="s2">$USERNAME</span><span class="se">\\\\</span><span class="s2">|g&quot;</span> <span class="n">emulator</span><span class="o">/</span><span class="n">WScriptShell</span><span class="o">.</span><span class="n">js</span>
+<span class="n">sudo</span> <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s2">&quot;s|windows-xp|windows 7|g&quot;</span> <span class="n">emulator</span><span class="o">/</span><span class="n">WScriptShell</span><span class="o">.</span><span class="n">js</span> <span class="c1"># or 10 who knows</span>
+<span class="n">sudo</span> <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s2">&quot;s|</span><span class="se">\\\\</span><span class="s2">MyUsername</span><span class="se">\\\\</span><span class="s2">|</span><span class="se">\\\\</span><span class="s2">$USERNAME</span><span class="se">\\\\</span><span class="s2">|g&quot;</span> <span class="n">emulator</span><span class="o">/</span><span class="n">ShellApplication</span><span class="o">.</span><span class="n">js</span>
+<span class="n">sudo</span> <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s2">&quot;s|USER-PC|$USERNAME-PC|g&quot;</span> <span class="n">emulator</span><span class="o">/</span><span class="n">WMI</span><span class="o">.</span><span class="n">js</span>
+<span class="n">sudo</span> <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s2">&quot;s|Sysop12|$USERNAME|g&quot;</span> <span class="n">emulator</span><span class="o">/</span><span class="n">WMI</span><span class="o">.</span><span class="n">js</span>
+<span class="n">sudo</span> <span class="n">sed</span> <span class="o">-</span><span class="n">i</span> <span class="s2">&quot;s|127.0.0.1|$IP|g&quot;</span> <span class="n">integrations</span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">api</span><span class="o">.</span><span class="n">js</span>
+</pre></div>
+</div>
+</li>
+<li><p>replace <cite>emulator/processes.json</cite> with your own, you can use this to generate one:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ gwmi -Query &quot;SELECT * FROM Win32_Process&quot; &gt; a.txt
+$ tools/makeProcList.js
+</pre></div>
+</div>
+</li>
+<li><p>create a tar.gz with <code class="docutils literal notranslate"><span class="pre">tar</span> <span class="pre">-czvf</span> <span class="pre">master.tar.gz</span>&#160; <span class="pre">box-js-master/</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cd integrations/api/
+</pre></div>
+</div>
+</li>
+<li><p>replace Dockerfile with this content, required to run fixed/patched box-js inside of the Docker:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">FROM</span> <span class="n">node</span><span class="p">:</span><span class="mi">10</span><span class="o">-</span><span class="n">alpine</span>
+<span class="c1">#ENV http_proxy http://PROXY_IP:PORT</span>
+<span class="c1">#ENV https_proxy http://PROXY_IP:PORT</span>
+<span class="n">RUN</span> <span class="n">apk</span> <span class="n">update</span> <span class="o">&amp;&amp;</span> <span class="n">apk</span> <span class="n">upgrade</span>
+<span class="n">RUN</span> <span class="n">apk</span> <span class="n">add</span> <span class="o">--</span><span class="n">no</span><span class="o">-</span><span class="n">cache</span> <span class="n">bash</span> <span class="n">file</span> <span class="n">gcc</span> <span class="n">m4</span>
+<span class="n">RUN</span> <span class="n">apk</span> <span class="n">add</span> <span class="o">-</span><span class="n">U</span> <span class="o">--</span><span class="n">repository</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">dl</span><span class="o">-</span><span class="n">cdn</span><span class="o">.</span><span class="n">alpinelinux</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">alpine</span><span class="o">/</span><span class="n">edge</span><span class="o">/</span><span class="n">testing</span> <span class="n">aufs</span><span class="o">-</span><span class="n">util</span>
+<span class="c1"># Install the latest v1 of box-js</span>
+<span class="n">COPY</span> <span class="n">master</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span> <span class="o">/</span><span class="n">samples</span><span class="o">/</span>
+<span class="n">RUN</span> <span class="n">npm</span> <span class="n">install</span> <span class="o">/</span><span class="n">samples</span><span class="o">/</span><span class="n">master</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span> <span class="o">--</span><span class="k">global</span> <span class="o">--</span><span class="n">production</span>
+<span class="n">RUN</span> <span class="n">rm</span> <span class="o">/</span><span class="n">samples</span><span class="o">/</span><span class="n">master</span><span class="o">.</span><span class="n">tar</span><span class="o">.</span><span class="n">gz</span>
+<span class="n">WORKDIR</span> <span class="o">/</span><span class="n">samples</span>
+<span class="n">CMD</span> <span class="n">box</span><span class="o">-</span><span class="n">js</span> <span class="o">/</span><span class="n">samples</span> <span class="o">--</span><span class="n">output</span><span class="o">-</span><span class="nb">dir</span><span class="o">=/</span><span class="n">samples</span> <span class="o">--</span><span class="n">loglevel</span><span class="o">=</span><span class="n">debug</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</section>
+<section id="starting-box-js-rest-api">
+<span id="starting"></span><h2>Starting box-js rest-api<a class="headerlink" href="#starting-box-js-rest-api" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p>The default port is <code class="docutils literal notranslate"><span class="pre">9000</span></code> you can change it inside of api.py</p>
+<blockquote>
+<div><p>$ node api.js</p>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="box-js-rest-api-endpoints">
+<span id="restapi"></span><h2>Box-js rest-api endpoints<a class="headerlink" href="#box-js-rest-api-endpoints" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Check for box-js documentation</dt><dd><ul>
+<li><p><a class="reference external" href="https://github.com/kirk-sayre-work/box-js/tree/master/integrations#methods">https://github.com/kirk-sayre-work/box-js/tree/master/integrations#methods</a></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="sandbox-configuration">
+<h2>Sandbox configuration<a class="headerlink" href="#sandbox-configuration" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>In <code class="docutils literal notranslate"><span class="pre">conf/processing.conf</span></code> enable box-js and set correct url</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Box-js</a><ul>
+<li><a class="reference internal" href="#preparation">Preparation</a></li>
+<li><a class="reference internal" href="#starting-box-js-rest-api">Starting box-js rest-api</a></li>
+<li><a class="reference internal" href="#box-js-rest-api-endpoints">Box-js rest-api endpoints</a></li>
+<li><a class="reference internal" href="#sandbox-configuration">Sandbox configuration</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">Integrations</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="../development/index.html"
+                          title="next chapter">Development</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/integrations/box-js.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../development/index.html" title="Development"
+             >next</a></li>
+        <li class="right" >
+          <a href="index.html" title="Integrations"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Integrations</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Box-js</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

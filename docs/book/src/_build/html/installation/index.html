@@ -1,0 +1,246 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Installation &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Preparing the Host" href="host/index.html" />
+    <link rel="prev" title="License" href="../introduction/license.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="host/index.html" title="Preparing the Host"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="../introduction/license.html" title="License"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Installation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<p>This chapter explains how to install CAPE.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This documentation refers to <em>Host</em> as the underlying operating system on
+which you are running CAPE (generally being a GNU/Linux distribution) and
+to <em>Guest</em> as the Windows virtual machine used to run the isolated analysis.</p>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="host/index.html">Preparing the Host</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="host/installation.html">Installing CAPE</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="host/installation.html#automated-installation-read-the-full-page-before-you-start">Automated installation, read the full page before you start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/installation.html#to-install-cape">To install CAPE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/installation.html#to-install-kvm">To install KVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/installation.html#to-install-dependencies">To install dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="host/installation.html#attention-cape-user"><strong>ATTENTION!</strong> <code class="docutils literal notranslate"><span class="pre">cape</span></code> user</a></li>
+<li class="toctree-l2"><a class="reference internal" href="host/configuration.html">Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="host/configuration.html#cuckoo-conf">cuckoo.conf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/configuration.html#auxiliary-conf">auxiliary.conf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/configuration.html#machinery-conf">&lt;machinery&gt;.conf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/configuration.html#memory-conf">memory.conf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/configuration.html#processing-conf">processing.conf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/configuration.html#reporting-conf">reporting.conf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/configuration.html#routing-conf">routing.conf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/configuration.html#using-environment-variables-in-config-files">Using environment variables in config files</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="host/routing.html">Per-Analysis Network Routing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="host/routing.html#per-analysis-network-routing-options">Per-Analysis Network Routing Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/routing.html#using-per-analysis-network-routing">Using Per-Analysis Network Routing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="host/routing.html#configuring-iproute2">Configuring iproute2</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="host/routing.html#none-routing">None Routing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="host/routing.html#drop-routing">Drop Routing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="host/routing.html#internet-routing">Internet Routing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="host/routing.html#inetsim-routing">InetSim Routing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="host/routing.html#tor-routing">Tor Routing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="host/routing.html#vpn-routing">VPN Routing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="host/routing.html#socks-routing">SOCKS Routing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="host/cloud.html">Deploying CAPE in the Cloud</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="host/cloud.html#azure">Azure</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="host/cloud.html#resource-groups">Resource groups</a></li>
+<li class="toctree-l4"><a class="reference internal" href="host/cloud.html#networking">Networking</a></li>
+<li class="toctree-l4"><a class="reference internal" href="host/cloud.html#credential-management">Credential Management</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guest/index.html">Preparing the Guest</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guest/creation.html">Creation of the Virtual Machine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guest/requirements.html">Requirements</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest/requirements.html#install-python">Install Python</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/requirements.html#additional-software">Additional Software</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guest/network.html">Network Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#windows-settings">Windows Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#windows-10">Windows 10</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#windows-xp">Windows XP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#virtual-networking">Virtual Networking</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#creating-an-isolated-network">Creating an isolated network</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#setting-a-static-ip">Setting a static IP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#disable-noisy-network-services">Disable Noisy Network Services</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#teredo">Teredo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#link-local-multicast-name-resolution-llmnr">Link Local Multicast Name Resolution (LLMNR)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#gpedit-msc-missing"><code class="docutils literal notranslate"><span class="pre">gpedit.msc</span></code> missing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/network.html#network-connectivity-status-indicator-error-reporting-etc">Network Connectivity Status Indicator, Error Reporting, etc</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guest/agent.html">Installing the Agent</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest/agent.html#prior-to-windows-10">Prior To Windows 10</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/agent.html#windows-10">Windows 10+</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guest/configuration.html">Additional Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest/configuration.html#disable-microsoft-store">Disable Microsoft Store</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/configuration.html#reduce-overall-noise">Reduce Overall Noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/configuration.html#windows-10">Windows 10+</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guest/saving.html">Saving the Virtual Machine</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest/saving.html#kvm">KVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/saving.html#virtualbox">VirtualBox</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/saving.html#vmware-workstation">VMware Workstation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/saving.html#xenserver">XenServer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="guest/saving.html#memory-snapshots">Memory Snapshots</a></li>
+<li class="toctree-l4"><a class="reference internal" href="guest/saving.html#booting-from-disk">Booting from Disk</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="guest/saving.html#azure">Azure</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guest/cloning.html">Cloning the Virtual Machine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guest/linux.html">Installing the Linux guest</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest/linux.html#preparing-x32-x64-linux-guests">Preparing x32/x64 Linux guests</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="guest/linux.html#x32-guests">x32 guests</a></li>
+<li class="toctree-l4"><a class="reference internal" href="guest/linux.html#x64-guests">x64 guests</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guest_physical/index.html">Preparing the Guest (Physical Machine)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guest_physical/creation.html">Creation of the Physical Machine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guest_physical/requirements.html">Requirements</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest_physical/requirements.html#install-python">Install Python</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest_physical/requirements.html#additional-software">Additional Software</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest_physical/requirements.html#additional-host-requirements">Additional Host Requirements</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guest_physical/network.html">Network Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest_physical/network.html#windows-settings">Windows Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest_physical/network.html#networking">Networking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guest/agent.html">Installing the Agent</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest/agent.html#prior-to-windows-10">Prior To Windows 10</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guest/agent.html#windows-10">Windows 10+</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guest_physical/saving.html">Saving the Guest</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="guest_physical/saving.html#fog">Fog</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="upgrade.html">Upgrade from a previous release</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="upgrade.html#upgrade-starting-from-scratch">Upgrade starting from scratch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrade.html#migrate-your-cape">Migrate your CAPE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="upgrade.html#python-library-upgrades">Python library upgrades:</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="../introduction/license.html"
+                          title="previous chapter">License</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="host/index.html"
+                          title="next chapter">Preparing the Host</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/installation/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="host/index.html" title="Preparing the Host"
+             >next</a></li>
+        <li class="right" >
+          <a href="../introduction/license.html" title="License"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Installation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

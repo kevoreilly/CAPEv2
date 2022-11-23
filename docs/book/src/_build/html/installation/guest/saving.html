@@ -1,0 +1,330 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Saving the Virtual Machine &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Cloning the Virtual Machine" href="cloning.html" />
+    <link rel="prev" title="Installing the Agent" href="agent.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="cloning.html" title="Cloning the Virtual Machine"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="agent.html" title="Installing the Agent"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" accesskey="U">Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Saving the Virtual Machine</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="saving-the-virtual-machine">
+<h1>Saving the Virtual Machine<a class="headerlink" href="#saving-the-virtual-machine" title="Permalink to this headline">¶</a></h1>
+<p>Now you should be ready to save the virtual machine to a snapshot state.</p>
+<p>Before doing this, <strong>make sure that you have rebooted the guest softly and that it’s currently
+running, with CAPE’s agent running and with Windows fully booted</strong>.</p>
+<p>Now you can proceed with saving the machine, which depends on
+the virtualization software that you decided to use.</p>
+<p>The virtualization software-specific instructions found below can assist with getting the virtual
+machine ready to be used by CAPE.</p>
+<section id="kvm">
+<h2>KVM<a class="headerlink" href="#kvm" title="Permalink to this headline">¶</a></h2>
+<p>Here are some helpful links for creating a virtual machine with <code class="docutils literal notranslate"><span class="pre">virt-manager</span></code>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference external" href="https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html">Create a virtual machine with virt-manager aka GUI client</a></p></li>
+<li><p><a class="reference external" href="https://www.doomedraven.com/2016/05/kvm.html#modifying-kvm-qemu-kvm-settings-for-malware-analysis">Advanced KVM preparation for malware analysis</a></p></li>
+</ul>
+</div></blockquote>
+<p>If you have decided to adopt KVM, you must use a disk format for
+your virtual machines that supports snapshots.
+By default, <code class="docutils literal notranslate"><span class="pre">libvirt</span></code> tools create RAW virtual disks, and since we need snapshots
+you’ll have to use either QCOW2 or LVM. For the scope of this guide, we adopt QCOW2,
+since it is easier to set up than LVM.</p>
+<p>The easiest way to create such a virtual disk is by using the tools
+provided by the <code class="docutils literal notranslate"><span class="pre">libvirt</span></code> suite. You can either use <code class="docutils literal notranslate"><span class="pre">virsh</span></code> if you prefer
+command-line interfaces or <code class="docutils literal notranslate"><span class="pre">virt-manager</span></code> for a nice GUI.
+You should be able to directly create the virtual disk in the QCOW2 format, but in case you have
+a RAW disk you can convert it like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cd /your/disk/image/path
+$ qemu-img convert -O qcow2 your_disk.raw your_disk.qcow2
+</pre></div>
+</div>
+<p>Now edit your VM definition as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ virsh edit &quot;&lt;Name of VM&gt;&quot;
+</pre></div>
+</div>
+<p>Find the disk section, which looks like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">disk</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;file&#39;</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;disk&#39;</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="n">driver</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;qemu&#39;</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;raw&#39;</span><span class="o">/&gt;</span>
+    <span class="o">&lt;</span><span class="n">source</span> <span class="n">file</span><span class="o">=</span><span class="s1">&#39;/your/disk/image/path/your_disk.raw&#39;</span><span class="o">/&gt;</span>
+    <span class="o">&lt;</span><span class="n">target</span> <span class="n">dev</span><span class="o">=</span><span class="s1">&#39;hda&#39;</span> <span class="n">bus</span><span class="o">=</span><span class="s1">&#39;ide&#39;</span><span class="o">/&gt;</span>
+    <span class="o">&lt;</span><span class="n">address</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;drive&#39;</span> <span class="n">controller</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="n">bus</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;0&#39;</span><span class="o">/&gt;</span>
+<span class="o">&lt;/</span><span class="n">disk</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>And change “type” to qcow2 and “source file” to your qcow2 disk image path, like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">disk</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;file&#39;</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;disk&#39;</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="n">driver</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;qemu&#39;</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;qcow2&#39;</span><span class="o">/&gt;</span>
+    <span class="o">&lt;</span><span class="n">source</span> <span class="n">file</span><span class="o">=</span><span class="s1">&#39;/your/disk/image/path/your_disk.qcow2&#39;</span><span class="o">/&gt;</span>
+    <span class="o">&lt;</span><span class="n">target</span> <span class="n">dev</span><span class="o">=</span><span class="s1">&#39;hda&#39;</span> <span class="n">bus</span><span class="o">=</span><span class="s1">&#39;ide&#39;</span><span class="o">/&gt;</span>
+    <span class="o">&lt;</span><span class="n">address</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;drive&#39;</span> <span class="n">controller</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="n">bus</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;0&#39;</span><span class="o">/&gt;</span>
+<span class="o">&lt;/</span><span class="n">disk</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>KVM by default will pass through a feature flag, viewable in ECX as the 31st bit
+after executing the CPUID instruction with EAX set to 1. Some malware will use this
+unprivileged instruction to detect its execution in a VM. One way to avoid this is to modify
+your VM definition as follows:  find the following line:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">domain</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;kvm&#39;</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>Change it to:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">domain</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;kvm&#39;</span> <span class="n">xmlns</span><span class="p">:</span><span class="n">qemu</span><span class="o">=</span><span class="s1">&#39;http://libvirt.org/schemas/domain/qemu/1.0&#39;</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>Then within the domain element, add the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">qemu</span><span class="p">:</span><span class="n">commandline</span><span class="o">&gt;</span>
+  <span class="o">&lt;</span><span class="n">qemu</span><span class="p">:</span><span class="n">arg</span> <span class="n">value</span><span class="o">=</span><span class="s1">&#39;-cpu&#39;</span><span class="o">/&gt;</span>
+  <span class="o">&lt;</span><span class="n">qemu</span><span class="p">:</span><span class="n">arg</span> <span class="n">value</span><span class="o">=</span><span class="s1">&#39;host,-hypervisor&#39;</span><span class="o">/&gt;</span>
+<span class="o">&lt;/</span><span class="n">qemu</span><span class="p">:</span><span class="n">commandline</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>Instead of using “host”, you can also choose from multiple other CPU models from the
+list displayed with the <code class="docutils literal notranslate"><span class="pre">qemu-system-i386</span> <span class="pre">-cpu</span> <span class="pre">help</span></code> command (SandyBridge, Haswell, etc).</p>
+<p>Now test your virtual machine. If everything works, prepare it for snapshotting while
+running CAPE’s agent. This means the virtual machine needs to be running
+when you take the snapshot.
+You can take a snapshot with the following command via <code class="docutils literal notranslate"><span class="pre">virsh</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ virsh snapshot-create &quot;&lt;Name of VM&gt;&quot;
+$ virsh snapshot-create-as --domain &quot;&lt;Name of VM&gt;&quot; --name &quot;&lt;Name of snapshot&gt;&quot;
+</pre></div>
+</div>
+<p>After snapshotting the guest, you can shut it down.</p>
+<blockquote>
+<div><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Having multiple snapshots can cause errors such as:</p>
+<p><code class="docutils literal notranslate"><span class="pre">ERROR:</span> <span class="pre">No</span> <span class="pre">snapshot</span> <span class="pre">found</span> <span class="pre">for</span> <span class="pre">virtual</span> <span class="pre">machine</span> <span class="pre">&lt;VM-Name&gt;</span></code></p>
+<p>VM snapshots can be managed using the following commands.</p>
+<blockquote>
+<div><p>$ virsh snapshot-list “&lt;VM-Name&gt;”</p>
+<p>$ virsh snapshot-delete “&lt;VM-Name&gt;” “&lt;Snapshot-Name&gt;””</p>
+</div></blockquote>
+</div>
+</div></blockquote>
+</section>
+<section id="virtualbox">
+<h2>VirtualBox<a class="headerlink" href="#virtualbox" title="Permalink to this headline">¶</a></h2>
+<p>If you are going for VirtualBox you can take the snapshot from the graphical user
+interface or the command line:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ VBoxManage snapshot &quot;&lt;Name of VM&gt;&quot; take &quot;&lt;Name of snapshot&gt;&quot; --pause
+</pre></div>
+</div>
+<p>After the snapshot creation is completed, you can power off the machine and
+restore it:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ VBoxManage controlvm &quot;&lt;Name of VM&gt;&quot; poweroff
+$ VBoxManage snapshot &quot;&lt;Name of VM&gt;&quot; restorecurrent
+</pre></div>
+</div>
+</section>
+<section id="vmware-workstation">
+<h2>VMware Workstation<a class="headerlink" href="#vmware-workstation" title="Permalink to this headline">¶</a></h2>
+<p>If you decided to adopt VMware Workstation, you can take the snapshot from the graphical user
+interface or the command line:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ vmrun snapshot &quot;/your/disk/image/path/wmware_image_name.vmx&quot; your_snapshot_name
+</pre></div>
+</div>
+<p>Where your_snapshot_name is the name you choose for the snapshot.
+After that power off the machine from the GUI or the command line:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ vmrun stop &quot;/your/disk/image/path/wmware_image_name.vmx&quot; hard
+</pre></div>
+</div>
+</section>
+<section id="xenserver">
+<h2>XenServer<a class="headerlink" href="#xenserver" title="Permalink to this headline">¶</a></h2>
+<p>If you decided to adopt XenServer, the XenServer machinery supports starting
+virtual machines from either disk or a memory snapshot. Creating and reverting
+memory snapshots require that the Xen guest tools be installed in the
+virtual machine. The recommended method of booting XenServer virtual machines is
+through memory snapshots because they can greatly reduce the boot time of
+virtual machines during analysis. If, however, the option of installing the
+guest tools is not available, the virtual machine can be configured to have its
+disks reset on boot. Resetting the disk ensures that malware samples cannot
+permanently modify the virtual machine.</p>
+<section id="memory-snapshots">
+<h3>Memory Snapshots<a class="headerlink" href="#memory-snapshots" title="Permalink to this headline">¶</a></h3>
+<p>The Xen guest tools can be installed from the XenCenter application that ships
+with XenServer. Once installed, restart the virtual machine and ensure that the
+CAPE agent is running.</p>
+<p>Snapshots can be taken through the XenCenter application and the command line
+interface on the control domain (Dom0). When creating the snapshot from
+XenCenter, ensure that the “Snapshot disk and memory” is checked. Once created,
+right-click on the snapshot and note the snapshot UUID.</p>
+<p>To snapshot from the command line interface, run the following command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ xe vm-checkpoint vm=&quot;vm_uuid_or_name&quot; new-name-label=&quot;Snapshot Name/Description&quot;
+</pre></div>
+</div>
+<p>The snapshot UUID is printed to the screen once the command completes.</p>
+<p>Regardless of how the snapshot was created, save the UUID in the virtual
+machine’s configuration section. Once the snapshot has been created, you can
+shut down the virtual machine.</p>
+</section>
+<section id="booting-from-disk">
+<h3>Booting from Disk<a class="headerlink" href="#booting-from-disk" title="Permalink to this headline">¶</a></h3>
+<p>If you can’t install the Xen guest tools or if you don’t need to use memory
+snapshots, you will need to ensure that the virtual machine’s disks are reset on
+boot and that the CAPE agent is set to run at boot time.</p>
+<p>Running the agent at boot time can be configured in Windows by adding a startup
+item for the agent.</p>
+<p>The following commands must be run while the virtual machine is powered off.</p>
+<p>To set the virtual machine’s disks to reset on boot, you’ll first need to list
+all the attached disks for the virtual machine. To list all attached disks, run
+the following command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ xe vm-disk-list vm=&quot;vm_name_or_uuid&quot;
+</pre></div>
+</div>
+<p>Ignoring all CD-ROM and read-only disks, run the following command for each
+remaining disk to change its behavior to reset on boot:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ xe vdi-param-set uuid=&quot;vdi_uuid&quot; on-boot=reset
+</pre></div>
+</div>
+<p>After the disk is set to reset on boot, no permanent changes can be made to the
+virtual machine’s disk. Modifications that occur while a virtual machine is
+running will not persist past shutdown.</p>
+</section>
+</section>
+<section id="azure">
+<h2>Azure<a class="headerlink" href="#azure" title="Permalink to this headline">¶</a></h2>
+<p>Once you have a virtual machine that is ready to be your golden image for a
+virtual machine scale set, take a snapshot of the virtual machine’s disk.</p>
+<p>Official documentation on how to do this: <a class="reference external" href="https://docs.microsoft.com/en-us/azure/virtual-machines/snapshot-copy-managed-disk?tabs=portal">Create a snapshot of a virtual hard disk</a></p>
+<p>We are now going to turn this snapshot into an “image”, which is the terminology
+Azure uses as the base for all virtual machines in a scale set.</p>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>Create a Compute Gallery resource.</dt><dd><ol class="loweralpha simple">
+<li><p><a class="reference external" href="https://docs.microsoft.com/en-us/azure/virtual-machines/create-gallery?tabs=portal%2Ccli2">Create a gallery for storing and sharing resources</a></p></li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Create an Image Definition in this Compute Gallery.</dt><dd><ol class="loweralpha simple">
+<li><p><a class="reference external" href="https://docs.microsoft.com/en-us/azure/virtual-machines/image-version?tabs=portal">Create an image definition and an image version</a></p></li>
+<li><p>Operating System state must be SPECIALIZED</p></li>
+<li><p>Create an Image Version, and select “Disks and/or snapshots” as the Source.</p></li>
+<li><p>Select the snapshot of the golden image.</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+</ol>
+<p>The creation of an image from a snapshot takes a while, so be patient.</p>
+<p>In the <code class="docutils literal notranslate"><span class="pre">az.conf</span></code> file, you will need to specify the Compute Gallery Name as well as
+the Image Definition Name.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Saving the Virtual Machine</a><ul>
+<li><a class="reference internal" href="#kvm">KVM</a></li>
+<li><a class="reference internal" href="#virtualbox">VirtualBox</a></li>
+<li><a class="reference internal" href="#vmware-workstation">VMware Workstation</a></li>
+<li><a class="reference internal" href="#xenserver">XenServer</a><ul>
+<li><a class="reference internal" href="#memory-snapshots">Memory Snapshots</a></li>
+<li><a class="reference internal" href="#booting-from-disk">Booting from Disk</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#azure">Azure</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="agent.html"
+                          title="previous chapter">Installing the Agent</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="cloning.html"
+                          title="next chapter">Cloning the Virtual Machine</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/installation/guest/saving.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="cloning.html" title="Cloning the Virtual Machine"
+             >next</a></li>
+        <li class="right" >
+          <a href="agent.html" title="Installing the Agent"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" >Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Saving the Virtual Machine</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

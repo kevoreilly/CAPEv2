@@ -1,0 +1,406 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Analysis Packages &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Analysis Results" href="results.html" />
+    <link rel="prev" title="Distributed CAPE" href="dist.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="results.html" title="Analysis Results"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="dist.html" title="Distributed CAPE"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Usage</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Analysis Packages</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="analysis-packages">
+<h1>Analysis Packages<a class="headerlink" href="#analysis-packages" title="Permalink to this headline">¶</a></h1>
+<p>The <strong>analysis packages</strong> are a core component of CAPE Sandbox.
+They consist of structured Python classes that, when executed in the guest machines,
+describe how CAPE’s analyzer component should conduct the analysis.</p>
+<p>CAPE provides some default analysis packages that you can use, but you can
+create your own or modify the existing ones.
+You can find them at <em>analyzer/windows/modules/packages/</em>.</p>
+<p>As described in <a class="reference internal" href="submit.html"><span class="doc">Submit an Analysis</span></a>, you can specify some options to the
+analysis packages in the form of <code class="docutils literal notranslate"><span class="pre">key1=value1,key2=value2</span></code>. The existing analysis
+packages already include some default options that can be enabled.</p>
+<p>The following is a list of the existing packages in alphabetical order:</p>
+<blockquote>
+<div><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>PROBABLY outdated, see  code for more details</p>
+</div>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">applet</span></code>: used to analyze <strong>Java applets</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">class</span></code>: specify the name of the class to be executed. This option is mandatory for correct execution.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">archive</span></code>: used to run and analyze <strong>archives such as ISO, VHD and anything else that 7-Zip can extract</strong>.</p>
+<blockquote>
+<div><p>Explanation how it works can be found here <a class="reference external" href="https://youtu.be/-70Mlkmtdds?t=13013">cccs_talk</a>.</p>
+<p><em>NB</em>: Passing <code class="docutils literal notranslate"><span class="pre">file=</span></code> as a task option will ensure that the entire archive is passed to the victim VM and extracted there,
+prior to executing files of interest within in the extracted folder.</p>
+<dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">file</span></code>: specify the name of the file contained in the archive to execute. If none is specified, CAPE will try to execute <em>sample.exe</em>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">password</span></code>: specify the password of the archive. If none is specified, CAPE will try to extract the archive without password or use the password “<em>infected</em>”.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bin</span></code>: used to analyze generic binary data, such as <strong>shellcodes</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cpl</span></code>: used to analyze <strong>Control Panel Applets</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: used to run and analyze <strong>Dynamically Linked Libraries</strong>.</p>
+<blockquote>
+<div><dl>
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">function</span></code>: specify the function to be executed. If none is specified, CAPE will try to run all available functions,</p></li>
+</ul>
+<p>up to the limit found in the <cite>max_dll_exports</cite> task option.
+* <code class="docutils literal notranslate"><span class="pre">arguments</span></code>: specify arguments to pass to the DLL through commandline.
+* <code class="docutils literal notranslate"><span class="pre">dllloader</span></code>: specify a process name to use to fake the DLL launcher name instead of rundll32.exe (this is used to fool possible anti-sandboxing tricks of certain malware)
+* <code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.
+* <code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.
+* <code class="docutils literal notranslate"><span class="pre">enable_mutli</span></code> <em>[yes/no, true/false, on/off]</em>: if enabled, multiple functions can be run.
+* <code class="docutils literal notranslate"><span class="pre">use_export_name</span></code> <em>[yes/no, true/false, on/off]</em>: if enabled, functions will be run by name rather than by ordinal number.
+* <code class="docutils literal notranslate"><span class="pre">max_dll_exports</span></code>: A positive integer, representing how many functions you wish to execute. <cite>enable_mutli</cite> must be enabled.</p>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">doc</span></code>: used to run and analyze <strong>Microsoft Word documents</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">exe</span></code>: default analysis package used to analyze generic <strong>Windows executables</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">arguments</span></code>: specify any command line argument to pass to the initial process of the submitted malware.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">generic</span></code>: used to run and analyze <strong>generic samples</strong> via cmd.exe.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">html</span></code>: used to analyze <strong>Internet Explorer</strong>’s behavior when opening the given HTML file.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ie</span></code>: used to analyze <strong>Internet Explorer</strong>’s behavior when opening the given URL.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">jar</span></code>: used to analyze <strong>Java JAR</strong> containers.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">class</span></code>: specify the path of the class to be executed. If none is specified, Cuckoo will try to execute the main function specified in the Jar’s MANIFEST file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">msi</span></code>: used to run and analyze <strong>MSI windows installer</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pdf</span></code>: used to run and analyze <strong>PDF documents</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ppt</span></code>: used to run and analyze <strong>Microsoft PowerPoint documents</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ps1</span></code>: used to run and analyze <strong>PowerShell scripts</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">python</span></code>: used to run and analyze <strong>Python scripts</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">vbs</span></code>: used to run and analyze <strong>VBScript files</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">xls</span></code>: used to run and analyze <strong>Microsoft Excel documents</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zip</span></code>: used to run and analyze <strong>Zip archives</strong>.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">file</span></code>: specify the name of the file contained in the archive to execute. If none is specified, CAPE will try to execute <em>sample.exe</em>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">free</span></code> <em>[yes/no]</em>: if enabled, no behavioral logs will be produced and the malware will be executed freely.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">arguments</span></code>: specify any command line argument to pass to the initial process of the submitted malware.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">password</span></code>: specify the password of the archive. If none is specified, CAPE will try to extract the archive without password or use the password “<em>infected</em>”.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procmemdump</span></code> <em>[yes/no]</em>: if enabled, take memory dumps of all actively monitored processes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dll</span></code>: specify the name of an optional DLL to be used as a replacement for capemon.dll.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zip_compound</span></code>: used to run and analyze <strong>Zip archives</strong> with more specific settings.</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>Options</strong>:</dt><dd><ul class="simple">
+<li><p>Similar settings as <code class="docutils literal notranslate"><span class="pre">zip</span></code> package</p></li>
+<li><p>Either <code class="docutils literal notranslate"><span class="pre">file</span></code> option must be set, or a __configuration.json file must be present in the zip file.</p></li>
+<li><p>Sample json file:</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="nt">&quot;path_to_extract&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;a.exe&quot;</span><span class="p">:</span> <span class="s2">&quot;%USERPROFILE%\\Desktop\\a\\b\\c&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;folder_b&quot;</span><span class="p">:</span> <span class="s2">&quot;%appdata%&quot;</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;target_file&quot;</span><span class="p">:</span><span class="s2">&quot;a.exe&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>You can find more details on how to start creating analysis packages in the
+<a class="reference internal" href="../customization/packages.html"><span class="doc">Analysis Packages</span></a> customization chapter.</p>
+<p>As you already know, you can select which analysis package to use by specifying
+its name at submission time (see <a class="reference internal" href="submit.html"><span class="doc">Submit an Analysis</span></a>) as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ./utils/submit.py --package &lt;package name&gt; /path/to/malware
+</pre></div>
+</div>
+<p>If no package is specified, CAPE will try to detect the file type and select
+the correct analysis package accordingly. If the file type is not supported by
+default, the analysis will be aborted. Therefore we encourage to
+specify the package name whenever possible.</p>
+<p>For example, to launch a malware sample and specify some options you can do:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ./utils/submit.py --package dll --options function=FunctionName,loader=explorer.exe /path/to/malware.dll
+</pre></div>
+</div>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="dist.html"
+                          title="previous chapter">Distributed CAPE</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="results.html"
+                          title="next chapter">Analysis Results</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/usage/packages.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="results.html" title="Analysis Results"
+             >next</a></li>
+        <li class="right" >
+          <a href="dist.html" title="Distributed CAPE"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Usage</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Analysis Packages</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,666 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Signatures &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Reporting Modules" href="reporting.html" />
+    <link rel="prev" title="Processing Modules" href="processing.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="reporting.html" title="Reporting Modules"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="processing.html" title="Processing Modules"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Customization</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Signatures</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="signatures">
+<h1>Signatures<a class="headerlink" href="#signatures" title="Permalink to this headline">¶</a></h1>
+<p>By taking advantage of CAPE’s customizability, you can write signatures which will then
+by run against analysis results. These signatures can be used to identify a predefined
+pattern that represents a malicious behavior or an indicator that you’re interested in.</p>
+<p>These signatures are very useful to give context to the analyses. They
+simplify the interpretation of the results and assist with automatically identifying
+malware samples of interest.</p>
+<dl class="simple">
+<dt>A few examples of what you can use CAPE’s signatures for are:</dt><dd><ul class="simple">
+<li><p>Identify a particular malware family that you’re interested in, by isolating unique behaviors (like file names or mutexes).</p></li>
+<li><p>Spot interesting modifications that the malware performs on the system, such as the installation of device drivers.</p></li>
+<li><p>Identify particular malware categories, such as Banking Trojans or Ransomware, by isolating typical actions that are commonly performed by these categories.</p></li>
+</ul>
+</dd>
+</dl>
+<p>You can find signatures created by the CAPE administrators and other CAPE users on the <a class="reference external" href="https://github.com/kevoreilly/community">Community</a> repository.</p>
+<section id="getting-started">
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<p>Creating a signature is a very simple process but requires a decent
+understanding of Python programming.</p>
+<p>First things first, all signatures must be located inside the <em>modules/signatures/</em> directory.</p>
+<p>The following is a basic example signature:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Signature</span>
+<span class="linenos"> 2</span>
+<span class="linenos"> 3</span><span class="k">class</span> <span class="nc">CreatesExe</span><span class="p">(</span><span class="n">Signature</span><span class="p">):</span>
+<span class="linenos"> 4</span>    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;creates_exe&quot;</span>
+<span class="linenos"> 5</span>    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Creates a Windows executable on the filesystem&quot;</span>
+<span class="linenos"> 6</span>    <span class="n">severity</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="linenos"> 7</span>    <span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;generic&quot;</span><span class="p">]</span>
+<span class="linenos"> 8</span>    <span class="n">authors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CAPE Developers&quot;</span><span class="p">]</span>
+<span class="linenos"> 9</span>    <span class="n">minimum</span> <span class="o">=</span> <span class="s2">&quot;0.5&quot;</span>
+<span class="linenos">10</span>
+<span class="linenos">11</span>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">12</span>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_file</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;.*</span><span class="se">\\</span><span class="s2">.exe$&quot;</span><span class="p">,</span>
+<span class="linenos">13</span>                               <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>As you can see the structure of the signature is really simple and consistent with the other CAPE
+modules. Note that on line <strong>12</strong> a helper function is used. These helper functions
+assist with signature-writing and we highly recommend becoming familiar with what helper functions are
+available to you (found in the
+[Signature class](<a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/common/abstracts.py">https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/common/abstracts.py</a>))
+before you start writing signatures. Some documentation for <a class="reference internal" href="#helpers"><span class="std std-ref">Helpers</span></a> can be found below.</p>
+<p>In the example above, the helper function is used to walk through all of the accessed files in the summary and check
+if there are any files ending with “<em>.exe</em>”. If there is at least one, then the helper function will return <code class="docutils literal notranslate"><span class="pre">True</span></code>;</p>
+<blockquote>
+<div><p>otherwise it will return <code class="docutils literal notranslate"><span class="pre">False</span></code>. When a signature returns True, that means that the signature matched.</p>
+</div></blockquote>
+<p>If the signature matches, a new entry in the “signatures” section will be added to
+the <strong>global container</strong> <cite>self.results</cite> as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;signatures&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Creates a Windows executable on the filesystem&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;alert&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+        <span class="s2">&quot;references&quot;</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;file_name&quot;</span><span class="p">:</span> <span class="s2">&quot;C:</span><span class="se">\\</span><span class="s2">d.exe&quot;</span>
+            <span class="p">}</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;creates_exe&quot;</span>
+    <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>We could rewrite the exact same signature by accessing the <strong>global container</strong>
+directly, rather than through the helper function <cite>check_file</cite>:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Signature</span>
+<span class="linenos"> 2</span>
+<span class="linenos"> 3</span><span class="k">class</span> <span class="nc">CreatesExe</span><span class="p">(</span><span class="n">Signature</span><span class="p">):</span>
+<span class="linenos"> 4</span>    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;creates_exe&quot;</span>
+<span class="linenos"> 5</span>    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Creates a Windows executable on the filesystem&quot;</span>
+<span class="linenos"> 6</span>    <span class="n">severity</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="linenos"> 7</span>    <span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;generic&quot;</span><span class="p">]</span>
+<span class="linenos"> 8</span>    <span class="n">authors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Cuckoo Developers&quot;</span><span class="p">]</span>
+<span class="linenos"> 9</span>    <span class="n">minimum</span> <span class="o">=</span> <span class="s2">&quot;0.5&quot;</span>
+<span class="linenos">10</span>
+<span class="linenos">11</span>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">12</span>        <span class="k">for</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;behavior&quot;</span><span class="p">][</span><span class="s2">&quot;summary&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">]:</span>
+<span class="linenos">13</span>            <span class="k">if</span> <span class="n">file_path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.exe&quot;</span><span class="p">):</span>
+<span class="linenos">14</span>                <span class="k">return</span> <span class="kc">True</span>
+<span class="linenos">15</span>
+<span class="linenos">16</span>        <span class="k">return</span> <span class="kc">False</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>If you access the <strong>global container</strong> directly, you must know its structure,
+which can be observed in the JSON report of your analyses.</p>
+</section>
+<section id="creating-your-new-signature">
+<h2>Creating your new signature<a class="headerlink" href="#creating-your-new-signature" title="Permalink to this headline">¶</a></h2>
+<p>To help you better understand the process of creating a signature, we
+are going to create a very simple one together and walk through the steps and
+the available options. For this purpose, we’re going to create a
+signature that checks whether the malware analyzed opens a mutex named
+“i_am_a_malware”.</p>
+<p>The first thing to do is to import the dependencies, create a skeleton, and define
+some initial attributes. These are the attributes that you can currently set:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: an identifier for the signature.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span></code>: a brief description of what the signature represents.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">severity</span></code>: a number identifying the severity of the events matched (generally between 1 and 3).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">confidence</span></code>: a number between 1 and 100 that represents how confident the signature writer is that this signature will not be raised as a false positive.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">weight</span></code>: a number used for calculating the <cite>malscore</cite> of a submission. This attribute acts as a multiplier of the product of severity and confidence.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">categories</span></code>: a list of categories that describe the type of event being matched (for example “<em>banker</em>”, “<em>injection</em>” or “<em>anti-vm</em>”). For a list of all categories, see <span class="xref std std-ref">Categories</span>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">families</span></code>: a list of malware family names, in case the signature specifically matches a known one.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">authors</span></code>: a list of people who authored the signature.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">references</span></code>: a list of references (URLs) to give context to the signature.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code>: if set to False the signature will be skipped.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">alert</span></code>: if set to True can be used to specify that the signature should be reported (perhaps by a dedicated reporting module).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">minimum</span></code>: the minimum required version of CAPE to successfully run this signature.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">maximum</span></code>: the maximum required version of CAPE to successfully run this signature.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ttps</span></code>: a list of MITRE ATT&amp;CK IDs applicable to this signature.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mbcs</span></code>: a list of MITRE Malware Behavior Catalog IDs applicable to this signature.</p></li>
+</ul>
+</div></blockquote>
+<p>In our example, we will create the following skeleton:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Signature</span>
+<span class="linenos"> 2</span>
+<span class="linenos"> 3</span><span class="k">class</span> <span class="nc">BadBadMalware</span><span class="p">(</span><span class="n">Signature</span><span class="p">):</span> <span class="c1"># We initialize the class by inheriting Signature.</span>
+<span class="linenos"> 4</span>    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;badbadmalware&quot;</span> <span class="c1"># We define the name of the signature</span>
+<span class="linenos"> 5</span>    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Creates a mutex known to be associated with Win32.BadBadMalware&quot;</span> <span class="c1"># We provide a description</span>
+<span class="linenos"> 6</span>    <span class="n">severity</span> <span class="o">=</span> <span class="mi">3</span> <span class="c1"># We set the severity to maximum</span>
+<span class="linenos"> 7</span>    <span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;trojan&quot;</span><span class="p">]</span> <span class="c1"># We add a category</span>
+<span class="linenos"> 8</span>    <span class="n">families</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;badbadmalware&quot;</span><span class="p">]</span> <span class="c1"># We add the name of our fictional malware family</span>
+<span class="linenos"> 9</span>    <span class="n">authors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Me&quot;</span><span class="p">]</span> <span class="c1"># We specify the author</span>
+<span class="linenos">10</span>    <span class="n">minimum</span> <span class="o">=</span> <span class="s2">&quot;0.5&quot;</span> <span class="c1"># We specify that in order to run the signature, the user will need at least CAPE 0.5</span>
+<span class="linenos">11</span>
+<span class="linenos">12</span><span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">13</span>    <span class="k">return</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>This is a perfectly valid signature. It doesn’t do anything yet,
+so now we need to define the conditions for the signature to be matched.</p>
+<p>Since we want to match a particular mutex name, we use the helper function <cite>check_mutex</cite>:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Signature</span>
+<span class="linenos"> 2</span>
+<span class="linenos"> 3</span><span class="k">class</span> <span class="nc">BadBadMalware</span><span class="p">(</span><span class="n">Signature</span><span class="p">):</span>
+<span class="linenos"> 4</span>    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;badbadmalware&quot;</span>
+<span class="linenos"> 5</span>    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Creates a mutex known to be associated with Win32.BadBadMalware&quot;</span>
+<span class="linenos"> 6</span>    <span class="n">severity</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="linenos"> 7</span>    <span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;trojan&quot;</span><span class="p">]</span>
+<span class="linenos"> 8</span>    <span class="n">families</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;badbadmalware&quot;</span><span class="p">]</span>
+<span class="linenos"> 9</span>    <span class="n">authors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Me&quot;</span><span class="p">]</span>
+<span class="linenos">10</span>    <span class="n">minimum</span> <span class="o">=</span> <span class="s2">&quot;0.5&quot;</span>
+<span class="linenos">11</span>
+<span class="linenos">12</span><span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">13</span>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_mutex</span><span class="p">(</span><span class="s2">&quot;i_am_a_malware&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>It’s as simple as that! Now our signature will return <code class="docutils literal notranslate"><span class="pre">True</span></code> if the analyzed
+malware was observed opening the specified mutex.</p>
+<p>If you want to be more explicit and directly access the <strong>global container</strong>,
+you could translate the previous signature in the following way:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Signature</span>
+<span class="linenos"> 2</span>
+<span class="linenos"> 3</span><span class="k">class</span> <span class="nc">BadBadMalware</span><span class="p">(</span><span class="n">Signature</span><span class="p">):</span>
+<span class="linenos"> 4</span>    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;badbadmalware&quot;</span>
+<span class="linenos"> 5</span>    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Creates a mutex known to be associated with Win32.BadBadMalware&quot;</span>
+<span class="linenos"> 6</span>    <span class="n">severity</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="linenos"> 7</span>    <span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;trojan&quot;</span><span class="p">]</span>
+<span class="linenos"> 8</span>    <span class="n">families</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;badbadmalware&quot;</span><span class="p">]</span>
+<span class="linenos"> 9</span>    <span class="n">authors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Me&quot;</span><span class="p">]</span>
+<span class="linenos">10</span>    <span class="n">minimum</span> <span class="o">=</span> <span class="s2">&quot;0.5&quot;</span>
+<span class="linenos">11</span>
+<span class="linenos">12</span><span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">13</span>    <span class="k">for</span> <span class="n">mutex</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;behavior&quot;</span><span class="p">][</span><span class="s2">&quot;summary&quot;</span><span class="p">][</span><span class="s2">&quot;mutexes&quot;</span><span class="p">]:</span>
+<span class="linenos">14</span>        <span class="k">if</span> <span class="n">mutex</span> <span class="o">==</span> <span class="s2">&quot;i_am_a_malware&quot;</span><span class="p">:</span>
+<span class="linenos">15</span>            <span class="k">return</span> <span class="kc">True</span>
+<span class="linenos">16</span>
+<span class="linenos">17</span>    <span class="k">return</span> <span class="kc">False</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+<section id="evented-signatures">
+<h2>Evented Signatures<a class="headerlink" href="#evented-signatures" title="Permalink to this headline">¶</a></h2>
+<p>Since version 1.0, CAPE provides a way to write more high-performance signatures.
+In the past, every signature was required to loop through the whole collection of API calls
+collected during the analysis. This was necessarily causing some performance issues when such
+a collection would be large.</p>
+<p>CAPE now supports both the old model as well as what we call “evented signatures”.
+The main difference is that with this new format, all the signatures will be executed in parallel
+and a callback function called <code class="docutils literal notranslate"><span class="pre">on_call()</span></code> will be invoked for each signature within one
+single loop through the collection of API calls.</p>
+<p>An example signature using this technique is the following:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Signature</span>
+<span class="linenos"> 2</span>
+<span class="linenos"> 3</span><span class="k">class</span> <span class="nc">SystemMetrics</span><span class="p">(</span><span class="n">Signature</span><span class="p">):</span>
+<span class="linenos"> 4</span>    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;generic_metrics&quot;</span>
+<span class="linenos"> 5</span>    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Uses GetSystemMetrics&quot;</span>
+<span class="linenos"> 6</span>    <span class="n">severity</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="linenos"> 7</span>    <span class="n">categories</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;generic&quot;</span><span class="p">]</span>
+<span class="linenos"> 8</span>    <span class="n">authors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CAPE Developers&quot;</span><span class="p">]</span>
+<span class="linenos"> 9</span>    <span class="n">minimum</span> <span class="o">=</span> <span class="s2">&quot;1.0&quot;</span>
+<span class="linenos">10</span>
+<span class="linenos">11</span>    <span class="c1"># Evented signatures need to implement the &quot;on_call&quot; method</span>
+<span class="linenos">12</span>    <span class="n">evented</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="linenos">13</span>
+<span class="linenos">14</span>    <span class="c1"># Evented signatures can specify filters that reduce the amount of</span>
+<span class="linenos">15</span>    <span class="c1"># API calls that are streamed in. One can filter Process name, API</span>
+<span class="linenos">16</span>    <span class="c1"># name/identifier and category. These should be sets for faster lookup.</span>
+<span class="linenos">17</span>    <span class="n">filter_processnames</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+<span class="linenos">18</span>    <span class="n">filter_apinames</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;GetSystemMetrics&quot;</span><span class="p">])</span>
+<span class="linenos">19</span>    <span class="n">filter_categories</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+<span class="linenos">20</span>
+<span class="linenos">21</span>    <span class="c1"># This is a signature template. It should be used as a skeleton for</span>
+<span class="linenos">22</span>    <span class="c1"># creating custom signatures, therefore is disabled by default.</span>
+<span class="linenos">23</span>    <span class="c1"># The on_call function is used in &quot;evented&quot; signatures.</span>
+<span class="linenos">24</span>    <span class="c1"># These use a more efficient way of processing logged API calls.</span>
+<span class="linenos">25</span>    <span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="linenos">26</span>
+<span class="linenos">27</span>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">28</span>        <span class="c1"># In the stop method one can implement any cleanup code and</span>
+<span class="linenos">29</span>        <span class="c1">#  decide one last time if this signature matches or not.</span>
+<span class="linenos">30</span>        <span class="c1">#  Return True in case it matches.</span>
+<span class="linenos">31</span>        <span class="k">return</span> <span class="kc">False</span>
+<span class="linenos">32</span>
+<span class="linenos">33</span>    <span class="c1"># This method will be called for every logged API call by the loop</span>
+<span class="linenos">34</span>    <span class="c1"># in the RunSignatures plugin. The return value determines the &quot;state&quot;</span>
+<span class="linenos">35</span>    <span class="c1"># of this signature. True means the signature matched and False means</span>
+<span class="linenos">36</span>    <span class="c1"># it can&#39;t match anymore. Both of which stop streaming in API calls.</span>
+<span class="linenos">37</span>    <span class="c1"># Returning None keeps the signature active and will continue.</span>
+<span class="linenos">38</span>    <span class="k">def</span> <span class="nf">on_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">call</span><span class="p">,</span> <span class="n">process</span><span class="p">):</span>
+<span class="linenos">39</span>        <span class="c1"># This check would in reality not be needed as we already make use</span>
+<span class="linenos">40</span>        <span class="c1"># of filter_apinames above.</span>
+<span class="linenos">41</span>        <span class="k">if</span> <span class="n">call</span><span class="p">[</span><span class="s2">&quot;api&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;GetSystemMetrics&quot;</span><span class="p">:</span>
+<span class="linenos">42</span>            <span class="c1"># Signature matched, return True.</span>
+<span class="linenos">43</span>            <span class="k">return</span> <span class="kc">True</span>
+<span class="linenos">44</span>
+<span class="linenos">45</span>        <span class="c1"># continue</span>
+<span class="linenos">46</span>        <span class="k">return</span> <span class="kc">None</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>The inline comments are already self-explanatory.
+You can find many more examples of both evented and traditional signatures in our <a class="reference external" href="https://github.com/kevoreilly/community">community repository</a>.</p>
+</section>
+<section id="matches">
+<h2>Matches<a class="headerlink" href="#matches" title="Permalink to this headline">¶</a></h2>
+<p>Starting from version 1.2, signatures can log exactly what triggered
+the signature. This allows users to better understand why this signature is
+present in the log, and to be able to better focus malware analysis.</p>
+<p>Two helpers have been included to specify matching data.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.add_match">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">add_match</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">process</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Signature.add_match" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a match to the signature. Can be called several times for the same signature.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>process</strong> (<em>dict</em>) – process dictionary (same as the <code class="docutils literal notranslate"><span class="pre">on_call</span></code> argument). Should be <code class="docutils literal notranslate"><span class="pre">None</span></code> except when used in evented signatures.</p></li>
+<li><p><strong>type</strong> (<em>string</em>) – nature of the matching data. Can be anything (ex: <code class="docutils literal notranslate"><span class="pre">'file'</span></code>, <code class="docutils literal notranslate"><span class="pre">'registry'</span></code>, etc.). If match is composed of api calls (when used in evented signatures), should be <code class="docutils literal notranslate"><span class="pre">'api'</span></code>.</p></li>
+<li><p><strong>match</strong> – matching data. Can be a single element or a list of elements. An element can be a string, a dict or an API call (when used in evented signatures).</p></li>
+</ul>
+</dd>
+</dl>
+<p>Example Usage, with a single element:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">add_match</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span> <span class="s2">&quot;http://malicious_url_detected.com&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Example Usage, with a more complex signature, needing several API calls to be triggered:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">signs</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="linenos">2</span><span class="bp">self</span><span class="o">.</span><span class="n">signs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">first_api_call</span><span class="p">)</span>
+<span class="linenos">3</span><span class="bp">self</span><span class="o">.</span><span class="n">signs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">second_api_call</span><span class="p">)</span>
+<span class="linenos">4</span><span class="bp">self</span><span class="o">.</span><span class="n">add_match</span><span class="p">(</span><span class="n">process</span><span class="p">,</span> <span class="s1">&#39;api&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">signs</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.has_matches">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">has_matches</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Signature.has_matches" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether the current signature has any matching data registered. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it does, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<p>This can be used to easily add several matches for the same signature. If you want to do so, make sure that all the api calls are scanned by making sure that <code class="docutils literal notranslate"><span class="pre">on_call</span></code> never returns <code class="docutils literal notranslate"><span class="pre">True</span></code>. Then, use <code class="docutils literal notranslate"><span class="pre">on_complete</span></code> with <code class="docutils literal notranslate"><span class="pre">has_matches</span></code> so that the signature is triggered if any match was previously added.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage, from the <cite>network_tor</cite> signature:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="k">def</span> <span class="nf">on_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">call</span><span class="p">,</span> <span class="n">process</span><span class="p">):</span>
+<span class="linenos">2</span>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_argument_call</span><span class="p">(</span><span class="n">call</span><span class="p">,</span>
+<span class="linenos">3</span>                                <span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;Tor Win32 Service&quot;</span><span class="p">,</span>
+<span class="linenos">4</span>                                <span class="n">api</span><span class="o">=</span><span class="s2">&quot;CreateServiceA&quot;</span><span class="p">,</span>
+<span class="linenos">5</span>                                <span class="n">category</span><span class="o">=</span><span class="s2">&quot;services&quot;</span><span class="p">):</span>
+<span class="linenos">6</span>        <span class="bp">self</span><span class="o">.</span><span class="n">add_match</span><span class="p">(</span><span class="n">process</span><span class="p">,</span> <span class="s2">&quot;api&quot;</span><span class="p">,</span> <span class="n">call</span><span class="p">)</span>
+<span class="linenos">7</span>
+<span class="linenos">8</span><span class="k">def</span> <span class="nf">on_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">9</span>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_matches</span><span class="p">()</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="helpers">
+<span id="id1"></span><h2>Helpers<a class="headerlink" href="#helpers" title="Permalink to this headline">¶</a></h2>
+<p>As anticipated, from version 0.5 the <code class="docutils literal notranslate"><span class="pre">Signature</span></code> base class also provides
+some helper methods that simplify the creation of signatures and avoid the need
+for you having to access the global container directly (at least most of the times).</p>
+<p>Following is a list of available methods.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.check_file">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">check_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">regex=False</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#Signature.check_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether the malware opened or created a file matching the specified pattern. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it did, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>string</em>) – file name or file path pattern to be matched</p></li>
+<li><p><strong>regex</strong> (<em>boolean</em>) – enable to compile the pattern as a regular expression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">check_file</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;.*\.exe$&quot;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.check_key">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">check_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">regex=False</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#Signature.check_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether the malware opened or created a registry key matching the specified pattern. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it did, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>string</em>) – registry key pattern to be matched</p></li>
+<li><p><strong>regex</strong> (<em>boolean</em>) – enable to compile the pattern as a regular expression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">check_key</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;.*CurrentVersion</span><span class="se">\\</span><span class="s2">Run$&quot;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.check_mutex">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">check_mutex</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">regex=False</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#Signature.check_mutex" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether the malware opened or created a mutex matching the specified pattern. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it did, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>string</em>) – mutex pattern to be matched</p></li>
+<li><p><strong>regex</strong> (<em>boolean</em>) – enable to compile the pattern as a regular expression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">check_mutex</span><span class="p">(</span><span class="s2">&quot;mutex_name&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.check_api">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">check_api</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">process=None</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">regex=False</span></span></em><span class="optional">]</span><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#Signature.check_api" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether Windows function was invoked. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it was, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>string</em>) – function name pattern to be matched</p></li>
+<li><p><strong>process</strong> (<em>string</em>) – name of the process performing the call</p></li>
+<li><p><strong>regex</strong> (<em>boolean</em>) – enable to compile the pattern as a regular expression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">check_api</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;URLDownloadToFileW&quot;</span><span class="p">,</span> <span class="n">process</span><span class="o">=</span><span class="s2">&quot;AcroRd32.exe&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.check_argument">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">check_argument</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">pattern[,</span> <span class="pre">name=Name[,</span> <span class="pre">api=None[,</span> <span class="pre">category=None[,</span> <span class="pre">process=None[,</span> <span class="pre">regex=False]]]]</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Signature.check_argument" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether the malware invoked a function with a specific argument value. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it did, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>string</em>) – argument value pattern to be matched</p></li>
+<li><p><strong>name</strong> (<em>string</em>) – name of the argument to be matched</p></li>
+<li><p><strong>api</strong> (<em>string</em>) – name of the Windows function associated with the argument value</p></li>
+<li><p><strong>category</strong> (<em>string</em>) – name of the category of the function to be matched</p></li>
+<li><p><strong>process</strong> (<em>string</em>) – name of the process performing the associated call</p></li>
+<li><p><strong>regex</strong> (<em>boolean</em>) – enable to compile the pattern as a regular expression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">check_argument</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;.*CAPE.*&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="s2">&quot;filesystem&quot;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.check_ip">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">check_ip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">regex=False</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#Signature.check_ip" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether the malware contacted the specified IP address. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it did, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>string</em>) – IP address to be matched</p></li>
+<li><p><strong>regex</strong> (<em>boolean</em>) – enable to compile the pattern as a regular expression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">check_ip</span><span class="p">(</span><span class="s2">&quot;123.123.123.123&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.check_domain">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">check_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">regex=False</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#Signature.check_domain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether the malware contacted the specified domain. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it did, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>string</em>) – domain name to be matched</p></li>
+<li><p><strong>regex</strong> (<em>boolean</em>) – enable to compile the pattern as a regular expression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">check_domain</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;.*capesandbox.com$&quot;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Signature.check_url">
+<span class="sig-prename descclassname"><span class="pre">Signature.</span></span><span class="sig-name descname"><span class="pre">check_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em><span class="optional">[</span>, <em class="sig-param"><span class="n"><span class="pre">regex=False</span></span></em><span class="optional">]</span><span class="sig-paren">)</span><a class="headerlink" href="#Signature.check_url" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks whether the malware performed an HTTP request to the specified URL. Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> in case it did, otherwise returns <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>string</em>) – URL pattern to be matched</p></li>
+<li><p><strong>regex</strong> (<em>boolean</em>) – enable to compile the pattern as a regular expression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>boolean</p>
+</dd>
+</dl>
+<p>Example Usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="bp">self</span><span class="o">.</span><span class="n">check_url</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;^.+\/load\.php\?file=[0-9a-zA-Z]+$&quot;</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="id2">
+<h2>Categories<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<p>You can put signatures into categories to facilitate grouping or sorting. You can create your own category if you wish, but
+it is easier for other users if you associate a signature
+with a category that already exists. Here is a list of all categories available:</p>
+<ul class="simple">
+<li><p><cite>account</cite>: Adds or manipulates an administrative user account.</p></li>
+<li><p><cite>anti-analysis</cite>: Constructed to conceal or obfuscate itself to prevent analysis.</p></li>
+<li><p><cite>anti-av</cite>: Attempts to conceal itself from detection by antivirus.</p></li>
+<li><p><cite>anti-debug</cite>: Attempts to detect if it is being debugged.</p></li>
+<li><p><cite>anti-emulation</cite>: Detects the presence of an emulator.</p></li>
+<li><p><cite>anti-sandbox</cite>: Attempts to detect if it is in a sandbox.</p></li>
+<li><p><cite>anti-vm</cite>: Attempts to detect if it is being run in virtualized environment.</p></li>
+<li><p><cite>antivirus</cite>: Antivirus hit. File is infected.</p></li>
+<li><p><cite>banker</cite>: Designed to gain access to confidential information stored or processed through online banking.</p></li>
+<li><p><cite>bootkit</cite>: Manipulates machine configurations that would affect the boot of the machine.</p></li>
+<li><p><cite>bot</cite>: Appears to be a bot or exhibits bot-like behaviour.</p></li>
+<li><p><cite>browser</cite>: Manipulates browser-settings in a suspicious way.</p></li>
+<li><p><cite>bypass</cite>: Attempts to bypass operating systems security controls (firewall, amsi, applocker, UAC, etc.)</p></li>
+<li><p><cite>c2</cite>: Communicates with a server controlled by a malicious actor.</p></li>
+<li><p><cite>clickfraud</cite>: Manipulates browser settings to allow for insecure clicking.</p></li>
+<li><p><cite>command</cite>: A suspicious command was observed.</p></li>
+<li><p><cite>credential_access</cite>: Uses techniques to access credentials.</p></li>
+<li><p><cite>credential_dumping</cite>: Uses techniques to dump credentials.</p></li>
+<li><p><cite>cryptomining</cite>: Facilitates mining of cryptocurrency.</p></li>
+<li><p><cite>discovery</cite>: Uses techniques for discovery information about the system, the user, or the environment.</p></li>
+<li><p><cite>dns</cite>: Uses suspicious DNS queries.</p></li>
+<li><p><cite>dotnet</cite>: .NET code is used in a suspicious manner.</p></li>
+<li><p><cite>downloader</cite>: Trojan that downloads installs files.</p></li>
+<li><p><cite>dropper</cite>: Trojan that drops additional malware on an affected system.</p></li>
+<li><p><cite>encryption</cite>: Encryption algorithms are used for obfuscating data.</p></li>
+<li><p><cite>evasion</cite>: Techniques are used to avoid detection.</p></li>
+<li><p><cite>execution</cite>: Uses techniques to execute harmful code or create executables that could run harmful code.</p></li>
+<li><p><cite>exploit</cite>: Exploits an known software vulnerability or security flaw.</p></li>
+<li><p><cite>exploit_kit</cite>: Programs designed to crack or break computer and network security measures.</p></li>
+<li><p><cite>generic</cite>: Basic operating system objects are used in suspicious ways.</p></li>
+<li><p><cite>infostealer</cite>: Collects and disseminates information such as login details, usernames, passwords, etc.</p></li>
+<li><p><cite>injection</cite>: Input is not properly validated and gets processed by an interpreter as part of a command or query.</p></li>
+<li><p><cite>keylogger</cite>: Monitoring software detected.</p></li>
+<li><p><cite>lateral</cite>: Techniques used to move through environment and maintain access.</p></li>
+<li><p><cite>loader</cite>: Download and execute additional payloads on compromised machines.</p></li>
+<li><p><cite>locker</cite>: Prevents access to system data and files.</p></li>
+<li><p><cite>macro</cite>: A set of commands that automates a software to perform a certain action, found in Office macros.</p></li>
+<li><p><cite>malware</cite>: The file uses techniques associated with malicious software.</p></li>
+<li><p><cite>martians</cite>: Command shell or script process was created by unexpected parent process.</p></li>
+<li><p><cite>masquerading</cite>: The name or location of an object is manipulated to evade defenses and observation.</p></li>
+<li><p><cite>network</cite>: Suspicious network traffic was observed.</p></li>
+<li><p><cite>office</cite>: Makes API calls not consistent with expected/standard behaviour.</p></li>
+<li><p><cite>packer</cite>: Compresses, encrypts, and/or modifies a malicious file’s format.</p></li>
+<li><p><cite>persistence</cite>: Technique used to maintain presence in system(s) across interruptions that could cut off access.</p></li>
+<li><p><cite>phishing</cite>: Techniques were observed that attempted to obtain information from the user.</p></li>
+<li><p><cite>ransomware</cite>: Designed to block access to a system until a sum of money is paid.</p></li>
+<li><p><cite>rat</cite>: Designed to provide the capability of covert surveillance and/or unauthorized access to a target.</p></li>
+<li><p><cite>rootkit</cite>: Designed to provide continued privileged access to a system while actively hiding its presence.</p></li>
+<li><p><cite>static</cite>: A suspicious characteristic was discovered during static analysis.</p></li>
+<li><p><cite>stealth</cite>: Leverages/modifies internal processes and settings to conceal itself.</p></li>
+<li><p><cite>trojan</cite>: Presents itself as legitimate in attempt to infiltrate a system.</p></li>
+<li><p><cite>virus</cite>: Malicious software program.</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Signatures</a><ul>
+<li><a class="reference internal" href="#getting-started">Getting Started</a></li>
+<li><a class="reference internal" href="#creating-your-new-signature">Creating your new signature</a></li>
+<li><a class="reference internal" href="#evented-signatures">Evented Signatures</a></li>
+<li><a class="reference internal" href="#matches">Matches</a></li>
+<li><a class="reference internal" href="#helpers">Helpers</a></li>
+<li><a class="reference internal" href="#id2">Categories</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="processing.html"
+                          title="previous chapter">Processing Modules</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="reporting.html"
+                          title="next chapter">Reporting Modules</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/customization/signatures.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="reporting.html" title="Reporting Modules"
+             >next</a></li>
+        <li class="right" >
+          <a href="processing.html" title="Processing Modules"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Customization</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Signatures</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

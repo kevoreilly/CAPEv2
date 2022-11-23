@@ -1,0 +1,177 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Requirements &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Network Configuration" href="network.html" />
+    <link rel="prev" title="Creation of the Virtual Machine" href="creation.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="network.html" title="Network Configuration"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="creation.html" title="Creation of the Virtual Machine"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" accesskey="U">Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Requirements</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="requirements">
+<h1>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h1>
+<p>To make CAPE run properly in your virtualized Windows system, you
+will have to install some required software and libraries.</p>
+<section id="install-python">
+<h2>Install Python<a class="headerlink" href="#install-python" title="Permalink to this headline">¶</a></h2>
+<dl>
+<dt>Python is a strict requirement for the CAPE guest component (<em>analyzer</em>) to run properly.</dt><dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Please note that only 32-bit (x86) versions of Python3 are
+supported at this time.</p>
+</div>
+</dd>
+</dl>
+<p>You can download the proper <a class="reference external" href="https://www.python.org/downloads/windows/">Windows</a> / <a class="reference external" href="https://www.python.org/downloads/source/">Linux</a> installer from the <a class="reference external" href="http://www.python.org/getit/">official website</a>.
+Python versions &gt; 3.6 are preferred.</p>
+<blockquote>
+<div><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When installing Python, it is recommended to select the <cite>Add Python &lt;version&gt; to PATH</cite> option.</p>
+<img alt="../../_images/python_guest_win10_installation_PATH.png" class="align-center" src="../../_images/python_guest_win10_installation_PATH.png" />
+<p>When the installation is done, tt is recommended to test whether Python is correctly set into your PATH environment variable. In order to do so, you can execute the following commands from a command prompt:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">python</span> <span class="o">--</span><span class="n">version</span>
+</pre></div>
+</div>
+<p>You should be prompted with Python’s installed version. <strong>If not</strong>, make sure you add the binaries to your PATH. There are tutorials galore on the Internet.</p>
+</div>
+</div></blockquote>
+<p>Some Python libraries are optional and provide some additional features to the
+CAPE guest component. They include:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference external" href="https://python-pillow.org">Python Image Library</a>: used for taking screenshots of the Windows desktop during the analysis.</p></li>
+</ul>
+<p>The recommended installation is the execution of the following commands:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">upgrade</span> <span class="n">pip</span>
+<span class="o">&gt;</span> <span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">upgrade</span> <span class="n">Pillow</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>These Python libraries are not strictly required by CAPE, but you are encouraged
+to install them if you want to have access to all available features. Make sure
+to download and install the proper packages according to your Python version.</p>
+</section>
+<section id="additional-software">
+<h2>Additional Software<a class="headerlink" href="#additional-software" title="Permalink to this headline">¶</a></h2>
+<p>At this point, you should have installed everything needed by CAPE to run
+properly.</p>
+<p>Depending on what kind of files you want to analyze and what kind of sandboxed
+environment you want to run the malware samples in, you may want to install
+additional software such as browsers, PDF readers, office suites, etc.</p>
+<blockquote>
+<div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Remember to disable the “Auto Update” or “Check For Updates” feature of
+any additional software that you install.</p>
+</div>
+</div></blockquote>
+<p>For hints about what your needs may be, give the <a class="reference internal" href="../../introduction/sandboxing.html"><span class="doc">Sandboxing</span></a> chapter a read.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Requirements</a><ul>
+<li><a class="reference internal" href="#install-python">Install Python</a></li>
+<li><a class="reference internal" href="#additional-software">Additional Software</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="creation.html"
+                          title="previous chapter">Creation of the Virtual Machine</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="network.html"
+                          title="next chapter">Network Configuration</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/installation/guest/requirements.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="network.html" title="Network Configuration"
+             >next</a></li>
+        <li class="right" >
+          <a href="creation.html" title="Creation of the Virtual Machine"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" >Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Requirements</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

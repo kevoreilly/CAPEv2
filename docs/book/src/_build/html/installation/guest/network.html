@@ -1,0 +1,296 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Network Configuration &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Installing the Agent" href="agent.html" />
+    <link rel="prev" title="Requirements" href="requirements.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="agent.html" title="Installing the Agent"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="requirements.html" title="Requirements"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" accesskey="U">Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Network Configuration</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="network-configuration">
+<h1>Network Configuration<a class="headerlink" href="#network-configuration" title="Permalink to this headline">¶</a></h1>
+<p>Now it’s time to set up the network for your virtual machine.</p>
+<section id="windows-settings">
+<h2>Windows Settings<a class="headerlink" href="#windows-settings" title="Permalink to this headline">¶</a></h2>
+<p>Before configuring the underlying networking of the virtual machine, you may
+want to tweak some settings inside Windows itself.</p>
+<p>Two of the most important configurations to make are to <strong>disable</strong> <em>Windows Firewall</em> and
+<em>Automatic Updates</em>. The reason behind this is that these features can affect the behavior
+of the malware under normal circumstances and they can pollute the network
+analysis performed by CAPE, by dropping connections or including irrelevant
+requests.</p>
+</section>
+<section id="windows-10">
+<h2>Windows 10<a class="headerlink" href="#windows-10" title="Permalink to this headline">¶</a></h2>
+<p>To do so in Windows 10, open Control Panel and search for <code class="docutils literal notranslate"><span class="pre">Windows</span> <span class="pre">Defender</span> <span class="pre">Firewall</span></code>. Disable it completely:</p>
+<blockquote>
+<div><img alt="../../_images/guest_win10_disable_firewall.png" class="align-center" src="../../_images/guest_win10_disable_firewall.png" />
+<img alt="../../_images/guest_win10_disable_firewall_1.png" class="align-center" src="../../_images/guest_win10_disable_firewall_1.png" />
+</div></blockquote>
+<p>The next step is disabling automatic updates. To do so, open Control Panel and search for <code class="docutils literal notranslate"><span class="pre">Administrative</span> <span class="pre">Tools</span></code>. Open it, then open <code class="docutils literal notranslate"><span class="pre">Services</span></code>. Look for the <code class="docutils literal notranslate"><span class="pre">Windows</span> <span class="pre">Update</span></code> entry and double-click on it. Set Startup type to disabled and click stop.</p>
+<blockquote>
+<div><img alt="../../_images/guest_win10_disable_updates.png" class="align-center" src="../../_images/guest_win10_disable_updates.png" />
+</div></blockquote>
+</section>
+<section id="windows-xp">
+<h2>Windows XP<a class="headerlink" href="#windows-xp" title="Permalink to this headline">¶</a></h2>
+<p>You can do so from Windows’ Control Panel as shown in the picture:</p>
+<blockquote>
+<div><img alt="../../_images/windows_security.png" class="align-center" src="../../_images/windows_security.png" />
+</div></blockquote>
+</section>
+<section id="virtual-networking">
+<h2>Virtual Networking<a class="headerlink" href="#virtual-networking" title="Permalink to this headline">¶</a></h2>
+<p>Now you need to decide whether you want your virtual machine to be able to access the Internet
+or your local network.</p>
+<p>To make the virtual machine’s networking work properly you’ll have to configure your machine’s
+network so that the Host and the Guest can communicate.</p>
+<p>Testing the network access by pinging a guest from the host is good practice, to make sure that the
+virtual network was set up correctly.</p>
+<p>Only use static IP addresses for your guests, since CAPE doesn’t support DHCP (at least, as of this writing).</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The range <code class="docutils literal notranslate"><span class="pre">192.168.122.0/24</span></code> is the default range for KVM’s first interface (usually <code class="docutils literal notranslate"><span class="pre">virbr01</span></code>) and it can be used as an <strong>ANTI VM</strong> check. If you want to read more about ANTI VM checks and how to set up your VM, check this <a class="reference external" href="https://www.doomedraven.com/2016/05/kvm.html">KVM ANTIVM post</a>.</p>
+</div>
+<p>The recommended setup is using a Host-Only networking layout with proper
+forwarding and filtering configuration done with <code class="docutils literal notranslate"><span class="pre">iptables</span></code> on the Host.</p>
+<p>We have automated this for you with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ utils/rooter.py
+</pre></div>
+</div>
+<p>You can read more about <code class="docutils literal notranslate"><span class="pre">rooter.py</span></code> in its dedicated chapter: <a class="reference internal" href="../../usage/rooter.html#rooter"><span class="std std-ref">CAPE Rooter</span></a>.</p>
+<p>In the chapter <a class="reference internal" href="#setting-a-static-ip">Setting a static IP</a> you will find the instructions for configuring a Windows guest OS to use a static IP. In the chapter <a class="reference internal" href="#creating-an-isolated-network">Creating an isolated network</a> you will find instructions on how to create an isolated network (usually referred to as <code class="docutils literal notranslate"><span class="pre">hostonly</span></code>) network and use it in your virtual machine. You can find further instructions on creating VMs with Virtual Machine Manage in <a class="reference external" href="https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html">this post</a>.</p>
+</section>
+<section id="creating-an-isolated-network">
+<span id="id1"></span><h2>Creating an isolated network<a class="headerlink" href="#creating-an-isolated-network" title="Permalink to this headline">¶</a></h2>
+<p>The recommended setup is using an isolated network for your VM. In order to do so, you can follow the instructions below if you are using KVM and virt-manager (Virtual Machine Manager).</p>
+<p>First, in the Virtual Machine Manager GUI click con <strong>Edit</strong> -&gt; <strong>Connection Details</strong>.</p>
+<blockquote>
+<div><img alt="../../_images/creating_isolated_network_0.png" class="align-center" src="../../_images/creating_isolated_network_0.png" />
+</div></blockquote>
+<p>In the opened window click on the <strong>+</strong> sign, at the bottom left corner of the image. We are now defining the details of the new network. Give it a name (hostonly, for example) and make sure you select <strong>Isolated</strong> mode. Then, click on the <strong>IPv$ configuration</strong> drop-down menu and define the range of your network. In the image below only the third octet is changed.</p>
+<blockquote>
+<div><img alt="../../_images/creating_isolated_network_1.png" class="align-center" src="../../_images/creating_isolated_network_1.png" />
+</div></blockquote>
+<p>Once the new isolated network is created, if you already created a VM, you can select it from Virtual Machine Manager by clicking <code class="docutils literal notranslate"><span class="pre">Show</span> <span class="pre">virtual</span> <span class="pre">hardware</span> <span class="pre">details</span></code> of that specific VM. Then click on the network adapter and choose the recently created network. Then click <code class="docutils literal notranslate"><span class="pre">Apply</span></code>.</p>
+<blockquote>
+<div><img alt="../../_images/creating_isolated_network_2.png" class="align-center" src="../../_images/creating_isolated_network_2.png" />
+</div></blockquote>
+<p>The next thing is checking the new interface was indeed created and the VM is actually using it. From your Host, execute the following command from a command prompt:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">ip</span> <span class="n">a</span>
+</pre></div>
+</div>
+<img alt="../../_images/creating_isolated_network_3.png" class="align-center" src="../../_images/creating_isolated_network_3.png" />
+<p>There should be an interface with the IP address you specified while creating it. in the image above the specific interface is <code class="docutils literal notranslate"><span class="pre">virbr1</span></code>.</p>
+<p>From the guest VM (Windows OS in this example) execute the following command from a command prompt:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">ipconfig</span>
+</pre></div>
+</div>
+<img alt="../../_images/creating_isolated_network_4.png" class="align-center" src="../../_images/creating_isolated_network_4.png" />
+<p>The assigned IP should be in the range of the <code class="docutils literal notranslate"><span class="pre">hostonly</span></code> network.</p>
+<p>The guest VM and host <strong>must</strong> have connectivity between them. In order to check it, you can use tools like <code class="docutils literal notranslate"><span class="pre">ping</span></code> or <code class="docutils literal notranslate"><span class="pre">telnet.</span></code></p>
+<img alt="../../_images/creating_isolated_network_5.png" class="align-center" src="../../_images/creating_isolated_network_5.png" />
+<p>Please bear in mind that this time the IP is assigned via DHCP, something CAPE does not support. Please set a static IP for your VM. Next chapter has instructions on that.</p>
+</section>
+<section id="setting-a-static-ip">
+<span id="id2"></span><h2>Setting a static IP<a class="headerlink" href="#setting-a-static-ip" title="Permalink to this headline">¶</a></h2>
+<p>To set up a static IP it is first recommended to inspect the assigned IP, which will be (ideally) in the range of your interface (presumably y virbr0). To see your actual IP settings execute the following command from a command prompt:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">ipconfig</span> <span class="o">/</span><span class="nb">all</span>
+</pre></div>
+</div>
+<blockquote>
+<div><img alt="../../_images/guest_win10_static_IP.png" class="align-center" src="../../_images/guest_win10_static_IP.png" />
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The IP addresses and ranges used throughout this chapter are just examples. Please make sure you use your own working configurations and addresses.</p>
+</div>
+</div></blockquote>
+<p>Open <code class="docutils literal notranslate"><span class="pre">Control</span> <span class="pre">Panel</span></code> and search for <code class="docutils literal notranslate"><span class="pre">Network</span></code>. Find and open the <code class="docutils literal notranslate"><span class="pre">Network</span> <span class="pre">and</span> <span class="pre">Sharing</span> <span class="pre">Center</span></code>. Click <code class="docutils literal notranslate"><span class="pre">Change</span> <span class="pre">adapter</span> <span class="pre">settings.</span></code></p>
+<blockquote>
+<div><img alt="../../_images/guest_win10_static_IP_1.png" class="align-center" src="../../_images/guest_win10_static_IP_1.png" />
+</div></blockquote>
+<p>Now open the Ethernet adapter and click <code class="docutils literal notranslate"><span class="pre">Properties</span></code>.</p>
+<blockquote>
+<div><img alt="../../_images/guest_win10_static_IP_2.png" class="align-center" src="../../_images/guest_win10_static_IP_2.png" />
+</div></blockquote>
+<p>Then click <code class="docutils literal notranslate"><span class="pre">Internet</span> <span class="pre">Protocol</span> <span class="pre">Version</span> <span class="pre">4</span> <span class="pre">(TCP/IPv4)</span></code> and <code class="docutils literal notranslate"><span class="pre">Properties</span></code>. Set the IP address, Subnet mask, Default gateway and DNS Server according to the results of the ipconfig command.</p>
+<blockquote>
+<div><img alt="../../_images/guest_win10_static_IP_3.png" class="align-center" src="../../_images/guest_win10_static_IP_3.png" />
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can set as static IP address the address previously given by DHCP or any other address you like within the range of your interface.</p>
+</div>
+</div></blockquote>
+<p>Wait a few seconds and you should have Internet access (in case you are using NAT. Bear in mind an isolated network will not provide Internet connection).</p>
+<p>It is important to check connectivity between the Host and the Guest, like in the previous chapter.</p>
+<p>This stage is very much up to your requirements and the
+characteristics of your virtualization software.</p>
+<blockquote>
+<div><div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Virtual networking errors!
+Virtual networking is a vital component for CAPE. You must be
+sure that connectivity works between the host and the guests.
+Most of the issues reported by users are related to an incorrect networking setup.
+If you aren’t sure about your networking, check your virtualization software
+documentation and test connectivity with <code class="docutils literal notranslate"><span class="pre">ping</span></code> and <code class="docutils literal notranslate"><span class="pre">telnet</span></code>.</p>
+</div>
+</div></blockquote>
+</section>
+<section id="disable-noisy-network-services">
+<h2>Disable Noisy Network Services<a class="headerlink" href="#disable-noisy-network-services" title="Permalink to this headline">¶</a></h2>
+<p>Windows 7 introduced new network services that create a lot of noise and can hinder PCAP processing.
+Disable them by following the instructions below.</p>
+</section>
+<section id="teredo">
+<h2>Teredo<a class="headerlink" href="#teredo" title="Permalink to this headline">¶</a></h2>
+<p>Open a command prompt as Administrator, and run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">netsh</span> <span class="n">interface</span> <span class="n">teredo</span> <span class="nb">set</span> <span class="n">state</span> <span class="n">disabled</span>
+</pre></div>
+</div>
+</section>
+<section id="link-local-multicast-name-resolution-llmnr">
+<h2>Link Local Multicast Name Resolution (LLMNR)<a class="headerlink" href="#link-local-multicast-name-resolution-llmnr" title="Permalink to this headline">¶</a></h2>
+<p>Open the Group Policy editor by typing <code class="docutils literal notranslate"><span class="pre">gpedit.msc</span></code> into the Start Menu search box, and press Enter.
+Then navigate to Computer Configuration&gt; Administrative Templates&gt;
+Network&gt; DNS Client, and open Turn off Multicast Name Resolution.</p>
+<p>Set the policy to enabled.</p>
+</section>
+<section id="gpedit-msc-missing">
+<h2><code class="docutils literal notranslate"><span class="pre">gpedit.msc</span></code> missing<a class="headerlink" href="#gpedit-msc-missing" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">gpedit.msc</span></code> is not present in your system (if you are using Windows 10 Home Edition, for example), you can enable it by executing the following commands from an Administrator command prompt:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">FOR</span> <span class="o">%</span><span class="n">F</span> <span class="n">IN</span> <span class="p">(</span><span class="s2">&quot;%SystemRoot%\servicing\Packages\Microsoft-Windows-GroupPolicy-ClientTools-Package~*.mum&quot;</span><span class="p">)</span> <span class="n">DO</span> <span class="p">(</span><span class="n">DISM</span> <span class="o">/</span><span class="n">Online</span> <span class="o">/</span><span class="n">NoRestart</span> <span class="o">/</span><span class="n">Add</span><span class="o">-</span><span class="n">Package</span><span class="p">:</span><span class="s2">&quot;</span><span class="si">%F</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="o">&gt;</span> <span class="n">FOR</span> <span class="o">%</span><span class="n">F</span> <span class="n">IN</span> <span class="p">(</span><span class="s2">&quot;%SystemRoot%\servicing\Packages\Microsoft-Windows-GroupPolicy-ClientExtensions-Package~*.mum&quot;</span><span class="p">)</span> <span class="n">DO</span> <span class="p">(</span><span class="n">DISM</span> <span class="o">/</span><span class="n">Online</span> <span class="o">/</span><span class="n">NoRestart</span> <span class="o">/</span><span class="n">Add</span><span class="o">-</span><span class="n">Package</span><span class="p">:</span><span class="s2">&quot;</span><span class="si">%F</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>If the commands were successful, you should now be able to execute Run (Win+R) -&gt; <code class="docutils literal notranslate"><span class="pre">gpedit.msc</span></code>.</p>
+</section>
+<section id="network-connectivity-status-indicator-error-reporting-etc">
+<h2>Network Connectivity Status Indicator, Error Reporting, etc<a class="headerlink" href="#network-connectivity-status-indicator-error-reporting-etc" title="Permalink to this headline">¶</a></h2>
+<p>Windows has many diagnostic tools such as Network Connectivity Status Indicator and Error Reporting, that reach
+out to Microsoft servers over the Internet. Fortunately, these can all be disabled with one Group Policy change.</p>
+<p>Open the Group Policy editor by typing <code class="docutils literal notranslate"><span class="pre">gpedit.msc</span></code> into the Start Menu search box, and press Enter.
+Then navigate to Computer Configuration&gt; Administrative Templates&gt;
+System&gt; Internet Communication Management, and open Restrict Internet Communication.</p>
+<p>Set the policy to enabled.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Network Configuration</a><ul>
+<li><a class="reference internal" href="#windows-settings">Windows Settings</a></li>
+<li><a class="reference internal" href="#windows-10">Windows 10</a></li>
+<li><a class="reference internal" href="#windows-xp">Windows XP</a></li>
+<li><a class="reference internal" href="#virtual-networking">Virtual Networking</a></li>
+<li><a class="reference internal" href="#creating-an-isolated-network">Creating an isolated network</a></li>
+<li><a class="reference internal" href="#setting-a-static-ip">Setting a static IP</a></li>
+<li><a class="reference internal" href="#disable-noisy-network-services">Disable Noisy Network Services</a></li>
+<li><a class="reference internal" href="#teredo">Teredo</a></li>
+<li><a class="reference internal" href="#link-local-multicast-name-resolution-llmnr">Link Local Multicast Name Resolution (LLMNR)</a></li>
+<li><a class="reference internal" href="#gpedit-msc-missing"><code class="docutils literal notranslate"><span class="pre">gpedit.msc</span></code> missing</a></li>
+<li><a class="reference internal" href="#network-connectivity-status-indicator-error-reporting-etc">Network Connectivity Status Indicator, Error Reporting, etc</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="requirements.html"
+                          title="previous chapter">Requirements</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="agent.html"
+                          title="next chapter">Installing the Agent</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/installation/guest/network.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="agent.html" title="Installing the Agent"
+             >next</a></li>
+        <li class="right" >
+          <a href="requirements.html" title="Requirements"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" >Preparing the Guest</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Network Configuration</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

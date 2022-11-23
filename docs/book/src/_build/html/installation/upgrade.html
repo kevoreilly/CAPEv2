@@ -1,0 +1,199 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Upgrade from a previous release &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Usage" href="../usage/index.html" />
+    <link rel="prev" title="Saving the Guest" href="guest_physical/saving.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../usage/index.html" title="Usage"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="guest_physical/saving.html" title="Saving the Guest"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Installation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Upgrade from a previous release</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="upgrade-from-a-previous-release">
+<h1>Upgrade from a previous release<a class="headerlink" href="#upgrade-from-a-previous-release" title="Permalink to this headline">¶</a></h1>
+<p>CAPE Sandbox grows fast. In every release, features are added, fixed and/or removed.
+There are two ways to upgrade your CAPE: start from scratch or migrate your
+“old” setup.
+The suggested way to upgrade CAPE is to start from a fresh setup because it’s
+easier and faster than migrating your old setup.</p>
+<section id="upgrade-starting-from-scratch">
+<h2>Upgrade starting from scratch<a class="headerlink" href="#upgrade-starting-from-scratch" title="Permalink to this headline">¶</a></h2>
+<p>To start from scratch you have to perform a fresh setup as described in <a class="reference internal" href="index.html"><span class="doc">Installation</span></a>.
+The following steps are suggested:</p>
+<ol class="arabic simple">
+<li><p>Back up your installation.</p></li>
+<li><p>Read the documentation shipped with the new release.</p></li>
+<li><p>Make sure to have installed all required dependencies, otherwise install them.</p></li>
+<li><p>Do a CAPE fresh installation of the Host components.</p></li>
+<li><p>Reconfigure CAPE as explained in this book (copying old configuration files
+is not safe because options can change between releases).</p></li>
+<li><p>If you are using an external database instead of the default or you are using
+the MongoDb reporting module is suggested to start all databases from scratch,
+due to possible schema changes between CAPE releases.</p></li>
+<li><p>Test it!</p></li>
+</ol>
+<p>If something goes wrong you probably failed to do some steps during the fresh
+installation or reconfiguration. Check again the procedure explained in this
+book.</p>
+<p>It’s not recommended to rewrite an old CAPE installation with the latest
+release files, as it might raise some problems because:</p>
+<ul class="simple">
+<li><p>You are overwriting Python source files (.py) but Python bytecode files (.pyc)
+are still in place.</p></li>
+<li><p>There are configuration file changes across the two versions, check our
+CHANGELOG file for added or removed configuration options.</p></li>
+<li><p>The part of CAPE which runs inside guests (agent.py) may change.</p></li>
+<li><p>If you are using an external database like the reporting module for MongoDb a
+change in the data schema may corrupt your database.</p></li>
+</ul>
+</section>
+<section id="migrate-your-cape">
+<h2>Migrate your CAPE<a class="headerlink" href="#migrate-your-cape" title="Permalink to this headline">¶</a></h2>
+<p>The following steps are suggested as a requirement to migrate your data:</p>
+<ol class="arabic simple">
+<li><p>Back up your installation.</p></li>
+<li><p>Read the documentation shipped with the new release.</p></li>
+<li><p>Make sure to have installed all required dependencies, otherwise install them.</p></li>
+<li><p>Download and extract the latest CAPE.</p></li>
+<li><p>Reconfigure CAPE as explained in this book (copying old configuration files
+is not safe because options can change between releases), and update the agent in
+your virtual machines.</p></li>
+<li><p>Copy from your backup “storage” and “db” folders. (Reports and analyses
+already present in “storage” folder will keep the old format.)</p></li>
+</ol>
+<p>Now setup Alembic (the framework used for migrations) and dateutil with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip3</span> <span class="n">install</span> <span class="n">alembic</span>
+<span class="n">pip3</span> <span class="n">install</span> <span class="n">python</span><span class="o">-</span><span class="n">dateutil</span>
+</pre></div>
+</div>
+<p>Enter the alembic migration directory in “utils/db_migration” with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">utils</span><span class="o">/</span><span class="n">db_migration</span>
+</pre></div>
+</div>
+<p>Before starting the migration script you must set your database connection in “cuckoo.conf”
+if you are using a custom one. Alembic migration script will use the database
+connection parameters configured in cuckoo.conf.</p>
+<p>Again, please remember to backup before launching the migration tool! A wrong
+configuration may corrupt your data, backup should save kittens!</p>
+<p>Run the database migrations with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">alembic</span> <span class="n">upgrade</span> <span class="n">head</span>
+</pre></div>
+</div>
+</section>
+<section id="python-library-upgrades">
+<h2>Python library upgrades:<a class="headerlink" href="#python-library-upgrades" title="Permalink to this headline">¶</a></h2>
+<p>PIP3:</p>
+<blockquote>
+<div><p>$ pip3 install -U &lt;library&gt;</p>
+</div></blockquote>
+<dl class="simple">
+<dt>PIP3+git:</dt><dd><p>$ pip3 install -U git+&lt;repo_url&gt;
+$ pip3 install -U git+https://github.com/doomedraven/sflock</p>
+</dd>
+</dl>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Upgrade from a previous release</a><ul>
+<li><a class="reference internal" href="#upgrade-starting-from-scratch">Upgrade starting from scratch</a></li>
+<li><a class="reference internal" href="#migrate-your-cape">Migrate your CAPE</a></li>
+<li><a class="reference internal" href="#python-library-upgrades">Python library upgrades:</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="guest_physical/saving.html"
+                          title="previous chapter">Saving the Guest</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="../usage/index.html"
+                          title="next chapter">Usage</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/installation/upgrade.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../usage/index.html" title="Usage"
+             >next</a></li>
+        <li class="right" >
+          <a href="guest_physical/saving.html" title="Saving the Guest"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Installation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Upgrade from a previous release</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

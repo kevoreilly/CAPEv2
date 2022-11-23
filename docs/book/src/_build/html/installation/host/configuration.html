@@ -1,0 +1,290 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Configuration &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Per-Analysis Network Routing" href="routing.html" />
+    <link rel="prev" title="Installing CAPE" href="installation.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="routing.html" title="Per-Analysis Network Routing"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="installation.html" title="Installing CAPE"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" accesskey="U">Preparing the Host</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Configuration</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="configuration">
+<h1>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h1>
+<p>CAPE relies on six main configuration files:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference internal" href="#cuckoo-conf"><span class="std std-ref">cuckoo.conf</span></a>: for configuring general behavior and analysis options.</p></li>
+<li><p><a class="reference internal" href="#auxiliary-conf"><span class="std std-ref">auxiliary.conf</span></a>: for enabling and configuring auxiliary modules.</p></li>
+<li><dl class="simple">
+<dt><a class="reference internal" href="#machinery-conf"><span class="std std-ref">&lt;machinery&gt;.conf</span></a>: for defining the options for your virtualization software</dt><dd><p>(the file has the same name as the machinery module you choose in cuckoo.conf).</p>
+</dd>
+</dl>
+</li>
+<li><p><a class="reference internal" href="#memory-conf"><span class="std std-ref">memory.conf</span></a>: Volatility configuration.</p></li>
+<li><p><a class="reference internal" href="#processing-conf"><span class="std std-ref">processing.conf</span></a>: for enabling and configuring processing modules.</p></li>
+<li><p><a class="reference internal" href="#reporting-conf"><span class="std std-ref">reporting.conf</span></a>: for enabling or disabling report formats.</p></li>
+<li><p><a class="reference internal" href="#routing-conf"><span class="std std-ref">routing.conf</span></a>: for defining the routing of internet connection for the VMs.</p></li>
+</ul>
+</div></blockquote>
+<p>To get CAPE working you have to edit <a class="reference internal" href="#auxiliary-conf"><span class="std std-ref">auxiliary.conf</span></a>, <a class="reference internal" href="#cuckoo-conf"><span class="std std-ref">cuckoo.conf</span></a>, and <a class="reference internal" href="#machinery-conf"><span class="std std-ref">&lt;machinery&gt;.conf</span></a> at least.
+We suggest you check all configs before starting, to be familiar with the possibilities that you have and what you want to be done.</p>
+<p>Alternatively, you may create a <cite>custom/conf/</cite> directory and put files in there
+whose names are the same as those in the top-level <cite>conf/</cite> directory. These
+files only need to include settings that will override the defaults.</p>
+<p>To allow for further flexibility, you can also create a <cite>custom/conf/&lt;type&gt;.conf.d/</cite>
+(e.g. <cite>custom/conf/reporting.conf.d/</cite>) directory and place files in there. Any
+file in that directory whose name ends in <cite>.conf</cite> will be read (in lexicographic
+order). The last value read for a value will be the one that is used.</p>
+<section id="cuckoo-conf">
+<span id="id1"></span><h2>cuckoo.conf<a class="headerlink" href="#cuckoo-conf" title="Permalink to this headline">¶</a></h2>
+<p>The first file to edit is <em>conf/cuckoo.conf</em>, it contains the generic configuration
+options that you might want to verify before launching CAPE.</p>
+<p>The file is largely commented and self-explaining, but some of the options you might
+want to pay more attention to are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">machinery</span></code> in <code class="docutils literal notranslate"><span class="pre">[cuckoo]</span></code>: this defines which Machinery module you want CAPE to use to interact with your analysis machines. The value must be the name of the module without extension.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ip</span></code> and <code class="docutils literal notranslate"><span class="pre">port</span></code> in <code class="docutils literal notranslate"><span class="pre">[resultserver]</span></code>: defines the local IP address and port that CAPE is going to use to bind the result server to. Make sure this matches the network configuration of your analysis machines, or they won’t be able to return the collected results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">connection</span></code> in <code class="docutils literal notranslate"><span class="pre">[database]</span></code>: defines how to connect to the internal database. You can use any DBMS supported by <a class="reference external" href="http://www.sqlalchemy.org/">SQLAlchemy</a> using a valid <a class="reference external" href="http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls">Database Urls</a> syntax.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Check your interface for resultserver IP! Some virtualization software (for example Virtualbox)
+doesn’t bring up the virtual networking interfaces until a virtual machine is started.
+CAPE needs to have the interface where you bind the resultserver up before the start, so please
+check your network setup. If you are not sure about how to get the interface up, a good trick is to manually start
+and stop an analysis virtual machine, this will bring virtual networking up.
+If you are using NAT/PAT in your network, you can set up the resultserver IP
+to 0.0.0.0 to listen on all interfaces, then use the specific options <cite>resultserver_ip</cite> and <cite>resultserver_port</cite>
+in <em>&lt;machinery&gt;.conf</em> to specify the address and port as every machine sees them. Note that if you set
+resultserver IP to 0.0.0.0 in cuckoo.conf you have to set <cite>resultserver_ip</cite> for all your virtual machines.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Default freespace value is 50GB
+It is worth mentioning that the default <code class="docutils literal notranslate"><span class="pre">freespace</span></code> value in <code class="docutils literal notranslate"><span class="pre">cuckoo.conf</span></code> is 50000 MB aka 50 GB.</p>
+</div>
+<p>Please check the latest version of cuckoo.conf here: <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/cuckoo.conf">cuckoo.conf</a>.</p>
+</section>
+<section id="auxiliary-conf">
+<span id="id3"></span><h2>auxiliary.conf<a class="headerlink" href="#auxiliary-conf" title="Permalink to this headline">¶</a></h2>
+<p>Auxiliary modules are scripts that run concurrently with malware analysis, this file defines
+their options. Please see the latest version here: <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/auxiliary.conf">auxiliary.conf</a>.</p>
+</section>
+<section id="machinery-conf">
+<span id="id5"></span><h2>&lt;machinery&gt;.conf<a class="headerlink" href="#machinery-conf" title="Permalink to this headline">¶</a></h2>
+<p>Machinery modules are scripts that define how Cuckoo should interact with
+your virtualization software of choice.</p>
+<p>Every module should have a dedicated configuration file that defines the
+details of the available machines. For example, if you created a <em>kvm.py</em>
+machinery module, you should specify <em>kvm</em> in <em>conf/cuckoo.conf</em>
+and have a <em>conf/kvm.conf</em> file.</p>
+<p>CAPE provides some modules by default and for the sake of this guide, we’ll
+assume you’re going to use KVM. Please see the latest version here: <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/kvm.conf">kvm.conf</a>.</p>
+<p>If you are using KVM (kvm.conf), for each VM you want to use for analysis there must be a dedicated section. First you have to create and configure the VM (following the instructions in the dedicated chapter, see <a class="reference internal" href="../guest/index.html#preparing-the-guest"><span class="std std-ref">Preparing the Guest</span></a>). The name of the section must be the same as the label of the VM as printed by <code class="docutils literal notranslate"><span class="pre">$</span> <span class="pre">virsh</span> <span class="pre">list</span> <span class="pre">--all</span></code>. If no VMs are shown, you can execute the following command sequence: <code class="docutils literal notranslate"><span class="pre">$</span> <span class="pre">virsh</span></code>, <code class="docutils literal notranslate"><span class="pre">$</span> <span class="pre">connect</span> <span class="pre">qemu:///system</span></code>, <code class="docutils literal notranslate"><span class="pre">$</span> <span class="pre">list</span> <span class="pre">--all</span></code>; or you can check <a class="reference external" href="https://serverfault.com/a/861853">this link</a> to learn how to change the connection in Virtual Manager.</p>
+<p>You can also find examples of other hipervisors like:</p>
+<ul class="simple">
+<li><p>VirtualBox: <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/virtualbox.conf">virtualbox.conf</a>.</p></li>
+<li><p>VMWare: <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/vmware.conf">vmware.conf</a>.</p></li>
+</ul>
+<p>The comments for the options are self-explanatory.</p>
+<p>You can use this same configuration structure for any other machinery module, although
+existing ones might have some variations or additional configuration options.</p>
+</section>
+<section id="memory-conf">
+<span id="id6"></span><h2>memory.conf<a class="headerlink" href="#memory-conf" title="Permalink to this headline">¶</a></h2>
+<p>The Volatility tool offers a large set of plugins for memory dump analysis. Some of them are quite slow.
+In volatility.conf lets you enable or disable the plugins of your choice.
+To use Volatility you have to follow two steps:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Enable it in processing.conf</p></li>
+<li><p>Enable memory_dump in cuckoo.conf</p></li>
+</ul>
+</div></blockquote>
+<p>In the memory.conf’s basic section you can configure the Volatility profile and
+the deletion of memory dumps after processing:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic settings</span>
+<span class="p">[</span><span class="n">basic</span><span class="p">]</span>
+<span class="c1"># Profile to avoid wasting time identifying it</span>
+<span class="n">guest_profile</span> <span class="o">=</span> <span class="n">WinXPSP2x86</span>
+<span class="c1"># Delete memory dump after volatility processing.</span>
+<span class="n">delete_memdump</span> <span class="o">=</span> <span class="n">no</span>
+</pre></div>
+</div>
+<p>After that every plugin has an own section for configuration:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Scans for hidden/injected code and dlls</span>
+<span class="c1"># http://code.google.com/p/volatility/wiki/CommandReference#malfind</span>
+<span class="p">[</span><span class="n">malfind</span><span class="p">]</span>
+<span class="n">enabled</span> <span class="o">=</span> <span class="n">on</span>
+<span class="nb">filter</span> <span class="o">=</span> <span class="n">on</span>
+
+<span class="c1"># Lists hooked api in user mode and kernel space</span>
+<span class="c1"># Expect it to be very slow when enabled</span>
+<span class="c1"># http://code.google.com/p/volatility/wiki/CommandReference#apihooks</span>
+<span class="p">[</span><span class="n">apihooks</span><span class="p">]</span>
+<span class="n">enabled</span> <span class="o">=</span> <span class="n">off</span>
+<span class="nb">filter</span> <span class="o">=</span> <span class="n">on</span>
+</pre></div>
+</div>
+<p>The filter configuration helps you to remove known clean data from the resulting report. It can be configured separately for every plugin.</p>
+<p>The filter itself is configured in the [mask] section.
+You can enter a list of pids in pid_generic to filter out processes:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Masks. Data that should not be logged</span>
+<span class="c1"># Just get this information from your plain VM Snapshot (without running malware)</span>
+<span class="c1"># This will filter out unwanted information in the logs</span>
+<span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+<span class="c1"># pid_generic: a list of process ids that already existed on the machine before the malware was started.</span>
+<span class="n">pid_generic</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">680</span><span class="p">,</span> <span class="mi">752</span><span class="p">,</span> <span class="mi">776</span><span class="p">,</span> <span class="mi">828</span><span class="p">,</span> <span class="mi">840</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1052</span><span class="p">,</span> <span class="mi">1168</span><span class="p">,</span> <span class="mi">1364</span><span class="p">,</span> <span class="mi">1428</span><span class="p">,</span> <span class="mi">1476</span><span class="p">,</span> <span class="mi">1808</span><span class="p">,</span> <span class="mi">452</span><span class="p">,</span> <span class="mi">580</span><span class="p">,</span> <span class="mi">652</span><span class="p">,</span> <span class="mi">248</span><span class="p">,</span> <span class="mi">1992</span><span class="p">,</span> <span class="mi">1696</span><span class="p">,</span> <span class="mi">1260</span><span class="p">,</span> <span class="mi">1656</span><span class="p">,</span> <span class="mi">1156</span>
+</pre></div>
+</div>
+<p>Please see the latest version here: <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/memory.conf">memory.conf</a>.</p>
+</section>
+<section id="processing-conf">
+<span id="id8"></span><h2>processing.conf<a class="headerlink" href="#processing-conf" title="Permalink to this headline">¶</a></h2>
+<p>This file allows you to enable, disable and configure all processing modules.
+These modules are located under <cite>modules/processing/</cite> and define how to digest
+the raw data collected during the analysis.</p>
+<p>You will find a section for each processing module here: <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/processing.conf">processing.conf</a>.</p>
+<p>You might want to configure the <a class="reference external" href="http://www.virustotal.com">VirusTotal</a> key if you have an account of your own.</p>
+</section>
+<section id="reporting-conf">
+<span id="id10"></span><h2>reporting.conf<a class="headerlink" href="#reporting-conf" title="Permalink to this headline">¶</a></h2>
+<p>The <em>conf/reporting.conf</em> file contains information on the automated reports generation.
+Please see the latest version here: <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/reporting.conf">reporting.conf</a>.</p>
+<p>By setting these options to <em>on</em> or <em>off</em> you enable or disable the generation
+of such reports.</p>
+</section>
+<section id="routing-conf">
+<span id="id12"></span><h2>routing.conf<a class="headerlink" href="#routing-conf" title="Permalink to this headline">¶</a></h2>
+<p>The <em>conf/routing.conf</em> file contains information about how the guest VM is connected (or not) to the Internet via the Host, or whether it is isolated. This file is used in conjunction with the <code class="docutils literal notranslate"><span class="pre">rooter.py</span></code> utility.</p>
+<p>Please see the latest version of routing.conf here: <a class="reference internal" href="#id12">routing.conf</a>.</p>
+<p>You can read more about the <em>routing.conf</em> file and its options in the <a class="reference internal" href="routing.html#routing"><span class="std std-ref">Per-Analysis Network Routing</span></a> chapter and more about the <code class="docutils literal notranslate"><span class="pre">rooter.py</span></code> utility in the <a class="reference internal" href="../../usage/rooter.html#rooter"><span class="std std-ref">CAPE Rooter</span></a> chapter.</p>
+</section>
+<section id="using-environment-variables-in-config-files">
+<h2>Using environment variables in config files<a class="headerlink" href="#using-environment-variables-in-config-files" title="Permalink to this headline">¶</a></h2>
+<p>Any of the above config files may reference environment variables in their
+values by using <code class="docutils literal notranslate"><span class="pre">%(ENV:VARIABLE_NAME)s</span></code>. For example, instead of putting a
+VirusTotal Intelligence API key in <a class="reference internal" href="#auxiliary-conf"><span class="std std-ref">auxiliary.conf</span></a>, you could use the
+following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">virustotaldl</span><span class="p">]</span>
+<span class="n">enabled</span> <span class="o">=</span> <span class="n">yes</span>
+<span class="n">dlintelkey</span> <span class="o">=</span> <span class="o">%</span><span class="p">(</span><span class="n">ENV</span><span class="p">:</span><span class="n">DLINTELKEY</span><span class="p">)</span><span class="n">s</span>
+</pre></div>
+</div>
+<p>assuming the <code class="docutils literal notranslate"><span class="pre">DLINTELKEY</span></code> environment variable contains the API key.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Configuration</a><ul>
+<li><a class="reference internal" href="#cuckoo-conf">cuckoo.conf</a></li>
+<li><a class="reference internal" href="#auxiliary-conf">auxiliary.conf</a></li>
+<li><a class="reference internal" href="#machinery-conf">&lt;machinery&gt;.conf</a></li>
+<li><a class="reference internal" href="#memory-conf">memory.conf</a></li>
+<li><a class="reference internal" href="#processing-conf">processing.conf</a></li>
+<li><a class="reference internal" href="#reporting-conf">reporting.conf</a></li>
+<li><a class="reference internal" href="#routing-conf">routing.conf</a></li>
+<li><a class="reference internal" href="#using-environment-variables-in-config-files">Using environment variables in config files</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="installation.html"
+                          title="previous chapter">Installing CAPE</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="routing.html"
+                          title="next chapter">Per-Analysis Network Routing</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/installation/host/configuration.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="routing.html" title="Per-Analysis Network Routing"
+             >next</a></li>
+        <li class="right" >
+          <a href="installation.html" title="Installing CAPE"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" >Preparing the Host</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Configuration</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,777 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>REST API &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Distributed CAPE" href="dist.html" />
+    <link rel="prev" title="Web interface" href="web.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="dist.html" title="Distributed CAPE"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="web.html" title="Web interface"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Usage</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">REST API</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="rest-api">
+<h1>REST API<a class="headerlink" href="#rest-api" title="Permalink to this headline">¶</a></h1>
+<p>To see the current hosted REST API documentation head to <code class="docutils literal notranslate"><span class="pre">/apiv2/</span></code>. You will find all endpoints and details on how to do requests.</p>
+<p><cite>API example</cite>: <a class="reference external" href="https://capesandbox.com/apiv2/">https://capesandbox.com/apiv2/</a></p>
+<p>To enable the REST API, we use <cite>django-rest-framework</cite>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ pip3 install djangorestframework
+</pre></div>
+</div>
+<p>To generate a user authorization token:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Ensure you are in CAPE&#39;s web directory</span>
+<span class="n">cd</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">CAPEv2</span><span class="o">/</span><span class="n">web</span>
+
+<span class="c1"># To create super user aka admin</span>
+<span class="n">python3</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">createsuperuser</span>
+
+<span class="c1"># To create normal user, use web interface /admin/ (in case if you not changed path)</span>
+
+<span class="c1"># By hand, only required if auth enabled and user MUST exist</span>
+<span class="n">python3</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">drf_create_token</span> <span class="o">&lt;</span><span class="n">your_user</span><span class="o">&gt;</span>
+
+<span class="c1"># Auto generation local or any public instance</span>
+<span class="n">curl</span> <span class="o">-</span><span class="n">d</span> <span class="s2">&quot;username=&lt;USER&gt;&amp;password=&lt;PASSWD&gt;&quot;</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="mf">127.0</span><span class="o">.</span><span class="mf">0.1</span><span class="p">:</span><span class="mi">8000</span><span class="o">/</span><span class="n">apiv2</span><span class="o">/</span><span class="n">api</span><span class="o">-</span><span class="n">token</span><span class="o">-</span><span class="n">auth</span><span class="o">/</span>
+<span class="n">curl</span> <span class="o">-</span><span class="n">d</span> <span class="s2">&quot;username=&lt;USER&gt;&amp;password=&lt;PASSWD&gt;&quot;</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">capesandbox</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">apiv2</span><span class="o">/</span><span class="n">api</span><span class="o">-</span><span class="n">token</span><span class="o">-</span><span class="n">auth</span><span class="o">/</span>
+<span class="n">curl</span> <span class="o">-</span><span class="n">d</span> <span class="s2">&quot;username=&lt;USER&gt;&amp;password=&lt;PASSWD&gt;&quot;</span> <span class="n">http</span><span class="p">(</span><span class="n">s</span><span class="p">):</span><span class="o">//&lt;</span><span class="n">ANY_CAPE</span><span class="o">&gt;/</span><span class="n">apiv2</span><span class="o">/</span><span class="n">api</span><span class="o">-</span><span class="n">token</span><span class="o">-</span><span class="n">auth</span><span class="o">/</span>
+
+<span class="c1"># Usage</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+
+<span class="n">url</span> <span class="o">=</span> <span class="s1">&#39;http://127.0.0.1:8000/apiv2/&lt;ENDPOINT&gt;&#39;</span>
+<span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;Authorization&#39;</span><span class="p">:</span> <span class="s1">&#39;Token &lt;YOUR_TOKEN&gt;&#39;</span><span class="p">}</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="cape-throttling-aka-requests-per-minute-hour-day">
+<h2><a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/web/apiv2/throttling.py">CAPE throttling</a>, aka requests per minute/hour/day.<a class="headerlink" href="#cape-throttling-aka-requests-per-minute-hour-day" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Requires token authentication enabled in <code class="docutils literal notranslate"><span class="pre">api.conf</span></code></p></li>
+<li><p>Default 5/m</p></li>
+<li><p>You can change the default throttle limits in <code class="docutils literal notranslate"><span class="pre">api.conf</span></code></p></li>
+<li><p>To change the user limit go to django admin <code class="docutils literal notranslate"><span class="pre">/admin/</span></code> if you didn’t change the path, and set the limit per user in the user profile at the bottom.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>All documentation below this warning is deprecated.</p>
+</div>
+</section>
+</section>
+<section id="api-py-deprecated">
+<h1>api.py DEPRECATED<a class="headerlink" href="#api-py-deprecated" title="Permalink to this headline">¶</a></h1>
+<section id="resources">
+<h2>Resources<a class="headerlink" href="#resources" title="Permalink to this headline">¶</a></h2>
+<p>Following is a list of currently available resources and a brief description of each one. For details click on the resource name.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 77%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Resource</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span></code> <a class="reference internal" href="#tasks-create-file"><span class="std std-ref">/tasks/create/file</span></a></p></td>
+<td><p>Adds a file to the list of pending tasks to be processed and analyzed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span></code> <a class="reference internal" href="#tasks-create-url"><span class="std std-ref">/tasks/create/url</span></a></p></td>
+<td><p>Adds an URL to the list of pending tasks to be processed and analyzed.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#tasks-list"><span class="std std-ref">/tasks/list</span></a></p></td>
+<td><p>Returns the list of tasks stored in the internal Cuckoo database.
+You can optionally specify a limit of entries to return.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#tasks-view"><span class="std std-ref">/tasks/view</span></a></p></td>
+<td><p>Returns the details on the task assigned to the specified ID.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#tasks-delete"><span class="std std-ref">/tasks/delete</span></a></p></td>
+<td><p>Removes the given task from the database and deletes the results.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#tasks-report"><span class="std std-ref">/tasks/report</span></a></p></td>
+<td><p>Returns the report generated out of the analysis of the task associated with the specified ID.
+You can optionally specify which report format to return, if none is specified the JSON report will be returned.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#tasks-shots"><span class="std std-ref">/tasks/screenshots</span></a></p></td>
+<td><p>Retrieves one or all screenshots associated with a given analysis task ID.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#files-view"><span class="std std-ref">/files/view</span></a></p></td>
+<td><p>Search the analyzed binaries by MD5 hash, SHA256 hash or internal ID (referenced by the tasks details).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#files-get"><span class="std std-ref">/files/get</span></a></p></td>
+<td><p>Returns the content of the binary with the specified SHA256 hash.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#pcap-get"><span class="std std-ref">/pcap/get</span></a></p></td>
+<td><p>Returns the content of the PCAP associated with the given task.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#machines-list"><span class="std std-ref">/machines/list</span></a></p></td>
+<td><p>Returns the list of analysis machines available to Cuckoo.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#machines-view"><span class="std std-ref">/machines/view</span></a></p></td>
+<td><p>Returns details on the analysis machine associated with the specified name.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> <a class="reference internal" href="#cuckoo-status"><span class="std std-ref">/cuckoo/status</span></a></p></td>
+<td><p>Returns the basic cuckoo status, including version and tasks overview</p></td>
+</tr>
+</tbody>
+</table>
+<section id="tasks-create-file">
+<span id="id1"></span><h3>/tasks/create/file<a class="headerlink" href="#tasks-create-file" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>POST /tasks/create/file</strong></p>
+<blockquote>
+<div><p>Adds a file to the list of pending tasks. Returns the ID of the newly created task.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span>curl -F file=@/path/to/file http://localhost:8090/tasks/create/file
+</pre></div>
+</div>
+<p><strong>Example request using Python</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span>import requests
+import json
+
+REST_URL = &quot;http://localhost:8090/tasks/create/file&quot;
+SAMPLE_FILE = &quot;/path/to/malwr.exe&quot;
+
+with open(SAMPLE_FILE, &quot;rb&quot;) as sample:
+    multipart_file = {&quot;file&quot;: (&quot;temp_file_name&quot;, sample)}
+    request = requests.post(REST_URL, files=multipart_file)
+
+# Add your code to error checking for request.status_code.
+
+json_decoder = json.JSONDecoder()
+task_id = json_decoder.decode(request.text)[&quot;task_id&quot;]
+
+# Add your code for error checking if task_id is None.
+</pre></div>
+</div>
+<p><strong>Example response</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;task_id&quot;</span> <span class="o">:</span> <span class="mf">1</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Form parameters</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">file</span></code> <em>(required)</em> - sample file (multipart encoded file content)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">package</span></code> <em>(optional)</em> - analysis package to be used for the analysis</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timeout</span></code> <em>(optional)</em> <em>(int)</em> - analysis timeout (in seconds)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">priority</span></code> <em>(optional)</em> <em>(int)</em> - priority to assign to the task (1-3)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">options</span></code> <em>(optional)</em> - options to pass to the analysis package</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">machine</span></code> <em>(optional)</em> - ID of the analysis machine to use for the analysis</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">platform</span></code> <em>(optional)</em> - name of the platform to select the analysis machine from (e.g. “windows”)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tags</span></code> <em>(optional)</em> - define machine to start by tags. Platform must be set to use that. Tags are comma separated</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">custom</span></code> <em>(optional)</em> - custom string to pass over the analysis and the processing/reporting modules</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memory</span></code> <em>(optional)</em> - enable the creation of a full memory dump of the analysis machine</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enforce_timeout</span></code> <em>(optional)</em> - enable to enforce the execution for the full timeout value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clock</span></code> <em>(optional)</em> - set virtual machine clock (format %m-%d-%Y %H:%M:%S)</p></li>
+</ul>
+</dd>
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="tasks-create-url">
+<span id="id2"></span><h3>/tasks/create/url<a class="headerlink" href="#tasks-create-url" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>POST /tasks/create/url</strong></p>
+<blockquote>
+<div><p>Adds a file to the list of pending tasks. Returns the ID of the newly created task.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="o">-</span><span class="nx">F</span> <span class="nx">url</span><span class="o">=</span><span class="s2">&quot;http://www.malicious.site&quot;</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/tasks/create/url</span>
+</pre></div>
+</div>
+<p><strong>Example request using Python</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span>import requests
+import json
+
+REST_URL = &quot;http://localhost:8090/tasks/create/url&quot;
+SAMPLE_URL = &quot;http://example.org/malwr.exe&quot;
+
+multipart_url = {&quot;url&quot;: (&quot;&quot;, SAMPLE_URL)}
+request = requests.post(REST_URL, files=multipart_url)
+
+# Add your code to error checking for request.status_code.
+
+json_decoder = json.JSONDecoder()
+task_id = json_decoder.decode(request.text)[&quot;task_id&quot;]
+
+# Add your code toerror checking if task_id is None.
+</pre></div>
+</div>
+<p><strong>Example response</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;task_id&quot;</span> <span class="o">:</span> <span class="mf">1</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Form parameters</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">url</span></code> <em>(required)</em> - URL to analyze (multipart encoded content)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">package</span></code> <em>(optional)</em> - analysis package to be used for the analysis</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timeout</span></code> <em>(optional)</em> <em>(int)</em> - analysis timeout (in seconds)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">priority</span></code> <em>(optional)</em> <em>(int)</em> - priority to assign to the task (1-3)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">options</span></code> <em>(optional)</em> - options to pass to the analysis package</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">machine</span></code> <em>(optional)</em> - ID of the analysis machine to use for the analysis</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">platform</span></code> <em>(optional)</em> - name of the platform to select the analysis machine from (e.g. “windows”)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tags</span></code> <em>(optional)</em> - define machine to start by tags. Platform must be set to use that. Tags are comma separated</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">custom</span></code> <em>(optional)</em> - custom string to pass over the analysis and the processing/reporting modules</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memory</span></code> <em>(optional)</em> - enable the creation of a full memory dump of the analysis machine</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enforce_timeout</span></code> <em>(optional)</em> - enable to enforce the execution for the full timeout value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clock</span></code> <em>(optional)</em> - set virtual machine clock (format %m-%d-%Y %H:%M:%S)</p></li>
+</ul>
+</dd>
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="tasks-list">
+<span id="id3"></span><h3>/tasks/list<a class="headerlink" href="#tasks-list" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /tasks/list/</strong> <em>(int: limit)</em> <strong>/</strong> <em>(int: offset)</em></p>
+<blockquote>
+<div><p>Returns list of tasks.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/tasks/list</span>
+</pre></div>
+</div>
+<p><strong>Example response</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;tasks&quot;</span><span class="o">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;category&quot;</span><span class="o">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;machine&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;errors&quot;</span><span class="o">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;target&quot;</span><span class="o">:</span> <span class="s2">&quot;http://www.malicious.site&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;package&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;sample_id&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;guest&quot;</span><span class="o">:</span> <span class="p">{},</span>
+            <span class="s2">&quot;custom&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;priority&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+            <span class="s2">&quot;platform&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;options&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;status&quot;</span><span class="o">:</span> <span class="s2">&quot;pending&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;enforce_timeout&quot;</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+            <span class="s2">&quot;timeout&quot;</span><span class="o">:</span> <span class="mf">0</span><span class="p">,</span>
+            <span class="s2">&quot;memory&quot;</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+            <span class="s2">&quot;tags&quot;</span><span class="o">:</span> <span class="p">[]</span>
+            <span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+            <span class="s2">&quot;added_on&quot;</span><span class="o">:</span> <span class="s2">&quot;2012-12-19 14:18:25&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;completed_on&quot;</span><span class="o">:</span> <span class="kc">null</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;category&quot;</span><span class="o">:</span> <span class="s2">&quot;file&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;machine&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;errors&quot;</span><span class="o">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;target&quot;</span><span class="o">:</span> <span class="s2">&quot;/tmp/malware.exe&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;package&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;sample_id&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+            <span class="s2">&quot;guest&quot;</span><span class="o">:</span> <span class="p">{},</span>
+            <span class="s2">&quot;custom&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;priority&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+            <span class="s2">&quot;platform&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;options&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;status&quot;</span><span class="o">:</span> <span class="s2">&quot;pending&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;enforce_timeout&quot;</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+            <span class="s2">&quot;timeout&quot;</span><span class="o">:</span> <span class="mf">0</span><span class="p">,</span>
+            <span class="s2">&quot;memory&quot;</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+            <span class="s2">&quot;tags&quot;</span><span class="o">:</span> <span class="p">[</span>
+                        <span class="s2">&quot;32bit&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;acrobat_6&quot;</span><span class="p">,</span>
+                    <span class="p">],</span>
+            <span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mf">2</span><span class="p">,</span>
+            <span class="s2">&quot;added_on&quot;</span><span class="o">:</span> <span class="s2">&quot;2012-12-19 14:18:25&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;completed_on&quot;</span><span class="o">:</span> <span class="kc">null</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Parameters</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">limit</span></code> <em>(optional)</em> <em>(int)</em> - maximum number of returned tasks</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">offset</span></code> <em>(optional)</em> <em>(int)</em> - data offset</p></li>
+</ul>
+</dd>
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="tasks-view">
+<span id="id4"></span><h3>/tasks/view<a class="headerlink" href="#tasks-view" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /tasks/view/</strong> <em>(int: id)</em></p>
+<blockquote>
+<div><p>Returns details on the task associated with the specified ID.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/tasks/view/1</span>
+</pre></div>
+</div>
+<p><strong>Example response</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;task&quot;</span><span class="o">:</span> <span class="p">{</span>
+        <span class="s2">&quot;category&quot;</span><span class="o">:</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;machine&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;errors&quot;</span><span class="o">:</span> <span class="p">[],</span>
+        <span class="s2">&quot;target&quot;</span><span class="o">:</span> <span class="s2">&quot;http://www.malicious.site&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;package&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;sample_id&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;guest&quot;</span><span class="o">:</span> <span class="p">{},</span>
+        <span class="s2">&quot;custom&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;priority&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+        <span class="s2">&quot;platform&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;options&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;status&quot;</span><span class="o">:</span> <span class="s2">&quot;pending&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;enforce_timeout&quot;</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+        <span class="s2">&quot;timeout&quot;</span><span class="o">:</span> <span class="mf">0</span><span class="p">,</span>
+        <span class="s2">&quot;memory&quot;</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+        <span class="s2">&quot;tags&quot;</span><span class="o">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;32bit&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;acrobat_6&quot;</span><span class="p">,</span>
+                <span class="p">],</span>
+        <span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+        <span class="s2">&quot;added_on&quot;</span><span class="o">:</span> <span class="s2">&quot;2012-12-19 14:18:25&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;completed_on&quot;</span><span class="o">:</span> <span class="kc">null</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Parameters</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> <em>(required)</em> <em>(int)</em> - ID of the task to lookup</p></li>
+</ul>
+</dd>
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - task not found</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="tasks-delete">
+<span id="id5"></span><h3>/tasks/delete<a class="headerlink" href="#tasks-delete" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /tasks/delete/</strong> <em>(int: id)</em></p>
+<blockquote>
+<div><p>Removes the given task from the database and deletes the results.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/tasks/delete/1</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Parameters</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> <em>(required)</em> <em>(int)</em> - ID of the task to delete</p></li>
+</ul>
+</dd>
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - task not found</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">500</span></code> - unable to delete the task</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="tasks-report">
+<span id="id6"></span><h3>/tasks/report<a class="headerlink" href="#tasks-report" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /tasks/report/</strong> <em>(int: id)</em> <strong>/</strong> <em>(str: format)</em></p>
+<blockquote>
+<div><p>Returns the report associated with the specified task ID.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/tasks/report/1</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Parameters</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> <em>(required)</em> <em>(int)</em> - ID of the task to get the report for</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">format</span></code> <em>(optional)</em> - format of the report to retrieve [json/html/maec/metadata/all/dropped]. If none is specified the JSON report will be returned. <code class="docutils literal notranslate"><span class="pre">all</span></code> returns all the result files as tar.bz2, <code class="docutils literal notranslate"><span class="pre">dropped</span></code> the dropped files as tar.bz2</p></li>
+</ul>
+</dd>
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code> - invalid report format</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - report not found</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="tasks-screenshots">
+<span id="tasks-shots"></span><h3>/tasks/screenshots<a class="headerlink" href="#tasks-screenshots" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /tasks/screenshots/</strong> <em>(int: id)</em> <strong>/</strong> <em>(str: number)</em></p>
+<blockquote>
+<div><p>Returns one or all screenshots associated with the specified task ID.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">wget</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/tasks/screenshots/1</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Parameters</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> <em>(required)</em> <em>(int)</em> - ID of the task to get the report for</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">screenshot</span></code> <em>(optional)</em> - numerical identifier of a single screenshot (e.g. 0001, 0002)</p></li>
+</ul>
+</dd>
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - file or folder not found</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="files-view">
+<span id="id7"></span><h3>/files/view<a class="headerlink" href="#files-view" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /files/view/md5/</strong> <em>(str: md5)</em></p>
+<p><strong>GET /files/view/sha256/</strong> <em>(str: sha256)</em></p>
+<p><strong>GET /files/view/id/</strong> <em>(int: id)</em></p>
+<blockquote>
+<div><p>Returns details on the file matching either the specified MD5 hash, SHA256 hash or ID.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/files/view/id/1</span>
+</pre></div>
+</div>
+<p><strong>Example response</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;sample&quot;</span><span class="o">:</span> <span class="p">{</span>
+        <span class="s2">&quot;sha1&quot;</span><span class="o">:</span> <span class="s2">&quot;da39a3ee5e6b4b0d3255bfef95601890afd80709&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;file_type&quot;</span><span class="o">:</span> <span class="s2">&quot;empty&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;file_size&quot;</span><span class="o">:</span> <span class="mf">0</span><span class="p">,</span>
+        <span class="s2">&quot;crc32&quot;</span><span class="o">:</span> <span class="s2">&quot;00000000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ssdeep&quot;</span><span class="o">:</span> <span class="s2">&quot;3::&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sha256&quot;</span><span class="o">:</span> <span class="s2">&quot;e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sha512&quot;</span><span class="o">:</span> <span class="s2">&quot;cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+        <span class="s2">&quot;md5&quot;</span><span class="o">:</span> <span class="s2">&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Parameters</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">md5</span></code> <em>(optional)</em> - MD5 hash of the file to lookup</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sha256</span></code> <em>(optional)</em> - SHA256 hash of the file to lookup</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> <em>(optional)</em> <em>(int)</em> - ID of the file to lookup</p></li>
+</ul>
+</dd>
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">400</span></code> - invalid lookup term</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - file not found</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="files-get">
+<span id="id8"></span><h3>/files/get<a class="headerlink" href="#files-get" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /files/get/</strong> <em>(str: sha256)</em></p>
+<blockquote>
+<div><blockquote>
+<div><p>Returns the binary content of the file matching the specified SHA256 hash.</p>
+</div></blockquote>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/files/get/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 &gt; sample.exe</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - file not found</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="pcap-get">
+<span id="id9"></span><h3>/pcap/get<a class="headerlink" href="#pcap-get" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /pcap/get/</strong> <em>(int: task)</em></p>
+<blockquote>
+<div><p>Returns the content of the PCAP associated with the given task.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/pcap/get/1 &gt; dump.pcap</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - file not found</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="machines-list">
+<span id="id10"></span><h3>/machines/list<a class="headerlink" href="#machines-list" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /machines/list</strong></p>
+<blockquote>
+<div><p>Returns a list with details on the analysis machines available to Cuckoo.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/machines/list</span>
+</pre></div>
+</div>
+<p><strong>Example response</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;machines&quot;</span><span class="o">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;status&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;locked&quot;</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+            <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;cuckoo1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;resultserver_ip&quot;</span><span class="o">:</span> <span class="s2">&quot;192.168.56.1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ip&quot;</span><span class="o">:</span> <span class="s2">&quot;192.168.56.101&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;tags&quot;</span><span class="o">:</span> <span class="p">[</span>
+                        <span class="s2">&quot;32bit&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;acrobat_6&quot;</span><span class="p">,</span>
+                    <span class="p">],</span>
+            <span class="s2">&quot;label&quot;</span><span class="o">:</span> <span class="s2">&quot;cuckoo1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;locked_changed_on&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;platform&quot;</span><span class="o">:</span> <span class="s2">&quot;windows&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;snapshot&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;interface&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;status_changed_on&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+            <span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+            <span class="s2">&quot;resultserver_port&quot;</span><span class="o">:</span> <span class="s2">&quot;2042&quot;</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="machines-view">
+<span id="id11"></span><h3>/machines/view<a class="headerlink" href="#machines-view" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /machines/view/</strong> <em>(str: name)</em></p>
+<blockquote>
+<div><p>Returns details on the analysis machine associated with the given name.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/machines/view/cuckoo1</span>
+</pre></div>
+</div>
+<p><strong>Example response</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;machine&quot;</span><span class="o">:</span> <span class="p">{</span>
+        <span class="s2">&quot;status&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;locked&quot;</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+        <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;cuckoo1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;resultserver_ip&quot;</span><span class="o">:</span> <span class="s2">&quot;192.168.56.1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ip&quot;</span><span class="o">:</span> <span class="s2">&quot;192.168.56.101&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tags&quot;</span><span class="o">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;32bit&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;acrobat_6&quot;</span><span class="p">,</span>
+                <span class="p">],</span>
+        <span class="s2">&quot;label&quot;</span><span class="o">:</span> <span class="s2">&quot;cuckoo1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;locked_changed_on&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;platform&quot;</span><span class="o">:</span> <span class="s2">&quot;windows&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;snapshot&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;interface&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;status_changed_on&quot;</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+        <span class="s2">&quot;resultserver_port&quot;</span><span class="o">:</span> <span class="s2">&quot;2042&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - machine not found</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="cuckoo-status">
+<span id="id12"></span><h3>/cuckoo/status<a class="headerlink" href="#cuckoo-status" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><p><strong>GET /cuckoo/status/</strong></p>
+<blockquote>
+<div><p>Returns status of the cuckoo server.</p>
+<p><strong>Example request</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">curl</span> <span class="nx">http</span><span class="o">:</span><span class="c1">//localhost:8090/cuckoo/status</span>
+</pre></div>
+</div>
+<p><strong>Example response</strong>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;tasks&quot;</span><span class="o">:</span> <span class="p">{</span>
+        <span class="s2">&quot;reported&quot;</span><span class="o">:</span> <span class="mf">165</span><span class="p">,</span>
+        <span class="s2">&quot;running&quot;</span><span class="o">:</span> <span class="mf">2</span><span class="p">,</span>
+        <span class="s2">&quot;total&quot;</span><span class="o">:</span> <span class="mf">167</span><span class="p">,</span>
+        <span class="s2">&quot;completed&quot;</span><span class="o">:</span> <span class="mf">0</span><span class="p">,</span>
+        <span class="s2">&quot;pending&quot;</span><span class="o">:</span> <span class="mf">0</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;version&quot;</span><span class="o">:</span> <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;protocol_version&quot;</span><span class="o">:</span> <span class="mf">1</span><span class="p">,</span>
+    <span class="s2">&quot;hostname&quot;</span><span class="o">:</span> <span class="s2">&quot;Patient0&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;machines&quot;</span><span class="o">:</span> <span class="p">{</span>
+        <span class="s2">&quot;available&quot;</span><span class="o">:</span> <span class="mf">4</span><span class="p">,</span>
+        <span class="s2">&quot;total&quot;</span><span class="o">:</span> <span class="mf">5</span>
+    <span class="p">}</span>
+    <span class="s2">&quot;tools&quot;</span><span class="o">:</span><span class="p">[</span><span class="s2">&quot;vanilla&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Status codes</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">200</span></code> - no error</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">404</span></code> - machine not found</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</div></blockquote>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">REST API</a><ul>
+<li><a class="reference internal" href="#cape-throttling-aka-requests-per-minute-hour-day">CAPE throttling, aka requests per minute/hour/day.</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#api-py-deprecated">api.py DEPRECATED</a><ul>
+<li><a class="reference internal" href="#resources">Resources</a><ul>
+<li><a class="reference internal" href="#tasks-create-file">/tasks/create/file</a></li>
+<li><a class="reference internal" href="#tasks-create-url">/tasks/create/url</a></li>
+<li><a class="reference internal" href="#tasks-list">/tasks/list</a></li>
+<li><a class="reference internal" href="#tasks-view">/tasks/view</a></li>
+<li><a class="reference internal" href="#tasks-delete">/tasks/delete</a></li>
+<li><a class="reference internal" href="#tasks-report">/tasks/report</a></li>
+<li><a class="reference internal" href="#tasks-screenshots">/tasks/screenshots</a></li>
+<li><a class="reference internal" href="#files-view">/files/view</a></li>
+<li><a class="reference internal" href="#files-get">/files/get</a></li>
+<li><a class="reference internal" href="#pcap-get">/pcap/get</a></li>
+<li><a class="reference internal" href="#machines-list">/machines/list</a></li>
+<li><a class="reference internal" href="#machines-view">/machines/view</a></li>
+<li><a class="reference internal" href="#cuckoo-status">/cuckoo/status</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="web.html"
+                          title="previous chapter">Web interface</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="dist.html"
+                          title="next chapter">Distributed CAPE</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/usage/api.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="dist.html" title="Distributed CAPE"
+             >next</a></li>
+        <li class="right" >
+          <a href="web.html" title="Web interface"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Usage</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">REST API</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,128 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Auxiliary Modules &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Machinery Modules" href="machinery.html" />
+    <link rel="prev" title="Customization" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="machinery.html" title="Machinery Modules"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="index.html" title="Customization"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Customization</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Auxiliary Modules</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="auxiliary-modules">
+<h1>Auxiliary Modules<a class="headerlink" href="#auxiliary-modules" title="Permalink to this headline">¶</a></h1>
+<p><strong>Auxiliary</strong> modules define some procedures that need to be executed in parallel
+to every single analysis process.
+All auxiliary modules should be placed under the <em>modules/auxiliary/</em> directory.</p>
+<p>The skeleton of a module would look something like this:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Auxiliary</span>
+<span class="linenos">2</span>
+<span class="linenos">3</span><span class="k">class</span> <span class="nc">MyAuxiliary</span><span class="p">(</span><span class="n">Auxiliary</span><span class="p">):</span>
+<span class="linenos">4</span>
+<span class="linenos">5</span>    <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">6</span>        <span class="c1"># Do something.</span>
+<span class="linenos">7</span>
+<span class="linenos">8</span>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="linenos">9</span>        <span class="c1"># Stop the execution.</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>The function <code class="docutils literal notranslate"><span class="pre">start()</span></code> will be executed before starting the analysis machine and effectively
+executing the submitted malicious file, while the <code class="docutils literal notranslate"><span class="pre">stop()</span></code> function will be launched at the
+very end of the analysis process, before launching the processing and reporting procedures.</p>
+<p>For example, an auxiliary module provided by default in CAPE is called <em>sniffer.py</em> and
+takes care of executing <strong>tcpdump</strong> in order to dump the generated network traffic.</p>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">Customization</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="machinery.html"
+                          title="next chapter">Machinery Modules</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/customization/auxiliary.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="machinery.html" title="Machinery Modules"
+             >next</a></li>
+        <li class="right" >
+          <a href="index.html" title="Customization"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Customization</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Auxiliary Modules</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Reporting Modules &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Integrations" href="../integrations/index.html" />
+    <link rel="prev" title="Signatures" href="signatures.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../integrations/index.html" title="Integrations"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="signatures.html" title="Signatures"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Customization</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Reporting Modules</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="reporting-modules">
+<h1>Reporting Modules<a class="headerlink" href="#reporting-modules" title="Permalink to this headline">¶</a></h1>
+<p>After the raw analysis results have been processed and abstracted by the
+processing modules and the global container is generated (ref. <a class="reference internal" href="processing.html"><span class="doc">Processing Modules</span></a>),
+it is passed over by CAPE to all the reporting modules available, which will
+make use of it and will make it accessible and consumable in different
+formats.</p>
+<section id="getting-started">
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<p>All reporting modules must be placed inside the directory <em>modules/reporting/</em>.</p>
+<p>Every module must also have a dedicated section in the file <em>conf/reporting.conf</em>: for
+example, if you create a module <em>module/reporting/foobar.py</em> you will have to append
+the following section to <em>conf/reporting.conf</em>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">foobar</span><span class="p">]</span>
+<span class="n">enabled</span> <span class="o">=</span> <span class="n">on</span>
+</pre></div>
+</div>
+<p>Every additional option you add to your section will be available to your reporting module
+in the <code class="docutils literal notranslate"><span class="pre">self.options</span></code> dictionary.</p>
+<p>Following is an example of a working JSON reporting module:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span> <span class="nn">os</span>
+<span class="linenos"> 2</span><span class="kn">import</span> <span class="nn">json</span>
+<span class="linenos"> 3</span><span class="kn">import</span> <span class="nn">codecs</span>
+<span class="linenos"> 4</span>
+<span class="linenos"> 5</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Report</span>
+<span class="linenos"> 6</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.exceptions</span> <span class="kn">import</span> <span class="n">CuckooReportError</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span><span class="k">class</span> <span class="nc">JsonDump</span><span class="p">(</span><span class="n">Report</span><span class="p">):</span>
+<span class="linenos"> 9</span>    <span class="sd">&quot;&quot;&quot;Saves analysis results in JSON format.&quot;&quot;&quot;</span>
+<span class="linenos">10</span>
+<span class="linenos">11</span>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+<span class="linenos">12</span>        <span class="sd">&quot;&quot;&quot;Writes report.</span>
+<span class="linenos">13</span><span class="sd">        @param results: Cuckoo results dict.</span>
+<span class="linenos">14</span><span class="sd">        @raise CuckooReportError: if fails to write report.</span>
+<span class="linenos">15</span><span class="sd">        &quot;&quot;&quot;</span>
+<span class="linenos">16</span>        <span class="k">try</span><span class="p">:</span>
+<span class="linenos">17</span>            <span class="n">report</span> <span class="o">=</span> <span class="n">codecs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reports_path</span><span class="p">,</span> <span class="s2">&quot;report.json&quot;</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<span class="linenos">18</span>            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">report</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="linenos">19</span>            <span class="n">report</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="linenos">20</span>        <span class="k">except</span> <span class="p">(</span><span class="ne">UnicodeError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">IOError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<span class="linenos">21</span>            <span class="k">raise</span> <span class="n">CuckooReportError</span><span class="p">(</span><span class="s2">&quot;Failed to generate JSON report: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>This code is very simple, it just receives the global container produced by the
+processing modules, converts it into JSON, and writes it to a file.</p>
+<p>There are a few requirements for writing a valid reporting module:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Declare your class inheriting from <code class="docutils literal notranslate"><span class="pre">Report</span></code>.</p></li>
+<li><p>Have a <code class="docutils literal notranslate"><span class="pre">run()</span></code> function performing the main operations.</p></li>
+<li><p>Try to catch most exceptions and raise <code class="docutils literal notranslate"><span class="pre">CuckooReportError</span></code> to notify the issue.</p></li>
+</ul>
+</div></blockquote>
+<p>All reporting modules have access to some attributes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">self.analysis_path</span></code>: path to the folder containing the raw analysis results (e.g. <em>storage/analyses/1/</em>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.reports_path</span></code>: path to the folder where the reports should be written (e.g. <em>storage/analyses/1/reports/</em>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.conf_path</span></code>: path to the <em>analysis.conf</em> file of the current analysis (e.g. <em>storage/analyses/1/analysis.conf</em>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.options</span></code>: a dictionary containing all the options specified in the report’s configuration section in <em>conf/reporting.conf</em>.</p></li>
+</ul>
+</div></blockquote>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Reporting Modules</a><ul>
+<li><a class="reference internal" href="#getting-started">Getting Started</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="signatures.html"
+                          title="previous chapter">Signatures</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="../integrations/index.html"
+                          title="next chapter">Integrations</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/customization/reporting.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../integrations/index.html" title="Integrations"
+             >next</a></li>
+        <li class="right" >
+          <a href="signatures.html" title="Signatures"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Customization</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Reporting Modules</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

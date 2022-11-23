@@ -1,0 +1,229 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Machinery Modules &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Analysis Packages" href="packages.html" />
+    <link rel="prev" title="Auxiliary Modules" href="auxiliary.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="packages.html" title="Analysis Packages"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="auxiliary.html" title="Auxiliary Modules"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Customization</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Machinery Modules</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="machinery-modules">
+<h1>Machinery Modules<a class="headerlink" href="#machinery-modules" title="Permalink to this headline">¶</a></h1>
+<p><strong>Machinery</strong> modules define how CAPE should interact with
+your virtualization software (or potentially even with physical disk imaging
+solutions).
+Since we decided to not enforce any particular vendor, from release 0.4 you
+can use your preferred solution and, in case it’s not supported by
+default, write a custom Python module that defines how to make CAPE use it.</p>
+<p>Every machinery module should be located inside
+<em>modules/machinery/</em>.</p>
+<p>A basic machinery module would look like this:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">Machinery</span>
+<span class="linenos"> 2</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.exceptions</span> <span class="kn">import</span> <span class="n">CuckooMachineError</span>
+<span class="linenos"> 3</span>
+<span class="linenos"> 4</span><span class="k">class</span> <span class="nc">MyMachinery</span><span class="p">(</span><span class="n">Machinery</span><span class="p">):</span>
+<span class="linenos"> 5</span>    <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+<span class="linenos"> 6</span>        <span class="k">try</span><span class="p">:</span>
+<span class="linenos"> 7</span>            <span class="n">revert</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+<span class="linenos"> 8</span>            <span class="n">start</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+<span class="linenos"> 9</span>        <span class="k">except</span> <span class="n">SomethingBadHappens</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<span class="linenos">10</span>            <span class="k">raise</span> <span class="n">CuckooMachineError</span><span class="p">(</span><span class="s2">&quot;OPS!&quot;</span><span class="p">)</span>
+<span class="linenos">11</span>
+<span class="linenos">12</span>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+<span class="linenos">13</span>        <span class="k">try</span><span class="p">:</span>
+<span class="linenos">14</span>            <span class="n">stop</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+<span class="linenos">15</span>        <span class="k">except</span> <span class="n">SomethingBadHappens</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<span class="linenos">16</span>            <span class="k">raise</span> <span class="n">CuckooMachineError</span><span class="p">(</span><span class="s2">&quot;OPS!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>The only requirements for Cuckoo are that:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The class inherits from <code class="docutils literal notranslate"><span class="pre">Machinery</span></code>.</p></li>
+<li><p>You have a <code class="docutils literal notranslate"><span class="pre">start()</span></code> and <code class="docutils literal notranslate"><span class="pre">stop()</span></code> functions.</p></li>
+<li><p>You raise <code class="docutils literal notranslate"><span class="pre">CuckooMachineError</span></code> when something fails.</p></li>
+</ul>
+</div></blockquote>
+<p>As you understand, the machinery module is a core part of a CAPE setup,
+therefore make sure to spend enough time debugging your code and make it
+solid and resistant to any unexpected error.</p>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>Every machinery module should come with a dedicated configuration file
+located in <em>conf/&lt;machinery module name&gt;.conf</em>.
+For example, for <em>modules/machinery/kvm.py</em> we have a <em>conf/kvm.conf</em>.</p>
+<p>The configuration file should follow the default structure:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">kvm</span><span class="p">]</span>
+<span class="c1"># Specify a comma-separated list of available machines to be used. For each</span>
+<span class="c1"># specified ID you have to define a dedicated section containing the details</span>
+<span class="c1"># on the respective machine. (E.g. cape1,cape2,cape3)</span>
+<span class="n">machines</span> <span class="o">=</span> <span class="n">cape1</span>
+
+<span class="p">[</span><span class="n">cape1</span><span class="p">]</span>
+<span class="c1"># Specify the label name of the current machine as specified in your</span>
+<span class="c1"># libvirt configuration.</span>
+<span class="n">label</span> <span class="o">=</span> <span class="n">cape1</span>
+
+<span class="c1"># Specify the operating system platform used by current machine</span>
+<span class="c1"># [windows/darwin/linux].</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">windows</span>
+
+<span class="c1"># Specify the IP address of the current machine. Make sure that the IP address</span>
+<span class="c1"># is valid and that the host machine is able to reach it. If not, the analysis</span>
+<span class="c1"># will fail.</span>
+<span class="n">ip</span> <span class="o">=</span> <span class="mf">192.168</span><span class="o">.</span><span class="mf">122.105</span>
+</pre></div>
+</div>
+<p>The main section is called <code class="docutils literal notranslate"><span class="pre">[&lt;name</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">module&gt;]</span></code> with a <code class="docutils literal notranslate"><span class="pre">machines</span></code> field
+containing a comma-separated list of machines IDs.</p>
+<p>For each machine, you should specify a <code class="docutils literal notranslate"><span class="pre">label</span></code>, a <code class="docutils literal notranslate"><span class="pre">platform</span></code>, and its
+<code class="docutils literal notranslate"><span class="pre">ip</span></code>.</p>
+<p>These fields are required by CAPE to use the already embedded <code class="docutils literal notranslate"><span class="pre">initialize()</span></code>
+function that generates the list of available machines.</p>
+<p>If you plan to change the configuration structure you should override the <code class="docutils literal notranslate"><span class="pre">initialize()</span></code>
+function (inside your module, no need to modify CAPE’s core code).
+You can find its original code in the <code class="docutils literal notranslate"><span class="pre">Machinery</span></code> abstract inside
+<em>lib/cuckoo/common/abstracts.py</em>.</p>
+</section>
+<section id="libvirt">
+<h2>LibVirt<a class="headerlink" href="#libvirt" title="Permalink to this headline">¶</a></h2>
+<p>Starting with Cuckoo 0.5 developing new machinery modules based on LibVirt is easy.
+Inside <em>lib/cuckoo/common/abstracts.py</em> you can find <code class="docutils literal notranslate"><span class="pre">LibVirtMachinery</span></code> that
+already provides all the functionality for a LibVirt module.
+Just inherit this base class and specify your connection string, as in
+the example below:</p>
+<blockquote>
+<div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="kn">from</span> <span class="nn">lib.cuckoo.common.abstracts</span> <span class="kn">import</span> <span class="n">LibVirtMachinery</span>
+<span class="linenos">2</span>
+<span class="linenos">3</span><span class="k">class</span> <span class="nc">MyMachinery</span><span class="p">(</span><span class="n">LibVirtMachinery</span><span class="p">):</span>
+<span class="linenos">4</span>    <span class="c1"># Set connection string.</span>
+<span class="linenos">5</span>    <span class="n">dsn</span> <span class="o">=</span> <span class="s2">&quot;my:///connection&quot;</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>This works for all the virtualization technologies supported by LibVirt. Just remember to
+check if your LibVirt package (if you are using one, for example from your Linux
+distribution) is compiled with the support for the technology you need.</p>
+<p>You can check it with the following command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ virsh -V
+Virsh command line tool of libvirt 0.9.13
+See web site at http://libvirt.org/
+
+Compiled with support for:
+ Hypervisors: QEmu/KVM LXC UML Xen OpenVZ VMWare Test
+ Networking: Remote Daemon Network Bridging Interface Nwfilter VirtualPort
+ Storage: Dir Disk Filesystem SCSI Multipath iSCSI LVM
+ Miscellaneous: Nodedev AppArmor Secrets Debug Readline Modular
+</pre></div>
+</div>
+<p>If you don’t find your virtualization technology in the list of <code class="docutils literal notranslate"><span class="pre">Hypervisors</span></code>, you will
+need to recompile LibVirt with the specific support for the missing one.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Machinery Modules</a><ul>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+<li><a class="reference internal" href="#libvirt">LibVirt</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="auxiliary.html"
+                          title="previous chapter">Auxiliary Modules</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="packages.html"
+                          title="next chapter">Analysis Packages</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/customization/machinery.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="packages.html" title="Analysis Packages"
+             >next</a></li>
+        <li class="right" >
+          <a href="auxiliary.html" title="Auxiliary Modules"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Customization</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Machinery Modules</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

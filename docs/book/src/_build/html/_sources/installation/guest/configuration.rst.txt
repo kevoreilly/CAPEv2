@@ -1,0 +1,87 @@
+=========================
+Additional Configuration
+=========================
+
+In this chapter we will enumerate several recommendations so as to make your Guest virtual machine as stealthy and operational as it gets.
+
+
+Disable Microsoft Store
+=======================
+
+Sometimes the Microsoft Store opens up as soon as an analysis starts. In order to disable it, you can remove the environment variable ``%USERPROFILE%\AppData\Local\Microsoft\WindowsApps`` from the user ``PATH``, as specified in `this issue`_.
+
+.. _this issue: https://github.com/kevoreilly/CAPEv2/issues/1237#issuecomment-1308208474
+
+Reduce Overall Noise
+====================
+
+Sometimes disabling all Windows services (like UAC, defender, update, aero, firewal, etc...) is necessary in order to make the analysis as fluent as possible. `Doomedraven`_ created a script that automatically does just that. Make sure you check the `script`_ out and use it to get rid of all unnecessary noise.
+
+.. _Doomedraven: https://github.com/doomedraven
+
+.. _script: https://github.com/doomedraven/Tools/blob/master/Windows/disable_win7noise.bat
+
+PCAP Generation
+===============
+
+If you are facing problems related to either tcpdump or the PCAP generation, take a look at `this issue <https://github.com/kevoreilly/CAPEv2/issues/1234>`_. In short, these are the steps you have to check:
+
+.. note::
+
+    Make sure the user the ``pcap`` group exists in your system and that the user you use to launch CAPE (presumably the `cape` user) belongs to it as well as the ``tcpdump`` binary (lines 775-778 of the `installer <https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh#L775>`_)
+ 
+
+1. 
+2. 
+3. 
+4. 
+5. 
+
+If you want the script to be launched at Windows' boot, place the file
+in the admin startup folder. To access this folder, open the app
+launcher with **Win+R** and search for "shell:common startup" which
+will open the folder you want (usually
+``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``). Do
+not place the agent in the user startup folder (usually
+``C:\Users\<Username>\AppData\Roaming\Microsoft\Windows\Start
+Menu\Programs\Startup``) as it will launch the agent without admin
+privileges and therefore insufficient permissions resulting in the
+agent not being able to work as intended.
+
+Windows 10+
+===========
+
+To start the script at boot, you will need to set the agent to be run
+as a scheduler task. Dropping it in
+``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp`` will
+result in it being ran with improper privilege.
+
+..
+   1. Go to "Control Panel" > "System and Security" > "Administrative
+   Tools" to access Task Scheduler.
+
+1. Open Windows menu (Win key) and search for **Task Scheduler**.
+2. Select **Create Basic Task** from the action list.
+
+   .. image:: ../../_images/screenshots/creating_task_scheduler_0.png
+        :align: center
+
+3. Give the task a name (for example ``pizza.pyw``, the name is irrelevant as long as you don't make any mention to CAPE or anything blatant for anti-VM detection algorithms) and click **Next**.
+4. Set the trigger as **When I logon** and click **Next**.
+5. In the **Action** window, select **Start a program** and click **Next**.
+6. In the **Start a program** window, select the path of the *agent.py*, and click **Finish**.
+7. After the task is created, click the **Task Scheduler Library** and
+   find the one you just created. Right click on it and select
+   **Properties**.
+
+   .. image:: ../../_images/screenshots/creating_task_scheduler_1.png
+        :align: center
+
+8. In the general tab tell it to **Run with highest privileges**.
+
+   .. image:: ../../_images/screenshots/creating_task_scheduler_2.png
+        :align: center
+
+9. Select **OK**.
+
+After that all is done, it will come up on the next restart/login.

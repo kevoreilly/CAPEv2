@@ -1,0 +1,376 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Web interface &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="REST API" href="api.html" />
+    <link rel="prev" title="Submit an Analysis" href="submit.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="api.html" title="REST API"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="submit.html" title="Submit an Analysis"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Usage</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Web interface</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="web-interface">
+<h1>Web interface<a class="headerlink" href="#web-interface" title="Permalink to this headline">¶</a></h1>
+<p>CAPE provides a full-fledged web interface in the form of a Django application.
+This interface will allow you to submit files, browse through the reports as well
+as search across all the analysis results.</p>
+<p><code class="docutils literal notranslate"><span class="pre">cape2.sh</span></code> adds <code class="docutils literal notranslate"><span class="pre">systemd</span></code> deamon called <code class="docutils literal notranslate"><span class="pre">cape-web.service</span></code> which listen on all interfaces:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ /lib/systemd/system/cape-web.service
+</pre></div>
+</div>
+<p>To modify that you need to edit that file and change from <code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code> to your IP.
+You need to restart deamon to reload after change it:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ systemctl daemon-reload
+</pre></div>
+</div>
+<p>If you get migration-related WARNINGS when launching the cape-web service, you should execute:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ poetry run python3 manage.py migrate
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In order to improve performance, it is recommended to move from SQLite to PostgreSQL.</p>
+</div>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>The web interface pulls data from a Mongo database or ElasticSearch, so having
+either the MongoDB or ElasticSearchDB reporting modules enabled in <code class="docutils literal notranslate"><span class="pre">reporting.conf</span></code>
+is mandatory for this interface. If that’s not the case, the application won’t start
+and it will raise an exception. Also, currently, Django only supports having one of
+the database modules enabled at a time.</p>
+<section id="enable-web-interface-auth">
+<h3>Enable web interface auth<a class="headerlink" href="#enable-web-interface-auth" title="Permalink to this headline">¶</a></h3>
+<p>To enable web authentication you need to edit <cite>conf/web.conf</cite> -&gt; <cite>web_auth</cite> -&gt; <cite>enabled = yes</cite>,
+after that you need to create your django admin user by running following command from <cite>web</cite> folder:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ poetry run python manage.py createsuperuser
+</pre></div>
+</div>
+<p>For more security tips see <a class="reference internal" href="#exposed-to-internet">Exposed to internet</a> section.</p>
+</section>
+<section id="enable-disable-rest-api-endpoints">
+<h3>Enable/Disable REST API Endpoints<a class="headerlink" href="#enable-disable-rest-api-endpoints" title="Permalink to this headline">¶</a></h3>
+<p>By default, there are multiple REST API endpoints that are disabled.
+To enable them, head to the <a class="reference external" href="https://github.com/kevoreilly/CAPEv2/blob/master/conf/api.conf">API configuration file</a></p>
+<p>For example, to enable the <cite>machines/list</cite> endpoint, you must find the <cite>[machinelist]</cite>
+header in the configuration file just mentioned and set the <cite>enabled</cite> field to <cite>yes</cite>.</p>
+<p>Restart the CAPE web service for the changes to take effect:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ systemctl restart cape-web
+</pre></div>
+</div>
+</section>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<p>To start the web interface, you can simply run the following command
+from the <code class="docutils literal notranslate"><span class="pre">web/</span></code> directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python3 manage.py runserver_plus --traceback --keep-meta-shutdown
+</pre></div>
+</div>
+<p>If you want to configure the web interface as listening for any IP on a
+specified port (by default the web interace is deployed at localhost:8000), you can start it with the following command (replace PORT
+with the desired port number):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
+</pre></div>
+</div>
+<p>You can serve CAPE’s web interface using WSGI interface with common web servers:
+Apache, Nginx, Unicorn, and so on. Devs are using Nginx + Uwsgi.
+Please refer both to the documentation of the web server of your choice as well as <a class="reference external" href="https://docs.djangoproject.com/">Django documentation</a>.</p>
+</section>
+<section id="exposed-to-internet">
+<h2>Exposed to internet<a class="headerlink" href="#exposed-to-internet" title="Permalink to this headline">¶</a></h2>
+<p>To get rid of many bots/scrappers so we suggest deploying this amazing project <a class="reference external" href="https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/">Nginx Ultimate bad bot blocker</a>, follow the README for installation steps</p>
+<ul class="simple">
+<li><p>Enable web auth with captcha in <cite>conf/web.conf</cite> properly to avoid any brute force.</p></li>
+<li><p>Enable <a class="reference external" href="https://www.google.com/recaptcha/admin/">ReCaptcha</a>. You will need to set <code class="docutils literal notranslate"><span class="pre">Public</span></code> and <code class="docutils literal notranslate"><span class="pre">Secret</span></code> keys in <code class="docutils literal notranslate"><span class="pre">web/web/settings.py</span></code></p></li>
+<li><p>You might need to “Verify” and set as “Stuff user” to your admin in the Django admin panel and add your domain to Sites in Django admin too</p></li>
+<li><dl class="simple">
+<dt><a class="reference external" href="https://django-allauth.readthedocs.io/">AllAuth</a> aka SSO authentication with Google, Github, etc. <a class="reference external" href="https://www.youtube.com/watch?v=1yqKNQ3ogKQ">Video Tutorial</a> &amp; <a class="reference external" href="https://stackoverflow.com/a/64524223/1294762">StackOverflow Example</a>:</dt><dd><ul>
+<li><p>Note <code class="docutils literal notranslate"><span class="pre">SITE_ID=1</span></code> in django admin is <code class="docutils literal notranslate"><span class="pre">example.com</span></code> rename it to your domain to get it working</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="best-practices-for-production">
+<h2>Best practices for production<a class="headerlink" href="#best-practices-for-production" title="Permalink to this headline">¶</a></h2>
+<p>We suggest to use <code class="docutils literal notranslate"><span class="pre">uwsgi/gunicorn</span></code> + <code class="docutils literal notranslate"><span class="pre">NGINX</span></code>.</p>
+<p><a class="reference external" href="https://uwsgi-docs.readthedocs.io/en/latest/">UWSGI documentation</a></p>
+<p>Instalation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># nginx is optional</span>
+<span class="c1"># sudo apt-get install uwsgi uwsgi-plugin-python nginx</span>
+</pre></div>
+</div>
+<p>To enable <code class="docutils literal notranslate"><span class="pre">uwsgi</span></code> copy <code class="docutils literal notranslate"><span class="pre">/opt/CAPE/uwsgi/cape.ini</span></code> to <code class="docutils literal notranslate"><span class="pre">/etc/uwsgi/apps-enabled/cape.ini</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">uwsgi</span><span class="p">]</span>
+<span class="n">lazy</span><span class="o">-</span><span class="n">apps</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">vacuum</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">;</span> <span class="k">if</span> <span class="n">using</span> <span class="k">with</span> <span class="n">NGINX</span>
+<span class="p">;</span><span class="n">http</span><span class="o">-</span><span class="n">socket</span> <span class="o">=</span> <span class="mf">127.0</span><span class="o">.</span><span class="mf">0.1</span><span class="p">:</span><span class="mi">8000</span>
+<span class="p">;</span> <span class="k">if</span> <span class="n">standalone</span>
+<span class="n">http</span><span class="o">-</span><span class="n">socket</span> <span class="o">=</span> <span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">8000</span>
+<span class="n">static</span><span class="o">-</span><span class="nb">map</span> <span class="o">=</span> <span class="o">/</span><span class="n">static</span><span class="o">=/</span><span class="n">opt</span><span class="o">/</span><span class="n">CAPEv2</span><span class="o">/</span><span class="n">web</span><span class="o">/</span><span class="n">static</span>
+<span class="n">plugins</span> <span class="o">=</span> <span class="n">python38</span>
+<span class="n">callable</span> <span class="o">=</span> <span class="n">application</span>
+<span class="n">chdir</span> <span class="o">=</span> <span class="o">/</span><span class="n">opt</span><span class="o">/</span><span class="n">CAPEv2</span><span class="o">/</span><span class="n">web</span>
+<span class="n">file</span> <span class="o">=</span> <span class="n">web</span><span class="o">/</span><span class="n">wsgi</span><span class="o">.</span><span class="n">py</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">DJANGO_SETTINGS_MODULE</span><span class="o">=</span><span class="n">web</span><span class="o">.</span><span class="n">settings</span>
+<span class="n">uid</span> <span class="o">=</span> <span class="n">cape</span>
+<span class="n">gid</span> <span class="o">=</span> <span class="n">cape</span>
+<span class="n">enable</span><span class="o">-</span><span class="n">threads</span> <span class="o">=</span> <span class="n">true</span>
+<span class="n">master</span> <span class="o">=</span> <span class="n">true</span>
+<span class="n">processes</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">workers</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="p">;</span><span class="nb">max</span><span class="o">-</span><span class="n">requests</span> <span class="o">=</span> <span class="mi">300</span>
+<span class="n">manage</span><span class="o">-</span><span class="n">script</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="n">true</span>
+<span class="p">;</span><span class="n">disable</span><span class="o">-</span><span class="n">logging</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">listen</span> <span class="o">=</span> <span class="mi">2056</span>
+<span class="p">;</span><span class="n">harakiri</span> <span class="o">=</span> <span class="mi">30</span>
+<span class="n">hunder</span><span class="o">-</span><span class="n">lock</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="c1">#max-worker-lifetime = 30</span>
+<span class="p">;</span><span class="n">Some</span> <span class="n">files</span> <span class="n">found</span> <span class="ow">in</span> <span class="n">this</span> <span class="n">directory</span> <span class="n">are</span> <span class="n">processed</span> <span class="n">by</span> <span class="n">uWSGI</span> <span class="n">init</span><span class="o">.</span><span class="n">d</span> <span class="n">script</span> <span class="k">as</span>
+<span class="p">;</span><span class="n">uWSGI</span> <span class="n">configuration</span> <span class="n">files</span><span class="o">.</span>
+</pre></div>
+</div>
+<p>Start uwsgi with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ systemctl restart uwsgi
+</pre></div>
+</div>
+</section>
+<section id="some-extra-security-tip-s">
+<h2>Some extra security TIP(s)<a class="headerlink" href="#some-extra-security-tip-s" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://malware.expert/tutorial/writing-modsecurity-rules/">ModSecurity tutorial</a> - rejects requests</p></li>
+<li><p><a class="reference external" href="https://www.digitalocean.com/community/tutorials/how-to-protect-an-nginx-server-with-fail2ban-on-ubuntu-14-04">Fail2ban tutorial</a> - ban hosts</p></li>
+<li><p><a class="reference external" href="https://guides.wp-bullet.com/integrate-fail2ban-cloudflare-api-v4-guide/">Fail2ban + CloudFlare</a> - how to ban on CloudFlare aka CDN firewall level</p></li>
+</ul>
+<ul>
+<li><p>Example of cloudflare action ban:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span># Author: Mike Andreasen from https://guides.wp-bullet.com
+# Adapted Source: https://github.com/fail2ban/fail2ban/blob/master/config/action.d/cloudflare.conf
+# Referenced from: https://www.normyee.net/blog/2012/02/02/adding-cloudflare-support-to-fail2ban by NORM YEE
+#
+# To get your Cloudflare API key: https://www.cloudflare.com/my-account, you should use GLOBAL KEY!
+
+[Definition]
+
+# Option:  actionstart
+# Notes.:  command executed once at the start of Fail2Ban.
+# Values:  CMD
+#
+actionstart =
+
+# Option:  actionstop
+# Notes.:  command executed once at the end of Fail2Ban
+# Values:  CMD
+#
+actionstop =
+
+# Option:  actioncheck
+# Notes.:  command executed once before each actionban command
+# Values:  CMD
+#
+actioncheck =
+
+# Option:  actionban
+# Notes.:  command executed when banning an IP. Take care that the
+#          command is executed with Fail2Ban user rights.
+# Tags:      IP address
+#            number of failures
+#            unix timestamp of the ban time
+# Values:  CMD
+
+actionban = curl -s -X POST &quot;https://api.cloudflare.com/client/v4/user/firewall/access_rules/rules&quot; -H &quot;X-Auth-Email: &lt;cfuser&gt;&quot; -H &quot;X-Auth-Key: &lt;cftoken&gt;&quot; -H &quot;Content-Type: application/json&quot; --data &#39;{&quot;mode&quot;:&quot;block&quot;,&quot;configuration&quot;:{&quot;target&quot;:&quot;ip&quot;,&quot;value&quot;:&quot;&lt;ip&gt;&quot;},&quot;notes&quot;:&quot;Fail2ban&quot;}&#39;
+
+# Option:  actionunban
+# Notes.:  command executed when unbanning an IP. Take care that the
+#          command is executed with Fail2Ban user rights.
+# Tags:      IP address
+#            number of failures
+#            unix timestamp of the ban time
+# Values:  CMD
+#
+
+actionunban = curl -s -X DELETE &quot;https://api.cloudflare.com/client/v4/user/firewall/access_rules/rules/$( \
+            curl -s -X GET &quot;https://api.cloudflare.com/client/v4/user/firewall/access_rules/rules?mode=block&amp;configuration_target=ip&amp;configuration_value=&lt;ip&gt;&amp;page=1&amp;per_page=1&amp;match=all&quot; \
+            -H &quot;X-Auth-Email: &lt;cfuser&gt;&quot; \
+            -H &quot;X-Auth-Key: &lt;cftoken&gt;&quot; \
+            -H &quot;Content-Type: application/json&quot; | awk -F&quot;[,:}]&quot; &#39;{for(i=1;i&lt;=NF;i++){if($i~/&#39;id&#39;\042/){print $(i+1)}}}&#39; | tr -d &#39;&quot;&#39; | head -n 1)&quot; \
+            -H &quot;X-Auth-Email: &lt;cfuser&gt;&quot; \
+            -H &quot;X-Auth-Key: &lt;cftoken&gt;&quot; \
+            -H &quot;Content-Type: application/json&quot;
+
+[Init]
+
+# Option: cfuser
+# Notes.: Replaces &lt;cfuser&gt; in actionban and actionunban with cfuser value below
+# Values: Your CloudFlare user account
+
+cfuser = put-your-cloudflare-email-here
+
+# Option: cftoken
+# Notes.: Replaces &lt;cftoken&gt; in actionban and actionunban with cftoken value below
+# Values: Your CloudFlare API key
+cftoken = put-your-API-key-here
+</pre></div>
+</div>
+</li>
+<li><p>Example of <cite>fail2ban</cite> rule to ban by path:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># This will ban any host that trying to access /api/ for 3 times in 1 minute</span>
+<span class="c1"># Goes to /etc/fail2ban/filters.d/nginx-cape-api.conf</span>
+<span class="p">[</span><span class="n">Definition</span><span class="p">]</span>
+<span class="n">failregex</span> <span class="o">=</span> <span class="o">^&lt;</span><span class="n">HOST</span><span class="o">&gt;</span> <span class="o">-.*</span><span class="s2">&quot;(GET|POST|HEAD) /api/.*HTTP.*&quot;</span>
+<span class="n">ignoreregex</span> <span class="o">=</span>
+
+<span class="c1"># goes to /etc/fail2ban/jail.local</span>
+<span class="p">[</span><span class="n">cape</span><span class="o">-</span><span class="n">api</span><span class="p">]</span>
+<span class="n">enabled</span> <span class="o">=</span> <span class="n">true</span>
+<span class="n">port</span>    <span class="o">=</span> <span class="n">http</span><span class="p">,</span><span class="n">https</span>
+<span class="nb">filter</span>  <span class="o">=</span> <span class="n">nginx</span><span class="o">-</span><span class="n">cape</span><span class="o">-</span><span class="n">api</span>
+<span class="n">logpath</span> <span class="o">=</span> <span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">log</span><span class="o">/</span><span class="n">nginx</span><span class="o">/</span><span class="n">access</span><span class="o">.</span><span class="n">log</span>
+<span class="n">maxretry</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">findtime</span> <span class="o">=</span> <span class="mi">60</span>
+<span class="n">bantime</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+<span class="c1"># Remove cloudflare line if you don&#39;t use it</span>
+<span class="n">action</span> <span class="o">=</span> <span class="n">iptables</span><span class="o">-</span><span class="n">multiport</span>
+         <span class="n">cloudflare</span>
+
+<span class="c1"># This will ban any host that trying to access kinda bruteforce login or unauthorized requests for 5 times in 1 minute</span>
+<span class="c1"># Goes to /etc/fail2ban/filters.d/filter.d/nginx-cape-login.conf</span>
+<span class="p">[</span><span class="n">Definition</span><span class="p">]</span>
+<span class="n">failregex</span> <span class="o">=</span> <span class="o">^&lt;</span><span class="n">HOST</span><span class="o">&gt;</span> <span class="o">-.*</span><span class="s2">&quot;(GET|POST|HEAD) /accounts/login/\?next=.*HTTP.*&quot;</span>
+<span class="n">ignoreregex</span> <span class="o">=</span>
+
+<span class="c1"># goes to /etc/fail2ban/jail.local</span>
+<span class="p">[</span><span class="n">cape</span><span class="o">-</span><span class="n">login</span><span class="p">]</span>
+<span class="n">enabled</span> <span class="o">=</span> <span class="n">true</span>
+<span class="n">port</span>    <span class="o">=</span> <span class="n">http</span><span class="p">,</span><span class="n">https</span>
+<span class="nb">filter</span>  <span class="o">=</span> <span class="n">nginx</span><span class="o">-</span><span class="n">cape</span><span class="o">-</span><span class="n">login</span>
+<span class="n">logpath</span> <span class="o">=</span> <span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">log</span><span class="o">/</span><span class="n">nginx</span><span class="o">/</span><span class="n">access</span><span class="o">.</span><span class="n">log</span>
+<span class="n">maxretry</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">findtime</span> <span class="o">=</span> <span class="mi">60</span>
+<span class="n">bantime</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+<span class="c1"># Remove cloudflare line if you don&#39;t use it</span>
+<span class="n">action</span> <span class="o">=</span> <span class="n">iptables</span><span class="o">-</span><span class="n">multiport</span>
+          <span class="n">cloudflare</span>
+</pre></div>
+</div>
+</li>
+<li><p>To check banned hosts:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo fail2ban-client status cape-api
+</pre></div>
+</div>
+</li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Web interface</a><ul>
+<li><a class="reference internal" href="#configuration">Configuration</a><ul>
+<li><a class="reference internal" href="#enable-web-interface-auth">Enable web interface auth</a></li>
+<li><a class="reference internal" href="#enable-disable-rest-api-endpoints">Enable/Disable REST API Endpoints</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+<li><a class="reference internal" href="#exposed-to-internet">Exposed to internet</a></li>
+<li><a class="reference internal" href="#best-practices-for-production">Best practices for production</a></li>
+<li><a class="reference internal" href="#some-extra-security-tip-s">Some extra security TIP(s)</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="submit.html"
+                          title="previous chapter">Submit an Analysis</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="api.html"
+                          title="next chapter">REST API</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/usage/web.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="api.html" title="REST API"
+             >next</a></li>
+        <li class="right" >
+          <a href="submit.html" title="Submit an Analysis"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Usage</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Web interface</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

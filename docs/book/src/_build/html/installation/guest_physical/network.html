@@ -1,0 +1,174 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Network Configuration &#8212; CAPE Sandbox v2.1 Book</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Saving the Guest" href="saving.html" />
+    <link rel="prev" title="Requirements" href="requirements.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="saving.html" title="Saving the Guest"
+             accesskey="N">next</a></li>
+        <li class="right" >
+          <a href="requirements.html" title="Requirements"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" accesskey="U">Preparing the Guest (Physical Machine)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Network Configuration</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="network-configuration">
+<h1>Network Configuration<a class="headerlink" href="#network-configuration" title="Permalink to this headline">¶</a></h1>
+<p>Now it’s time to set up the network for your physical machine.</p>
+<section id="windows-settings">
+<h2>Windows Settings<a class="headerlink" href="#windows-settings" title="Permalink to this headline">¶</a></h2>
+<p>Before configuring the underlying networking of the sandbox, you might
+want to tweak some settings inside Windows itself.</p>
+<p>One of the most important things to do is <strong>disable</strong> <em>Windows Firewall</em> and the
+<em>Automatic Updates</em>. The reason behind this is that they can affect the behavior
+of the malware under normal circumstances and that they can pollute the network
+analysis performed by CAPE, by dropping connections or including irrelevant
+requests.</p>
+<p>You can do so from Windows’ Control Panel as shown in the picture:</p>
+<blockquote>
+<div><img alt="../../_images/windows_security.png" class="align-center" src="../../_images/windows_security.png" />
+</div></blockquote>
+<p>Using a physical machine manager requires a few more configuration options than
+the virtual machine managers to run properly.  In addition to the steps
+laid out in the regular Preparing the Guest section, some settings need to be changed
+for physical machines to work properly.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Enable auto-login (Allows for the agent to start upon reboot)</p></li>
+<li><p>Enable Remote RPC (Allows for CAPE to reboot the sandbox using RPC)</p></li>
+<li><p>Turn off paging (Optional)</p></li>
+<li><p>Disable Screen Saver (Optional)</p></li>
+</ul>
+</div></blockquote>
+<p>In Windows 7 the following commands can be entered into an Administrative command prompt to enable auto-logon and Remote RPC.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">reg</span> <span class="n">add</span> <span class="s2">&quot;hklm\software\Microsoft\Windows NT\CurrentVersion\WinLogon&quot;</span> <span class="o">/</span><span class="n">v</span> <span class="n">DefaultUserName</span> <span class="o">/</span><span class="n">d</span> <span class="o">&lt;</span><span class="n">USERNAME</span><span class="o">&gt;</span> <span class="o">/</span><span class="n">t</span> <span class="n">REG_SZ</span> <span class="o">/</span><span class="n">f</span>
+<span class="n">reg</span> <span class="n">add</span> <span class="s2">&quot;hklm\software\Microsoft\Windows NT\CurrentVersion\WinLogon&quot;</span> <span class="o">/</span><span class="n">v</span> <span class="n">DefaultPassword</span> <span class="o">/</span><span class="n">d</span> <span class="o">&lt;</span><span class="n">PASSWORD</span><span class="o">&gt;</span> <span class="o">/</span><span class="n">t</span> <span class="n">REG_SZ</span> <span class="o">/</span><span class="n">f</span>
+<span class="n">reg</span> <span class="n">add</span> <span class="s2">&quot;hklm\software\Microsoft\Windows NT\CurrentVersion\WinLogon&quot;</span> <span class="o">/</span><span class="n">v</span> <span class="n">AutoAdminLogon</span> <span class="o">/</span><span class="n">d</span> <span class="mi">1</span> <span class="o">/</span><span class="n">t</span> <span class="n">REG_SZ</span> <span class="o">/</span><span class="n">f</span>
+<span class="n">reg</span> <span class="n">add</span> <span class="s2">&quot;hklm\system\CurrentControlSet\Control\TerminalServer&quot;</span> <span class="o">/</span><span class="n">v</span> <span class="n">AllowRemoteRPC</span> <span class="o">/</span><span class="n">d</span> <span class="mh">0x01</span> <span class="o">/</span><span class="n">t</span> <span class="n">REG_DWORD</span> <span class="o">/</span><span class="n">f</span>
+<span class="n">reg</span> <span class="n">add</span> <span class="s2">&quot;HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System&quot;</span> <span class="o">/</span><span class="n">v</span> <span class="n">LocalAccountTokenFilterPolicy</span> <span class="o">/</span><span class="n">d</span> <span class="mh">0x01</span> <span class="o">/</span><span class="n">t</span> <span class="n">REG_DWORD</span> <span class="o">/</span><span class="n">f</span>
+</pre></div>
+</div>
+</section>
+<section id="networking">
+<h2>Networking<a class="headerlink" href="#networking" title="Permalink to this headline">¶</a></h2>
+<p>Now you need to decide how to make your physical machine able to access the Internet
+or your local network.</p>
+<p>To make it work properly you’ll have to configure your machine’s
+network so that the Host and the Guest can communicate.
+Testing the network access by pinging a guest is a good practice, to make sure the
+virtual network was set up correctly.
+Use only static IP addresses for your guest, as today CAPE doesn’t support DHCP,
+and using it will break your setup.</p>
+<p>This stage is very much up to your requirements and the
+characteristics of your virtualization software.</p>
+<p>For physical machines, make sure when setting the IP address of the guest to also set
+the Gateway and DNS server to be the IP address of the CAPE server on the physical network.
+For example, if your CAPE server has the IP address of 192.168.1.1, then you would set the
+Gateway and DNS server in Windows Settings to be 192.168.1.1 as well.</p>
+<blockquote>
+<div><img alt="../../_images/windows_network.png" src="../../_images/windows_network.png" />
+</div></blockquote>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/cape.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="../../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Network Configuration</a><ul>
+<li><a class="reference internal" href="#windows-settings">Windows Settings</a></li>
+<li><a class="reference internal" href="#networking">Networking</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="requirements.html"
+                          title="previous chapter">Requirements</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="saving.html"
+                          title="next chapter">Saving the Guest</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/installation/guest_physical/network.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="saving.html" title="Saving the Guest"
+             >next</a></li>
+        <li class="right" >
+          <a href="requirements.html" title="Requirements"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CAPE Sandbox v2.1 Book</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Installation</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="index.html" >Preparing the Guest (Physical Machine)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Network Configuration</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

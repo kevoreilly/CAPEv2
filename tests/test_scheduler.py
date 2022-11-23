@@ -128,6 +128,7 @@ class TestAnalysisManager:
             "max_analysis_count": 0,
             "freespace_processing": 15000,
             "periodic_log": False,
+            "fail_unserviceable": True,
         }
 
         assert analysis_man.task.id == 1234

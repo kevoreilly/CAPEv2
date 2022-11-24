@@ -16,7 +16,8 @@ Now it's time to create such machines and configure them properly.
     requirements
     network
     agent
-    configuration
+    additional_configuration
+    troubleshooting
     saving
     cloning
     linux

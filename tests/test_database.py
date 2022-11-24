@@ -8,7 +8,7 @@ import shutil
 from tempfile import NamedTemporaryFile
 
 from lib.cuckoo.common.utils import store_temp_file
-from lib.cuckoo.core.database import Database, Task, Tag
+from lib.cuckoo.core.database import Database, Tag, Task
 
 
 class TestDatabaseEngine:

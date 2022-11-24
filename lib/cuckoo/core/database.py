@@ -834,9 +834,7 @@ class Database(object, metaclass=Singleton):
         """
         task_archs = [tag.name for tag in task.tags if tag.name in ["x86", "x64"]]
         task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
-        relevant_machines = self.list_machines(
-            label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs
-        )
+        relevant_machines = self.list_machines(label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs)
         if len(relevant_machines) > 0:
             return True
         return False

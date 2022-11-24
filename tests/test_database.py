@@ -8,7 +8,7 @@ import shutil
 from tempfile import NamedTemporaryFile
 
 from lib.cuckoo.common.utils import store_temp_file
-from lib.cuckoo.core.database import Database, Task
+from lib.cuckoo.core.database import Database, Task, Tag
 
 
 class TestDatabaseEngine:
@@ -203,3 +203,41 @@ class TestDatabaseEngine:
             "tags": ["tag1tag2"],
             "arch": "x64",
         }
+
+    def test_is_serviceable(self):
+        self.d.add_machine(
+            name="win10-x64-1",
+            label="label",
+            ip="1.2.3.4",
+            platform="windows",
+            tags="tag1",
+            interface="int0",
+            snapshot="snap0",
+            resultserver_ip="5.6.7.8",
+            resultserver_port=2043,
+            arch="x64",
+        )
+        task = Task()
+        task.platform = "windows"
+        task.tags = [Tag("tag1")]
+        # tasks matching the available machines are serviceable
+        assert self.d.is_serviceable(task)
+
+    def test_is_not_serviceable(self):
+        self.d.add_machine(
+            name="win10-x64-1",
+            label="label",
+            ip="1.2.3.4",
+            platform="windows",
+            tags="tag1",
+            interface="int0",
+            snapshot="snap0",
+            resultserver_ip="5.6.7.8",
+            resultserver_port=2043,
+            arch="x64",
+        )
+        task = Task()
+        task.platform = "linux"
+        task.tags = [Tag("tag1")]
+        # tasks not matching the available machines aren't serviceable
+        assert not self.d.is_serviceable(task)

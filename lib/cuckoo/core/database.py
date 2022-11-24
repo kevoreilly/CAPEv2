@@ -823,6 +823,25 @@ class Database(object, metaclass=Singleton):
         return False
 
     @classlock
+    def is_serviceable(self, task: Task) -> bool:
+        """Checks if the task is serviceable.
+
+        This method is useful when there are tasks that will never be serviced
+        by any of the machines available. This allows callers to decide what to
+        do when tasks like this are created.
+
+        @return: boolean indicating if any machine could service the task in the future
+        """
+        task_archs = [tag.name for tag in task.tags if tag.name in ["x86", "x64"]]
+        task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
+        relevant_machines = self.list_machines(
+            label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs
+        )
+        if len(relevant_machines) > 0:
+            return True
+        return False
+
+    @classlock
     def fetch_task(self, categories: list = []):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task

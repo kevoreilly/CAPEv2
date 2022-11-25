@@ -1316,6 +1316,8 @@ class Azure(Machinery):
                         vms_currently_being_deleted.remove(f"{vmss_to_delete}_{instance_id}")
 
                 current_vmss_operations -= 1
-                log.debug(f"Deleting instances {instance_ids} in {vmss_to_delete} took {round(timeit.default_timer() - start_time)}s")
+                log.debug(
+                    f"Deleting instances {instance_ids} in {vmss_to_delete} took {round(timeit.default_timer() - start_time)}s"
+                )
             except Exception as e:
                 log.error(f"Exception occurred in the delete thread: {e}. Trying again...")

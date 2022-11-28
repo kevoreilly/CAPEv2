@@ -50,7 +50,15 @@ The following is a list of the existing packages in alphabetical order:
             * ``max_dll_exports``: A positive integer, representing how many functions you wish to execute. `enable_mutli` must be enabled.
             * ``use_export_name``: *[yes/no, true/false, on/off]*: if enabled, functions will be run by name rather than by ordinal number.
 
+    * ``doc_antivm``: used to run and analyze **Microsoft Word documents** via ``winword.exe`` or ``wordview.exe``.
+
+        *NB*: Multiple applications are executed prior to the sample's execution, to prevent certain anti-vm techniques.
+
+        **Options**:
+            * ``free``: *[yes/no]* if enabled, no behavioral logs will be produced and the malware will be executed freely.
+
     * ``doc``: used to run and analyze **Microsoft Word documents** via ``winword.exe``.
+
     * ``doc2016``: used to run and analyze **Microsoft Word documents** via Microsoft Office 2016's ``winword.exe``.
     * ``edge``: used to open **the given URL** via ``msedge.exe``.
     * ``eml``: used to run and analyze **Electronic Mail files** via ``outlook.exe``.
@@ -76,7 +84,7 @@ The following is a list of the existing packages in alphabetical order:
 
     * ``js_antivm``: used to run and analyze **JavaScript and JScript Encoded files** via ``wscript.exe``.
 
-        *NB*: This package opens 50 Calculator windows prior to execution, to prevent certain anti-vm techniques.
+        *NB*: This package opens 20 Calculator windows prior to execution, to prevent certain anti-vm techniques.
 
         **Options**:
             * ``free``: *[yes/no]* if enabled, no behavioral logs will be produced and the malware will be executed freely.
@@ -104,15 +112,6 @@ The following is a list of the existing packages in alphabetical order:
     * ``pdf``: used to run and analyze **PDF documents** via ``acrord32.exe``.
     * ``ppt``: used to run and analyze **Microsoft PowerPoint documents** via ``powerpnt.exe``.
     * ``ppt2016``: used to run and analyze **Microsoft PowerPoint documents** via Microsoft Office 2016's ``powerpnt.exe``.
-    * ``processes_simple``: used to run and analyze **Microsoft Word documents** via ``winword.exe`` or ``wordview.exe``.
-
-        *NB*: Within the large commented out portion of this package is the ability to execute multiple applications 
-        prior to execution, most likely as a way to prevent anti-vm techniques and is at the user's discretion to uncomment.
-
-    * ``processes``: used to run and analyze **Microsoft Word documents** via ``winword.exe`` or ``wordview.exe``.
-
-        *NB*: Multiple applications are executed prior to the sample's execution, most likely as a way to prevent anti-vm techniques.
-
     * ``ps1_x64``: used to run and analyze **PowerShell scripts** via ``powershell.exe`` in SysNative.
 
         *NB*: This package uses the ``powershell.exe`` in SysNative.

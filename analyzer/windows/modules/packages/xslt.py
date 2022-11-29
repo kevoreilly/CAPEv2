@@ -6,7 +6,7 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
 
-class XLST(Package):
+class XSLT(Package):
     """XSLT file analysis package."""
 
     PATHS = [

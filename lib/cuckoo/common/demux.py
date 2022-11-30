@@ -166,7 +166,7 @@ def _sf_chlildren(child: sfFile) -> bytes:
         try:
             if child.contents:
                 path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()).encode())
-                _ = Path(path_to_extract).write_bytes(child.contents)
+                _ = Path(path_to_extract.decode()).write_bytes(child.contents)
         except Exception as e:
             log.error(e, exc_info=True)
     return path_to_extract

@@ -1,4 +1,15 @@
 <section id="info">
+
+    {% if results.detections %}
+    <section id="malfamily">
+        <p style="text-align:center; font-size: 18px;font-weight-bold";>Detection(s):
+            {% for block  in results.detections %}
+                <span class="badge badge-danger">{{block.family}}</span>
+            {% endfor %}
+            </p>
+    </section>
+    {% endif %}
+
     {% if summary_report %}
     <div class="section-title">
         <h4>Sandbox Info</h4>
@@ -45,23 +56,6 @@
                 <td>{{results.info.machine.manager}}</td>
                 <td>{{results.info.machine.started_on}}</td>
                 <td>{{results.info.machine.shutdown_on}}</td>
-            </tr>
-        </tbody>
-    </table>
-</section>
-{% endif %}
-
-{% if results.detections %}
-<section id="malfamily">
-    <table class="table table-striped table-bordered">
-        <thead>
-            <tr>
-                <th>Detections</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><h5>{{results.malfamily_tag}}: <span class="badge badge-danger">{{results.detections}}</span></h5></td>
             </tr>
         </tbody>
     </table>

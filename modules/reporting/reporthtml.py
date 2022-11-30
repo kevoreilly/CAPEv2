@@ -10,7 +10,9 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
-from web.analysis.templatetags.analysis_tags import malware_config
+from web.analysis.templatetags.analysis_tags import malware_config, flare_capa_capabilities, flare_capa_attck, flare_capa_mbc
+from web.analysis.templatetags.key_tags import getkey, str2list, dict2list, parentfixup
+from web.analysis.templatetags.pdf_tags import datefmt
 
 try:
     from jinja2 import TemplateAssertionError, TemplateNotFound, TemplateSyntaxError, UndefinedError
@@ -59,7 +61,19 @@ class ReportHTML(Report):
             results["shots"] = []
 
         env = Environment(autoescape=True)
-        env.globals["malware_config"] = malware_config
+        env.filters.update(
+            {
+                "getkey": getkey,
+                "str2list": str2list,
+                "dict2list": dict2list,
+                "parentfixup": parentfixup,
+                "malware_config": malware_config,
+                "flare_capa_capabilities": flare_capa_capabilities,
+                "flare_capa_attck": flare_capa_attck,
+                "flare_capa_mbc": flare_capa_mbc,
+                "datefmt": datefmt,
+            }
+        )
         env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
 
         try:

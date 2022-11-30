@@ -92,7 +92,12 @@ def choose_package(file_type, file_name, exports, target):
     elif file_name.endswith(".xps"):
         return "xps"
     elif "HTML" in file_type:
-        return "html"
+        if file_name.endswith(".wsf") or file_name.endswith(".wsc"):
+            return "wsf"
+        elif re.search(b'(?:<hta\\:application|<script\\s+language\\s*=\\s*"(J|VB|Perl)Script")', file_content, re.I):
+            return "html"
+        else:
+            return "chrome"
     elif file_name.endswith(".mht"):
         return "mht"
     elif file_name.endswith(".url") or "MS Windows 95 Internet shortcut" in file_type or "Windows URL shortcut" in file_type:

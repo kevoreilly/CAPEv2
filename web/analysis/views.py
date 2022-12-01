@@ -1723,7 +1723,14 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 def filereport(request, task_id, category):
 
     # check if allowed to download to all + if no if user has permissions
-    if not settings.ALLOW_DL_REPORTS_TO_ALL and (request.user.is_anonymous or (hasattr(request.user, "userprofile") and hasattr(request.user.userprofile, "reports") and not request.user.userprofile.reports)):
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and (
+        request.user.is_anonymous
+        or (
+            hasattr(request.user, "userprofile")
+            and hasattr(request.user.userprofile, "reports")
+            and not request.user.userprofile.reports
+        )
+    ):
         return render(
             request,
             "error.html",

@@ -110,7 +110,7 @@ def extract_config(filebuf):
             "install_file": get_wide_string(data, 6),
             "install": decrypt_config_item_printable(key, data, 4),
             "mutex": decrypt_config_item_printable(key, data, 8),
-            "pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b""),
+            "pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b"").decode(),
         }
     except Exception as e:
         print(e)

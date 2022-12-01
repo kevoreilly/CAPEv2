@@ -75,6 +75,23 @@ Please refer both to the documentation of the web server of your choice as well 
 
 .. _`Django documentation`: https://docs.djangoproject.com/
 
+
+Susciption
+==========
+
+Suscription called parts that allows you to control which users what can do.
+Right now we support:
+
+    * Request - limitation per second/minute/hours limits using django-ratelimit extensions
+    * Reports - Allow or not to download reports to specific user. Check conf/web.conf to enable this feature.
+
+To extend the capabilities of control what users can do check `Django migrations a primer`_.
+
+.. _`Django migrations a primer`: https://realpython.com/django-migrations-a-primer/
+
+In few works you need to add new fields to ``models.py`` and run ``python3 manage.py makemigrations``
+
+
 Exposed to internet
 ===================
 

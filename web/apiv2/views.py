@@ -1141,6 +1141,14 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
 
+    # check if allowed to download to all + if no if user has permissions
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and not request.user.userprofile.reports:
+        return render(
+            request,
+            "error.html",
+            {"error": "You don't have permissions to download reports. Ask admin to enable it for you in user profile."},
+        )
+
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -1150,6 +1158,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         task_id = rtid
 
     resp = {}
+
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})

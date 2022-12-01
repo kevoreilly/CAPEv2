@@ -1316,9 +1316,11 @@ def report(request, task_id):
         print(e)
 
     reports_exist = False
-    reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
-    if os.path.exists(reporting_path) and os.listdir(reporting_path):
-        reports_exist = True
+    # check if we allow dl reports only to specific users
+    if settings.ALLOW_DL_REPORTS_TO_ALL:
+        reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
+        if os.path.exists(reporting_path) and os.listdir(reporting_path):
+            reports_exist = True
 
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
     if os.path.exists(debugger_log_path) and os.listdir(debugger_log_path):
@@ -1722,6 +1724,15 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def filereport(request, task_id, category):
+
+    # check if allowed to download to all + if no if user has permissions
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and not request.user.userprofile.reports:
+        return render(
+            request,
+            "error.html",
+            {"error": "You don't have permissions to download reports. Ask admin to enable it for you in user profile."},
+        )
+
     formats = {
         "json": "report.json",
         "html": "report.html",
@@ -2141,15 +2152,19 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in (
-        "bingraph",
-        "flare_capa",
-        "vba2graph",
-        "virustotal",
-        "xlsdeobf",
-        "strings",
-        "floss",
-    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    if (
+        service
+        not in (
+            "bingraph",
+            "flare_capa",
+            "vba2graph",
+            "virustotal",
+            "xlsdeobf",
+            "strings",
+            "floss",
+        )
+        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
+    ):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     # Self Extracted support folder

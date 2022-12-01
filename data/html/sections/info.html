@@ -63,6 +63,7 @@
 {% endif %}
 
 {% if results.CAPE.configs %}
+<h4>Malware config(s)</h4>
 <section id="malware_conf">
     {% for config_block in results.CAPE.configs %}
         {% for family, config in config_block.items() %}
@@ -74,7 +75,7 @@
             {% for key, value in config.items() %}
             <tr>
                 <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
-                <td style="border-top: 0; word-wrap: break-word;">{{malware_config(value)}}</td>
+                <td style="border-top: 0; word-wrap: break-word;">{{value|malware_config}}</td>
             </tr>
             {% endfor %}
         </table>

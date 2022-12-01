@@ -77,8 +77,6 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-FILE_CHUNK_SIZE = 16 * 1024
-
 yara_error = {
     "1": "ERROR_INSUFFICIENT_MEMORY",
     "2": "ERROR_COULD_NOT_ATTACH_TO_PROCESS",
@@ -200,12 +198,12 @@ class File:
         """
         return self.file_data
 
-    def get_chunks(self):
+    def get_chunks(self, size=16):
         """Read file contents in chunks (generator)."""
-
+        chunk_size = size * 1024
         with open(self.file_path, "rb") as fd:
             while True:
-                chunk = fd.read(FILE_CHUNK_SIZE)
+                chunk = fd.read(chunk_size)
                 if not chunk:
                     break
                 yield chunk

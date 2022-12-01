@@ -26,6 +26,7 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
+    trim_sample,
     validate_referrer,
     validate_ttp,
 )
@@ -1252,15 +1253,6 @@ def download_from_vt(vtdl, details, opt_filename, settings):
     return details
 
 
-def trim_sample(first_chunk):
-    try:
-        overlay_data_offset = PortableExecutable(data=first_chunk).get_overlay_raw()
-        if overlay_data_offset is not None:
-            return overlay_data_offset
-    except Exception as e:
-        log.info(e)
-
-
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
     for sample in samples:
@@ -1273,8 +1265,8 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         sample_parent_id = None
         size = sample.size
         data = False
-        if not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
-            if size > web_cfg.general.max_sample_size:
+        if size > web_cfg.general.max_sample_size:
+            if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]):
                 first_chunk = sample.chunks().__next__()
                 if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
                     trimmed_size = trim_sample(sample.chunks().__next__())

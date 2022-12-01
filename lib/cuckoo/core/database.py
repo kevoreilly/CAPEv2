@@ -2184,15 +2184,14 @@ class Database(object, metaclass=Singleton):
         try:
             _min = session.query(func.min(Task.started_on).label("min")).first()
             _max = session.query(func.max(Task.completed_on).label("max")).first()
-            if _min and _max:
+            if _min and _max and _min[0] and _max[0]:
                 return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
-            else:
-                return 0
         except SQLAlchemyError as e:
             log.debug("Database error counting tasks: %s", e)
-            return 0
         finally:
             session.close()
+
+        return 0, 0
 
     @classlock
     def get_tlp_tasks(self):

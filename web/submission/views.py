@@ -566,7 +566,9 @@ def index(request, task_id=None, resubmit_hash=None):
             socks5s_random = random.choice(socks5s.values()).get("name", False)
 
         if routing.vpn.random_vpn:
-            vpn_random = random.choice(list(vpns.values())).get("name", False)
+            vpn = list(vpns.values())
+            if vpn:
+                vpn_random = random.choice(vpn).get("name", False)
 
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("name", False)

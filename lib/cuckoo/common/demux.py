@@ -11,8 +11,9 @@ from typing import List
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import get_options, sanitize_filename
+from lib.cuckoo.common.utils import get_options, sanitize_filename, trim_sample
 
 sf_version = ""
 try:
@@ -39,6 +40,7 @@ if sf_version:
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
+web_cfg = Config("web")
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode()
 
 demux_extensions_list = {
@@ -112,7 +114,13 @@ blacklist_extensions = {"apk", "dmg"}
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut"}
 VALID_LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
-
+OFFICE_TYPES = [
+    "Composite Document File",
+    "CDFV2 Encrypted",
+    "Excel 2007+",
+    "Word 2007+",
+    "Microsoft OOXML",
+]
 
 def options2passwd(options: str) -> str:
     password = ""
@@ -149,7 +157,7 @@ def demux_office(filename: bytes, password: str) -> List[bytes]:
 
 
 def is_valid_type(magic: str) -> bool:
-    # check for valid file types and don't rely just on file extentsion
+    # check for valid file types and don't rely just on file extension
     VALID_TYPES.update(VALID_LINUX_TYPES)
     return any(ftype in magic for ftype in VALID_TYPES)
 
@@ -174,14 +182,10 @@ def _sf_chlildren(child: sfFile) -> bytes:
 
 def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     retlist = []
-    # only extract from files with no extension or with .bin (downloaded from us) or .zip PACKAGE, we do extract from zip archives, to ignore it set ZIP PACKAGES
+    # do not extract from .bin (downloaded from us)
     ext = os.path.splitext(filename)[1]
     if ext == b".bin":
         return retlist
-
-    # to handle when side file for exec is required
-    if "file=" in options:
-        return [filename]
 
     try:
         password = options2passwd(options) or "infected"
@@ -220,6 +224,10 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     if package:
         return [filename]
 
+    # to handle when side file for exec is required
+    if "file=" in options:
+        return [filename]
+
     # don't try to extract from office docs
     magic = File(filename).get_type()
 
@@ -227,7 +235,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     if "Microsoft" in magic:
         pass
         # ignore = {"Outlook", "Message", "Disk Image"}
-    elif "Composite Document File" in magic or "CDFV2 Encrypted" in magic:
+    elif any(x in magic for x in OFFICE_TYPES):
         password = options2passwd(options) or None
         if use_sflock:
             if HAS_SFLOCK:
@@ -236,7 +244,9 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
 
     # don't try to extract from Java archives or executables
-    if "Java Jar" in magic or "PE32" in magic or "MS-DOS executable" in magic or any(x in magic for x in VALID_LINUX_TYPES):
+    if "Java Jar" in magic or "Java archive data" in magic or \
+            "PE32" in magic or "MS-DOS executable" in magic or\
+            any(x in magic for x in VALID_LINUX_TYPES):
         return [filename]
 
     # all in one unarchiver
@@ -245,5 +255,19 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # original file
     if not retlist:
         retlist.append(filename)
+    else:
+        for filename in retlist:
+            if File(filename).get_size() > web_cfg.general.max_sample_size:
+                if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in options):
+                    file_chunk = File(filename).get_chunks(64).__next__()
+                    retlist.remove(filename)
+                    if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
+                        trimmed_size = trim_sample(file_chunk)
+                        if trimmed_size:
+                            data = File(filename).get_chunks(trimmed_size).__next__()
+                            if trimmed_size < web_cfg.general.max_sample_size:
+                                with open(filename, "wb") as of:
+                                    of.write(data)
+                                retlist.append(filename)
 
     return retlist[:10]

@@ -2138,7 +2138,7 @@ on_demand_config_mapper = {
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-def on_demand(request, service: str, task_id: int, category: str, sha256):
+def on_demand(request, service: str, task_id: str, category: str, sha256):
     """
     This aux function allows to generate some details on demand, this is specially useful for long running libraries and we don't need them in many cases due to scripted submissions
     @param service: Service for which we want to generate details
@@ -2166,17 +2166,17 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     # Self Extracted support folder
-    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", sha256)
+    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
 
     if not os.path.exists(path):
         extractedfile = False
         if category == "static":
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
             category = "target.file"
         elif category == "dropped":
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
         else:
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), category, sha256)
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
     else:
         category = "target.file"
         extractedfile = True
@@ -2191,7 +2191,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             details = {"msg": "No results"}
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
-        vba2graph_func(path, str(task_id), sha256, on_demand=True)
+        vba2graph_func(path, task_id, sha256, on_demand=True)
 
     elif service == "strings" and HAVE_STRINGS:
         details = extract_strings(path, on_demand=True)
@@ -2204,7 +2204,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             details = {"msg": "No results"}
 
     elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
-        details = xlmdeobfuscate(path, str(task_id), on_demand=True)
+        details = xlmdeobfuscate(path, task_id, on_demand=True)
         if not details:
             details = {"msg": "No results"}
     elif (
@@ -2212,9 +2212,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         and HAVE_BINGRAPH
         and reporting_cfg.bingraph.enabled
         and reporting_cfg.bingraph.on_demand
-        and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "bingraph", sha256 + "-ent.svg"))
+        and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph", sha256 + "-ent.svg"))
     ):
-        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "bingraph")
+        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph")
         if not os.path.exists(bingraph_path):
             os.makedirs(bingraph_path)
         try:
@@ -2231,7 +2231,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         if not details:
             details = {"msg": "No results"}
     if details:
-        buf = mongo_find_one("analysis", {"info.id": task_id}, {"_id": 1, category: 1})
+        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
 
         servicedata = {}
         if category == "CAPE":

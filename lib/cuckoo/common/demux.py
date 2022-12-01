@@ -122,6 +122,7 @@ OFFICE_TYPES = [
     "Microsoft OOXML",
 ]
 
+
 def options2passwd(options: str) -> str:
     password = ""
     if "password=" in options:
@@ -244,9 +245,13 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
 
     # don't try to extract from Java archives or executables
-    if "Java Jar" in magic or "Java archive data" in magic or \
-            "PE32" in magic or "MS-DOS executable" in magic or\
-            any(x in magic for x in VALID_LINUX_TYPES):
+    if (
+        "Java Jar" in magic
+        or "Java archive data" in magic
+        or "PE32" in magic
+        or "MS-DOS executable" in magic
+        or any(x in magic for x in VALID_LINUX_TYPES)
+    ):
         return [filename]
 
     # all in one unarchiver

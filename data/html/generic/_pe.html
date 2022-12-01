@@ -1,0 +1,429 @@
+<section id="static_analysis">
+    {% if file.pe %}
+            <div>
+                <h4>PE Information</h4>
+                <div id="pe_information">
+                    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                        {% if file.pe.imagebase %} <th style="width: 5%;">Image Base</th> {% endif %}
+                        {% if file.pe.entrypoint %} <th style="width: 5%;">Entry Point</th> {% endif %}
+                        {% if file.pe.reported_checksum %} <th style="width: 10%;">Reported Checksum</th> {% endif %}
+                        {% if file.pe.actual_checksum %} <th style="width: 10%;">Actual Checksum</th> {% endif %}
+                        {% if file.pe.osversion %} <th style="width: 10%;">Minimum OS Version</th> {% endif %}
+                        {% if file.pe.pdbpath %} <th style="width: 15%;">PDB Path</th> {% endif %}
+                        {% if file.pe.timestamp %} <th style="width: 10%;">Compile Time</th> {% endif %}
+                        {% if file.pe.imphash %} <th style="width: 15%;">Import Hash</th> {% endif %}
+                        {% if file.pe.icon %} <th style="width: 5%;">Icon</th>{% endif %}
+                        {% if file.pe.icon_hash %} <th style="width: 15%;">Icon Exact Hash</th> {% endif %}
+                        {% if file.pe.icon_fuzzy %} <th style="width: 15%;">Icon Similarity Hash</th> {% endif %}
+                        {% if file.pe.icon_dhash %} <th style="width: 10%;">Icon DHash</th> {% endif %}
+                        {% if file.pe.exported_dll_name %} <th style="width: 15%;">Exported DLL Name</th> {% endif %}
+
+                        <tr>
+                            {% if file.pe.imagebase %}
+                            <td>{{file.pe.imagebase}}</td>
+                            {% endif %}
+                            {% if file.pe.entrypoint %}
+                            <td>{{file.pe.entrypoint}}</td>
+                            {% endif %}
+                            {% if file.pe.reported_checksum %}
+                            <td>{{file.pe.reported_checksum}}</td>
+                            {% endif %}
+                            {% if file.pe.actual_checksum %}
+                            <td>{{file.pe.actual_checksum}}</td>
+                            {% endif %}
+                            {% if file.pe.osversion %}
+                            <td>{{file.pe.osversion}}</td>
+                            {% endif %}
+                            {% if file.pe.pdbpath %}
+                            <td>{{file.pe.pdbpath}}</td>
+                            {% endif %}
+                            {% if file.pe.timestamp %}
+                            <td>{{file.pe.timestamp}}</td>
+                            {% endif %}
+                            {% if file.pe.imphash %}
+                            <td>{{file.pe.imphash}}</td>
+                            {% endif %}
+                            {% if file.pe.icon %}
+                            <td><img src="data:image/jpeg;base64,{{file.pe.icon}}" width="32" height="32" /></td>
+                            {% endif %}
+                            {% if file.pe.icon_hash %}
+                            <td>{{file.pe.icon_hash}}</td>
+                            {% endif %}
+                            {% if file.pe.icon_fuzzy %}
+                            <td>{{file.pe.icon_fuzzy}}</td>
+                            {% endif %}
+                            {% if file.pe.icon_dhash %}
+                            <td>{{file.pe.icon_dhash}}</td>
+                            {% endif %}
+                            {% if file.pe.exported_dll_name %}
+                            <td>{{file.pe.exported_dll_name}}</td>
+                            {% endif %}
+                        </tr>
+                     </table>
+                </div>
+            </div>
+            <hr />
+        {% if file.pe.versioninfo %}
+            <div>
+                <h4>Version Infos</h4>
+                <div id="pe_versioninfo">
+                    <table class="table table-striped table-bordered">
+                        <colgroup>
+                            <col width="150" />
+                            <col width="*" />
+                        </colgroup>
+                        {% for info in file.pe.versioninfo %}
+                        {% if info.name %}
+                            <tr>
+                                <th>{{info.name}}</th>
+                                <td><span class="mono">{{info.value}}</span></td>
+                            </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+            <hr />
+        {% endif %}
+        {% if file.pe.peid_signatures%}
+        <div>
+            <h4>PEiD Signatures</h4>
+            <div id="peid_signatures">
+                <table class="table table-striped table-bordered">
+                {% for sig in file.pe.peid_signatures %}
+                    <tr><td>{{sig}}</td></tr>
+                {% endfor %}
+                </table>
+            </div>
+        </div>
+        <hr />
+        {% endif %}
+        {% if file.pe.sections %}
+            <div>
+                <h4>Sections</h4>
+                <div id="pe_sections">
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <th>Name</th>
+                            <th>RAW Address</th>
+                            <th>Virtual Address</th>
+                            <th>Virtual Size</th>
+                            <th>Size of Raw Data</th>
+                            <th>Characteristics</th>
+                            <th>Entropy</th>
+                        </tr>
+                        {% for section in file.pe.sections %}
+                            <tr>
+                                <td>{{section.name}}</td>
+                                <td>{{section.raw_address}}</td>
+                                <td>{{section.virtual_address}}</td>
+                                <td>{{section.virtual_size}}</td>
+                                <td>{{section.size_of_data}}</td>
+                                <td>{{section.characteristics}}</td>
+                                <td>{{section.entropy}}</td>
+                            </tr>
+                        {% endfor %}
+                </table>
+            </div>
+        </div>
+        <hr />
+        {% endif %}
+
+        {% if file.pe.overlay %}
+        <div>
+            <h4>Overlay</h4>
+            <div id="pe_overlay">
+                <table class="table table-striped table-bordered">
+                    <colgroup>
+                        <col width="150" />
+                        <col width="*" />
+                    </colgroup>
+                    <tr>
+                        <td><strong>Offset</strong></td>
+                        <td>{{file.pe.overlay.offset}}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Size</strong></td>
+                        <td>{{file.pe.overlay.size}}</td>
+                    </tr>
+                    </table>
+                </div>
+            </div>
+            <hr />
+        {% endif %}
+
+        {% if file.pe.resources %}
+        <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                    <button class="btn btn-link" data-toggle="collapse" href="#pe_resources" data-target="#pe_resources_{{file.sha256}}" aria-expanded="false">
+                        <strong>Resources</strong></a>
+                    </button>
+                    </h5>
+                </div>
+
+                <div id="pe_resources_{{file.sha256}}" class="collapse">
+                    <div class="card-body">
+                        <table class="table table-striped table-bordered">
+                            <tr>
+                                <th>Name</th>
+                                <th>Offset</th>
+                                <th>Size</th>
+                                <th>Language</th>
+                                <th>Sub-language</th>
+                                <th>Entropy</th>
+                                <th>File type</th>
+                            </tr>
+                            {% for section in file.pe.resources %}
+                                <tr>
+                                    <td>{{section.name}}</td>
+                                    <td>{{section.offset}}</td>
+                                    <td>{{section.size}}</td>
+                                    <td>{{section.language}}</td>
+                                    <td>{{section.sublanguage}}</td>
+                                    <td>{{section.entropy}}</td>
+                                    <td>{{section.filetype}}</td>
+                                </tr>
+                            {% endfor %}
+                        </table>
+                    </div>
+                </div>
+        </div>
+        <hr />
+        {% endif %}
+
+        {% if file.pe.imports %}
+        <div>
+            {% for dll, library in file.pe.imports.items() %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                    <button class="btn btn-link" data-toggle="collapse" href="#{{dll}}" data-target="#{{dll}}" aria-expanded="false">
+                        <strong>Library {{dll}}</strong>:</a>
+                    </button>
+                    </h5>
+                </div>
+                <div id="{{dll}}" class="collapse">
+                    <div class="card-body">
+                        {% for function in library.imports %}
+                        <div>&bull; <span class="mono">{{function.address}} <a href="https://docs.microsoft.com/en-us/search/?terms={{function.name}}">{{function.name}}</a></span></div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <hr />
+
+        {% if file.pe.exports %}
+            <div>
+                <h4>Exports</h4>
+                <div id="pe_exports">
+                    <table class="table table-striped table-bordered table-dark">
+                        <tr>
+                            <th>Ordinal</th>
+                            <th>Address</th>
+                            <th>Name</th>
+                        </tr>
+                        {% for export in file.pe.exports %}
+                            <tr>
+                                <td>{{export.ordinal}}</td>
+                                <td>{{export.address}}</td>
+                                <td>{{export.name}}</td>
+                            </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if file.pe.digital_signers %}
+            <div class="card-header">
+                <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#pe_digital_signers">Digital Signers</a></center>
+            </div>
+            <hr />
+            <div id="pe_digital_signers" class="collapse" style="text-align: left;">
+                <div id="digital_signers">
+                    {% for cert in file.pe.digital_signers %}
+                    <table class="table table-striped table-bordered">
+                        <colgroup>
+                            <col width="250" />
+                            <col width="*" />
+                        </colgroup>
+                        {% if cert.subject_commonName %}
+                            <tr>
+                                <th>Certificate Common Name</th>
+                                <td>{{cert.subject_commonName}}</td>
+                            </tr>
+                        {% endif %}
+                        {% if cert.subject_commonName %}
+                        <tr>
+                            <th>Subject Organization Name</th>
+                            <td>{{cert.subject_commonName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_organizationalUnitName %}
+                        <tr>
+                            <th>Subject Organization Unit Name</th>
+                            <td>{{cert.subject_organizationalUnitName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_streetAddress %}
+                        <tr>
+                            <th>Subject Street Address</th>
+                            <td>{{cert.subject_streetAddress}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_localityName %}
+                        <tr>
+                            <th>Subject Locality</th>
+                            <td>{{cert.subject_localityName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_stateOrProvinceName %}
+                        <tr>
+                            <th>Subject State or Province</th>
+                            <td>{{cert.subject_stateOrProvinceName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_postalCode %}
+                        <tr>
+                            <th>Subject Postal Code</th>
+                            <td>{{cert.subject_postalCode}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_countryName %}
+                        <tr>
+                            <th>Subject Country</th>
+                            <td>{{cert.subject_countryName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_commonName %}
+                        <tr>
+                            <th>Issuer Common Name</th>
+                            <td>{{cert.issuer_commonName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_organizationName %}
+                        <tr>
+                            <th>Issuer Organization Name</th>
+                            <td>{{cert.issuer_organizationName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_organizationalUnitName %}
+                        <tr>
+                            <th>Issuer Organization Unit Name</th>
+                            <td>{{cert.issuer_organizationalUnitName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_localityName %}
+                        <tr>
+                            <th>Issuer Locality</th>
+                            <td>{{cert.issuer_localityName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_stateOrProvinceName %}
+                        <tr>
+                            <th>Issuer State or Province</th>
+                            <td>{{cert.issuer_stateOrProvinceName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_countryName %}
+                        <tr>
+                            <th>Issuer Country</th>
+                            <td>{{cert.issuer_countryName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.serial_number %}
+                        <tr>
+                            <th>Serial Number</th>
+                            <td>{{cert.serial_number}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.sha256_fingerprint %}
+                        <tr>
+                            <th>SHA256 Fingerprint</th>
+                            <td>{{cert.sha256_fingerprint}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.sha1_fingerprint %}
+                        <tr>
+                            <th>SHA1 Fingerprint</th>
+                            <td>{{cert.sha1_fingerprint}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.md5_fingerprint %}
+                        <tr>
+                            <th>MD5 Fingerprint</th>
+                            <td>{{cert.md5_fingerprint}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.not_before %}
+                        <tr>
+                            <th>Not valid before</th>
+                            <td>{{cert.not_before}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.not_after %}
+                        <tr>
+                            <th>Not valid after</th>
+                            <td>{{cert.not_after}}</td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                    </table>
+                </div>
+            {% if file.pe.guest_signers.aux_signers %}
+            <div>
+                <h4>Microsoft Certificate Validation (Sign Tool)</h4>
+                <div id="digital_signers_validation">
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <th width="20%">SHA1</th>
+                            <th width="20%">Timestamp</th>
+                            <th width="5%">Valid</th>
+                            <th width="55%">Error</th>
+                        </tr>
+                        <tr>
+                            <td>{{file.pe.guest_signers.aux_sha1}}</td>
+                            <td>{{file.pe.guest_signers.aux_timestamp}}</td>
+                            {% if file.pe.guest_signers.aux_valid %}
+                            <td><center><span class="badge badge-success">Yes</span></center></td>
+                            <td>None</td>
+                            {% else %}
+                            <td><center><span class="badge badge-danger">No</span></center></td>
+                            <td>{{file.pe.guest_signers.aux_error_desc}}</td>
+                            {% endif %}
+                        </tr>
+                    </table>
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <th><b>Chain</b></th>
+                            <th><b>Issued to</b></th>
+                            <th><b>Issued by</b></th>
+                            <th><b>Expires</b></th>
+                            <th><b>SHA1 Hash</b></th>
+                        </tr>
+                        {#
+                        {% for signer in file.pe.guest_signers.aux_signers %}
+                        <tr>
+                                <td>{{signer.name}}</td>
+                                <td>{{signer|getkey"Issued to"}}</td>
+                                <td>{{signer|getkey"Issued by"}}</td>
+                                <td>{{signer.Expires}}</td>
+                                <td>{{signer|getkey:"SHA1 hash"}}</td>
+                        </tr>
+                        {% endfor %}
+                        #}
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+            <hr />
+            </div>
+        {% endif %}
+    {% else %}
+        Nothing to display.
+    {% endif %}
+</section>

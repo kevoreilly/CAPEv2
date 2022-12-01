@@ -67,6 +67,10 @@ def _set_base_uri(pdf):
 
 def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
     """Extract JavaScript from PDF objects."""
+
+    if not HAVE_PEEPDF:
+        return pdfresult
+
     log.debug("About to parse with PDFParser")
     parser = PDFParser()
     try:

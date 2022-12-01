@@ -563,7 +563,11 @@ class RunSignatures:
                     if result and not sig.matched:
                         matched.append(sig.as_result())
                         if hasattr(sig, "ttps"):
-                            [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttps]
+                            [
+                                self.ttps.append({"ttp": ttp, "signature": sig.name})
+                                for ttp in sig.ttps
+                                if {"ttp": ttp, "signature": sig.name} not in self.ttps
+                            ]
 
         # Link this into the results already at this point, so non-evented signatures can use it
         self.results["signatures"] = matched

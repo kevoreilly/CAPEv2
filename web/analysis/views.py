@@ -1734,6 +1734,7 @@ def filereport(request, task_id, category):
         )
 
     formats = {
+        "protobuf": "report.protobuf",
         "json": "report.json",
         "html": "report.html",
         "htmlsummary": "summary-report.html",
@@ -1748,16 +1749,13 @@ def filereport(request, task_id, category):
 
     if category in formats:
         file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports", formats[category])
-        file_name = str(task_id) + "_" + formats[category]
-        content_type = "application/octet-stream"
 
         if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
             return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
 
         if os.path.exists(file_path):
-            response = HttpResponse(open(file_path, "rb").read(), content_type=content_type)
-            response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
-
+            response = HttpResponse(open(file_path, "rb").read(), content_type="application/octet-stream")
+            response["Content-Disposition"] = f"attachment; filename={task_id}_{formats[category]}"
             return response
 
         """

@@ -1168,6 +1168,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = {"error": True, "error_value": "No reports created for task %s" % task_id}
 
     formats = {
+        "protobuf": "report.protobuf",
         "json": "report.json",
         "html": "report.html",
         "htmlsummary": "summary-report.html",
@@ -1208,6 +1209,9 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             elif report_format == "pdf":
                 content = "application/pdf"
                 ext = "pdf"
+            elif report_format == "protobuf":
+                content = "application/octet-stream"
+                ext = "protobuf"
             fname = "%s_report.%s" % (task_id, ext)
 
             if make_zip:

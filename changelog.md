@@ -1,3 +1,6 @@
+### [2.12.2022]
+* Monitor updates: add 32-bit hook compatibility to allow hooking of GetCommandLine APIs (and add GetCommandLineA hook)
+
 ### [17.11.2022]
 * QakBot config extraction update
 * Emotet detection & config extractor updates

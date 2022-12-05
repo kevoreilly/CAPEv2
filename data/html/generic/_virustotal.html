@@ -31,7 +31,7 @@
                 {% endif %}
             </tr>
 
-            {% for av, values in file.virustotal.scans.items %}
+            {% for av, values in file.virustotal.scans.items() %}
                 <td>{{av}}</td>
                 <td>
                     {% if file.info.category == "file" %}
@@ -54,9 +54,9 @@
                         </span>
                     {% endif %}
                 </td>
-            {% if forloop.counter|divisibleby:"3" %}
+            {% if loop.index %3 == 0 %}
                 </tr>
-            {% elif forloop.last %}
+            {% elif loop.last %}
                 </tr>
             {% endif %}
             {% endfor %}

@@ -1,11 +1,11 @@
 import "pe"
 
-rule NighthawkDLLC2
+rule Nighthawk
 {
     meta:
         author = "Nikhil Ashok Hegde <@ka1do9>"
         description = "NightHawk C2"
-        cape_type = "Nighthawk DLL Payload"
+        cape_type = "Nighthawk Payload"
 
     strings:
         // Not wildcarding register to have better yara performance

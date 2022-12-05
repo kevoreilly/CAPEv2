@@ -1,12 +1,12 @@
-import json
-import gzip
-import struct
-import itertools
 import contextlib
+import gzip
+import itertools
+import json
+import struct
+
 import pefile
 import regex as re
 from Crypto.Cipher import AES
-
 
 DESCRIPTION = "NightHawk C2 DLL configuration parser."
 AUTHOR = "Nikhil Ashok Hegde <@ka1do9>"
@@ -66,11 +66,11 @@ def decode_config_strings(decrypted_config, plaintext_alphabet, ciphertext_alpha
         del config[k]
 
         if isinstance(decrypted_config[k], dict):
-            config[decoded_string] = decode_config_strings(decrypted_config[k], plaintext_alphabet,
-                                                           ciphertext_alphabet, config[decoded_string])
+            config[decoded_string] = decode_config_strings(
+                decrypted_config[k], plaintext_alphabet, ciphertext_alphabet, config[decoded_string]
+            )
         elif isinstance(decrypted_config[k], str):
-            config[decoded_string] = _decode_str(decrypted_config[k], plaintext_alphabet,
-                                                 ciphertext_alphabet)
+            config[decoded_string] = _decode_str(decrypted_config[k], plaintext_alphabet, ciphertext_alphabet)
         if isinstance(decrypted_config[k], list):
             config[decoded_string] = []
             for s in decrypted_config[k]:
@@ -156,7 +156,7 @@ def get_possible_alphabet(data):
     :rtype: <class 'itertools.permutations'> or None
     """
 
-    alphabets_regex = b"[\w\s!\\\"\#\$%\&\'\(\)\*\+,\-\./:;<=>\?@\[\]\^_`\{\}\~\|]{86}\x00"
+    alphabets_regex = b"[\w\s!\\\"\#\$%\&'\(\)\*\+,\-\./:;<=>\?@\[\]\^_`\{\}\~\|]{86}\x00"
     alphabets_regexc = re.compile(alphabets_regex)
 
     # Alphabets are known to exist in the .rdata section, so just search there
@@ -186,18 +186,18 @@ def decrypt_config(encrypted_config, decryption_key):
     :rtype: dict or None
     """
 
-    cipher = AES.new(decryption_key, AES.MODE_CBC, iv=16*b'\x00')
+    cipher = AES.new(decryption_key, AES.MODE_CBC, iv=16 * b"\x00")
     gzip_config = cipher.decrypt(encrypted_config)
 
-    if gzip_config[:2] != b'\x1F\x8B':
+    if gzip_config[:2] != b"\x1F\x8B":
         # gzip magic signature is b'\x1F\x8B' at offset 0
         return None
 
     # I've noticed gzip_config containing additional data at the end.
     # Below statements truncate gzip_config to the rightmost b'\x00\x00'
     # which is gzip end-of-stream marker
-    i = gzip_config.rindex(b'\x00\x00')
-    gzip_config = gzip_config[:i+2]
+    i = gzip_config.rindex(b"\x00\x00")
+    gzip_config = gzip_config[: i + 2]
 
     config = gzip.decompress(gzip_config).decode("utf-8")
     return json.loads(config)
@@ -227,7 +227,7 @@ def get_encoded_config(profile_section_contents):
         # Actual config size cannot be greater than max possible config size
         return None
 
-    return profile_section_contents[21:21+config_size]
+    return profile_section_contents[21 : 21 + config_size]
 
 
 def get_decryption_key(profile_section_contents):
@@ -299,10 +299,7 @@ def extract_config(data):
     possible_alphabets = get_possible_alphabet(data)
 
     for plaintext_alphabet, ciphertext_alphabet in possible_alphabets:
-        config_ = decode_config_strings(
-                    decrypted_config, plaintext_alphabet,
-                    ciphertext_alphabet, decrypted_config.copy()
-                  )
+        config_ = decode_config_strings(decrypted_config, plaintext_alphabet, ciphertext_alphabet, decrypted_config.copy())
 
         if "implant-config" in config_:
             # This is a heuristic and may fail in future versions

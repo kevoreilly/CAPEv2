@@ -186,7 +186,7 @@ def decrypt_config(encrypted_config, decryption_key):
     :rtype: dict or None
     """
 
-    cipher = AES.new(decryption_key, AES.MODE_CBC, iv=16 * b"\x00")
+    cipher = AES.new(decryption_key, AES.MODE_CBC, IV=16 * b"\x00")
     gzip_config = cipher.decrypt(encrypted_config)
 
     if gzip_config[:2] != b"\x1F\x8B":

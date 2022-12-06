@@ -183,8 +183,8 @@ def extract_config(filebuf):
                     p_data[idx_list[i]] = base64.b64encode(cont)
                 elif i == 0:
                     # various separators have been observed
-                    separator = next((x for x in (b'|', b'\x1e', b'\xff\xff\xff\xff') if x in cont))
-                    host, port, password = cont.split(separator, 1)[0].split(b":") 
+                    separator = next((x for x in (b"|", b"\x1e", b"\xff\xff\xff\xff") if x in cont))
+                    host, port, password = cont.split(separator, 1)[0].split(b":")
                     p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"
                 else:
                     p_data[idx_list[i]] = cont

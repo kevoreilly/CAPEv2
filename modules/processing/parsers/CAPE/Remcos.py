@@ -6,7 +6,6 @@
 # By Talos July 2018 - https://github.com/Cisco-Talos/remcos-decoder
 # Updates based on work presented here https://gist.github.com/sysopfb/11e6fb8c1377f13ebab09ab717026c87
 
-
 DESCRIPTION = "Remcos config extractor."
 AUTHOR = "threathive,sysopfb,kevoreilly"
 
@@ -197,6 +196,7 @@ def extract_config(filebuf):
 
     except Exception as e:
         logger.error(f"Caught an exception: {e}")
+
     return config
 
 

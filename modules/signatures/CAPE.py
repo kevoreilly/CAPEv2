@@ -610,6 +610,29 @@ class CAPEDetectedThreat(Signature):
     minimum = "1.3"
     evented = True
 
+    _family_map = {"Cobalt Strike": ["CobaltStrikeBeacon", "Meterpreter", "Cobalt"]}
+
+    def alias_to_family(self):
+        for detection in self.results.get("detections"):
+            family = detection["family"]
+            for k, v in self._family_map.items():
+                if family in v:
+                    detection["family"] = k
+
+    def merg(self):
+        self.alias_to_family()
+        df = pd.DataFrame.from_dict(self.results.get("detections"))
+        merged = []
+        tmpdetails = []
+        for detection in list(df.groupby("family")):
+            family = detection[0]
+            items = detection[1]  # df
+            itemslist = items.to_dict()["details"].values()
+            for item in itemslist:
+                tmpdetails += item
+            merged.append({"family": family, "details": tmpdetails})
+        self.results["detections"] = merged
+
     def run(self):
         if self.results.get("detections"):
             self.description = "CAPE detected the %s malware" % ", ".join(block["family"] for block in self.results["detections"])

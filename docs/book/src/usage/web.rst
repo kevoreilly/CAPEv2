@@ -76,7 +76,7 @@ Please refer both to the documentation of the web server of your choice as well 
 .. _`Django documentation`: https://docs.djangoproject.com/
 
 
-Susciption
+Suscription
 ==========
 
 Suscription called parts that allows you to control which users what can do.
@@ -285,3 +285,42 @@ Some extra security TIP(s)
 * To check banned hosts::
 
     $ sudo fail2ban-client status cape-api
+
+Troubleshooting
+===============
+
+Login error: no such column: users_userprofile.reports
+------------------------------------------------------
+
+    .. image:: ../_images/screenshots/login_error_user_usersprofile.png
+        :align: center
+
+This error usually appears after updating CAPEv2 and one or more changes have been made to the database schema. To solve it, you must use the `web/manage` utility like so::
+
+$ sudo -u cape poetry run python3 manage.py migrate
+
+The output should be similar to::
+
+
+    $ sudo -u cape poetry run python3 manage.py migrate
+    CAPE parser: No module named Nighthawk - No module named 'Crypto'
+    Missed dependency flare-floss: pip3 install -U flare-floss
+    Operations to perform:
+      Apply all migrations: account, admin, auth, authtoken, contenttypes, openid, sessions, sites, socialaccount, users
+    Running migrations:
+      Applying users.0002_reports... OK
+
+
+After the OK, the web service should be back to normal (no need to restart ``cape-web.service``).
+
+No such table: auth_user
+-------------------------
+
+When executing::
+
+$ poetry run python manage.py createsuperuser
+
+an error like ``django.db.utils.OperationalError: no such table: auth_user``
+may be raised. In order to solve it just execute the ``web/manage.py`` utility with the ``migrate`` option::
+
+$ sudo -u cape poetry run python3 web/manage.py migrate

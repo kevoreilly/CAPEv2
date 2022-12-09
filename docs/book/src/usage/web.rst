@@ -76,7 +76,7 @@ Please refer both to the documentation of the web server of your choice as well 
 .. _`Django documentation`: https://docs.djangoproject.com/
 
 
-Susciption
+Suscription
 ==========
 
 Suscription called parts that allows you to control which users what can do.

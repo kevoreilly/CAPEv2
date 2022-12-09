@@ -55,7 +55,7 @@ before you start writing signatures. Some documentation for :ref:`Helpers` can b
 
 In the example above, the helper function is used to walk through all of the accessed files in the summary and check
 if there are any files ending with "*.exe*". If there is at least one, then the helper function will return ``True``;
- otherwise it will return ``False``. When a signature returns True, that means that the signature matched.
+otherwise it will return ``False``. When a signature returns True, that means that the signature matched.
 
 If the signature matches, a new entry in the "signatures" section will be added to
 the **global container** `self.results` as follows::
@@ -484,6 +484,7 @@ Following is a list of available methods.
         self.check_url(pattern="^.+\/load\.php\?file=[0-9a-zA-Z]+$", regex=True)
 
 .. _Categories:
+
 Categories
 ==========
 You can put signatures into categories to facilitate grouping or sorting. You can create your own category if you wish, but
@@ -542,3 +543,48 @@ with a category that already exists. Here is a list of all categories available:
 - `stealth`: Leverages/modifies internal processes and settings to conceal itself.
 - `trojan`: Presents itself as legitimate in attempt to infiltrate a system.
 - `virus`: Malicious software program.
+
+Troubleshooting
+===============
+No signatures
+-------------
+
+Whenever you submit a sample for analysis, when it finishes you should be able to inspect the identified signatures. If you see the *No signatures* message, you might need to download or update them. Example from the web interface:
+
+    .. image:: ../_images/screenshots/no_signatures.png
+        :align: center
+
+
+If no signatures are showing when executing a given report, you must use the ``utils/community.py`` tool so as to download them:: 
+
+$ sudo -u cape poetry run python3 utils/community.py -waf
+
+If the execution of the script does not end successfully, make sure you solve it. For example::
+
+    Installing REPORTING
+    File "/opt/CAPEv2/modules/reporting/__init__.py" installed
+    File "/opt/CAPEv2/modules/reporting/elasticsearchdb.py" installed
+    Traceback (most recent call last):
+      File "/opt/CAPEv2/utils/community.py", line 257, in <module>
+        main()
+      File "/opt/CAPEv2/utils/community.py", line 252, in main
+        install(enabled, args.force, args.rewrite, args.file, args.token)
+      File "/opt/CAPEv2/utils/community.py", line 180, in install
+        open(filepath, "wb").write(t.extractfile(member).read())
+    PermissionError: [Errno 13] Permission denied: '/opt/CAPEv2/modules/reporting/elasticsearchdb.py'
+
+happened because ``elasticsearchdb.py`` did not belong to `cape:cape` but to `root:root`.
+
+After *chowning* it to `cape:cape`, the script finished successfully. You should now see in the report page something similar to this: 
+
+    .. image:: ../_images/screenshots/signatures.png
+        :align: center
+
+Errors/warnings in the logs
+---------------------------
+
+If you ever face errors or warnings in the logs related to the signatures module (like `Signature spawns_dev_util crashing after update <https://github.com/kevoreilly/CAPEv2/issues/1261>`_)), chances are high you must update the signatures you are working with. To do so, just run the ``community``` utility like so::
+
+$ sudo -u cape poetry run python3 community.py -waf -cr
+
+

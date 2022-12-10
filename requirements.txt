@@ -41,9 +41,9 @@ capstone==4.0.2 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:9d1a9096c5f875b11290317722ed44bb6e7c52e50cc79d791f142bce968c49aa \
     --hash=sha256:c3d9b443d1adb40ee2d9a4e7341169b76476ddcf3a54c03793b16cdc7cd35c5a \
     --hash=sha256:da442f979414cf27e4621e70e835880878c858ea438c4f0e957e132593579e37
-certifi==2022.9.24 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:0d9c601124e5a6ba9712dbc60d9c53c21e34f5f641fe83002317394311bdce14 \
-    --hash=sha256:90c1a32f1d68f940488354e36370f6cca89f0f106db09518524c88d6ed83f382
+certifi==2022.12.7 ; python_version >= "3.8" and python_version < "4.0" \
+    --hash=sha256:35824b4c3a97115964b408844d64aa14db1cc518f6562e8d7261699d1350a9e3 \
+    --hash=sha256:4ad3232f5e926d6718ec31cfc1fcadfde020920e278684144551c91769c7bc18
 cffi==1.15.1 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:00a9ed42e88df81ffae7a8ab6d9356b371399b91dbdf0c3cb1e84c03a13aceb5 \
     --hash=sha256:03425bdae262c76aad70202debd780501fabeaca237cdfddc008987c0e0f59ef \

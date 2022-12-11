@@ -10,9 +10,9 @@ from lib.common.results import upload_to_host
 
 try:
     import pyinotify
-
     HAVE_PYINOTIFY = True
 except ImportError:
+    print("Missed pyinotify dependency")
     HAVE_PYINOTIFY = False
 
 log = logging.getLogger(__name__)

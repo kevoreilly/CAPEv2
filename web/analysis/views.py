@@ -389,7 +389,7 @@ def index(request, page=1):
         ].to_dict()["id"]
         paging["show_static_prev"] = "show"
     else:
-        paging["show_file_prev"] = "hide"
+        paging["show_static_prev"] = "hide"
     buf = db.list_tasks(limit=1, category="url", not_status=TASK_PENDING, order_by=Task.added_on.asc())
     if len(buf) == 1:
         first_url = db.list_tasks(limit=1, category="url", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()["id"]

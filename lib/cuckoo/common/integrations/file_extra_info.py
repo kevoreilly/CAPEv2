@@ -227,6 +227,10 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
     with open(filelog, "a") as f:
         for file in files:
             full_path = os.path.join(folder, file)
+            if not os.path.isfile(full_path):
+                # ToDo walk subfolders
+                continue
+
             file_details, _pe = File(full_path).get_all()
 
             if processing_conf.trid.enabled:

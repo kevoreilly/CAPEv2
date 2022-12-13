@@ -1334,3 +1334,77 @@ def process_new_dlnexec_task(url, route, options, custom):
     path = store_temp_file(response, name)
 
     return path, response, ""
+
+def submit_task(
+    target: str,
+    package: str = "",
+    timeout: int = 0,
+    task_options: str = "",
+    priority: int = 1,
+    machine: str = "",
+    platform: str = "",
+    memory: bool = False,
+    enforce_timeout: bool = False,
+    clock: str = None,
+    tags: str = None,
+    parent_id: int = None,
+    tlp: bool = None,
+    distributed: bool = False,
+    filename: str = "",
+    server_url: str = "",
+):
+
+    """
+    ToDo add url support in future
+    """
+    if not os.path.exists(target):
+        log.info("File doesn't exist")
+        return
+
+    task_id = False
+    if distributed:
+        options = {
+            "package": package,
+            "timeout": timeout,
+            "options": task_options,
+            "priority": priority,
+            # "machine": machine,
+            "platform": platform,
+            "memory": memory,
+            "enforce_timeout": enforce_timeout,
+            "clock": clock,
+            "tags": tags,
+            "parent_id": parent_id,
+            "filename": filename,
+        }
+
+        multipart_file = [("file", (os.path.basename(target), open(target, "rb")))]
+        try:
+            res = requests.post(server_url, files=multipart_file, data=options)
+            if res and res.ok:
+                task_id = res.json()["data"]["task_ids"][0]
+        except Exception as e:
+            log.error(e)
+    else:
+        task_id = db.add_path(
+            file_path=target,
+            package=package,
+            timeout=timeout,
+            options=task_options,
+            priority=priority,
+            machine=machine,
+            platform=platform,
+            memory=memory,
+            enforce_timeout=enforce_timeout,
+            clock=None,
+            tags=None,
+            parent_id=parent_id,
+            tlp=tlp,
+            filename=filename,
+        )
+    if not task_id:
+        log.warn("Error adding CAPE task to database: %s", package)
+        return task_id
+
+    log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)
+    return task_id

@@ -1335,6 +1335,7 @@ def process_new_dlnexec_task(url, route, options, custom):
 
     return path, response, ""
 
+
 def submit_task(
     target: str,
     package: str = "",

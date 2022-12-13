@@ -762,8 +762,9 @@ function dependencies() {
     #exit
 
     apt install apparmor-utils -y
-    aa-complain /usr/sbin/tcpdump
-    aa-disable /usr/sbin/tcpdump
+    TCPDUMP_PATH=`which tcpdump`
+    aa-complain ${TCPDUMP_PATH}
+    aa-disable ${TCPDUMP_PATH}
 
     if id "${USER}" &>/dev/null; then
         echo "user ${USER} already exist"
@@ -774,8 +775,8 @@ function dependencies() {
 
     groupadd pcap
     usermod -a -G pcap ${USER}
-    chgrp pcap /usr/sbin/tcpdump
-    setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
+    chgrp pcap ${TCPDUMP_PATH}
+    setcap cap_net_raw,cap_net_admin=eip ${TCPDUMP_PATH}
 
     usermod -a -G systemd-journal ${USER}
 

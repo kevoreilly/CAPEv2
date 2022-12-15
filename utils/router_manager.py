@@ -1,14 +1,14 @@
-import os
-import sys
 import argparse
 import logging
+import os
+import sys
 
 CAPE_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CAPE_ROOT)
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooNetworkError
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
-from lib.cuckoo.common.exceptions import CuckooNetworkError, CuckooCriticalError
 
 cfg = Config()
 routing = Config("routing")
@@ -26,9 +26,11 @@ try:
 except ImportError:
     print("Missde dependency: pip3 install psutil")
 
+
 def _rooter_response_check(rooter_response):
     if rooter_response and rooter_response["exception"] is not None:
         raise CuckooCriticalError(f"Error execution rooter command: {rooter_response['exception']}")
+
 
 def route_enable(route, interface, rt_table, machine, reject_segments, reject_hostports):
     if route == "inetsim":
@@ -65,19 +67,17 @@ def route_enable(route, interface, rt_table, machine, reject_segments, reject_ho
         raise CuckooNetworkError(f"Network interface {interface} not found")
     if interface:
         # import code;code.interact(local=dict(locals(), **globals()))
-        rooter_response = rooter("forward_enable", machine.interface or machinery_conf.get(cfg.cuckoo.machinery).get("interface"), interface, machine.ip)
+        rooter_response = rooter(
+            "forward_enable", machine.interface or machinery_conf.get(cfg.cuckoo.machinery).get("interface"), interface, machine.ip
+        )
         _rooter_response_check(rooter_response)
 
     if reject_segments:
-        rooter_response = rooter(
-            "forward_reject_enable", machine.interface, interface, machine.ip, reject_segments
-        )
+        rooter_response = rooter("forward_reject_enable", machine.interface, interface, machine.ip, reject_segments)
         _rooter_response_check(rooter_response)
 
     if reject_hostports:
-        rooter_response = rooter(
-            "hostports_reject_enable", machine.interface, machine.ip, reject_hostports
-        )
+        rooter_response = rooter("hostports_reject_enable", machine.interface, machine.ip, reject_hostports)
         _rooter_response_check(rooter_response)
 
     log.info("Enabled route '%s'. Bear in mind that routes none and drop won't generate PCAP file", route)
@@ -89,17 +89,15 @@ def route_enable(route, interface, rt_table, machine, reject_segments, reject_ho
 
 def route_disable(route, interface, rt_table, machine, reject_segments, reject_hostports):
     if interface:
-        rooter_response = rooter("forward_disable",  machine.interface or machinery_conf.get(cfg.cuckoo.machinery).get("interface"), interface, machine.ip)
+        rooter_response = rooter(
+            "forward_disable", machine.interface or machinery_conf.get(cfg.cuckoo.machinery).get("interface"), interface, machine.ip
+        )
         _rooter_response_check(rooter_response)
         if reject_segments:
-            rooter_response = rooter(
-                "forward_reject_disable", machine.interface, interface, machine.ip, reject_segments
-            )
+            rooter_response = rooter("forward_reject_disable", machine.interface, interface, machine.ip, reject_segments)
             _rooter_response_check(rooter_response)
         if reject_hostports:
-            rooter_response = rooter(
-                "hostports_reject_disable", machine.interface, machine.ip, reject_hostports
-            )
+            rooter_response = rooter("hostports_reject_disable", machine.interface, machine.ip, reject_hostports)
             _rooter_response_check(rooter_response)
         log.info("Disabled route '%s'", route)
 
@@ -136,16 +134,20 @@ def route_disable(route, interface, rt_table, machine, reject_segments, reject_h
         rooter_response = rooter("drop_disable", machine.ip, str(cfg.resultserver.port))
         _rooter_response_check(rooter_response)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Standalone script to debug VM problems that allows to enable routing on VM")
-    parser.add_argument("-r", "--route", default="tor",  help="Route to enable")
+    parser.add_argument("-r", "--route", default="tor", help="Route to enable")
     parser.add_argument("-e", "--enable", default=False, action="store_true", help="Route enable")
     parser.add_argument("-d", "--disable", default=False, action="store_true", help="Route disable")
     parser.add_argument("--show-vm-names", action="store_true", default=False, help="Show names of all vms to use")
-    parser.add_argument("--vm-name", default="", help="VM name to load VM config from conf/<machinery>.conf, name that you have between []. Ex: [cape_vm1]. Specify only cape_vm2")
+    parser.add_argument(
+        "--vm-name",
+        default="",
+        help="VM name to load VM config from conf/<machinery>.conf, name that you have between []. Ex: [cape_vm1]. Specify only cape_vm2",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
-
 
     route = args.route
     rt_table = None

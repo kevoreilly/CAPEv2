@@ -34,6 +34,7 @@ PERSISTENT_ROUTE_GATEWAY = "192.168.1.1"
 si = subprocess.STARTUPINFO()
 si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
+
 class Disguise(Auxiliary):
     """Disguise the analysis environment."""
 
@@ -55,7 +56,9 @@ class Disguise(Auxiliary):
 
         output = None
         try:
-            output = subprocess.check_output([psexec_path, "-accepteula", "-nobanner", "-s"] + command, stderr=subprocess.STDOUT, startupinfo=si)
+            output = subprocess.check_output(
+                [psexec_path, "-accepteula", "-nobanner", "-s"] + command, stderr=subprocess.STDOUT, startupinfo=si
+            )
         except subprocess.CalledProcessError as e:
             log.error(e.output)
 

@@ -30,6 +30,7 @@ from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
 
 log = logging.getLogger(__name__)
+PERSISTENT_ROUTE_GATEWAY = "192.168.1.1"
 
 
 class Disguise(Auxiliary):
@@ -38,6 +39,7 @@ class Disguise(Auxiliary):
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         self.enabled = config.disguise
+        self.config = config
 
     @staticmethod
     def run_as_system(command):
@@ -237,7 +239,16 @@ class Disguise(Auxiliary):
             # Replace the UUID with the new UUID
             SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
 
+    def add_persistent_route(self):
+        self.run_as_system(["C:\\Windows\\System32\ROUTE.exe", "-p", "add", "0.0.0.0", "mask", "0.0.0.0", PERSISTENT_ROUTE_GATEWAY])
+        self.run_as_system(
+            ["C:\\Windows\\System32\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", PERSISTENT_ROUTE_GATEWAY]
+        )
+
     def start(self):
+        log.info(f"Config for route is: {str(self.config.windows_static_route)}")
+        if self.config.windows_static_route:
+            self.add_persistent_route()
         self.change_productid()
         self.set_office_mrus()
         self.ramnit()
@@ -246,4 +257,5 @@ class Disguise(Auxiliary):
         # self.netbios()
         # self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\IDE')
         # self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\SCSI')
+
         return True

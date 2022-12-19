@@ -621,8 +621,11 @@ def download_file(**kwargs):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
-        if not Path(kwargs.get("path")).exists():
-            _ = Path(kwargs["path"]).write_bytes(kwargs["content"])
+
+        path = kwargs.get("path") if isinstance(kwargs.get("path", ""), str) else kwargs.get("path").decode()
+        p = Path(path)
+        if not p.exists():
+            _ = p.write_bytes(kwargs["content"])
     except Exception as e:
         print(e)
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}

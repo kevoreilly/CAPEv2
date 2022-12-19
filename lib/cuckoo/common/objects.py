@@ -246,7 +246,7 @@ class File:
     @property
     def file_data(self):
         if not self._file_data:
-            if Path(self.file_path).exists():
+            if Path(self.file_path.decode() if isinstance(self.file_path, bytes) else self.file_path).exists():
                 self._file_data = open(self.file_path, "rb").read()
         return self._file_data
 

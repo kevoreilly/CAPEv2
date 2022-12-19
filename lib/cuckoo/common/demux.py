@@ -13,7 +13,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import get_options, sanitize_filename, trim_sample, path_to_ascii
+from lib.cuckoo.common.utils import get_options, path_to_ascii, sanitize_filename, trim_sample
 
 sf_version = ""
 try:

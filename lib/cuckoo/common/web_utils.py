@@ -24,12 +24,12 @@ from lib.cuckoo.common.utils import (
     get_ip_address,
     get_options,
     get_user_filename,
+    path_to_ascii,
     sanitize_filename,
     store_temp_file,
     trim_sample,
     validate_referrer,
     validate_ttp,
-    path_to_ascii,
 )
 from lib.cuckoo.core.database import (
     ALL_DB_STATUSES,

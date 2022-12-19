@@ -1161,15 +1161,10 @@ def parse_request_arguments(request, keyword="POST"):
     route = getattr(request, keyword).get("route")
     cape = getattr(request, keyword).get("cape", "")
 
-    if getattr(request, keyword).get("process_dump"):
-        if options:
-            options += ","
-        options += "procmemdump=1,procdump=1"
-
     if referrer:
         if options:
             options += ","
-        options += "referrer=%s" % (referrer)
+        options += f"referrer={referrer}"
 
     # Linux options
     if lin_options:

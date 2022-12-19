@@ -109,9 +109,7 @@ def main():
         "--unique", action="store_true", default=False, help="Only submit new samples, ignore duplicates", required=False
     )
     parser.add_argument("--quiet", action="store_true", default=False, help="Only print text on failure", required=False)
-    parser.add_argument(
-        "--procdump", action="store_true", default=False, help="Dump, upload and process proc/memdumps", required=False
-    )
+    parser.add_argument("--procdump", action="store_true", default=False, help="Disable process dumps", required=False)
 
     try:
         args = parser.parse_args()
@@ -139,9 +137,9 @@ def main():
 
     if args.procdump:
         if args.options:
-            args.options = ",procdump=1"
+            args.options = ",procdump=0"
         else:
-            args.options = "procdump=1"
+            args.options = "procdump=0"
 
     if args.url:
         if args.remote:

@@ -6,8 +6,8 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-from typing import List
 from pathlib import Path
+from typing import List
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

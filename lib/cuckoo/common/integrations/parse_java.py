@@ -5,9 +5,9 @@
 import contextlib
 import logging
 import os
+from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict
-from pathlib import Path
 
 from lib.cuckoo.common.utils import convert_to_printable, store_temp_file
 
@@ -25,7 +25,7 @@ class Java:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        p =  Path(self.file_path)
+        p = Path(self.file_path)
         if not p.exists():
             return None
 

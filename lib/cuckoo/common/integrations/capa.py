@@ -5,8 +5,8 @@
 import collections
 import logging
 import os
-from typing import Any, Dict
 from pathlib import Path
+from typing import Any, Dict
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

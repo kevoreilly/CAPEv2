@@ -2,8 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from typing import List
 from pathlib import Path
+from typing import List
 
 from lib.cuckoo.common.integrations.parse_encoded_script import EncodedScriptFile
 

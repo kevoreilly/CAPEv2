@@ -5,8 +5,8 @@
 import logging
 import os
 import subprocess
-from typing import Any, Dict, List
 from pathlib import Path
+from typing import Any, Dict, List
 
 from lib.cuckoo.common.utils import convert_to_printable
 

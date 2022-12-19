@@ -1922,7 +1922,7 @@ class Database(object, metaclass=Singleton):
             # All other task types have a "target" pointing to a temp location,
             # so get a stable path "target" based on the sample hash.
             paths = self.sample_path_by_hash(task.sample.sha256)
-            paths = [file_path for file_path in paths if  Path(file_path).exists()]
+            paths = [file_path for file_path in paths if Path(file_path).exists()]
             if not paths:
                 return None
 
@@ -2448,7 +2448,7 @@ class Database(object, metaclass=Singleton):
                 db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
                 if db_sample is not None:
                     file_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
-                    if  Path(file_path).exists():
+                    if Path(file_path).exists():
                         sample = [file_path]
 
                 if not sample:
@@ -2532,7 +2532,7 @@ class Database(object, metaclass=Singleton):
                     if db_sample is not None:
                         samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
                         # hash validation and if exist
-                        samples = [file_path for file_path in samples if  Path(file_path).exists()]
+                        samples = [file_path for file_path in samples if Path(file_path).exists()]
                         for path in samples:
                             with open(path, "rb").read() as f:
                                 if sample_hash == sizes[len(sample_hash)](f).hexdigest():

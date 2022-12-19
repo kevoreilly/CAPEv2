@@ -45,5 +45,5 @@ class Java:
                 log.error(e, exc_info=True)
 
             with contextlib.suppress(Exception):
-                Path(jar_file).unlink()
+                Path(jar_file.decode()).unlink()
         return results

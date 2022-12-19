@@ -629,7 +629,7 @@ def store_temp_file(filedata, filename, path=None):
     else:
         tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
-    if not Path(target_path).exists():
+    if not Path(target_path.decode()).exists():
         os.mkdir(target_path)
 
     tmp_dir = tempfile.mkdtemp(prefix=b"upload_", dir=target_path)

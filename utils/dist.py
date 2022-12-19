@@ -644,7 +644,7 @@ class Retriever(threading.Thread):
                         try:
                             shutil.move(t.path, destination)
                         except FileNotFoundError as e:
-                            print(f"Failed to move: {t.file} - {e}")
+                            print(f"Failed to move: {t.path} - {e}")
                             pass
 
                     # creating link to analysis folder

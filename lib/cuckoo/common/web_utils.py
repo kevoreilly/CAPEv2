@@ -639,10 +639,7 @@ def download_file(**kwargs):
 
         if not node:
             # get nodes that supports this exit
-            tmp_workers = []
-            for node, exitnodes in all_nodes_exits.items():
-                if route in exitnodes:
-                    tmp_workers.append(node)
+            tmp_workers = [node for node, exitnodes in all_nodes_exits.items() if route in exitnodes]
             if tmp_workers:
                 if kwargs["options"]:
                     kwargs["options"] += f",node={choice(tmp_workers)}"

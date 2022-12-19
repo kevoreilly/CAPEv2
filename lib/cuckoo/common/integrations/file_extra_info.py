@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 from typing import List
+from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -140,7 +141,7 @@ def static_file_info(
     elif package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]:
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
-        if selfextract_conf.procyon.binary and not os.path.exists(selfextract_conf.procyon.binary):
+        if selfextract_conf.procyon.binary and not Path(selfextract_conf.procyon.binary).exists():
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
             data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
@@ -183,7 +184,7 @@ def static_file_info(
 
 
 def detect_it_easy_info(file_path: str, data_dictionary: dict):
-    if not os.path.exists(processing_conf.die.binary):
+    if not Path(processing_conf.die.binary).exists():
         return
 
     try:
@@ -243,7 +244,7 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
             file_details["path"] = dest_path
             file_details["name"] = os.path.basename(dest_path)
             metadata.append(file_details)
-            if not os.path.exists(dest_path):
+            if not Path(dest_path).exists():
                 shutil.move(full_path, dest_path)
                 print(
                     json.dumps(
@@ -274,7 +275,7 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
     Run all extra extractors/unpackers/extra scripts here, each extractor should check file header/type/identification:
     """
 
-    if not os.path.exists(destination_folder):
+    if not Path(destination_folder).exists():
         os.makedirs(destination_folder)
 
     for funcname in (
@@ -309,8 +310,7 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
 def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict):
     with tempfile.TemporaryDirectory() as tempdir:
         decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
-        with open(decoded_file_path, "w") as f:
-            f.write(decoded)
+        _ = Path(decoded_file_path).write_text(decoded)
 
     return _extracted_files_metadata(tempdir, destination_folder, files=[decoded_file_path])
 
@@ -327,9 +327,7 @@ def batch_extract(file: str, destination_folder: str, filetype: str, data_dictio
         return
 
     # compare hashes to ensure that they are not the same
-    with open(file, "rb") as f:
-        data = f.read()
-
+    data = Path(file).read_bytes()
     original_sha256 = hashlib.sha256(data).hexdigest()
     decoded_sha256 = hashlib.sha256(decoded).hexdigest()
 
@@ -346,9 +344,7 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
         return
 
     decoded = False
-
-    with open(file, "rb") as f:
-        data = f.read()
+    data = Path(file).read_bytes()
 
     if b"#@~^" not in data[:100]:
         return
@@ -373,7 +369,7 @@ def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_d
     if not de4dot_binary:
         log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
         return
-    if not os.path.exists(de4dot_binary[0]):
+    if not Path(de4dot_binary[0]).exists():
         log.error("Missed dependency: sudo apt install de4dot")
         return
     metadata = []
@@ -407,7 +403,7 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
     if "MSI Installer" not in filetype:
         return
 
-    if not os.path.exists(selfextract_conf.msi_extract.binary):
+    if not Path(selfextract_conf.msi_extract.binary).exists():
         log.error("Missed dependency: sudo apt install msitools")
         return
 
@@ -423,7 +419,7 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
                 files = [
                     extracted_file
                     for extracted_file in list(filter(None, output.split("\n")))
-                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                    if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
             else:
                 output = subprocess.check_output(
@@ -460,7 +456,7 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
     if all("Inno Setup" not in string for string in data_dictionary.get("die", {})):
         return
 
-    if not os.path.exists(selfextract_conf.Inno_extract.binary):
+    if not Path(selfextract_conf.Inno_extract.binary).exists():
         log.error("Missed dependency: sudo apt install innoextract")
         return
 
@@ -487,18 +483,16 @@ def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dict
     if not HAVE_KIXTART:
         return
 
-    with open(file, "rb") as f:
-        content = f.read()
-
+    data = Path(file).read_bytes()
     metadata = []
 
-    if content.startswith(b"\x1a\xaf\x06\x00\x00\x10"):
+    if data.startswith(b"\x1a\xaf\x06\x00\x00\x10"):
         with tempfile.TemporaryDirectory(prefix="kixtart_") as tempdir:
             kix = Kixtart(file, dump_dir=tempdir)
             kix.decrypt()
             kix.dump()
 
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, content=content))
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, content=data))
 
     return "Kixtart", metadata
 
@@ -507,7 +501,7 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
     if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
         return
 
-    if not os.path.exists(unautoit_binary):
+    if not Path(unautoit_binary).exists():
         log.warning(
             f"Missed UnAutoIt binary: {unautoit_binary}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt"
         )
@@ -611,9 +605,8 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
             if HAVE_SFLOCK:
                 unpacked = unpack(file.encode(), password=password)
                 for child in unpacked.children:
-                    with open(os.path.join(tempdir, child.filename.decode()), "wb") as f:
-                        f.write(child.contents)
-
+                    name = os.path.join(tempdir, child.filename.decode())
+                    _ = Path(name).write_bytes(child.contents)
             else:
                 output = subprocess.check_output(
                     [
@@ -630,7 +623,7 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
             files = [
                 os.path.join(tempdir, extracted_file)
                 for extracted_file in tempdir
-                if os.path.isfile(os.path.join(tempdir, extracted_file))
+                if Path(os.path.join(tempdir, extracted_file)).is_file()
             ]
             metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
         except subprocess.CalledProcessError:
@@ -650,7 +643,7 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
     ):
         return
 
-    if not os.path.exists("/usr/bin/unrar"):
+    if not Path("/usr/bin/unrar").exists():
         log.warning(f"Missed UnRar binary: /usr/bin/unrar. sudo apt install unrar")
         return
 

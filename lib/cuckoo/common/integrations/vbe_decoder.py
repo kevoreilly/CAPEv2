@@ -18,7 +18,7 @@ import os
 import re
 import sys
 from typing import List
-
+from pathlib import Path
 
 def decode_data(data: str) -> str:
 
@@ -258,10 +258,9 @@ def validate_files(files: List[str]):
     Check if the supplied files actually exist and are in fact files
     """
     for file in files:
-        if not os.path.exists(file):
+        p = Path(file)
+        if not p.exists() or not p.is_file():
             fatal_error(f"supplied file '{file}' does not exist")
-        if not os.path.isfile(file):
-            fatal_error(f"supplied file '{file}' is not a file (maybe directory?)")
 
 
 def decode_files(files: List[str]) -> str:
@@ -271,9 +270,7 @@ def decode_files(files: List[str]) -> str:
 def decode_file(file: str, contents=False) -> str:
     if not contents:
         try:
-            with open(file, "rb") as handle:
-                binary_content = handle.read()
-                contents = binary_content.decode("latin-1", errors="ignore")
+            contents = Path(file).read_bytes().decode("latin-1", errors="ignore")
         except Exception as e:
             fatal_error(f"{e.message}")
 
@@ -295,8 +292,7 @@ def main(files: List[str], output_file: str):
         sys.stdout.write(output)
     else:
         try:
-            with open(output_file, "w") as handle:
-                handle.write(output)
+            _ = Path(output_file).write_text(output)
             success(f"wrote decoded vbscript to '{output_file}'")
         except Exception as e:
             fatal_error(f"{e.message}")

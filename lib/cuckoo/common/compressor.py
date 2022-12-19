@@ -2,6 +2,7 @@ import binascii
 import logging
 import os
 import struct
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -136,8 +137,9 @@ class CuckooBsonCompressor:
         # threads compressed call lists trying preserve original order
 
         compressed_path = f"{file_path}.compressed"
-        if os.path.isfile(compressed_path):
-            os.remove(compressed_path)
+        p = Path(compressed_path)
+        if p.is_file():
+            p.unlink()
 
         fd = open(compressed_path, "wb")
 

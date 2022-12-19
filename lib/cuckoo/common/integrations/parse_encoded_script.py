@@ -6,6 +6,7 @@ import base64
 import logging
 import struct
 from typing import Dict
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -487,8 +488,7 @@ class EncodedScriptFile:
 
     def run(self) -> Dict[str, str]:
         try:
-            with open(self.filepath, "rb") as f:
-                source = f.read()
+            source = Path(self.filepath).read_bytes()
         except UnicodeDecodeError:
             return {}
         source = self.decode(source)

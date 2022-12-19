@@ -137,7 +137,7 @@ def demux_office(filename: bytes, password: str) -> List[bytes]:
     retlist = []
     basename = os.path.basename(filename)
     target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")
-    if not os.path.exists(target_path):
+    if not Path(target_path).exists():
         os.makedirs(target_path)
     decrypted_name = os.path.join(target_path, basename)
 
@@ -169,7 +169,7 @@ def _sf_chlildren(child: sfFile) -> bytes:
     ext = ext.lower()
     if ext in demux_extensions_list or is_valid_type(child.magic):
         target_path = os.path.join(tmp_path, b"cuckoo-sflock")
-        if not os.path.exists(target_path):
+        if not Path(target_path).exists():
             os.mkdir(target_path)
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
@@ -271,8 +271,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                         if trimmed_size:
                             data = File(filename).get_chunks(trimmed_size).__next__()
                             if trimmed_size < web_cfg.general.max_sample_size:
-                                with open(filename, "wb") as of:
-                                    of.write(data)
+                                _ = Path(filename).write_bytes(data)
                                 retlist.append(filename)
 
     return retlist[:10]

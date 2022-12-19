@@ -9,6 +9,7 @@ import ntpath
 import os
 import shutil
 import tempfile
+from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooOperationalError
@@ -93,7 +94,7 @@ class Folders(Storage):
 
     @staticmethod
     def copy(src, dest):
-        if os.path.exists(dest):
+        if Path(dest).exists():
             shutil.rmtree(dest)
         shutil.copytree(src, dest)
 
@@ -108,7 +109,7 @@ class Folders(Storage):
         @raise CuckooOperationalError: if fails to delete folder.
         """
         folder = os.path.join(*folder)
-        if os.path.exists(folder):
+        if Path(folder).exists():
             try:
                 shutil.rmtree(folder)
             except OSError as e:

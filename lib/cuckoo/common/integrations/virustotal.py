@@ -7,6 +7,7 @@ import logging
 import operator
 import os
 from collections import defaultdict
+from pathlib import Path
 
 import requests
 
@@ -193,7 +194,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
     if category == "file":
         if not do_file_lookup:
             return {"error": True, "msg": "VT File lookup disabled in processing.conf"}
-        if not os.path.exists(target) and len(target) != 64:
+        if not Path(target).exists() and len(target) != 64:
             return {"error": True, "msg": "File doesn't exist"}
 
         sha256 = target if len(target) == 64 else File(target).get_sha256()

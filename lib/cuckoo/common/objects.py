@@ -13,6 +13,7 @@ import re
 import struct
 import subprocess
 from typing import Any, Dict
+from pathlib import Path
 
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,
@@ -190,7 +191,8 @@ class File:
         return self.file_name or os.path.basename(self.file_path)
 
     def valid(self):
-        return os.path.exists(self.file_path) and os.path.isfile(self.file_path) and os.path.getsize(self.file_path) != 0
+        p = Path(self.file_path)
+        return p.exists() and p.is_file() and p.stat().st_size
 
     def get_data(self):
         """Read file contents.
@@ -230,7 +232,7 @@ class File:
             if HAVE_TLSH:
                 tlsh_hash.update(chunk)
 
-        self._crc32 = "".join(f"{(crc >> i) & 0xFF:02X}" for i in [24, 16, 8, 0])
+        self._crc32 = "".join(f"{(crc >> i) & 0xFF:02X}" for i in (24, 16, 8, 0))
         self._md5 = md5.hexdigest()
         self._sha1 = sha1.hexdigest()
         self._sha256 = sha256.hexdigest()
@@ -244,7 +246,7 @@ class File:
     @property
     def file_data(self):
         if not self._file_data:
-            if os.path.exists(self.file_path):
+            if Path(self.file_path).exists():
                 self._file_data = open(self.file_path, "rb").read()
         return self._file_data
 
@@ -252,7 +254,7 @@ class File:
         """Get file size.
         @return: file size.
         """
-        return os.path.getsize(self.file_path) if os.path.exists(self.file_path) else 0
+        return os.path.getsize(self.file_path) if Path(self.file_path).exists() else 0
 
     def get_crc32(self):
         """Get CRC32.
@@ -324,7 +326,7 @@ class File:
         @return: file content type.
         """
         file_type = None
-        if os.path.exists(self.file_path):
+        if Path(self.file_path).exists():
             if HAVE_MAGIC:
                 if hasattr(magic, "from_file"):
                     try:

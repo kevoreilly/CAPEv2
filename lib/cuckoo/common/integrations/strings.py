@@ -4,6 +4,7 @@
 
 import logging
 import os.path
+from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import bytes2str
@@ -31,15 +32,13 @@ def extract_strings(filepath: str, on_demand: bool = False):
     nulltermonly = processing_cfg.strings.nullterminated_only
     minchars = processing_cfg.strings.minchars
 
-    if not os.path.exists(filepath):
+    p = Path(filepath)
+    if not p.exists():
         log.error("Sample file doesn't exist: %s", filepath)
         return
 
-    strings = []
-
     try:
-        with open(filepath, "rb") as f:
-            data = f.read()
+        data = p.read_bytes()
     except (IOError, OSError) as e:
         log.error("Error reading file: %s", e)
         return

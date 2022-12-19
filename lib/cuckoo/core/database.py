@@ -8,6 +8,7 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
@@ -537,16 +538,16 @@ class Database(object, metaclass=Singleton):
         elif self.cfg.database.connection:
             self._connect_database(self.cfg.database.connection)
         else:
-            db_file = os.path.join(CUCKOO_ROOT, "db", "cuckoo.db")
-            if not os.path.exists(db_file):
-                db_dir = os.path.dirname(db_file)
-                if not os.path.exists(db_dir):
+            file_path = os.path.join(CUCKOO_ROOT, "db", "cuckoo.db")
+            if not Path(file_path).exists():
+                db_dir = os.path.dirname(file_path)
+                if not Path(db_dir).exists():
                     try:
                         create_folder(folder=db_dir)
                     except CuckooOperationalError as e:
                         raise CuckooDatabaseError(f"Unable to create database directory: {e}")
 
-            self._connect_database(f"sqlite:///{db_file}")
+            self._connect_database(f"sqlite:///{file_path}")
 
         # Disable SQL logging. Turn it on for debugging.
         self.engine.echo = False
@@ -832,7 +833,7 @@ class Database(object, metaclass=Singleton):
 
         @return: boolean indicating if any machine could service the task in the future
         """
-        task_archs = [tag.name for tag in task.tags if tag.name in ["x86", "x64"]]
+        task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
         task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
         relevant_machines = self.list_machines(label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs)
         if len(relevant_machines) > 0:
@@ -1492,7 +1493,7 @@ class Database(object, metaclass=Singleton):
         @username: username from custom auth
         @return: cursor or None.
         """
-        if not file_path or not os.path.exists(file_path):
+        if not file_path or not Path(file_path).exists():
             log.warning("File does not exist: %s", file_path)
             return None
 
@@ -1580,7 +1581,7 @@ class Database(object, metaclass=Singleton):
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
-                os.remove(file_path)
+                Path(file_path).unlink()
 
         # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
         opts = get_options(options)
@@ -1762,7 +1763,7 @@ class Database(object, metaclass=Singleton):
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
-                os.remove(file_path)
+                Path(file_path).unlink()
 
         task_ids = []
         # create tasks for each file in the archive
@@ -1921,7 +1922,7 @@ class Database(object, metaclass=Singleton):
             # All other task types have a "target" pointing to a temp location,
             # so get a stable path "target" based on the sample hash.
             paths = self.sample_path_by_hash(task.sample.sha256)
-            paths = [x for x in paths if os.path.exists(x)]
+            paths = [file_path for file_path in paths if  Path(file_path).exists()]
             if not paths:
                 return None
 
@@ -2446,9 +2447,9 @@ class Database(object, metaclass=Singleton):
 
                 db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
                 if db_sample is not None:
-                    path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
-                    if os.path.exists(path):
-                        sample = [path]
+                    file_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                    if  Path(file_path).exists():
+                        sample = [file_path]
 
                 if not sample:
                     if repconf.mongodb.enabled:
@@ -2473,7 +2474,7 @@ class Database(object, metaclass=Singleton):
                         for task in tasks:
                             for block in task.get("CAPE", {}).get("payloads", []) or []:
                                 if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                    path = os.path.join(
+                                    file_path = os.path.join(
                                         CUCKOO_ROOT,
                                         "storage",
                                         "analyses",
@@ -2481,8 +2482,8 @@ class Database(object, metaclass=Singleton):
                                         folders.get("CAPE"),
                                         block["sha256"],
                                     )
-                                    if os.path.exists(path):
-                                        sample = [path]
+                                    if Path(file_path).exists():
+                                        sample = [file_path]
                                         break
                             if sample:
                                 break
@@ -2511,7 +2512,7 @@ class Database(object, metaclass=Singleton):
                             for task in tasks:
                                 for block in task.get(category, []) or []:
                                     if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                        path = os.path.join(
+                                        file_path = os.path.join(
                                             CUCKOO_ROOT,
                                             "storage",
                                             "analyses",
@@ -2519,8 +2520,8 @@ class Database(object, metaclass=Singleton):
                                             folders.get(category),
                                             block["sha256"],
                                         )
-                                        if os.path.exists(path):
-                                            sample = [path]
+                                        if Path(file_path).exists():
+                                            sample = [file_path]
                                             break
                                 if sample:
                                     break
@@ -2531,7 +2532,7 @@ class Database(object, metaclass=Singleton):
                     if db_sample is not None:
                         samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
                         # hash validation and if exist
-                        samples = [path for path in samples if os.path.exists(path)]
+                        samples = [file_path for file_path in samples if  Path(file_path).exists()]
                         for path in samples:
                             with open(path, "rb").read() as f:
                                 if sample_hash == sizes[len(sample_hash)](f).hexdigest():
@@ -2559,10 +2560,10 @@ class Database(object, metaclass=Singleton):
                     if tasks:
                         for task in tasks:
                             for item in task["suricata"]["files"] or []:
-                                path = item["file_info"]["path"]
-                                if sample_hash in path:
-                                    if os.path.exists(path):
-                                        sample = [path]
+                                file_path = item["file_info"]["path"]
+                                if sample_hash in file_path:
+                                    if Path(file_path).exists():
+                                        sample = [file_path]
                                         break
 
             except AttributeError:

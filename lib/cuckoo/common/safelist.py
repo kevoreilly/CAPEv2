@@ -18,7 +18,7 @@ misphashes = set()
 def _load_safelist(wlset, wl_file):
     wl_path = os.path.join(CUCKOO_ROOT, "data", "safelist", wl_file)
 
-    if not os.path.exists(wl_path):
+    if not Path(wl_path).exists():
         return
 
     safelist = Path(wl_path).read_bytes()

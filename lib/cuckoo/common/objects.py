@@ -171,6 +171,7 @@ class File:
         """@param file_path: file path."""
         self.file_name = file_name
         self.file_path = file_path
+        self.file_path_ansii = file_path if isinstance(file_path, str) else file_path.decode()
         self.guest_paths = guest_paths
 
         # these will be populated when first accessed
@@ -246,7 +247,7 @@ class File:
     @property
     def file_data(self):
         if not self._file_data:
-            if Path(self.file_path.decode() if isinstance(self.file_path, bytes) else self.file_path).exists():
+            if Path(self.file_path_ansii).exists():
                 self._file_data = open(self.file_path, "rb").read()
         return self._file_data
 
@@ -326,11 +327,11 @@ class File:
         @return: file content type.
         """
         file_type = None
-        if Path(self.file_path).exists():
+        if Path(self.file_path_ansii).exists():
             if HAVE_MAGIC:
                 if hasattr(magic, "from_file"):
                     try:
-                        file_type = magic.from_file(self.file_path)
+                        file_type = magic.from_file(self.file_path_ansii)
                     except Exception as e:
                         log.error(e, exc_info=True)
                 if not file_type and hasattr(magic, "open"):
@@ -420,11 +421,7 @@ class File:
 
         try:
             results, rule = [], File.yara_rules[category]
-            if isinstance(self.file_path, bytes):
-                path = self.file_path.decode()
-            else:
-                path = self.file_path
-            for match in rule.match(path, externals=externals):
+            for match in rule.match(self.file_path_ansii, externals=externals):
                 strings = {self._yara_encode_string(s[2]) for s in match.strings}
                 addresses = {s[1].strip("$"): s[0] for s in match.strings}
                 results.append(

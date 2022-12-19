@@ -188,6 +188,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     need_space, space_available = False, 0
     while True:
         try:
+            path = False
             # Calculate the free disk space in megabytes.
             # Check main FS if processing
             if processing:
@@ -198,7 +199,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             else:
                 free_space = config.cuckoo.freespace
 
-            if not Path(path).exists():
+            if path and not Path(path).exists():
                 sys.exit("Restart daemon/process, happens after full cleanup")
             space_available = shutil.disk_usage(path).free >> 20
             need_space = space_available < free_space

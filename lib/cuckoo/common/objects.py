@@ -173,6 +173,7 @@ class File:
         self.file_path = file_path
         self.file_path_ansii = file_path if isinstance(file_path, str) else file_path.decode()
         self.guest_paths = guest_paths
+        self.path_object = Path(self.file_path_ansii)
 
         # these will be populated when first accessed
         self._file_data = None
@@ -192,8 +193,7 @@ class File:
         return self.file_name or os.path.basename(self.file_path)
 
     def valid(self):
-        p = Path(self.file_path)
-        return p.exists() and p.is_file() and p.stat().st_size
+        return self.path_object.exists() and self.path_object.is_file() and self.path_object.stat().st_size
 
     def get_data(self):
         """Read file contents.
@@ -247,15 +247,15 @@ class File:
     @property
     def file_data(self):
         if not self._file_data:
-            if Path(self.file_path_ansii).exists():
-                self._file_data = open(self.file_path, "rb").read()
+            if self.path_object.exists():
+                self._file_data = self.path_object.read_bytes()
         return self._file_data
 
     def get_size(self):
         """Get file size.
         @return: file size.
         """
-        return os.path.getsize(self.file_path) if Path(self.file_path).exists() else 0
+        return self.path_object.stat().st_size if self.path_object.exists() else 0
 
     def get_crc32(self):
         """Get CRC32.
@@ -327,7 +327,7 @@ class File:
         @return: file content type.
         """
         file_type = None
-        if Path(self.file_path_ansii).exists():
+        if self.path_object.exists():
             if HAVE_MAGIC:
                 if hasattr(magic, "from_file"):
                     try:

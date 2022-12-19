@@ -146,7 +146,7 @@ class PortableExecutable:
 
     def __init__(self, file_path: str = False, data: bytes = False):
         """@param file_path: file path."""
-        self.file_path = file_path
+        self.file_path = file_path if isinstance(file_path, str) else file_path.decode()
         self._file_data = None
         self.pe = None
         self.HAVE_PE = False
@@ -162,9 +162,8 @@ class PortableExecutable:
 
     @property
     def file_data(self):
-        if not self._file_data:
-            if os.path.exists(self.file_path):
-                self._file_data = Path(self.file_path).read_bytes()
+        if not self._file_data and os.path.exists(self.file_path):
+            self._file_data = Path(self.file_path).read_bytes()
         return self._file_data
 
     def is_64bit(self) -> bool:
@@ -918,8 +917,7 @@ class PortableExecutable:
             return {}
 
         # Advanced check if is real PE
-        with open(self.file_path, "rb") as f:
-            contents = f.read()
+        contents = Path(self.file_path).read_bytes()
         if not IsPEImage(contents):
             return {}
 

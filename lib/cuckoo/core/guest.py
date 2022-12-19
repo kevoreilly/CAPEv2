@@ -14,8 +14,9 @@ import sys
 import time
 import timeit
 from io import BytesIO
-from zipfile import ZIP_STORED, ZipFile
 from pathlib import Path
+from zipfile import ZIP_STORED, ZipFile
+
 import requests
 
 from lib.cuckoo.common.config import Config, parse_options

@@ -5,8 +5,8 @@
 import base64
 import logging
 import struct
-from typing import Dict
 from pathlib import Path
+from typing import Dict
 
 log = logging.getLogger(__name__)
 

@@ -17,8 +17,9 @@ https://github.com/JohnHammond/vbe-decoder/blob/master/vbe-decoder.py
 import os
 import re
 import sys
-from typing import List
 from pathlib import Path
+from typing import List
+
 
 def decode_data(data: str) -> str:
 

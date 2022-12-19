@@ -7,8 +7,8 @@ import json
 import logging
 import os
 import socket
-from threading import Lock, Thread
 from pathlib import Path
+from threading import Lock, Thread
 
 import gevent.pool
 import gevent.server

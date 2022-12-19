@@ -12,8 +12,8 @@ import os
 import re
 import struct
 import subprocess
-from typing import Any, Dict
 from pathlib import Path
+from typing import Any, Dict
 
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,

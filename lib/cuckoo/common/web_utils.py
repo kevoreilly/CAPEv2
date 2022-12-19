@@ -450,10 +450,10 @@ def get_file_content(paths):
     if not isinstance(paths, list):
         paths = [paths]
     for path in paths:
-        if Path(path).exists():
-            path = path.decode() if isinstance(path, bytes) else path
-            content = Path(path).read_bytes()
-            break
+        path = path.decode() if isinstance(path, bytes) else path
+        p = Path(path)
+        if p.exists():
+            return p.read_bytes()
     return content
 
 

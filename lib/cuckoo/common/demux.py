@@ -13,7 +13,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import get_options, sanitize_filename, trim_sample
+from lib.cuckoo.common.utils import get_options, sanitize_filename, trim_sample, path_to_ascii
 
 sf_version = ""
 try:
@@ -137,7 +137,7 @@ def demux_office(filename: bytes, password: str) -> List[bytes]:
     retlist = []
     basename = os.path.basename(filename)
     target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")
-    if not Path(target_path).exists():
+    if not Path(target_path.decode()).exists():
         os.makedirs(target_path)
     decrypted_name = os.path.join(target_path, basename)
 
@@ -164,21 +164,21 @@ def is_valid_type(magic: str) -> bool:
 
 
 def _sf_chlildren(child: sfFile) -> bytes:
-    path_to_extract = b""
+    path_to_extract = ""
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
     if ext in demux_extensions_list or is_valid_type(child.magic):
         target_path = os.path.join(tmp_path, b"cuckoo-sflock")
-        if not Path(target_path).exists():
+        if not Path(target_path.decode()).exists():
             os.mkdir(target_path)
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
             if child.contents:
-                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()).encode())
+                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()))
                 _ = Path(path_to_extract.decode()).write_bytes(child.contents)
         except Exception as e:
             log.error(e, exc_info=True)
-    return path_to_extract
+    return path_to_extract.encode()
 
 
 def demux_sflock(filename: bytes, options: str) -> List[bytes]:
@@ -271,7 +271,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                         if trimmed_size:
                             data = File(filename).get_chunks(trimmed_size).__next__()
                             if trimmed_size < web_cfg.general.max_sample_size:
-                                _ = Path(filename).write_bytes(data)
+                                _ = Path(path_to_ascii(filename)).write_bytes(data)
                                 retlist.append(filename)
 
     return retlist[:10]

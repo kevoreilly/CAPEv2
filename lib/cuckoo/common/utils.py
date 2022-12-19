@@ -106,6 +106,10 @@ texttypes = [
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
 
+def path_to_ascii(path: bytes):
+    return path.decode() if isinstance(path, bytes) else path
+
+
 def get_file_size(file: str):
     return Path(file).stat().st_size
 

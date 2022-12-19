@@ -29,6 +29,7 @@ from lib.cuckoo.common.utils import (
     trim_sample,
     validate_referrer,
     validate_ttp,
+    path_to_ascii,
 )
 from lib.cuckoo.core.database import (
     ALL_DB_STATUSES,
@@ -491,12 +492,13 @@ def recon(filename, orig_options, timeout, enforce_timeout):
 
 def get_magic_type(data):
     try:
-        if Path(data).exists():
+        path = path_to_ascii(data)
+        if Path(path).exists():
             return magic.from_file(data)
         else:
             return magic.from_buffer(data)
     except Exception as e:
-        print(e)
+        print(e, "get_magic_type")
 
     return False
 
@@ -627,7 +629,7 @@ def download_file(**kwargs):
         if not p.exists():
             _ = p.write_bytes(kwargs["content"])
     except Exception as e:
-        print(e)
+        print(e, sys.exc_info())
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
 
     # Distribute task based on route support by worker

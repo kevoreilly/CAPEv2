@@ -450,7 +450,7 @@ def get_file_content(paths):
     if not isinstance(paths, list):
         paths = [paths]
     for path in paths:
-        if os.path.exists(path):
+        if Path(path).exists():
             path = path.decode() if isinstance(path, bytes) else path
             content = Path(path).read_bytes()
             break
@@ -491,7 +491,7 @@ def recon(filename, orig_options, timeout, enforce_timeout):
 
 def get_magic_type(data):
     try:
-        if os.path.exists(data):
+        if Path(data).exists():
             return magic.from_file(data)
         else:
             return magic.from_buffer(data)
@@ -621,7 +621,7 @@ def download_file(**kwargs):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
-        if not os.path.exists(kwargs.get("path")):
+        if not Path(kwargs.get("path")).exists():
             _ = Path(kwargs["path"]).write_bytes(kwargs["content"])
     except Exception as e:
         print(e)
@@ -741,9 +741,8 @@ def save_script_to_storage(task_ids, kwargs):
     Retrieve pre_script and during_script contents and save it to a temp storage
     """
     for task_id in task_ids:
-        task_id = str(task_id)
         # Temp Folder for storing scripts
-        script_temp_path = os.path.join("/tmp/cuckoo-tmp", task_id)
+        script_temp_path = os.path.join("/tmp/cuckoo-tmp", str(task_id))
         if "pre_script_name" in kwargs and "pre_script_content" in kwargs:
             file_ext = os.path.splitext(kwargs["pre_script_name"])[-1]
             if file_ext not in (".py", ".ps1", ".exe"):
@@ -861,7 +860,7 @@ def validate_task_by_path(tid):
     # if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
     #    return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
-    return os.path.exists(analysis_path)
+    return Path(analysis_path).exists()
 
 
 perform_search_filters = {
@@ -1209,7 +1208,7 @@ def get_hash_list(hashes):
 def download_from_vt(vtdl, details, opt_filename, settings):
     for h in get_hash_list(vtdl):
         folder = os.path.join(settings.VTDL_PATH, "cape-vt")
-        if not os.path.exists(folder):
+        if not Path(folder).exists():
             os.makedirs(folder)
         base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
         if opt_filename:
@@ -1353,7 +1352,7 @@ def submit_task(
     """
     ToDo add url support in future
     """
-    if not os.path.exists(target):
+    if not Path(target).exists():
         log.info("File doesn't exist")
         return
 

@@ -10,6 +10,7 @@ import signal
 import threading
 import time
 from collections import defaultdict
+from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -95,7 +96,7 @@ class AnalysisManager(threading.Thread):
 
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
-        if os.path.exists(self.storage):
+        if Path(self.storage).exists():
             log.error("Task #%s: Analysis results folder already exists at path '%s', analysis aborted", self.task.id, self.storage)
             return False
 
@@ -125,7 +126,7 @@ class AnalysisManager(threading.Thread):
 
     def store_file(self, sha256):
         """Store a copy of the file being analyzed."""
-        if not os.path.exists(self.task.target):
+        if not Path(self.task.target).exists():
             log.error(
                 "Task #%s: The file to analyze does not exist at path '%s', analysis aborted",
                 self.task.id,
@@ -136,7 +137,7 @@ class AnalysisManager(threading.Thread):
         self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id), sha256)
         copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
 
-        if os.path.exists(self.binary):
+        if Path(self.binary).exists():
             log.info("Task #%s: File already exists at '%s'", self.task.id, self.binary)
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
@@ -152,7 +153,7 @@ class AnalysisManager(threading.Thread):
                 )
                 return False
 
-        if os.path.exists(copy_path):
+        if Path(copy_path).exists():
             log.info("Task #%s: File already exists at '%s'", self.task.id, copy_path)
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
@@ -720,7 +721,7 @@ class Scheduler:
         # Find its configuration file.
         conf = os.path.join(CUCKOO_ROOT, "conf", f"{machinery_name}.conf")
 
-        if not os.path.exists(conf):
+        if not Path(conf).exists():
             raise CuckooCriticalError(
                 f'The configuration file for machine manager "{machinery_name}" does not exist at path: {conf}'
             )

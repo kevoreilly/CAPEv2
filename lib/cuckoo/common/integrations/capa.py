@@ -5,7 +5,8 @@
 import collections
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
+from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -42,7 +43,7 @@ if processing_conf.flare_capa.enabled:
             from capa.rules import InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
-            if os.path.exists(rules_path):
+            if Path(rules_path).exists():
                 try:
                     rules = capa.rules.RuleSet(capa.main.get_rules([rules_path], disable_progress=True))
                     HAVE_FLARE_CAPA = True
@@ -60,7 +61,7 @@ if processing_conf.flare_capa.enabled:
                 HAVE_FLARE_CAPA = False
 
             signatures_path = os.path.join(CUCKOO_ROOT, "data", "flare-signatures")
-            if os.path.exists(signatures_path):
+            if Path(signatures_path).exists():
                 capa.main.SIGNATURES_PATH_DEFAULT_STRING = signatures_path
                 try:
                     signatures = capa.main.get_signatures(capa.main.SIGNATURES_PATH_DEFAULT_STRING)
@@ -125,7 +126,7 @@ def render_capabilities(doc: rd.ResultDocument, result):
     """
     subrule_matches = find_subrule_matches(doc)
 
-    result["CAPABILITY"] = dict()
+    result["CAPABILITY"] = {}
     for rule in rutils.capability_rules(doc):
         if rule.meta.name in subrule_matches:
             # rules that are also matched by other rules should not get rendered by default.
@@ -139,7 +140,7 @@ def render_capabilities(doc: rd.ResultDocument, result):
         else:
             capability = "%s (%d matches)" % (rule.meta.name, count)
 
-        result["CAPABILITY"].setdefault(rule.meta.namespace, list())
+        result["CAPABILITY"].setdefault(rule.meta.namespace, [])
         result["CAPABILITY"][rule.meta.namespace].append(capability)
 
 
@@ -156,7 +157,7 @@ def render_attack(doc, result):
             'EXECUTION': ['Shared Modules [T1129]']}
         }
     """
-    result["ATTCK"] = dict()
+    result["ATTCK"] = {}
     tactics = collections.defaultdict(set)
     for rule in rutils.capability_rules(doc):
         if not rule.meta.attack:
@@ -189,7 +190,7 @@ def render_mbc(doc, result):
                           '[C0021.004]']}
         }
     """
-    result["MBC"] = dict()
+    result["MBC"] = {}
     objectives = collections.defaultdict(set)
     for rule in rutils.capability_rules(doc):
         if not rule.meta.mbc:
@@ -209,7 +210,7 @@ def render_mbc(doc, result):
 
 
 def render_dictionary(doc: rd.ResultDocument) -> Dict[str, Any]:
-    result: Dict[str, Any] = dict()
+    result: Dict[str, Any] = {}
     render_meta(doc, result)
     render_attack(doc, result)
     render_mbc(doc, result)

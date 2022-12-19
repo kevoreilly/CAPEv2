@@ -9,6 +9,7 @@ import logging.handlers
 import os
 import threading
 import time
+from pathlib import Path
 
 import gevent.thread
 
@@ -110,7 +111,7 @@ def task_log_start(task_id):
     try:
         if task_id not in _task_threads:
             task_path = cwd(analysis=task_id)
-            if not os.path.exists(task_path):
+            if not Path(task_path).exists():
                 return
 
             _task_threads[task_id] = []

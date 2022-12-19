@@ -154,7 +154,7 @@ def init_yara():
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
-        if not os.path.exists(category_root):
+        if not Path(category_root).exists():
             log.warning("Missing Yara directory: %s?", category_root)
             continue
 

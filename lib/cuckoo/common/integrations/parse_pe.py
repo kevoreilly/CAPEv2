@@ -60,7 +60,7 @@ try:
 
     userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
     userdb_signatures = peutils.SignatureDatabase()
-    if os.path.exists(userdb_path):
+    if Path(userdb_path).exists():
         userdb_signatures.load(userdb_path)
         HAVE_USERDB = True
 except (ImportError, AttributeError) as e:
@@ -162,7 +162,7 @@ class PortableExecutable:
 
     @property
     def file_data(self):
-        if not self._file_data and os.path.exists(self.file_path):
+        if not self._file_data and Path(self.file_path).exists():
             self._file_data = Path(self.file_path).read_bytes()
         return self._file_data
 
@@ -817,10 +817,9 @@ class PortableExecutable:
         if not task_id:
             return {}
         cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "DigiSig.json")
-
-        if os.path.exists(cert_info):
-            with open(cert_info, "r") as cert_file:
-                cert_data = json.load(cert_file)
+        cert_info_path = Path(cert_info)
+        if cert_info_path.exists():
+            cert_data = json.loads(cert_info_path.read_text())
             if cert_data:
                 return {
                     "aux_sha1": cert_data["sha1"],
@@ -912,7 +911,7 @@ class PortableExecutable:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not os.path.exists(self.file_path):
+        if not Path(self.file_path).exists():
             log.debug("File doesn't exist anymore")
             return {}
 

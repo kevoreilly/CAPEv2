@@ -7,6 +7,7 @@ import logging
 import os
 from subprocess import PIPE, Popen
 from typing import Any, Dict
+from pathlib import Path
 
 from lib.cuckoo.common.utils import convert_to_printable, store_temp_file
 
@@ -24,14 +25,14 @@ class Java:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not os.path.exists(self.file_path):
+        p =  Path(self.file_path)
+        if not p.exists():
             return None
 
         results = {"java": {}}
 
         if self.decomp_jar:
-            with open(self.file_path, "rb") as f:
-                data = f.read()
+            data = p.read_bytes()
             jar_file = store_temp_file(data, "decompile.jar")
 
             try:
@@ -44,5 +45,5 @@ class Java:
                 log.error(e, exc_info=True)
 
             with contextlib.suppress(Exception):
-                os.unlink(jar_file)
+                Path(jar_file).unlink()
         return results

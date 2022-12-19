@@ -120,12 +120,8 @@ def read_sep_tag(data, offset):
 
 
 def sep_unquarantine(f):
-    filesize = os.path.getsize(f)
-    with open(f, "rb") as quarfile:
-        qdata = quarfile.read()
-
+    qdata = Path(f).read_bytes()
     data = bytearray(qdata)
-
     dataoffset = struct.unpack("<I", data[:4])[0]
 
     if dataoffset != 0x1290:
@@ -162,7 +158,7 @@ def sep_unquarantine(f):
                     headerlen = 12 + struct.unpack_from("<I", data[offset + 5 + 8 : offset + 5 + 12])[0] + 28
                     binsize = struct.unpack_from("<I", data[offset + 5 + headerlen - 12 : offset + 5 + headerlen - 8])[0]
                     collectedsize += len(tagdata) - headerlen
-                    binlen = binsize if collectedsize > binsize else collectedsize
+                    binlen = min(binsize, collectedsize)
                     bindata += data[offset + 5 + headerlen : offset + 5 + headerlen + binlen]
                     has_header = False
                 else:
@@ -187,7 +183,7 @@ def sep_unquarantine(f):
                 has_header = False
 
         offset += length + extralen
-        if offset == filesize:
+        if offset == os.path.getsize(f):
             break
 
     return store_temp_file(bindata, origname)
@@ -604,7 +600,6 @@ def kav_unquarantine(file):
 
 def trend_unquarantine(f):
     qdata = Path(f).read_bytes()
-
     data = bytearray_xor(bytearray(qdata), 0xFF)
 
     magic, dataoffset, numtags = struct.unpack("<IIH", data[:10])
@@ -678,8 +673,7 @@ def mcafee_unquarantine(f):
     if not olefile.isOleFile(f):
         return None
 
-    with open(f, "rb") as quarfile:
-        qdata = quarfile.read()
+    qdata = Path(f).read_bytes()
 
     oledata = olefile.OleFileIO(qdata)
     olefiles = oledata.listdir()

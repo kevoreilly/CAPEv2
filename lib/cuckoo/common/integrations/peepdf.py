@@ -113,9 +113,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                     except Exception as e:
                         log.error(e, exc_info=True)
                         continue
-                    if len(errors):
-                        continue
-                    if jsdata is None:
+                    if errors or jsdata is None:
                         continue
                     for url in urlsfound:
                         urlset.add(url)
@@ -145,19 +143,15 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                         except Exception as e:
                             log.error(e, exc_info=True)
                             continue
-                        if len(errors):
-                            continue
-                        if not jsdata:
+                        if errors or not jsdata:
                             continue
 
-                        for url in urlsfound:
-                            urlset.add(url)
-
-                            # The following loop is required to "JSONify" the strings returned from PyV8.
-                            # As PyV8 returns byte strings, we must parse out bytecode and
-                            # replace it with an escape '\'. We can't use encode("string_escape")
-                            # as this would mess up the new line representation which is used for
-                            # beautifying the javascript code for Django's web interface.
+                        urlset.update(urlsfound)
+                        # The following loop is required to "JSONify" the strings returned from PyV8.
+                        # As PyV8 returns byte strings, we must parse out bytecode and
+                        # replace it with an escape '\'. We can't use encode("string_escape")
+                        # as this would mess up the new line representation which is used for
+                        # beautifying the javascript code for Django's web interface.
                         ret_data = ""
                         for char in jsdata:
                             if ord(char) > 127:

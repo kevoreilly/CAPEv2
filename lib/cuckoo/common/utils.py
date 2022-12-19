@@ -125,7 +125,7 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
                 "sha256",
             ),
         )
-        if not file_data and not os.path.exists(extracted_path):
+        if not file_data and not Path(extracted_path).exists():
             return
 
         if not file_data:
@@ -166,7 +166,7 @@ def create_zip(files=False, folder=False, encrypted=False):
         if encrypted:
             zf.setpassword(zippwd)
         for file in files:
-            if not os.path.exists(file):
+            if not Path(file).exists():
                 log.error("File does't exist: %s", file)
                 continue
 
@@ -188,6 +188,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     need_space, space_available = False, 0
     while True:
         try:
+            path = False
             # Calculate the free disk space in megabytes.
             # Check main FS if processing
             if processing:
@@ -198,7 +199,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             else:
                 free_space = config.cuckoo.freespace
 
-            if not os.path.exists(path):
+            if path and not Path(path).exists():
                 sys.exit("Restart daemon/process, happens after full cleanup")
             space_available = shutil.disk_usage(path).free >> 20
             need_space = space_available < free_space
@@ -277,7 +278,7 @@ def delete_folder(folder):
     @param folder: path to delete.
     @raise CuckooOperationalError: if fails to delete folder.
     """
-    if os.path.exists(folder):
+    if Path(folder).exists():
         try:
             shutil.rmtree(folder)
         except OSError as e:
@@ -629,7 +630,7 @@ def store_temp_file(filedata, filename, path=None):
     else:
         tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
-    if not os.path.exists(target_path):
+    if not Path(target_path.decode()).exists():
         os.mkdir(target_path)
 
     tmp_dir = tempfile.mkdtemp(prefix=b"upload_", dir=target_path)

@@ -12,6 +12,7 @@ import timeit
 from collections import defaultdict
 from contextlib import suppress
 from distutils.version import StrictVersion
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
 from lib.cuckoo.common.config import AnalysisConfig, Config
@@ -292,7 +293,7 @@ class RunProcessing:
 
         # For correct error log on webgui
         logs = os.path.join(self.analysis_path, "logs")
-        if os.path.exists(logs):
+        if Path(logs).exists():
             for file_name in os.listdir(logs):
                 file_path = os.path.join(logs, file_name)
 

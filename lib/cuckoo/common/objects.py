@@ -13,6 +13,7 @@ import re
 import struct
 import subprocess
 from typing import Any, Dict
+from pathlib import Path
 
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,
@@ -170,7 +171,9 @@ class File:
         """@param file_path: file path."""
         self.file_name = file_name
         self.file_path = file_path
+        self.file_path_ansii = file_path if isinstance(file_path, str) else file_path.decode()
         self.guest_paths = guest_paths
+        self.path_object = Path(self.file_path_ansii)
 
         # these will be populated when first accessed
         self._file_data = None
@@ -190,7 +193,7 @@ class File:
         return self.file_name or os.path.basename(self.file_path)
 
     def valid(self):
-        return os.path.exists(self.file_path) and os.path.isfile(self.file_path) and os.path.getsize(self.file_path) != 0
+        return self.path_object.exists() and self.path_object.is_file() and self.path_object.stat().st_size
 
     def get_data(self):
         """Read file contents.
@@ -230,7 +233,7 @@ class File:
             if HAVE_TLSH:
                 tlsh_hash.update(chunk)
 
-        self._crc32 = "".join(f"{(crc >> i) & 0xFF:02X}" for i in [24, 16, 8, 0])
+        self._crc32 = "".join(f"{(crc >> i) & 0xFF:02X}" for i in (24, 16, 8, 0))
         self._md5 = md5.hexdigest()
         self._sha1 = sha1.hexdigest()
         self._sha256 = sha256.hexdigest()
@@ -244,15 +247,15 @@ class File:
     @property
     def file_data(self):
         if not self._file_data:
-            if os.path.exists(self.file_path):
-                self._file_data = open(self.file_path, "rb").read()
+            if self.path_object.exists():
+                self._file_data = self.path_object.read_bytes()
         return self._file_data
 
     def get_size(self):
         """Get file size.
         @return: file size.
         """
-        return os.path.getsize(self.file_path) if os.path.exists(self.file_path) else 0
+        return self.path_object.stat().st_size if self.path_object.exists() else 0
 
     def get_crc32(self):
         """Get CRC32.
@@ -324,11 +327,11 @@ class File:
         @return: file content type.
         """
         file_type = None
-        if os.path.exists(self.file_path):
+        if self.path_object.exists():
             if HAVE_MAGIC:
                 if hasattr(magic, "from_file"):
                     try:
-                        file_type = magic.from_file(self.file_path)
+                        file_type = magic.from_file(self.file_path_ansii)
                     except Exception as e:
                         log.error(e, exc_info=True)
                 if not file_type and hasattr(magic, "open"):
@@ -418,11 +421,7 @@ class File:
 
         try:
             results, rule = [], File.yara_rules[category]
-            if isinstance(self.file_path, bytes):
-                path = self.file_path.decode()
-            else:
-                path = self.file_path
-            for match in rule.match(path, externals=externals):
+            for match in rule.match(self.file_path_ansii, externals=externals):
                 strings = {self._yara_encode_string(s[2]) for s in match.strings}
                 addresses = {s[1].strip("$"): s[0] for s in match.strings}
                 results.append(

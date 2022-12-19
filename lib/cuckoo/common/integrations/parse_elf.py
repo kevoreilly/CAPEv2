@@ -234,5 +234,4 @@ class ELF:
             return str(tag["d_val"])
         elif tag.entry.d_tag == "DT_PLTREL":
             return describe_dyn_tag(tag.entry.d_val).lstrip("DT_")
-        else:
-            return self._print_addr(tag["d_val"])
+        return self._print_addr(tag["d_val"])

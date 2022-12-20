@@ -174,7 +174,7 @@ def _sf_chlildren(child: sfFile) -> bytes:
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
             if child.contents:
-                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()))
+                path_to_extract = os.path.join(tmp_dir.decode(), sanitize_filename((child.filename).decode()))
                 _ = Path(path_to_ascii(path_to_extract)).write_bytes(child.contents)
         except Exception as e:
             log.error(e, exc_info=True)

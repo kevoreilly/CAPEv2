@@ -97,6 +97,7 @@ sandbox_packages = (
     "iso",
     "vhd",
     "udf",
+    "one",
 )
 
 log = logging.getLogger(__name__)

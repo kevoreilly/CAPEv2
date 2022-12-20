@@ -36,6 +36,8 @@ def choose_package(file_type, file_name, exports, target):
         return "msi"
     elif file_name.endswith(".pub"):
         return "pub"
+    elif file_name.endswith(".one"):
+        return "one"
     elif (
         "Rich Text Format" in file_type
         or "Microsoft Word" in file_type

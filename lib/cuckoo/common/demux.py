@@ -137,7 +137,7 @@ def demux_office(filename: bytes, password: str) -> List[bytes]:
     retlist = []
     basename = os.path.basename(filename)
     target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")
-    if not Path(target_path.decode()).exists():
+    if not Path(path_to_ascii(target_path)).exists():
         os.makedirs(target_path)
     decrypted_name = os.path.join(target_path, basename)
 
@@ -146,7 +146,7 @@ def demux_office(filename: bytes, password: str) -> List[bytes]:
         d = ofile.decrypt(password)
         # TODO: add decryption verification checks
         if hasattr(d, "contents") and "Encrypted" not in d.magic:
-            _ = Path(decrypted_name).write_bytes(d.contents)
+            _ = Path(path_to_ascii(decrypted_name)).write_bytes(d.contents)
             retlist.append(decrypted_name)
     else:
         raise CuckooDemuxError("MS Office decryptor not available")
@@ -169,13 +169,13 @@ def _sf_chlildren(child: sfFile) -> bytes:
     ext = ext.lower()
     if ext in demux_extensions_list or is_valid_type(child.magic):
         target_path = os.path.join(tmp_path, b"cuckoo-sflock")
-        if not Path(target_path.decode()).exists():
+        if not Path(path_to_ascii(target_path)).exists():
             os.mkdir(target_path)
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
             if child.contents:
                 path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()))
-                _ = Path(path_to_extract.decode()).write_bytes(child.contents)
+                _ = Path(path_to_ascii(path_to_extract)).write_bytes(child.contents)
         except Exception as e:
             log.error(e, exc_info=True)
     return path_to_extract.encode()

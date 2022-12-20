@@ -6,11 +6,12 @@ from __future__ import absolute_import
 import os
 import time
 
-from lib.common.abstracts import Package
 from lib.api.utils import Utils
+from lib.common.abstracts import Package
 
 util = Utils()
 from lib.common.common import check_file_extension
+
 
 class ONE(Package):
     """Excel analysis package."""
@@ -19,10 +20,11 @@ class ONE(Package):
         self.config = config
         self.options = options
         # self.options["exclude-apis"] = "memcpy"
-        self.options["disable_hook_content"] = 4 
+        self.options["disable_hook_content"] = 4
         self.options["office"] = 1
         self.options["yarascan"] = 0
         self.options["no-iat"] = 1
+
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "ONENOTE.EXE"),
         ("ProgramFiles", "Microsoft Office", "Office*", "ONENOTE.EXE"),
@@ -46,4 +48,4 @@ class ONE(Package):
             r'reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FolderTypes\{ef87b4cb-f2ce-4785-8658-4ca6c63e38c6}" /f'
         )
         time.sleep(3)
-        return self.execute(onenote, f'/nologo /navigate {path}', path)
+        return self.execute(onenote, f"/nologo /navigate {path}", path)

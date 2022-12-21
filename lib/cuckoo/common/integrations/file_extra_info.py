@@ -377,7 +377,7 @@ def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_d
     with tempfile.TemporaryDirectory(prefix="de4dot_") as tempdir:
         try:
             dest_path = os.path.join(tempdir, os.path.basename(file))
-            output = subprocess.check_output(
+            _ = subprocess.check_output(
                 [
                     *de4dot_binary,
                     *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
@@ -644,7 +644,7 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
         return
 
     if not Path("/usr/bin/unrar").exists():
-        log.warning(f"Missed UnRar binary: /usr/bin/unrar. sudo apt install unrar")
+        log.warning("Missed UnRar binary: /usr/bin/unrar. sudo apt install unrar")
         return
 
     metadata = []

@@ -296,7 +296,6 @@ class ReSubmitExtractedEXE(Report):
                     continue
 
                 if "file_info" in suricata_file_e:
-                    tmp_suricata_file_d = dict(suricata_file_e)
                     if os.path.isfile(suricata_file_e["file_info"]["path"]):
                         ftype = suricata_file_e["file_info"]["type"]
                         if ("PE32" in ftype or "MS-DOS" in ftype) and "DLL" not in ftype and "native" not in ftype:

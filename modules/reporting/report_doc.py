@@ -4,6 +4,7 @@
 
 import logging
 import os
+from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
@@ -112,13 +113,12 @@ def insert_calls(report, elastic_db=None, mongodb=False):
         # Loop on each process call.
         if mongodb:
             for _, call in enumerate(process["calls"]):
+                chunk_id = None
                 # If the chunk size is CHUNK_CALL_SIZE or if the loop is completed then store the chunk in DB.
                 if len(chunk) == CHUNK_CALL_SIZE:
                     to_insert = {"pid": process["process_id"], "calls": chunk}
-                    try:
+                    with suppress(Exception):
                         chunk_id = mongo_insert_one("calls", to_insert).inserted_id
-                    except Exception as e:
-                        chunk_id = None
 
                     if chunk_id:
                         chunks_ids.append(chunk_id)
@@ -129,11 +129,10 @@ def insert_calls(report, elastic_db=None, mongodb=False):
 
             # Store leftovers.
             if chunk:
+                chunk_id = None
                 to_insert = {"pid": process["process_id"], "calls": chunk}
-                try:
+                with suppress(Exception):
                     chunk_id = mongo_insert_one("calls", to_insert).inserted_id
-                except Exception as e:
-                    chunk_id = None
 
                 if chunk_id:
                     chunks_ids.append(chunk_id)

@@ -93,7 +93,7 @@ def reversing_labs_lookup(target: str, is_hash: bool = False):
     sha256 = sample_summary["sha256"]
     riskscore = ticloud["riskscore"]
     name = file["proposed_filename"]
-    entropy = file["entropy"]
+    # entropy = file["entropy"]
     story = ticore["story"]
 
     reversing_labs = {

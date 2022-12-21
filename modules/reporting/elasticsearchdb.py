@@ -5,6 +5,7 @@
 import gc
 import json
 import logging
+from contextlib import suppress
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Report
@@ -137,10 +138,8 @@ class ElasticSearchDB(Report):
 
     def date_hook(self, json_dict):
         for (key, value) in json_dict.items():
-            try:
+            with suppress(Exception):
                 json_dict[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-            except:
-                pass
         return json_dict
 
     def run(self, results):

@@ -66,7 +66,7 @@ db = Database()
 
 try:
     import re2 as re
-except:
+except ImportError:
     import re
 
 DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
@@ -304,9 +304,9 @@ def get_stats_per_category(category: str, date_since):
                 "name": 1,
                 "successful": 1,
                 "runs": 1,
-                "average": 1,
+                # "average": 1,
                 "total": {"$round": ["$total_time", 2]},
-                "average": {"$round": [{"$divide": [f"$total_time", "$runs"]}, 2]},
+                "average": {"$round": [{"$divide": ["$total_time", "$runs"]}, 2]},
             }
         },
         {"$limit": 20},
@@ -832,7 +832,6 @@ def validate_task(tid, status=TASK_REPORTED):
         return {"error": True, "error_value": "Task does not exist"}
 
     if task.status == TASK_RECOVERED:
-        entry = task.to_dict()
         if task.status == TASK_RECOVERED:
             if task.custom:
                 m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)

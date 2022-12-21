@@ -174,7 +174,7 @@ def init_logging(auto=False, tid=0, debug=False):
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
-        result = future.result()
+        # result = future.result()
         log.info("Reports generation completed")
     except TimeoutError as error:
         log.error("Processing Timeout %s. Function: %s", error, error.args[1])
@@ -275,7 +275,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         print("Remain: %.2f GB" % mem)
         sys.stderr.write("\n\nERROR: Memory Exception\n")
         sys.exit(1)
-    except Exception as e:
+    except Exception:
         import traceback
 
         traceback.print_exc()

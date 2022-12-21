@@ -1301,7 +1301,6 @@ def ProcessFile(filename, options, plugins):
     oPDFiD = cPDFiD(xmlDoc, options.force)
     if options.select:
         if options.force or not oPDFiD.errorOccured and oPDFiD.isPDF:
-            pdf = oPDFiD
             try:
                 selected = eval(options.select)
             except Exception as e:

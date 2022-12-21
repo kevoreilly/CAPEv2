@@ -206,7 +206,7 @@ def extract_emotet_rsakey(pe):
             seq = asn1.DerSequence()
             try:
                 seq.decode(pub_key)
-            except ValueError as e:
+            except ValueError:
                 # log.error(e)
                 return
             return RSA.construct((seq[0], seq[1]))
@@ -561,11 +561,8 @@ def extract_config(filebuf):
     if not c2found:
         return
     pem_key = False
-    try:
+    with suppress(ValueError):
         pem_key = extract_emotet_rsakey(pe)
-    except ValueError as e:
-        # log.error(e)
-        pass
     if pem_key:
         conf_dict.setdefault("RSA public key", pem_key.exportKey().decode())
     else:

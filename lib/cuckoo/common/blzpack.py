@@ -48,7 +48,7 @@ def compress_data(data, blocksize, level):
 
 def decompress_data(data, blocksize=DEFAULT_BLOCK_SIZE, level=1):
     decompressed_data = b""
-    max_packed_size = brieflz.blz_max_packed_size(blocksize)
+    # max_packed_size = brieflz.blz_max_packed_size(blocksize)
 
     (magic, level, packedsize, crc, hdr_depackedsize, crc2) = struct.unpack_from(">IIIIII", data)
     data = data[24:]

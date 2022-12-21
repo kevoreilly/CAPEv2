@@ -1,4 +1,4 @@
-# BLISTER Configuration Extractor
+554# BLISTER Configuration Extractor
 # Python script to extract the configuration and payload from BLISTER samples.
 # Author: soolidsnake (Elastic)
 # https://elastic.github.io/security-research/tools/blister-config-extractor/
@@ -551,7 +551,6 @@ def extract_config(data):
         injection_method = "Reflective injection"
     elif (flag & 0x40) != 0:
         injection_method = "Execute shellcode"
-        MZ = False
     else:
         if (flag & 8) != 0:
             injection_method = "Process hollowing current executable (rundll32.exe in case of a DLL sample)"

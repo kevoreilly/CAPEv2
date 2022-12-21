@@ -144,7 +144,7 @@ class AnalysisManager(threading.Thread):
             try:
                 create_folder(folder=os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id)))
                 shutil.copy(self.task.target, self.binary)
-            except (IOError, shutil.Error) as e:
+            except (IOError, shutil.Error):
                 log.error(
                     "Task #%s: Unable to store file from '%s' to '%s', analysis aborted",
                     self.task.id,
@@ -159,7 +159,7 @@ class AnalysisManager(threading.Thread):
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
                 shutil.copy(self.task.target, copy_path)
-            except (IOError, shutil.Error) as e:
+            except (IOError, shutil.Error):
                 log.error(
                     "Task #%s: Unable to store file from '%s' to '%s', analysis aborted", self.task.id, self.task.target, copy_path
                 )
@@ -291,7 +291,7 @@ class AnalysisManager(threading.Thread):
             for dirname in dirnames:
                 try:
                     os.makedirs(os.path.join(self.storage, dirname))
-                except Exception as e:
+                except Exception:
                     log.debug("Failed to create folder %s", dirname)
             return True
 

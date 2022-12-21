@@ -859,7 +859,6 @@ class PortableExecutable:
         if not self.pe:
             return None
         if hasattr(self.pe, "DIRECTORY_ENTRY_EXPORT"):
-            exports = []
             for exp in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
                 try:
                     if not exp.name:

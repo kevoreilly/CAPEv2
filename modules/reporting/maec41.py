@@ -32,7 +32,7 @@ try:
     from maec.package import Analysis, MalwareSubject, Package
 
     HAVE_MAEC = True
-except ImportError as e:
+except ImportError:
     HAVE_MAEC = False
     print("pip3 install maec=4.1.0.17\npip3 install mixbox=1.0.5")
 
@@ -3486,7 +3486,8 @@ class MAEC41Report(Report):
 
             # Add the action ID to the list of Actions spawned by the process.
             if pid in self.pidActionMap:
-                action_list = self.pidActionMap[pid].append({"action_id": action_dict["id"]})
+                # action_list = self.pidActionMap[pid].append({"action_id": action_dict["id"]})
+                pass
             else:
                 self.pidActionMap[pid] = [{"action_id": action_dict["id"]}]
 

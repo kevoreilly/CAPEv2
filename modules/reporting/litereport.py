@@ -35,8 +35,6 @@ class LiteReport(Report):
         @raise CuckooReportError: if fails to write report.
         """
 
-        encoding = self.options.get("encoding", "utf-8")
-
         keys_to_copy = repconf.litereport.keys_to_copy.split(" ")
 
         # lite report report only has the specific keys

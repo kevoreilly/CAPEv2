@@ -181,8 +181,6 @@ def decrypt_data3(data):
         return decrypted_data
 
     decrypted_data = ARC4.new(decrypted_data[0x14:0x28]).decrypt(decrypted_data[0x28:])
-    sha1 = hashlib.sha1(decrypted_data).digest()
-
     if not decrypted_data:
         return
 
@@ -204,8 +202,6 @@ def decrypt_data4(data):
         return
 
     decrypted_data = ARC4.new(decrypted_data[0x14:0x28]).decrypt(decrypted_data[0x28:])
-    sha1 = hashlib.sha1(decrypted_data).digest()
-
     if not decrypted_data:
         return
 

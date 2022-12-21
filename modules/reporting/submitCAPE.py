@@ -152,7 +152,6 @@ class SubmitCAPE(Report):
         self.task_custom = None
         detections = set()
         children = []
-        bp = 0
 
         # allow ban unittests
         filename = results.get("target", {}).get("file", {}).get("name", "")

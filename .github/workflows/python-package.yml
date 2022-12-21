@@ -103,9 +103,7 @@ jobs:
         run: poetry run isort .
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install ruff
+        run: poetry run pip install ruff
       - name: Run Ruff
         run: ruff . --line-length 132 . --ignore E501,E402
 

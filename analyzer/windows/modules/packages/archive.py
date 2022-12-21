@@ -221,6 +221,11 @@ class Archive(Package):
                         shutil.copytree(d, os.path.join("C:\\", item))
                     except Exception as e:
                         log.warning(f"Couldn't copy {d} to root of C: {e}")
+            else:
+                try:
+                    shutil.copy(d, "C:\\")
+                except Exception as e:
+                    log.warning(f"Couldn't copy {d} to root of C: {e}")
 
         file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.

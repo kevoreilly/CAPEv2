@@ -136,8 +136,6 @@ def get_strings(data, min=4):
 
 
 def check_version(filedata):
-    printable = set(string.printable)
-
     s = ""
     # find strings in binary file
     slist = get_strings(filedata)

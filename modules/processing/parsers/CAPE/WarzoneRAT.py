@@ -92,13 +92,13 @@ def extract_config(data):
     c2_port = struct.unpack("H", dtxt[offset : offset + 2])[0]
     cfg["C2"] = f"{c2_host}:{c2_port}"
     offset += 2
-    unk1 = dtxt[offset : offset + 7]
+    # unk1 = dtxt[offset : offset + 7]
     offset += 7
     unk2_size = struct.unpack("i", dtxt[offset : offset + 4])[0]
     offset += 4
-    unk2 = dtxt[offset : offset + unk2_size]
+    # unk2 = dtxt[offset : offset + unk2_size]
     offset += unk2_size
-    unk3 = dtxt[offset : offset + 2]
+    # unk3 = dtxt[offset : offset + 2]
     offset += 2
     runkey_size = struct.unpack("i", dtxt[offset : offset + 4])[0]
     offset += 4

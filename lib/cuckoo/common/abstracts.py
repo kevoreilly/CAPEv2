@@ -1727,7 +1727,7 @@ class Feed:
                 if modified and self.data:
                     _ = Path(self.feedpath).write_text(self.data)
                 elif self.downloaddata:
-                    y = Path(self.feedpath).write_text(self.downloaddata)
+                    _ = Path(self.feedpath).write_text(self.downloaddata)
 
 
 class ProtocolHandler:

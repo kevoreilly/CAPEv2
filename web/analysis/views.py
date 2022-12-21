@@ -1663,7 +1663,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
 
     if not os.path.normpath(dumpfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(dumpfile))})
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(dumpfile)}"})
 
     if not os.path.exists(dumpfile):
         dumpfile += ".zip"
@@ -1754,7 +1754,7 @@ def filereport(request, task_id, category):
         file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports", formats[category])
 
         if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": f"File not found: {os.path.basename(file_path)}"})
 
         if os.path.exists(file_path):
             response = HttpResponse(Path(file_path).read_bytes(), content_type="application/octet-stream")
@@ -1796,7 +1796,7 @@ def full_memory_dump_file(request, analysis_number):
         except Exception as e:
             print(e)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(file_path)}"})
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), 8192), content_type=content_type)
@@ -1818,7 +1818,7 @@ def full_memory_dump_strings(request, analysis_number):
         if os.path.exists(file_path):
             filename = os.path.basename(file_path)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(file_path)}"})
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)
@@ -2012,16 +2012,17 @@ def pcapstream(request, task_id, conntuple):
         return render(request, "standalone_error.html", {"error": "Could not find the requested stream"})
 
     try:
-        # This will check if we have a sorted PCAP
-        test_pcap = conndata["network"]["sorted_pcap_sha256"]
         # if we do, build out the path to it
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_sorted.pcap")
+
+        if not Path(path).exists():
+            return render(request, "standalone_error.html", {"error": "The required sorted PCAP does not exist"})
+
         if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "standalone_error.html", {"error": "File not found".format(os.path.basename(path))})
+            return render(request, "standalone_error.html", {"error": f"File not found: {os.path.basename(path)}"})
 
         fobj = open(path, "rb")
-    except Exception as e:
-        # print str(e)
+    except Exception:
         return render(request, "standalone_error.html", {"error": "The required sorted PCAP does not exist"})
 
     packets = list(network.packets_for_stream(fobj, offset))
@@ -2088,7 +2089,7 @@ def vtupload(request, category, task_id, filename, dlfile):
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, folder_name, filename)
 
             if not path or not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
-                return render(request, "error.html", {"error": "File not found".format(os.path.basename(path))})
+                return render(request, "error.html", {"error": f"File not found: {os.path.basename(path)}"})
 
             headers = {"x-apikey": settings.VTDL_KEY}
             files = {"file": (filename, open(path, "rb"))}

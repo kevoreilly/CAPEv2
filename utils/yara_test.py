@@ -115,7 +115,6 @@ def test_yara():
     # We divide yara rules in three categories.
     # CAPE adds a fourth
     categories = ["binaries", "urls", "memory", "CAPE"]
-    generated = []
     # Loop through all categories.
     for category in categories:
         # Check if there is a directory for the given category.

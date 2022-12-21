@@ -605,11 +605,7 @@ def trend_unquarantine(f):
     magic, dataoffset, numtags = struct.unpack("<IIH", data[:10])
     if magic != 0x58425356:  # VSBX
         return None
-    origpath = "C:\\"
     origname = "UnknownTrendFile.bin"
-    platform = "Unknown"
-    attributes = 0x00000000
-    unknownval = 0
     basekey = 0x00000000
     encmethod = 0
 

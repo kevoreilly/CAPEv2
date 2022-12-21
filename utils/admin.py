@@ -64,11 +64,6 @@ def remove(task_id):
         else:
             analyses = []
 
-        if len(analyses) > 1:
-            message = "Multiple tasks with this ID deleted."
-        elif len(analyses) == 1:
-            message = "Task deleted."
-
         if len(analyses) > 0:
             # Delete dups too.
             for analysis in analyses:

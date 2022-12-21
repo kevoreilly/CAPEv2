@@ -73,7 +73,7 @@ def send_email(url, id, to):
         msg["From"] = email_config.cuckoomx.get("user")
         msg["To"] = to
         msg["Body"] = url + id
-        part = MIMEBase("application", "octet-stream")
+        # part = MIMEBase("application", "octet-stream")
         msgAlternative = MIMEMultipart("alternative")
         msg.attach(msgAlternative)
         msgAlternative.attach(MIMEText(url + id, "plain"))
@@ -111,10 +111,10 @@ def get_new_emails(db):
                     for part in msg.walk():
                         attachment = False
                         if part.get_filename():
-                            filename = part.get_filename()
-                            content_type = part.get_content_type()
+                            # filename = part.get_filename()
+                            # content_type = part.get_content_type()
                             attachment = part.get_payload(decode=True)
-                            sha256 = hashlib.sha256(attachment).hexdigest()
+                            # sha256 = hashlib.sha256(attachment).hexdigest()
 
                             if attachment:
                                 # unpack it

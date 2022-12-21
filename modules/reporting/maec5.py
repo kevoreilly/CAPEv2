@@ -494,7 +494,6 @@ class MaecReport(Report):
         # Populate the properties of the Object
         if not isinstance(arguments, list):
             arguments = [arguments]
-        found = False
         v2_arguments = {}
         for args in arguments:
             if "name" in args and "value" in args:
@@ -513,6 +512,7 @@ class MaecReport(Report):
     def post_process_object(self, obj, arguments):
         """Perform any necessary post-processing on Cyber Observable Objects"""
         protocol_mappings = {"1": "ftp", "3": "http"}
+        """
         reg_datatype_mappings = {
             "0": "REG_NONE",
             "1": "REG_SZ",
@@ -527,6 +527,7 @@ class MaecReport(Report):
             "10": "REG_RESOURCE_REQUIREMENTS_LIST",
             "11": "REG_QWORD",
         }
+        """
         if obj["type"] == "file":
             self.create_directory_from_file_path(obj, obj["name"])
         elif obj["type"] == "windows-registry-key":

@@ -76,8 +76,8 @@ def cleanup_rooter():
         return
 
     cleaned = []
-    for l in stdout.split("\n"):
-        if l and "CAPE-rooter" not in l:
+    for line in stdout.split("\n"):
+        if line and "CAPE-rooter" not in line:
             cleaned.append(l)
 
     p = subprocess.Popen([s.iptables_restore], stdin=subprocess.PIPE, universal_newlines=True)

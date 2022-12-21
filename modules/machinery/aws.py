@@ -338,7 +338,7 @@ class AWS(Machinery):
             try:
                 new_instance.modify_attribute(SourceDestCheck={"Value": False})
                 break
-            except Exception as e:
+            except Exception:
                 attempts += 1
                 log.warning("Failed while modifying new instance attribute. Trying again.")
         log.debug("Created %s\n%s", new_instance.id, repr(response))

@@ -1529,7 +1529,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "shots")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
 
     if len(os.listdir(srcdir)) == 0:
         resp = {"error": True, "error_value": "No screenshots created for task %s" % task_id}
@@ -1578,7 +1578,7 @@ def tasks_pcap(request, task_id):
 
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
     if os.path.exists(srcfile):
         fname = "%s_dump.pcap" % task_id
         resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
@@ -1609,7 +1609,7 @@ def tasks_dropped(request, task_id):
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "files")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
 
     if not os.path.exists(srcdir) or not len(os.listdir(srcdir)):
         resp = {"error": True, "error_value": "No files dropped for task %s" % task_id}
@@ -1874,9 +1874,6 @@ def file(request, stype, value):
         if check["error"]:
             return Response(check)
 
-        rtid = check.get("rtid", 0)
-        if rtid:
-            task_id = rtid
         sid = db.view_task(value).to_dict()["sample_id"]
         file_hash = db.view_sample(sid).to_dict()["sha256"]
 
@@ -2065,10 +2062,9 @@ def tasks_payloadfiles(request, task_id):
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
 
     if os.path.exists(srcdir):
-
         mem_zip = create_zip(folder=srcdir, encrypted=True)
         if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}

@@ -10,7 +10,6 @@ from lib.api.utils import Utils
 from lib.common.abstracts import Package
 
 util = Utils()
-from lib.common.common import check_file_extension
 
 
 class ONE(Package):

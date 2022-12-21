@@ -4,7 +4,6 @@
 
 import contextlib
 import logging
-import os
 from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict

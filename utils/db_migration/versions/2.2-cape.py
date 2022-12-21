@@ -16,7 +16,6 @@ down_revision = "2996ec5ea15c"
 
 import os.path
 import sys
-from datetime import datetime
 
 import sqlalchemy as sa
 
@@ -29,7 +28,6 @@ except ImportError:
 curdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(curdir, "..", "..", ".."))
 
-import lib.cuckoo.core.database as db
 
 
 def upgrade():

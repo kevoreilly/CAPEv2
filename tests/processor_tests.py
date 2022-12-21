@@ -2,10 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
-import tempfile
 
-from nose.tools import assert_equals
 
 from lib.cuckoo.common.abstracts import Processing, Signature
 from lib.cuckoo.common.constants import CUCKOO_VERSION

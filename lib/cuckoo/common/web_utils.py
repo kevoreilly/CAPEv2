@@ -16,7 +16,7 @@ import requests
 from django.http import HttpResponse
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, PortableExecutable, pefile
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import (
     bytes2str,
@@ -219,7 +219,7 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
-    if web_cfg.general.get("top_detections", False) == False:
+    if web_cfg.general.get('top_detections', False) is False:
         return False
 
     t = int(time.time())
@@ -1324,7 +1324,7 @@ def process_new_dlnexec_task(url, route, options, custom):
         return False, False, False
 
     name = os.path.basename(url)
-    if not "." in name:
+    if '.' not in name:
         name = get_user_filename(options, custom) or generate_fake_name()
 
     path = store_temp_file(response, name)

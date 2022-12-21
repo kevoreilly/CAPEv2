@@ -49,7 +49,6 @@ try:
         CAPE_PATH,
         JUMP_BOX,
         JUMP_BOX_PORT,
-        JUMP_BOX_USERNAME,
         MASTER_NODE,
         REMOTE_SERVER_USER,
         SERVERS_STATIC_LIST,

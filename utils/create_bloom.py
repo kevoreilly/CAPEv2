@@ -82,7 +82,7 @@ if __name__ == "__main__":
             first_entry = True
         for domain in domain_list:
             # insert domain into bloomfilter
-            if not domain.lower().encode() in bloom:
+            if domain.lower().encode() not in bloom:
                 bloom.add(domain.lower().encode())
 
             # insert into family/domain lookup table

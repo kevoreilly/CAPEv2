@@ -15,10 +15,12 @@ except ImportError:
 else:
     # The BSON module provided by pymongo works through its "BSON" class.
     if hasattr(bson, "BSON"):
-        bson_decode = lambda d: bson.decode(d)
+        def bson_decode(d):
+            return bson.decode(d)
     # The BSON module provided by "pip3 install bson" works through the "loads" function (just like pickle etc.)
     elif hasattr(bson, "loads"):
-        bson_decode = lambda d: bson.loads(d)
+        def bson_decode(d):
+            return bson.loads(d)
     else:
         HAVE_BSON = False
 

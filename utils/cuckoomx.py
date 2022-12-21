@@ -2,12 +2,9 @@
 import email
 import hashlib
 import imaplib
-import mimetypes
 import os
 import smtplib
 import sys
-import tempfile
-from email import Encoders
 from email.mime.text import MIMEText
 from email.MIMEBase import MIMEBase
 from email.MIMEMultipart import MIMEMultipart
@@ -15,7 +12,6 @@ from time import sleep
 
 try:
     from sflock.abstracts import File
-    from sflock.main import unpack
     from sflock.unpack import ZipFile
 except ImportError:
     print(
@@ -29,7 +25,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 
 from lib.cuckoo.common.config import Config

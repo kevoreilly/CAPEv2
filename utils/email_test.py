@@ -1,4 +1,3 @@
-import logging
 import os
 import smtplib
 import sys
@@ -6,7 +5,6 @@ from datetime import datetime
 from email.encoders import encode_base64
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 # Cuckoo root
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))

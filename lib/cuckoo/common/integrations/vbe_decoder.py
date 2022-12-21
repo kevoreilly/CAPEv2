@@ -14,7 +14,6 @@ https://github.com/JohnHammond/vbe-decoder/blob/master/vbe-decoder.py
 """
 
 
-import os
 import re
 import sys
 from pathlib import Path

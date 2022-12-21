@@ -3,11 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
-import os
 import pathlib
 
 import pytest
-from bson.binary import Binary
 
 from lib.cuckoo.common.netlog import BsonParser
 

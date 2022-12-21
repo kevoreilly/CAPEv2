@@ -5,7 +5,6 @@
 
 import json
 import logging
-import os.path
 import socket
 import tempfile
 import threading

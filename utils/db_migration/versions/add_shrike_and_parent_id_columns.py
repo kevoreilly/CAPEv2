@@ -15,13 +15,11 @@ down_revision = "4b09c454108c"
 
 import os.path
 import sys
-from datetime import datetime
 
 import sqlalchemy as sa
-from alembic import op
 
 try:
-    from dateutil.parser import parse
+    pass
 except ImportError:
     print("Unable to import dateutil.parser", end=" ")
     print("(install with `pip3 install python-dateutil`)")
@@ -36,7 +34,6 @@ except ImportError:
 curdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(curdir, "..", "..", ".."))
 
-import lib.cuckoo.core.database as db
 
 
 def upgrade():

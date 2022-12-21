@@ -40,7 +40,6 @@ try:
         event,
         func,
         not_,
-        or_,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.ext.declarative import declarative_base

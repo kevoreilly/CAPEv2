@@ -82,7 +82,8 @@ class Deduplicate(Processing):
             elif hashmethod == "whash-haar":
                 hashfunc = imagehash.whash
             elif hashmethod == "whash-db4":
-                hashfunc = lambda img: imagehash.whash(img, mode="db4")
+                def hashfunc(img):
+                    return imagehash.whash(img, mode='db4')
             else:
                 # Default
                 hashfunc = imagehash.average_hash

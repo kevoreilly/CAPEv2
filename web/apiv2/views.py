@@ -27,29 +27,23 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.dist_db import Node, Task, create_session
 from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (
     convert_to_printable,
     create_zip,
     delete_folder,
-    generate_fake_name,
     get_options,
     get_user_filename,
     sanitize_filename,
     store_temp_file,
-    validate_referrer,
 )
 from lib.cuckoo.common.web_utils import (
-    _download_file,
     apiconf,
     download_file,
     download_from_vt,
     force_int,
-    get_file_content,
     parse_request_arguments,
     perform_search,
     process_new_dlnexec_task,
@@ -736,7 +730,7 @@ def ext_tasks_search(request):
 
     if term and value:
         records = False
-        if not term in search_term_map and term not in ("malscore", "ttp"):
+        if term not in search_term_map and term not in ("malscore", "ttp"):
             resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return Response(resp)
 

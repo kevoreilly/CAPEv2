@@ -6,7 +6,6 @@ import argparse
 import gc
 import json
 import logging
-import multiprocessing
 import os
 import platform
 import resource
@@ -259,7 +258,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                         log.info("(after) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
                     count += 1
                     added = True
-                    if copy_path != None:
+                    if copy_path is not None:
                         copy_origin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
                         if cfg.cuckoo.delete_bin_copy and os.path.exists(copy_origin_path):
                             os.unlink(copy_origin_path)

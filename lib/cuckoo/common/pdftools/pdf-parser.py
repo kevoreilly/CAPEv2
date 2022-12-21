@@ -1396,7 +1396,7 @@ def ParseINIFile():
     keywords = []
     if oConfigParser.has_section("keywords"):
         for key, value in oConfigParser.items("keywords"):
-            if not key in keywords:
+            if key not in keywords:
                 keywords.append(key)
     return keywords
 
@@ -1516,7 +1516,7 @@ def Main():
             "/URI",
         ]
         for extrakeyword in ParseINIFile():
-            if not extrakeyword in keywords:
+            if extrakeyword not in keywords:
                 keywords.append(extrakeyword)
 
         #        dKeywords = {keyword: [] for keyword in keywords}
@@ -1611,7 +1611,7 @@ def Main():
             print(r"    oPDF.indirectobject(7, 0, '<<\r\n /Type /Filespec\r\n /F (test.bin)\r\n /EF << /F 8 0 R >>\r\n>>')")
 
         if options.yara is not None:
-            if not "yara" in sys.modules:
+            if 'yara' not in sys.modules:
                 print("Error: option yara requires the YARA Python module.")
                 return
             rules = YARACompile(options.yara)
@@ -1665,7 +1665,7 @@ def Main():
                     elif object.type == PDF_ELEMENT_INDIRECT_OBJECT:
                         cntIndirectObject += 1
                         type1 = object.GetType()
-                        if not type1 in dicObjectTypes:
+                        if type1 not in dicObjectTypes:
                             dicObjectTypes[type1] = [object.id]
                         else:
                             dicObjectTypes[type1].append(object.id)

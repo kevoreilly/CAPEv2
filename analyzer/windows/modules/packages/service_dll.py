@@ -1,7 +1,7 @@
 import ctypes
 import logging
 import sys
-from winreg import HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_EXPAND_SZ, REG_MULTI_SZ, REG_SZ, CloseKey, CreateKeyEx, SetValueEx
+from winreg import HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_EXPAND_SZ, REG_MULTI_SZ, CloseKey, CreateKeyEx, SetValueEx
 
 from lib.api.process import Process
 from lib.common.abstracts import Package

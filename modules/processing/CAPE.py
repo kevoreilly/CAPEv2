@@ -423,5 +423,5 @@ class CAPE(Processing):
                     updated = True
                     break
 
-        if updated == False:
+        if updated is False:
             self.cape["configs"].append(config)

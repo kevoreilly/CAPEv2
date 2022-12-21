@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-import os.path
 from pathlib import Path
 
 from lib.cuckoo.common.config import Config

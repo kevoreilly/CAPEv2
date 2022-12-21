@@ -3,7 +3,6 @@ import pathlib
 import queue
 import shutil
 from datetime import datetime
-from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio

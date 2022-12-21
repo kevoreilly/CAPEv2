@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -69,7 +69,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -101,6 +101,11 @@ jobs:
 
       - name: Format imports with isort
         run: poetry run isort .
+
+      - name: Install dependencies
+        run: poetry run pip install ruff
+      - name: Run Ruff
+        run: ruff . --line-length 132 . --ignore E501,E402
 
       - name: Commit changes if any
         run: |

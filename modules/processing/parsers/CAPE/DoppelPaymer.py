@@ -18,7 +18,6 @@ AUTHOR = "kevoreilly"
 import string
 
 import pefile
-import yara
 from Cryptodome.Cipher import ARC4
 
 rule_source = """

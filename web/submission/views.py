@@ -19,12 +19,10 @@ sys.path.append(settings.CUCKOO_PATH)
 from uuid import NAMESPACE_DNS, uuid3
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
-from lib.cuckoo.common.utils import generate_fake_name, get_options, get_user_filename, sanitize_filename, store_temp_file
+from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
-    _download_file,
     all_nodes_exits_list,
     all_vms_tags,
     download_file,

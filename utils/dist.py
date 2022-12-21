@@ -100,13 +100,12 @@ def required(package):
 
 
 try:
-    from flask import Flask, jsonify, make_response, request
+    from flask import Flask, jsonify, make_response
 except ImportError:
     required("flask")
 
 try:
     import requests
-    from requests.auth import HTTPBasicAuth
 except ImportError:
     required("requests")
 

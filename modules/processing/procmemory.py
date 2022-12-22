@@ -17,7 +17,7 @@ processing_conf = Config("processing")
 log = logging.getLogger(__name__)
 
 try:
-    import re2 as re
+    import re2 # noqa: F401
 
     HAVE_RE2 = True
 except ImportError:

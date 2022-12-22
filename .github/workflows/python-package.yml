@@ -56,6 +56,11 @@ jobs:
       - name: Run unit tests
         run: poetry run pytest --import-mode=append
 
+      - name: Install dependencies
+        run: poetry run pip install ruff
+      - name: Run Ruff
+        run: poetry run ruff . --line-length 132 --ignore E501,E402
+
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -101,11 +106,6 @@ jobs:
 
       - name: Format imports with isort
         run: poetry run isort .
-
-      - name: Install dependencies
-        run: poetry run pip install ruff
-      - name: Run Ruff
-        run: poetry run ruff . --line-length 132 . --ignore E501,E402
 
       - name: Commit changes if any
         run: |

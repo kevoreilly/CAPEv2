@@ -6,7 +6,7 @@ import collections
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -39,7 +39,7 @@ if processing_conf.flare_capa.enabled:
             import capa.render.result_document as rd
             import capa.render.utils as rutils
             import capa.rules
-            from capa.engine import *
+            from capa.engine import capa
             from capa.rules import InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")

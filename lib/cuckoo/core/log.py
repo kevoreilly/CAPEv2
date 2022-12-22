@@ -147,21 +147,21 @@ def init_logger(name, level=None):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     if name == "console":
-        l = ConsoleHandler()
-        l.setFormatter(formatter)
-        l.setLevel(level)
+        logger = ConsoleHandler()
+        logger.setFormatter(formatter)
+        logger.setLevel(level)
 
     elif name == "database":
-        l = DatabaseHandler()
-        l.setLevel(logging.ERROR)
+        logger = DatabaseHandler()
+        logger.setLevel(logging.ERROR)
 
     elif name == "task":
-        l = TaskHandler()
-        l.setFormatter(formatter)
-        l.setLevel(logging.DEBUG)
+        logger = TaskHandler()
+        logger.setFormatter(formatter)
+        logger.setLevel(logging.DEBUG)
 
-    _loggers[name] = l
-    logging.getLogger().addHandler(l)
+    _loggers[name] = logger
+    logging.getLogger().addHandler(logger)
 
 
 def logger(message, *args, **kwargs):

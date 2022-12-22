@@ -981,7 +981,6 @@ search_term_map = {
         "network.smtp_ex.dport",
     ),
     "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
-    "package": "info.package",
     # File_extra_info
     "extracted_tool": (
         "info.parent_sample.extracted_files_tool",

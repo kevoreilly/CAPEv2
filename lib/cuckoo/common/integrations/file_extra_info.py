@@ -80,10 +80,6 @@ if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
-HAVE_FLOSS = False
-if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
-    from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
-
 HAVE_STRINGS = False
 if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings

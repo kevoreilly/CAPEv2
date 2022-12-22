@@ -94,16 +94,10 @@ def compile_yara(rulepath=""):
         return
 
     try:
-        rules = yara.compile(rulepath)
-    except Exception as e:
+        _ = yara.compile(rulepath)
+    except Exception:
         print("Unexpected error:", sys.exc_info()[0])
         raise
-        if "duplicated identifier" in e.args[0]:
-            print("Duplicate rule in {}, rulepath")
-            print(e.args[0])
-        else:
-            print("ERROR: SyntaxError in rules: {}".format(e.args))
-            return
 
 
 def test_yara():

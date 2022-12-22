@@ -28,8 +28,8 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 try:
-    from unicorn import *
-    from unicorn.x86_const import *
+    from unicorn import UC_ARCH_X86, UC_MODE_64, UC_HOOK_CODE, UcError, Uc
+    from unicorn.x86_const import UC_X86_REG_RAX, UC_X86_REG_RIP, UC_X86_REG_RSP, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_R9
 except ImportError:
     log.error("Unicorn not installed")
 
@@ -231,7 +231,7 @@ def hook_instr(uc, address, size, mode):
 def emulate(code, ep):
     global call_count
     call_count = 0
-    try:
+    with suppress(UcError):
         uc = Uc(UC_ARCH_X86, UC_MODE_64)
         size = int(len(code) / 0x1000) * 0x1000
         if len(code) % 0x1000:
@@ -246,8 +246,6 @@ def emulate(code, ep):
         uc.reg_write(UC_X86_REG_R9, stack + 0x108)
         uc.hook_add(UC_HOOK_CODE, hook_instr, user_data=UC_MODE_64)
         uc.emu_start(code_base + ep, code_base + len(code))
-    except unicorn.UcError as e:
-        pass
     return uc
 
 

@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Unique secret key generator.
 # Secret key will be placed in secret_key.py file.
 try:
-    from .secret_key import *
+    from .secret_key import SECRET_KEY # noqa: F401
 except ImportError:
     SETTINGS_DIR = os.path.abspath(os.path.dirname(__file__))
     # Using the same generation schema of Django startproject.
@@ -28,10 +28,10 @@ except ImportError:
     key = get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)")
 
     # Write secret_key.py
-    y = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
+    _ = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
 
     # Reload key.
-    from .secret_key import *
+    from .secret_key import SECRET_KEY # noqa: F401
 
 # SECURITY WARNING: don"t run with debug turned on in production!
 DEBUG = True

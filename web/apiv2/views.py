@@ -1657,12 +1657,11 @@ def tasks_surifile(request, task_id):
 
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "logs", "files.zip")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
     if os.path.exists(srcfile):
-        fname = "%s_surifiles.zip" % task_id
         resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8192), content_type="application/octet-stream;")
         resp["Content-Length"] = os.path.getsize(srcfile)
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_surifiles.zip"
         return resp
 
     else:

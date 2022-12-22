@@ -208,4 +208,4 @@ class TestConfig:
             """,
         )
         with pytest.raises(configparser.InterpolationMissingOptionError):
-            config = Config("auxiliary")
+            _ = Config("auxiliary")

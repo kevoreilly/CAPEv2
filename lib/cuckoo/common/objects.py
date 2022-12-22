@@ -9,7 +9,6 @@ import hashlib
 import logging
 import mmap
 import os
-import re
 import struct
 import subprocess
 from pathlib import Path
@@ -41,13 +40,6 @@ try:
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
-
-try:
-    import yara
-
-    HAVE_YARA = True
-except ImportError:
-    HAVE_YARA = False
 
 try:
     import pyclamd
@@ -410,11 +402,9 @@ class File:
         @return: matched Yara signatures.
         """
         results = []
-        if not HAVE_YARA:
-            if not File.notified_yara:
-                File.notified_yara = True
-                log.warning("Unable to import yara (please compile from sources)")
-            return results
+        if not File.notified_yara:
+            File.notified_yara = True
+            log.warning("Unable to import yara (please compile from sources)")
 
         if not os.path.getsize(self.file_path):
             return results

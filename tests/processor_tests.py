@@ -29,7 +29,7 @@ class SignatureMock(Signature):
 
 class SignatureAlterMock(SignatureMock):
     def run(self, results):
-        results = None
+        results = None # noqa: F841
 
 
 class SignatureDisabledMock(SignatureMock):

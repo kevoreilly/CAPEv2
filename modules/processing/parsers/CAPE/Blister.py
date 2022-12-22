@@ -541,7 +541,6 @@ def extract_config(data):
     uncompressed_data_size = decrypted_config[0x628 : 0x628 + 4]
     flag = u16(decrypted_config[0:2])
     payload_export_hash = decrypted_config[2:6]
-    MZ = True
     w_payload_filename_and_cmdline = ""
     sleep_after_injection = True if (flag & 0x100) != 0 else False
     persistance = True if (flag & 1) != 0 else False

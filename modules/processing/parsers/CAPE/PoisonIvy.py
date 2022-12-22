@@ -59,7 +59,7 @@ def walk_domain(raw_stream):
     return domains
 
 
-def extract_config(config_raw):
+def extract_config_final(config_raw):
     config = {}
 
     for field in config_raw:
@@ -121,7 +121,7 @@ def extract_config(data):
         # If the split works try to walk the strings.
         two = walk_data(one)
         # Let's Process this and format the config.
-        final_config = extract_config(two)
+        final_config = extract_config_final(two)
         domain_data = domain_parse(final_config)
         return [final_config, domain_data]
     except Exception:

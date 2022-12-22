@@ -117,7 +117,7 @@ USE_TZ = True
 # Unique secret key generator.
 # Secret key will be placed in secret_key.py file.
 try:
-    from .secret_key import SECRET_KEY # noqa: F401
+    from .secret_key import SECRET_KEY  # noqa: F401
 except ImportError:
     SETTINGS_DIR = os.path.abspath(os.path.dirname(__file__))
     # Using the same generation schema of Django startproject.
@@ -129,7 +129,7 @@ except ImportError:
     _ = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
 
     # Reload key.
-    from .secret_key import SECRET_KEY # noqa: F401
+    from .secret_key import SECRET_KEY  # noqa: F401
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
@@ -491,4 +491,4 @@ try:
     LOCAL_SETTINGS
 except NameError:
     with suppress(ImportError):
-        from .local_settings import * # noqa: F403
+        from .local_settings import *  # noqa: F403

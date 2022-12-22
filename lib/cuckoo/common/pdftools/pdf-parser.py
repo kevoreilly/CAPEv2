@@ -1611,7 +1611,7 @@ def Main():
             print(r"    oPDF.indirectobject(7, 0, '<<\r\n /Type /Filespec\r\n /F (test.bin)\r\n /EF << /F 8 0 R >>\r\n>>')")
 
         if options.yara is not None:
-            if 'yara' not in sys.modules:
+            if "yara" not in sys.modules:
                 print("Error: option yara requires the YARA Python module.")
                 return
             rules = YARACompile(options.yara)

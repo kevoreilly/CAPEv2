@@ -28,8 +28,8 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 try:
-    from unicorn import UC_ARCH_X86, UC_MODE_64, UC_HOOK_CODE, UcError, Uc
-    from unicorn.x86_const import UC_X86_REG_RAX, UC_X86_REG_RIP, UC_X86_REG_RSP, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_R9
+    from unicorn import UC_ARCH_X86, UC_HOOK_CODE, UC_MODE_64, Uc, UcError
+    from unicorn.x86_const import UC_X86_REG_R9, UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_RIP, UC_X86_REG_RSP
 except ImportError:
     log.error("Unicorn not installed")
 

@@ -31,7 +31,6 @@ curdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(curdir, "..", "..", ".."))
 
 
-
 def upgrade():
     op.add_column("samples", sa.Column("parent", sa.Integer, nullable=True))
 

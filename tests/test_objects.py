@@ -4,14 +4,17 @@
 
 import logging
 import os
+
 # pathlib
 import tempfile
 
 import pytest
 import yara
+
+from lib.cuckoo.common.objects import Dictionary, File  # ,ProcDump
+
 # from tcr_misc import get_sample, random_string
 
-from lib.cuckoo.common.objects import Dictionary, File # ,ProcDump
 
 
 @pytest.fixture

@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 
-
 from lib.cuckoo.common.abstracts import Report
 
 

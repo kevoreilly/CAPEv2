@@ -29,7 +29,6 @@ curdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(curdir, "..", "..", ".."))
 
 
-
 def upgrade():
     op.add_column("tasks", sa.Column("cape", sa.String(length=2048), nullable=True))
     op.add_column("tasks", sa.Column("route", sa.String(length=128), nullable=True))

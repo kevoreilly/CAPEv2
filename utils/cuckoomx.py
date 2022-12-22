@@ -1,11 +1,13 @@
 #!/bin/python
 import email
+
 # import hashlib
 import imaplib
 import os
 import smtplib
 import sys
 from email.mime.text import MIMEText
+
 # from email.MIMEBase import MIMEBase
 from email.MIMEMultipart import MIMEMultipart
 from time import sleep

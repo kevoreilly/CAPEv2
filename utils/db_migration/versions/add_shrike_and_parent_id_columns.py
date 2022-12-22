@@ -35,7 +35,6 @@ curdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(curdir, "..", "..", ".."))
 
 
-
 def upgrade():
     op.add_column("tasks", sa.Column("shrike_url", sa.String(length=4096), nullable=True))
     op.add_column("tasks", sa.Column("shrike_refer", sa.String(length=4096), nullable=True))

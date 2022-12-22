@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 
-
 from lib.cuckoo.common.abstracts import Processing, Signature
 from lib.cuckoo.common.constants import CUCKOO_VERSION
 
@@ -29,7 +28,7 @@ class SignatureMock(Signature):
 
 class SignatureAlterMock(SignatureMock):
     def run(self, results):
-        results = None # noqa: F841
+        results = None  # noqa: F841
 
 
 class SignatureDisabledMock(SignatureMock):

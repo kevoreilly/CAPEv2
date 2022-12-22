@@ -1,4 +1,4 @@
-554# BLISTER Configuration Extractor
+554  # BLISTER Configuration Extractor
 # Python script to extract the configuration and payload from BLISTER samples.
 # Author: soolidsnake (Elastic)
 # https://elastic.github.io/security-research/tools/blister-config-extractor/

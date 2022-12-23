@@ -16,7 +16,6 @@ from lib.cuckoo.common.objects import Dictionary, File  # ,ProcDump
 # from tcr_misc import get_sample, random_string
 
 
-
 @pytest.fixture
 def dict_cfg():
     yield Dictionary()

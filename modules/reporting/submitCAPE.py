@@ -16,8 +16,8 @@
 import logging
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.web_utils import submit_task
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.web_utils import submit_task
 
 log = logging.getLogger(__name__)
 

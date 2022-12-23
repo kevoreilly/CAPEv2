@@ -831,13 +831,11 @@ def validate_task(tid, status=TASK_REPORTED):
     if not task:
         return {"error": True, "error_value": "Task does not exist"}
 
-    if task.status == TASK_RECOVERED:
-        if task.status == TASK_RECOVERED:
-            if task.custom:
-                m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
-                if m:
-                    task_id = int(m.group("taskid"))
-                    task = db.view_task(task_id, details=True)
+    if task.status == TASK_RECOVERED and task.custom:
+        m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+        if m:
+            task_id = int(m.group("taskid"))
+            task = db.view_task(task_id, details=True)
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}

@@ -1,3 +1,6 @@
+### [24.12.2022]
+* Monitor updates: Fix NtAllocateVirtualMemoryEx & NtMapViewOfSectionEx hooks and rebuild with Visual Studio 2022
+
 ### [2.12.2022]
 * Monitor updates: add 32-bit hook compatibility to allow hooking of GetCommandLine APIs (and add GetCommandLineA hook)
 

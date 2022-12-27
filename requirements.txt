@@ -345,9 +345,7 @@ pygal==2.4.0 ; python_version >= "3.8" and python_version < "4.0" \
 pyguacamole==0.11 ; python_version >= "3.8" and python_version < "4.0"
 pyjwt[crypto]==2.6.0 ; python_version >= "3.8" and python_version < "4.0"
 pymongo==4.3.3 ; python_version >= "3.8" and python_version < "4.0"
-pyopenssl==20.0.1 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:4c231c759543ba02560fcd2480c48dcec4dae34c9da7d3747c508227e0624b51 \
-    --hash=sha256:818ae18e06922c066f777a33f1fca45786d85edfe71cd043de6379337a7f274b
+pyopenssl==22.1.0 ; python_version >= "3.8" and python_version < "4.0"
 pyparsing==2.4.7 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:c203ec8783bf771a155b207279b9bccb8dea02d8f0c9e5f8ead507bc3246ecc1 \
     --hash=sha256:ef9d7589ef3c200abe66653d3f1ab1033c3c419ae9b9bdb1240a85b024efc88b
@@ -553,7 +551,7 @@ tldextract==3.1.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:cfae9bc8bda37c3e8c7c8639711ad20e95dc85b207a256b60b0b23d7ff5540ea \
     --hash=sha256:e57f22b6d00a28c21673d2048112f1bdcb6a14d4711568305f6bb96cf5bb53a1
 twisted-iocpsupport==1.0.2 ; python_version >= "3.8" and python_version < "4.0" and platform_system == "Windows"
-twisted[tls]==22.4.0 ; python_version >= "3.8" and python_version < "4.0"
+twisted[tls]==22.10.0 ; python_version >= "3.8" and python_version < "4.0"
 txaio==22.2.1 ; python_version >= "3.8" and python_version < "4.0"
 typing-extensions==4.4.0 ; python_version >= "3.8" and python_version < "4.0"
 tzdata==2022.7 ; python_version >= "3.8" and python_version < "4"

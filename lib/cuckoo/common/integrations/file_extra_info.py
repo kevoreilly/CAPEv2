@@ -2,12 +2,17 @@ import hashlib
 import json
 import logging
 import os
+import time
+import timeit
 import shlex
 import shutil
 import subprocess
 import tempfile
-from pathlib import Path
 from typing import List
+from pathlib import Path
+from concurrent.futures import TimeoutError
+
+from pebble import ProcessPool
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -19,7 +24,9 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 # ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
-from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
+from lib.cuckoo.common.integrations.parse_wsf import (
+    WindowsScriptFile,
+)  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
@@ -31,6 +38,7 @@ try:
     HAVE_SFLOCK = True
 except ImportError:
     HAVE_SFLOCK = False
+
 
 processing_conf = Config("processing")
 
@@ -56,7 +64,9 @@ except ImportError:
     HAVE_KIXTART = False
 
 try:
-    from lib.cuckoo.common.integrations.vbe_decoder import decode_file as vbe_decode_file
+    from lib.cuckoo.common.integrations.vbe_decoder import (
+        decode_file as vbe_decode_file,
+    )
 
     HAVE_VBE_DECODER = True
 except ImportError:
@@ -95,7 +105,13 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 
 
 def static_file_info(
-    data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str, results: dict
+    data_dictionary: dict,
+    file_path: str,
+    task_id: str,
+    package: str,
+    options: str,
+    destination_folder: str,
+    results: dict,
 ):
 
     if int(os.path.getsize(file_path) / (1024 * 1024)) > int(processing_conf.static.max_file_size):
@@ -151,8 +167,8 @@ def static_file_info(
     # elif HAVE_OLETOOLS and package == "hwp":
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
 
-    with open(file_path, "rb") as f:
-        is_text_file(data_dictionary, file_path, 8192, f.read())
+    data = Path(file_path).read_bytes()
+    is_text_file(data_dictionary, file_path, 8192, data)
 
     if processing_conf.trid.enabled:
         trid_info(file_path, data_dictionary)
@@ -176,7 +192,14 @@ def static_file_info(
         if vt_details:
             data_dictionary["virustotal"] = vt_details
 
-    generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary, options_dict, results)
+    generic_file_extractors(
+        file_path,
+        destination_folder,
+        data_dictionary["type"],
+        data_dictionary,
+        options_dict,
+        results,
+    )
 
 
 def detect_it_easy_info(file_path: str, data_dictionary: dict):
@@ -185,7 +208,9 @@ def detect_it_easy_info(file_path: str, data_dictionary: dict):
 
     try:
         output = subprocess.check_output(
-            [processing_conf.die.binary, "-j", file_path], stderr=subprocess.STDOUT, universal_newlines=True
+            [processing_conf.die.binary, "-j", file_path],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
         )
         if "detects" not in output:
             return
@@ -202,7 +227,9 @@ def detect_it_easy_info(file_path: str, data_dictionary: dict):
 def trid_info(file_path: dict, data_dictionary: dict):
     try:
         output = subprocess.check_output(
-            [trid_binary, f"-d:{definitions}", file_path], stderr=subprocess.STDOUT, universal_newlines=True
+            [trid_binary, f"-d:{definitions}", file_path],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
         )
         data_dictionary["trid"] = output.split("\n")[6:-1]
     except subprocess.CalledProcessError:
@@ -260,7 +287,14 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
     return metadata
 
 
-def generic_file_extractors(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def generic_file_extractors(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     """
     file - path to binary
     destination_folder - where to move extracted files
@@ -285,20 +319,43 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
         Inno_extract,
         SevenZip_unpack,
         de4dot_deobfuscate,
+        eziriz_deobfuscate,
     ):
 
         if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
             continue
         try:
-            extraction_result = funcname(file, destination_folder, filetype, data_dictionary, options, results)
-            if extraction_result is not None:
-                tool_name, metadata = extraction_result
-                if metadata:
+            # Is there are better way to set timeout for function?
+            with ProcessPool() as pool:
+                extraction_result = None
+                time_start = timeit.default_timer()
+                func_timeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
+                future = pool.schedule(
+                    funcname, args=(file, destination_folder, filetype, data_dictionary, options, results), timeout=func_timeout
+                )
+                try:
+                    while not future.done():
+                        time.sleep(2)
+                        continue
+
+                    extraction_result = future.result()
+                    if extraction_result is None:
+                        continue
+
+                    tool_name, metadata = extraction_result
+                    if not metadata:
+                        continue
+
                     for meta in metadata:
                         is_text_file(meta, destination_folder, 8192)
-
+                    took_seconds = timeit.default_timer() - time_start
                     data_dictionary.setdefault("extracted_files", metadata)
                     data_dictionary.setdefault("extracted_files_tool", tool_name)
+                    data_dictionary.setdefault("extracted_files_time", took_seconds)
+                except (StopIteration, TimeoutError) as error:
+                    log.debug("Function: %s took longer than %d seconds", funcname.__name__, error.args[1])
+                except Exception as error:
+                    log.error("file_extra_info: %s", str(error))
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -307,11 +364,17 @@ def _generic_post_extraction_process(file: str, decoded: str, destination_folder
     with tempfile.TemporaryDirectory() as tempdir:
         decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
         _ = Path(decoded_file_path).write_text(decoded)
-
     return _extracted_files_metadata(tempdir, destination_folder, files=[decoded_file_path])
 
 
-def batch_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def batch_extract(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     # https://github.com/DissectMalware/batch_deobfuscator
     # https://www.fireeye.com/content/dam/fireeye-www/blog/pdfs/dosfuscation-report.pdf
 
@@ -333,7 +396,14 @@ def batch_extract(file: str, destination_folder: str, filetype: str, data_dictio
     return "Batch", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary)
 
 
-def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def vbe_extract(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
 
     if not HAVE_VBE_DECODER:
         log.debug("Missed VBE decoder")
@@ -341,7 +411,6 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
 
     decoded = False
     data = Path(file).read_bytes()
-
     if b"#@~^" not in data[:100]:
         return
 
@@ -357,15 +426,79 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
     return "Vbe", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary)
 
 
-def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def eziriz_deobfuscate(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
+    metadata = []
+
+    if file.endswith("_Slayed"):
+        return "eziriz", metadata
+
+    if all("Eziriz .NET Reactor" not in string for string in data_dictionary.get("die", {})):
+        return "eziriz", metadata
+
+    binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
+    if not binary:
+        log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
+        return "eziriz", metadata
+
+    if not Path(binary).exists():
+        log.error(
+            "Missed dependency: Download your version from https://github.com/SychicBoy/NETReactorSlayer/releases and place under %s.",
+            binary,
+        )
+        return "eziriz", metadata
+
+    if not os.access(binary, os.X_OK):
+        log.error("You need to add execution permissions: chmod a+x data/NETReactorSlayer.CLI")
+        return
+
+    with tempfile.TemporaryDirectory(prefix="eziriz_") as tempdir:
+        try:
+            dest_path = os.path.join(tempdir, os.path.basename(file))
+            _ = subprocess.check_output(
+                [
+                    os.path.join(CUCKOO_ROOT, binary),
+                    *shlex.split(selfextract_conf.eziriz_deobfuscate.extra_args.strip()),
+                    file,
+                ],
+                universal_newlines=True,
+            )
+            deobf_file = file + "_Slayed"
+            if not Path(deobf_file).exists():
+                return "eziriz", metadata
+
+            shutil.move(deobf_file, dest_path)
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder))
+        except subprocess.CalledProcessError:
+            log.exception("Failed to deobfuscate %s with de4dot.", file)
+        except Exception as e:
+            log.error(e, exc_info=True)
+
+    return "eziriz", metadata
+
+
+def de4dot_deobfuscate(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     if "Mono" not in filetype:
         return
 
-    de4dot_binary = shlex.split(selfextract_conf.de4dot_deobfuscate.binary.strip())
-    if not de4dot_binary:
+    binary = shlex.split(selfextract_conf.de4dot_deobfuscate.binary.strip())[0]
+    if not binary:
         log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
         return
-    if not Path(de4dot_binary[0]).exists():
+    if not Path(binary).exists():
         log.error("Missed dependency: sudo apt install de4dot")
         return
     metadata = []
@@ -375,7 +508,7 @@ def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_d
             dest_path = os.path.join(tempdir, os.path.basename(file))
             _ = subprocess.check_output(
                 [
-                    *de4dot_binary,
+                    binary,
                     *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
                     "-f",
                     file,
@@ -393,7 +526,14 @@ def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_d
     return "de4dot", metadata
 
 
-def msi_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def msi_extract(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     """Work on MSI Installers"""
 
     if "MSI Installer" not in filetype:
@@ -409,7 +549,8 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
     with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
         try:
             output = subprocess.check_output(
-                [selfextract_conf.msi_extract.binary, file, "--directory", tempdir], universal_newlines=True
+                [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
+                universal_newlines=True,
             )
             if output:
                 files = [
@@ -431,12 +572,15 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
                 )
                 for root, _, filenames in os.walk(tempdir):
                     for filename in filenames:
-                        os.rename(os.path.join(root, filename), os.path.join(root, filename.split("Binary.")[-1]))
+                        os.rename(
+                            os.path.join(root, filename),
+                            os.path.join(root, filename.split("Binary.")[-1]),
+                        )
                 files = [
                     extracted_file.split("Binary.")[-1]
                     for root, _, extracted_files in os.walk(tempdir)
                     for extracted_file in extracted_files
-                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                    if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
             if files:
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
@@ -446,7 +590,14 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
     return "MsiExtract", metadata
 
 
-def Inno_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def Inno_extract(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     """Work on Inno Installers"""
 
     if all("Inno Setup" not in string for string in data_dictionary.get("die", {})):
@@ -460,7 +611,10 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
 
     with tempfile.TemporaryDirectory(prefix="innoextract_") as tempdir:
         try:
-            subprocess.check_output([selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir], universal_newlines=True)
+            subprocess.check_output(
+                [selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir],
+                universal_newlines=True,
+            )
             files = [os.path.join(root, file) for root, _, filenames in os.walk(tempdir) for file in filenames]
             metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
         except subprocess.CalledProcessError:
@@ -471,7 +625,14 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
     return "InnoExtract", metadata
 
 
-def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def kixtart_extract(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     """
     https://github.com/jhumble/Kixtart-Detokenizer/blob/main/detokenize.py
     """
@@ -493,7 +654,14 @@ def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dict
     return "Kixtart", metadata
 
 
-def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def UnAutoIt_extract(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
         return
 
@@ -508,13 +676,14 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
     with tempfile.TemporaryDirectory(prefix="unautoit_") as tempdir:
         try:
             output = subprocess.check_output(
-                [unautoit_binary, "extract-all", "--output-dir", tempdir, file], universal_newlines=True
+                [unautoit_binary, "extract-all", "--output-dir", tempdir, file],
+                universal_newlines=True,
             )
             if output:
                 files = [
                     os.path.join(tempdir, extracted_file)
                     for extracted_file in tempdir
-                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                    if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
         except subprocess.CalledProcessError:
@@ -525,7 +694,14 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
     return "UnAutoIt", metadata
 
 
-def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def UPX_unpack(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     if (
         "UPX compressed" not in filetype
         and all("UPX" not in string for string in data_dictionary.get("die", {}))
@@ -558,7 +734,14 @@ def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionar
 
 
 # ToDo do not ask for password + test with pass
-def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
+def SevenZip_unpack(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
     tool = False
 
     password = ""
@@ -649,13 +832,14 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
         try:
             password = options.get("password", "infected")
             output = subprocess.check_output(
-                ["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir], universal_newlines=True
+                ["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir],
+                universal_newlines=True,
             )
             if output:
                 files = [
                     os.path.join(tempdir, extracted_file)
                     for extracted_file in tempdir
-                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                    if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
 

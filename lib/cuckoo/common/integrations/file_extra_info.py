@@ -285,6 +285,7 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
         Inno_extract,
         SevenZip_unpack,
         de4dot_deobfuscate,
+        eziriz_deobfuscate,
     ):
 
         if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
@@ -357,15 +358,72 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
     return "Vbe", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary)
 
 
+def eziriz_deobfuscate(
+    file: str,
+    destination_folder: str,
+    filetype: str,
+    data_dictionary: dict,
+    options: dict,
+    results: dict,
+):
+    metadata = []
+
+    if file.endswith("_Slayed"):
+        return "eziriz", metadata
+
+    if all("Eziriz .NET Reactor" not in string for string in data_dictionary.get("die", {})):
+        return "eziriz", metadata
+
+    binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
+    if not binary:
+        log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
+        return "eziriz", metadata
+
+    if not Path(binary).exists():
+        log.error(
+            "Missed dependency: Download your version from https://github.com/SychicBoy/NETReactorSlayer/releases and place under %s.",
+            binary,
+        )
+        return "eziriz", metadata
+
+    if not os.access(binary, os.X_OK):
+        log.error("You need to add execution permissions: chmod a+x data/NETReactorSlayer.CLI")
+        return
+
+    with tempfile.TemporaryDirectory(prefix="eziriz_") as tempdir:
+        try:
+            dest_path = os.path.join(tempdir, os.path.basename(file))
+            _ = subprocess.check_output(
+                [
+                    os.path.join(CUCKOO_ROOT, binary),
+                    *shlex.split(selfextract_conf.eziriz_deobfuscate.extra_args.strip()),
+                    file,
+                ],
+                universal_newlines=True,
+            )
+            deobf_file = file + "_Slayed"
+            if not Path(deobf_file).exists():
+                return "eziriz", metadata
+
+            shutil.move(deobf_file, dest_path)
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder))
+        except subprocess.CalledProcessError:
+            log.exception("Failed to deobfuscate %s with de4dot.", file)
+        except Exception as e:
+            log.error(e, exc_info=True)
+
+    return "eziriz", metadata
+
+
 def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     if "Mono" not in filetype:
         return
 
-    de4dot_binary = shlex.split(selfextract_conf.de4dot_deobfuscate.binary.strip())
-    if not de4dot_binary:
+    binary = shlex.split(selfextract_conf.de4dot_deobfuscate.binary.strip())
+    if not binary:
         log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
         return
-    if not Path(de4dot_binary[0]).exists():
+    if not Path(binary[0]).exists():
         log.error("Missed dependency: sudo apt install de4dot")
         return
     metadata = []
@@ -375,7 +433,7 @@ def de4dot_deobfuscate(file: str, destination_folder: str, filetype: str, data_d
             dest_path = os.path.join(tempdir, os.path.basename(file))
             _ = subprocess.check_output(
                 [
-                    *de4dot_binary,
+                    *binary,
                     *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
                     "-f",
                     file,

@@ -2,15 +2,15 @@ import hashlib
 import json
 import logging
 import os
-import time
-import timeit
 import shlex
 import shutil
 import subprocess
 import tempfile
-from typing import List
-from pathlib import Path
+import time
+import timeit
 from concurrent.futures import TimeoutError
+from pathlib import Path
+from typing import List
 
 from pebble import ProcessPool
 
@@ -24,9 +24,7 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 # ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
-from lib.cuckoo.common.integrations.parse_wsf import (
-    WindowsScriptFile,
-)  # EncodedScriptFile
+from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
@@ -64,9 +62,7 @@ except ImportError:
     HAVE_KIXTART = False
 
 try:
-    from lib.cuckoo.common.integrations.vbe_decoder import (
-        decode_file as vbe_decode_file,
-    )
+    from lib.cuckoo.common.integrations.vbe_decoder import decode_file as vbe_decode_file
 
     HAVE_VBE_DECODER = True
 except ImportError:

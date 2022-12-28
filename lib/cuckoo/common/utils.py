@@ -192,7 +192,6 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     need_space, space_available = False, 0
     while True:
         try:
-            path = False
             # Calculate the free disk space in megabytes.
             # Check main FS if processing
             if processing:
@@ -216,7 +215,9 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             return need_space, space_available
 
         if need_space:
-            log.error("Not enough free disk space! (Only %d MB!)", space_available)
+            log.error(
+                "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
+            )
             time.sleep(5)
         else:
             break

@@ -217,66 +217,72 @@ def extract_config(filebuf):
         try:
             pe = pefile.PE(data=filebuf, fast_load=False)
             # image_base = pe.OPTIONAL_HEADER.ImageBase
+            if not hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
+                return end_config
             for rsrc in pe.DIRECTORY_ENTRY_RESOURCE.entries:
                 for entry in rsrc.directory.entries:
-                    if entry.name is not None:
-                        # log.info("id: %s", entry.name)
-                        controllers = []
-                        config = {}
-                        offset = entry.directory.entries[0].data.struct.OffsetToData
-                        size = entry.directory.entries[0].data.struct.Size
-                        res_data = pe.get_memory_mapped_image()[offset : offset + size]
-                        if str(entry.name) == "307":
-                            # we found the parent process and still need to decrypt/(blzpack) decompress the main DLL
-                            dec_bytes = decrypt_data(res_data)
-                            decompressed = decompress(dec_bytes)
-                            end_config["Loader Build"] = parse_build(pe).decode()
-                            pe2 = pefile.PE(data=decompressed)
-                            for rsrc in pe2.DIRECTORY_ENTRY_RESOURCE.entries:
-                                for entry in rsrc.directory.entries:
-                                    if entry.name is not None:
-                                        offset = entry.directory.entries[0].data.struct.OffsetToData
-                                        size = entry.directory.entries[0].data.struct.Size
-                                        res_data = pe2.get_memory_mapped_image()[offset : offset + size]
-                                        if str(entry.name) == "308":
-                                            dec_bytes = decrypt_data(res_data)
-                                            config = parse_config(dec_bytes)
-                                            # log.info("qbot_config: %s", config)
-                                            end_config["Core DLL Build"] = parse_build(pe2).decode()
-                                        elif str(entry.name) == "311":
-                                            dec_bytes = decrypt_data(res_data)
-                                            controllers = parse_controllers(dec_bytes)
-                        elif str(entry.name) == "308":
-                            dec_bytes = decrypt_data(res_data)
-                            config = parse_config(dec_bytes)
-                        elif str(entry.name) == "311":
-                            dec_bytes = decrypt_data(res_data)
-                            controllers = parse_binary_c2(dec_bytes, 7)
-                        elif str(entry.name) in ("118", "3719"):
-                            dec_bytes = decrypt_data2(res_data)
-                            controllers = parse_binary_c2_2(dec_bytes, 7)
-                        elif str(entry.name) in ("524", "5812"):
-                            dec_bytes = decrypt_data2(res_data)
-                            config = parse_config(dec_bytes)
-                        elif str(entry.name) in ("18270D2E", "BABA", "103", "89210AF9"):
-                            dec_bytes = decrypt_data3(res_data)
-                            config = parse_config(dec_bytes)
-                        elif str(entry.name) in ("26F517AB", "EBBA", "102", "3C91E639"):
-                            dec_bytes = decrypt_data3(res_data)
-                            controllers = parse_binary_c2_2(dec_bytes, 7)
-                        elif str(entry.name) in ("89290AF9"):
-                            dec_bytes = decrypt_data4(res_data)
-                            config = parse_config(dec_bytes)
-                        elif str(entry.name) in ("3C91E539"):
-                            dec_bytes = decrypt_data4(res_data)
-                            controllers = parse_binary_c2_2(dec_bytes, 8)
+                    if entry.name is None:
+                        continue
+                    # log.info("id: %s", entry.name)
+                    controllers = []
+                    config = {}
+                    offset = entry.directory.entries[0].data.struct.OffsetToData
+                    size = entry.directory.entries[0].data.struct.Size
+                    res_data = pe.get_memory_mapped_image()[offset : offset + size]
+                    if str(entry.name) == "307":
+                        # we found the parent process and still need to decrypt/(blzpack) decompress the main DLL
+                        dec_bytes = decrypt_data(res_data)
+                        decompressed = decompress(dec_bytes)
                         end_config["Loader Build"] = parse_build(pe).decode()
-                        for k, v in config.items():
-                            # log.info({ k: v })
-                            end_config.setdefault(k, v)
-                        # log.info("controllers: %s", controllers)
-                        for controller in controllers:
-                            end_config.setdefault("address", []).append(controller)
+                        pe2 = pefile.PE(data=decompressed)
+                        if not hasattr(pe2, "DIRECTORY_ENTRY_RESOURCE"):
+                            continue
+                        for rsrc in pe2.DIRECTORY_ENTRY_RESOURCE.entries:
+                            for entry in rsrc.directory.entries:
+                                if entry.name is None:
+                                    continue
+                                offset = entry.directory.entries[0].data.struct.OffsetToData
+                                size = entry.directory.entries[0].data.struct.Size
+                                res_data = pe2.get_memory_mapped_image()[offset : offset + size]
+                                if str(entry.name) == "308":
+                                    dec_bytes = decrypt_data(res_data)
+                                    config = parse_config(dec_bytes)
+                                    # log.info("qbot_config: %s", config)
+                                    end_config["Core DLL Build"] = parse_build(pe2).decode()
+                                elif str(entry.name) == "311":
+                                    dec_bytes = decrypt_data(res_data)
+                                    controllers = parse_controllers(dec_bytes)
+                    elif str(entry.name) == "308":
+                        dec_bytes = decrypt_data(res_data)
+                        config = parse_config(dec_bytes)
+                    elif str(entry.name) == "311":
+                        dec_bytes = decrypt_data(res_data)
+                        controllers = parse_binary_c2(dec_bytes, 7)
+                    elif str(entry.name) in ("118", "3719"):
+                        dec_bytes = decrypt_data2(res_data)
+                        controllers = parse_binary_c2_2(dec_bytes, 7)
+                    elif str(entry.name) in ("524", "5812"):
+                        dec_bytes = decrypt_data2(res_data)
+                        config = parse_config(dec_bytes)
+                    elif str(entry.name) in ("18270D2E", "BABA", "103", "89210AF9"):
+                        dec_bytes = decrypt_data3(res_data)
+                        config = parse_config(dec_bytes)
+                    elif str(entry.name) in ("26F517AB", "EBBA", "102", "3C91E639"):
+                        dec_bytes = decrypt_data3(res_data)
+                        controllers = parse_binary_c2_2(dec_bytes, 7)
+                    elif str(entry.name) in ("89290AF9"):
+                        dec_bytes = decrypt_data4(res_data)
+                        config = parse_config(dec_bytes)
+                    elif str(entry.name) in ("3C91E539"):
+                        dec_bytes = decrypt_data4(res_data)
+                        controllers = parse_binary_c2_2(dec_bytes, 8)
+                    end_config["Loader Build"] = parse_build(pe).decode()
+                    for k, v in config.items():
+                        # log.info({ k: v })
+                        end_config.setdefault(k, v)
+                    # log.info("controllers: %s", controllers)
+                    for controller in controllers:
+                        end_config.setdefault("address", []).append(controller)
         except Exception as e:
             log.warning(e)
     elif filebuf[:1] == b"\x01":

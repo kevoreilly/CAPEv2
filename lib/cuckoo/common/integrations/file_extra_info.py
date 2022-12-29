@@ -282,6 +282,7 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
 
     return metadata
 
+
 def generic_file_extractors(
     file: str,
     destination_folder: str,
@@ -326,7 +327,7 @@ def generic_file_extractors(
                 continue
 
             func_timeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
-            args=(file, destination_folder, filetype, data_dictionary, options, results)
+            args = (file, destination_folder, filetype, data_dictionary, options, results)
             tasks.update({funcname.__name__: pool.schedule(funcname, args=args, timeout=func_timeout)})
 
         while tasks:

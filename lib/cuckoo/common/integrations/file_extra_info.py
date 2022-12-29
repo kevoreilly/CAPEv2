@@ -282,7 +282,6 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
 
     return metadata
 
-
 def generic_file_extractors(
     file: str,
     destination_folder: str,
@@ -305,7 +304,10 @@ def generic_file_extractors(
         os.makedirs(destination_folder)
 
     # Is there are better way to set timeout for function?
-    with ProcessPool() as pool:
+    with ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
+        time_start = timeit.default_timer()
+        tasks = {}
+        results = []
         for funcname in (
             msi_extract,
             kixtart_extract,
@@ -322,40 +324,40 @@ def generic_file_extractors(
 
             if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
                 continue
-            try:
-                extraction_result = None
-                time_start = timeit.default_timer()
-                func_timeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
-                future = pool.schedule(
-                    funcname, args=(file, destination_folder, filetype, data_dictionary, options, results), timeout=func_timeout
-                )
-                try:
 
-                    # Is there a better way to do this?
-                    while not future.done():
+            func_timeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
+            args=(file, destination_folder, filetype, data_dictionary, options, results)
+            tasks.update({funcname.__name__: pool.schedule(funcname, args=args, timeout=func_timeout)})
+
+        while tasks:
+            for fname in list(tasks):
+                delete = False
+                try:
+                    if not tasks[fname].done():
                         time.sleep(2)
                         continue
 
-                    extraction_result = future.result()
-                    if extraction_result is None:
-                        continue
-
-                    tool_name, metadata = extraction_result
-                    if not metadata:
-                        continue
-
-                    for meta in metadata:
-                        is_text_file(meta, destination_folder, 8192)
-                    took_seconds = timeit.default_timer() - time_start
-                    data_dictionary.setdefault("extracted_files", metadata)
-                    data_dictionary.setdefault("extracted_files_tool", tool_name)
-                    data_dictionary.setdefault("extracted_files_time", took_seconds)
+                    ftimeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
+                    extraction_result = tasks[fname].result()
+                    if extraction_result:
+                        tool_name, metadata = extraction_result
+                        if metadata:
+                            for meta in metadata:
+                                is_text_file(meta, destination_folder, 8192)
+                            took_seconds = timeit.default_timer() - time_start
+                            data_dictionary.setdefault("extracted_files", metadata)
+                            data_dictionary.setdefault("extracted_files_tool", tool_name)
+                            data_dictionary.setdefault("extracted_files_time", took_seconds)
+                    delete = True
                 except (StopIteration, TimeoutError) as error:
-                    log.debug("Function: %s took longer than %d seconds", funcname.__name__, error.args[1])
+                    log.debug("Function: %s took longer than %d seconds", fname, ftimeout)
+                    delete = True
                 except Exception as error:
-                    log.error("file_extra_info: %s", str(error))
-            except Exception as e:
-                log.error(e, exc_info=True)
+                    log.error("file_extra_info: %s", str(error), exc_info=True)
+                    delete = True
+
+                if delete:
+                    del tasks[fname]
 
 
 def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict):

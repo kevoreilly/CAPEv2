@@ -304,25 +304,25 @@ def generic_file_extractors(
     if not Path(destination_folder).exists():
         os.makedirs(destination_folder)
 
-    for funcname in (
-        msi_extract,
-        kixtart_extract,
-        vbe_extract,
-        batch_extract,
-        UnAutoIt_extract,
-        UPX_unpack,
-        RarSFX_extract,
-        Inno_extract,
-        SevenZip_unpack,
-        de4dot_deobfuscate,
-        eziriz_deobfuscate,
-    ):
+    # Is there are better way to set timeout for function?
+    with ProcessPool() as pool:
+        for funcname in (
+            msi_extract,
+            kixtart_extract,
+            vbe_extract,
+            batch_extract,
+            UnAutoIt_extract,
+            UPX_unpack,
+            RarSFX_extract,
+            Inno_extract,
+            SevenZip_unpack,
+            de4dot_deobfuscate,
+            eziriz_deobfuscate,
+        ):
 
-        if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
-            continue
-        try:
-            # Is there are better way to set timeout for function?
-            with ProcessPool() as pool:
+            if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
+                continue
+            try:
                 extraction_result = None
                 time_start = timeit.default_timer()
                 func_timeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
@@ -330,6 +330,8 @@ def generic_file_extractors(
                     funcname, args=(file, destination_folder, filetype, data_dictionary, options, results), timeout=func_timeout
                 )
                 try:
+
+                    # Is there a better way to do this?
                     while not future.done():
                         time.sleep(2)
                         continue
@@ -352,8 +354,8 @@ def generic_file_extractors(
                     log.debug("Function: %s took longer than %d seconds", funcname.__name__, error.args[1])
                 except Exception as error:
                     log.error("file_extra_info: %s", str(error))
-        except Exception as e:
-            log.error(e, exc_info=True)
+            except Exception as e:
+                log.error(e, exc_info=True)
 
 
 def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict):

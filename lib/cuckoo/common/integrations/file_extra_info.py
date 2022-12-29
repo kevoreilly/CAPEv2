@@ -308,7 +308,6 @@ def generic_file_extractors(
     with ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
         time_start = timeit.default_timer()
         tasks = {}
-        results = []
         for funcname in (
             msi_extract,
             kixtart_extract,

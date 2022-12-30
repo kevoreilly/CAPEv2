@@ -349,7 +349,7 @@ def generic_file_extractors(
                             data_dictionary.setdefault("extracted_files_tool", tool_name)
                             data_dictionary.setdefault("extracted_files_time", took_seconds)
                     delete = True
-                except (StopIteration, TimeoutError) as error:
+                except (StopIteration, TimeoutError):
                     log.debug("Function: %s took longer than %d seconds", fname, ftimeout)
                     delete = True
                 except Exception as error:

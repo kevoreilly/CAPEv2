@@ -295,8 +295,11 @@ class CAPE(Processing):
                     file_info["cape_type"] = hit["meta"]["cape_type"]
                     cape_name = File.get_cape_name_from_yara_hit(hit)
                     cape_names.add(cape_name)
+                else:
+                    cape_name = None
             except Exception as e:
-                print(f"Cape type error: {e}")
+                log.error(f"Cape type error: {e}")
+                cape_name = None
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
                 if type_strings[0] in ("PE32+", "PE32"):

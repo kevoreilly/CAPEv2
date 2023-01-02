@@ -302,6 +302,13 @@ def generic_file_extractors(
     if not Path(destination_folder).exists():
         os.makedirs(destination_folder)
 
+    # to handle duplicate metadata. Removed in plugins.py
+    results.setdefault("extracted_files_control", {})
+    if data_dictionary["sha256"] in results["extracted_files_control"]:
+        for result in results["extracted_files_control"][data_dictionary["sha256"]]:
+            data_dictionary.update(result)
+        return
+
     # Is there are better way to set timeout for function?
     with Pool(processes=int(selfextract_conf.general.max_workers)) as pool:
         time_start = timeit.default_timer()
@@ -344,13 +351,16 @@ def generic_file_extractors(
                         if metadata:
                             for meta in metadata:
                                 is_text_file(meta, destination_folder, 8192)
-                            took_seconds = timeit.default_timer() - time_start
-                            data_dictionary.setdefault("extracted_files", metadata)
-                            data_dictionary.setdefault("extracted_files_tool", tool_name)
-                            data_dictionary.setdefault("extracted_files_time", took_seconds)
+                            result = {
+                                "extracted_files": metadata,
+                                "extracted_files_tool": tool_name,
+                                "extracted_files_time": timeit.default_timer() - time_start,
+                            }
+                            data_dictionary.update(result)
+                            results["extracted_files_control"].setdefault(data_dictionary["sha256"], []).append(result)
                     delete = True
-                except (StopIteration, TimeoutError):
-                    log.debug("Function: %s took longer than %d seconds", fname, tasks[fname]["timeout"])
+                except (StopIteration, TimeoutError, TypeError):
+                    log.debug("Function: %s took: %d, allowed: %d seconds", fname, timeit.default_timer() - time_start, tasks[fname]["timeout"])
                     delete = True
                 except Exception as error:
                     log.error("file_extra_info: %s", str(error), exc_info=True)

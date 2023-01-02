@@ -359,6 +359,9 @@ def generic_file_extractors(
                 if delete:
                     del tasks[fname]
 
+                if not tasks:
+                    return
+
 
 def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict):
     with tempfile.TemporaryDirectory() as tempdir:

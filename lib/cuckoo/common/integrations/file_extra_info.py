@@ -8,11 +8,10 @@ import subprocess
 import tempfile
 import time
 import timeit
-from concurrent.futures import TimeoutError
+from multiprocessing.context import TimeoutError
+from multiprocessing.pool import Pool
 from pathlib import Path
 from typing import List
-
-from pebble import ProcessPool
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -36,7 +35,6 @@ try:
     HAVE_SFLOCK = True
 except ImportError:
     HAVE_SFLOCK = False
-
 
 processing_conf = Config("processing")
 
@@ -305,7 +303,7 @@ def generic_file_extractors(
         os.makedirs(destination_folder)
 
     # Is there are better way to set timeout for function?
-    with ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
+    with Pool(processes=int(selfextract_conf.general.max_workers)) as pool:
         time_start = timeit.default_timer()
         tasks = {}
         for funcname in (
@@ -327,18 +325,20 @@ def generic_file_extractors(
 
             func_timeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
             args = (file, destination_folder, filetype, data_dictionary, options, results)
-            tasks.update({funcname.__name__: pool.schedule(funcname, args=args, timeout=func_timeout)})
+            tasks.update({funcname.__name__: {"func": pool.apply_async(funcname, args=args), "timeout": func_timeout}})
 
         while tasks:
             for fname in list(tasks):
                 delete = False
                 try:
-                    if not tasks[fname].done():
-                        time.sleep(2)
+                    if tasks[fname]["func"].ready() or timeit.default_timer() - time_start < tasks[fname]["timeout"]:
+                        # Manual sleep instead of .get(timeout=X) to not block.
+                        # Imagine func A has timeout 30 but func B has timeout 10
+                        time.sleep(5)
                         continue
 
-                    ftimeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
-                    extraction_result = tasks[fname].result()
+                    # Custom, due to that funcs can finish before than their timeout
+                    extraction_result = tasks[fname]["func"].get(timeout=2)
                     if extraction_result:
                         tool_name, metadata = extraction_result
                         if metadata:
@@ -350,7 +350,7 @@ def generic_file_extractors(
                             data_dictionary.setdefault("extracted_files_time", took_seconds)
                     delete = True
                 except (StopIteration, TimeoutError):
-                    log.debug("Function: %s took longer than %d seconds", fname, ftimeout)
+                    log.debug("Function: %s took longer than %d seconds", fname, tasks[fname]["timeout"])
                     delete = True
                 except Exception as error:
                     log.error("file_extra_info: %s", str(error), exc_info=True)
@@ -784,8 +784,7 @@ def SevenZip_unpack(
             if HAVE_SFLOCK:
                 unpacked = unpack(file.encode(), password=password)
                 for child in unpacked.children:
-                    name = os.path.join(tempdir, child.filename.decode())
-                    _ = Path(name).write_bytes(child.contents)
+                    _ = Path(os.path.join(tempdir, child.filename.decode())).write_bytes(child.contents)
             else:
                 output = subprocess.check_output(
                     [

@@ -360,7 +360,12 @@ def generic_file_extractors(
                             results["extracted_files_control"].setdefault(data_dictionary["sha256"], []).append(result)
                     delete = True
                 except (StopIteration, TimeoutError, TypeError):
-                    log.debug("Function: %s took: %d, allowed: %d seconds", fname, timeit.default_timer() - time_start, tasks[fname]["timeout"])
+                    log.debug(
+                        "Function: %s took: %d, allowed: %d seconds",
+                        fname,
+                        timeit.default_timer() - time_start,
+                        tasks[fname]["timeout"],
+                    )
                     delete = True
                 except Exception as error:
                     log.error("file_extra_info: %s", str(error), exc_info=True)

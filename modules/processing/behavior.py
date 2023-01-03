@@ -313,6 +313,9 @@ class ParseProcessLog(list):
             if not self.reporting_mode:
                 if isinstance(arg_value_raw, bytes):
                     argument["raw_value"] = bytes.hex(arg_value_raw)
+                elif isinstance(arg_value_raw, int) and arg_value_raw > 0x7fffffffffffffff:
+                    # Mongo can't support ints larger than this.
+                    argument["raw_value_string"] = str(arg_value_raw)
                 else:
                     argument["raw_value"] = arg_value
 

@@ -2,16 +2,16 @@ import hashlib
 import json
 import logging
 import os
-import time
-import timeit
 import shlex
 import shutil
 import subprocess
 import tempfile
-from typing import List
-from pathlib import Path
-from multiprocessing.pool import Pool
+import time
+import timeit
 from multiprocessing.context import TimeoutError
+from multiprocessing.pool import Pool
+from pathlib import Path
+from typing import List
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -23,9 +23,7 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 # ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
-from lib.cuckoo.common.integrations.parse_wsf import (
-    WindowsScriptFile,
-)  # EncodedScriptFile
+from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
@@ -62,9 +60,7 @@ except ImportError:
     HAVE_KIXTART = False
 
 try:
-    from lib.cuckoo.common.integrations.vbe_decoder import (
-        decode_file as vbe_decode_file,
-    )
+    from lib.cuckoo.common.integrations.vbe_decoder import decode_file as vbe_decode_file
 
     HAVE_VBE_DECODER = True
 except ImportError:
@@ -106,7 +102,7 @@ excluded_extensions = (".parti",)
 
 def _get_sha256(file: str, data_dictionary: dict):
     """
-        Aux function to get sha256, as some modules doesn't provide
+    Aux function to get sha256, as some modules doesn't provide
     """
     if "sha256" in data_dictionary:
         return data_dictionary["sha256"]
@@ -116,6 +112,7 @@ def _get_sha256(file: str, data_dictionary: dict):
         return
 
     return hashlib.sha256(f.read_bytes()).hexdigest()
+
 
 def static_file_info(
     data_dictionary: dict,
@@ -381,11 +378,13 @@ def generic_file_extractors(
                             for meta in metadata:
                                 meta["data"] = is_text_file(meta, destination_folder, 8192)
                             took_seconds = timeit.default_timer() - time_start
-                            data_dictionary.update({
-                                "extracted_files": metadata,
-                                "extracted_files_tool": tool_name,
-                                "extracted_files_time": took_seconds,
-                            })
+                            data_dictionary.update(
+                                {
+                                    "extracted_files": metadata,
+                                    "extracted_files_tool": tool_name,
+                                    "extracted_files_time": took_seconds,
+                                }
+                            )
                     delete = True
                 except (StopIteration, TimeoutError, TypeError):
                     log.debug("Function: %s took longer than %d seconds", fname, tasks[fname]["timeout"])

@@ -101,6 +101,9 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 
     HAVE_VIRUSTOTAL = True
 
+excluded_extensions = (".parti",)
+
+
 def _get_sha256(file: str, data_dictionary: dict):
     """
         Aux function to get sha256, as some modules doesn't provide
@@ -190,29 +193,30 @@ def static_file_info(
 
     data = Path(file_path).read_bytes()
 
-    tmp_data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
+    if not file_path.endswith(excluded_extensions):
+        tmp_data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
 
-    if processing_conf.trid.enabled:
-        tmp_data_dictionary["trid"] = trid_info(file_path)
+        if processing_conf.trid.enabled:
+            tmp_data_dictionary["trid"] = trid_info(file_path)
 
-    if processing_conf.die.enabled:
-        tmp_data_dictionary["die"] = detect_it_easy_info(file_path)
+        if processing_conf.die.enabled:
+            tmp_data_dictionary["die"] = detect_it_easy_info(file_path)
 
-    if HAVE_FLOSS and processing_conf.floss.enabled:
-        floss_strings = Floss(file_path, package).run()
-        if floss_strings:
-            tmp_data_dictionary["floss"] = floss_strings
+        if HAVE_FLOSS and processing_conf.floss.enabled:
+            floss_strings = Floss(file_path, package).run()
+            if floss_strings:
+                tmp_data_dictionary["floss"] = floss_strings
 
-    if HAVE_STRINGS:
-        strings = extract_strings(file_path)
-        if strings:
-            tmp_data_dictionary["strings"] = strings
+        if HAVE_STRINGS:
+            strings = extract_strings(file_path)
+            if strings:
+                tmp_data_dictionary["strings"] = strings
 
-    # ToDo we need url support
-    if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
-        vt_details = vt_lookup("file", file_path, results)
-        if vt_details:
-            tmp_data_dictionary["virustotal"] = vt_details
+        # ToDo we need url support
+        if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
+            vt_details = vt_lookup("file", file_path, results)
+            if vt_details:
+                tmp_data_dictionary["virustotal"] = vt_details
 
     generic_file_extractors(
         file_path,
@@ -335,7 +339,7 @@ def generic_file_extractors(
         os.makedirs(destination_folder)
 
     # Is there are better way to set timeout for function?
-    with Pool(processes=1) as pool:  # int(selfextract_conf.general.max_workers)
+    with Pool(processes=int(selfextract_conf.general.max_workers)) as pool:
         time_start = timeit.default_timer()
         tasks = {}
         for funcname in (
@@ -375,7 +379,7 @@ def generic_file_extractors(
                         tool_name, metadata = extraction_result
                         if metadata:
                             for meta in metadata:
-                                is_text_file(meta, destination_folder, 8192)
+                                meta["data"] = is_text_file(meta, destination_folder, 8192)
                             took_seconds = timeit.default_timer() - time_start
                             data_dictionary.update({
                                 "extracted_files": metadata,

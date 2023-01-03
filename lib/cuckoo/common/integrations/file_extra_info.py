@@ -2,16 +2,16 @@ import hashlib
 import json
 import logging
 import os
+import time
+import timeit
 import shlex
 import shutil
 import subprocess
 import tempfile
-import time
-import timeit
-from multiprocessing.context import TimeoutError
-from multiprocessing.pool import Pool
-from pathlib import Path
 from typing import List
+from pathlib import Path
+from multiprocessing.pool import Pool
+from multiprocessing.context import TimeoutError
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -23,7 +23,9 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 # ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
-from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
+from lib.cuckoo.common.integrations.parse_wsf import (
+    WindowsScriptFile,
+)  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
@@ -60,7 +62,9 @@ except ImportError:
     HAVE_KIXTART = False
 
 try:
-    from lib.cuckoo.common.integrations.vbe_decoder import decode_file as vbe_decode_file
+    from lib.cuckoo.common.integrations.vbe_decoder import (
+        decode_file as vbe_decode_file,
+    )
 
     HAVE_VBE_DECODER = True
 except ImportError:
@@ -97,6 +101,21 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 
     HAVE_VIRUSTOTAL = True
 
+excluded_extensions = (".parti",)
+
+
+def _get_sha256(file: str, data_dictionary: dict):
+    """
+        Aux function to get sha256, as some modules doesn't provide
+    """
+    if "sha256" in data_dictionary:
+        return data_dictionary["sha256"]
+
+    f = Path(file)
+    if not f.exists():
+        return
+
+    return hashlib.sha256(f.read_bytes()).hexdigest()
 
 def static_file_info(
     data_dictionary: dict,
@@ -111,6 +130,15 @@ def static_file_info(
     if int(os.path.getsize(file_path) / (1024 * 1024)) > int(processing_conf.static.max_file_size):
         return
 
+    # Cache dictionary. Removed in plugins.py
+    results.setdefault("static_file_info_control", {})
+    sha256 = _get_sha256(file_path, data_dictionary)
+    if sha256:
+
+        if sha256 in results["static_file_info_control"]:
+            data_dictionary.update(results["static_file_info_control"][sha256])
+            return
+
     if (
         not HAVE_OLETOOLS
         and "Zip archive data, at least v2.0" in data_dictionary["type"]
@@ -120,71 +148,75 @@ def static_file_info(
 
     options_dict = get_options(options)
 
+    tmp_data_dictionary = {}
+
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
-        data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
+        tmp_data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
 
         if HAVE_FLARE_CAPA:
             capa_details = flare_capa_details(file_path, "static")
             if capa_details:
-                data_dictionary["flare_capa"] = capa_details
+                tmp_data_dictionary["flare_capa"] = capa_details
 
         if HAVE_FLOSS:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
-                data_dictionary["floss"] = floss_strings
+                tmp_data_dictionary["floss"] = floss_strings
 
         if "Mono" in data_dictionary["type"]:
-            data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
+            tmp_data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
     elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"}:
         # options is dict where we need to get pass get_options
-        data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
+        tmp_data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
     elif "PDF" in data_dictionary["type"] or file_path.endswith(".pdf"):
-        data_dictionary["pdf"] = PDF(file_path).run()
+        tmp_data_dictionary["pdf"] = PDF(file_path).run()
     elif package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf"):
-        data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
+        tmp_data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
     elif package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]:
-        data_dictionary["lnk"] = LnkShortcut(file_path).run()
+        tmp_data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
         if selfextract_conf.procyon.binary and not Path(selfextract_conf.procyon.binary).exists():
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
-            data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
+            tmp_data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
 
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.
     # elif "ELF" in data_dictionary["type"] or file_path.endswith(".elf"):
-    #    data_dictionary["elf"] = ELF(file_path).run()
-    #    data_dictionary["keys"] = f.get_keys()
+    #    tmp_data_dictionary["elf"] = ELF(file_path).run()
+    #    tmp_data_dictionary["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package == "hwp":
-    #    data_dictionary["hwp"] = HwpDocument(file_path).run()
+    #    tmp_data_dictionary["hwp"] = HwpDocument(file_path).run()
 
     data = Path(file_path).read_bytes()
-    is_text_file(data_dictionary, file_path, 8192, data)
 
-    if processing_conf.trid.enabled:
-        trid_info(file_path, data_dictionary)
+    if not file_path.endswith(excluded_extensions):
+        tmp_data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
 
-    if processing_conf.die.enabled:
-        detect_it_easy_info(file_path, data_dictionary)
+        if processing_conf.trid.enabled:
+            tmp_data_dictionary["trid"] = trid_info(file_path)
 
-    if HAVE_FLOSS and processing_conf.floss.enabled:
-        floss_strings = Floss(file_path, package).run()
-        if floss_strings:
-            data_dictionary["floss"] = floss_strings
+        if processing_conf.die.enabled:
+            tmp_data_dictionary["die"] = detect_it_easy_info(file_path)
 
-    if HAVE_STRINGS:
-        strings = extract_strings(file_path)
-        if strings:
-            data_dictionary["strings"] = strings
+        if HAVE_FLOSS and processing_conf.floss.enabled:
+            floss_strings = Floss(file_path, package).run()
+            if floss_strings:
+                tmp_data_dictionary["floss"] = floss_strings
 
-    # ToDo we need url support
-    if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
-        vt_details = vt_lookup("file", file_path, results)
-        if vt_details:
-            data_dictionary["virustotal"] = vt_details
+        if HAVE_STRINGS:
+            strings = extract_strings(file_path)
+            if strings:
+                tmp_data_dictionary["strings"] = strings
+
+        # ToDo we need url support
+        if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
+            vt_details = vt_lookup("file", file_path, results)
+            if vt_details:
+                tmp_data_dictionary["virustotal"] = vt_details
 
     generic_file_extractors(
         file_path,
@@ -195,8 +227,12 @@ def static_file_info(
         results,
     )
 
+    # Add all results to original dictionary
+    data_dictionary.update(tmp_data_dictionary)
+    results["static_file_info_control"][sha256] = tmp_data_dictionary
 
-def detect_it_easy_info(file_path: str, data_dictionary: dict):
+
+def detect_it_easy_info(file_path: str):
     if not Path(processing_conf.die.binary).exists():
         return
 
@@ -212,20 +248,20 @@ def detect_it_easy_info(file_path: str, data_dictionary: dict):
         strings = [sub["string"] for block in json.loads(output).get("detects", []) for sub in block.get("values", [])]
 
         if strings:
-            data_dictionary["die"] = strings
+            return strings
     except subprocess.CalledProcessError:
         log.warning("You need to configure your server to make TrID work properly")
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
 
 
-def trid_info(file_path: dict, data_dictionary: dict):
+def trid_info(file_path: dict):
     try:
         output = subprocess.check_output(
             [trid_binary, f"-d:{definitions}", file_path],
             stderr=subprocess.STDOUT,
             universal_newlines=True,
         )
-        data_dictionary["trid"] = output.split("\n")[6:-1]
+        return output.split("\n")[6:-1]
     except subprocess.CalledProcessError:
         log.warning("You need to configure your server to make TrID work properly")
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
@@ -252,10 +288,10 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
             file_details, _pe = File(full_path).get_all()
 
             if processing_conf.trid.enabled:
-                trid_info(full_path, file_details)
+                file_details["trid"] = trid_info(full_path)
 
             if processing_conf.die.enabled:
-                detect_it_easy_info(full_path, file_details)
+                file_details["die"] = detect_it_easy_info(full_path)
 
             dest_path = os.path.join(destination_folder, file_details["sha256"])
             file_details["path"] = dest_path
@@ -302,13 +338,6 @@ def generic_file_extractors(
     if not Path(destination_folder).exists():
         os.makedirs(destination_folder)
 
-    # to handle duplicate metadata. Removed in plugins.py
-    results.setdefault("extracted_files_control", {})
-    if data_dictionary["sha256"] in results["extracted_files_control"]:
-        for result in results["extracted_files_control"][data_dictionary["sha256"]]:
-            data_dictionary.update(result)
-        return
-
     # Is there are better way to set timeout for function?
     with Pool(processes=int(selfextract_conf.general.max_workers)) as pool:
         time_start = timeit.default_timer()
@@ -338,34 +367,28 @@ def generic_file_extractors(
             for fname in list(tasks):
                 delete = False
                 try:
-                    if tasks[fname]["func"].ready() or timeit.default_timer() - time_start < tasks[fname]["timeout"]:
+                    if not tasks[fname]["func"].ready() and timeit.default_timer() - time_start < tasks[fname]["timeout"]:
                         # Manual sleep instead of .get(timeout=X) to not block.
                         # Imagine func A has timeout 30 but func B has timeout 10
+                        log.debug("Processing func %s for file %s", fname, file)
                         time.sleep(5)
                         continue
 
-                    # Custom, due to that funcs can finish before than their timeout
-                    extraction_result = tasks[fname]["func"].get(timeout=2)
+                    extraction_result = tasks[fname]["func"].get()
                     if extraction_result:
                         tool_name, metadata = extraction_result
                         if metadata:
                             for meta in metadata:
-                                is_text_file(meta, destination_folder, 8192)
-                            result = {
+                                meta["data"] = is_text_file(meta, destination_folder, 8192)
+                            took_seconds = timeit.default_timer() - time_start
+                            data_dictionary.update({
                                 "extracted_files": metadata,
                                 "extracted_files_tool": tool_name,
-                                "extracted_files_time": timeit.default_timer() - time_start,
-                            }
-                            data_dictionary.update(result)
-                            results["extracted_files_control"].setdefault(data_dictionary["sha256"], []).append(result)
+                                "extracted_files_time": took_seconds,
+                            })
                     delete = True
                 except (StopIteration, TimeoutError, TypeError):
-                    log.debug(
-                        "Function: %s took: %d, allowed: %d seconds",
-                        fname,
-                        timeit.default_timer() - time_start,
-                        tasks[fname]["timeout"],
-                    )
+                    log.debug("Function: %s took longer than %d seconds", fname, tasks[fname]["timeout"])
                     delete = True
                 except Exception as error:
                     log.error("file_extra_info: %s", str(error), exc_info=True)
@@ -373,7 +396,6 @@ def generic_file_extractors(
 
                 if delete:
                     del tasks[fname]
-
                 if not tasks:
                     return
 

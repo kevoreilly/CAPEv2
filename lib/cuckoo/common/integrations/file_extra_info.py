@@ -361,7 +361,6 @@ def generic_file_extractors(
 
         while tasks:
             for fname in list(tasks):
-                result = None
                 delete = False
                 try:
                     if not tasks[fname]["func"].ready() and timeit.default_timer() - time_start < tasks[fname]["timeout"]:

@@ -434,6 +434,9 @@ def main():
                         if report:
                             results = json.load(open(report))
                     if results is not None:
+                        # If the "statistics" key-value pair has not been set by now, set it here
+                        if "statistics" not in results:
+                            results["statistics"] = {"signatures": []}
                         RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
                 else:
                     process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)

@@ -28,9 +28,6 @@ from socket import inet_ntoa
 from struct import calcsize, unpack_from
 
 
-class PlugXConfig:
-    """Locate and parse the PlugX configuration"""
-
 persistence = defaultdict(lambda: "Unknown", {0: "Service + Run Key", 1: "Service", 2: "Run key", 3: "None"})
 regs = defaultdict(
     lambda: "Unknown",

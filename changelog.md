@@ -1,3 +1,6 @@
+### [4.1.2023]
+* Monitor update: Fix 32-bit stack recursion hook issue (affecting, for example, golang binaries)
+
 ### [28.12.2022] NETReactorSlayer
 * Integrated deobfuscator and unpacker for Eziriz .NET Reactor. [Source](https://github.com/SychicBoy/NETReactorSlayer).
     * You need to download version for your CPU and extract it to `data/NETReactorSlayer.CLI`

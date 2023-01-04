@@ -66,8 +66,6 @@ code_mapping = {
     AMSISTREAM: "AMSI Stream",
 }
 
-name_mapping = {}
-
 inject_map = {
     INJECTION_PE: "Injected PE Image",
     INJECTION_SHELLCODE: "Injected Shellcode/Data",
@@ -169,22 +167,17 @@ class CAPE(Processing):
                         file_info["cape_type"] += "DLL"
                     else:
                         file_info["cape_type"] += "executable"
-                if file_info["cape_type_code"] in name_mapping:
-                    cape_name = name_mapping[file_info["cape_type_code"]]
                 append_file = True
 
         return type_string, append_file
 
-    def process_file(self, file_path, append_file, metadata=None, category: str=False) -> dict:
+    def process_file(self, file_path, append_file, metadata: dict={}, category: str=False) -> dict:
         """Process file.
         @return: file_info
         """
 
         if not Path(file_path).exists():
             return
-
-        if metadata is None:
-            metadata = {}
 
         cape_names = set()
         buf_size = self.options.get("buffer", 8192)
@@ -361,10 +354,10 @@ class CAPE(Processing):
 
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta[filepath] = {
-                    "pids": entry["pids"],
-                    "ppids": entry["ppids"],
-                    "filepath": entry["filepath"],
-                    "metadata": entry["metadata"],
+                    "pids": entry.get("pids"),
+                    "ppids": entry.get("ppids"),
+                    "filepath": entry.get("filepath", ""),
+                    "metadata": entry.get("metadata", {}),
                 }
 
         for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):

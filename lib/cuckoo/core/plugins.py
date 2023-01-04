@@ -501,6 +501,10 @@ class RunSignatures:
         if test_signature:
             self.evented_list = next((sig for sig in self.evented_list if sig.name == test_signature), [])
             self.non_evented_list = next((sig for sig in self.non_evented_list if sig.name == test_signature), [])
+            if not isinstance(self.evented_list, list):
+                self.evented_list = [self.evented_list]
+            if not isinstance(self.non_evented_list, list):
+                self.non_evented_list = [self.non_evented_list]
 
         if self.evented_list and "behavior" in self.results:
             log.debug("Running %d evented signatures", len(self.evented_list))
@@ -539,6 +543,8 @@ class RunSignatures:
                             pretime = timeit.default_timer()
                             result = sig.on_call(call, proc)
                             timediff = timeit.default_timer() - pretime
+                            if sig.name not in stats:
+                                stats[sig.name] = 0
                             stats[sig.name] += timediff
                         except NotImplementedError:
                             result = False

@@ -132,12 +132,12 @@ def extract_config(cfg_blob):
         config_output.update({"Custom DNS 4": inet_ntoa(custom_dns[12:16])})
     # CC
     num_cc = 4 if cfg_sz not in (0x36A4, 0x4EA4) else 16
-    get_proto = get_proto if cfg_sz not in (0x36A4, 0x4EA4) else get_proto2
+    get_proto_func = get_proto if cfg_sz not in (0x36A4, 0x4EA4) else get_proto2
     cc_list = []
     for _ in range(num_cc):
         proto, cc_port, cc_address = unpack_from("<2H64s", cfg_blob)
         cfg_blob = cfg_blob[0x44:]
-        proto = get_proto(proto)
+        proto = get_proto_func(proto)
         cc_address = cc_address.split(b"\x00", 1)[0].decode()
         if cc_address != "":
             cc_list.append(f"{cc_address}:{cc_port} (proto)")

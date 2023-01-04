@@ -102,9 +102,8 @@ class CAPE(Processing):
             config = {cape_name: config}
         return config
 
-    def _metadata_processing(self, metadata, file_info):
+    def _metadata_processing(self, metadata, file_info, append_file):
         type_string = ""
-        append_file = False
 
         metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
@@ -196,7 +195,7 @@ class CAPE(Processing):
             self.results,
         )
 
-        type_string, append_file = self._metadata_processing(metadata, file_info)
+        type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
             another_module = {
@@ -317,7 +316,7 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file:
-            if HAVE_FLARE_CAPA:
+            if HAVE_FLARE_CAPA and category == "CAPE":
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:

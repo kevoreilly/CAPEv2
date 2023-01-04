@@ -25,7 +25,7 @@ from lib.cuckoo.common.cape_utils import pe_map, static_config_parsers, cape_nam
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus, make_bytes, convert_to_printable_and_truncate, wide2str
+from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus, make_bytes, convert_to_printable_and_truncate, wide2str, texttypes
 try:
     import pydeep
 
@@ -75,13 +75,6 @@ unpack_map = {
     UNPACKED_PE: "Unpacked PE Image",
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
-
-texttypes = [
-    "ASCII",
-    "Windows Registry text",
-    "XML document text",
-    "Unicode text",
-]
 
 
 class CAPE(Processing):

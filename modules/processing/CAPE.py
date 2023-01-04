@@ -253,7 +253,6 @@ class CAPE(Processing):
                     filedata = drop_open.read(buf_size + 1)
                 file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
             if file_info["pid"]:
-                # ToDo check if pid is list
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
             if HAVE_FLARE_CAPA:
@@ -265,7 +264,6 @@ class CAPE(Processing):
 
             self.results.setdefault(category, []).append(file_info)
 
-        # ToDo add filedata arg and not read this one if we have it, as we read it for dropped already
         # Get the file data
         file_data = Path(file_info["path"]).read_bytes()
         # PlugX
@@ -321,7 +319,6 @@ class CAPE(Processing):
             append_file = True
 
         # Process CAPE Yara hits
-
         # Prefilter extracted data + beauty is better than oneliner:
         all_files = []
         for extracted_file in file_info.get("extracted_files", []):

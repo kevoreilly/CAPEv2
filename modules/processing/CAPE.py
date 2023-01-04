@@ -145,7 +145,7 @@ class CAPE(Processing):
             if type_strings[0] == "MS-DOS":
                 file_info["cape_type"] = "DOS MZ image: executable"
             else:
-                file_info["cape_type"] = "PE image"
+                file_info["cape_type"] = file_info["cape_type"] or "PE image"
                 if type_strings[0] in ("PE32+", "PE32"):
                     file_info["cape_type"] += pe_map[type_strings[0]]
                     file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"

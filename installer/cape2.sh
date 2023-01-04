@@ -23,7 +23,7 @@ grafana_version=7.1.5
 node_exporter_version=1.0.1
 guacamole_version=1.4.0
 
-DIE_VERSION="3.05"
+DIE_VERSION="3.07"
 UBUNTU_VERSION=$(lsb_release -rs)
 
 TOR_SOCKET_TIMEOUT="60"

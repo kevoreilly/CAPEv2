@@ -172,8 +172,7 @@ def extract_config(cfg_blob):
     if cfg_sz in (0x1B18, 0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
         persistence_type = unpack_from("<L", cfg_blob)[0]
         cfg_blob = cfg_blob[4:]
-        persistence = persistence[persistence_type]
-        config_output.update({"Persistence Type": persistence})
+        config_output.update({"Persistence Type": persistence[persistence_type]})
     install_dir = get_str_utf16le(cfg_blob[:str_sz])
     cfg_blob = cfg_blob[str_sz:]
     config_output.update({"Install Dir": install_dir})

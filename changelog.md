@@ -1,5 +1,10 @@
 ### [4.1.2023]
 * Monitor update: Fix 32-bit stack recursion hook issue (affecting, for example, golang binaries)
+* Big duplicated code cleanup. Context: CAPE.py module processing all the files so it calling File(x).get_all() which is pretty heavy.
+* Deprecated standalone modules. They are moved inside of CAPE.py. Data will be under the same keys.
+    * Target info - Now only will generate data for url analysis
+    * Dropped
+    * ProcDump
 
 ### [28.12.2022] NETReactorSlayer
 * Integrated deobfuscator and unpacker for Eziriz .NET Reactor. [Source](https://github.com/SychicBoy/NETReactorSlayer).

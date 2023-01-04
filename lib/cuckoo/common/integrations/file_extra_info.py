@@ -385,6 +385,7 @@ def generic_file_extractors(
                                     "extracted_files_time": took_seconds,
                                 }
                             )
+                            # self.add_statistic_tmp(tool_name, "time", pretime)
                     delete = True
                 except (StopIteration, TimeoutError, TypeError):
                     log.debug("Function: %s took longer than %d seconds", fname, tasks[fname]["timeout"])

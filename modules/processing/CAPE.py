@@ -20,15 +20,15 @@ import logging
 import os
 import timeit
 from pathlib import Path
+from contextlib import suppress
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import pe_map, plugx_parser, static_config_parsers
+from lib.cuckoo.common.cape_utils import pe_map, plugx_parser, static_config_parsers, cape_name_from_yara
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus, make_bytes
-
+from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus, make_bytes, convert_to_printable_and_truncate, wide2str
 try:
     import pydeep
 
@@ -90,6 +90,13 @@ unpack_map = {
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
 
+texttypes = [
+    "ASCII",
+    "Windows Registry text",
+    "XML document text",
+    "Unicode text",
+]
+
 
 class CAPE(Processing):
     """CAPE output file processing."""
@@ -116,46 +123,9 @@ class CAPE(Processing):
             config = {cape_name: config}
         return config
 
-    def process_file(self, file_path, append_file, metadata=None):
-        """Process file.
-        @return: file_info
-        """
-
-        if metadata is None:
-            metadata = {}
-        cape_name = ""
+    def _metadata_processing(self, metadata, file_info):
         type_string = ""
-
-        if not os.path.exists(file_path):
-            return
-
-        file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
-        cape_names = set()
-
-        if pefile_object:
-            self.results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
-
-        if file_info.get("clamav") and processing_conf.detections.clamav:
-            clamav_detection = get_clamav_consensus(file_info["clamav"])
-            if clamav_detection:
-                add_family_detection(self.results, clamav_detection, "ClamAV", file_info["sha256"])
-
-        # should we use dropped path here?
-        static_file_info(
-            file_info,
-            file_path,
-            str(self.task["id"]),
-            self.task.get("package", ""),
-            self.task.get("options", ""),
-            self.self_extracted,
-            self.results,
-        )
-
-        # Get the file data
-        file_data = Path(file_info["path"]).read_bytes()
-
-        if metadata.get("pids", False):
-            file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
+        append_file = False
 
         metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
@@ -166,6 +136,10 @@ class CAPE(Processing):
 
         file_info["cape_type_code"] = 0
         file_info["cape_type"] = ""
+
+        if "pids" in metadata:
+            file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
+
         if metastrings and metastrings[0] and metastrings[0].isdigit():
             file_info["cape_type_code"] = int(metastrings[0])
 
@@ -190,12 +164,13 @@ class CAPE(Processing):
 
             type_strings = file_info["type"].split()
 
-            if type_strings[0] in ("PE32+", "PE32"):
-                file_info["cape_type"] += pe_map[type_strings[0]]
-                if type_strings[2] == ("(DLL)"):
-                    file_info["cape_type"] += "DLL"
-                else:
-                    file_info["cape_type"] += "executable"
+            if type_strings[0] == "MS-DOS":
+                file_info["cape_type"] = "DOS MZ image: executable"
+            else:
+                file_info["cape_type"] = "PE image"
+                if type_strings[0] in ("PE32+", "PE32"):
+                    file_info["cape_type"] += pe_map[type_strings[0]]
+                    file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
             if file_info["cape_type_code"] in code_mapping:
                 file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
@@ -210,58 +185,140 @@ class CAPE(Processing):
                     cape_name = name_mapping[file_info["cape_type_code"]]
                 append_file = True
 
-            # PlugX
-            elif file_info["cape_type_code"] == PLUGX_CONFIG:
-                file_info["cape_type"] = "PlugX Config"
-                if plugx_parser:
-                    plugx_config = plugx_parser.parse_config(file_data, len(file_data))
-                    if plugx_config:
-                        cape_name = "PlugX"
-                        self.update_cape_configs(self.ensure_config_key(cape_name, plugx_config))
-                        cape_names.add(cape_name)
-                    else:
-                        log.error("CAPE: PlugX config parsing failure - size many not be handled")
-                    append_file = False
+        return type_string, append_file
 
-            # Attempt to decrypt script dump
-            elif file_info["cape_type_code"] == SCRIPT_DUMP:
-                data = file_data.decode("utf-16").replace("\x00", "")
-                cape_name = "ScriptDump"
-                malwareconfig_loaded = False
+    def process_file(self, file_path, append_file, metadata=None, category: str=False) -> dict:
+        """Process file.
+        @return: file_info
+        """
+
+        if metadata is None:
+            metadata = {}
+        cape_name = ""
+        type_string = ""
+
+        if not Path(file_path).exists():
+            return
+
+        buf_size = self.options.get("buffer", 8192)
+        # ToDo filename argument for procdump
+        file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
+        cape_names = set()
+
+        if pefile_object:
+            self.results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
+
+        if file_info.get("clamav") and processing_conf.detections.clamav:
+            clamav_detection = get_clamav_consensus(file_info["clamav"])
+            if clamav_detection:
+                add_family_detection(self.results, clamav_detection, "ClamAV", file_info["sha256"])
+
+        # should we use dropped path here?
+        static_file_info(
+            file_info,
+            file_path,
+            str(self.task["id"]),
+            self.task.get("package", ""),
+            self.task.get("options", ""),
+            self.self_extracted,
+            self.results,
+        )
+
+        type_string, append_file = self._metadata_processing(metadata, file_info)
+
+        if processing_conf.CAPE.targetinfo and category in ("static", "file"):
+            another_module = {
+                "category": category,
+                "file": file_info,
+            }
+            another_module["file"]["name"] = File(self.task["target"]).get_name()
+            self.results["target"] = another_module
+        elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
+            if category == "dropped":
+                file_info.update(metadata.get(file_info["path"][0], {}))
+                file_info["guest_paths"] = list({path.get("filepath") for path in metadata.get(file_path, [])})
+                file_info["name"] = list({path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])})
+                if category == "dropped":
+                    with suppress(UnicodeDecodeError):
+                        # ToDo move to Path but test wide text reading
+                        with open(file_info["path"], "r") as drop_open:
+                            filedata = drop_open.read(buf_size + 1)
+                        filedata = wide2str(filedata)
+                        file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
+
+            self.results.setdefault("dropped", []).append(file_info)
+        elif processing_conf.CAPE.procdump and category == "procdump":
+            if any(texttype in file_info["type"] for texttype in texttypes):
+                with open(file_info["path"], "r") as drop_open:
+                    filedata = drop_open.read(buf_size + 1)
+                file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
+            if file_info["pid"]:
+                # ToDo check if pid is list
+                _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
+
+            if HAVE_FLARE_CAPA:
+                pretime = timeit.default_timer()
+                capa_details = flare_capa_details(file_path, "procdump")
+                if capa_details:
+                    file_info["flare_capa"] = capa_details
+                self.add_statistic_tmp("flare_capa", "time", pretime)
+
+            self.results.setdefault(category, []).append(file_info)
+
+        # ToDo add filedata arg and not read this one if we have it, as we read it for dropped already
+        # Get the file data
+        file_data = Path(file_info["path"]).read_bytes()
+        # PlugX
+        if file_info["cape_type_code"] == PLUGX_CONFIG:
+            file_info["cape_type"] = "PlugX Config"
+            if plugx_parser:
+                plugx_config = plugx_parser.parse_config(file_data, len(file_data))
+                if plugx_config:
+                    cape_name = "PlugX"
+                    self.update_cape_configs(self.ensure_config_key(cape_name, plugx_config))
+                    cape_names.add(cape_name)
+                else:
+                    log.error("CAPE: PlugX config parsing failure - size many not be handled")
+                append_file = False
+
+        # Attempt to decrypt script dump
+        elif file_info["cape_type_code"] == SCRIPT_DUMP:
+            data = file_data.decode("utf-16").replace("\x00", "")
+            cape_name = "ScriptDump"
+            malwareconfig_loaded = False
+            try:
+                malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
+                file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
+                module = imp.load_module(cape_name, file, pathname, description)
+                malwareconfig_loaded = True
+                log.debug("CAPE: Imported parser %s", cape_name)
+            except ImportError:
+                log.debug("CAPE: parser: No module named %s", cape_name)
+            if malwareconfig_loaded:
                 try:
-                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
-                    file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
-                    module = imp.load_module(cape_name, file, pathname, description)
-                    malwareconfig_loaded = True
-                    log.debug("CAPE: Imported parser %s", cape_name)
-                except ImportError:
-                    log.debug("CAPE: parser: No module named %s", cape_name)
-                if malwareconfig_loaded:
-                    try:
-                        script_data = module.config(self, data)
-                        if script_data and "more_eggs" in script_data["type"]:
-                            bindata = script_data["data"]
-                            sha256 = hashlib.sha256(bindata).hexdigest()
-                            filepath = os.path.join(self.CAPE_path, sha256)
-                            if "text" in script_data["datatype"]:
-                                file_info["cape_type"] = "MoreEggsJS"
-                            elif "binary" in script_data["datatype"]:
-                                file_info["cape_type"] = "MoreEggsBin"
-                            with open(filepath, "w") as cfile:
-                                cfile.write(bindata)
-                                self.script_dump_files.append(filepath)
-                        else:
-                            file_info["cape_type"] = "Script Dump"
-                            log.info("CAPE: Script Dump does not contain known encrypted payload")
-                    except Exception as e:
-                        log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
-                append_file = True
+                    script_data = module.config(self, data)
+                    if script_data and "more_eggs" in script_data["type"]:
+                        bindata = script_data["data"]
+                        sha256 = hashlib.sha256(bindata).hexdigest()
+                        filepath = os.path.join(self.CAPE_path, sha256)
+                        if "text" in script_data["datatype"]:
+                            file_info["cape_type"] = "MoreEggsJS"
+                        elif "binary" in script_data["datatype"]:
+                            file_info["cape_type"] = "MoreEggsBin"
+                        _ = Path(filepath).write_text(bindata)
+                        self.script_dump_files.append(filepath)
+                    else:
+                        file_info["cape_type"] = "Script Dump"
+                        log.info("CAPE: Script Dump does not contain known encrypted payload")
+                except Exception as e:
+                    log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
+            append_file = True
 
-            # More_Eggs
-            elif file_info["cape_type_code"] == MOREEGGSJS_PAYLOAD:
-                file_info["cape_type"] = "More Eggs JS Payload"
-                cape_name = "MoreEggs"
-                append_file = True
+        # More_Eggs
+        elif file_info["cape_type_code"] == MOREEGGSJS_PAYLOAD:
+            file_info["cape_type"] = "More Eggs JS Payload"
+            cape_name = "MoreEggs"
+            append_file = True
 
         # Process CAPE Yara hits
 
@@ -378,7 +435,8 @@ class CAPE(Processing):
                     "metadata": entry["metadata"],
                 }
 
-        for folder in ("CAPE_path", "procdump_path", "dropped_path"):
+        for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
+            category = folder.replace("_path", "").replace("_files", "")
             if hasattr(self, folder):
                 # Process dynamically dumped CAPE/procdumps files/dropped might
                 # be detected as payloads and trigger config parsing
@@ -387,22 +445,23 @@ class CAPE(Processing):
                         file_path = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, True, meta.get(file_path, {}))
+                            self.process_file(file_path, True, meta.get(file_path, {}), category=category)
                         else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            self.process_file(file_path, False)
+                            self.process_file(file_path, False, category=category)
 
                 # Process files that may have been decrypted from ScriptDump
                 for file_path in self.script_dump_files:
-                    self.process_file(file_path, False, meta.get(file_path, {}))
+                    self.process_file(file_path, False, meta.get(file_path, {}), category=category)
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
                 log.error('Sample file doesn\'t exist: "%s"', self.file_path)
 
-        self.process_file(self.file_path, False, meta.get(self.file_path, {}))
+        # ToDo verify this category
+        self.process_file(self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"])
 
         return self.cape
 

@@ -127,6 +127,15 @@ def static_file_info(
     if int(os.path.getsize(file_path) / (1024 * 1024)) > int(processing_conf.static.max_file_size):
         return
 
+    # Cache dictionary. Removed in plugins.py
+    results.setdefault("static_file_info_control", {})
+    sha256 = _get_sha256(file_path, data_dictionary)
+    if sha256:
+
+        if sha256 in results["static_file_info_control"]:
+            data_dictionary.update(results["static_file_info_control"][sha256])
+            return
+
     if (
         not HAVE_OLETOOLS
         and "Zip archive data, at least v2.0" in data_dictionary["type"]
@@ -136,73 +145,75 @@ def static_file_info(
 
     options_dict = get_options(options)
 
+    tmp_data_dictionary = {}
+
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
-        data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
+        tmp_data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
 
         if HAVE_FLARE_CAPA:
             capa_details = flare_capa_details(file_path, "static")
             if capa_details:
-                data_dictionary["flare_capa"] = capa_details
+                tmp_data_dictionary["flare_capa"] = capa_details
 
         if HAVE_FLOSS:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
-                data_dictionary["floss"] = floss_strings
+                tmp_data_dictionary["floss"] = floss_strings
 
         if "Mono" in data_dictionary["type"]:
-            data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
+            tmp_data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
     elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"}:
         # options is dict where we need to get pass get_options
-        data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
+        tmp_data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
     elif "PDF" in data_dictionary["type"] or file_path.endswith(".pdf"):
-        data_dictionary["pdf"] = PDF(file_path).run()
+        tmp_data_dictionary["pdf"] = PDF(file_path).run()
     elif package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf"):
-        data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
+        tmp_data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
     elif package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]:
-        data_dictionary["lnk"] = LnkShortcut(file_path).run()
+        tmp_data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
         if selfextract_conf.procyon.binary and not Path(selfextract_conf.procyon.binary).exists():
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
-            data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
+            tmp_data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
 
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.
     # elif "ELF" in data_dictionary["type"] or file_path.endswith(".elf"):
-    #    data_dictionary["elf"] = ELF(file_path).run()
-    #    data_dictionary["keys"] = f.get_keys()
+    #    tmp_data_dictionary["elf"] = ELF(file_path).run()
+    #    tmp_data_dictionary["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package == "hwp":
-    #    data_dictionary["hwp"] = HwpDocument(file_path).run()
+    #    tmp_data_dictionary["hwp"] = HwpDocument(file_path).run()
 
     data = Path(file_path).read_bytes()
 
     if not file_path.endswith(excluded_extensions):
-        data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
+        tmp_data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
 
         if processing_conf.trid.enabled:
-            data_dictionary["trid"] = trid_info(file_path)
+            tmp_data_dictionary["trid"] = trid_info(file_path)
 
         if processing_conf.die.enabled:
-            data_dictionary["die"] = detect_it_easy_info(file_path)
+            tmp_data_dictionary["die"] = detect_it_easy_info(file_path)
 
         if HAVE_FLOSS and processing_conf.floss.enabled:
             floss_strings = Floss(file_path, package).run()
             if floss_strings:
-                data_dictionary["floss"] = floss_strings
+                tmp_data_dictionary["floss"] = floss_strings
 
         if HAVE_STRINGS:
             strings = extract_strings(file_path)
             if strings:
-                data_dictionary["strings"] = strings
+                tmp_data_dictionary["strings"] = strings
 
         # ToDo we need url support
         if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
             vt_details = vt_lookup("file", file_path, results)
             if vt_details:
-                data_dictionary["virustotal"] = vt_details
+                tmp_data_dictionary["virustotal"] = vt_details
 
     generic_file_extractors(
         file_path,
@@ -212,6 +223,11 @@ def static_file_info(
         options_dict,
         results,
     )
+
+    # Add all results to original dictionary
+    data_dictionary.update(tmp_data_dictionary)
+    results["static_file_info_control"][sha256] = tmp_data_dictionary
+
 
 def detect_it_easy_info(file_path: str):
     if not Path(processing_conf.die.binary).exists():

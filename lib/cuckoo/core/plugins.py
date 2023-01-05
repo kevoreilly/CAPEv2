@@ -309,6 +309,9 @@ class RunProcessing:
         else:
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
 
+        if "static_file_info_control" in self.results:
+            del self.results["static_file_info_control"]
+
         return self.results
 
 

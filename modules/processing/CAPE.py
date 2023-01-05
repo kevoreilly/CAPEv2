@@ -158,7 +158,7 @@ class CAPE(Processing):
 
         return type_string, append_file
 
-    def process_file(self, file_path, append_file, metadata: dict={}, category: str=False) -> dict:
+    def process_file(self, file_path, append_file, metadata: dict={}, category: str=False, duplicated: dict={}) -> dict:
         """Process file.
         @return: file_info
         """
@@ -169,7 +169,18 @@ class CAPE(Processing):
         cape_names = set()
         buf_size = self.options.get("buffer", 8192)
         # ToDo filename argument for procdump
-        file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
+
+        # Optimize to not load all if duplicated, it stores sha256 in file object
+        f = File(file_path, metadata.get("metadata", ""))
+        sha256 = f.get_sha256()
+
+        if sha256 in duplicated["sha256"]:
+            return
+        else:
+            duplicated["sha256"].append(sha256)
+
+        file_info, pefile_object = f.get_all()
+
 
         if pefile_object:
             self.results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
@@ -188,6 +199,7 @@ class CAPE(Processing):
             self.task.get("options", ""),
             self.self_extracted,
             self.results,
+            duplicated,
         )
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
@@ -202,10 +214,9 @@ class CAPE(Processing):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
                 file_info["guest_paths"] = list({path.get("filepath") for path in metadata.get(file_path, [])})
-                file_info["name"] = list({path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}) or metadata.get("filepath").rsplit("\\", 1)[-1]
+                file_info["name"] = list({path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}) or [metadata.get("filepath").rsplit("\\", 1)[-1]]
                 if category == "dropped":
                     with suppress(UnicodeDecodeError):
-                        # ToDo move to Path but test wide text reading
                         with open(file_info["path"], "r") as drop_open:
                             filedata = drop_open.read(buf_size + 1)
                         filedata = wide2str(filedata)
@@ -326,6 +337,9 @@ class CAPE(Processing):
         self.cape["configs"] = []
 
         meta = {}
+        # Required to control files extracted by selfextract.conf as we store them in dropped
+        duplicated = {}
+        duplicated.setdefault("sha256", [])
         if Path(self.files_metadata).exists():
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
@@ -351,18 +365,18 @@ class CAPE(Processing):
                         filepath = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(filepath, True, meta.get(filepath, {}), category=category)
+                            self.process_file(filepath, True, meta.get(filepath, {}), category=category, duplicated=duplicated)
                         else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            self.process_file(filepath, False, meta.get(filepath, {}), category=category)
+                            self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
                 log.error('Sample file doesn\'t exist: "%s"', self.file_path)
 
-        self.process_file(self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"])
+        self.process_file(self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated)
 
         return self.cape
 

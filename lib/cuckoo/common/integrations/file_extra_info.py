@@ -100,20 +100,6 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 excluded_extensions = (".parti",)
 
 
-def _get_sha256(file: str, data_dictionary: dict):
-    """
-    Aux function to get sha256, as some modules doesn't provide
-    """
-    if "sha256" in data_dictionary:
-        return data_dictionary["sha256"]
-
-    f = Path(file)
-    if not f.exists():
-        return
-
-    return hashlib.sha256(f.read_bytes()).hexdigest()
-
-
 def static_file_info(
     data_dictionary: dict,
     file_path: str,
@@ -122,19 +108,11 @@ def static_file_info(
     options: str,
     destination_folder: str,
     results: dict,
+    duplicated: dict,
 ):
 
     if int(os.path.getsize(file_path) / (1024 * 1024)) > int(processing_conf.static.max_file_size):
         return
-
-    # Cache dictionary. Removed in plugins.py
-    results.setdefault("static_file_info_control", {})
-    sha256 = _get_sha256(file_path, data_dictionary)
-    if sha256:
-
-        if sha256 in results["static_file_info_control"]:
-            data_dictionary.update(results["static_file_info_control"][sha256])
-            return
 
     if (
         not HAVE_OLETOOLS
@@ -145,75 +123,73 @@ def static_file_info(
 
     options_dict = get_options(options)
 
-    tmp_data_dictionary = {}
-
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
-        tmp_data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
+        data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
 
         if HAVE_FLARE_CAPA:
             capa_details = flare_capa_details(file_path, "static")
             if capa_details:
-                tmp_data_dictionary["flare_capa"] = capa_details
+                data_dictionary["flare_capa"] = capa_details
 
         if HAVE_FLOSS:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
-                tmp_data_dictionary["floss"] = floss_strings
+                data_dictionary["floss"] = floss_strings
 
         if "Mono" in data_dictionary["type"]:
-            tmp_data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
+            data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
     elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"}:
         # options is dict where we need to get pass get_options
-        tmp_data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
+        data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
     elif "PDF" in data_dictionary["type"] or file_path.endswith(".pdf"):
-        tmp_data_dictionary["pdf"] = PDF(file_path).run()
+        data_dictionary["pdf"] = PDF(file_path).run()
     elif package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf"):
-        tmp_data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
+        data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
     elif package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]:
-        tmp_data_dictionary["lnk"] = LnkShortcut(file_path).run()
+        data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
         if selfextract_conf.procyon.binary and not Path(selfextract_conf.procyon.binary).exists():
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
-            tmp_data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
+            data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
 
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.
     # elif "ELF" in data_dictionary["type"] or file_path.endswith(".elf"):
-    #    tmp_data_dictionary["elf"] = ELF(file_path).run()
-    #    tmp_data_dictionary["keys"] = f.get_keys()
+    #    data_dictionary["elf"] = ELF(file_path).run()
+    #    data_dictionary["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package == "hwp":
-    #    tmp_data_dictionary["hwp"] = HwpDocument(file_path).run()
+    #    data_dictionary["hwp"] = HwpDocument(file_path).run()
 
     data = Path(file_path).read_bytes()
 
     if not file_path.endswith(excluded_extensions):
-        tmp_data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
+        data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
 
         if processing_conf.trid.enabled:
-            tmp_data_dictionary["trid"] = trid_info(file_path)
+            data_dictionary["trid"] = trid_info(file_path)
 
         if processing_conf.die.enabled:
-            tmp_data_dictionary["die"] = detect_it_easy_info(file_path)
+            data_dictionary["die"] = detect_it_easy_info(file_path)
 
         if HAVE_FLOSS and processing_conf.floss.enabled:
             floss_strings = Floss(file_path, package).run()
             if floss_strings:
-                tmp_data_dictionary["floss"] = floss_strings
+                data_dictionary["floss"] = floss_strings
 
         if HAVE_STRINGS:
             strings = extract_strings(file_path)
             if strings:
-                tmp_data_dictionary["strings"] = strings
+                data_dictionary["strings"] = strings
 
         # ToDo we need url support
         if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
             vt_details = vt_lookup("file", file_path, results)
             if vt_details:
-                tmp_data_dictionary["virustotal"] = vt_details
+                data_dictionary["virustotal"] = vt_details
 
     generic_file_extractors(
         file_path,
@@ -222,11 +198,8 @@ def static_file_info(
         data_dictionary,
         options_dict,
         results,
+        duplicated,
     )
-
-    # Add all results to original dictionary
-    data_dictionary.update(tmp_data_dictionary)
-    results["static_file_info_control"][sha256] = tmp_data_dictionary
 
 
 def detect_it_easy_info(file_path: str):
@@ -264,7 +237,7 @@ def trid_info(file_path: dict):
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
 
 
-def _extracted_files_metadata(folder: str, destination_folder: str, files: list = None) -> List[dict]:
+def _extracted_files_metadata(folder: str, destination_folder: str, files: list = None, duplicated: dict = {}, results: dict={}) -> List[dict]:
     """
     args:
         folder - where files extracted
@@ -278,29 +251,37 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
     with open(filelog, "a") as f:
         for file in files:
             full_path = os.path.join(folder, file)
-            if not os.path.isfile(full_path):
+            if not Path(full_path).is_file():
                 # ToDo walk subfolders
                 continue
 
-            file_details, _pe = File(full_path).get_all()
+            f = File(full_path)
+            sha256 = f.get_sha256()
+            if sha256 in duplicated["sha256"]:
+                continue
+
+            duplicated["sha256"].append(sha256)
+            file_info, pefile_object = f.get_all()
+            if pefile_object:
+                results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
 
             if processing_conf.trid.enabled:
-                file_details["trid"] = trid_info(full_path)
+                file_info["trid"] = trid_info(full_path)
 
             if processing_conf.die.enabled:
-                file_details["die"] = detect_it_easy_info(full_path)
+                file_info["die"] = detect_it_easy_info(full_path)
 
-            dest_path = os.path.join(destination_folder, file_details["sha256"])
-            file_details["path"] = dest_path
-            file_details["name"] = os.path.basename(dest_path)
-            metadata.append(file_details)
+            dest_path = os.path.join(destination_folder, file_info["sha256"])
+            file_info["path"] = dest_path
+            file_info["name"] = os.path.basename(dest_path)
+            metadata.append(file_info)
             if not Path(dest_path).exists():
                 shutil.move(full_path, dest_path)
                 print(
                     json.dumps(
                         {
-                            "path": os.path.join("files", file_details["sha256"]),
-                            "filepath": file_details["name"],
+                            "path": os.path.join("files", file_info["sha256"]),
+                            "filepath": file_info["name"],
                             "pids": [],
                             "ppids": [],
                             "metadata": "",
@@ -321,6 +302,7 @@ def generic_file_extractors(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     """
     file - path to binary
@@ -357,7 +339,7 @@ def generic_file_extractors(
                 continue
 
             func_timeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
-            args = (file, destination_folder, filetype, data_dictionary, options, results)
+            args = (file, destination_folder, filetype, data_dictionary, options, results, duplicated)
             tasks.update({funcname.__name__: {"func": pool.apply_async(funcname, args=args), "timeout": func_timeout}})
 
         while tasks:
@@ -400,11 +382,11 @@ def generic_file_extractors(
                     return
 
 
-def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict):
+def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict, duplicated: dict, results: dict):
     with tempfile.TemporaryDirectory() as tempdir:
         decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
         _ = Path(decoded_file_path).write_text(decoded)
-    return _extracted_files_metadata(tempdir, destination_folder, files=[decoded_file_path])
+    return _extracted_files_metadata(tempdir, destination_folder, files=[decoded_file_path], duplicated=duplicated, results=results)
 
 
 def batch_extract(
@@ -414,6 +396,7 @@ def batch_extract(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     # https://github.com/DissectMalware/batch_deobfuscator
     # https://www.fireeye.com/content/dam/fireeye-www/blog/pdfs/dosfuscation-report.pdf
@@ -433,7 +416,7 @@ def batch_extract(
     if original_sha256 == decoded_sha256:
         return
 
-    return "Batch", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary)
+    return "Batch", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, duplicated, results)
 
 
 def vbe_extract(
@@ -443,6 +426,7 @@ def vbe_extract(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
 
     if not HAVE_VBE_DECODER:
@@ -463,7 +447,7 @@ def vbe_extract(
         log.debug("VBE content wasn't decoded")
         return
 
-    return "Vbe", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary)
+    return "Vbe", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, duplicated, results)
 
 
 def eziriz_deobfuscate(
@@ -473,6 +457,7 @@ def eziriz_deobfuscate(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     metadata = []
 
@@ -530,6 +515,7 @@ def de4dot_deobfuscate(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     if "Mono" not in filetype:
         return
@@ -557,7 +543,7 @@ def de4dot_deobfuscate(
                 ],
                 universal_newlines=True,
             )
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder))
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, duplicated=duplicated, results=results))
         except subprocess.CalledProcessError:
             log.exception("Failed to deobfuscate %s with de4dot.", file)
         except Exception as e:
@@ -573,6 +559,7 @@ def msi_extract(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     """Work on MSI Installers"""
 
@@ -623,7 +610,7 @@ def msi_extract(
                     if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
             if files:
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -637,6 +624,7 @@ def Inno_extract(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     """Work on Inno Installers"""
 
@@ -656,7 +644,7 @@ def Inno_extract(
                 universal_newlines=True,
             )
             files = [os.path.join(root, file) for root, _, filenames in os.walk(tempdir) for file in filenames]
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
         except subprocess.CalledProcessError:
             log.error("Can't unpack InnoSetup for %s", file)
         except Exception as e:
@@ -672,6 +660,7 @@ def kixtart_extract(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     """
     https://github.com/jhumble/Kixtart-Detokenizer/blob/main/detokenize.py
@@ -689,7 +678,7 @@ def kixtart_extract(
             kix.decrypt()
             kix.dump()
 
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, content=data))
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, content=data, duplicated=duplicated, results=results))
 
     return "Kixtart", metadata
 
@@ -701,6 +690,7 @@ def UnAutoIt_extract(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
         return
@@ -725,7 +715,7 @@ def UnAutoIt_extract(
                     for extracted_file in tempdir
                     if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
         except subprocess.CalledProcessError:
             log.error("Can't unpack AutoIT for %s", file)
         except Exception as e:
@@ -741,6 +731,7 @@ def UPX_unpack(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     if (
         "UPX compressed" not in filetype
@@ -764,7 +755,7 @@ def UPX_unpack(
                 universal_newlines=True,
             )
             if output and "Unpacked 1 file." in output:
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=[dest_path]))
+                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=[dest_path], duplicated=duplicated, results=results))
         except subprocess.CalledProcessError:
             log.error("Can't unpack UPX for %s", file)
         except Exception as e:
@@ -781,6 +772,7 @@ def SevenZip_unpack(
     data_dictionary: dict,
     options: dict,
     results: dict,
+    duplicated: dict,
 ):
     tool = False
 
@@ -843,7 +835,7 @@ def SevenZip_unpack(
                 for extracted_file in tempdir
                 if Path(os.path.join(tempdir, extracted_file)).is_file()
             ]
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
         except subprocess.CalledProcessError:
             logging.error("Can't unpack with 7Zip for %s", file)
         except Exception as e:
@@ -853,7 +845,7 @@ def SevenZip_unpack(
 
 
 # ToDo move to sflock
-def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options: dict, results: dict):
+def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options: dict, results: dict, duplicated: dict):
     if (
         all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
         and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", {}))
@@ -880,7 +872,7 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
                     for extracted_file in tempdir
                     if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
 
         except subprocess.CalledProcessError:
             logging.error("Can't unpack SFX for %s", file)

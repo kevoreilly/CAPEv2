@@ -776,6 +776,10 @@ def SevenZip_unpack(
 ):
     tool = False
 
+    if not Path("/usr/bin/7z").exists():
+        logging.error("Missed 7z package: apt install p7zip-full")
+        return
+
     password = ""
     # Only for real 7zip, breaks others
     password = options.get("password", "infected")

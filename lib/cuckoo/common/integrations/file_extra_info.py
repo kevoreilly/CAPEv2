@@ -829,7 +829,6 @@ def SevenZip_unpack(
                     ],
                     universal_newlines=True,
                 )
-                print(output)
             files = [
                 os.path.join(tempdir, extracted_file)
                 for extracted_file in tempdir
@@ -839,7 +838,7 @@ def SevenZip_unpack(
         except subprocess.CalledProcessError:
             logging.error("Can't unpack with 7Zip for %s", file)
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.error("sevenzip error: %s", str(e), exc_info=True)
 
     return tool, metadata
 

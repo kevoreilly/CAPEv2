@@ -338,8 +338,7 @@ class CAPE(Processing):
 
         meta = {}
         # Required to control files extracted by selfextract.conf as we store them in dropped
-        duplicated = {}
-        duplicated.setdefault("sha256", [])
+        duplicated = {"sha256": []}
         if Path(self.files_metadata).exists():
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)

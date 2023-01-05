@@ -818,7 +818,7 @@ def SevenZip_unpack(
                 for child in unpacked.children:
                     _ = Path(os.path.join(tempdir, child.filename.decode())).write_bytes(child.contents)
             else:
-                output = subprocess.check_output(
+                _ = subprocess.check_output(
                     [
                         "7z",
                         "e",

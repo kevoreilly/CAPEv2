@@ -29,7 +29,7 @@
 <hr />
 {% endif %}
 
-{% if analysis.info.category in "file,static" and analysis.file %}
+{% if analysis.info.category in "file,static" %}
     <h4>File Details  {% if analysis.info.parent_sample %} <label for="parent_file"><a href="#parent_file" data-toggle="collapse"> - Parent file</a></label> {% endif %} </h4>
     {% if analysis.info.parent_sample %}
     <div class="form-group">

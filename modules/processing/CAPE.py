@@ -102,6 +102,15 @@ class CAPE(Processing):
             config = {cape_name: config}
         return config
 
+    def _cape_type_string(self, type_strings, file_info):
+        if type_strings[0] == "MS-DOS":
+            file_info["cape_type"] = "DOS MZ image: executable"
+        else:
+            file_info["cape_type"] = file_info["cape_type"] or "PE image"
+        if type_strings[0] in ("PE32+", "PE32"):
+            file_info["cape_type"] += pe_map[type_strings[0]]
+            file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
+
     def _metadata_processing(self, metadata, file_info, append_file):
         type_string = ""
 
@@ -141,24 +150,10 @@ class CAPE(Processing):
                     file_info["virtual_address"] = metastrings[3]
 
             type_strings = file_info["type"].split()
-
-            if type_strings[0] == "MS-DOS":
-                file_info["cape_type"] = "DOS MZ image: executable"
-            else:
-                file_info["cape_type"] = file_info["cape_type"] or "PE image"
-                if type_strings[0] in ("PE32+", "PE32"):
-                    file_info["cape_type"] += pe_map[type_strings[0]]
-                    file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
+            self._cape_type_string(type_strings, file_info)
 
             if file_info["cape_type_code"] in code_mapping:
-                file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
-                type_strings = file_info["type"].split()
-                if type_strings[0] in ("PE32+", "PE32"):
-                    file_info["cape_type"] += pe_map[type_strings[0]]
-                    if type_strings[2] == ("(DLL)"):
-                        file_info["cape_type"] += "DLL"
-                    else:
-                        file_info["cape_type"] += "executable"
+                file_info["cape_type"] =  file_info["cape_type"] + code_mapping[file_info["cape_type_code"]]
                 append_file = True
 
         return type_string, append_file
@@ -198,17 +193,16 @@ class CAPE(Processing):
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
-            another_module = {
+            file_info["name"] = File(self.task["target"]).get_name()
+            self.results["target"] = {
                 "category": category,
                 "file": file_info,
             }
-            another_module["file"]["name"] = File(self.task["target"]).get_name()
-            self.results["target"] = another_module
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
                 file_info["guest_paths"] = list({path.get("filepath") for path in metadata.get(file_path, [])})
-                file_info["name"] = list({path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])})
+                file_info["name"] = list({path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}) or metadata.get("filepath").rsplit("\\", 1)[-1]
                 if category == "dropped":
                     with suppress(UnicodeDecodeError):
                         # ToDo move to Path but test wide text reading
@@ -242,14 +236,13 @@ class CAPE(Processing):
         # Prefilter extracted data + beauty is better than oneliner:
         all_files = []
         for extracted_file in file_info.get("extracted_files", []):
-            yara_hits = extracted_file["cape_yara"]
-            if not yara_hits:
+            if not extracted_file["cape_yara"]:
                 continue
             if extracted_file.get("data", b""):
                 extracted_file_data = make_bytes(extracted_file["data"])
             else:
                 extracted_file_data = Path(extracted_file["path"]).read_bytes()
-            for yara in yara_hits:
+            for yara in extracted_file["cape_yara"]:
                 all_files.append(
                     (
                         f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
@@ -274,9 +267,7 @@ class CAPE(Processing):
                 log.error("Cape type error: %s", str(e))
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
-                if type_strings[0] in ("PE32+", "PE32"):
-                    file_info["cape_type"] += pe_map[type_strings[0]]
-                    file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
+                self._cape_type_string(type_strings, file_info)
 
             if cape_name and cape_name not in executed_config_parsers[tmp_path]:
                 tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
@@ -329,14 +320,13 @@ class CAPE(Processing):
         @return: list of CAPE output files with related information.
         """
         self.key = "CAPE"
-        self.script_dump_files = []
 
         self.cape = {}
         self.cape["payloads"] = []
         self.cape["configs"] = []
 
         meta = {}
-        if os.path.exists(self.files_metadata):
+        if Path(self.files_metadata).exists():
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
 
@@ -351,7 +341,6 @@ class CAPE(Processing):
                     "filepath": entry.get("filepath", ""),
                     "metadata": entry.get("metadata", {}),
                 }
-
         for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
             category = folder.replace("_path", "").replace("_files", "")
             if hasattr(self, folder):
@@ -359,25 +348,20 @@ class CAPE(Processing):
                 # be detected as payloads and trigger config parsing
                 for dir_name, _, file_names in os.walk(getattr(self, folder)):
                     for file_name in file_names:
-                        file_path = os.path.join(dir_name, file_name)
+                        filepath = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, True, meta.get(file_path, {}), category=category)
+                            self.process_file(filepath, True, meta.get(filepath, {}), category=category)
                         else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            self.process_file(file_path, False, category=category)
-
-                # Process files that may have been decrypted from ScriptDump
-                for file_path in self.script_dump_files:
-                    self.process_file(file_path, False, meta.get(file_path, {}), category=category)
+                            self.process_file(filepath, False, meta.get(filepath, {}), category=category)
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
                 log.error('Sample file doesn\'t exist: "%s"', self.file_path)
 
-        # ToDo verify this category
         self.process_file(self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"])
 
         return self.cape

@@ -367,7 +367,7 @@ def generic_file_extractors(
                     if not tasks[fname]["func"].ready() and timeit.default_timer() - time_start < tasks[fname]["timeout"]:
                         # Manual sleep instead of .get(timeout=X) to not block.
                         # Imagine func A has timeout 30 but func B has timeout 10
-                        log.debug("Processing func %s for file %s", fname, file)
+                        # log.debug("Processing func %s for file %s", fname, file)
                         time.sleep(5)
                         continue
 

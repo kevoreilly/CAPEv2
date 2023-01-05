@@ -204,12 +204,16 @@ class CAPE(Processing):
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 
+        # tmp debug
+        if category in ("static", "file"):
+            print("targetinfo", processing_conf.CAPE.targetinfo, category)
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
             file_info["name"] = File(self.task["target"]).get_name()
             self.results["target"] = {
                 "category": category,
                 "file": file_info,
             }
+            print(self.results["target"])
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))

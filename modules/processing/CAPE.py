@@ -111,7 +111,6 @@ class CAPE(Processing):
         return config
 
     def _cape_type_string(self, type_strings, file_info):
-        print(type_strings)
         if any(i in type_strings for i in ("PE32+", "PE32")):
             pe_type = "PE32+" if "PE32+" in type_strings else "PE32"
             file_info["cape_type"] += pe_map[pe_type]

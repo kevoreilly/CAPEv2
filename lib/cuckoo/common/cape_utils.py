@@ -122,14 +122,6 @@ if process_cfg.CAPE_extractors.enabled:
         HAVE_CAPE_EXTRACTORS = True
     assert "test cape" in cape_malware_parsers
 
-try:
-    from modules.processing.parsers.plugxconfig import plugx
-
-    plugx_parser = plugx.PlugXConfig()
-except ImportError as e:
-    plugx_parser = False
-    log.error(e)
-
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
 
 pe_map = {

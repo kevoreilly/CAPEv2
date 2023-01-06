@@ -286,12 +286,13 @@ class CAPE(Processing):
                 executed_config_parsers[tmp_path].add(cape_name)
 
         if type_string:
-            log.info("CAPE: type_string: %s", type_string)
-            tmp_cape_name = File.get_cape_name_from_cape_type(type_string)
-            if tmp_cape_name and tmp_cape_name not in executed_config_parsers:
-                tmp_config = static_config_parsers(tmp_cape_name, file_info["path"], file_data)
+            file_info["cape_type"] = type_string
+            if 'config' in type_string.lower():
+                append_file = False
+            cape_name = File.get_cape_name_from_cape_type(type_string)
+            if cape_name and cape_name not in executed_config_parsers:
+                tmp_config = static_config_parsers(cape_name, file_info["path"], file_data)
                 if tmp_config:
-                    cape_name = tmp_cape_name
                     cape_names.add(cape_name)
                     log.info("CAPE: config returned for: %s", cape_name)
                     self.update_cape_configs(tmp_config)

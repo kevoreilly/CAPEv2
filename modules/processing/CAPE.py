@@ -25,7 +25,15 @@ from lib.cuckoo.common.cape_utils import pe_map, static_config_parsers, cape_nam
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus, make_bytes, convert_to_printable_and_truncate, wide2str, texttypes
+from lib.cuckoo.common.utils import (
+    add_family_detection,
+    get_clamav_consensus,
+    make_bytes,
+    convert_to_printable_and_truncate,
+    wide2str,
+    texttypes,
+)
+
 try:
     import pydeep
 
@@ -103,13 +111,14 @@ class CAPE(Processing):
         return config
 
     def _cape_type_string(self, type_strings, file_info):
-        if type_strings[0] == "MS-DOS":
+        if any(i in type_strings for i in ("PE32+", "PE32")):
+            pe_type = "PE32+" if "PE32+" in type_strings else "PE32"
+            file_info["cape_type"] += pe_map[pe_type]
+            file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
+        elif type_strings[0] == "MS-DOS":
             file_info["cape_type"] = "DOS MZ image: executable"
         else:
             file_info["cape_type"] = file_info["cape_type"] or "PE image"
-        if type_strings[0] in ("PE32+", "PE32"):
-            file_info["cape_type"] += pe_map[type_strings[0]]
-            file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
     def _metadata_processing(self, metadata, file_info, append_file):
         type_string = ""
@@ -153,12 +162,12 @@ class CAPE(Processing):
             self._cape_type_string(type_strings, file_info)
 
             if file_info["cape_type_code"] in code_mapping:
-                file_info["cape_type"] =  file_info["cape_type"] + code_mapping[file_info["cape_type_code"]]
+                file_info["cape_type"] = file_info["cape_type"] + code_mapping[file_info["cape_type_code"]]
                 append_file = True
 
         return type_string, append_file
 
-    def process_file(self, file_path, append_file, metadata: dict={}, category: str=False, duplicated: dict={}) -> dict:
+    def process_file(self, file_path, append_file, metadata: dict = {}, category: str = False, duplicated: dict = {}) -> dict:
         """Process file.
         @return: file_info
         """
@@ -180,7 +189,6 @@ class CAPE(Processing):
             duplicated["sha256"].append(sha256)
 
         file_info, pefile_object = f.get_all()
-
 
         if pefile_object:
             self.results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
@@ -214,7 +222,9 @@ class CAPE(Processing):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
                 file_info["guest_paths"] = list({path.get("filepath") for path in metadata.get(file_path, [])})
-                file_info["name"] = list({path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}) or [metadata.get("filepath").rsplit("\\", 1)[-1]]
+                file_info["name"] = list(
+                    {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
+                ) or [metadata.get("filepath").rsplit("\\", 1)[-1]]
                 if category == "dropped":
                     with suppress(UnicodeDecodeError):
                         with open(file_info["path"], "r") as drop_open:
@@ -376,7 +386,9 @@ class CAPE(Processing):
             if not os.path.exists(self.file_path):
                 log.error('Sample file doesn\'t exist: "%s"', self.file_path)
 
-        self.process_file(self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated)
+        self.process_file(
+            self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
+        )
 
         return self.cape
 

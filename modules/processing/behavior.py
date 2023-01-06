@@ -262,7 +262,13 @@ class ParseProcessLog(list):
             while ent:
                 # remove the values we don't want to encode in reports
                 for arg in ent["arguments"]:
-                    del arg["raw_value"]
+                    try:
+                        del arg["raw_value"]
+                    except KeyError:
+                        try:
+                            del arg["raw_value_string"]
+                        except KeyError:
+                            pass
                 idx += 1
                 ent = self.api_call_cache[idx]
 

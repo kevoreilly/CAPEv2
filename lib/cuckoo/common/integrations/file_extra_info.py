@@ -587,7 +587,7 @@ def msi_extract(
                 files = [
                     extracted_file
                     for extracted_file in list(filter(None, output.split("\n")))
-                    if Path(os.path.join(tempdir, extracted_file)).is_file()
+                    if Path(tempdir, extracted_file).is_file()
                 ]
             else:
                 output = subprocess.check_output(
@@ -611,7 +611,7 @@ def msi_extract(
                     extracted_file.split("Binary.")[-1]
                     for root, _, extracted_files in os.walk(tempdir)
                     for extracted_file in extracted_files
-                    if Path(os.path.join(tempdir, extracted_file)).is_file()
+                    if Path(tempdir, extracted_file).is_file()
                 ]
             if files:
                 metadata.extend(
@@ -721,9 +721,7 @@ def UnAutoIt_extract(
             )
             if output:
                 files = [
-                    os.path.join(tempdir, extracted_file)
-                    for extracted_file in tempdir
-                    if Path(os.path.join(tempdir, extracted_file)).is_file()
+                    os.path.join(tempdir, extracted_file) for extracted_file in tempdir if Path(tempdir, extracted_file).is_file()
                 ]
                 metadata.extend(
                     _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
@@ -836,7 +834,7 @@ def SevenZip_unpack(
             if HAVE_SFLOCK:
                 unpacked = unpack(file.encode(), password=password)
                 for child in unpacked.children:
-                    _ = Path(os.path.join(tempdir, child.filename.decode())).write_bytes(child.contents)
+                    _ = Path(tempdir, child.filename.decode()).write_bytes(child.contents)
             else:
                 _ = subprocess.check_output(
                     [
@@ -849,11 +847,7 @@ def SevenZip_unpack(
                     ],
                     universal_newlines=True,
                 )
-            files = [
-                os.path.join(tempdir, extracted_file)
-                for extracted_file in tempdir
-                if Path(os.path.join(tempdir, extracted_file)).is_file()
-            ]
+            files = [os.path.join(tempdir, extracted_file) for extracted_file in tempdir if Path(tempdir, extracted_file).is_file()]
             metadata.extend(
                 _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
             )
@@ -889,9 +883,7 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
             )
             if output:
                 files = [
-                    os.path.join(tempdir, extracted_file)
-                    for extracted_file in tempdir
-                    if Path(os.path.join(tempdir, extracted_file)).is_file()
+                    os.path.join(tempdir, extracted_file) for extracted_file in tempdir if Path(tempdir, extracted_file).is_file()
                 ]
                 metadata.extend(
                     _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)

@@ -127,6 +127,8 @@ class CAPE(Processing):
 
     def _metadata_processing(self, metadata, file_info, append_file):
         type_string = ""
+        cape_type_code = 0
+        file_info["cape_type"] = ""
 
         metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
@@ -134,9 +136,6 @@ class CAPE(Processing):
             file_info["process_name"] = metastrings[1].rsplit("\\", 1)[-1]
         if len(metastrings) > 3:
             file_info["module_path"] = metastrings[2]
-
-        cape_type_code = 0
-        file_info["cape_type"] = ""
 
         if "pids" in metadata:
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
@@ -166,7 +165,7 @@ class CAPE(Processing):
             type_strings = file_info["type"].split()
             append_file = self._cape_type_string(type_strings, file_info, append_file, cape_type_code)
 
-        return type_string, append_file
+        return type_string, append_file, cape_type_code
 
     def process_file(self, file_path, append_file, metadata: dict = {}, category: str = False, duplicated: dict = {}) -> dict:
         """Process file.
@@ -211,7 +210,7 @@ class CAPE(Processing):
             duplicated,
         )
 
-        type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
+        type_string, append_file, cape_type_code = self._metadata_processing(metadata, file_info, append_file)
 
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
             file_info["name"] = File(self.task["target"]).get_name()

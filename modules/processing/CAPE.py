@@ -296,7 +296,7 @@ class CAPE(Processing):
 
         if type_string:
             file_info["cape_type"] = type_string
-            if 'config' in type_string.lower():
+            if "config" in type_string.lower():
                 append_file = False
             cape_name = File.get_cape_name_from_cape_type(type_string)
             if cape_name and cape_name not in executed_config_parsers:
@@ -364,6 +364,13 @@ class CAPE(Processing):
                     "filepath": entry.get("filepath", ""),
                     "metadata": entry.get("metadata", {}),
                 }
+
+        # Finally static processing of submitted file
+        if self.task["category"] in ("file", "static"):
+            self.process_file(
+                self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
+            )
+
         for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
             category = folder.replace("_path", "").replace("_files", "")
             if hasattr(self, folder):
@@ -379,16 +386,6 @@ class CAPE(Processing):
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
                             self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
-
-        # Finally static processing of submitted file
-        if self.task["category"] in ("file", "static"):
-            if not os.path.exists(self.file_path):
-                log.error('Sample file doesn\'t exist: "%s"', self.file_path)
-
-        self.process_file(
-            self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
-        )
-
         return self.cape
 
     def update_cape_configs(self, config):

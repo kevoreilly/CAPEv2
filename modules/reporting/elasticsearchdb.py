@@ -104,7 +104,7 @@ class ElasticSearchDB(Report):
         for s in report["signatures"]:
             for f in s["data"]:
                 for k, val in f.items():
-                    if isinstance(val, str) or isinstance(val, bool):
+                    if isinstance(val, (str, bool)):
                         f[k] = {"name": str(val)}
                     if k == "file" and isinstance(val, list):
                         for index, file in enumerate(val):

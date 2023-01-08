@@ -109,8 +109,11 @@ class CAPE(Processing):
             config = {cape_name: config}
         return config
 
-    def _cape_type_string(self, type_strings, file_info):
-        if any(i in type_strings for i in ("PE32+", "PE32")):
+    def _cape_type_string(self, type_strings, file_info, append_file):
+        if file_info["cape_type_code"] in code_mapping:
+            file_info["cape_type"] = file_info["cape_type"] + code_mapping[file_info["cape_type_code"]]
+            append_file = True
+        elif any(i in type_strings for i in ("PE32+", "PE32")):
             pe_type = "PE32+" if "PE32+" in type_strings else "PE32"
             file_info["cape_type"] += pe_map[pe_type]
             file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
@@ -118,6 +121,7 @@ class CAPE(Processing):
             file_info["cape_type"] = "DOS MZ image: executable"
         else:
             file_info["cape_type"] = file_info["cape_type"] or "PE image"
+        return append_file
 
     def _metadata_processing(self, metadata, file_info, append_file):
         type_string = ""
@@ -158,11 +162,7 @@ class CAPE(Processing):
                     file_info["virtual_address"] = metastrings[3]
 
             type_strings = file_info["type"].split()
-            self._cape_type_string(type_strings, file_info)
-
-            if file_info["cape_type_code"] in code_mapping:
-                file_info["cape_type"] = file_info["cape_type"] + code_mapping[file_info["cape_type_code"]]
-                append_file = True
+            append_file = self._cape_type_string(type_strings, file_info, append_file)
 
         return type_string, append_file
 
@@ -287,7 +287,7 @@ class CAPE(Processing):
                 log.error("Cape type error: %s", str(e))
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
-                self._cape_type_string(type_strings, file_info)
+                append_file = self._cape_type_string(type_strings, file_info, append_file)
 
             if cape_name and cape_name not in executed_config_parsers[tmp_path]:
                 tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)

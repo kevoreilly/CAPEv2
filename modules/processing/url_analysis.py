@@ -21,6 +21,6 @@ class UrlAnalysis(Processing):
         target_info = {}
         if self.task["category"] == "url":
             target_info["url"] = self.task["target"]
-            if HAVE_WHOIS and processing_conf.static.whois:
+            if HAVE_WHOIS and processing_conf.url_analysis.whois:
                 self.results["url"] = URL(self.task["target"]).run()
         return target_info

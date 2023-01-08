@@ -1404,9 +1404,7 @@ def submit_task(
 
 
 # https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
-def get_running_commit():
+def get_running_commit() -> str:
     git_folder = Path(CUCKOO_ROOT, ".git")
     head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
-    head_ref = Path(git_folder, head_name)
-    commit = head_ref.read_text().replace("\n", "")
-    return commit
+    return Path(git_folder, head_name).read_text().replace("\n", "")

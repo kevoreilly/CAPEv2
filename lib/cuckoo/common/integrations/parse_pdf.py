@@ -11,7 +11,7 @@ from lib.cuckoo.common.integrations.peepdf import peepdf_parse
 
 try:
     HAVE_PDF = True
-    from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+    from lib.cuckoo.common.integrations.pdftools.pdfid import PDFiD, PDFiD2JSON
 except ImportError:
     HAVE_PDF = False
 

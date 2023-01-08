@@ -11,7 +11,6 @@ import itertools
 import json
 import logging
 import math
-import os
 import struct
 from datetime import datetime
 from io import BytesIO

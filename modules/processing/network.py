@@ -1237,7 +1237,7 @@ def next_connection_packets(piter, linktype=1):
     """Extract all packets belonging to the same flow from a pcap packet iterator"""
     first_ft = None
 
-    for ts, raw in piter:
+    for _, raw in piter:
         ft = flowtuple_from_raw(raw, linktype)
         if not first_ft:
             first_ft = ft

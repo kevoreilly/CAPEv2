@@ -165,7 +165,7 @@ class CAPE(Processing):
             type_strings = file_info["type"].split()
             append_file = self._cape_type_string(type_strings, file_info, append_file, cape_type_code)
 
-        return type_string, append_file, cape_type_code
+        return type_string, append_file
 
     def process_file(self, file_path, append_file, metadata: dict = {}, category: str = False, duplicated: dict = {}) -> dict:
         """Process file.
@@ -210,7 +210,7 @@ class CAPE(Processing):
             duplicated,
         )
 
-        type_string, append_file, cape_type_code = self._metadata_processing(metadata, file_info, append_file)
+        type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
             file_info["name"] = File(self.task["target"]).get_name()
@@ -320,11 +320,7 @@ class CAPE(Processing):
                         )
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
-                    if (
-                        file_info["entrypoint"] == cape_file["entrypoint"]
-                        and cape_type_code == cape_file["cape_type_code"]
-                        and file_info["ep_bytes"] == cape_file["ep_bytes"]
-                    ):
+                    if file_info["entrypoint"] == cape_file["entrypoint"] and file_info["ep_bytes"] == cape_file["ep_bytes"]:
                         log.debug("CAPE duplicate output file skipped: matching entrypoint")
                         append_file = False
 

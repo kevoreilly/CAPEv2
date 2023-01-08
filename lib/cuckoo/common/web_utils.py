@@ -427,7 +427,7 @@ def statistics(s_days: int) -> dict:
         sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
     )
 
-    details["detections"] = top_detections(date_since=date_since, results_limit=20)
+    details["detections"] = top_detections(date_since=date_since)
 
     session.close()
     return details
@@ -1389,8 +1389,6 @@ def submit_task(
             platform=platform,
             memory=memory,
             enforce_timeout=enforce_timeout,
-            clock=None,
-            tags=None,
             parent_id=parent_id,
             tlp=tlp,
             filename=filename,

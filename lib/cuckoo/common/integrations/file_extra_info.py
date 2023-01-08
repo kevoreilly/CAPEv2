@@ -382,7 +382,7 @@ def generic_file_extractors(
                     delete = True
 
                 if delete:
-                    del tasks[fname]
+                    tasks.pop(fname)
                 if not tasks:
                     return
 

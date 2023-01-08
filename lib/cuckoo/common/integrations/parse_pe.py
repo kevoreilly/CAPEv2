@@ -559,7 +559,7 @@ class PortableExecutable:
             if value:
                 decimal_value += 2 ** (index % 8)
             if index % 8 == 7:
-                hex_string.append(hex(decimal_value)[2:].rjust(2, "0"))
+                hex_string.append(f"{hex(decimal_value):2}"[2:].rjust(2, "0"))
                 decimal_value = 0
 
         return "".join(hex_string)

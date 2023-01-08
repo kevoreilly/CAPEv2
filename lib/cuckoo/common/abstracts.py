@@ -1184,7 +1184,7 @@ class Signature:
                       matched items or the first matched item
         """
         subject = self.results["behavior"]["summary"]["started_services"]
-        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_created_service(self, pattern, regex=False, all=False):
         """Checks for a service being created.
@@ -1197,7 +1197,7 @@ class Signature:
                       matched items or the first matched item
         """
         subject = self.results["behavior"]["summary"]["created_services"]
-        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
         """Checks for a command being executed.

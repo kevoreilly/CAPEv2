@@ -111,7 +111,7 @@ def static_file_info(
     duplicated: dict,
 ):
 
-    if int(os.path.getsize(file_path) / (1024 * 1024)) > int(processing_conf.static.max_file_size):
+    if int(os.path.getsize(file_path) / (1024 * 1024)) > int(processing_conf.CAPE.max_file_size):
         return
 
     if (
@@ -237,7 +237,9 @@ def trid_info(file_path: dict):
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
 
 
-def _extracted_files_metadata(folder: str, destination_folder: str, files: list = None, duplicated: dict = {}, results: dict={}) -> List[dict]:
+def _extracted_files_metadata(
+    folder: str, destination_folder: str, files: list = None, duplicated: dict = {}, results: dict = {}
+) -> List[dict]:
     """
     args:
         folder - where files extracted
@@ -382,7 +384,9 @@ def generic_file_extractors(
                     return
 
 
-def _generic_post_extraction_process(file: str, decoded: str, destination_folder: str, data_dictionary: dict, duplicated: dict, results: dict):
+def _generic_post_extraction_process(
+    file: str, decoded: str, destination_folder: str, data_dictionary: dict, duplicated: dict, results: dict
+):
     with tempfile.TemporaryDirectory() as tempdir:
         decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
         _ = Path(decoded_file_path).write_text(decoded)
@@ -610,7 +614,9 @@ def msi_extract(
                     if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
             if files:
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
+                metadata.extend(
+                    _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
+                )
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -644,7 +650,9 @@ def Inno_extract(
                 universal_newlines=True,
             )
             files = [os.path.join(root, file) for root, _, filenames in os.walk(tempdir) for file in filenames]
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
+            metadata.extend(
+                _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
+            )
         except subprocess.CalledProcessError:
             log.error("Can't unpack InnoSetup for %s", file)
         except Exception as e:
@@ -678,7 +686,9 @@ def kixtart_extract(
             kix.decrypt()
             kix.dump()
 
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, content=data, duplicated=duplicated, results=results))
+            metadata.extend(
+                _extracted_files_metadata(tempdir, destination_folder, content=data, duplicated=duplicated, results=results)
+            )
 
     return "Kixtart", metadata
 
@@ -715,7 +725,9 @@ def UnAutoIt_extract(
                     for extracted_file in tempdir
                     if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
+                metadata.extend(
+                    _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
+                )
         except subprocess.CalledProcessError:
             log.error("Can't unpack AutoIT for %s", file)
         except Exception as e:
@@ -755,7 +767,11 @@ def UPX_unpack(
                 universal_newlines=True,
             )
             if output and "Unpacked 1 file." in output:
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=[dest_path], duplicated=duplicated, results=results))
+                metadata.extend(
+                    _extracted_files_metadata(
+                        tempdir, destination_folder, files=[dest_path], duplicated=duplicated, results=results
+                    )
+                )
         except subprocess.CalledProcessError:
             log.error("Can't unpack UPX for %s", file)
         except Exception as e:
@@ -838,7 +854,9 @@ def SevenZip_unpack(
                 for extracted_file in tempdir
                 if Path(os.path.join(tempdir, extracted_file)).is_file()
             ]
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
+            metadata.extend(
+                _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
+            )
         except subprocess.CalledProcessError:
             logging.error("Can't unpack with 7Zip for %s", file)
         except Exception as e:
@@ -875,7 +893,9 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
                     for extracted_file in tempdir
                     if Path(os.path.join(tempdir, extracted_file)).is_file()
                 ]
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results))
+                metadata.extend(
+                    _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
+                )
 
         except subprocess.CalledProcessError:
             logging.error("Can't unpack SFX for %s", file)

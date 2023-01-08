@@ -37,6 +37,7 @@ except ImportError:
     HAVE_SFLOCK = False
 
 processing_conf = Config("processing")
+selfextract_conf = Config("selfextract")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
@@ -136,20 +137,22 @@ def static_file_info(
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
-        if "Mono" in data_dictionary["type"]:
+        if "Mono" in data_dictionary["type"] and selfextract_conf.general.dotnet:
             data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
-    elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"}:
+    elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and selfextract_conf.general.office:
         # options is dict where we need to get pass get_options
         data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
-    elif "PDF" in data_dictionary["type"] or file_path.endswith(".pdf"):
+    elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and selfextract_conf.general.pdf:
         data_dictionary["pdf"] = PDF(file_path).run()
-    elif package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf"):
+    elif (
+        package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf")
+    ) and selfextract_conf.general.windows_script:
         data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
-    elif package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]:
+    elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and selfextract_conf.general.lnk:
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
-    elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
+    elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and selfextract_conf.general.java:
         if selfextract_conf.procyon.binary and not Path(selfextract_conf.procyon.binary).exists():
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
@@ -158,10 +161,10 @@ def static_file_info(
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.
-    # elif "ELF" in data_dictionary["type"] or file_path.endswith(".elf"):
+    # elif ("ELF" in data_dictionary["type"] or file_path.endswith(".elf")) and selfextract_conf.general.elf:
     #    data_dictionary["elf"] = ELF(file_path).run()
     #    data_dictionary["keys"] = f.get_keys()
-    # elif HAVE_OLETOOLS and package == "hwp":
+    # elif HAVE_OLETOOLS and package == "hwp" and selfextract_conf.general.hwp:
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
 
     data = Path(file_path).read_bytes()

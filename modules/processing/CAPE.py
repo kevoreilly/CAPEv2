@@ -109,11 +109,13 @@ class CAPE(Processing):
             config = {cape_name: config}
         return config
 
-    def _cape_type_string(self, type_strings, file_info, append_file):
-        if file_info["cape_type_code"] in code_mapping:
-            file_info["cape_type"] = file_info["cape_type"] + code_mapping[file_info["cape_type_code"]]
+    def _cape_type_string(self, type_strings, file_info, append_file, cape_type_code=0):
+        if cape_type_code in code_mapping:
+            file_info["cape_type"] = code_mapping[cape_type_code]
             append_file = True
-        elif any(i in type_strings for i in ("PE32+", "PE32")):
+        if any(i in type_strings for i in ("PE32+", "PE32")):
+            if not file_info["cape_type"]:
+                return append_file
             pe_type = "PE32+" if "PE32+" in type_strings else "PE32"
             file_info["cape_type"] += pe_map[pe_type]
             file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
@@ -133,36 +135,36 @@ class CAPE(Processing):
         if len(metastrings) > 3:
             file_info["module_path"] = metastrings[2]
 
-        file_info["cape_type_code"] = 0
+        cape_type_code = 0
         file_info["cape_type"] = ""
 
         if "pids" in metadata:
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
 
         if metastrings and metastrings[0] and metastrings[0].isdigit():
-            file_info["cape_type_code"] = int(metastrings[0])
+            cape_type_code = int(metastrings[0])
 
-            if file_info["cape_type_code"] == TYPE_STRING:
+            if cape_type_code == TYPE_STRING:
                 if len(metastrings) > 4:
                     type_string = metastrings[3]
 
-            elif file_info["cape_type_code"] == COMPRESSION:
+            elif cape_type_code == COMPRESSION:
                 file_info["cape_type"] = "Decompressed PE Image"
 
-            elif file_info["cape_type_code"] in inject_map:
-                file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
+            elif cape_type_code in inject_map:
+                file_info["cape_type"] = inject_map[cape_type_code]
                 if len(metastrings) > 4:
                     file_info["target_path"] = metastrings[3]
                     file_info["target_process"] = metastrings[3].rsplit("\\", 1)[-1]
                     file_info["target_pid"] = metastrings[4]
 
-            elif file_info["cape_type_code"] in unpack_map:
-                file_info["cape_type"] = unpack_map[file_info["cape_type_code"]]
+            elif cape_type_code in unpack_map:
+                file_info["cape_type"] = unpack_map[cape_type_code]
                 if len(metastrings) > 4:
                     file_info["virtual_address"] = metastrings[3]
 
             type_strings = file_info["type"].split()
-            append_file = self._cape_type_string(type_strings, file_info, append_file)
+            append_file = self._cape_type_string(type_strings, file_info, append_file, cape_type_code)
 
         return type_string, append_file
 
@@ -321,7 +323,7 @@ class CAPE(Processing):
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
                     if (
                         file_info["entrypoint"] == cape_file["entrypoint"]
-                        and file_info["cape_type_code"] == cape_file["cape_type_code"]
+                        and cape_type_code == cape_file["cape_type_code"]
                         and file_info["ep_bytes"] == cape_file["ep_bytes"]
                     ):
                         log.debug("CAPE duplicate output file skipped: matching entrypoint")

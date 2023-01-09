@@ -51,36 +51,26 @@ if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_dema
 ssdeep_threshold = 95
 
 # CAPE output types. To correlate with cape\cape.h in monitor
-
-PROCDUMP = 1
 COMPRESSION = 2
-INJECTION_PE = 3
-INJECTION_SHELLCODE = 4
-UNPACKED_PE = 8
-UNPACKED_SHELLCODE = 9
-DATADUMP = 0x66
-REGDUMP = 0x67
-AMSIBUFFER = 0x6A
-AMSISTREAM = 0x6B
 TYPE_STRING = 0x100
-UPX = 0x1000
 
 log = logging.getLogger(__name__)
 
 code_mapping = {
-    UPX: "Unpacked PE Image",
-    AMSIBUFFER: "AMSI Buffer",
-    AMSISTREAM: "AMSI Stream",
+    # UPX
+    0x1000: "Unpacked PE Image",
+    0x6A: "AMSI Buffer",
+    0x6B: "AMSI Stream",
 }
 
 inject_map = {
-    INJECTION_PE: "Injected PE Image",
-    INJECTION_SHELLCODE: "Injected Shellcode/Data",
+    3: "Injected PE Image",
+    4: "Injected Shellcode/Data",
 }
 
 unpack_map = {
-    UNPACKED_PE: "Unpacked PE Image",
-    UNPACKED_SHELLCODE: "Unpacked Shellcode",
+    8: "Unpacked PE Image",
+    9: "Unpacked Shellcode",
 }
 
 
@@ -142,7 +132,6 @@ class CAPE(Processing):
 
         if metastrings and metastrings[0] and metastrings[0].isdigit():
             cape_type_code = int(metastrings[0])
-
             if cape_type_code == TYPE_STRING:
                 if len(metastrings) > 4:
                     type_string = metastrings[3]

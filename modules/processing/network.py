@@ -1237,13 +1237,13 @@ def next_connection_packets(piter, linktype=1):
     """Extract all packets belonging to the same flow from a pcap packet iterator"""
     first_ft = None
 
-    for ts, raw in piter:
+    for _, raw in piter:
         ft = flowtuple_from_raw(raw, linktype)
         if not first_ft:
             first_ft = ft
 
         sip, dip, sport, dport, proto = ft
-        if not (first_ft == ft or first_ft == (dip, sip, dport, sport, proto)):
+        if first_ft not in (ft, (dip, sip, dport, sport, proto)):
             break
 
         yield {

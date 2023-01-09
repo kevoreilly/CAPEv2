@@ -29,23 +29,20 @@
 <hr />
 {% endif %}
 
-{% if analysis.info.category != "pcap" %}
-    {% if analysis.info.category in "file,static" and analysis.target %}
-        <h4>File Details  {% if analysis.info.parent_sample %} <label for="parent_file"><a href="#parent_file" data-toggle="collapse"> - Parent file</a></label> {% endif %} </h4>
-        {% if analysis.info.parent_sample %}
-        <div class="form-group">
-            <div id="parent_file" class="collapse">
-                {% for file in analysis.info.parent_sample|parentfixup|dict2list %}
-                    {% include "analysis/generic/_file_info.html" %}
-                {% endfor %}
-            </div>
+{% if analysis.info.category in "file,static" and analysis.target %}
+    <h4>File Details  {% if analysis.info.parent_sample %} <label for="parent_file"><a href="#parent_file" data-toggle="collapse"> - Parent file</a></label> {% endif %} </h4>
+    {% if analysis.info.parent_sample %}
+    <div class="form-group">
+        <div id="parent_file" class="collapse">
+            {% for file in analysis.info.parent_sample|parentfixup|dict2list %}
+                {% include "analysis/generic/_file_info.html" %}
+            {% endfor %}
         </div>
-        {% endif %}
-
-        {% include "analysis/generic/_file_info.html" %}
-    {% elif analysis.info.category == "url" %}
-        {% include "analysis/overview/_url.html" %}
+    </div>
     {% endif %}
+    {% include "analysis/generic/_file_info.html" %}
+{% elif analysis.info.category == "url" %}
+    {% include "analysis/overview/_url.html" %}
 {% endif %}
 <div class="container">
     <div class="row">

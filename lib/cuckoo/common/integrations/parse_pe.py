@@ -11,7 +11,6 @@ import itertools
 import json
 import logging
 import math
-import os
 import struct
 from datetime import datetime
 from io import BytesIO
@@ -20,6 +19,7 @@ from typing import Dict, List, Tuple
 
 from PIL import Image
 
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
 
@@ -53,18 +53,20 @@ try:
 except ImportError:
     import re
 
+process_cfg = Config("processing")
 
 HAVE_USERDB = False
-try:
-    import peutils
+if process_cfg.CAPE.userdb_signature:
+    try:
+        import peutils
 
-    userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
-    userdb_signatures = peutils.SignatureDatabase()
-    if Path(userdb_path).exists():
-        userdb_signatures.load(userdb_path)
-        HAVE_USERDB = True
-except (ImportError, AttributeError) as e:
-    print(f"Failed to initialize peutils: {e}")
+        userdb_path = Path(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
+        userdb_signatures = peutils.SignatureDatabase()
+        if userdb_path.exists():
+            userdb_signatures.load(userdb_path)
+            HAVE_USERDB = True
+    except (ImportError, AttributeError) as e:
+        print(f"Failed to initialize peutils: {e}")
 
 
 log = logging.getLogger(__name__)
@@ -557,7 +559,7 @@ class PortableExecutable:
             if value:
                 decimal_value += 2 ** (index % 8)
             if index % 8 == 7:
-                hex_string.append(hex(decimal_value)[2:].rjust(2, "0"))
+                hex_string.append(f"{hex(decimal_value):2}"[2:].rjust(2, "0"))
                 decimal_value = 0
 
         return "".join(hex_string)
@@ -816,8 +818,7 @@ class PortableExecutable:
     def get_guest_digital_signers(self, task_id: str = False) -> dict:
         if not task_id:
             return {}
-        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "DigiSig.json")
-        cert_info_path = Path(cert_info)
+        cert_info_path = Path(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "DigiSig.json")
         if cert_info_path.exists():
             cert_data = json.loads(cert_info_path.read_text())
             if cert_data:

@@ -8,7 +8,13 @@ from pathlib import Path
 from typing import Any, Dict
 
 from lib.cuckoo.common.integrations.peepdf import peepdf_parse
-from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+
+try:
+    HAVE_PDF = True
+    from lib.cuckoo.common.integrations.pdftools.pdfid import PDFiD, PDFiD2JSON
+except ImportError:
+    HAVE_PDF = False
+
 
 log = logging.getLogger(__name__)
 
@@ -24,6 +30,9 @@ class PDF:
         @param filepath: Path to file to be analyzed.
         @return: results dict or None.
         """
+        if not HAVE_PDF:
+            return {}
+
         # Load the PDF with PDFiD and convert it to JSON for processing
         pdf_data = PDFiD(filepath, False, True)
         try:

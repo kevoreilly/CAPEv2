@@ -427,7 +427,7 @@ def statistics(s_days: int) -> dict:
         sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
     )
 
-    details["detections"] = top_detections(date_since=date_since, results_limit=20)
+    details["detections"] = top_detections(date_since=date_since)
 
     session.close()
     return details
@@ -1389,8 +1389,6 @@ def submit_task(
             platform=platform,
             memory=memory,
             enforce_timeout=enforce_timeout,
-            clock=None,
-            tags=None,
             parent_id=parent_id,
             tlp=tlp,
             filename=filename,
@@ -1401,3 +1399,10 @@ def submit_task(
 
     log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)
     return task_id
+
+
+# https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
+def get_running_commit() -> str:
+    git_folder = Path(CUCKOO_ROOT, ".git")
+    head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
+    return Path(git_folder, head_name).read_text().replace("\n", "")

@@ -109,6 +109,7 @@ The following is a list of the existing packages in alphabetical order:
         **Options**:
             * ``arguments``: specify any command line argument to pass to the initial process of the submitted malware.
 
+    * ``one``: used to run and analyze **Microsoft OneNote documents** via ``onenote.exe``.
     * ``pdf``: used to run and analyze **PDF documents** via ``acrord32.exe``.
     * ``ppt``: used to run and analyze **Microsoft PowerPoint documents** via ``powerpnt.exe``.
     * ``ppt2016``: used to run and analyze **Microsoft PowerPoint documents** via Microsoft Office 2016's ``powerpnt.exe``.

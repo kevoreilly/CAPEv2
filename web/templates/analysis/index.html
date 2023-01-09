@@ -4,7 +4,9 @@
 <ul class="nav nav-tabs">
     <li class="nav-item"><a class="nav-link active" href="#files" data-toggle="tab">Files</a></li>
     <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static</a></li>
+    {% if config.url_analysis %}
     <li class="nav-item"><a class="nav-link" href="#urls" data-toggle="tab">URLs</a></li>
+    {% endif %}
     <li class="nav-item"><a class="nav-link" href="#pcaps" data-toggle="tab">PCAPs</a></li>
 </ul>
 

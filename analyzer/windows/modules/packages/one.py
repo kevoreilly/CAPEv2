@@ -13,7 +13,7 @@ util = Utils()
 
 
 class ONE(Package):
-    """Excel analysis package."""
+    """OneNote analysis package."""
 
     def __init__(self, options={}, config=None):
         self.config = config

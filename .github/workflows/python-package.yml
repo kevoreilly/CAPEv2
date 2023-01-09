@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
-        python-version: ["3.8"]
+        python-version: ["3.8", "3.11"]
 
     steps:
       - name: Check out repository code

@@ -99,9 +99,9 @@ class CAPE(Processing):
             config = {cape_name: config}
         return config
 
-    def _cape_type_string(self, type_strings, file_info, append_file, cape_type_code=0):
-        if cape_type_code in code_mapping:
-            file_info["cape_type"] = code_mapping[cape_type_code]
+    def _cape_type_string(self, type_strings, file_info, append_file):
+        if file_info["cape_type_code"] in code_mapping:
+            file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
             append_file = True
         if any(i in type_strings for i in ("PE32+", "PE32")):
             if not file_info["cape_type"]:
@@ -117,7 +117,7 @@ class CAPE(Processing):
 
     def _metadata_processing(self, metadata, file_info, append_file):
         type_string = ""
-        cape_type_code = 0
+        file_info["cape_type_code"] = 0
         file_info["cape_type"] = ""
 
         metastrings = metadata.get("metadata", "").split(";?")
@@ -131,28 +131,28 @@ class CAPE(Processing):
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
 
         if metastrings and metastrings[0] and metastrings[0].isdigit():
-            cape_type_code = int(metastrings[0])
-            if cape_type_code == TYPE_STRING:
+            file_info["cape_type_code"] = int(metastrings[0])
+            if file_info["cape_type_code"] == TYPE_STRING:
                 if len(metastrings) > 4:
                     type_string = metastrings[3]
 
-            elif cape_type_code == COMPRESSION:
+            elif file_info["cape_type_code"] == COMPRESSION:
                 file_info["cape_type"] = "Decompressed PE Image"
 
-            elif cape_type_code in inject_map:
-                file_info["cape_type"] = inject_map[cape_type_code]
+            elif file_info["cape_type_code"] in inject_map:
+                file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
                     file_info["target_path"] = metastrings[3]
                     file_info["target_process"] = metastrings[3].rsplit("\\", 1)[-1]
                     file_info["target_pid"] = metastrings[4]
 
-            elif cape_type_code in unpack_map:
-                file_info["cape_type"] = unpack_map[cape_type_code]
+            elif file_info["cape_type_code"] in unpack_map:
+                file_info["cape_type"] = unpack_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
                     file_info["virtual_address"] = metastrings[3]
 
             type_strings = file_info["type"].split()
-            append_file = self._cape_type_string(type_strings, file_info, append_file, cape_type_code)
+            append_file = self._cape_type_string(type_strings, file_info, append_file)
 
         return type_string, append_file
 
@@ -309,7 +309,7 @@ class CAPE(Processing):
                         )
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
-                    if file_info["entrypoint"] == cape_file["entrypoint"] and file_info["ep_bytes"] == cape_file["ep_bytes"]:
+                    if file_info["entrypoint"] == cape_file["entrypoint"] and file_info["cape_type_code"] == cape_file["cape_type_code"] and file_info["ep_bytes"] == cape_file["ep_bytes"]:
                         log.debug("CAPE duplicate output file skipped: matching entrypoint")
                         append_file = False
 

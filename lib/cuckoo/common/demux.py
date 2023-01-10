@@ -28,15 +28,8 @@ except ImportError:
     print("You must install sflock\nsudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\npip3 install -U SFlock2")
     HAS_SFLOCK = False
 
-if sf_version:
-    sf_version_splited = sf_version.split(".")
-    # Before 14 there is core changes that required by CAPE, since exit
-    if int(sf_version_splited[-1]) < 14:
-        print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
-        sys.exit()
-    # Latest release
-    if int(sf_version_splited[-1]) < 33:
-        print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
+if sf_version and int(sf_version.split(".")[-1]) < 40:
+    print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
@@ -262,16 +255,15 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         retlist.append(filename)
     else:
         for filename in retlist:
-            if File(filename).get_size() > web_cfg.general.max_sample_size:
-                if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in options):
-                    file_chunk = File(filename).get_chunks(64).__next__()
-                    retlist.remove(filename)
-                    if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
-                        trimmed_size = trim_sample(file_chunk)
-                        if trimmed_size:
-                            data = File(filename).get_chunks(trimmed_size).__next__()
-                            if trimmed_size < web_cfg.general.max_sample_size:
-                                _ = Path(path_to_ascii(filename)).write_bytes(data)
-                                retlist.append(filename)
+            if File(filename).get_size() > web_cfg.general.max_sample_size and not (web_cfg.general.allow_ignore_size and "ignore_size_check" in options):
+                file_chunk = File(filename).get_chunks(64).__next__()
+                retlist.remove(filename)
+                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
+                    trimmed_size = trim_sample(file_chunk)
+                    if trimmed_size:
+                        data = File(filename).get_chunks(trimmed_size).__next__()
+                        if trimmed_size < web_cfg.general.max_sample_size:
+                            _ = Path(path_to_ascii(filename)).write_bytes(data)
+                            retlist.append(filename)
 
     return retlist[:10]

@@ -375,9 +375,6 @@ python-dateutil==2.8.2 ; python_version >= "3.8" and python_version < "4" \
     --hash=sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86 \
     --hash=sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9
 python-dotenv==0.21.0 ; python_version >= "3.8" and python_version < "4.0"
-python-magic==0.4.27 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:c1ba14b08e4a5f5c31a302b7721239695b2f0f058d125bd5ce1ee36b9d9d3c3b \
-    --hash=sha256:c212960ad306f700aa0d01e5d7a325d20548ff97eb9920dcd29513174f0294d3
 python-tlsh==4.5.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:55e3df72cabdf48bf576b4580d7fa2feba9c14aacde0a8bd7b1ef40b03cb7969
 python-whois==0.7.3 ; python_version >= "3.8" and python_version < "4.0" \
@@ -502,7 +499,6 @@ requests[security,socks]==2.27.1 ; python_version >= "3.8" and python_version < 
     --hash=sha256:68d7c56fd5a8999887728ef304a6d12edc7be74f1cfa47714fc8b414525c9a61 \
     --hash=sha256:f22fa1e554c9ddfd16e6e41ac79759e17be9e492b3587efa038054674760e72d
 service-identity==21.1.0 ; python_version >= "3.8" and python_version < "4.0"
-sflock2==0.3.40 ; python_version >= "3.8" and python_version < "4.0"
 six==1.16.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
     --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
@@ -558,7 +554,6 @@ tzdata==2022.7 ; python_version >= "3.8" and python_version < "4"
 tzlocal==4.2 ; python_version >= "3.8" and python_version < "4" \
     --hash=sha256:89885494684c929d9191c57aa27502afc87a579be5cdd3225c77c463ea043745 \
     --hash=sha256:ee5842fa3a795f023514ac2d801c4a81d1743bbe642e3940143326b3a00addd7
-unicorn==2.0.1.post1 ; python_version >= "3.8" and python_version < "4.0"
 urllib3==1.26.13 ; python_version >= "3.8" and python_version < "4.0"
 uvicorn[standard]==0.18.3 ; python_version >= "3.8" and python_version < "4.0"
 uvloop==0.17.0 ; sys_platform != "win32" and sys_platform != "cygwin" and platform_python_implementation != "PyPy" and python_version >= "3.8" and python_version < "4.0"

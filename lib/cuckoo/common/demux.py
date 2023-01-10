@@ -105,6 +105,8 @@ demux_extensions_list = {
     b".sh",
     b".pl",
     b".lnk",
+    b".one",
+    b".onetoc2",
 }
 
 whitelist_extensions = {"doc", "xls", "ppt", "pub", "jar"}

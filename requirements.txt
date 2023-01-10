@@ -127,7 +127,7 @@ dpkt==1.9.6 ; python_version >= "3.8" and python_version < "4.0" \
 easygui==0.98.3 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:33498710c68b5376b459cd3fc48d1d1f33822139eb3ed01defbc0528326da3ba \
     --hash=sha256:d653ff79ee1f42f63b5a090f2f98ce02335d86ad8963b3ce2661805cafe99a04
-filelock==3.8.2 ; python_version >= "3.8" and python_version < "4.0"
+filelock==3.9.0 ; python_version >= "3.8" and python_version < "4.0"
 fire==0.3.1 ; python_version >= "3.8" and python_version < "4" \
     --hash=sha256:9736a16227c3d469e5d2d296bce5b4d8fa8d7851e953bda327a455fc2994307f
 future==0.18.2 ; python_version >= "3.8" and python_version < "4.0" \
@@ -241,7 +241,7 @@ pendulum==1.2.5 ; python_version >= "3.8" and python_version < "4" \
     --hash=sha256:dfabd6ebf87ec050214bfa41debf0985a91f98a9f808787272c5ebb56bdf743a \
     --hash=sha256:f00d45f5d4cc57829f778b024af35ce08ca0459993aff92d7606a14d7a872633 \
     --hash=sha256:f47531a76ff67d21c2c0e1503c1bd8e5dbfd0ffb469c6ca8f68b6ef04ed7e8c4
-pillow==9.3.0 ; python_version >= "3.8" and python_version < "4.0"
+pillow==9.4.0 ; python_version >= "3.8" and python_version < "4.0"
 psutil==5.8.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:0066a82f7b1b37d334e68697faba68e5ad5e858279fd6351c8ca6024e8d6ba64 \
     --hash=sha256:02b8292609b1f7fcb34173b25e48d0da8667bc85f81d7476584d889c6e0f2131 \
@@ -502,7 +502,7 @@ requests[security,socks]==2.27.1 ; python_version >= "3.8" and python_version < 
     --hash=sha256:68d7c56fd5a8999887728ef304a6d12edc7be74f1cfa47714fc8b414525c9a61 \
     --hash=sha256:f22fa1e554c9ddfd16e6e41ac79759e17be9e492b3587efa038054674760e72d
 service-identity==21.1.0 ; python_version >= "3.8" and python_version < "4.0"
-sflock2==0.3.37 ; python_version >= "3.8" and python_version < "4.0"
+sflock2==0.3.40 ; python_version >= "3.8" and python_version < "4.0"
 six==1.16.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
     --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
@@ -546,7 +546,7 @@ sqlalchemy==1.4.22 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:f814d80844969b0d22ea63663da4de5ca1c434cfbae226188901e5d368792c17 \
     --hash=sha256:fd2102a8f8a659522719ed73865dff3d3cc76eb0833039dc473e0ad3041d04be
 sqlparse==0.4.3 ; python_version >= "3.8" and python_version < "4.0"
-termcolor==2.1.1 ; python_version >= "3.8" and python_version < "4"
+termcolor==2.2.0 ; python_version >= "3.8" and python_version < "4"
 tldextract==3.1.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:cfae9bc8bda37c3e8c7c8639711ad20e95dc85b207a256b60b0b23d7ff5540ea \
     --hash=sha256:e57f22b6d00a28c21673d2048112f1bdcb6a14d4711568305f6bb96cf5bb53a1

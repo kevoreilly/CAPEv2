@@ -1419,7 +1419,7 @@ tests = ["coverage[toml] (>=5.0.2)", "pytest"]
 
 [[package]]
 name = "sflock2"
-version = "0.3.40"
+version = "0.3.41"
 description = "Sample staging and detonation utility"
 category = "main"
 optional = false
@@ -1835,7 +1835,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "af5af85a4517b7507d738fdaa9ee46a817e7833b4f7730f62e0d2d8031f222fa"
+content-hash = "22f66a336d1cc4565eb3711bdba13c226e16105417b7ff4eb3c7bdc7e37b2910"
 
 [metadata.files]
 anyio = []

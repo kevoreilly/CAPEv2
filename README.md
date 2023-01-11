@@ -70,7 +70,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 
 * Python3
     * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
-    * host tested with python3 version 3.7 and 3.8, but newer versions should work too
+    * host tested with python3 version 3.7, 3.8, 3.10, but newer versions should work too
 
 ## Installation recommendations and scripts for optimal performance
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
@@ -145,7 +145,7 @@ git push
     * As a bonus, you can reuse your extractors in other projects.
 
 ### Special note about 3rd part dependencies:
-* They becoming a headache, specially those that using `pefile` as each pins version that they want. 
+* They becoming a headache, specially those that using `pefile` as each pins version that they want.
     * Our suggestion is clone/fork them, remove `pefile` dependency as you already have it installed. Volia no more pain.
 
 ### Docs

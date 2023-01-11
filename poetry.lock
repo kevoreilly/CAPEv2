@@ -558,6 +558,14 @@ recommended = ["cffi (>=1.12.2)", "dnspython (>=1.16.0,<2.0)", "idna", "selector
 test = ["requests", "objgraph", "cffi (>=1.12.2)", "dnspython (>=1.16.0,<2.0)", "idna", "selectors2", "futures", "mock", "backports.socketpair", "contextvars (==2.4)", "coverage (>=5.0)", "coveralls (>=1.7.0)", "psutil (>=5.7.0)"]
 
 [[package]]
+name = "google-re2"
+version = "1.0"
+description = "RE2 Python bindings"
+category = "main"
+optional = false
+python-versions = "~=3.7"
+
+[[package]]
 name = "greenlet"
 version = "2.0.1"
 description = "Lightweight in-process concurrent programming"
@@ -1112,18 +1120,6 @@ python-versions = "*"
 [package.dependencies]
 flake8 = "<5.0.0"
 tomli = {version = "*", markers = "python_version < \"3.11\""}
-
-[[package]]
-name = "pyre2"
-version = "0.3.6"
-description = "Python wrapper for Google\\'s RE2 using Cython"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.extras]
-perf = ["regex"]
-test = ["pytest"]
 
 [[package]]
 name = "pysocks"
@@ -1688,7 +1684,7 @@ python-versions = "*"
 
 [[package]]
 name = "urllib3"
-version = "1.26.13"
+version = "1.26.14"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 category = "main"
 optional = false
@@ -1836,7 +1832,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "6bfe46a1cc5030b7dfddf160f8504695cb1eebedf73a50df83ee8a0dea8cf47e"
+content-hash = "285a26f3fc1e496319a860608a3edb7553d1d1dd5a476e6bdeeab4258c044529"
 
 [metadata.files]
 anyio = []
@@ -2014,6 +2010,7 @@ geoip = [
     {file = "GeoIP-1.3.2.tar.gz", hash = "sha256:a890da6a21574050692198f14b07aa4268a01371278dfc24f71cd9bc87ebf0e6"},
 ]
 gevent = []
+google-re2 = []
 greenlet = []
 gunicorn = []
 h11 = []
@@ -2286,25 +2283,6 @@ pyparsing = [
     {file = "pyparsing-2.4.7.tar.gz", hash = "sha256:c203ec8783bf771a155b207279b9bccb8dea02d8f0c9e5f8ead507bc3246ecc1"},
 ]
 pyproject-flake8 = []
-pyre2 = [
-    {file = "pyre2-0.3.6-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:6d8e550899886ee01f1b8149ba1c336e1c749cec2e33414815a76fb5649cdf67"},
-    {file = "pyre2-0.3.6-cp36-cp36m-manylinux2010_i686.whl", hash = "sha256:310d5c98495114692940ffa020aaeef1341427755b6ca5a17c63092060ed93dc"},
-    {file = "pyre2-0.3.6-cp36-cp36m-manylinux2010_x86_64.whl", hash = "sha256:97de5d4cf7d8b9be7dbe0dc0941c4a6c1395fc598722d9644adc55427d3dd083"},
-    {file = "pyre2-0.3.6-cp36-cp36m-win_amd64.whl", hash = "sha256:18cd5d76973ee57232a5d851489c202105e4752aee6dcbd38742c0475f3f1c4e"},
-    {file = "pyre2-0.3.6-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:225784d7bd905bc3e87d4bbcc6ac4087ccea8905dd657273fd71bfb113e50e82"},
-    {file = "pyre2-0.3.6-cp37-cp37m-manylinux2010_i686.whl", hash = "sha256:c3b45f789374d0f95866330fcd34bb6b93705e8f5c276d9d70d318a227ba5954"},
-    {file = "pyre2-0.3.6-cp37-cp37m-manylinux2010_x86_64.whl", hash = "sha256:f3467dd9a4c8100f6406bc6277d945a13b7fd7c4426d2415564de1324b5db94f"},
-    {file = "pyre2-0.3.6-cp37-cp37m-win_amd64.whl", hash = "sha256:608558276d3539002ad6300d0b0a2b0941577fdea009715ff4d31052e05cb409"},
-    {file = "pyre2-0.3.6-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:ebe92a3222f2f6f176eeb3859638734e4f9a82d5940ad7d6f0c1288153c70ce2"},
-    {file = "pyre2-0.3.6-cp38-cp38-manylinux2010_i686.whl", hash = "sha256:961020835a3b805eed51a082e5effdccb51979c4efef2a17f17122967cb4749a"},
-    {file = "pyre2-0.3.6-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:cc180989186f05b75020b53c79059c338e9e1940d325fc945c84aab2b5c57525"},
-    {file = "pyre2-0.3.6-cp38-cp38-win_amd64.whl", hash = "sha256:7c398942c3467fe23b2dd4a11dd78da8aee774d0b481e84b1b208819ee724cca"},
-    {file = "pyre2-0.3.6-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:617c4d75b41b34afe7590e144efad1c564a8b49a1e0827872afc2243b24beada"},
-    {file = "pyre2-0.3.6-cp39-cp39-manylinux2010_i686.whl", hash = "sha256:f3ae7b087abcbc4b910d535c2fb877ef452b61d2514a63fd15b8b020b51fe4b5"},
-    {file = "pyre2-0.3.6-cp39-cp39-manylinux2010_x86_64.whl", hash = "sha256:b87e9aeee74376210bd82c8328eb007b93378f3cd61fa6176161c3b9037e8474"},
-    {file = "pyre2-0.3.6-cp39-cp39-win_amd64.whl", hash = "sha256:1efec117f2543b38adcbe038a2ae156eb91b6ed8a73c998c3752a766d6241075"},
-    {file = "pyre2-0.3.6.tar.gz", hash = "sha256:6fe972c0cadec49a5a055690e5aa29f8aebaed0fa9b7d8d3530e33719b61f91c"},
-]
 pysocks = [
     {file = "PySocks-1.7.1-py27-none-any.whl", hash = "sha256:08e69f092cc6dbe92a0fdd16eeb9b9ffbc13cadfe5ca4c7bd92ffb078b293299"},
     {file = "PySocks-1.7.1-py3-none-any.whl", hash = "sha256:2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5"},

@@ -1,17 +1,20 @@
+import concurrent.futures
+import contextlib
+import functools
 import hashlib
 import json
 import logging
 import os
+import pebble
 import shlex
 import shutil
 import subprocess
 import tempfile
-import time
 import timeit
 from multiprocessing.context import TimeoutError
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from typing import List
+from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, TypedDict
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -35,6 +38,42 @@ try:
     HAVE_SFLOCK = True
 except ImportError:
     HAVE_SFLOCK = False
+
+DuplicatesType = DefaultDict[str, Set[str]]
+
+
+@contextlib.contextmanager
+def extractor_ctx(filepath, tool_name, prefix=None):
+    tempdir = tempfile.mkdtemp(prefix=prefix)
+    retval = {"tempdir": tempdir}
+    try:
+        yield retval
+    except subprocess.CalledProcessError as err:
+        log.error(
+            "%s: Failed to extract files from %s: cmd=`%s`, stdout=`%s`, stderr=`%s`",
+            tool_name,
+            filepath,
+            shlex.join(err.cmd),
+            err.stdout,
+            err.stderr,
+        )
+    except Exception:
+        log.exception("Exception was raised while attempting to use %s on %s", tool_name, filepath)
+    else:
+        if retval.get("extracted_files", []):
+            retval["tool_name"] = tool_name
+        else:
+            retval.pop("extracted_files", None)
+
+
+class SuccessfulExtractionReturnType(TypedDict, total=False):
+    tempdir: str
+    extracted_files: List[str]
+    tool_name: str
+
+
+ExtractorReturnType = Optional[SuccessfulExtractionReturnType]
+
 
 processing_conf = Config("processing")
 selfextract_conf = Config("selfextract")
@@ -109,10 +148,12 @@ def static_file_info(
     options: str,
     destination_folder: str,
     results: dict,
-    duplicated: dict,
+    duplicated: DuplicatesType,
 ):
 
-    if int(os.path.getsize(file_path) / (1024 * 1024)) > int(processing_conf.CAPE.max_file_size):
+    size_mb = int(os.path.getsize(file_path) / (1024 * 1024))
+    if size_mb > int(processing_conf.CAPE.max_file_size):
+        log.info("static_file_info: skipping file that exceeded max_file_size: %s: %d MB", file_path, size_mb)
         return
 
     if (
@@ -241,18 +282,20 @@ def trid_info(file_path: dict):
 
 
 def _extracted_files_metadata(
-    folder: str, destination_folder: str, files: list = None, duplicated: dict = {}, results: dict = {}
+    folder: str,
+    destination_folder: str,
+    files: List[str],
+    duplicated: Optional[DuplicatesType] = None,
+    results: Optional[dict] = None,
 ) -> List[dict]:
     """
     args:
         folder - where files extracted
         destination_folder - where to move extracted files
-        files - file names
+        files - file names relative to 'folder'
     """
     metadata = []
     filelog = os.path.join(os.path.dirname(destination_folder), "files.json")
-    if not files:
-        files = os.listdir(folder)
     with open(filelog, "a") as f:
         for file in files:
             full_path = os.path.join(folder, file)
@@ -265,7 +308,7 @@ def _extracted_files_metadata(
             if sha256 in duplicated["sha256"]:
                 continue
 
-            duplicated["sha256"].append(sha256)
+            duplicated["sha256"].add(sha256)
             file_info, pefile_object = file.get_all()
             if pefile_object:
                 results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
@@ -279,7 +322,6 @@ def _extracted_files_metadata(
             dest_path = os.path.join(destination_folder, file_info["sha256"])
             file_info["path"] = dest_path
             file_info["name"] = os.path.basename(dest_path)
-            metadata.append(file_info)
             if not Path(dest_path).exists():
                 shutil.move(full_path, dest_path)
                 print(
@@ -296,8 +338,34 @@ def _extracted_files_metadata(
                     ),
                     file=f,
                 )
+            file_info["data"] = is_text_file(file_info, destination_folder, 8192)
+            metadata.append(file_info)
 
     return metadata
+
+
+def collect_extracted_filenames(tempdir):
+    """Gather a list of files relative to the given directory."""
+    extracted_files = []
+    for root, _, files in os.walk(tempdir):
+        for file in files:
+            path = Path(root, file)
+            if path.is_file():
+                extracted_files.append(str(path.relative_to(tempdir)))
+    return extracted_files
+
+
+def time_tracker(func):
+    @functools.wraps(func)
+    def wrapped(*args, **kwargs):
+        time_start = timeit.default_timer()
+        result = func(*args, **kwargs)
+        return {
+            "result": result,
+            "took_seconds": timeit.default_timer() - time_start,
+        }
+
+    return wrapped
 
 
 def generic_file_extractors(
@@ -307,7 +375,7 @@ def generic_file_extractors(
     data_dictionary: dict,
     options: dict,
     results: dict,
-    duplicated: dict,
+    duplicated: DuplicatesType,
 ):
     """
     file - path to binary
@@ -322,11 +390,19 @@ def generic_file_extractors(
     if not Path(destination_folder).exists():
         os.makedirs(destination_folder)
 
-    # Is there are better way to set timeout for function?
-    with ThreadPool(processes=int(selfextract_conf.general.max_workers)) as pool:
-        time_start = timeit.default_timer()
-        tasks = {}
-        for funcname in (
+    # Arguments that all extractors need.
+    args = (file,)
+    # Arguments that some extractors need. They will always get passed, so the
+    # extractor functions need to accept `**_`` and just discard them.
+    kwargs = {
+        "filetype": filetype,
+        "data_dictionary": data_dictionary,
+        "options": options,
+    }
+
+    futures = {}
+    with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
+        for extraction_func in (
             msi_extract,
             kixtart_extract,
             vbe_extract,
@@ -339,72 +415,66 @@ def generic_file_extractors(
             de4dot_deobfuscate,
             eziriz_deobfuscate,
         ):
-
-            if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
+            funcname = extraction_func.__name__
+            if not getattr(selfextract_conf, funcname).get("enabled", False):
                 continue
 
-            func_timeout = int(getattr(selfextract_conf, funcname.__name__).get("timeout", 60))
-            args = (file, destination_folder, filetype, data_dictionary, options, results, duplicated)
-            tasks.update({funcname.__name__: {"func": pool.apply_async(funcname, args=args), "timeout": func_timeout}})
+            func_timeout = int(getattr(selfextract_conf, funcname).get("timeout", 60))
+            futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
 
-        while tasks:
-            for fname in list(tasks):
-                delete = False
-                try:
-                    if not tasks[fname]["func"].ready() and timeit.default_timer() - time_start < tasks[fname]["timeout"]:
-                        # Manual sleep instead of .get(timeout=X) to not block.
-                        # Imagine func A has timeout 30 but func B has timeout 10
-                        # log.debug("Processing func %s for file %s", fname, file)
-                        time.sleep(5)
-                        continue
+    pool.join()
 
-                    extraction_result = tasks[fname]["func"].get()
-                    if extraction_result:
-                        tool_name, metadata = extraction_result
-                        if metadata:
-                            for meta in metadata:
-                                meta["data"] = is_text_file(meta, destination_folder, 8192)
-                            took_seconds = timeit.default_timer() - time_start
-                            data_dictionary.update(
-                                {
-                                    "extracted_files": metadata,
-                                    "extracted_files_tool": tool_name,
-                                    "extracted_files_time": took_seconds,
-                                }
-                            )
-                            # self.add_statistic_tmp(tool_name, "time", pretime)
-                    delete = True
-                except (StopIteration, TimeoutError, TypeError):
-                    log.debug("Function: %s took longer than %d seconds", fname, tasks[fname]["timeout"])
-                    delete = True
-                except Exception as error:
-                    log.error("file_extra_info: %s", str(error), exc_info=True)
-                    delete = True
-
-                if delete:
-                    tasks.pop(fname)
-                if not tasks:
-                    return
-
-
-def _generic_post_extraction_process(
-    file: str, decoded: str, destination_folder: str, data_dictionary: dict, duplicated: dict, results: dict
-):
-    with tempfile.TemporaryDirectory() as tempdir:
-        decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
-        _ = Path(decoded_file_path).write_text(decoded)
-    return _extracted_files_metadata(tempdir, destination_folder, files=[decoded_file_path], duplicated=duplicated, results=results)
+    for funcname, future in futures.items():
+        func_result = None
+        try:
+            func_result = future.result()
+        except concurrent.futures.TimeoutError as err:
+            timeout = err.args[0]
+            log.debug("Function: %s took longer than %d seconds", funcname, timeout)
+            continue
+        except Exception as err:
+            log.exception("file_extra_info: %s", err)
+            continue
+        extraction_result = func_result["result"]
+        if extraction_result is None:
+            continue
+        tempdir = extraction_result.get("tempdir", None)
+        try:
+            extracted_files = extraction_result.get("extracted_files", [])
+            if not extracted_files:
+                continue
+            old_tool_name = data_dictionary.get("extracted_files_tool", None)
+            new_tool_name = extraction_result["tool_name"]
+            if old_tool_name:
+                log.warning("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
+                continue
+            metadata = _extracted_files_metadata(
+                tempdir, destination_folder, files=extracted_files, duplicated=duplicated, results=results
+            )
+            data_dictionary.update(
+                {
+                    "extracted_files": metadata,
+                    "extracted_files_tool": new_tool_name,
+                    "extracted_files_time": func_result["took_seconds"],
+                }
+            )
+        finally:
+            if tempdir:
+                shutil.rmtree(tempdir, ignore_errors=True)
 
 
-def batch_extract(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+def _generic_post_extraction_process(file: str, tool_name: str, decoded: str) -> SuccessfulExtractionReturnType:
+    with extractor_ctx(file, tool_name) as ctx:
+        basename = f"{os.path.basename(file)}_decoded"
+        decoded_file_path = os.path.join(ctx["tempdir"], basename)
+        Path(decoded_file_path).write_text(decoded)
+        ctx["extracted_files"] = [basename]
+
+    return ctx
+
+
+@time_tracker
+def batch_extract(file: str, **_) -> ExtractorReturnType:
     # https://github.com/DissectMalware/batch_deobfuscator
     # https://www.fireeye.com/content/dam/fireeye-www/blog/pdfs/dosfuscation-report.pdf
 
@@ -423,18 +493,11 @@ def batch_extract(
     if original_sha256 == decoded_sha256:
         return
 
-    return "Batch", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, duplicated, results)
+    return _generic_post_extraction_process(file, "Batch", decoded)
 
 
-def vbe_extract(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+@time_tracker
+def vbe_extract(file: str, **_) -> ExtractorReturnType:
 
     if not HAVE_VBE_DECODER:
         log.debug("Missed VBE decoder")
@@ -454,76 +517,55 @@ def vbe_extract(
         log.debug("VBE content wasn't decoded")
         return
 
-    return "Vbe", _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, duplicated, results)
+    return _generic_post_extraction_process(file, "Vbe", decoded)
 
 
-def eziriz_deobfuscate(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
-    metadata = []
-
+@time_tracker
+def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     if file.endswith("_Slayed"):
-        return "eziriz", metadata
+        return
 
     if all("Eziriz .NET Reactor" not in string for string in data_dictionary.get("die", {})):
-        return "eziriz", metadata
+        return
 
     binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
     if not binary:
         log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
-        return "eziriz", metadata
+        return
 
     if not Path(binary).exists():
         log.error(
             "Missed dependency: Download your version from https://github.com/SychicBoy/NETReactorSlayer/releases and place under %s.",
             binary,
         )
-        return "eziriz", metadata
+        return
 
     if not os.access(binary, os.X_OK):
         log.error("You need to add execution permissions: chmod a+x data/NETReactorSlayer.CLI")
         return
 
-    with tempfile.TemporaryDirectory(prefix="eziriz_") as tempdir:
-        try:
-            dest_path = os.path.join(tempdir, os.path.basename(file))
-            _ = subprocess.check_output(
-                [
-                    os.path.join(CUCKOO_ROOT, binary),
-                    *shlex.split(selfextract_conf.eziriz_deobfuscate.extra_args.strip()),
-                    file,
-                ],
-                universal_newlines=True,
-            )
-            deobf_file = file + "_Slayed"
-            if not Path(deobf_file).exists():
-                return "eziriz", metadata
-
+    with extractor_ctx(file, "eziriz", prefix="eziriz_") as ctx:
+        tempdir = ctx["tempdir"]
+        dest_path = os.path.join(tempdir, os.path.basename(file))
+        _ = subprocess.check_output(
+            [
+                os.path.join(CUCKOO_ROOT, binary),
+                *shlex.split(selfextract_conf.eziriz_deobfuscate.extra_args.strip()),
+                file,
+            ],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        deobf_file = file + "_Slayed"
+        if Path(deobf_file).exists():
             shutil.move(deobf_file, dest_path)
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder))
-        except subprocess.CalledProcessError:
-            log.exception("Failed to deobfuscate %s with de4dot.", file)
-        except Exception as e:
-            log.error(e, exc_info=True)
+            ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
-    return "eziriz", metadata
+    return ctx
 
 
-def de4dot_deobfuscate(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+@time_tracker
+def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     if "Mono" not in filetype:
         return
 
@@ -534,40 +576,29 @@ def de4dot_deobfuscate(
     if not Path(binary).exists():
         log.error("Missed dependency: sudo apt install de4dot")
         return
-    metadata = []
 
-    with tempfile.TemporaryDirectory(prefix="de4dot_") as tempdir:
-        try:
-            dest_path = os.path.join(tempdir, os.path.basename(file))
-            _ = subprocess.check_output(
-                [
-                    binary,
-                    *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
-                    "-f",
-                    file,
-                    "-o",
-                    dest_path,
-                ],
-                universal_newlines=True,
-            )
-            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, duplicated=duplicated, results=results))
-        except subprocess.CalledProcessError:
-            log.exception("Failed to deobfuscate %s with de4dot.", file)
-        except Exception as e:
-            log.error(e, exc_info=True)
+    with extractor_ctx(file, "de4dot", prefix="de4dot_") as ctx:
+        tempdir = ctx["tempdir"]
+        dest_path = os.path.join(tempdir, os.path.basename(file))
+        _ = subprocess.check_output(
+            [
+                binary,
+                *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
+                "-f",
+                file,
+                "-o",
+                dest_path,
+            ],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
-    return "de4dot", metadata
+    return ctx
 
 
-def msi_extract(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+@time_tracker
+def msi_extract(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     """Work on MSI Installers"""
 
     if "MSI Installer" not in filetype:
@@ -577,64 +608,46 @@ def msi_extract(
         log.error("Missed dependency: sudo apt install msitools")
         return
 
-    metadata = []
-    files = []
+    extracted_files = []
 
-    with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
-        try:
+    with extractor_ctx(file, "MsiExtract", prefix="msidump_") as ctx:
+        tempdir = ctx["tempdir"]
+        output = subprocess.check_output(
+            [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        if output:
+            extracted_files = [
+                extracted_file
+                for extracted_file in list(filter(None, output.split("\n")))
+                if Path(tempdir, extracted_file).is_file()
+            ]
+        else:
             output = subprocess.check_output(
-                [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
+                [
+                    "7z",
+                    "e",
+                    f"-o{tempdir}",
+                    "-y",
+                    file,
+                    "Binary.*",
+                ],
                 universal_newlines=True,
+                stderr=subprocess.PIPE,
             )
-            if output:
-                files = [
-                    extracted_file
-                    for extracted_file in list(filter(None, output.split("\n")))
-                    if Path(tempdir, extracted_file).is_file()
-                ]
-            else:
-                output = subprocess.check_output(
-                    [
-                        "7z",
-                        "e",
-                        f"-o{tempdir}",
-                        "-y",
-                        file,
-                        "Binary.*",
-                    ],
-                    universal_newlines=True,
-                )
-                for root, _, filenames in os.walk(tempdir):
-                    for filename in filenames:
-                        os.rename(
-                            os.path.join(root, filename),
-                            os.path.join(root, filename.split("Binary.")[-1]),
-                        )
-                files = [
-                    extracted_file.split("Binary.")[-1]
-                    for root, _, extracted_files in os.walk(tempdir)
-                    for extracted_file in extracted_files
-                    if Path(tempdir, extracted_file).is_file()
-                ]
-            if files:
-                metadata.extend(
-                    _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
-                )
-        except Exception as e:
-            log.error(e, exc_info=True)
+            for root, _, filenames in os.walk(tempdir):
+                for filename in filenames:
+                    os.rename(os.path.join(root, filename), os.path.join(root, filename.split("Binary.")[-1]))
+            extracted_files = collect_extracted_filenames(tempdir)
 
-    return "MsiExtract", metadata
+        ctx["extracted_files"] = extracted_files
+
+    return ctx
 
 
-def Inno_extract(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+@time_tracker
+def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     """Work on Inno Installers"""
 
     if all("Inno Setup" not in string for string in data_dictionary.get("die", {})):
@@ -644,35 +657,20 @@ def Inno_extract(
         log.error("Missed dependency: sudo apt install innoextract")
         return
 
-    metadata = []
+    with extractor_ctx(file, "InnoExtract", prefix="innoextract_") as ctx:
+        tempdir = ctx["tempdir"]
+        subprocess.check_output(
+            [selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
-    with tempfile.TemporaryDirectory(prefix="innoextract_") as tempdir:
-        try:
-            subprocess.check_output(
-                [selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir],
-                universal_newlines=True,
-            )
-            files = [os.path.join(root, file) for root, _, filenames in os.walk(tempdir) for file in filenames]
-            metadata.extend(
-                _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
-            )
-        except subprocess.CalledProcessError:
-            log.error("Can't unpack InnoSetup for %s", file)
-        except Exception as e:
-            log.error(e, exc_info=True)
-
-    return "InnoExtract", metadata
+    return ctx
 
 
-def kixtart_extract(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+@time_tracker
+def kixtart_extract(file: str, **_) -> ExtractorReturnType:
     """
     https://github.com/jhumble/Kixtart-Detokenizer/blob/main/detokenize.py
     """
@@ -681,30 +679,22 @@ def kixtart_extract(
         return
 
     data = Path(file).read_bytes()
-    metadata = []
 
-    if data.startswith(b"\x1a\xaf\x06\x00\x00\x10"):
-        with tempfile.TemporaryDirectory(prefix="kixtart_") as tempdir:
-            kix = Kixtart(file, dump_dir=tempdir)
-            kix.decrypt()
-            kix.dump()
+    if not data.startswith(b"\x1a\xaf\x06\x00\x00\x10"):
+        return
 
-            metadata.extend(
-                _extracted_files_metadata(tempdir, destination_folder, content=data, duplicated=duplicated, results=results)
-            )
+    with extractor_ctx(file, "Kixtart", prefix="kixtart_") as ctx:
+        tempdir = ctx["tempdir"]
+        kix = Kixtart(file, dump_dir=tempdir)
+        kix.decrypt()
+        kix.dump()
+        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
-    return "Kixtart", metadata
+    return ctx
 
 
-def UnAutoIt_extract(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+@time_tracker
+def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
         return
 
@@ -714,38 +704,21 @@ def UnAutoIt_extract(
         )
         return
 
-    metadata = []
+    with extractor_ctx(file, "UnAutoIt", prefix="unautoit_") as ctx:
+        tempdir = ctx["tempdir"]
+        output = subprocess.check_output(
+            [unautoit_binary, "extract-all", "--output-dir", tempdir, file],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        if output:
+            ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
-    with tempfile.TemporaryDirectory(prefix="unautoit_") as tempdir:
-        try:
-            output = subprocess.check_output(
-                [unautoit_binary, "extract-all", "--output-dir", tempdir, file],
-                universal_newlines=True,
-            )
-            if output:
-                files = [
-                    os.path.join(tempdir, extracted_file) for extracted_file in tempdir if Path(tempdir, extracted_file).is_file()
-                ]
-                metadata.extend(
-                    _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
-                )
-        except subprocess.CalledProcessError:
-            log.error("Can't unpack AutoIT for %s", file)
-        except Exception as e:
-            log.error(e, exc_info=True)
-
-    return "UnAutoIt", metadata
+    return ctx
 
 
-def UPX_unpack(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+@time_tracker
+def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> ExtractorReturnType:
     if (
         "UPX compressed" not in filetype
         and all("UPX" not in string for string in data_dictionary.get("die", {}))
@@ -753,44 +726,28 @@ def UPX_unpack(
     ):
         return
 
-    metadata = []
+    with extractor_ctx(file, "UnUPX", prefix="unupx_") as ctx:
+        basename = f"{os.path.basename(file)}_unpacked"
+        dest_path = os.path.join(ctx["tempdir"], basename)
+        output = subprocess.check_output(
+            [
+                "upx",
+                "-d",
+                file,
+                f"-o{dest_path}",
+            ],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        if output and "Unpacked 1 file." in output:
+            ctx["extracted_files"] = [basename]
 
-    with tempfile.TemporaryDirectory(prefix="unupx_") as tempdir:
-        try:
-            dest_path = f"{os.path.join(tempdir, os.path.basename(file))}_unpacked"
-            output = subprocess.check_output(
-                [
-                    "upx",
-                    "-d",
-                    file,
-                    f"-o{dest_path}",
-                ],
-                universal_newlines=True,
-            )
-            if output and "Unpacked 1 file." in output:
-                metadata.extend(
-                    _extracted_files_metadata(
-                        tempdir, destination_folder, files=[dest_path], duplicated=duplicated, results=results
-                    )
-                )
-        except subprocess.CalledProcessError:
-            log.error("Can't unpack UPX for %s", file)
-        except Exception as e:
-            log.error(e, exc_info=True)
-
-    return "UnUPX", metadata
+    return ctx
 
 
 # ToDo do not ask for password + test with pass
-def SevenZip_unpack(
-    file: str,
-    destination_folder: str,
-    filetype: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: dict,
-):
+@time_tracker
+def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options: dict, **_) -> ExtractorReturnType:
     tool = False
 
     if not Path("/usr/bin/7z").exists():
@@ -830,40 +787,34 @@ def SevenZip_unpack(
     else:
         return
 
-    metadata = []
-    with tempfile.TemporaryDirectory(prefix=prefix) as tempdir:
-        try:
-            HAVE_SFLOCK = False
-            if HAVE_SFLOCK:
-                unpacked = unpack(file.encode(), password=password)
-                for child in unpacked.children:
-                    _ = Path(tempdir, child.filename.decode()).write_bytes(child.contents)
-            else:
-                _ = subprocess.check_output(
-                    [
-                        "7z",
-                        "e",
-                        file,
-                        password,
-                        f"-o{tempdir}",
-                        "-y",
-                    ],
-                    universal_newlines=True,
-                )
-            files = [os.path.join(tempdir, extracted_file) for extracted_file in tempdir if Path(tempdir, extracted_file).is_file()]
-            metadata.extend(
-                _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
+    with extractor_ctx(file, tool, prefix=prefix) as ctx:
+        tempdir = ctx["tempdir"]
+        HAVE_SFLOCK = False
+        if HAVE_SFLOCK:
+            unpacked = unpack(file.encode(), password=password)
+            for child in unpacked.children:
+                _ = Path(tempdir, child.filename.decode()).write_bytes(child.contents)
+        else:
+            _ = subprocess.check_output(
+                [
+                    "7z",
+                    "e",
+                    file,
+                    password,
+                    f"-o{tempdir}",
+                    "-y",
+                ],
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
             )
-        except subprocess.CalledProcessError:
-            logging.error("Can't unpack with 7Zip for %s", file)
-        except Exception as e:
-            log.error("sevenzip error: %s", str(e), exc_info=True)
+        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
-    return tool, metadata
+    return ctx
 
 
 # ToDo move to sflock
-def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options: dict, results: dict, duplicated: dict):
+@time_tracker
+def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnType:
     if (
         all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
         and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", {}))
@@ -875,26 +826,15 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options:
         log.warning("Missed UnRar binary: /usr/bin/unrar. sudo apt install unrar")
         return
 
-    metadata = []
+    with extractor_ctx(file, "UnRarSFX", prefix="unrar_") as ctx:
+        tempdir = ctx["tempdir"]
+        password = options.get("password", "infected")
+        output = subprocess.check_output(
+            ["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        if output:
+            ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
-    with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
-        try:
-            password = options.get("password", "infected")
-            output = subprocess.check_output(
-                ["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir],
-                universal_newlines=True,
-            )
-            if output:
-                files = [
-                    os.path.join(tempdir, extracted_file) for extracted_file in tempdir if Path(tempdir, extracted_file).is_file()
-                ]
-                metadata.extend(
-                    _extracted_files_metadata(tempdir, destination_folder, files=files, duplicated=duplicated, results=results)
-                )
-
-        except subprocess.CalledProcessError:
-            logging.error("Can't unpack SFX for %s", file)
-        except Exception as e:
-            logging.error(e, exc_info=True)
-
-    return "UnRarSFX", metadata
+    return ctx

@@ -9,7 +9,7 @@ import tempfile
 import time
 import timeit
 from multiprocessing.context import TimeoutError
-from multiprocessing.pool import Pool
+from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import List
 
@@ -323,7 +323,7 @@ def generic_file_extractors(
         os.makedirs(destination_folder)
 
     # Is there are better way to set timeout for function?
-    with Pool(processes=int(selfextract_conf.general.max_workers)) as pool:
+    with ThreadPool(processes=int(selfextract_conf.general.max_workers)) as pool:
         time_start = timeit.default_timer()
         tasks = {}
         for funcname in (

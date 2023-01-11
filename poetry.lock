@@ -254,7 +254,7 @@ python-versions = "*"
 
 [[package]]
 name = "coverage"
-version = "7.0.4"
+version = "7.0.5"
 description = "Code coverage measurement for Python"
 category = "dev"
 optional = false
@@ -383,14 +383,14 @@ tests = ["pytest (<4.0)", "pytest-django", "pytest-flakes (==1.0.1)", "pytest-pe
 
 [[package]]
 name = "django-extensions"
-version = "3.1.5"
+version = "3.2.1"
 description = "Extensions for Django"
 category = "main"
 optional = false
 python-versions = ">=3.6"
 
 [package.dependencies]
-Django = ">=2.2"
+Django = ">=3.2"
 
 [[package]]
 name = "django-ratelimit"
@@ -538,7 +538,7 @@ python-versions = "*"
 
 [[package]]
 name = "gevent"
-version = "21.12.0"
+version = "22.10.2"
 description = "Coroutine-based network library"
 category = "main"
 optional = false
@@ -546,7 +546,7 @@ python-versions = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5"
 
 [package.dependencies]
 cffi = {version = ">=1.12.2", markers = "platform_python_implementation == \"CPython\" and sys_platform == \"win32\""}
-greenlet = {version = ">=1.1.0,<2.0", markers = "platform_python_implementation == \"CPython\""}
+greenlet = {version = ">=2.0.0", markers = "platform_python_implementation == \"CPython\""}
 "zope.event" = "*"
 "zope.interface" = "*"
 
@@ -559,14 +559,15 @@ test = ["requests", "objgraph", "cffi (>=1.12.2)", "dnspython (>=1.16.0,<2.0)", 
 
 [[package]]
 name = "greenlet"
-version = "1.1.2"
+version = "2.0.1"
 description = "Lightweight in-process concurrent programming"
 category = "main"
 optional = false
 python-versions = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*"
 
 [package.extras]
-docs = ["sphinx"]
+docs = ["sphinx", "docutils (<0.18)"]
+test = ["objgraph", "psutil", "faulthandler"]
 
 [[package]]
 name = "gunicorn"
@@ -1835,7 +1836,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "22f66a336d1cc4565eb3711bdba13c226e16105417b7ff4eb3c7bdc7e37b2910"
+content-hash = "6bfe46a1cc5030b7dfddf160f8504695cb1eebedf73a50df83ee8a0dea8cf47e"
 
 [metadata.files]
 anyio = []
@@ -1966,10 +1967,7 @@ django-csp = [
     {file = "django_csp-3.7-py2.py3-none-any.whl", hash = "sha256:01443a07723f9a479d498bd7bb63571aaa771e690f64bde515db6cdb76e8041a"},
     {file = "django_csp-3.7.tar.gz", hash = "sha256:01eda02ad3f10261c74131cdc0b5a6a62b7c7ad4fd017fbefb7a14776e0a9727"},
 ]
-django-extensions = [
-    {file = "django-extensions-3.1.5.tar.gz", hash = "sha256:28e1e1bf49f0e00307ba574d645b0af3564c981a6dfc87209d48cb98f77d0b1a"},
-    {file = "django_extensions-3.1.5-py3-none-any.whl", hash = "sha256:9238b9e016bb0009d621e05cf56ea8ce5cce9b32e91ad2026996a7377ca28069"},
-]
+django-extensions = []
 django-ratelimit = [
     {file = "django-ratelimit-3.0.1.tar.gz", hash = "sha256:73223d860abd5c5d7b9a807fabb39a6220068129b514be8d78044b52607ab154"},
     {file = "django_ratelimit-3.0.1-py2.py3-none-any.whl", hash = "sha256:857e797f23de948b204a31dba9d88aea3ce731b7a5d926d0240c772e19b5486f"},

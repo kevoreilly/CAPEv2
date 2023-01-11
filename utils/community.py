@@ -8,8 +8,8 @@ import shutil
 import sys
 import zipfile
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+if sys.version_info[:2] < (3, 8):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
 import argparse
 import logging
 import tarfile

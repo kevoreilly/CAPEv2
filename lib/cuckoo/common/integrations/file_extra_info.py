@@ -237,7 +237,6 @@ def static_file_info(
     generic_file_extractors(
         file_path,
         destination_folder,
-        data_dictionary["type"],
         data_dictionary,
         options_dict,
         results,
@@ -370,7 +369,6 @@ def time_tracker(func):
 def generic_file_extractors(
     file: str,
     destination_folder: str,
-    filetype: str,
     data_dictionary: dict,
     options: dict,
     results: dict,
@@ -394,7 +392,7 @@ def generic_file_extractors(
     # Arguments that some extractors need. They will always get passed, so the
     # extractor functions need to accept `**_`` and just discard them.
     kwargs = {
-        "filetype": filetype,
+        "filetype": data_dictionary["type"],
         "data_dictionary": data_dictionary,
         "options": options,
     }
@@ -437,12 +435,12 @@ def generic_file_extractors(
         extraction_result = func_result["result"]
         if extraction_result is None:
             continue
-        tempdir = extraction_result.get("tempdir", None)
+        tempdir = extraction_result.get("tempdir")
         try:
             extracted_files = extraction_result.get("extracted_files", [])
             if not extracted_files:
                 continue
-            old_tool_name = data_dictionary.get("extracted_files_tool", None)
+            old_tool_name = data_dictionary.get("extracted_files_tool")
             new_tool_name = extraction_result["tool_name"]
             if old_tool_name:
                 log.warning("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)

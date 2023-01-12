@@ -267,7 +267,7 @@ def decode_files(files: List[str]) -> str:
     return "\n".join(decode_file(file) for file in files)
 
 
-def decode_file(file: str, contents:bytes=False) -> str:
+def decode_file(file: str, contents: bytes = False) -> str:
     if not contents:
         try:
             contents = Path(file).read_bytes().decode("latin-1", errors="ignore")

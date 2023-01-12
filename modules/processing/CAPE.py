@@ -17,21 +17,21 @@ import json
 import logging
 import os
 import timeit
-from pathlib import Path
 from contextlib import suppress
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import pe_map, static_config_parsers, cape_name_from_yara
+from lib.cuckoo.common.cape_utils import cape_name_from_yara, pe_map, static_config_parsers
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.integrations.file_extra_info import static_file_info, DuplicatesType
+from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import (
     add_family_detection,
+    convert_to_printable_and_truncate,
     get_clamav_consensus,
     make_bytes,
-    convert_to_printable_and_truncate,
-    wide2str,
     texttypes,
+    wide2str,
 )
 
 try:

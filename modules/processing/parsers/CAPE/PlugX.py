@@ -27,7 +27,6 @@ from collections import OrderedDict, defaultdict
 from socket import inet_ntoa
 from struct import calcsize, unpack_from
 
-
 persistence = defaultdict(lambda: "Unknown", {0: "Service + Run Key", 1: "Service", 2: "Run key", 3: "None"})
 regs = defaultdict(
     lambda: "Unknown",
@@ -45,6 +44,7 @@ def get_str_utf16le(buff):
     tstrend = buff.find(b"\x00\x00")
     tstr = buff[: tstrend + (tstrend & 1)]
     return tstr.decode()
+
 
 def get_proto(proto):
     ret = []
@@ -71,6 +71,7 @@ def get_proto2(proto):
         ret = f"UNKNOWN ({proto})"
     return ret
 
+
 def get_timer_string(timer: tuple) -> str:
     timer_str = ""
     if timer[0] != 0:
@@ -81,6 +82,7 @@ def get_timer_string(timer: tuple) -> str:
         timer_str += f"{timer[2]} mins, "
     timer_str += f"{timer[3]} secs"
     return timer_str
+
 
 def extract_config(cfg_blob):
     cfg_sz = len(cfg_blob)

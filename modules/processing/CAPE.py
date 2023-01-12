@@ -23,7 +23,7 @@ from contextlib import suppress
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import pe_map, static_config_parsers, cape_name_from_yara
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.integrations.file_extra_info import static_file_info
+from lib.cuckoo.common.integrations.file_extra_info import static_file_info, DuplicatesType
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import (
     add_family_detection,
@@ -156,7 +156,7 @@ class CAPE(Processing):
 
         return type_string, append_file
 
-    def process_file(self, file_path, append_file, metadata: dict = {}, category: str = False, duplicated: dict = {}) -> dict:
+    def process_file(self, file_path, append_file, metadata: dict, *, category: str, duplicated: DuplicatesType) -> dict:
         """Process file.
         @return: file_info
         """
@@ -173,9 +173,10 @@ class CAPE(Processing):
         sha256 = f.get_sha256()
 
         if sha256 in duplicated["sha256"]:
+            log.debug("Skipping file that has already been processed: %s", sha256)
             return
         else:
-            duplicated["sha256"].append(sha256)
+            duplicated["sha256"].add(sha256)
 
         file_info, pefile_object = f.get_all()
 
@@ -309,7 +310,11 @@ class CAPE(Processing):
                         )
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
-                    if file_info["entrypoint"] == cape_file["entrypoint"] and file_info["cape_type_code"] == cape_file["cape_type_code"] and file_info["ep_bytes"] == cape_file["ep_bytes"]:
+                    if (
+                        file_info["entrypoint"] == cape_file["entrypoint"]
+                        and file_info["cape_type_code"] == cape_file["cape_type_code"]
+                        and file_info["ep_bytes"] == cape_file["ep_bytes"]
+                    ):
                         log.debug("CAPE duplicate output file skipped: matching entrypoint")
                         append_file = False
 
@@ -334,7 +339,7 @@ class CAPE(Processing):
 
         meta = {}
         # Required to control files extracted by selfextract.conf as we store them in dropped
-        duplicated = {"sha256": []}
+        duplicated: DuplicatesType = collections.defaultdict(set)
         if Path(self.files_metadata).exists():
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)

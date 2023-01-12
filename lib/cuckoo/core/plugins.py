@@ -275,8 +275,7 @@ class RunProcessing:
             # Run every loaded processing module.
             for module in processing_list:
                 result = self.process(module)
-                # If it provided some results, append it to the big results
-                # container.
+                # If it provided some results, append it to the big results container.
                 if result:
                     self.results.update(result)
         else:

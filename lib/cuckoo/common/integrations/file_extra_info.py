@@ -5,16 +5,15 @@ import hashlib
 import json
 import logging
 import os
-import pebble
 import shlex
 import shutil
 import subprocess
 import tempfile
 import timeit
-from multiprocessing.context import TimeoutError
-from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, TypedDict
+from typing import DefaultDict, List, Optional, Set, TypedDict
+
+import pebble
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

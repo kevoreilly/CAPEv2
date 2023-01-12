@@ -19,7 +19,6 @@ import os
 import timeit
 from pathlib import Path
 from contextlib import suppress
-import typing
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import pe_map, static_config_parsers, cape_name_from_yara

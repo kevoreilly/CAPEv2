@@ -136,6 +136,7 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 
     HAVE_VIRUSTOTAL = True
 
+exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
 
 
@@ -209,7 +210,7 @@ def static_file_info(
 
     data = Path(file_path).read_bytes()
 
-    if not file_path.endswith(excluded_extensions):
+    if not file_path.startswith(exclude_startswith) and not file_path.endswith(excluded_extensions):
         data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
 
         if processing_conf.trid.enabled:

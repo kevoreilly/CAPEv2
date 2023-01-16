@@ -5,7 +5,6 @@
 import errno
 import hashlib
 import logging
-import ntpath
 import os
 import shutil
 import tempfile
@@ -55,13 +54,12 @@ def open_inclusive(path, mode="ab", bufsize=-1):
 
 class Storage:
     @staticmethod
-    def get_filename_from_path(path):
+    def get_filename_from_path(path: str):
         """Cross-platform filename extraction from path.
         @param path: file path.
         @return: filename.
         """
-        dirpath, filename = ntpath.split(path)
-        return filename or ntpath.basename(dirpath)
+        return Path(path).name
 
 
 class Folders(Storage):

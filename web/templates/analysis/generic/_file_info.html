@@ -309,7 +309,7 @@
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
                 {% endif %}
                 {% if file.extracted_files %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}}</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}} ({{file.extracted_files_time|floatformat:2}})</a>
                 {% endif %}
             </td>
         </tr>

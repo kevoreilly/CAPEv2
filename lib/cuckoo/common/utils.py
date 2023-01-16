@@ -8,6 +8,7 @@ import fcntl
 import inspect
 import logging
 import multiprocessing
+import ntpath
 import os
 import random
 import shutil
@@ -608,7 +609,8 @@ def get_filename_from_path(path):
     @param path: file path.
     @return: filename.
     """
-    return Path(path).name
+    dirpath, filename = ntpath.split(path)
+    return filename or ntpath.basename(dirpath)
 
 
 def store_temp_file(filedata, filename, path=None):

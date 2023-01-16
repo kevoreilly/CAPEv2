@@ -689,7 +689,7 @@ class Analyzer:
             if not hasattr(aux, "stop"):
                 continue
             try:
-                log.info("Stopping auxiliary module: %s", aux)
+                log.info("Stopping auxiliary module: %s", aux.__class__.__name__)
                 aux.stop()
             except (NotImplementedError, AttributeError):
                 continue

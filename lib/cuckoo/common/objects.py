@@ -182,7 +182,7 @@ class File:
         """Get file name.
         @return: file name.
         """
-        return self.file_name or os.path.basename(self.file_path)
+        return self.file_name or Path(self.file_path).name
 
     def valid(self):
         return self.path_object.exists() and self.path_object.is_file() and self.path_object.stat().st_size

@@ -8,7 +8,6 @@ import fcntl
 import inspect
 import logging
 import multiprocessing
-import ntpath
 import os
 import random
 import shutil
@@ -609,8 +608,7 @@ def get_filename_from_path(path):
     @param path: file path.
     @return: filename.
     """
-    dirpath, filename = ntpath.split(path)
-    return filename or ntpath.basename(dirpath)
+    return Path(path).name
 
 
 def store_temp_file(filedata, filename, path=None):
@@ -777,20 +775,16 @@ def to_unicode(s):
 
 
 def get_user_filename(options, customs):
-    opt_filename = ""
+    # parse options, check pattern
     for block in (options, customs):
         for pattern in ("filename=", "file_name=", "name="):
-            if pattern in block:
-                for option in block.split(","):
-                    if option.startswith(pattern):
-                        opt_filename = option.split(pattern, 2)[1]
-                        break
-                if opt_filename:
-                    break
-        if opt_filename:
-            break
-
-    return opt_filename
+            if pattern not in block:
+                continue
+            for option in block.split(","):
+                if not option.startswith(pattern):
+                    continue
+                return option.split(pattern, 2)[1]
+    return ""
 
 
 def generate_fake_name():

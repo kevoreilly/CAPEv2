@@ -203,7 +203,7 @@ class CAPE(Processing):
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
-            file_info["name"] = f.get_name()
+            file_info["name"] = Path(self.task["target"]).name
             self.results["target"] = {
                 "category": category,
                 "file": file_info,

@@ -265,7 +265,39 @@ $(document).ready( function() {
                                     <label for="form_timeout">Timeout (in seconds)</label>
                                     <input type="text" class="form-control" id="form_timeout" name="timeout" value="{{config.timeout}}" />
                                 </div>
+                                {% if config.linux_on_gui %}
                                 <div class="form-group">
+                                    <label for="form_lin_options">Linux Options (<a href="#optionlinuxhelp" data-toggle="collapse">help</a>)</label>
+                                    <div id="optionlinuxhelp" class="collapse">
+                                        <p class="text-muted" style="margin-top: 10px;">Syntax is option1=val1,option2=val2,option3=val3, etc.</p>
+                                        <table class="table table-striped table-centered">
+                                            <thead>
+                                                <tr>
+                                                    <th style="text-align: center;">Option</th>
+                                                    <th style="text-align: center;">Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><code>filename</code></td>
+                                                    <td>Rename the sample file</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>file</code></td>
+                                                    <td>When using the zip or rar package, set the name of the file to execute</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>password</code></td>
+                                                    <td>When using the zip/rar package, set the password to use for extraction/decryption.  Also used when analyzing password-protected Office documents.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <input type="text" class="form-control" id="form_lin_options" name="lin_options"/>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="form-group">
                                     <label for="form_options">Options (<a href="#optionwindowshelp" data-toggle="collapse">help</a>)</label>
                                     <div id="optionwindowshelp" class="collapse">
                                         <p class="text-muted" style="margin-top: 10px;">Syntax is option1=val1,option2=val2,option3=val3, etc.</p>
@@ -488,38 +520,6 @@ $(document).ready( function() {
                                     </div>
                                     <input type="text" class="form-control" id="form_options" name="options"/>
                                 </div>
-                                {% if config.linux_on_gui %}
-                                <div class="form-group">
-                                    <label for="form_lin_options">Linux Options (<a href="#optionlinuxhelp" data-toggle="collapse">help</a>)</label>
-                                    <div id="optionlinuxhelp" class="collapse">
-                                        <p class="text-muted" style="margin-top: 10px;">Syntax is option1=val1,option2=val2,option3=val3, etc.</p>
-                                        <table class="table table-striped table-centered">
-                                            <thead>
-                                                <tr>
-                                                    <th style="text-align: center;">Option</th>
-                                                    <th style="text-align: center;">Description</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td><code>filename</code></td>
-                                                    <td>Rename the sample file</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>file</code></td>
-                                                    <td>When using the zip or rar package, set the name of the file to execute</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>password</code></td>
-                                                    <td>When using the zip/rar package, set the password to use for extraction/decryption.  Also used when analyzing password-protected Office documents.</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <input type="text" class="form-control" id="form_lin_options" name="lin_options"/>
-                                </div>
-                                {% endif %}
-                            </div>
                             <div class="form-group">
                                 <label for="form_priority">Priority</label>
                                 <select class="form-control" id="form_priority" name="priority">

@@ -334,7 +334,7 @@ def parse_id(id_string: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "id", type=parse_id, help="ID of the analysis to process (auto for continuous processing of unprocessed tasks)."
+        "id", type=parse_id, help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10"
     )
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)

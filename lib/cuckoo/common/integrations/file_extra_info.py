@@ -268,6 +268,7 @@ def detect_it_easy_info(file_path: str):
 
     return []
 
+
 def trid_info(file_path: dict):
     try:
         output = subprocess.check_output(

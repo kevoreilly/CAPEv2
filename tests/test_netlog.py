@@ -54,5 +54,5 @@ class TestBsonParser:
             1976,
             476,
             b"C:\\Windows\\sysnative\\lsass.exe",
-            b"lsass.exe",
+            "lsass.exe",
         )

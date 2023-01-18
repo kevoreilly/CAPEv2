@@ -3,12 +3,8 @@
 By Daniel Mayer (Daniel@Stairwell.com), @dan__mayer
 '''
 
-import argparse
-import json
-import os
 import re
 import struct
-import sys
 
 DESCRIPTION = "Cobalt Strike Stager Configuration Extractor"
 AUTHOR = "@dan__mayer <daniel@stairwell.com>"

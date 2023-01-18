@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-'''
+"""
 By Daniel Mayer (Daniel@Stairwell.com), @dan__mayer
-'''
+"""
 
 import re
 import struct
@@ -42,7 +42,8 @@ INET_CONSTANTS = {
     "INTERNET_FLAG_NEED_FILE": 0x00000010,
 }
 
-SMB_TEMPLATE = re.compile(b'''
+SMB_TEMPLATE = re.compile(
+    b"""
                                    # Arguments to call API-Hashed CreateNamedPipeA
    \x68\x00\xB0\x04\x00            # push   4B000h
    \x68\x00\xB0\x04\x00            # push   4B000h
@@ -58,10 +59,12 @@ SMB_TEMPLATE = re.compile(b'''
    (?P<pipe_name>.{3,140})         # Name of pipe
    \x00                            # Null terminator at the end of the pipe string
    (?P<watermark>.{4})?            # Watermark
-''',
-re.DOTALL|re.VERBOSE)
+""",
+    re.DOTALL | re.VERBOSE,
+)
 
-DNS_TEMPLATE = re.compile(b'''
+DNS_TEMPLATE = re.compile(
+    b"""
     \x69\x50\x68\x64\x6E           # DNS api import
     .{100,160}
     \xE8.\xFF\xFF\xFF              # Call to perform DNS stager requests that uses the
@@ -76,10 +79,12 @@ DNS_TEMPLATE = re.compile(b'''
         \xFF\xE7
         (?P<watermark>.{4})?       # Watermark
     )?
-''',
-re.DOTALL|re.VERBOSE)
+""",
+    re.DOTALL | re.VERBOSE,
+)
 
-HTTP_TEMPLATE = re.compile(b'''
+HTTP_TEMPLATE = re.compile(
+    b"""
     (?:\xC1\x41\xB8|\x51\x51\x68)
     (?P<port>.{4})                  # Specified port
     .{10,50}\x68
@@ -102,86 +107,87 @@ HTTP_TEMPLATE = re.compile(b'''
     (?P<netloc>.+?)                 # Netloc string
     \x00                            # Null terminator ending the netloc string
     (?P<watermark>.{4})?            # Watermark
-''',
-re.DOTALL|re.VERBOSE)
+""",
+    re.DOTALL | re.VERBOSE,
+)
+
 
 class StagerConfig:
     def __init__(self, data):
-        '''
+        """
         f: file path
-        '''
+        """
         self.data = data
         self.config = {}
         self._parse_config()
 
     def _clean(self, s, data_type):
-        '''
+        """
         s: bytestring to clean
         data_type: string determining which cleaning method is appropriate
 
         Converts the bytes of the various stager fields into human-readable settings
-        '''
+        """
         result = None
-        if data_type == 'string':
-           result = s.split(b"\x00")[0].decode('utf-8')
-        elif data_type == 'headers':
-            headers = self._clean(s, 'string')
+        if data_type == "string":
+            result = s.split(b"\x00")[0].decode("utf-8")
+        elif data_type == "headers":
+            headers = self._clean(s, "string")
             lines = headers.split("\r\n")[:-1]
             result = {k: v for k, v in (line.split(": ") for line in lines)}
-        elif data_type == 'port':
-            result = struct.unpack('<I', s)[0]
-        elif data_type == 'watermark':
-            result = struct.unpack('>I', s)[0]
-        elif data_type == 'inet_flags':
-            n = struct.unpack('<I',s)[0]
+        elif data_type == "port":
+            result = struct.unpack("<I", s)[0]
+        elif data_type == "watermark":
+            result = struct.unpack(">I", s)[0]
+        elif data_type == "inet_flags":
+            n = struct.unpack("<I", s)[0]
             constants = []
             for flag, value in INET_CONSTANTS.items():
                 if n & value == value:
                     constants.append(flag)
             result = constants
         else:
-            raise Exception(f'Unknown type {data_type} passed to _clean()')
+            raise Exception(f"Unknown type {data_type} passed to _clean()")
 
         return result
 
     def _parse_config(self):
-        '''
+        """
         Attempts to parse stager config data from a bytes-like object.
         The three types of stagers' (HTTP, SMB, DNS) templates
         can be found in resources.py
-        '''
+        """
         for i, pattern in enumerate([HTTP_TEMPLATE, DNS_TEMPLATE, SMB_TEMPLATE]):
             match = pattern.search(self.data)
             if match:
                 # order results correctly and filter out None values
                 gd = match.groupdict()
-                order = ['netloc', 'path', 'pipe_name', 'port', 'headers',
-                         'inet_flags', 'watermark']
+                order = ["netloc", "path", "pipe_name", "port", "headers", "inet_flags", "watermark"]
                 filtered = {k: gd[k] for k in order if gd.get(k) is not None}
                 # clean each field appropiately
                 operations = {
-                    'netloc': lambda x: self._clean(x, 'string'),
-                    'path': lambda x: self._clean(x, 'string'),
-                    'pipe_name': lambda x: self._clean(x, 'string'),
-                    'port': lambda x: self._clean(x, 'port'),
-                    'headers': lambda x : self._clean(x, 'headers'),
-                    'inet_flags': lambda x: self._clean(x, 'inet_flags'),
-                    'watermark': lambda x: self._clean(x, 'watermark'),
+                    "netloc": lambda x: self._clean(x, "string"),
+                    "path": lambda x: self._clean(x, "string"),
+                    "pipe_name": lambda x: self._clean(x, "string"),
+                    "port": lambda x: self._clean(x, "port"),
+                    "headers": lambda x: self._clean(x, "headers"),
+                    "inet_flags": lambda x: self._clean(x, "inet_flags"),
+                    "watermark": lambda x: self._clean(x, "watermark"),
                 }
                 # set the settings to contain the cleaned data
-                for k,v in filtered.items():
+                for k, v in filtered.items():
                     self.config[k] = operations[k](v)
                 # logic for determining type
-                self.config['type'] = ['HTTP', 'DNS', 'SMB'][i]
-                if self.config['type'] == 'HTTP':
-                    if 'INTERNET_FLAG_SECURE' in self.config['inet_flags']:
-                        self.config['type'] = 'HTTPS'
+                self.config["type"] = ["HTTP", "DNS", "SMB"][i]
+                if self.config["type"] == "HTTP":
+                    if "INTERNET_FLAG_SECURE" in self.config["inet_flags"]:
+                        self.config["type"] = "HTTPS"
 
     def get_config(self):
-        '''Returns the settings as a JSON object, or None if none exist'''
+        """Returns the settings as a JSON object, or None if none exist"""
         return self.config if self.config else None
 
 
 def extract_config(data):
-    '''Config extraction function for CapeV2'''
+    """Config extraction function for CapeV2"""
     return StagerConfig(data).get_config()

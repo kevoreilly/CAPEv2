@@ -8,7 +8,6 @@ import fcntl
 import inspect
 import logging
 import multiprocessing
-import ntpath
 import os
 import random
 import shutil
@@ -23,7 +22,7 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Tuple, Union
 
 from data.family_detection_names import family_detection_names
@@ -609,8 +608,7 @@ def get_filename_from_path(path):
     @param path: file path.
     @return: filename.
     """
-    dirpath, filename = ntpath.split(path)
-    return filename or ntpath.basename(dirpath)
+    return PureWindowsPath(path_to_ascii(path)).name
 
 
 def store_temp_file(filedata, filename, path=None):

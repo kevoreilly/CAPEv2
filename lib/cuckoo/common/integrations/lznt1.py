@@ -54,64 +54,62 @@ TAG_MASKS = [(1 << i) for i in range(0, 8)]
 
 def decompress_data(cdata: bytes) -> bytes:
     """Decompresses the data."""
-
-    in_fd = BytesIO(cdata)
-    output_fd = BytesIO()
     block_end = 0
 
-    while in_fd.tell() < len(cdata):
-        block_offset = in_fd.tell()
-        uncompressed_chunk_offset = output_fd.tell()
+    with BytesIO(cdata) as in_fd, BytesIO() as output_fd:
+        while in_fd.tell() < len(cdata):
+            block_offset = in_fd.tell()
+            uncompressed_chunk_offset = output_fd.tell()
 
-        block_header = struct.unpack("<H", in_fd.read(2))[0]
+            block_header = struct.unpack("<H", in_fd.read(2))[0]
 
-        if block_header & SIGNATURE_MASK != SIGNATURE_MASK:
-            break
+            if block_header & SIGNATURE_MASK != SIGNATURE_MASK:
+                break
 
-        size = block_header & SIZE_MASK
+            size = block_header & SIZE_MASK
 
-        block_end = block_offset + size + 3
+            block_end = block_offset + size + 3
 
-        if block_header & COMPRESSED_MASK:
-            while in_fd.tell() < block_end:
-                header = ord(in_fd.read(1))
+            if block_header & COMPRESSED_MASK:
+                while in_fd.tell() < block_end:
+                    header = ord(in_fd.read(1))
 
-                for mask in TAG_MASKS:
-                    if in_fd.tell() >= block_end:
-                        break
+                    for mask in TAG_MASKS:
+                        if in_fd.tell() >= block_end:
+                            break
 
-                    if header & mask:
-                        pointer = struct.unpack("<H", in_fd.read(2))[0]
-                        displacement = DISPLACEMENT_TABLE[output_fd.tell() - uncompressed_chunk_offset - 1]
+                        if header & mask:
+                            pointer = struct.unpack("<H", in_fd.read(2))[0]
+                            displacement = DISPLACEMENT_TABLE[output_fd.tell() - uncompressed_chunk_offset - 1]
 
-                        symbol_offset = (pointer >> (12 - displacement)) + 1
-                        symbol_length = (pointer & (0xFFF >> displacement)) + 3
+                            symbol_offset = (pointer >> (12 - displacement)) + 1
+                            symbol_length = (pointer & (0xFFF >> displacement)) + 3
 
-                        output_fd.seek(-symbol_offset, 2)
-                        data = output_fd.read(symbol_length)
+                            output_fd.seek(-symbol_offset, 2)
+                            data = output_fd.read(symbol_length)
 
-                        # Pad the data to make it fit.
-                        if 0 < len(data) < symbol_length:
-                            data = data * (symbol_length // len(data) + 1)
-                            data = data[:symbol_length]
+                            # Pad the data to make it fit.
+                            if 0 < len(data) < symbol_length:
+                                data = data * (symbol_length // len(data) + 1)
+                                data = data[:symbol_length]
 
-                        output_fd.seek(0, 2)
+                            output_fd.seek(0, 2)
 
-                        output_fd.write(data)
+                            output_fd.write(data)
 
-                    else:
-                        data = in_fd.read(1)
+                        else:
+                            data = in_fd.read(1)
 
-                        output_fd.write(data)
+                            output_fd.write(data)
 
-        else:
-            # Block is not compressed
-            data = in_fd.read(size + 1)
-            output_fd.write(data)
+            else:
+                # Block is not compressed
+                data = in_fd.read(size + 1)
+                output_fd.write(data)
 
-    result = output_fd.getvalue()
+        result = output_fd.getvalue()
 
-    return result
+        return result
 
 
 class Lznt1:

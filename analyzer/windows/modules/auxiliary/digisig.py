@@ -145,14 +145,14 @@ class DigiSig(Auxiliary):
 
             if self.json_data:
                 log.info("Uploading signature results to aux/%s.json", self.__class__.__name__)
-                upload = BytesIO()
-                upload.write(json.dumps(self.json_data, ensure_ascii=False).encode())
-                upload.seek(0)
-                nf = NetlogFile()
-                nf.init("aux/DigiSig.json")
-                for chunk in upload:
-                    nf.sock.send(chunk)
-                nf.close()
+                with BytesIO() as upload:
+                    upload.write(json.dumps(self.json_data, ensure_ascii=False).encode())
+                    upload.seek(0)
+                    nf = NetlogFile()
+                    nf.init("aux/DigiSig.json")
+                    for chunk in upload:
+                        nf.sock.send(chunk)
+                    nf.close()
 
         except Exception as e:
             print(e)

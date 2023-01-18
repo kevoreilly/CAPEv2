@@ -63,6 +63,7 @@ def arg_name_clscontext(arg_val):
 
 config = Config()
 web_cfg = Config("web")
+cuckoo_cfg = Config("cuckoo")
 
 HAVE_TMPFS = False
 if hasattr(config, "tmpfs"):
@@ -86,6 +87,10 @@ referrer_url_re = re.compile(
 zippwd = web_cfg.zipped_download.get("zip_pwd", b"infected")
 if not isinstance(zippwd, bytes):
     zippwd = zippwd.encode()
+
+max_len = cuckoo_cfg.cuckoo.get("max_len", 100)
+sanitize_len = cuckoo_cfg.cuckoo.get("sanitize_len", 32)
+sanitize_to_len = cuckoo_cfg.cuckoo.get("sanitize_to_len", 24)
 
 
 def load_categories():
@@ -623,7 +628,7 @@ def store_temp_file(filedata, filename, path=None):
     filename = get_filename_from_path(filename).encode("utf-8", "replace")
 
     # Reduce length (100 is arbitrary).
-    filename = filename[:100]
+    filename = filename[:max_len]
 
     # Create temporary directory path.
     if path:
@@ -794,21 +799,17 @@ def generate_fake_name():
         random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(random.randint(5, 15))
     )
 
-
-MAX_FILENAME_LEN = 24
-
-
 def truncate_filename(x):
     truncated = None
     parts = x.rsplit(".", 1)
     if len(parts) > 1:
         # filename has extension
         extension = parts[1]
-        name = parts[0][: (MAX_FILENAME_LEN - (len(extension) + 1))]
+        name = parts[0][: (sanitize_to_len - (len(extension) + 1))]
         truncated = f"{name}.{extension}"
     elif len(parts) == 1:
         # no extension
-        truncated = parts[0][:(MAX_FILENAME_LEN)]
+        truncated = parts[0][:(sanitize_to_len)]
     else:
         return None
     return truncated
@@ -821,7 +822,7 @@ def sanitize_filename(x):
 
     """Prevent long filenames such as files named by hash
     as some malware checks for this."""
-    if len(out) >= 32:
+    if len(out) >= sanitize_len:
         out = truncate_filename(out)
 
     return out

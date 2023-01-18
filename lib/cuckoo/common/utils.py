@@ -799,6 +799,7 @@ def generate_fake_name():
         random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(random.randint(5, 15))
     )
 
+
 def truncate_filename(x):
     truncated = None
     parts = x.rsplit(".", 1)

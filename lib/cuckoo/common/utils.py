@@ -63,7 +63,6 @@ def arg_name_clscontext(arg_val):
 
 config = Config()
 web_cfg = Config("web")
-cuckoo_cfg = Config("cuckoo")
 
 HAVE_TMPFS = False
 if hasattr(config, "tmpfs"):
@@ -88,9 +87,9 @@ zippwd = web_cfg.zipped_download.get("zip_pwd", b"infected")
 if not isinstance(zippwd, bytes):
     zippwd = zippwd.encode()
 
-max_len = cuckoo_cfg.cuckoo.get("max_len", 100)
-sanitize_len = cuckoo_cfg.cuckoo.get("sanitize_len", 32)
-sanitize_to_len = cuckoo_cfg.cuckoo.get("sanitize_to_len", 24)
+max_len = config.cuckoo.get("max_len", 100)
+sanitize_len = config.cuckoo.get("sanitize_len", 32)
+sanitize_to_len = config.cuckoo.get("sanitize_to_len", 24)
 
 
 def load_categories():

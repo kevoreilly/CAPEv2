@@ -27,7 +27,7 @@ except ImportError:
     print("You must install sflock\nsudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\npip3 install -U SFlock2")
     HAS_SFLOCK = False
 
-if sf_version and int(sf_version.split(".")[-1]) < 41:
+if sf_version and int(sf_version.split(".")[-1]) < 42:
     print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
 
 log = logging.getLogger(__name__)
@@ -183,9 +183,9 @@ def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     try:
         password = options2passwd(options) or "infected"
         try:
-            unpacked = unpack(filename, password=password)
+            unpacked = unpack(filename, password=password, check_shellcode=True)
         except UnpackException:
-            unpacked = unpack(filename)
+            unpacked = unpack(filename, check_shellcode=True)
 
         if unpacked.package in whitelist_extensions:
             return [filename]

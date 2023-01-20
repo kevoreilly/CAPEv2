@@ -544,8 +544,6 @@ class Database(object, metaclass=Singleton):
                 db_dir = os.path.dirname(file_path)
                 if not path_exists(db_dir):
                     try:
-                        print(db_dir)
-                        log.info(db_dir)
                         create_folder(folder=db_dir)
                     except CuckooOperationalError as e:
                         raise CuckooDatabaseError(f"Unable to create database directory: {e}")

@@ -21,7 +21,7 @@ def path_delete(path: str):
     Path(path).unlink()
 
 
-def path_mkdir(path: str, parent: bool = True, exist_ok=False, mode=0x755):
+def path_mkdir(path: str, parent: bool = True, exist_ok=False, mode=0o770):
     Path(path_to_ascii(path)).mkdir(parents=parent, exist_ok=exist_ok, mode=mode)
 
 

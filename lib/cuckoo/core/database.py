@@ -1614,7 +1614,7 @@ class Database(object, metaclass=Singleton):
                     f = SflockFile.from_path(file)
 
                     try:
-                        tmp_package = sflock_identify(f)
+                        tmp_package = sflock_identify(f, check_shellcode=True)
                     except Exception as e:
                         log.error(f"Failed to sflock_ident due to {e}")
                         tmp_package = "generic"

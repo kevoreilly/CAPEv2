@@ -22,7 +22,7 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 from typing import Tuple, Union
 
 from data.family_detection_names import family_detection_names
@@ -32,7 +32,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
-from lib.cuckoo.common.path_utils import path_mkdir, path_get_filename
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_filename
 
 try:
     import re2 as re
@@ -261,7 +261,7 @@ def create_folder(root=".", folder=None):
     folder_path = os.path.join(root, folder)
     if folder and not os.path.isdir(folder_path):
         try:
-            path_mkdir(folder_path)
+            os.makedirs(folder_path)
         except OSError as e:
             print(e)
             if e.errno != errno.EEXIST:
@@ -275,7 +275,7 @@ def delete_folder(folder):
     @param folder: path to delete.
     @raise CuckooOperationalError: if fails to delete folder.
     """
-    if Path(folder).exists():
+    if path_exists(folder):
         try:
             shutil.rmtree(folder)
         except OSError as e:

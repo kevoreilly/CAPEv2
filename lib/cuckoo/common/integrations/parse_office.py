@@ -16,6 +16,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.path_utils import path_mkdir, path_write_file, path_read_file
 
 try:
     import olefile
@@ -142,7 +143,7 @@ class Office:
         rtfp.parse()
         save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "rtf_objects")
         if rtfp.objects and not Path(save_dir).exists():
-            os.makedirs(save_dir)
+            path_mkdir(save_dir)
         for rtfobj in rtfp.objects:
             results.setdefault(str(rtfobj.format_id), [])
             temp_dict = {"class_name": "", "size": "", "filename": "", "type_embed": "", "CVE": "", "sha256": "", "index": ""}
@@ -156,7 +157,7 @@ class Office:
                 fname = convert_to_printable(rtfobj.filename) if rtfobj.filename else sha256
                 log.debug("  Saving to file %s", sha256)
                 temp_dict["filename"] = fname
-                _ = Path(os.path.join(save_dir, sha256)).write_bytes(rtfobj.olepkgdata)
+                _ = path_write_file(os.path.join(save_dir, sha256), rtfobj.olepkgdata)
                 temp_dict["sha256"] = sha256
                 temp_dict["size"] = len(rtfobj.olepkgdata)
                 # temp_dict["source_path"] = convert_to_printable(rtfobj.src_path))
@@ -188,7 +189,7 @@ class Office:
                 temp_dict["filename"] = f"object_{rtfobj.start:08X}.{ext}"
                 save_path = os.path.join(save_dir, sha256)
                 log.debug("  Saving to file %s", sha256)
-                _ = Path(save_path).write_bytes(rtfobj.oledata)
+                _ = path_write_file(save_path, rtfobj.oledata)
                 temp_dict["sha256"] = sha256
             else:
                 log.debug("Saving raw data in object #%d:", rtfobj.format_id)
@@ -196,7 +197,7 @@ class Office:
                 sha256 = hashlib.sha256(rtfobj.rawdata).hexdigest()
                 save_path = os.path.join(save_dir, sha256)
                 log.debug("  Saving object to file %s", sha256)
-                _ = Path(save_path).write_bytes(rtfobj.rawdata)
+                _ = path_write_file(save_path, rtfobj.rawdata)
                 temp_dict["sha256"] = sha256
                 temp_dict["size"] = len(rtfobj.rawdata)
             temp_dict["index"] = f"{rtfobj.start:08X}h"
@@ -217,7 +218,8 @@ class Office:
         vba = False
         if is_rtf(filepath):
             try:
-                contents = Path(filepath).read_bytes()
+
+                contents = path_read_file(filepath)
                 temp_results = self._parse_rtf(contents)
                 if temp_results:
                     results["office_rtf"] = temp_results
@@ -274,9 +276,9 @@ class Office:
                             (convert_to_printable(vba_filename), convert_to_printable(vba_code))
                         ]
                         if not Path(macro_folder).exists():
-                            os.makedirs(macro_folder)
+                            path_mkdir(macro_folder)
                         macro_file = os.path.join(macro_folder, outputname)
-                        _ = Path(macro_file).write_text(convert_to_printable(vba_code))
+                        _ = path_write_file(macro_file, convert_to_printable(vba_code), mode="text")
                         officeresults["Macro"]["info"][outputname] = {"yara_macro": File(macro_file).get_yara(category="macro")}
                         officeresults["Macro"]["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 

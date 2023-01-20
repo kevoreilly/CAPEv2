@@ -30,6 +30,7 @@ from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_size
 
 try:
     from sflock import unpack
@@ -151,7 +152,7 @@ def static_file_info(
     duplicated: DuplicatesType,
 ):
 
-    size_mb = int(os.path.getsize(file_path) / (1024 * 1024))
+    size_mb = int(path_get_size(file_path) / (1024 * 1024))
     if size_mb > int(processing_conf.CAPE.max_file_size):
         log.info("static_file_info: skipping file that exceeded max_file_size: %s: %d MB", file_path, size_mb)
         return
@@ -387,8 +388,8 @@ def generic_file_extractors(
     Run all extra extractors/unpackers/extra scripts here, each extractor should check file header/type/identification:
     """
 
-    if not Path(destination_folder).exists():
-        os.makedirs(destination_folder)
+    if not path_exists(destination_folder):
+        path_mkdir(destination_folder)
 
     # Arguments that all extractors need.
     args = (file,)

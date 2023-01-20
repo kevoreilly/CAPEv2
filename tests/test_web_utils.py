@@ -2,12 +2,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
 import tempfile
 
 import httpretty
 import pytest
 
+from lib.cuckoo.common.path_utils import path_delete, path_write_file
 from lib.cuckoo.common.web_utils import _download_file, force_int, get_file_content, parse_request_arguments
 
 
@@ -16,12 +16,11 @@ def paths():
     path_list = []
     for i in range(3):
         path_list += [tempfile.NamedTemporaryFile(delete=False).name]
-        with open(path_list[i], "w") as f:
-            f.write(str(i + 10))
+        _ = path_write_file(path_list[i], str(i + 10), mode="text")
     yield path_list
     try:
         for i in path_list:
-            os.unlink(i)
+            path_delete(i)
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 
@@ -29,11 +28,10 @@ def paths():
 @pytest.fixture
 def path():
     onepath = tempfile.NamedTemporaryFile(delete=False)
-    with open(onepath.name, mode="w") as f:
-        f.write("1338")
+    _ = path_write_file(onepath.name, "1338", mode="text")
     yield onepath.name
     try:
-        os.unlink(onepath.name)
+        path_delete(onepath.name)
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 

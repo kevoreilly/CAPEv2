@@ -8,6 +8,7 @@ import os
 import subprocess
 from stat import S_ISUID
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT, CUCKOO_ROOT
@@ -47,7 +48,7 @@ class Sniffer(Auxiliary):
         ResultServer()
         resultserver_port = str(self.machine.resultserver_port or cfg.resultserver.port)
 
-        if not os.path.exists(tcpdump):
+        if not path_exists(tcpdump):
             log.error('Tcpdump does not exist at path "%s", network capture aborted', tcpdump)
             return
 

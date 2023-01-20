@@ -32,6 +32,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
+from lib.cuckoo.common.path_utils import path_mkdir
 
 try:
     import re2 as re
@@ -199,7 +200,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             need_space = space_available < free_space
         except FileNotFoundError:
             log.error("Folder doesn't exist, maybe due to clean")
-            os.makedirs(path)
+            path_mkdir(path)
             continue
 
         if return_value:
@@ -260,7 +261,7 @@ def create_folder(root=".", folder=None):
     folder_path = os.path.join(root, folder)
     if folder and not os.path.isdir(folder_path):
         try:
-            os.makedirs(folder_path)
+            path_mkdir(folder_path)
         except OSError as e:
             print(e)
             if e.errno != errno.EEXIST:
@@ -626,7 +627,7 @@ def store_temp_file(filedata, filename, path=None):
         tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
     if not Path(target_path.decode()).exists():
-        os.mkdir(target_path)
+        path_mkdir(target_path)
 
     tmp_dir = tempfile.mkdtemp(prefix=b"upload_", dir=target_path)
     tmp_file_path = os.path.join(tmp_dir, filename)

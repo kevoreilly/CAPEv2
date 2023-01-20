@@ -15,6 +15,7 @@ import magic
 import requests
 from django.http import HttpResponse
 
+from lib.cuckoo.common.path_utils import path_mkdir, path_exists
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
@@ -750,7 +751,7 @@ def save_script_to_storage(task_ids, kwargs):
             if file_ext not in (".py", ".ps1", ".exe"):
                 raise ValueError(f"Unknown file_extention of {file_ext} to run for pre_script")
 
-            os.makedirs(script_temp_path, exist_ok=True)
+            path_mkdir(script_temp_path, exist_ok=True)
             log.info("Writing pre_script to temp folder %s", script_temp_path)
             _ = Path(os.path.join(script_temp_path, f"pre_script{file_ext}")).write_bytes(kwargs["pre_script_content"])
         if "during_script_name" in kwargs and "during_script_content" in kwargs:
@@ -758,7 +759,7 @@ def save_script_to_storage(task_ids, kwargs):
             if file_ext not in (".py", ".ps1", ".exe"):
                 raise ValueError(f"Unknown file_extention of {file_ext} to run for during_script")
 
-            os.makedirs(script_temp_path, exist_ok=True)
+            path_mkdir(script_temp_path, exist_ok=True)
             log.info("Writing during_script to temp folder %s", script_temp_path)
             _ = Path(os.path.join(script_temp_path, f"during_script{file_ext}")).write_bytes(kwargs["during_script_content"])
 
@@ -1206,8 +1207,8 @@ def get_hash_list(hashes):
 def download_from_vt(vtdl, details, opt_filename, settings):
     for h in get_hash_list(vtdl):
         folder = os.path.join(settings.VTDL_PATH, "cape-vt")
-        if not Path(folder).exists():
-            os.makedirs(folder)
+        if path_exists(folder):
+            path_mkdir(folder)
         base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
         if opt_filename:
             filename = f"{base_dir}/{opt_filename}"

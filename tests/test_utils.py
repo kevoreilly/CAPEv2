@@ -7,6 +7,7 @@ import os
 import pytest
 from tcr_misc import random_string
 
+from lib.cuckoo.common.path_utils import path_mkdir, path_is_dir
 from lib.cuckoo.common import utils
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 
@@ -52,7 +53,7 @@ class TestFileOps:
 
     def test_create_folder(self, rnd_tmp_folder):
         utils.create_folder(root="/tmp", folder=rnd_tmp_folder)
-        assert os.path.isdir("/tmp/" + rnd_tmp_folder) is True
+        assert path_is_dir("/tmp/" + rnd_tmp_folder) is True
 
     def test_create_folder_err(self, rnd_tmp_folder, mocker):
         mocker.patch("os.makedirs", side_effect=OSError)
@@ -61,12 +62,12 @@ class TestFileOps:
 
     def test_delete_folder(self, rnd_tmp_folder):
         folder = "/tmp/" + rnd_tmp_folder
-        os.mkdir(folder)
+        path_mkdir(folder)
         utils.delete_folder(folder)
 
     def test_delete_folder_err(self, rnd_tmp_folder, mocker):
         folder = "/tmp/" + rnd_tmp_folder
-        os.mkdir(folder)
+        path_mkdir(folder)
         mocker.patch("shutil.rmtree", side_effect=OSError)
         with pytest.raises(CuckooOperationalError):
             utils.delete_folder(folder)

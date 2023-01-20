@@ -2939,9 +2939,10 @@ class MAEC41Report(Report):
             }
         # Layer 7-specific object properties.
         if layer7_protocol == "DNS":
-            answer_resource_records = []
-            for answer_record in network_data["answers"]:
-                answer_resource_records.append({"entity_type": answer_record["type"], "record_data": answer_record["data"]})
+            answer_resource_records = [
+                {"entity_type": answer_record["type"], "record_data": answer_record["data"]}
+                for answer_record in network_data["answers"]
+            ]
             object_properties["layer7_connections"] = {
                 "dns_queries": [
                     {
@@ -3633,9 +3634,9 @@ class MAEC41Report(Report):
 
     def createFileStringsObj(self):
         """Creates a File object for capturing strings output."""
-        extracted_string_list = []
-        for extracted_string in self.results["strings"]:
-            extracted_string_list.append({"string_value": self._illegal_xml_chars_RE.sub("?", extracted_string)})
+        extracted_string_list = [
+            {"string_value": self._illegal_xml_chars_RE.sub("?", extracted_string)} for extracted_string in self.results["strings"]
+        ]
         extracted_features = {"strings": extracted_string_list}
         object_dict = {
             "id": mixbox.idgen.create_id(prefix="object"),

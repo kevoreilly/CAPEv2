@@ -22,6 +22,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooNetworkError,
     CuckooOperationalError,
 )
+from lib.cuckoo.common.path_utils import path_delete, path_mkdir
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
@@ -290,7 +291,7 @@ class AnalysisManager(threading.Thread):
             dirnames = ["logs", "files", "aux"]
             for dirname in dirnames:
                 try:
-                    os.makedirs(os.path.join(self.storage, dirname))
+                    path_mkdir(os.path.join(self.storage, dirname))
                 except Exception:
                     log.debug("Failed to create folder %s", dirname)
             return True
@@ -491,7 +492,7 @@ class AnalysisManager(threading.Thread):
                     # As per documentation, lexists() returns True for dead
                     # symbolic links.
                     if os.path.lexists(latest):
-                        os.remove(latest)
+                        path_delete(latest)
 
                     os.symlink(self.storage, latest)
                 except OSError as e:

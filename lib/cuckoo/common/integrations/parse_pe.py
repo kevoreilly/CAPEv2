@@ -116,10 +116,10 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
 
     try:
         # if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
-        if (
-            struct.unpack("<H", nt_headers[4:6])[0] == 0
-            or struct.unpack("<H", nt_headers[20:22])[0] == 0
-            or struct.unpack("<H", nt_headers[84:86])[0] == 0
+        if 0 in (
+            struct.unpack("<H", nt_headers[4:6])[0],
+            struct.unpack("<H", nt_headers[20:22])[0],
+            struct.unpack("<H", nt_headers[84:86])[0],
         ):
             return False
 

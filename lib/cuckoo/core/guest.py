@@ -19,6 +19,7 @@ from zipfile import ZIP_STORED, ZipFile
 
 import requests
 
+from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
@@ -237,7 +238,7 @@ class GuestManager:
         # File path of Analyses path. Storage of script
         analyses_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(self.task_id), "scripts")
         # Create folder in Analyses
-        os.makedirs(analyses_path, exist_ok=True)
+        path_mkdir(analyses_path, exist_ok=True)
 
         for name in glob.glob(os.path.join(base_dir, "*_script.*")):
             # Copy file to Analyses/{task_ID}/scripts

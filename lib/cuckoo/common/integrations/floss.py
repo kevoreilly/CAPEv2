@@ -3,6 +3,7 @@ import logging
 import mmap
 import os.path
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
@@ -36,7 +37,7 @@ class Floss:
 
         results = {}
 
-        if not os.path.exists(self.file_path):
+        if not path_exists(self.file_path):
             log.error("Sample file doesn't exist: %s", self.file_path)
 
         try:

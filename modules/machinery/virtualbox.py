@@ -8,6 +8,7 @@ import os.path
 import subprocess
 import time
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
@@ -38,7 +39,7 @@ class VirtualBox(Machinery):
         # VirtualBox specific checks.
         if not self.options.virtualbox.path:
             raise CuckooCriticalError("VirtualBox VBoxManage path missing, please add it to the config file")
-        if not os.path.exists(self.options.virtualbox.path):
+        if not path_exists(self.options.virtualbox.path):
             raise CuckooCriticalError(f'VirtualBox VBoxManage not found at specified path "{self.options.virtualbox.path}"')
 
         # Base checks.

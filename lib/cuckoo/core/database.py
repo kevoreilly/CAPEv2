@@ -2220,9 +2220,7 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             unfiltered = session.query(Sample.file_type).group_by(Sample.file_type)
-            res = []
-            for asample in unfiltered.all():
-                res.append(asample[0])
+            res = [asample[0] for asample in unfiltered.all()]
             res.sort()
         except SQLAlchemyError as e:
             log.debug("Database error getting file_types: %s", e)

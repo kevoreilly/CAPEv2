@@ -15,7 +15,7 @@ import magic
 import requests
 from django.http import HttpResponse
 
-from lib.cuckoo.common.path_utils import path_mkdir, path_exists
+from lib.cuckoo.common.path_utils import path_mkdir, path_exists, path_to_ascii
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
@@ -25,7 +25,6 @@ from lib.cuckoo.common.utils import (
     get_ip_address,
     get_options,
     get_user_filename,
-    path_to_ascii,
     sanitize_filename,
     store_temp_file,
     trim_sample,

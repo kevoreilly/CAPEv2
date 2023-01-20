@@ -266,7 +266,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                     if trimmed_size:
                         data = File(filename).get_chunks(trimmed_size).__next__()
                         if trimmed_size < web_cfg.general.max_sample_size:
-                            _ = path_write_file(filename, dataa)
+                            _ = path_write_file(filename, data)
                             retlist.append(filename)
 
     return retlist[:10]

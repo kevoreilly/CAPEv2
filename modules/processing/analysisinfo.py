@@ -4,7 +4,6 @@
 
 import codecs
 import logging
-import os
 import time
 from contextlib import suppress
 from datetime import datetime

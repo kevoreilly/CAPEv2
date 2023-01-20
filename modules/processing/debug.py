@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import codecs
-import os
 
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Processing

@@ -3,8 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-import os
-import os.path
 import subprocess
 import time
 

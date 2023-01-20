@@ -10,7 +10,6 @@ import shutil
 import subprocess
 import time
 from contextlib import suppress
-from pathlib import Path
 
 from lib.cuckoo.common.path_utils import path_exists, path_delete, path_write_file
 from lib.cuckoo.common.abstracts import Processing

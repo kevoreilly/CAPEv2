@@ -6,7 +6,6 @@ import os
 
 import pytest
 from tcr_misc import random_string
-import pathlib
 
 from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common import utils

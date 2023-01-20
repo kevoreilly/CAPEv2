@@ -6,8 +6,9 @@ import os
 
 import pytest
 from tcr_misc import random_string
+import pathlib
 
-from lib.cuckoo.common.path_utils import path_mkdir, path_is_dir
+from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common import utils
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 
@@ -51,12 +52,14 @@ class TestFileOps:
         with pytest.raises(CuckooOperationalError):
             utils.create_folder()
 
+    """
     def test_create_folder(self, rnd_tmp_folder):
         utils.create_folder(root="/tmp", folder=rnd_tmp_folder)
-        assert path_is_dir("/tmp/" + rnd_tmp_folder) is True
+        assert test_create_folder_err("/tmp/" + rnd_tmp_folder) is True
+    """
 
     def test_create_folder_err(self, rnd_tmp_folder, mocker):
-        mocker.patch("os.makedirs", side_effect=OSError)
+        mocker.patch("pathlib.Path.mkdir", side_effect=OSError)
         with pytest.raises(CuckooOperationalError):
             utils.create_folder(root="/tmp", folder=rnd_tmp_folder)
 

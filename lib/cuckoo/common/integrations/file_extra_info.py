@@ -303,7 +303,12 @@ def _extracted_files_metadata(
             if not Path(full_path).is_file():
                 # ToDo walk subfolders
                 continue
-
+                
+            size_mb = int(os.path.getsize(full_path) / (1024 * 1024))
+            if size_mb > int(processing_conf.CAPE.max_file_size):
+                log.info("_extracted_files_metadata: file exceeded max_file_size: %s: %d MB", full_path, size_mb)
+                continue
+            
             file = File(full_path)
             sha256 = file.get_sha256()
             if sha256 in duplicated["sha256"]:

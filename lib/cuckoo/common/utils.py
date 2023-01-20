@@ -32,7 +32,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
-from lib.cuckoo.common.path_utils import path_mkdir
+from lib.cuckoo.common.path_utils import path_mkdir, path_get_filename
 
 try:
     import re2 as re
@@ -600,14 +600,6 @@ def datetime_to_iso(timestamp):
     return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").isoformat()
 
 
-def get_filename_from_path(path):
-    """Cross-platform filename extraction from path.
-    @param path: file path.
-    @return: filename.
-    """
-    return PureWindowsPath(path_to_ascii(path)).name
-
-
 def store_temp_file(filedata, filename, path=None):
     """Store a temporary file.
     @param filedata: content of the original file.
@@ -615,7 +607,7 @@ def store_temp_file(filedata, filename, path=None):
     @param path: optional path for temp directory.
     @return: path to the temporary file.
     """
-    filename = get_filename_from_path(filename).encode("utf-8", "replace")
+    filename = path_get_filename(filename).encode("utf-8", "replace")
 
     # Reduce length (100 is arbitrary).
     filename = filename[:max_len]

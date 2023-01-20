@@ -84,8 +84,8 @@ class ircMessage:
         @buf: tcp stream data
         """
         try:
-            f = BytesIO(buf)
-            lines = f.readlines()
+            with BytesIO(buf) as f:
+                lines = f.readlines()
         except Exception:
             log.error("Failed reading tcp stream buffer")
             return False

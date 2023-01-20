@@ -24,7 +24,6 @@ from io import BytesIO
 from itertools import combinations
 from logging import handlers
 from pathlib import Path
-from zipfile import ZipFile
 
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
@@ -443,21 +442,6 @@ class Retriever(threading.Thread):
 
                 time.sleep(60)
 
-    def zip_files(self, files):
-        in_memory = BytesIO()
-        zf = ZipFile(in_memory, mode="w")
-
-        for file in files:
-            zf.writestr(os.path.basename(file), open(file, "rb").read())
-
-        zf.close()
-        in_memory.seek(0)
-
-        # read the data
-        data = in_memory.read()
-        in_memory.close()
-
-        return data
 
     def notification_loop(self):
         urls = reporting_conf.callback.url.split(",")

@@ -19,22 +19,18 @@ def extract_embedded(zip_data):
     if raw_embedded is None:
         return None
     # Decrypt the raw file
-    return decrypt_arc4(enckey, raw_embedded)
+    return ARC4.new(enckey).decrypt(raw_embedded)
 
 
 def parse_embedded(data):
     newzipdata = data
-    newZip = StringIO(newzipdata)  # Write new zip file to memory instead of to disk
-    with ZipFile(newZip) as zip:
-        for name in zip.namelist():
-            if name == "config.xml":  # this is the config in clear
-                config = zip.read(name)
+    # Write new zip file to memory instead of to disk
+    with StringIO(newzipdata) as newZip:
+        with ZipFile(newZip) as zip:
+            for name in zip.namelist():
+                if name == "config.xml":  # this is the config in clear
+                    config = zip.read(name)
     return config
-
-
-def decrypt_arc4(key, data):
-    cipher = ARC4.new(key)  # set the ciper
-    return cipher.decrypt(data)  # decrpyt the data
 
 
 def parse_config(config):

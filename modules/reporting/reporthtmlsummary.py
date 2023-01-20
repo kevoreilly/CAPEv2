@@ -53,19 +53,17 @@ class ReportHTMLSummary(Report):
                 if os.path.getsize(shot_path) == 0:
                     continue
 
-                output = BytesIO()
+                with BytesIO() as output:
+                    # resize the image to thumbnail size, as weasyprint can't handle resizing
+                    with suppress(Exception):
+                        img = Image.open(shot_path)
+                        img = img.resize((150, 100), PIL.Image.ANTIALIAS)
+                        img.save(output, format="JPEG")
 
-                # resize the image to thumbnail size, as weasyprint can't handle resizing
-                with suppress(Exception):
-                    img = Image.open(shot_path)
-                    img = img.resize((150, 100), PIL.Image.ANTIALIAS)
-                    img.save(output, format="JPEG")
-
-                shot = {}
-                shot["id"] = os.path.splitext(File(shot_path).get_name())[0]
-                shot["data"] = base64.b64encode(output.getvalue()).decode()
-                shots.append(shot)
-                output.close()
+                    shot = {}
+                    shot["id"] = os.path.splitext(File(shot_path).get_name())[0]
+                    shot["data"] = base64.b64encode(output.getvalue()).decode()
+                    shots.append(shot)
 
                 counter += 1
 

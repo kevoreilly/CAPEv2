@@ -64,16 +64,16 @@ class Screenshots(Auxiliary, Thread):
 
             img_counter += 1
             # workaround as PIL can't write to the socket file object :(
-            tmpio = BytesIO()
-            img_current.save(tmpio, format="JPEG")
-            tmpio.seek(0)
+            with BytesIO() as tmpio:
+                img_current.save(tmpio, format="JPEG")
+                tmpio.seek(0)
 
-            # now upload to host from the StringIO
-            nf = NetlogFile()
-            nf.init(f"shots/{str(img_counter).rjust(4, '0')}.jpg")
-            for chunk in tmpio:
-                nf.sock.send(chunk)
-            nf.close()
-            img_last = img_current
+                # now upload to host from the StringIO
+                nf = NetlogFile()
+                nf.init(f"shots/{str(img_counter).rjust(4, '0')}.jpg")
+                for chunk in tmpio:
+                    nf.sock.send(chunk)
+                nf.close()
+                img_last = img_current
 
         return True

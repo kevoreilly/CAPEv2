@@ -2630,14 +2630,14 @@ tests = ["coverage[toml] (>=5.0.2)", "pytest"]
 
 [[package]]
 name = "setuptools"
-version = "66.0.0"
+version = "66.1.1"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "setuptools-66.0.0-py3-none-any.whl", hash = "sha256:a78d01d1e2c175c474884671dde039962c9d74c7223db7369771fcf6e29ceeab"},
-    {file = "setuptools-66.0.0.tar.gz", hash = "sha256:bd6eb2d6722568de6d14b87c44a96fac54b2a45ff5e940e639979a3d1792adb6"},
+    {file = "setuptools-66.1.1-py3-none-any.whl", hash = "sha256:6f590d76b713d5de4e49fe4fbca24474469f53c83632d5d0fd056f7ff7e8112b"},
+    {file = "setuptools-66.1.1.tar.gz", hash = "sha256:ac4008d396bc9cd983ea483cb7139c0240a07bbc74ffb6232fceffedc6cf03a8"},
 ]
 
 [package.extras]
@@ -2687,25 +2687,6 @@ files = [
     {file = "sniffio-1.3.0-py3-none-any.whl", hash = "sha256:eecefdce1e5bbfb7ad2eeaabf7c1eeb404d7757c379bd1f7e5cce9d8bf425384"},
     {file = "sniffio-1.3.0.tar.gz", hash = "sha256:e60305c5e5d314f5389259b7f22aaa33d8f7dee49763119234af3755c55b9101"},
 ]
-
-[[package]]
-name = "Socks5man"
-version = "0.3.0"
-description = ""
-category = "main"
-optional = false
-python-versions = ">=3.6"
-files = []
-develop = false
-
-[package.dependencies]
-win-inet-pton = {version = "1.0.1", markers = "sys_platform == \"win32\""}
-
-[package.source]
-type = "git"
-url = "https://github.com/doomedraven/socks5man.git"
-reference = "7b335d027297b67abdf28f38cc7d5d42c9d810b5"
-resolved_reference = "7b335d027297b67abdf28f38cc7d5d42c9d810b5"
 
 [[package]]
 name = "soupsieve"
@@ -3268,17 +3249,6 @@ MarkupSafe = ">=2.1.1"
 watchdog = ["watchdog"]
 
 [[package]]
-name = "win-inet-pton"
-version = "1.0.1"
-description = "Native inet_pton and inet_ntop implementation for Python on Windows (with ctypes)."
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "win_inet_pton-1.0.1.tar.gz", hash = "sha256:a45bc3073469afb5afd0e395aaabd836040a20ba1f2a6dd1196fa2b210ba386e"},
-]
-
-[[package]]
 name = "win-unicode-console"
 version = "0.5"
 description = "Enable Unicode input and display when running Python from Windows console."
@@ -3388,4 +3358,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "462bd0d6fcbb6d2cb7ad5f044a2aa467356b37b52e836fd9385d87410e1607d7"
+content-hash = "f23cb4eb981d183b3dc5c2de78c3f2c9b5a878a5a90b8d98ccaf13d51a114943"

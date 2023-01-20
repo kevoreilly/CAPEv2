@@ -442,7 +442,6 @@ class Retriever(threading.Thread):
 
                 time.sleep(60)
 
-
     def notification_loop(self):
         urls = reporting_conf.callback.url.split(",")
         headers = {"x-api-key": reporting_conf.callback.key}

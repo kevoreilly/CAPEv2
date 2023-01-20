@@ -14,6 +14,7 @@ from pathlib import Path
 from sflock.abstracts import File as SflockFile
 from sflock.ident import identify as sflock_identify
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
@@ -539,10 +540,12 @@ class Database(object, metaclass=Singleton):
             self._connect_database(self.cfg.database.connection)
         else:
             file_path = os.path.join(CUCKOO_ROOT, "db", "cuckoo.db")
-            if not Path(file_path).exists():
+            if not path_exists(file_path):
                 db_dir = os.path.dirname(file_path)
-                if not Path(db_dir).exists():
+                if not path_exists(db_dir):
                     try:
+                        print(db_dir)
+                        log.info(db_dir)
                         create_folder(folder=db_dir)
                     except CuckooOperationalError as e:
                         raise CuckooDatabaseError(f"Unable to create database directory: {e}")

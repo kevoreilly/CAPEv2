@@ -27,6 +27,7 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_read_file, path_write_file
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file
@@ -38,6 +39,13 @@ try:
     HAVE_SFLOCK = True
 except ImportError:
     HAVE_SFLOCK = False
+
+# https://github.com/volexity/threat-intel/tree/main/tools/one-extract
+try:
+    HAVE_ONE = True
+    from office_one import OneNoteExtractor
+except ImportError:
+    HAVE_ONE = False
 
 DuplicatesType = DefaultDict[str, Set[str]]
 
@@ -305,6 +313,11 @@ def _extracted_files_metadata(
                 # ToDo walk subfolders
                 continue
 
+            size_mb = int(os.path.getsize(full_path) / (1024 * 1024))
+            if size_mb > int(processing_conf.CAPE.max_file_size):
+                log.info("_extracted_files_metadata: file exceeded max_file_size: %s: %d MB", full_path, size_mb)
+                continue
+
             file = File(full_path)
             sha256 = file.get_sha256()
             if sha256 in duplicated["sha256"]:
@@ -415,6 +428,7 @@ def generic_file_extractors(
             SevenZip_unpack,
             de4dot_deobfuscate,
             eziriz_deobfuscate,
+            office_one,
         ):
             funcname = extraction_func.__name__
             if not getattr(selfextract_conf, funcname).get("enabled", False):
@@ -837,5 +851,22 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
         )
         if output:
             ctx["extracted_files"] = collect_extracted_filenames(tempdir)
+
+    return ctx
+
+
+@time_tracker
+def office_one(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnType:
+
+    if not HAVE_ONE or open(file, "rb").read(16) != b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3":
+        return
+
+    with extractor_ctx(file, "OfficeOne", prefix="office_one") as ctx:
+        tempdir = ctx["tempdir"]
+        document = OneNoteExtractor(path_read_file(file))
+        for index, file_data in enumerate(document.extract_files()):
+            target_path = os.path.join(tempdir, f"_{index}.extracted")
+            _ = path_write_file(target_path, file_data)
+        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

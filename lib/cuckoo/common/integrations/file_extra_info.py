@@ -15,7 +15,6 @@ from typing import DefaultDict, List, Optional, Set, TypedDict
 
 import pebble
 
-from lib.cuckoo.common.path_utils import path_read_file, path_write_file
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
@@ -28,6 +27,7 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_read_file, path_write_file
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file
@@ -311,12 +311,12 @@ def _extracted_files_metadata(
             if not Path(full_path).is_file():
                 # ToDo walk subfolders
                 continue
-                
+
             size_mb = int(os.path.getsize(full_path) / (1024 * 1024))
             if size_mb > int(processing_conf.CAPE.max_file_size):
                 log.info("_extracted_files_metadata: file exceeded max_file_size: %s: %d MB", full_path, size_mb)
                 continue
-            
+
             file = File(full_path)
             sha256 = file.get_sha256()
             if sha256 in duplicated["sha256"]:

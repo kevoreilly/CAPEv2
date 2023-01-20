@@ -3,13 +3,13 @@
 
 """Quick extractor for OneNote files, allowing for programmatic extraction of subfiles."""
 
-# builtins
-from datetime import datetime, timedelta
-
-import logging
 import json
+import logging
 import re
 import struct
+
+# builtins
+from datetime import datetime, timedelta
 from typing import Iterator
 
 EMBEDDED_FILE_MAGIC = b"\xe7\x16\xe3\xbd\x65\x26\x11\x45\xa4\xc4\x8d\x4d\x0b\x7a\x9e\xac"  # noqa E501

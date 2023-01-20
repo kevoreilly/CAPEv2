@@ -116,7 +116,6 @@ def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
 
 def is_text_file(file_info, destination_folder, buf, file_data=False):
 
-    # print(file_info, any([file_type in file_info.get("type", "") for file_type in texttypes]))
     if any(file_type in file_info.get("type", "") for file_type in texttypes):
 
         extracted_path = os.path.join(
@@ -244,8 +243,9 @@ def create_folders(root=".", folders=None):
     @param folders: folders list to be created.
     @raise CuckooOperationalError: if fails to create folder.
     """
-    if folders is None:
-        folders = []
+    if not folders:
+        return
+
     for folder in folders:
         create_folder(root, folder)
 
@@ -260,16 +260,13 @@ def create_folder(root=".", folder=None):
         raise CuckooOperationalError("Can not create None type folder")
     folder_path = os.path.join(root, folder)
     if folder and not path_is_dir(folder_path):
-        # try:
-        path_mkdir(folder_path, parent=True)
-        """
+        try:
+            path_mkdir(folder_path, parent=True)
         except OSError as e:
-            print(e)
             if e.errno != errno.EEXIST:
                 raise CuckooOperationalError(f"Unable to create folder: {folder_path}") from e
         except Exception as e:
             print(e)
-        """
 
 
 def delete_folder(folder):

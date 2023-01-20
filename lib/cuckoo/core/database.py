@@ -557,10 +557,11 @@ class Database(object, metaclass=Singleton):
         else:
             self.engine.pool_timeout = 60
         # Create schema.
-        try:
-            Base.metadata.create_all(self.engine)
-        except SQLAlchemyError as e:
-            raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
+        # try:
+        # test
+        Base.metadata.create_all(self.engine)
+        # except SQLAlchemyError as e:
+        #    raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
 
         # Get db session.
         self.Session = sessionmaker(bind=self.engine)

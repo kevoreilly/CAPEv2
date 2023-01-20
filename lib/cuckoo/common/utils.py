@@ -260,14 +260,16 @@ def create_folder(root=".", folder=None):
         raise CuckooOperationalError("Can not create None type folder")
     folder_path = os.path.join(root, folder)
     if folder and not path_is_dir(folder_path):
-        try:
-            path_mkdir(folder_path, parent=True)
+        # try:
+        path_mkdir(folder_path, parent=True)
+        """
         except OSError as e:
             print(e)
             if e.errno != errno.EEXIST:
                 raise CuckooOperationalError(f"Unable to create folder: {folder_path}") from e
         except Exception as e:
             print(e)
+        """
 
 
 def delete_folder(folder):

@@ -855,7 +855,7 @@ def office_one(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnT
     if not HAVE_ONE or open(file, "rb").read(16) != b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3":
         return
 
-    with extractor_ctx(file, "Office One", prefix="office_one") as ctx:
+    with extractor_ctx(file, "OfficeOne", prefix="office_one") as ctx:
         tempdir = ctx["tempdir"]
         document = OneNoteExtractor(path_read_file(file))
         for index, file_data in enumerate(document.extract_files()):

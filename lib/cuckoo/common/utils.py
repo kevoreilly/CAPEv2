@@ -109,14 +109,6 @@ texttypes = [
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
 
-def path_to_ascii(path: bytes):
-    return path.decode() if isinstance(path, bytes) else path
-
-
-def get_file_size(file: str):
-    return Path(file).stat().st_size
-
-
 def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
     return value.encode(encoding) if isinstance(value, str) else value
 

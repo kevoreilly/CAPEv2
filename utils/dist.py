@@ -37,9 +37,10 @@ except ImportError:
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
+from lib.cuckoo.common.path_utils import path_get_size
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
-from lib.cuckoo.common.utils import get_file_size, get_options
+from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import (
     TASK_BANNED,
     TASK_DISTRIBUTED,
@@ -835,7 +836,7 @@ class StatusThread(threading.Thread):
 
                         if not web_conf.general.allow_ignore_size and "ignore_size_check" not in options:
                             # We can't upload size bigger than X to our workers. In case we extract archive that contains bigger file.
-                            file_size = get_file_size(t.target)
+                            file_size = path_get_size(t.target)
                             if file_size > web_conf.general.max_sample_size:
                                 log.warning(f"File size: {file_size} is bigger than allowed: {web_conf.general.max_sample_size}")
                                 main_db.set_status(t.id, TASK_BANNED)

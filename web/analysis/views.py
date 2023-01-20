@@ -31,6 +31,7 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.utils import delete_folder
+from lib.cuckoo.common.path_utils import path_exists, path_safe, path_mkdir
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 
@@ -505,8 +506,6 @@ def pending(request):
                     "sha256": sample.sha256,
                 }
             )
-        else:
-            continue
 
     return render(request, "analysis/pending.html", {"tasks": pending})
 
@@ -525,7 +524,7 @@ def _load_file(task_id, sha256, existen_details, name):
 
     elif name == "debugger":
         debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
-        if os.path.exists(debugger_log_path) and os.path.normpath(debugger_log_path).startswith(ANALYSIS_BASE_PATH):
+        if path_exists(debugger_log_path) and path_safe(debugger_log_path):
             for log in os.listdir(debugger_log_path):
                 if not log.endswith(".log"):
                     continue
@@ -535,7 +534,7 @@ def _load_file(task_id, sha256, existen_details, name):
         return existen_details
 
     if name in ("bingraph", "vba2graph"):
-        if not filepath or not os.path.exists(filepath) or not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
+        if not filepath or not path_exists(filepath) or not path_safe(filepath):
             return existen_details
 
         existen_details.setdefault(sha256, Path(filepath).read_text())
@@ -637,8 +636,8 @@ def load_files(request, task_id, category):
             ajax_response["suricata"] = data.get("suricata", {})
             ajax_response["cif"] = data.get("cif", [])
             tls_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "tlsdump", "tlsdump.log")
-            if os.path.normpath(tls_path).startswith(ANALYSIS_BASE_PATH):
-                ajax_response["tlskeys_exists"] = os.path.exists(tls_path)
+            if path_safe(tls_path):
+                ajax_response["tlskeys_exists"] = path_safe(tls_path)
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
@@ -768,7 +767,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                 if caller != "null" or tid != 0:
                     if call["caller"] == caller and call["thread_id"] == tid:
                         filtered_process["calls"].append(call)
-                elif category == "all" or call["category"] == category:
+                elif category in ("all", call["category"]):
                     if len(apis) > 0:
                         add_call = -1
                         for api in apis:
@@ -1317,11 +1316,11 @@ def report(request, task_id):
     # check if we allow dl reports only to specific users
     if settings.ALLOW_DL_REPORTS_TO_ALL:
         reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
-        if os.path.exists(reporting_path) and os.listdir(reporting_path):
+        if path_exists(reporting_path) and os.listdir(reporting_path):
             reports_exist = True
 
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
-    if os.path.exists(debugger_log_path) and os.listdir(debugger_log_path):
+    if path_exists(debugger_log_path) and os.listdir(debugger_log_path):
         report["debugger_logs"] = 1
 
     if settings.MOLOCH_ENABLED and "suricata" in report:
@@ -1351,13 +1350,13 @@ def report(request, task_id):
             CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", report["target"]["file"]["sha256"] + ".svg"
         )
 
-        if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
+        if path_exists(vba2graph_svg_path) and path_safe(vba2graph_svg_path):
             vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], Path(vba2graph_svg_path).read_text())
 
     bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
     bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
-    if os.path.exists(bingraph_path):
+    if path_exists(bingraph_path):
         for file in os.listdir(bingraph_path):
             tmp_file = os.path.join(bingraph_path, file)
             bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-", 1)[0], Path(tmp_file).read_text())
@@ -1473,15 +1472,18 @@ def file_nl(request, category, task_id, dlfile):
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
-    if path and not os.path.normpath(path).startswith(base_path):
+    if path and not path_safe(path):
         return render(request, "error.html", {"error": "File not found"})
 
+    # Performance considerations
+    # https://docs.djangoproject.com/en/4.1/ref/request-response/#streaminghttpresponse-objects
+    file_size = Path(path).stat().st_size
     try:
         resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
     except Exception:
         return render(request, "error.html", {"error": "File {} not found".format(path)})
 
-    resp["Content-Length"] = os.path.getsize(path)
+    resp["Content-Length"] = file_size
     resp["Content-Disposition"] = "attachment; filename=" + file_name
     return resp
 
@@ -1529,7 +1531,7 @@ def file(request, category, task_id, dlfile):
     elif category in ("dropped", "droppedzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
         # Self Extracted support folder
-        if not os.path.exists(path):
+        if not path_exists(path):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", file_name)
     elif category in ("droppedzipall", "procdumpzipall", "CAPEzipall"):
         if web_cfg.zipped_download.download_all:
@@ -1545,7 +1547,7 @@ def file(request, category, task_id, dlfile):
             path = os.path.join(buf, dfile)
         else:
             path = buf
-            if not os.path.exists(path):
+            if not path_exists(path):
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", file_name)
     elif category == "networkzip":
         buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "network", file_name)
@@ -1568,7 +1570,7 @@ def file(request, category, task_id, dlfile):
     elif category in extmap:
         file_name += extmap[category]
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name)
-        if not os.path.exists(path):
+        if not path_exists(path):
             file_name += ".zip"
             path += ".zip"
             cd = "application/zip"
@@ -1619,7 +1621,7 @@ def file(request, category, task_id, dlfile):
     if isinstance(path, list):
         test_path = path[0]
 
-    if test_path and (not os.path.exists(test_path) or not os.path.normpath(test_path).startswith(ANALYSIS_BASE_PATH)):
+    if test_path and (not path_exists(test_path) or not path_safe(test_path)):
         return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(test_path))})
 
     try:
@@ -1640,7 +1642,7 @@ def file(request, category, task_id, dlfile):
             cd = "application/zip"
         else:
             resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8091), content_type=cd)
-            resp["Content-Length"] = os.path.getsize(path)
+            resp["Content-Length"] = Path(path).stat().st_size
         resp["Content-Disposition"] = f"attachment; filename={send_filename}"
         return resp
     except Exception as e:
@@ -1662,12 +1664,12 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
 
-    if not os.path.normpath(dumpfile).startswith(ANALYSIS_BASE_PATH):
+    if not path_safe(dumpfile):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(dumpfile)}"})
 
-    if not os.path.exists(dumpfile):
+    if not path_exists(dumpfile):
         dumpfile += ".zip"
-        if not os.path.exists(dumpfile):
+        if not path_exists(dumpfile):
             return render(request, "error.html", {"error": "File not found"})
         f = zipfile.ZipFile(dumpfile, "r")
         tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=settings.TEMP_PATH)
@@ -1677,7 +1679,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
     content_type = "application/octet-stream"
 
-    if not os.path.exists(dumpfile):
+    if not path_exists(dumpfile):
         return render(request, "error.html", {"error": "File not found"})
 
     file_name = f"{process_id}_{int(start, 16):x}.dmp"
@@ -1707,7 +1709,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
     with suppress(Exception):
         if tmp_file_path:
-            os.unlink(tmp_file_path)
+            Path(tmp_file_path).unlink()
         if tmpdir:
             delete_folder(tmpdir)
 
@@ -1751,80 +1753,57 @@ def filereport(request, task_id, category):
     }
 
     if category in formats:
-        file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports", formats[category])
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports", formats[category])
 
-        if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "error.html", {"error": f"File not found: {os.path.basename(file_path)}"})
+        if not path_safe(path) or not path_exists(path):
+            return render(request, "error.html", {"error": f"File not found: {formats[category]}"})
 
-        if os.path.exists(file_path):
-            response = HttpResponse(Path(file_path).read_bytes(), content_type="application/octet-stream")
-            response["Content-Disposition"] = f"attachment; filename={task_id}_{formats[category]}"
-            return response
+        response = HttpResponse(Path(path).read_bytes(), content_type="application/octet-stream")
+        response["Content-Disposition"] = f"attachment; filename={task_id}_{formats[category]}"
+        return response
 
-        """
-        elif enabledconf["distributed"]:
-            # check for memdump on workers
-            try:
-                res = requests.get("http://127.0.0.1:9003/task/{task_id}".format(task_id=task_id), verify=False, timeout=30)
-                if res and res.ok and res.json()["status"] == 1:
-                    url = res.json()["url"]
-                    dist_task_id = res.json()["task_id"]
-                    return redirect(url+"api/tasks/get/report/"+str(dist_task_id)+"/"+category+"/", permanent=True)
-            except Exception as e:
-                print(e)
-        """
     return render(request, "error.html", {"error": "File not found"}, status=404)
 
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_file(request, analysis_number):
-    file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp")
-    if os.path.exists(file_path):
-        filename = os.path.basename(file_path)
-    elif os.path.exists(file_path + ".zip"):
-        file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.zip")
-        if os.path.exists(file_path):
-            filename = os.path.basename(file_path)
-    elif enabledconf["distributed"]:
-        try:
-            res = requests.get("http://127.0.0.1:9003/task/{task_id}".format(task_id=analysis_number), verify=False, timeout=30)
-            if res and res.ok and res.json()["status"] == 1:
-                url = res.json()["url"]
-                dist_task_id = res.json()["task_id"]
-                return redirect(url + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
-        except Exception as e:
-            print(e)
-    if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": f"File not found: {os.path.basename(file_path)}"})
+    filename = False
+    for name in ("memory.dmp", "memory.dmp.zip"):
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), name)
+        if path_exists(path) and path_safe(path):
+            filename = name
+            break
+
     if filename:
         content_type = "application/octet-stream"
-        response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), 8192), content_type=content_type)
-        response["Content-Length"] = os.path.getsize(file_path)
-        response["Content-Disposition"] = "attachment; filename=%s" % filename
+        response = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=content_type)
+        response["Content-Length"] = os.path.getsize(path)
+        response["Content-Disposition"] = f"attachment; filename={filename}"
         return response
+
     return render(request, "error.html", {"error": "File not found"})
 
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_strings(request, analysis_number):
-    file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.strings")
+
     filename = None
-    if os.path.exists(file_path):
-        filename = os.path.basename(file_path)
-    else:
-        file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.strings.zip")
-        if os.path.exists(file_path):
-            filename = os.path.basename(file_path)
-    if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": f"File not found: {os.path.basename(file_path)}"})
+    for name in ("memory.dmp.strings", "memory.dmp.strings.zip"):
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), name)
+        if path_exists(path):
+            filename = name
+            if not path_safe(ANALYSIS_BASE_PATH):
+                return render(request, "error.html", {"error": f"File not found: {name}"})
+            break
     if filename:
         content_type = "application/octet-stream"
-        response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)
-        response["Content-Length"] = os.path.getsize(file_path)
+        response = StreamingHttpResponse(FileWrapper(open(path), 8192), content_type=content_type)
+        response["Content-Length"] = os.path.getsize(path)
         response["Content-Disposition"] = "attachment; filename=%s" % filename
         return response
+
     return render(request, "error.html", {"error": "File not found"})
 
 
@@ -1928,7 +1907,7 @@ def remove(request, task_id):
     if enabledconf["mongodb"]:
         mongo_delete_data(int(task_id))
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
-        if os.path.exists(analyses_path):
+        if path_exists(analyses_path):
             delete_folder(analyses_path)
         message = "Task(s) deleted."
     if es_as_db:
@@ -2015,11 +1994,8 @@ def pcapstream(request, task_id, conntuple):
         # if we do, build out the path to it
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_sorted.pcap")
 
-        if not Path(path).exists():
+        if not path_exists(path) or not path_safe(path):
             return render(request, "standalone_error.html", {"error": "The required sorted PCAP does not exist"})
-
-        if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "standalone_error.html", {"error": f"File not found: {os.path.basename(path)}"})
 
         fobj = open(path, "rb")
     except Exception:
@@ -2088,7 +2064,7 @@ def vtupload(request, category, task_id, filename, dlfile):
             if folder_name:
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, folder_name, filename)
 
-            if not path or not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
+            if not path or not path_safe(path):
                 return render(request, "error.html", {"error": f"File not found: {os.path.basename(path)}"})
 
             headers = {"x-apikey": settings.VTDL_KEY}
@@ -2168,7 +2144,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     # Self Extracted support folder
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
 
-    if not os.path.exists(path):
+    if not path_exists(path):
         extractedfile = False
         if category == "static":
             path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
@@ -2181,7 +2157,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         category = "target.file"
         extractedfile = True
 
-    if path and (not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH) or not os.path.exists(path)):
+    if path and (not path_safe(path) or not path_exists(path)):
         return render(request, "error.html", {"error": "File not found: {}".format(path)})
 
     details = False
@@ -2212,11 +2188,11 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         and HAVE_BINGRAPH
         and reporting_cfg.bingraph.enabled
         and reporting_cfg.bingraph.on_demand
-        and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph", sha256 + "-ent.svg"))
+        and not path_exists(os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph", sha256 + "-ent.svg"))
     ):
         bingraph_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph")
-        if not os.path.exists(bingraph_path):
-            os.makedirs(bingraph_path)
+        if not path_exists(bingraph_path):
+            path_mkdir(bingraph_path)
         try:
             bingraph_args_dict.update({"prefix": sha256, "files": [path], "save_dir": bingraph_path})
             try:

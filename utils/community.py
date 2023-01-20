@@ -172,8 +172,6 @@ def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
                         break
                     elif choice.lower() in ("n", "no"):
                         break
-                    else:
-                        continue
             else:
                 install = True
 

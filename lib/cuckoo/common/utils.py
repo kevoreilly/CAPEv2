@@ -32,7 +32,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_filename
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_filename, path_is_dir
 
 try:
     import re2 as re
@@ -259,9 +259,9 @@ def create_folder(root=".", folder=None):
     if folder is None:
         raise CuckooOperationalError("Can not create None type folder")
     folder_path = os.path.join(root, folder)
-    if folder and not os.path.isdir(folder_path):
+    if folder and not path_is_dir(folder_path):
         try:
-            os.makedirs(folder_path)
+            path_mkdir(folder_path, parent=True)
         except OSError as e:
             print(e)
             if e.errno != errno.EEXIST:

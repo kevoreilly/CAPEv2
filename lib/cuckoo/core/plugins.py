@@ -12,7 +12,6 @@ import timeit
 from collections import defaultdict
 from contextlib import suppress
 from distutils.version import StrictVersion
-from pathlib import Path
 
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature

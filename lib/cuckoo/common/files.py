@@ -8,7 +8,7 @@ import logging
 import os
 import shutil
 import tempfile
-from pathlib import Path, PureWindowsPath
+from pathlib import PureWindowsPath
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooOperationalError

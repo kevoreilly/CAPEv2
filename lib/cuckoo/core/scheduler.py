@@ -10,7 +10,6 @@ import signal
 import threading
 import time
 from collections import defaultdict
-from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

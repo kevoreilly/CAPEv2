@@ -8,7 +8,6 @@ import logging
 import os
 import xml.dom.minidom
 import zipfile
-from pathlib import Path
 from typing import Any, Dict
 
 import lib.cuckoo.common.integrations.vbadeobf as vbadeobf

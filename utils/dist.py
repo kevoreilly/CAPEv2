@@ -23,7 +23,6 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from itertools import combinations
 from logging import handlers
-from pathlib import Path
 
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import OperationalError, SQLAlchemyError

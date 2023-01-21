@@ -14,7 +14,6 @@ import sys
 import time
 import timeit
 from io import BytesIO
-from pathlib import Path
 from zipfile import ZIP_STORED, ZipFile
 
 import requests

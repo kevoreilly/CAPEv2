@@ -7,6 +7,7 @@ import textwrap
 
 import pytest
 
+from lib.cuckoo.common.path_utils import path_write_file
 import lib.cuckoo.common.config
 from lib.cuckoo.common.config import AnalysisConfig, Config, ConfigMeta
 from lib.cuckoo.common.exceptions import CuckooOperationalError
@@ -26,8 +27,7 @@ tcpdump = /usr/sbin/tcpdump
 interface = vboxnet0
 """
     path = tmp_path / "analysis.conf"
-    with open(path, mode="w") as fil:
-        fil.write(CONF_EXAMPLE)
+    path_write_file(path, CONF_EXAMPLE, mode="text")
     yield AnalysisConfig(path)
 
 
@@ -64,8 +64,7 @@ class TestAnalysisConfig:
 
 
 def write_config(path, content):
-    with open(path, mode="w") as fil:
-        fil.write(textwrap.dedent(content))
+    path_write_file(path, textwrap.dedent(content), mode="text")
 
 
 @pytest.fixture

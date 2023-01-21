@@ -7,6 +7,7 @@ import mimetypes
 from email.header import decode_header, make_header
 
 from . import utils
+from .path_utils import path_get_filename
 
 SAFE_MEDIA_TYPE = ["text/plain", "text/html"]
 EMAIL_MAGIC = ["MIME-Version:", "Received:", "From:", "Return-Path:", "Delivered-To:"]
@@ -60,7 +61,7 @@ def _find_attachments_in_email(mesg, expand_attachment, atts):
         else:
             # Sanitize the header value
             filename = _decode_header(filename)
-            filename = utils.get_filename_from_path(filename)
+            filename = path_get_filename(filename)
         tempfile_path = utils.store_temp_file(payload, filename)
         atts.append((tempfile_path, filename, content_type))
 

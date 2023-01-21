@@ -6,6 +6,7 @@ import logging
 import os
 from subprocess import call
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 
@@ -29,7 +30,7 @@ class ReportPDF(Report):
                 "Unable to open summary HTML report to convert to PDF: Ensure reporthtmlsummary is enabled in reporting.conf"
             )
 
-        if os.path.exists("/usr/bin/xvfb-run") and os.path.exists("/usr/bin/wkhtmltopdf"):
+        if path_exists("/usr/bin/xvfb-run") and path_exists("/usr/bin/wkhtmltopdf"):
             call(
                 [
                     "/usr/bin/xvfb-run",

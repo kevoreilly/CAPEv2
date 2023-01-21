@@ -10,6 +10,7 @@ import tempfile
 import threading
 from pathlib import Path
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
 
 cfg = Config()
@@ -55,7 +56,7 @@ def _load_socks5_operational():
 
 
 def rooter(command, *args, **kwargs):
-    if not Path(cfg.cuckoo.rooter).exists():
+    if not path_exists(cfg.cuckoo.rooter):
         log.critical("Unable to passthrough root command (%s) as the rooter unix socket doesn't exist", command)
         return
 

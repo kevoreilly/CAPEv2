@@ -4,11 +4,11 @@
 
 import codecs
 import logging
-import os
 import time
 from contextlib import suppress
 from datetime import datetime
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_VERSION
@@ -27,7 +27,7 @@ class AnalysisInfo(Processing):
 
     def had_timeout(self):
         """Test if the analysis had a timeout"""
-        if os.path.exists(self.log_path):
+        if path_exists(self.log_path):
             try:
                 with codecs.open(self.log_path, "rb", "utf-8") as f:
                     analysis_log = f.read()
@@ -42,7 +42,7 @@ class AnalysisInfo(Processing):
     def get_package(self):
         """Get the actually used package name"""
         package = self.task["package"]
-        if not package and os.path.exists(self.log_path):
+        if not package and path_exists(self.log_path):
             try:
                 analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:

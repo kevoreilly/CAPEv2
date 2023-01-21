@@ -22,7 +22,6 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path, PureWindowsPath
 from typing import Tuple, Union
 
 from data.family_detection_names import family_detection_names
@@ -32,6 +31,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_filename, path_is_dir, path_read_file
 
 try:
     import re2 as re
@@ -109,21 +109,12 @@ texttypes = [
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
 
-def path_to_ascii(path: bytes):
-    return path.decode() if isinstance(path, bytes) else path
-
-
-def get_file_size(file: str):
-    return Path(file).stat().st_size
-
-
 def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
     return value.encode(encoding) if isinstance(value, str) else value
 
 
 def is_text_file(file_info, destination_folder, buf, file_data=False):
 
-    # print(file_info, any([file_type in file_info.get("type", "") for file_type in texttypes]))
     if any(file_type in file_info.get("type", "") for file_type in texttypes):
 
         extracted_path = os.path.join(
@@ -132,11 +123,11 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
                 "sha256",
             ),
         )
-        if not file_data and not Path(extracted_path).exists():
+        if not file_data and not path_exists(extracted_path):
             return
 
         if not file_data:
-            file_data = Path(extracted_path).read_bytes()
+            file_data = path_read_file(extracted_path)
 
         if len(file_data) > buf:
             return file_data[:buf].decode("latin-1") + " <truncated>"
@@ -169,7 +160,7 @@ def create_zip(files=False, folder=False, encrypted=False):
         if encrypted:
             zf.setpassword(zippwd)
         for file in files:
-            if not Path(file).exists():
+            if not path_exists(file):
                 log.error("File does't exist: %s", file)
                 continue
 
@@ -201,13 +192,13 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             else:
                 free_space = config.cuckoo.freespace
 
-            if path and not Path(path).exists():
+            if path and not path_exists(path):
                 sys.exit("Restart daemon/process, happens after full cleanup")
             space_available = shutil.disk_usage(path).free >> 20
             need_space = space_available < free_space
         except FileNotFoundError:
             log.error("Folder doesn't exist, maybe due to clean")
-            os.makedirs(path)
+            path_mkdir(path)
             continue
 
         if return_value:
@@ -251,8 +242,9 @@ def create_folders(root=".", folders=None):
     @param folders: folders list to be created.
     @raise CuckooOperationalError: if fails to create folder.
     """
-    if folders is None:
-        folders = []
+    if not folders:
+        return
+
     for folder in folders:
         create_folder(root, folder)
 
@@ -266,11 +258,10 @@ def create_folder(root=".", folder=None):
     if folder is None:
         raise CuckooOperationalError("Can not create None type folder")
     folder_path = os.path.join(root, folder)
-    if folder and not os.path.isdir(folder_path):
+    if folder and not path_is_dir(folder_path):
         try:
-            os.makedirs(folder_path)
+            path_mkdir(folder_path, parent=True)
         except OSError as e:
-            print(e)
             if e.errno != errno.EEXIST:
                 raise CuckooOperationalError(f"Unable to create folder: {folder_path}") from e
         except Exception as e:
@@ -282,7 +273,7 @@ def delete_folder(folder):
     @param folder: path to delete.
     @raise CuckooOperationalError: if fails to delete folder.
     """
-    if Path(folder).exists():
+    if path_exists(folder):
         try:
             shutil.rmtree(folder)
         except OSError as e:
@@ -607,14 +598,6 @@ def datetime_to_iso(timestamp):
     return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").isoformat()
 
 
-def get_filename_from_path(path):
-    """Cross-platform filename extraction from path.
-    @param path: file path.
-    @return: filename.
-    """
-    return PureWindowsPath(path_to_ascii(path)).name
-
-
 def store_temp_file(filedata, filename, path=None):
     """Store a temporary file.
     @param filedata: content of the original file.
@@ -622,7 +605,7 @@ def store_temp_file(filedata, filename, path=None):
     @param path: optional path for temp directory.
     @return: path to the temporary file.
     """
-    filename = get_filename_from_path(filename).encode("utf-8", "replace")
+    filename = path_get_filename(filename).encode("utf-8", "replace")
 
     # Reduce length (100 is arbitrary).
     filename = filename[:max_len]
@@ -633,8 +616,8 @@ def store_temp_file(filedata, filename, path=None):
     else:
         tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
-    if not Path(target_path.decode()).exists():
-        os.mkdir(target_path)
+    if not path_exists(target_path.decode()):
+        path_mkdir(target_path)
 
     tmp_dir = tempfile.mkdtemp(prefix=b"upload_", dir=target_path)
     tmp_file_path = os.path.join(tmp_dir, filename)

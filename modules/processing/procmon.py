@@ -5,6 +5,7 @@
 import os
 import xml.etree.ElementTree
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Processing
 
 
@@ -34,7 +35,7 @@ class Procmon(Processing):
     def run(self):
         self.key = "procmon"
         procmon_xml = os.path.join(self.analysis_path, "procmon.xml")
-        if not os.path.exists(procmon_xml):
+        if not path_exists(procmon_xml):
             return
 
         return ProcmonLog(procmon_xml)

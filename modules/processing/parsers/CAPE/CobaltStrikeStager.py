@@ -141,10 +141,7 @@ class StagerConfig:
             result = struct.unpack(">I", s)[0]
         elif data_type == "inet_flags":
             n = struct.unpack("<I", s)[0]
-            constants = []
-            for flag, value in INET_CONSTANTS.items():
-                if n & value == value:
-                    constants.append(flag)
+            constants = [flag for flag, value in INET_CONSTANTS.items() if n & value == value]
             result = constants
         else:
             raise Exception(f"Unknown type {data_type} passed to _clean()")
@@ -185,7 +182,7 @@ class StagerConfig:
 
     def get_config(self):
         """Returns the settings as a JSON object, or None if none exist"""
-        return self.config if self.config else None
+        return self.config or None
 
 
 def extract_config(data):

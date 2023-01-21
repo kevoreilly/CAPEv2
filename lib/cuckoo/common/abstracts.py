@@ -20,6 +20,7 @@ except ImportError:
     print("Missed dependency -> pip3 install dnspython")
 import requests
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import (
@@ -910,7 +911,7 @@ class Signature:
                 pids.append(int(pid.get("pid", "")))
                 pids += [int(cpid["pid"]) for cpid in pid.get("children", []) if "pid" in cpid]
         # in case if bsons too big
-        if Path(logs).exists():
+        if path_exists(logs):
             pids += [int(pidb.replace(".bson", "")) for pidb in os.listdir(logs) if ".bson" in pidb]
 
         #  in case if injection not follows

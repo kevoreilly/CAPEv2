@@ -4,11 +4,11 @@
 
 import logging
 import os
-from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 
 log = logging.getLogger(__name__)
 
@@ -57,10 +57,10 @@ def xlmdeobfuscate(filepath: str, task_id: str, password: str = "", on_demand: b
         deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
         if deofuscated_xlm:
             xlmmacro = {"Code": deofuscated_xlm}
-            if not Path(macro_folder).exists():
-                os.makedirs(macro_folder)
+            if not path_exists(macro_folder):
+                path_mkdir(macro_folder)
             macro_file = os.path.join(macro_folder, "xlm_macro")
-            _ = Path(macro_file).write_text("\n".join(deofuscated_xlm))
+            _ = path_write_file(macro_file, "\n".join(deofuscated_xlm), mode="text")
             xlmmacro["info"] = {"yara_macro": File(macro_file).get_yara(category="macro")}
             xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
             return xlmmacro

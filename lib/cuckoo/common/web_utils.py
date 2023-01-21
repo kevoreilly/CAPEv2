@@ -15,6 +15,7 @@ import magic
 import requests
 from django.http import HttpResponse
 
+from lib.cuckoo.common.path_utils import path_mkdir, path_exists, path_to_ascii, path_write_file
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
@@ -24,7 +25,6 @@ from lib.cuckoo.common.utils import (
     get_ip_address,
     get_options,
     get_user_filename,
-    path_to_ascii,
     sanitize_filename,
     store_temp_file,
     trim_sample,
@@ -493,7 +493,7 @@ def recon(filename, orig_options, timeout, enforce_timeout):
 def get_magic_type(data):
     try:
         path = path_to_ascii(data)
-        if Path(path).exists():
+        if path_exists(path):
             return magic.from_file(data)
         else:
             return magic.from_buffer(data)
@@ -625,9 +625,8 @@ def download_file(**kwargs):
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
 
         path = kwargs.get("path") if isinstance(kwargs.get("path", ""), str) else kwargs.get("path").decode()
-        p = Path(path)
-        if not p.exists():
-            _ = p.write_bytes(kwargs["content"])
+        if not path_exists(path):
+            _ = path_write_file(path, kwargs["content"])
     except Exception as e:
         print(e, sys.exc_info())
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
@@ -750,7 +749,7 @@ def save_script_to_storage(task_ids, kwargs):
             if file_ext not in (".py", ".ps1", ".exe"):
                 raise ValueError(f"Unknown file_extention of {file_ext} to run for pre_script")
 
-            os.makedirs(script_temp_path, exist_ok=True)
+            path_mkdir(script_temp_path, exist_ok=True)
             log.info("Writing pre_script to temp folder %s", script_temp_path)
             _ = Path(os.path.join(script_temp_path, f"pre_script{file_ext}")).write_bytes(kwargs["pre_script_content"])
         if "during_script_name" in kwargs and "during_script_content" in kwargs:
@@ -758,7 +757,7 @@ def save_script_to_storage(task_ids, kwargs):
             if file_ext not in (".py", ".ps1", ".exe"):
                 raise ValueError(f"Unknown file_extention of {file_ext} to run for during_script")
 
-            os.makedirs(script_temp_path, exist_ok=True)
+            path_mkdir(script_temp_path, exist_ok=True)
             log.info("Writing during_script to temp folder %s", script_temp_path)
             _ = Path(os.path.join(script_temp_path, f"during_script{file_ext}")).write_bytes(kwargs["during_script_content"])
 
@@ -859,7 +858,7 @@ def validate_task_by_path(tid):
     # if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
     #    return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
-    return Path(analysis_path).exists()
+    return path_exists(analysis_path)
 
 
 perform_search_filters = {
@@ -1206,8 +1205,8 @@ def get_hash_list(hashes):
 def download_from_vt(vtdl, details, opt_filename, settings):
     for h in get_hash_list(vtdl):
         folder = os.path.join(settings.VTDL_PATH, "cape-vt")
-        if not Path(folder).exists():
-            os.makedirs(folder)
+        if path_exists(folder):
+            path_mkdir(folder)
         base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
         if opt_filename:
             filename = f"{base_dir}/{opt_filename}"
@@ -1350,7 +1349,7 @@ def submit_task(
     """
     ToDo add url support in future
     """
-    if not Path(target).exists():
+    if not path_exists(target):
         log.info("File doesn't exist")
         return
 

@@ -165,7 +165,7 @@ class PortableExecutable:
 
     @property
     def file_data(self):
-        if not self._file_data and path_exists(self.file_path)
+        if not self._file_data and path_exists(self.file_path):
             self._file_data = path_read_file(self.file_path)
         return self._file_data
 

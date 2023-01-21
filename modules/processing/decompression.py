@@ -6,9 +6,9 @@ import glob
 import os
 import zipfile
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 
 class Decompression(Processing):

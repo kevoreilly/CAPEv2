@@ -11,10 +11,10 @@ import subprocess
 import time
 from contextlib import suppress
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete, path_write_file
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_write_file
 from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
 from lib.cuckoo.common.utils import add_family_detection, convert_to_printable_and_truncate
 

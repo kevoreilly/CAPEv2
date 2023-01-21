@@ -14,8 +14,8 @@ testfile_dir = os.path.dirname(__file__)
 module_dir = os.path.join(testfile_dir, "", "../..", "analyzer", "windows")
 sys.path.append(module_dir)
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete
 from lib.common.exceptions import CuckooPackageError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from modules.packages.zip_compound import ZipCompound
 
 # Note: References "single_layer_json.zip" and "multi_layer_json.zip" files

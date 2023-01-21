@@ -21,9 +21,9 @@ import urllib3
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 blocklist = {}
 if path_exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):

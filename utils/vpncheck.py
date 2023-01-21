@@ -12,9 +12,9 @@ import sys
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.core.rooter import rooter, vpns
 from lib.cuckoo.core.startup import init_rooter, init_routing
-from lib.cuckoo.common.path_utils import path_exists, path_delete
 
 SIOCGIFADDR = 0x8915
 

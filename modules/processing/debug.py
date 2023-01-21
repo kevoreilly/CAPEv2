@@ -4,9 +4,9 @@
 
 import codecs
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.core.database import Database
 
 

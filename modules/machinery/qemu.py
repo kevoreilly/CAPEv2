@@ -12,11 +12,12 @@ import time
 
 import magic
 
-# from lib.cuckoo.core.rooter import rooter
-from lib.cuckoo.common.path_utils import path_exists, path_delete
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+
+# from lib.cuckoo.core.rooter import rooter
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 log = logging.getLogger(__name__)
 cfg = Config()

@@ -17,8 +17,8 @@ import gzip
 import json
 import os
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists
 
 
 def get_dga_lookup_dict():

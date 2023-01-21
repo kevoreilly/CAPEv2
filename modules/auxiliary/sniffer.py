@@ -8,10 +8,10 @@ import os
 import subprocess
 from stat import S_ISUID
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT, CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.core.resultserver import ResultServer
 
 log = logging.getLogger(__name__)

@@ -3,9 +3,9 @@ import logging
 import mmap
 import os.path
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists
 
 processing_cfg = Config("processing")
 

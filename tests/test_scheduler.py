@@ -11,8 +11,8 @@ from tcr_misc import get_sample, random_string
 
 import lib.cuckoo.core.scheduler as scheduler
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_write_file
 from lib.cuckoo.core.scheduler import AnalysisManager
-from lib.cuckoo.common.path_utils import path_exists, path_delete, path_write_file, path_mkdir
 
 
 class mock_task:

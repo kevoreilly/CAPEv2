@@ -7,9 +7,9 @@ import os
 import pytest
 from tcr_misc import random_string
 
-from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common import utils
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.path_utils import path_mkdir
 
 
 def test_free_space_monitor(mocker):

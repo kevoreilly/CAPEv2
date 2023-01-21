@@ -14,13 +14,13 @@ import gevent.server
 import gevent.socket
 
 from lib.cuckoo.common.abstracts import ProtocolHandler
-from lib.cuckoo.common.path_utils import path_exists
 
 # https://github.com/cuckoosandbox/cuckoo/blob/13cbe0d9e457be3673304533043e992ead1ea9b2/cuckoo/core/resultserver.py#L9
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
 from lib.cuckoo.common.files import open_exclusive, open_inclusive
+from lib.cuckoo.common.path_utils import path_exists
 
 # from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import Singleton, create_folder, load_categories

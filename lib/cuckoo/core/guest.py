@@ -18,10 +18,10 @@ from zipfile import ZIP_STORED, ZipFile
 
 import requests
 
-from lib.cuckoo.common.path_utils import path_mkdir, path_exists
 from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)

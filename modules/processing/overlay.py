@@ -5,7 +5,7 @@ import os
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_write_file, path_mkdir
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 
 log = logging.getLogger()
 

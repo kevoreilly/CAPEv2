@@ -5,9 +5,9 @@
 import os
 import zipfile
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 
 class Compression(Report):

@@ -36,9 +36,9 @@ except ImportError:
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.common.path_utils import path_get_size, path_exists, path_delete, path_mkdir, path_write_file
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import (
     TASK_BANNED,

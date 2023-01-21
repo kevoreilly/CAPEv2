@@ -18,8 +18,8 @@ from django.shortcuts import redirect, render
 sys.path.append(settings.CUCKOO_PATH)
 from uuid import NAMESPACE_DNS, uuid3
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete, path_mkdir
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file

@@ -9,9 +9,9 @@ from collections import defaultdict
 
 import requests
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
 
 try:

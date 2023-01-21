@@ -13,7 +13,6 @@ from collections import defaultdict
 from contextlib import suppress
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
 from lib.cuckoo.common.config import AnalysisConfig, Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
@@ -24,6 +23,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooProcessingError,
     CuckooReportError,
 )
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
 

@@ -4,8 +4,8 @@
 
 import os.path
 
-from lib.cuckoo.common.path_utils import path_exists, path_read_file
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_read_file
 
 domains = set()
 ips = set()

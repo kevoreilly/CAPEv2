@@ -4,8 +4,8 @@ import sys
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.core.database import Database
 
 repconf = Config("reporting")

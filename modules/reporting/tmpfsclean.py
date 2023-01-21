@@ -1,9 +1,9 @@
 import logging
 import shutil
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.utils import get_memdump_path
 
 log = logging.getLogger(__name__)

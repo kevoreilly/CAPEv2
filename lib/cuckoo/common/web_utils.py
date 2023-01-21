@@ -15,10 +15,10 @@ import magic
 import requests
 from django.http import HttpResponse
 
-from lib.cuckoo.common.path_utils import path_mkdir, path_exists, path_to_ascii, path_write_file
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_to_ascii, path_write_file
 from lib.cuckoo.common.utils import (
     bytes2str,
     generate_fake_name,

@@ -7,7 +7,7 @@ import os
 import shutil
 from tempfile import NamedTemporaryFile
 
-from lib.cuckoo.common.path_utils import path_delete, path_mkdir, path_cwd
+from lib.cuckoo.common.path_utils import path_cwd, path_delete, path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core.database import Database, Tag, Task
 

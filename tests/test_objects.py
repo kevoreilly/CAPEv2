@@ -8,8 +8,8 @@ import tempfile
 import pytest
 import yara
 
-from lib.cuckoo.common.path_utils import path_delete, path_write_file
 from lib.cuckoo.common.objects import Dictionary, File  # ,ProcDump
+from lib.cuckoo.common.path_utils import path_delete, path_write_file
 
 # from tcr_misc import get_sample, random_string
 

@@ -7,9 +7,9 @@ import logging
 import os
 from typing import Any, Dict, Set
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger(__name__)
 

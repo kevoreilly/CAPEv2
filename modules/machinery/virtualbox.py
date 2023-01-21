@@ -6,10 +6,10 @@ import logging
 import subprocess
 import time
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     import re2 as re

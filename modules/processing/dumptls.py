@@ -6,8 +6,8 @@ import binascii
 import logging
 import os
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     import re2 as re

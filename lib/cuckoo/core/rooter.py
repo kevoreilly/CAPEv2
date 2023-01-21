@@ -10,8 +10,8 @@ import tempfile
 import threading
 from pathlib import Path
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_exists
 
 cfg = Config()
 router_cfg = Config("routing")

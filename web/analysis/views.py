@@ -30,8 +30,8 @@ sys.path.append(settings.CUCKOO_PATH)
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_safe
 from lib.cuckoo.common.utils import delete_folder
-from lib.cuckoo.common.path_utils import path_exists, path_safe, path_mkdir
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 

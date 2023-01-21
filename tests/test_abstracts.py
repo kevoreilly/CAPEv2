@@ -7,8 +7,8 @@ import tempfile
 
 import pytest
 
-from lib.cuckoo.common.path_utils import path_exists
 import lib.cuckoo.common.abstracts as abstracts
+from lib.cuckoo.common.path_utils import path_exists
 
 
 @pytest.fixture

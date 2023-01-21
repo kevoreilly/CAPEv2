@@ -5,8 +5,8 @@
 import os
 import random
 
-from lib.cuckoo.common.path_utils import path_delete
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_fn
+from lib.cuckoo.common.path_utils import path_delete
 
 random.seed(1338)
 

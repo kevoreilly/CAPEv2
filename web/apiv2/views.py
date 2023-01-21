@@ -28,6 +28,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (
@@ -39,7 +40,6 @@ from lib.cuckoo.common.utils import (
     sanitize_filename,
     store_temp_file,
 )
-from lib.cuckoo.common.path_utils import path_exists, path_delete
 from lib.cuckoo.common.web_utils import (
     apiconf,
     download_file,

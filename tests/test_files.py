@@ -10,9 +10,9 @@ import tempfile
 
 import pytest
 
-from lib.cuckoo.common.path_utils import path_exists, path_write_file
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.files import Files, Folders, Storage, open_exclusive
+from lib.cuckoo.common.path_utils import path_exists, path_write_file
 
 # from lib.cuckoo.common.safelist import is_safelisted_domain
 

@@ -4,9 +4,9 @@
 
 import os
 
-from lib.cuckoo.common.path_utils import path_exists, path_write_file
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_write_file
 
 try:
     import pygal

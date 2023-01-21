@@ -29,8 +29,8 @@ else:
         HAVE_BSON = False
 
 from lib.cuckoo.common.logtbl import table as LOGTBL
-from lib.cuckoo.common.utils import default_converter
 from lib.cuckoo.common.path_utils import path_get_filename
+from lib.cuckoo.common.utils import default_converter
 
 log = logging.getLogger(__name__)
 

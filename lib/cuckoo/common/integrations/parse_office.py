@@ -14,8 +14,8 @@ import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.path_utils import path_mkdir, path_write_file, path_read_file, path_exists
 
 try:
     import olefile

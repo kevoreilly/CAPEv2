@@ -5,8 +5,8 @@
 import os
 import pathlib
 
-from lib.cuckoo.common.path_utils import path_delete
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
+from lib.cuckoo.common.path_utils import path_delete
 
 
 class TestCuckooBsonCompresson:

@@ -9,7 +9,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
-
 log = logging.getLogger(__name__)
 
 processing_conf = Config("processing")

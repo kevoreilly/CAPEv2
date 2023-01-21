@@ -27,7 +27,7 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_read_file, path_write_file, path_exists, path_mkdir, path_get_size
+from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_write_file
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file

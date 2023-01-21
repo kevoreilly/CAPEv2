@@ -6,8 +6,8 @@ import json
 import logging
 from typing import Any, Dict
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.integrations.peepdf import peepdf_parse
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     HAVE_PDF = True

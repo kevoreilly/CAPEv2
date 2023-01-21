@@ -7,10 +7,10 @@ import textwrap
 
 import pytest
 
-from lib.cuckoo.common.path_utils import path_write_file
 import lib.cuckoo.common.config
 from lib.cuckoo.common.config import AnalysisConfig, Config, ConfigMeta
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.path_utils import path_write_file
 
 
 @pytest.fixture

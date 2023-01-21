@@ -8,17 +8,17 @@ import logging
 import os
 import shutil
 import sys
+from contextlib import suppress
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
-from contextlib import suppress
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete, path_is_dir
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_is_dir
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,

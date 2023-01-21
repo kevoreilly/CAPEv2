@@ -5,11 +5,11 @@
 import logging
 import os
 
-from lib.cuckoo.common.path_utils import path_exists, path_write_file
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File, ProcDump
+from lib.cuckoo.common.path_utils import path_exists, path_write_file
 from lib.cuckoo.common.utils import add_family_detection
 
 processing_conf = Config("processing")

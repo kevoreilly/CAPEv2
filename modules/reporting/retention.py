@@ -11,10 +11,10 @@ from datetime import datetime, timedelta
 from multiprocessing import Lock
 from pathlib import Path
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete, path_mkdir
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.core.database import TASK_REPORTED, Database, Task
 
 log = logging.getLogger(__name__)

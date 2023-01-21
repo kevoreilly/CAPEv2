@@ -21,9 +21,9 @@ from lib.cuckoo.common.exceptions import (
     CuckooNetworkError,
     CuckooOperationalError,
 )
-from lib.cuckoo.common.path_utils import path_delete, path_mkdir, path_exists
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Task
 from lib.cuckoo.core.guest import GuestManager

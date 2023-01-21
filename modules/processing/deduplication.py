@@ -20,8 +20,8 @@ try:
 except ImportError:
     print("Missed dependency: pip3 install Pillow")
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger()
 

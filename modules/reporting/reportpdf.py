@@ -6,9 +6,9 @@ import logging
 import os
 from subprocess import call
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     from weasyprint import HTML

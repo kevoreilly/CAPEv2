@@ -27,10 +27,10 @@ log = logging.getLogger()
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from concurrent.futures import TimeoutError
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete, path_mkdir
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import free_space_monitor
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures

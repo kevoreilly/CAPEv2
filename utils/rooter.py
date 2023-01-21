@@ -22,7 +22,7 @@ if sys.version_info[:2] < (3, 8):
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.common.path_utils import path_exists, path_delete
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 username = False
 log = logging.getLogger("cuckoo-rooter")

@@ -14,7 +14,6 @@ from pathlib import Path
 from sflock.abstracts import File as SflockFile
 from sflock.ident import identify as sflock_identify
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
@@ -23,6 +22,7 @@ from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
 
 try:

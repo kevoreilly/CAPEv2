@@ -10,8 +10,8 @@ from functools import reduce
 
 import dateutil.parser
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import BehaviorHandler
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger(__name__)
 

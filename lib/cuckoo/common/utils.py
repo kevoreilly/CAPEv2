@@ -31,7 +31,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_filename, path_is_dir, path_read_file
+from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_is_dir, path_mkdir, path_read_file
 
 try:
     import re2 as re

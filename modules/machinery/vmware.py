@@ -10,9 +10,9 @@ import shutil
 import subprocess
 import time
 
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger(__name__)
 

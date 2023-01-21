@@ -9,10 +9,10 @@ import logging.handlers
 import os
 import threading
 import time
-from pathlib import Path
 
 import gevent.thread
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.misc import cwd
 from lib.cuckoo.core.database import Database
@@ -111,7 +111,7 @@ def task_log_start(task_id):
     try:
         if task_id not in _task_threads:
             task_path = cwd(analysis=task_id)
-            if not Path(task_path).exists():
+            if not path_exists(task_path):
                 return
 
             _task_threads[task_id] = []

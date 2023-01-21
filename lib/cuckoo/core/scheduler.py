@@ -22,7 +22,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooNetworkError,
     CuckooOperationalError,
 )
-from lib.cuckoo.common.path_utils import path_delete, path_mkdir
+from lib.cuckoo.common.path_utils import path_delete, path_mkdir, path_exists
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
@@ -97,7 +97,7 @@ class AnalysisManager(threading.Thread):
 
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
-        if Path(self.storage).exists():
+        if path_exists(self.storage):
             log.error("Task #%s: Analysis results folder already exists at path '%s', analysis aborted", self.task.id, self.storage)
             return False
 
@@ -127,7 +127,7 @@ class AnalysisManager(threading.Thread):
 
     def store_file(self, sha256):
         """Store a copy of the file being analyzed."""
-        if not Path(self.task.target).exists():
+        if not path_exists(self.task.target):
             log.error(
                 "Task #%s: The file to analyze does not exist at path '%s', analysis aborted",
                 self.task.id,
@@ -138,7 +138,7 @@ class AnalysisManager(threading.Thread):
         self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id), sha256)
         copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
 
-        if Path(self.binary).exists():
+        if path_exists(self.binary):
             log.info("Task #%s: File already exists at '%s'", self.task.id, self.binary)
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
@@ -154,7 +154,7 @@ class AnalysisManager(threading.Thread):
                 )
                 return False
 
-        if Path(copy_path).exists():
+        if path_exists(copy_path):
             log.info("Task #%s: File already exists at '%s'", self.task.id, copy_path)
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
@@ -489,8 +489,7 @@ class AnalysisManager(threading.Thread):
                 # Deal with race conditions using a lock.
                 latest_symlink_lock.acquire()
                 try:
-                    # As per documentation, lexists() returns True for dead
-                    # symbolic links.
+                    # As per documentation, lexists() returns True for dead symbolic links.
                     if os.path.lexists(latest):
                         path_delete(latest)
 
@@ -722,7 +721,7 @@ class Scheduler:
         # Find its configuration file.
         conf = os.path.join(CUCKOO_ROOT, "conf", f"{machinery_name}.conf")
 
-        if not Path(conf).exists():
+        if not path_exists(conf):
             raise CuckooCriticalError(
                 f'The configuration file for machine manager "{machinery_name}" does not exist at path: {conf}'
             )

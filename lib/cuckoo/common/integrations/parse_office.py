@@ -16,7 +16,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.path_utils import path_mkdir, path_write_file, path_read_file
+from lib.cuckoo.common.path_utils import path_mkdir, path_write_file, path_read_file, path_exists
 
 try:
     import olefile
@@ -142,7 +142,7 @@ class Office:
         rtfp = RtfObjParser(data)
         rtfp.parse()
         save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "rtf_objects")
-        if rtfp.objects and not Path(save_dir).exists():
+        if rtfp.objects and not path_exists(save_dir):
             path_mkdir(save_dir)
         for rtfobj in rtfp.objects:
             results.setdefault(str(rtfobj.format_id), [])
@@ -275,7 +275,7 @@ class Office:
                         officeresults["Macro"]["Code"][outputname] = [
                             (convert_to_printable(vba_filename), convert_to_printable(vba_code))
                         ]
-                        if not Path(macro_folder).exists():
+                        if not path_exists(macro_folder):
                             path_mkdir(macro_folder)
                         macro_file = os.path.join(macro_folder, outputname)
                         _ = path_write_file(macro_file, convert_to_printable(vba_code), mode="text")
@@ -329,4 +329,4 @@ class Office:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        return self._parse(self.file_path) if Path(self.file_path).exists() else None
+        return self._parse(self.file_path) if path_exists(self.file_path) else None

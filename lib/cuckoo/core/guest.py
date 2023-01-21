@@ -19,7 +19,7 @@ from zipfile import ZIP_STORED, ZipFile
 
 import requests
 
-from lib.cuckoo.common.path_utils import path_mkdir
+from lib.cuckoo.common.path_utils import path_mkdir, path_exists
 from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
@@ -42,7 +42,7 @@ def analyzer_zipfile(platform):
     root = os.path.join(CUCKOO_ROOT, "analyzer", platform)
     root_len = len(os.path.abspath(root))
 
-    if not Path(root).exists():
+    if not path_exists(root):
         log.error("No valid analyzer found at path: %s", root)
         raise CuckooGuestError(f"No valid analyzer found for {platform} platform!")
 

@@ -15,6 +15,7 @@ import gevent.server
 import gevent.socket
 
 from lib.cuckoo.common.abstracts import ProtocolHandler
+from lib.cuckoo.common.path_utils import path_exists
 
 # https://github.com/cuckoosandbox/cuckoo/blob/13cbe0d9e457be3673304533043e992ead1ea9b2/cuckoo/core/resultserver.py#L9
 from lib.cuckoo.common.config import Config
@@ -207,7 +208,7 @@ class FileUpload(ProtocolHandler):
             try:
                 if file_path.endswith("_script.log"):
                     self.fd = open_inclusive(file_path)
-                elif not Path(file_path).exists():
+                elif not path_exists(file_path):
                     # open_exclusive will fail if file_path already exists
                     self.fd = open_exclusive(file_path)
             except OSError as e:

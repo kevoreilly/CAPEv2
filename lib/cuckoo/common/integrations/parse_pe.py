@@ -19,6 +19,7 @@ from typing import Dict, List, Tuple
 
 from PIL import Image
 
+from lib.cuckoo.common.path_utils import path_exists, path_read_file
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
@@ -164,8 +165,8 @@ class PortableExecutable:
 
     @property
     def file_data(self):
-        if not self._file_data and Path(self.file_path).exists():
-            self._file_data = Path(self.file_path).read_bytes()
+        if not self._file_data and path_exists(self.file_path)
+            self._file_data = path_read_file(self.file_path)
         return self._file_data
 
     def is_64bit(self) -> bool:
@@ -911,12 +912,12 @@ class PortableExecutable:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not Path(self.file_path).exists():
+        if not path_exists(self.file_path):
             log.debug("File doesn't exist anymore")
             return {}
 
         # Advanced check if is real PE
-        contents = Path(self.file_path).read_bytes()
+        contents = path_read_file(self.file_path)
         if not IsPEImage(contents):
             return {}
 

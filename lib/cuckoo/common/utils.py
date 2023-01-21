@@ -22,7 +22,6 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from typing import Tuple, Union
 
 from data.family_detection_names import family_detection_names
@@ -32,7 +31,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_filename, path_is_dir
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_filename, path_is_dir, path_read_file
 
 try:
     import re2 as re
@@ -124,11 +123,11 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
                 "sha256",
             ),
         )
-        if not file_data and not Path(extracted_path).exists():
+        if not file_data and not path_exists(extracted_path):
             return
 
         if not file_data:
-            file_data = Path(extracted_path).read_bytes()
+            file_data = path_read_file(extracted_path)
 
         if len(file_data) > buf:
             return file_data[:buf].decode("latin-1") + " <truncated>"
@@ -161,7 +160,7 @@ def create_zip(files=False, folder=False, encrypted=False):
         if encrypted:
             zf.setpassword(zippwd)
         for file in files:
-            if not Path(file).exists():
+            if not path_exists(file):
                 log.error("File does't exist: %s", file)
                 continue
 
@@ -193,7 +192,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             else:
                 free_space = config.cuckoo.freespace
 
-            if path and not Path(path).exists():
+            if path and not path_exists(path):
                 sys.exit("Restart daemon/process, happens after full cleanup")
             space_available = shutil.disk_usage(path).free >> 20
             need_space = space_available < free_space
@@ -617,7 +616,7 @@ def store_temp_file(filedata, filename, path=None):
     else:
         tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
-    if not Path(target_path.decode()).exists():
+    if not path_exists(target_path.decode()):
         path_mkdir(target_path)
 
     tmp_dir = tempfile.mkdtemp(prefix=b"upload_", dir=target_path)

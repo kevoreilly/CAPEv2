@@ -7,6 +7,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Dict, Tuple
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
@@ -146,7 +147,7 @@ def init_yara():
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
-        if not Path(category_root).exists():
+        if not path_exists(category_root):
             log.warning("Missing Yara directory: %s?", category_root)
             continue
 

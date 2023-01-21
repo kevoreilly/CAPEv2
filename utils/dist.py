@@ -37,7 +37,7 @@ except ImportError:
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.common.path_utils import path_get_size, path_exists, path_delete, path_mkdir
+from lib.cuckoo.common.path_utils import path_get_size, path_exists, path_delete, path_mkdir, path_write_file
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
 from lib.cuckoo.common.utils import get_options
@@ -147,7 +147,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         if not r.ok:
             log.error(f"Error fetching task list. Status code: {r.status_code} - {r.url}")
             log.info("Saving error to /tmp/dist_error.html")
-            _ = Path("/tmp/dist_error.html").write_bytes(r.content)
+            _ = path_write_file("/tmp/dist_error.html", r.content)
             return []
         return r.json().get("data", [])
     except Exception as e:

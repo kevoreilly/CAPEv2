@@ -15,7 +15,7 @@ import magic
 import requests
 from django.http import HttpResponse
 
-from lib.cuckoo.common.path_utils import path_mkdir, path_exists, path_to_ascii
+from lib.cuckoo.common.path_utils import path_mkdir, path_exists, path_to_ascii, path_write_file
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
@@ -493,7 +493,7 @@ def recon(filename, orig_options, timeout, enforce_timeout):
 def get_magic_type(data):
     try:
         path = path_to_ascii(data)
-        if Path(path).exists():
+        if path_exists(path):
             return magic.from_file(data)
         else:
             return magic.from_buffer(data)
@@ -625,9 +625,8 @@ def download_file(**kwargs):
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
 
         path = kwargs.get("path") if isinstance(kwargs.get("path", ""), str) else kwargs.get("path").decode()
-        p = Path(path)
-        if not p.exists():
-            _ = p.write_bytes(kwargs["content"])
+        if not path_exists(path):
+            _ = path_write_file(path, kwargs["content"])
     except Exception as e:
         print(e, sys.exc_info())
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
@@ -859,7 +858,7 @@ def validate_task_by_path(tid):
     # if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
     #    return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
-    return Path(analysis_path).exists()
+    return path_exists(analysis_path)
 
 
 perform_search_filters = {
@@ -1350,7 +1349,7 @@ def submit_task(
     """
     ToDo add url support in future
     """
-    if not Path(target).exists():
+    if not path_exists(target):
         log.info("File doesn't exist")
         return
 

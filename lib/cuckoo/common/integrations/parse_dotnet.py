@@ -4,9 +4,9 @@
 
 import logging
 import subprocess
-from pathlib import Path
 from typing import Any, Dict, List
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class DotNETExecutable:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not Path(self.file_path).exists():
+        if not path_exists(self.file_path):
             return None
 
         try:

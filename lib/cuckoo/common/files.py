@@ -108,7 +108,7 @@ class Folders(Storage):
         @raise CuckooOperationalError: if fails to delete folder.
         """
         folder = os.path.join(*folder)
-        if Path(folder).exists():
+        if path_exists(folder):
             try:
                 shutil.rmtree(folder)
             except OSError as e:

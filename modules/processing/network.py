@@ -50,7 +50,7 @@ try:
 
     IS_GEOIP = True
     gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-except ImportError:
+except (ImportError, GeoIP.error):
     IS_GEOIP = False
 
 try:

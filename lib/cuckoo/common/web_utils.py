@@ -18,7 +18,7 @@ from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_to_ascii, path_write_file
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import (
     bytes2str,
     generate_fake_name,
@@ -492,8 +492,7 @@ def recon(filename, orig_options, timeout, enforce_timeout):
 
 def get_magic_type(data):
     try:
-        path = path_to_ascii(data)
-        if path_exists(path):
+        if path_exists(data):
             return magic.from_file(data)
         else:
             return magic.from_buffer(data)

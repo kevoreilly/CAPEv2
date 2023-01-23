@@ -449,6 +449,8 @@ def generic_file_extractors(
         except Exception as err:
             log.exception("file_extra_info: %s", err)
             continue
+        if not func_result:
+            continue
         extraction_result = func_result["result"]
         if extraction_result is None:
             continue

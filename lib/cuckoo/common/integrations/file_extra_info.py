@@ -42,7 +42,7 @@ except ImportError:
 # https://github.com/volexity/threat-intel/tree/main/tools/one-extract
 try:
     HAVE_ONE = True
-    from office_one import OneNoteExtractor
+    from lib.cuckoo.common.integrations.office_one import OneNoteExtractor
 except ImportError:
     HAVE_ONE = False
 

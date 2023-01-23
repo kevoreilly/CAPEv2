@@ -28,7 +28,7 @@ def path_mkdir(path: str, parent: bool = True, exist_ok=False, mode=0o770):
 def path_safe(path: str) -> bool:
     # Path(path).resolve(string=True) # FileNotFoundError
     try:
-        return Path(path).resolve(string=True).startswith(ANALYSIS_BASE_PATH)
+        return str(Path(path).resolve(strict=True)).startswith(ANALYSIS_BASE_PATH)
     except FileNotFoundError:
         return False
 

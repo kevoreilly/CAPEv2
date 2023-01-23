@@ -39,13 +39,6 @@ try:
 except ImportError:
     HAVE_SFLOCK = False
 
-# https://github.com/volexity/threat-intel/tree/main/tools/one-extract
-try:
-    HAVE_ONE = True
-    from office_one import OneNoteExtractor
-except ImportError:
-    HAVE_ONE = False
-
 DuplicatesType = DefaultDict[str, Set[str]]
 
 
@@ -859,7 +852,7 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
 @time_tracker
 def office_one(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnType:
 
-    if not HAVE_ONE or open(file, "rb").read(16) != b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3":
+    if open(file, "rb").read(16) != b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3":
         return
 
     with extractor_ctx(file, "OfficeOne", prefix="office_one") as ctx:

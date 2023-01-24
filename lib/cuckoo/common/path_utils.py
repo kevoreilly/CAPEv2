@@ -21,12 +21,11 @@ def path_delete(path: str):
     Path(path).unlink()
 
 
-def path_mkdir(path: str, parent: bool = True, exist_ok=False, mode=0o770):
+def path_mkdir(path: str, parent: bool = True, exist_ok=False, mode=0o755):
     Path(path_to_ascii(path)).mkdir(parents=parent, exist_ok=exist_ok, mode=mode)
 
 
 def path_safe(path: str) -> bool:
-    # Path(path).resolve(string=True) # FileNotFoundError
     try:
         return str(Path(path).resolve(strict=True)).startswith(ANALYSIS_BASE_PATH)
     except FileNotFoundError:

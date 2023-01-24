@@ -5,16 +5,18 @@ LibreNMS
 LibreNMS is capable of monitoring stats for CAPEv2. This is handled
 by a SNMP extend.
 
+::
+
     wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/cape -O /etc/snmp/cape
-	chmod +x /etc/snmp/cape
-    apt-get install libfile-readbackwards-perl libjson-perl \
-        libconfig-tiny-perl libdbi-perl libfile-slurp-perl \
-        libstatistics-lite-perl libdbi-perl libdbd-pg-perl
+    chmod +x /etc/snmp/cape
+    apt-get install libfile-readbackwards-perl libjson-perl libconfig-tiny-perl libdbi-perl libfile-slurp-perl libstatistics-lite-perl libdbi-perl libdbd-pg-perl
 
 With that all in place, you will then need to create a config file for
 it at ``/usr/local/etc/cape_extend.ini``. Unless you are doing
 anything custom DB wise, the settings below, but with the proper PW
 will work.
+
+::
 
     # DBI connection DSN
     dsn=dbi:Pg:dbname=cape;host=127.0.0.1
@@ -29,6 +31,8 @@ This module will also send warnings, errors, and criticals found in
 the logs to LibreNMS. To filter these,
 ``/usr/local/etc/cape_extend.ignores`` can be used. The format for
 that is as below.
+
+::
 
     <ignore level> <pattern>
 
@@ -45,7 +49,9 @@ On the CAPEv2 side, you will need to make a few tweaks to ``reporting.conf``.
 'signatures' and 'detections'.
 
 Finally will need to enable the extend for your 
-	
+
+::
+
     extend cape /etc/snmp/extends/cape
 
 Once snmpd is restarted and the the device rediscovered via LibreNMS,

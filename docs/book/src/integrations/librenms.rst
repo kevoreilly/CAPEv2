@@ -47,7 +47,7 @@ the two lines such as below.
     WARNING Unable to Run Suricata: Pcap file
 
 On the CAPEv2 side, you will need to make a few tweaks to ``reporting.conf``.
-``litereport`` will need enabled and  ``eys_to_copy`` should include
+``litereport`` will need enabled and  ``keys_to_copy`` should include
 'signatures' and 'detections'.
 
 Finally will need to enable the extend for your

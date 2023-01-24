@@ -20,10 +20,10 @@ will work.
 
     # DBI connection DSN
     dsn=dbi:Pg:dbname=cape;host=127.0.0.1
-    
+
     # DB user
     user=cape
-    
+
     # DB PW
     pass=12345
 
@@ -41,6 +41,8 @@ level and the regexp pattern is ``/[\ \t]+/``. So if you want to ignore
 the two warnings generated when VM traffic is dropped, you would use
 the two lines such as below.
 
+::
+
     WARNING PCAP file does not exist at path
     WARNING Unable to Run Suricata: Pcap file
 
@@ -48,14 +50,14 @@ On the CAPEv2 side, you will need to make a few tweaks to ``reporting.conf``.
 ``litereport`` will need enabled and  ``eys_to_copy`` should include
 'signatures' and 'detections'.
 
-Finally will need to enable the extend for your 
+Finally will need to enable the extend for your
 
 ::
 
     extend cape /etc/snmp/extends/cape
 
 Once snmpd is restarted and the the device rediscovered via LibreNMS,
-you will then be able to 
+you will then be able to
 
 For more detailed monitoring, if using KVM, you will likely want to
 also considering using `HV::Monitor`, which will allow detailed

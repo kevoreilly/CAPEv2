@@ -63,4 +63,4 @@ For more detailed monitoring, if using KVM, you will likely want to
 also considering using `HV::Monitor`, which will allow detailed
 monitoring various stats VMs.
 
-.. _`HV::Monitor`:https://docs.librenms.org/Extensions/Applications/#hv-monitor
+.. _`HV::Monitor`: https://docs.librenms.org/Extensions/Applications/#hv-monitor

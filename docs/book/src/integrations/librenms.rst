@@ -33,7 +33,7 @@ that is as below.
     <ignore level> <pattern>
 
 This the ignore level will be lower cased. The seperator bween the
-level and the regexp pattern is /[\ \t]+/. So if you want to ignore
+level and the regexp pattern is ``/[\ \t]+/``. So if you want to ignore
 the two warnings generated when VM traffic is dropped, you would use
 the two lines such as below.
 

@@ -8,8 +8,8 @@ by a SNMP extend.
     wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/cape -O /etc/snmp/cape
 	chmod +x /etc/snmp/cape
     apt-get install libfile-readbackwards-perl libjson-perl \
-	    libconfig-tiny-perl libdbi-perl libfile-slurp-perl \
-    	libstatistics-lite-perl libdbi-perl libdbd-pg-perl
+        libconfig-tiny-perl libdbi-perl libfile-slurp-perl \
+        libstatistics-lite-perl libdbi-perl libdbd-pg-perl
 
 With that all in place, you will then need to create a config file for
 it at ``/usr/local/etc/cape_extend.ini``. Unless you are doing
@@ -20,10 +20,10 @@ will work.
     dsn=dbi:Pg:dbname=cape;host=127.0.0.1
     
     # DB user
-	user=cape
+    user=cape
     
     # DB PW
-	pass=12345
+    pass=12345
 
 This module will also send warnings, errors, and criticals found in
 the logs to LibreNMS. To filter these,
@@ -50,3 +50,9 @@ Finally will need to enable the extend for your
 
 Once snmpd is restarted and the the device rediscovered via LibreNMS,
 you will then be able to 
+
+For more detailed monitoring, if using KVM, you will likely want to
+also considering using `HV::Monitor`, which will allow detailed
+monitoring various stats VMs.
+
+.. _`HV::Monitor`:https://docs.librenms.org/Extensions/Applications/#hv-monitor

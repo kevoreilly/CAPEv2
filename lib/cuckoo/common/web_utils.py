@@ -1204,7 +1204,7 @@ def get_hash_list(hashes):
 def download_from_vt(vtdl, details, opt_filename, settings):
     for h in get_hash_list(vtdl):
         folder = os.path.join(settings.VTDL_PATH, "cape-vt")
-        if path_exists(folder):
+        if not path_exists(folder):
             path_mkdir(folder)
         base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
         if opt_filename:

@@ -14,6 +14,8 @@ import sys
 import time
 from contextlib import suppress
 
+from setproctitle import getproctitle, setproctitle
+
 if sys.version_info[:2] < (3, 8):
     sys.exit("You are running an incompatible version of Python, please use >= 3.8")
 
@@ -54,6 +56,7 @@ check_linux_dist()
 
 pending_future_map = {}
 pending_task_id_map = {}
+original_proctitle = getproctitle()
 
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
 def memory_limit(percentage: float = 0.8):
@@ -84,6 +87,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
     set_formatter_fmt(task_id)
+    setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     if memory_debugging:
         gc.collect()
@@ -191,6 +195,7 @@ def processing_finished(future):
     pending_future_map.pop(future)
     pending_task_id_map.pop(task_id)
     set_formatter_fmt()
+    setproctitle(original_proctitle)
 
 
 def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300):

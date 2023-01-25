@@ -18,3 +18,5 @@ storage/
 web/web/secret_key.py
 tests/test_bson.bson.compressed
 *~
+
+installer/cape-config.sh

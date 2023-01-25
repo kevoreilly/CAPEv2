@@ -24,9 +24,15 @@ node_exporter_version=1.0.1
 guacamole_version=1.4.0
 
 DIE_VERSION="3.07"
-UBUNTU_VERSION=$(lsb_release -rs)
 
 TOR_SOCKET_TIMEOUT="60"
+
+# if a config file is present, read it in
+if [ -f "./cape-config.sh" ]; then
+	. ./cape-config.sh
+fi
+
+UBUNTU_VERSION=$(lsb_release -rs)
 OS="$(uname -s)"
 MAINTAINER="$(whoami)"_"$(hostname)"
 ARCH="$(dpkg --print-architecture)"

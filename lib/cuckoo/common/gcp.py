@@ -95,4 +95,4 @@ class GCP(object):
                     except Exception as e:
                         log.error(e, exc_info=True)
 
-            time.sleep(600)
+            time.sleep(int(self.dist_cfg.GCP.autodiscovery))

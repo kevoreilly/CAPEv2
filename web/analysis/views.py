@@ -412,6 +412,9 @@ def index(request, page=1):
             if page <= 1:
                 paging["show_file_prev"] = "hide"
 
+            #Added =: Fix page navigation for pages after the first page
+            else:
+                paging['show_file_prev'] = "show"
             if db.view_errors(task.id):
                 new["errors"] = True
 

@@ -51,6 +51,7 @@ sys.path.append(CUCKOO_ROOT)
 cfg = Config("cuckoo")
 web_cfg = Config("web")
 repconf = Config("reporting")
+dist_conf = Config("distributed")
 routing_conf = Config("routing")
 machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
@@ -73,7 +74,7 @@ DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
 
 HAVE_DIST = False
 # Distributed CAPE
-if repconf.distributed.enabled:
+if dist_conf.distributed.enabled:
     try:
         # Tags
         from lib.cuckoo.common.dist_db import Machine, Node
@@ -81,7 +82,7 @@ if repconf.distributed.enabled:
         from lib.cuckoo.common.dist_db import create_session
 
         HAVE_DIST = True
-        dist_session = create_session(repconf.distributed.db)
+        dist_session = create_session(dist_conf.distributed.db)
     except Exception as e:
         print(e)
 
@@ -179,7 +180,7 @@ def my_rate_minutes(group, request):
 
 def load_vms_exits():
     all_exits = {}
-    if HAVE_DIST and repconf.distributed.enabled:
+    if HAVE_DIST and dist_conf.distributed.enabled:
         try:
             db = dist_session()
             for node in db.query(Node).all():
@@ -195,7 +196,7 @@ def load_vms_exits():
 
 def load_vms_tags():
     all_tags = []
-    if HAVE_DIST and repconf.distributed.enabled:
+    if HAVE_DIST and dist_conf.distributed.enabled:
         try:
             db = dist_session()
             for vm in db.query(Machine).all():
@@ -394,7 +395,7 @@ def statistics(s_days: int) -> dict:
         sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
     )
 
-    if HAVE_DIST and repconf.distributed.enabled:
+    if HAVE_DIST and dist_conf.distributed.enabled:
         details["distributed_tasks"] = {}
         dist_db = dist_session()
         dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()

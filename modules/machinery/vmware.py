@@ -12,6 +12,7 @@ import time
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class VMware(Machinery):
         if not self.options.vmware.path:
             raise CuckooMachineError("VMware vmrun path missing, please add it to vmware.conf")
 
-        if not os.path.exists(self.options.vmware.path):
+        if not path_exists(self.options.vmware.path):
             raise CuckooMachineError(f"VMware vmrun not found in specified path {self.options.vmware.path}")
         # Consistency checks.
         for machine in self.machines():
@@ -50,7 +51,7 @@ class VMware(Machinery):
         if not vmx_path.endswith(".vmx"):
             raise CuckooMachineError(f"Wrong configuration: vm path not ending with .vmx: {vmx_path}")
 
-        if not os.path.exists(vmx_path):
+        if not path_exists(vmx_path):
             raise CuckooMachineError(f"Vm file {vmx_path} not found")
 
     def _check_snapshot(self, vmx_path, snapshot):
@@ -171,7 +172,7 @@ class VMware(Machinery):
 
     def dump_memory(self, vmx_path, path):
         """Take a memory dump of the machine."""
-        if not os.path.exists(vmx_path):
+        if not path_exists(vmx_path):
             raise CuckooMachineError(
                 f"Can't find .vmx file {vmx_path}. Ensure to configure a fully qualified path in vmware.conf (key = vmx_path)"
             )

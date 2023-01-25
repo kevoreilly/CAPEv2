@@ -11,6 +11,7 @@ from tcr_misc import get_sample, random_string
 
 import lib.cuckoo.core.scheduler as scheduler
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_write_file
 from lib.cuckoo.core.scheduler import AnalysisManager
 
 
@@ -60,25 +61,24 @@ def setup_machinery():
 @pytest_asyncio.fixture
 def symlink():
     try:
-        os.makedirs("fstorage/binaries", exist_ok=True)
+        path_mkdir("fstorage/binaries", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     tempsym = os.getcwd() + "/storage/binaries/e3be3b"
     real = "/tmp/" + random_string()
-    with open(real, mode="w") as f:
-        f.write("\x00")
+    _ = path_write_file(real, "\x00", mode="text")
 
     try:
-        os.makedirs(os.getcwd() + "/storage/binaries/", exist_ok=True)
+        path_mkdir(os.getcwd() + "/storage/binaries/", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
-    print(os.path.exists(real), os.path.exists(tempsym))
+    print(path_exists(real), path_exists(tempsym))
     os.symlink(real, tempsym)
     yield
     try:
-        os.unlink(tempsym)
-        os.unlink(real)
-        os.unlink("binary")
+        path_delete(tempsym)
+        path_delete(real)
+        path_delete("binary")
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 
@@ -95,7 +95,7 @@ def clean_init_storage():
 @pytest_asyncio.fixture
 def create_store_file_dir():
     try:
-        os.makedirs(os.getcwd() + "/storage/binaries/")
+        path_mkdir(os.getcwd() + "/storage/binaries/")
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     yield
@@ -142,7 +142,7 @@ class TestAnalysisManager:
 
     def test_init_storage_already_exists(self, clean_init_storage, caplog):
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
-        os.makedirs(os.getcwd() + "/storage/analyses/1234")
+        path_mkdir(os.getcwd() + "/storage/analyses/1234")
 
         analysis_man.init_storage()
         assert "already exists at path" in caplog.text
@@ -199,8 +199,7 @@ class TestAnalysisManager:
 
     @pytest.mark.skip(reason="TODO")
     def test_store_file_symlink_err(self, symlink, caplog):
-        with open("binary", "wb") as f:
-            f.write(b"\x00")
+        _ = path_write_file("binary", b"\x00")
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
         analysis_man.store_file(sha256="e3be3b")
         assert "Unable to create symlink/copy" in caplog.text

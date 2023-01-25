@@ -3,9 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os.path
-from pathlib import Path
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_read_file
 
 domains = set()
 ips = set()
@@ -18,10 +18,10 @@ misphashes = set()
 def _load_safelist(wlset, wl_file):
     wl_path = os.path.join(CUCKOO_ROOT, "data", "safelist", wl_file)
 
-    if not Path(wl_path).exists():
+    if not path_exists(wl_path):
         return
 
-    safelist = Path(wl_path).read_bytes()
+    safelist = path_read_file(wl_path)
     for entry in safelist.split("\n"):
         entry = entry.strip()
         if entry and not entry.startswith("#"):

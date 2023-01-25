@@ -34,6 +34,7 @@ from lib.cuckoo.common.dns import resolve
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.irc import ircMessage
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
 
@@ -49,7 +50,7 @@ try:
 
     IS_GEOIP = True
     gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-except ImportError:
+except (ImportError, GeoIP.error):
     IS_GEOIP = False
 
 try:
@@ -654,7 +655,7 @@ class Pcap:
             log.error("Python DPKT is not installed, aborting PCAP analysis")
             return self.results
 
-        if not os.path.exists(self.filepath):
+        if not path_exists(self.filepath):
             log.warning('The PCAP file does not exist at path "%s". Did you run analysis with live connection?', self.filepath)
             return self.results
 
@@ -848,10 +849,10 @@ class Pcap2:
     def run(self):
         results = {"http_ex": [], "https_ex": [], "smtp_ex": []}
 
-        if not os.path.exists(self.network_path):
-            os.makedirs(self.network_path, exist_ok=True)
+        if not path_exists(self.network_path):
+            path_mkdir(self.network_path, exist_ok=True)
 
-        if not os.path.exists(self.pcap_path):
+        if not path_exists(self.pcap_path):
             log.warning('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
@@ -1001,7 +1002,7 @@ class NetworkAnalysis(Processing):
         :return: dictionary of ja3 fingerprint descreptions
         """
         ja3_fprints = {}
-        if os.path.exists(self.ja3_file):
+        if path_exists(self.ja3_file):
             with open(self.ja3_file, "r") as fpfile:
                 for line in fpfile:
                     try:
@@ -1020,7 +1021,7 @@ class NetworkAnalysis(Processing):
             log.error("Python DPKT is not installed, aborting PCAP analysis")
             return {}
 
-        if not os.path.exists(self.pcap_path):
+        if not path_exists(self.pcap_path):
             log.warning('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
@@ -1037,7 +1038,7 @@ class NetworkAnalysis(Processing):
         if proc_cfg.network.sort_pcap:
             sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
-            if os.path.exists(sorted_path):
+            if path_exists(sorted_path):
                 results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
                 self.options["sorted"] = True
                 results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
@@ -1056,7 +1057,7 @@ class NetworkAnalysis(Processing):
         """Obtain the client/server random to TLS master secrets mapping that we have obtained through dynamic analysis."""
         tlsmaster = {}
         dump_tls_log = os.path.join(self.analysis_path, "tlsdump", "tlsdump.log")
-        if not os.path.exists(dump_tls_log):
+        if not path_exists(dump_tls_log):
             return tlsmaster
 
         for entry in open(dump_tls_log, "r").readlines() or []:
@@ -1133,7 +1134,7 @@ def batch_sort(input_iterator, output_path, buffer_size=32000, output_class=None
         for chunk in chunks:
             with suppress(Exception):
                 chunk.close()
-                os.remove(chunk.name)
+                path_delete(chunk.name)
 
 
 # magic

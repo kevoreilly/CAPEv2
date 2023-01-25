@@ -22,6 +22,7 @@ from PIL import Image
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
+from lib.cuckoo.common.path_utils import path_exists, path_read_file
 
 try:
     import cryptography
@@ -116,10 +117,10 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
 
     try:
         # if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
-        if (
-            struct.unpack("<H", nt_headers[4:6])[0] == 0
-            or struct.unpack("<H", nt_headers[20:22])[0] == 0
-            or struct.unpack("<H", nt_headers[84:86])[0] == 0
+        if 0 in (
+            struct.unpack("<H", nt_headers[4:6])[0],
+            struct.unpack("<H", nt_headers[20:22])[0],
+            struct.unpack("<H", nt_headers[84:86])[0],
         ):
             return False
 
@@ -164,8 +165,8 @@ class PortableExecutable:
 
     @property
     def file_data(self):
-        if not self._file_data and Path(self.file_path).exists():
-            self._file_data = Path(self.file_path).read_bytes()
+        if not self._file_data and path_exists(self.file_path):
+            self._file_data = path_read_file(self.file_path)
         return self._file_data
 
     def is_64bit(self) -> bool:
@@ -911,12 +912,12 @@ class PortableExecutable:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not Path(self.file_path).exists():
+        if not path_exists(self.file_path):
             log.debug("File doesn't exist anymore")
             return {}
 
         # Advanced check if is real PE
-        contents = Path(self.file_path).read_bytes()
+        contents = path_read_file(self.file_path)
         if not IsPEImage(contents):
             return {}
 

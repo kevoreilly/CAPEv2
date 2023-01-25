@@ -27,6 +27,7 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_write_file
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file
@@ -37,6 +38,13 @@ try:
     HAVE_SFLOCK = True
 except ImportError:
     HAVE_SFLOCK = False
+
+# https://github.com/volexity/threat-intel/tree/main/tools/one-extract
+try:
+    HAVE_ONE = True
+    from lib.cuckoo.common.integrations.office_one import OneNoteExtractor
+except ImportError:
+    HAVE_ONE = False
 
 DuplicatesType = DefaultDict[str, Set[str]]
 
@@ -151,7 +159,7 @@ def static_file_info(
     duplicated: DuplicatesType,
 ):
 
-    size_mb = int(os.path.getsize(file_path) / (1024 * 1024))
+    size_mb = int(path_get_size(file_path) / (1024 * 1024))
     if size_mb > int(processing_conf.CAPE.max_file_size):
         log.info("static_file_info: skipping file that exceeded max_file_size: %s: %d MB", file_path, size_mb)
         return
@@ -194,7 +202,7 @@ def static_file_info(
     elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and selfextract_conf.general.lnk:
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and selfextract_conf.general.java:
-        if selfextract_conf.procyon.binary and not Path(selfextract_conf.procyon.binary).exists():
+        if selfextract_conf.procyon.binary and not path_exists(selfextract_conf.procyon.binary):
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
             data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
@@ -246,7 +254,7 @@ def static_file_info(
 
 
 def detect_it_easy_info(file_path: str):
-    if not Path(processing_conf.die.binary).exists():
+    if not path_exists(processing_conf.die.binary):
         return []
 
     try:
@@ -304,6 +312,11 @@ def _extracted_files_metadata(
                 # ToDo walk subfolders
                 continue
 
+            size_mb = int(os.path.getsize(full_path) / (1024 * 1024))
+            if size_mb > int(processing_conf.CAPE.max_file_size):
+                log.info("_extracted_files_metadata: file exceeded max_file_size: %s: %d MB", full_path, size_mb)
+                continue
+
             file = File(full_path)
             sha256 = file.get_sha256()
             if sha256 in duplicated["sha256"]:
@@ -323,7 +336,7 @@ def _extracted_files_metadata(
             dest_path = os.path.join(destination_folder, file_info["sha256"])
             file_info["path"] = dest_path
             file_info["name"] = os.path.basename(dest_path)
-            if not Path(dest_path).exists():
+            if not path_exists(dest_path):
                 shutil.move(full_path, dest_path)
                 print(
                     json.dumps(
@@ -387,8 +400,8 @@ def generic_file_extractors(
     Run all extra extractors/unpackers/extra scripts here, each extractor should check file header/type/identification:
     """
 
-    if not Path(destination_folder).exists():
-        os.makedirs(destination_folder)
+    if not path_exists(destination_folder):
+        path_mkdir(destination_folder)
 
     # Arguments that all extractors need.
     args = (file,)
@@ -414,6 +427,7 @@ def generic_file_extractors(
             SevenZip_unpack,
             de4dot_deobfuscate,
             eziriz_deobfuscate,
+            office_one,
         ):
             funcname = extraction_func.__name__
             if not getattr(selfextract_conf, funcname).get("enabled", False):
@@ -434,6 +448,8 @@ def generic_file_extractors(
             continue
         except Exception as err:
             log.exception("file_extra_info: %s", err)
+            continue
+        if not func_result:
             continue
         extraction_result = func_result["result"]
         if extraction_result is None:
@@ -467,7 +483,7 @@ def _generic_post_extraction_process(file: str, tool_name: str, decoded: str) ->
     with extractor_ctx(file, tool_name) as ctx:
         basename = f"{os.path.basename(file)}_decoded"
         decoded_file_path = os.path.join(ctx["tempdir"], basename)
-        Path(decoded_file_path).write_text(decoded)
+        _ = path_write_file(decoded_file_path, decoded, mode="text")
         ctx["extracted_files"] = [basename]
 
     return ctx
@@ -533,7 +549,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
         log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
         return
 
-    if not Path(binary).exists():
+    if not path_exists(binary):
         log.error(
             "Missed dependency: Download your version from https://github.com/SychicBoy/NETReactorSlayer/releases and place under %s.",
             binary,
@@ -557,7 +573,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
             stderr=subprocess.PIPE,
         )
         deobf_file = file + "_Slayed"
-        if Path(deobf_file).exists():
+        if path_exists(deobf_file):
             shutil.move(deobf_file, dest_path)
             ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
@@ -573,7 +589,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     if not binary:
         log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
         return
-    if not Path(binary).exists():
+    if not path_exists(binary):
         log.error("Missed dependency: sudo apt install de4dot")
         return
 
@@ -604,7 +620,7 @@ def msi_extract(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     if "MSI Installer" not in filetype:
         return
 
-    if not Path(selfextract_conf.msi_extract.binary).exists():
+    if not path_exists(selfextract_conf.msi_extract.binary):
         log.error("Missed dependency: sudo apt install msitools")
         return
 
@@ -653,7 +669,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
     if all("Inno Setup" not in string for string in data_dictionary.get("die", {})):
         return
 
-    if not Path(selfextract_conf.Inno_extract.binary).exists():
+    if not path_exists(selfextract_conf.Inno_extract.binary):
         log.error("Missed dependency: sudo apt install innoextract")
         return
 
@@ -698,7 +714,7 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
     if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
         return
 
-    if not Path(unautoit_binary).exists():
+    if not path_exists(unautoit_binary):
         log.warning(
             f"Missed UnAutoIt binary: {unautoit_binary}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt"
         )
@@ -750,7 +766,7 @@ def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> Extra
 def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options: dict, **_) -> ExtractorReturnType:
     tool = False
 
-    if not Path("/usr/bin/7z").exists():
+    if not path_exists("/usr/bin/7z"):
         logging.error("Missed 7z package: apt install p7zip-full")
         return
 
@@ -822,7 +838,7 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
     ):
         return
 
-    if not Path("/usr/bin/unrar").exists():
+    if not path_exists("/usr/bin/unrar"):
         log.warning("Missed UnRar binary: /usr/bin/unrar. sudo apt install unrar")
         return
 
@@ -836,5 +852,22 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
         )
         if output:
             ctx["extracted_files"] = collect_extracted_filenames(tempdir)
+
+    return ctx
+
+
+@time_tracker
+def office_one(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnType:
+
+    if not HAVE_ONE or open(file, "rb").read(16) != b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3":
+        return
+
+    with extractor_ctx(file, "OfficeOne", prefix="office_one") as ctx:
+        tempdir = ctx["tempdir"]
+        document = OneNoteExtractor(path_read_file(file))
+        for index, file_data in enumerate(document.extract_files()):
+            target_path = os.path.join(tempdir, f"_{index}.extracted")
+            _ = path_write_file(target_path, file_data)
+        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

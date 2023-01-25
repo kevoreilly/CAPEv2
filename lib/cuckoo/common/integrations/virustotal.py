@@ -6,12 +6,12 @@ import hashlib
 import logging
 import operator
 from collections import defaultdict
-from pathlib import Path
 
 import requests
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
 
 try:
@@ -193,7 +193,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
     if category == "file":
         if not do_file_lookup:
             return {"error": True, "msg": "VT File lookup disabled in processing.conf"}
-        if not Path(target).exists() and len(target) != 64:
+        if not path_exists(target) and len(target) != 64:
             return {"error": True, "msg": "File doesn't exist"}
 
         sha256 = target if len(target) == 64 else File(target).get_sha256()

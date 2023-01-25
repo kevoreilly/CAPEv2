@@ -12,6 +12,7 @@ import pytest
 
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.files import Files, Folders, Storage, open_exclusive
+from lib.cuckoo.common.path_utils import path_exists, path_write_file
 
 # from lib.cuckoo.common.safelist import is_safelisted_domain
 
@@ -46,20 +47,20 @@ class TestCreateFolders:
     def test_root_folder(self):
         """Test single folder creation based on the root parameter."""
         Folders.create(os.path.join(self.tmp_dir, "foo"))
-        assert os.path.exists(os.path.join(self.tmp_dir, "foo"))
+        assert path_exists(os.path.join(self.tmp_dir, "foo"))
         os.rmdir(os.path.join(self.tmp_dir, "foo"))
 
     def test_single_folder(self):
         """Test single folder creation."""
         Folders.create(self.tmp_dir, "foo")
-        assert os.path.exists(os.path.join(self.tmp_dir, "foo"))
+        assert path_exists(os.path.join(self.tmp_dir, "foo"))
         os.rmdir(os.path.join(self.tmp_dir, "foo"))
 
     def test_multiple_folders(self):
         """Test multiple folder creation."""
         Folders.create(self.tmp_dir, ["foo", "bar"])
-        assert os.path.exists(os.path.join(self.tmp_dir, "foo"))
-        assert os.path.exists(os.path.join(self.tmp_dir, "bar"))
+        assert path_exists(os.path.join(self.tmp_dir, "foo"))
+        assert path_exists(os.path.join(self.tmp_dir, "bar"))
         os.rmdir(os.path.join(self.tmp_dir, "foo"))
         os.rmdir(os.path.join(self.tmp_dir, "bar"))
 
@@ -73,23 +74,23 @@ class TestCreateFolders:
     def test_duplicate_folder(self):
         """Test a duplicate folder creation."""
         Folders.create(self.tmp_dir, "foo")
-        assert os.path.exists(os.path.join(self.tmp_dir, "foo"))
+        assert path_exists(os.path.join(self.tmp_dir, "foo"))
         Folders.create(self.tmp_dir, "foo")
         os.rmdir(os.path.join(self.tmp_dir, "foo"))
 
     def test_delete_folder(self):
         """Test folder deletion #1."""
         Folders.create(self.tmp_dir, "foo")
-        assert os.path.exists(os.path.join(self.tmp_dir, "foo"))
+        assert path_exists(os.path.join(self.tmp_dir, "foo"))
         Folders.delete(os.path.join(self.tmp_dir, "foo"))
-        assert not os.path.exists(os.path.join(self.tmp_dir, "foo"))
+        assert not path_exists(os.path.join(self.tmp_dir, "foo"))
 
     def test_delete_folder2(self):
         """Test folder deletion #2."""
         Folders.create(self.tmp_dir, "foo")
-        assert os.path.exists(os.path.join(self.tmp_dir, "foo"))
+        assert path_exists(os.path.join(self.tmp_dir, "foo"))
         Folders.delete(self.tmp_dir, "foo")
-        assert not os.path.exists(os.path.join(self.tmp_dir, "foo"))
+        assert not path_exists(os.path.join(self.tmp_dir, "foo"))
 
     @pytest.mark.skipif("sys.platform != 'linux2'")
     def test_create_invld_linux(self):
@@ -157,8 +158,7 @@ class TestStorage:
 
 def test_open_exclusive():
     fpath = os.path.join(tempfile.mkdtemp(), "yeet.exclusive")
-    with open(fpath, "w") as fp:
-        fp.write("42421337Test")
+    _ = path_write_file(fpath, "42421337Test", mode="text")
 
     with pytest.raises(OSError):
         open_exclusive(fpath, bufsize=1)

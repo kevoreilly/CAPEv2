@@ -4,10 +4,10 @@
 
 import logging
 import os
-from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 log = logging.getLogger(__name__)
 
@@ -28,10 +28,10 @@ def vba2graph_func(file_path: str, id: str, sha256: str, on_demand: bool = False
         try:
             vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "vba2graph")
             vba2graph_svg_path = os.path.join(vba2graph_path, f"{sha256}.svg")
-            if Path(vba2graph_svg_path).exists():
+            if path_exists(vba2graph_svg_path):
                 return
-            if not Path(vba2graph_path).exists():
-                os.makedirs(vba2graph_path)
+            if not path_exists(vba2graph_path):
+                path_mkdir(vba2graph_path)
             vba_code = vba2graph_from_vba_object(file_path)
             if vba_code:
                 vba2graph_gen(vba_code, vba2graph_path)

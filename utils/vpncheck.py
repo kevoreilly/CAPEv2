@@ -12,6 +12,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.core.rooter import rooter, vpns
 from lib.cuckoo.core.startup import init_rooter, init_routing
 
@@ -33,8 +34,8 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
-    if os.path.exists(args.client):
-        os.unlink(args.client)
+    if path_exists(args.client):
+        path_delete(args.client)
 
     init_rooter()
     init_routing()

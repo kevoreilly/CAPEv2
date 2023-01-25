@@ -4,10 +4,10 @@
 
 import json
 import logging
-from pathlib import Path
 from typing import Any, Dict
 
 from lib.cuckoo.common.integrations.peepdf import peepdf_parse
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     HAVE_PDF = True
@@ -66,7 +66,7 @@ class PDF:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not Path(self.file_path).exists():
+        if not path_exists(self.file_path):
             return None
         log.debug("Starting to load PDF")
         return self._parse(self.file_path)

@@ -6,6 +6,7 @@
 import logging
 import os
 import sys
+from contextlib import suppress
 
 try:
     import yara
@@ -21,18 +22,14 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 
 
 def init_yara():
     """Generates index for yara signatures."""
 
     def find_signatures(root):
-        signatures = []
-        for entry in os.listdir(root):
-            if entry.endswith(".yara") or entry.endswith(".yar"):
-                signatures.append(os.path.join(root, entry))
-
-        return signatures
+        return [os.path.join(root, entry) for entry in os.listdir(root) if entry.endswith((".yar", ".yara"))]
 
     print("Initializing Yara...")
 
@@ -47,7 +44,7 @@ def init_yara():
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
-        if not os.path.exists(category_root):
+        if not path_exists(category_root):
             continue
 
         # Check if the directory contains any rules.
@@ -89,7 +86,7 @@ def compile_yara(rulepath=""):
             print("Unable to import yara (please compile from sources)")
         return
 
-    if not os.path.exists(rulepath):
+    if not path_exists(rulepath):
         print(("The specified rule file at {} doesn't exist, skip", rulepath))
         return
 
@@ -113,7 +110,7 @@ def test_yara():
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
-        if not os.path.exists(category_root):
+        if not path_exists(category_root):
             continue
 
         # Generate path for the category's index file.
@@ -136,7 +133,5 @@ def main():
 if __name__ == "__main__":
     cfg = Config()
 
-    try:
+    with suppress(KeyboardInterrupt):
         main()
-    except KeyboardInterrupt:
-        pass

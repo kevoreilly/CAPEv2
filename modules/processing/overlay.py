@@ -1,11 +1,11 @@
 import base64
 import logging
 import os
-from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 
 log = logging.getLogger()
 
@@ -22,7 +22,7 @@ class process_overlay_file(object):
         if not processing_conf.overlay.enabled:
             return {}
 
-        if not os.path.exists(self.overlay_fullpath):
+        if not path_exists(self.overlay_fullpath):
             return {}
 
         file_info, _ = File(file_path=self.overlay_fullpath).get_all()
@@ -58,12 +58,12 @@ class extract_overlay_data(Processing):
             output["pe"]["overlay"]["data"] = base64.b64encode(data[: min(overlay_size, 4096)])
 
             fld = os.path.join(self.analysis_path, "files")
-            if not os.path.exists(fld):
+            if not path_exists(fld):
                 log.warning("Folder not present, creating it. Might affect the displaying of (overlay) results on the web")
-                os.makedirs(fld)
+                path_mkdir(fld)
 
             fld = os.path.join(fld, "extracted_overlay")
-            _ = Path(fld).write_bytes(data)
+            _ = path_write_file(fld, data)
 
             output["pe"]["overlay"]["fileinfo"] = process_overlay_file(fld).run()
 

@@ -29,7 +29,8 @@ else:
         HAVE_BSON = False
 
 from lib.cuckoo.common.logtbl import table as LOGTBL
-from lib.cuckoo.common.utils import default_converter, get_filename_from_path
+from lib.cuckoo.common.path_utils import path_get_filename
+from lib.cuckoo.common.utils import default_converter
 
 log = logging.getLogger(__name__)
 
@@ -288,7 +289,7 @@ class BsonParser:
                     pid = argdict["ProcessIdentifier"]
                     ppid = argdict["ParentProcessIdentifier"]
                     modulepath = argdict["ModulePath"]
-                    procname = get_filename_from_path(modulepath)
+                    procname = path_get_filename(modulepath)
 
                     self.fd.log_process(context, vmtime, pid, ppid, modulepath, procname)
                     return True

@@ -12,6 +12,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
@@ -64,7 +65,7 @@ class ParseProcessLog(list):
         self.conversion_cache = {}
         self.api_limit = cfg.processing.analysis_call_limit  # Limit of API calls per process
 
-        if os.path.exists(log_path) and os.stat(log_path).st_size > 0:
+        if path_exists(log_path) and os.stat(log_path).st_size > 0:
             self.parse_first_and_reset()
 
         if cfg.processing.ram_boost:
@@ -373,7 +374,7 @@ class Processes:
         """
         results = []
 
-        if not os.path.exists(self._logs_path):
+        if not path_exists(self._logs_path):
             log.warning('Analysis results folder does not exist at path "%s"', self._logs_path)
             return results
 

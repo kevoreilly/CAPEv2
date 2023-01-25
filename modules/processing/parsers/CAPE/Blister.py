@@ -223,11 +223,7 @@ def u16(a):
 
 
 def dexor(data, key):
-    decrypted = []
-    for i in range(0, len(data)):
-        decrypted.append(data[i] ^ key[i & 3])
-
-    return bytes(decrypted)
+    return bytes([data[i] ^ key[i & 3] for i in range(0, len(data))])
 
 
 def decrypt_memory(file):

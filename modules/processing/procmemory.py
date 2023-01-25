@@ -4,12 +4,12 @@
 
 import logging
 import os
-from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File, ProcDump
+from lib.cuckoo.common.path_utils import path_exists, path_write_file
 from lib.cuckoo.common.utils import add_family_detection
 
 processing_conf = Config("processing")
@@ -43,7 +43,7 @@ class ProcessMemory(Processing):
 
                 # save pe to disk
                 path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
-                _ = Path(path).write_bytes(data)
+                _ = path_write_file(path, data)
 
                 data, pefile_object = File(path).get_all()
                 if pefile_object:
@@ -76,7 +76,7 @@ class ProcessMemory(Processing):
         nulltermonly = self.options.get("nullterminated_only", True)
         minchars = str(self.options.get("minchars", 5)).encode()
 
-        if os.path.exists(self.pmemory_path):
+        if path_exists(self.pmemory_path):
             for dmp in os.listdir(self.pmemory_path):
                 # if we're re-processing this task, this means if zips are enabled, we won't do any reprocessing on the
                 # process dumps (only matters for now for Yara)
@@ -137,7 +137,7 @@ class ProcessMemory(Processing):
 
                     proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
-                    _ = Path(proc["strings_path"]).write_bytes(b"\n".join(strings))
+                    _ = path_write_file(proc["strings_path"], b"\n".join(strings))
                 procdump.close()
                 results.append(proc)
 

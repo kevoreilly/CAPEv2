@@ -191,27 +191,27 @@ class packedSetting:
 
             elif self.is_malleable_stream:
                 prog = []
-                fh = io.BytesIO(conf_data)
-                op = read_dword_be(fh)
-                while op:
-                    if op == 1:
-                        bytes_len = read_dword_be(fh)
-                        prog.append(f"Remove {bytes_len} bytes from the end")
-                    elif op == 2:
-                        bytes_len = read_dword_be(fh)
-                        prog.append(f"Remove {bytes_len} bytes from the beginning")
-                    elif op == 3:
-                        prog.append("Base64 decode")
-                    elif op == 8:
-                        prog.append("NetBIOS decode 'a'")
-                    elif op == 11:
-                        prog.append("NetBIOS decode 'A'")
-                    elif op == 13:
-                        prog.append("Base64 URL-safe decode")
-                    elif op == 15:
-                        prog.append("XOR mask w/ random key")
+                with io.BytesIO(conf_data) as fh:
                     op = read_dword_be(fh)
-                conf_data = prog
+                    while op:
+                        if op == 1:
+                            bytes_len = read_dword_be(fh)
+                            prog.append(f"Remove {bytes_len} bytes from the end")
+                        elif op == 2:
+                            bytes_len = read_dword_be(fh)
+                            prog.append(f"Remove {bytes_len} bytes from the beginning")
+                        elif op == 3:
+                            prog.append("Base64 decode")
+                        elif op == 8:
+                            prog.append("NetBIOS decode 'a'")
+                        elif op == 11:
+                            prog.append("NetBIOS decode 'A'")
+                        elif op == 13:
+                            prog.append("Base64 URL-safe decode")
+                        elif op == 15:
+                            prog.append("XOR mask w/ random key")
+                        op = read_dword_be(fh)
+                    conf_data = prog
             else:
                 conf_data = conf_data.hex()
 

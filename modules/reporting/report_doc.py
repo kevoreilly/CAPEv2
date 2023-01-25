@@ -8,6 +8,7 @@ from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger(__name__)
 repconf = Config("reporting")
@@ -62,7 +63,7 @@ def get_json_document(results, analysis_path):
     # Add screenshot paths
     report["shots"] = []
     shots_path = os.path.join(analysis_path, "shots")
-    if os.path.exists(shots_path):
+    if path_exists(shots_path):
         shots = [shot for shot in os.listdir(shots_path) if shot.endswith(".jpg")]
         for shot_file in sorted(shots):
             shot_path = os.path.join(analysis_path, "shots", shot_file)

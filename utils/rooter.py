@@ -19,6 +19,11 @@ import sys
 if sys.version_info[:2] < (3, 8):
     sys.exit("You are running an incompatible version of Python, please use >= 3.8")
 
+CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
+sys.path.append(CUCKOO_ROOT)
+
+from lib.cuckoo.common.path_utils import path_delete, path_exists
+
 username = False
 log = logging.getLogger("cuckoo-rooter")
 formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -75,10 +80,7 @@ def cleanup_rooter():
     if not stdout:
         return
 
-    cleaned = []
-    for line in stdout.split("\n"):
-        if line and "CAPE-rooter" not in line:
-            cleaned.append(line)
+    cleaned = [line for line in stdout.split("\n") if line and "CAPE-rooter" not in line]
 
     p = subprocess.Popen([s.iptables_restore], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(input="\n".join(cleaned))
@@ -591,21 +593,21 @@ if __name__ == "__main__":
         log.setLevel(logging.DEBUG)
         log.info("Verbose logging enabled")
 
-    if not settings.systemctl or not os.path.exists(settings.systemctl):
+    if not settings.systemctl or not path_exists(settings.systemctl):
         sys.exit(
             "The systemctl binary is not available, please configure it!\n"
             "Note that on CentOS you should provide --systemctl /bin/systemctl, "
             "rather than using the Ubuntu/Debian default /bin/systemctl."
         )
 
-    if not settings.iptables or not os.path.exists(settings.iptables):
+    if not settings.iptables or not path_exists(settings.iptables):
         sys.exit("The `iptables` binary is not available, eh?!")
 
     if os.getuid():
         sys.exit("This utility is supposed to be ran as root.")
 
-    if os.path.exists(settings.socket):
-        os.remove(settings.socket)
+    if path_exists(settings.socket):
+        path_delete(settings.socket)
 
     server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     server.bind(settings.socket)

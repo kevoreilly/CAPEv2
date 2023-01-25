@@ -7,6 +7,7 @@ import os
 import shutil
 from tempfile import NamedTemporaryFile
 
+from lib.cuckoo.common.path_utils import path_cwd, path_delete, path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core.database import Database, Tag, Task
 
@@ -26,12 +27,12 @@ class TestDatabaseEngine:
         self.d = Database(dsn="sqlite://")
         # self.d.connect(dsn=self.URI)
         self.session = self.d.Session()
-        self.binary_storage = os.path.join(os.getcwd(), "storage/binaries")
-        os.makedirs(self.binary_storage)
+        self.binary_storage = os.path.join(path_cwd(), "storage/binaries")
+        path_mkdir(self.binary_storage)
 
     def teardown_method(self):
         del self.d
-        os.unlink(self.temp_filename)
+        path_delete(self.temp_filename)
         shutil.rmtree(self.binary_storage)
 
     def add_url(self, url, priority=1, status="pending"):

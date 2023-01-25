@@ -22,8 +22,7 @@ class SignatureMock(Signature):
     def run(self, results):
         if "foo" in results:
             return True
-        else:
-            return False
+        return False
 
 
 class SignatureAlterMock(SignatureMock):

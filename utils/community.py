@@ -7,9 +7,11 @@ import os
 import shutil
 import sys
 import zipfile
+from contextlib import suppress
 
 if sys.version_info[:2] < (3, 8):
     sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+
 import argparse
 import logging
 import tarfile
@@ -21,9 +23,10 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 blocklist = {}
-if os.path.exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):
+if path_exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):
     from utils.community_blocklist import blocklist
 
 log = logging.getLogger(__name__)
@@ -51,7 +54,7 @@ def flare_capa(proxy=None):
         # shutil.rmtree((os.path.join(dest_folder, "capa-signatures")), ignore_errors=True)
         capa_sigs_path = os.path.join(dest_folder, "capa-signatures")
         if not os.path.isdir(capa_sigs_path):
-            os.mkdir(capa_sigs_path)
+            path_mkdir(capa_sigs_path)
         for url in signature_urls:
             signature_name = url.rsplit("/", 1)[-1]
             with http.request("GET", url, preload_content=False) as sig, open(
@@ -92,7 +95,7 @@ def mitre():
 
 
 def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
-    if filepath and os.path.exists(filepath):
+    if filepath and path_exists(filepath):
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:
         print(f"Downloading modules from {URL}")
@@ -149,11 +152,11 @@ def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
                 continue
 
             if member.isdir():
-                if not os.path.exists(filepath):
-                    os.mkdir(filepath)
+                if not path_exists(filepath):
+                    path_mkdir(filepath)
                 continue
 
-            if not rewrite and os.path.exists(filepath):
+            if not rewrite and path_exists(filepath):
                 print(f'File "{filepath}" already exists, {colors.yellow("skipped")}')
                 continue
 
@@ -172,14 +175,12 @@ def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
                         break
                     elif choice.lower() in ("n", "no"):
                         break
-                    else:
-                        continue
             else:
                 install = True
 
             if install:
-                if not os.path.exists(os.path.dirname(filepath)):
-                    os.makedirs(os.path.dirname(filepath))
+                if not path_exists(os.path.dirname(filepath)):
+                    path_mkdir(os.path.dirname(filepath))
 
                 print(f'File "{filepath}" {colors.green("installed")}')
                 open(filepath, "wb").write(t.extractfile(member).read())
@@ -259,7 +260,5 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
+    with suppress(KeyboardInterrupt):
         main()
-    except KeyboardInterrupt:
-        pass

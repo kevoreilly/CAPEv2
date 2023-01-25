@@ -12,10 +12,12 @@ import time
 
 import magic
 
-# from lib.cuckoo.core.rooter import rooter
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+
+# from lib.cuckoo.core.rooter import rooter
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -337,7 +339,7 @@ class QEMU(Machinery):
         # VirtualBox specific checks.
         if not self.options.qemu.path:
             raise CuckooCriticalError("QEMU binary path missing, please add it to the config file")
-        if not os.path.exists(self.options.qemu.path):
+        if not path_exists(self.options.qemu.path):
             raise CuckooCriticalError(f'QEMU binary not found at specified path "{self.options.qemu.path}"')
 
         self.qemu_dir = os.path.dirname(self.options.qemu.path)
@@ -352,7 +354,7 @@ class QEMU(Machinery):
                 vm_config = qemu_cfg.get(vm_label.strip())
                 if vm_config.get("platform", "").strip() != "linux":
                     continue
-                if vm_config.get("image", False) and not os.path.exists(vm_config["image"]):
+                if vm_config.get("image", False) and not path_exists(vm_config["image"]):
                     log.error("Missed harddrive file for VM: %s", vm_label)
                 if vm_config.get("kernel", False) and not magic.from_file(vm_config["kernel"]).startswith(("Linux kernel", "ELF")):
                     log.error("Bad Kernel file for VM: %s - %s", vm_label, vm_config["kernel"])
@@ -387,8 +389,8 @@ class QEMU(Machinery):
             snapshot_path = vm_options.image
         else:
             snapshot_path = os.path.join(os.path.dirname(vm_options.image), f"snapshot_{vm_info.name}.qcow2")
-            if os.path.exists(snapshot_path):
-                os.remove(snapshot_path)
+            if path_exists(snapshot_path):
+                path_delete(snapshot_path)
 
             # make sure we use a new harddisk layer by creating a new qcow2 with backing file
             # https://qemu.readthedocs.io/en/latest/about/removed-features.html?highlight=backing#qemu-img-backing-file-without-format-removed-in-6-1

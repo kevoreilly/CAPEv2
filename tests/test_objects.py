@@ -3,15 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-import os
-
-# pathlib
 import tempfile
 
 import pytest
 import yara
 
 from lib.cuckoo.common.objects import Dictionary, File  # ,ProcDump
+from lib.cuckoo.common.path_utils import path_delete, path_write_file
 
 # from tcr_misc import get_sample, random_string
 
@@ -38,7 +36,7 @@ def empty_file():
     tmp = tempfile.mkstemp()
     file = File(tmp[1])
     yield {"tmp": tmp, "file": file}
-    os.remove(tmp[1])
+    path_delete(tmp[1])
 
 
 class TestEmptyFile:
@@ -88,7 +86,7 @@ class TestEmptyFile:
         assert isinstance(empty_file["file"].get_all()[0], dict)
 
     def test_get_all_keys(self, empty_file):
-        for key in ["name", "size", "crc32", "md5", "sha1", "sha256", "sha512", "ssdeep", "type"]:
+        for key in ("name", "size", "crc32", "md5", "sha1", "sha256", "sha512", "ssdeep", "type"):
             assert key in empty_file["file"].get_all()[0]
 
 
@@ -166,7 +164,7 @@ def test_files():
 
     if not os.environ.get("CACHE", True):
         for index, _ in enumerate(test_files_with_location):
-            os.remove(test_files_with_location[index]["download_location"].file_path)
+            path_delete(test_files_with_location[index]["download_location"].file_path)
 
 """
 
@@ -175,10 +173,9 @@ def test_files():
 def hello_file():
     tmp = tempfile.mkstemp()
     file = File(tmp[1])
-    with open(file.file_path, "w") as hello:
-        hello.write("hello")
+    _ = path_write_file(file.file_path, "hello", mode="text")
     yield {"tmp": tmp, "file": file}
-    os.remove(tmp[1])
+    path_delete(tmp[1])
 
 
 @pytest.fixture

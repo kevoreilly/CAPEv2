@@ -5,11 +5,11 @@
 import collections
 import logging
 import os
-from pathlib import Path
 from typing import Any, Dict, Set
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ if processing_conf.flare_capa.enabled:
             from capa.rules import InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
-            if Path(rules_path).exists():
+            if path_exists(rules_path):
                 try:
                     rules = capa.rules.RuleSet(capa.main.get_rules([rules_path], disable_progress=True))
                     HAVE_FLARE_CAPA = True
@@ -61,7 +61,7 @@ if processing_conf.flare_capa.enabled:
                 HAVE_FLARE_CAPA = False
 
             signatures_path = os.path.join(CUCKOO_ROOT, "data", "flare-signatures")
-            if Path(signatures_path).exists():
+            if path_exists(signatures_path):
                 capa.main.SIGNATURES_PATH_DEFAULT_STRING = signatures_path
                 try:
                     signatures = capa.main.get_signatures(capa.main.SIGNATURES_PATH_DEFAULT_STRING)

@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_write_file
 
 try:
     import pygal
@@ -30,7 +30,7 @@ class Usage(Processing):
 
         aux_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "aux")
         usage_log = os.path.join(aux_path, "usage.log")
-        if not os.path.exists(usage_log):
+        if not path_exists(usage_log):
             return usage
 
         with open(usage_log, "r") as f:
@@ -53,7 +53,7 @@ class Usage(Processing):
         data = line_chart.render()
 
         usage_svg = os.path.join(aux_path, "usage.svg")
-        _ = Path(usage_svg).write_bytes(data)
+        _ = path_write_file(usage_svg, data)
 
         usage["cpu_usage"] = cpu_points
         usage["mem_usage"] = mem_points

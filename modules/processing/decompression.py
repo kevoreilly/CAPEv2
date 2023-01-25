@@ -8,6 +8,7 @@ import zipfile
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 
 class Decompression(Processing):
@@ -18,11 +19,11 @@ class Decompression(Processing):
     def run(self):
         self.key = "decompression"
 
-        if os.path.exists(f"{self.memory_path}.zip"):
+        if path_exists(f"{self.memory_path}.zip"):
             try:
                 with zipfile.ZipFile(f"{self.memory_path}.zip", "r") as thezip:
                     thezip.extractall(path=self.analysis_path)
-                os.unlink(f"{self.memory_path}.zip")
+                path_delete(f"{self.memory_path}.zip")
             except Exception as e:
                 raise CuckooProcessingError(f"Error extracting ZIP: {e}") from e
 
@@ -30,7 +31,7 @@ class Decompression(Processing):
             try:
                 with zipfile.ZipFile(fzip, "r") as thezip:
                     thezip.extractall(path=self.pmemory_path)
-                os.unlink(fzip)
+                path_delete(fzip)
             except Exception as e:
                 raise CuckooProcessingError(f"Error extracting ZIP: {e}") from e
 

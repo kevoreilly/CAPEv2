@@ -28,6 +28,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (
@@ -289,9 +290,7 @@ def tasks_create_file(request):
 
         task_ids_tmp = []
         task_machines = []
-        vm_list = []
-        for vm in db.list_machines():
-            vm_list.append(vm.label)
+        vm_list = [vm.label for vm in db.list_machines()]
 
         if machine.lower() == "all":
             if not apiconf.filecreate.get("allmachines"):
@@ -328,7 +327,7 @@ def tasks_create_file(request):
                     saz = saz_to_pcap(tmp_path)
                     if saz:
                         try:
-                            os.remove(tmp_path)
+                            path_delete(tmp_path)
                         except Exception as e:
                             print(e, "removing pcap")
                         tmp_path = saz
@@ -345,7 +344,7 @@ def tasks_create_file(request):
             if quarantine:
                 path = unquarantine(tmp_path)
                 try:
-                    os.remove(tmp_path)
+                    path_delete(tmp_path)
                     tmp_path = path
                 except Exception as e:
                     print(e, "removing quarantine")
@@ -429,9 +428,7 @@ def tasks_create_url(request):
 
         task_ids = []
         task_machines = []
-        vm_list = []
-        for vm in db.list_machines():
-            vm_list.append(vm.label)
+        vm_list = [vm.label for vm in db.list_machines()]
 
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
@@ -543,9 +540,7 @@ def tasks_create_dlnexec(request):
 
         details = {}
         task_machines = []
-        vm_list = []
-        for vm in db.list_machines():
-            vm_list.append(vm.label)
+        vm_list = [vm.label for vm in db.list_machines()]
 
         if machine.lower() == "all":
             if not apiconf.dlnexeccreate.get("allmachines"):
@@ -1158,7 +1153,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
     # Report validity check
-    if os.path.exists(srcdir) and len(os.listdir(srcdir)) == 0:
+    if path_exists(srcdir) and len(os.listdir(srcdir)) == 0:
         resp = {"error": True, "error_value": "No reports created for task %s" % task_id}
 
     formats = {
@@ -1190,7 +1185,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         report_path = os.path.join(srcdir, formats[report_format.lower()])
         if not os.path.normpath(report_path).startswith(ANALYSIS_BASE_PATH):
             return render(request, "error.html", {"error": f"File not found {os.path.basename(report_path)}"})
-        if os.path.exists(report_path):
+        if path_exists(report_path):
             if report_format in ("litereport", "json", "maec5"):
                 content = "application/json; charset=UTF-8"
                 ext = "json"
@@ -1238,7 +1233,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
 
         report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
-        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH) and os.path.exists(srcdir):
+        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH) and path_exists(srcdir):
             return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
         mem_zip = BytesIO()
@@ -1264,7 +1259,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             # exception for lite report that is under reports/lite.json
             if report_format.lower() == "lite":
                 lite_report_path = os.path.join(srcdir, "reports", "lite.json")
-                if os.path.exists(lite_report_path):
+                if path_exists(lite_report_path):
                     zf.write(lite_report_path, "reports/lite.json")
                 else:
                     log.warning("Lite report does not exist. Did you enable 'litereport' in reporting.conf?")
@@ -1548,7 +1543,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 
     else:
         shot = srcdir + "/" + screenshot.zfill(4) + ".jpg"
-        if os.path.exists(shot):
+        if path_exists(shot):
             fname = f"{task_id}_{os.path.basename(shot)}"
             resp = StreamingHttpResponse(FileWrapper(open(shot, "rb"), 8096), content_type="image/jpeg")
             resp["Content-Length"] = os.path.getsize(shot)
@@ -1579,7 +1574,7 @@ def tasks_pcap(request, task_id):
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
-    if os.path.exists(srcfile):
+    if path_exists(srcfile):
         fname = "%s_dump.pcap" % task_id
         resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
         resp["Content-Length"] = os.path.getsize(srcfile)
@@ -1611,7 +1606,7 @@ def tasks_dropped(request, task_id):
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
 
-    if not os.path.exists(srcdir) or not len(os.listdir(srcdir)):
+    if not path_exists(srcdir) or not len(os.listdir(srcdir)):
         resp = {"error": True, "error_value": "No files dropped for task %s" % task_id}
         return Response(resp)
 
@@ -1658,7 +1653,7 @@ def tasks_surifile(request, task_id):
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "logs", "files.zip")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
-    if os.path.exists(srcfile):
+    if path_exists(srcfile):
         resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8192), content_type="application/octet-stream;")
         resp["Content-Length"] = os.path.getsize(srcfile)
         resp["Content-Disposition"] = f"attachment; filename={task_id}_surifiles.zip"
@@ -1768,7 +1763,7 @@ def tasks_procmemory(request, task_id, pid="all"):
 
     # Check if any process memory dumps exist
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "memory")
-    if not os.path.exists(srcdir):
+    if not path_exists(srcdir):
         resp = {"error": True, "error_value": "No memory dumps saved"}
         return Response(resp)
 
@@ -1790,7 +1785,7 @@ def tasks_procmemory(request, task_id, pid="all"):
 
     else:
         filepath = os.path.join(parent_folder, pid + ".dmp")
-        if os.path.exists(filepath):
+        if path_exists(filepath):
 
             mem_zip = create_zip(files=filepath, encrypted=True)
             if mem_zip is False:
@@ -1824,11 +1819,11 @@ def tasks_fullmemory(request, task_id):
 
     filename = ""
     file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "memory.dmp")
-    if os.path.exists(file_path):
+    if path_exists(file_path):
         filename = os.path.basename(file_path)
-    elif os.path.exists(file_path + ".zip"):
+    elif path_exists(file_path + ".zip"):
         file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "memory.dmp.zip")
-        if os.path.exists(file_path):
+        if path_exists(file_path):
             filename = os.path.basename(file_path)
     elif repconf.distributed.enabled:
         # check for memdump on slave
@@ -1877,7 +1872,7 @@ def file(request, stype, value):
         file_hash = db.view_sample(sid).to_dict()["sha256"]
 
     sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
-    if os.path.exists(sample):
+    if path_exists(sample):
         if request.GET.get("encrypted"):
             # Check if file exists in temp folder
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
@@ -2063,7 +2058,7 @@ def tasks_payloadfiles(request, task_id):
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
 
-    if os.path.exists(srcdir):
+    if path_exists(srcdir):
         mem_zip = create_zip(folder=srcdir, encrypted=True)
         if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
@@ -2095,7 +2090,7 @@ def tasks_procdumpfiles(request, task_id):
     # ToDo add all/one
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
-    if os.path.exists(srcdir):
+    if path_exists(srcdir):
 
         mem_zip = create_zip(folder=srcdir, encrypted=True)
         if mem_zip is False:

@@ -14,7 +14,6 @@ import sys
 import time
 import timeit
 from io import BytesIO
-from pathlib import Path
 from zipfile import ZIP_STORED, ZipFile
 
 import requests
@@ -22,6 +21,7 @@ import requests
 from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def analyzer_zipfile(platform):
     root = os.path.join(CUCKOO_ROOT, "analyzer", platform)
     root_len = len(os.path.abspath(root))
 
-    if not Path(root).exists():
+    if not path_exists(root):
         log.error("No valid analyzer found at path: %s", root)
         raise CuckooGuestError(f"No valid analyzer found for {platform} platform!")
 
@@ -53,13 +53,6 @@ def analyzer_zipfile(platform):
             path = os.path.join(root, name)
             archive_name = os.path.join(archive_root, name)
             zip_file.write(path, archive_name)
-        # ToDo remove
-        """
-        for name in os.listdir(dirpath):
-            zip_file.write(
-                os.path.join(dirpath, name), os.path.join("bin", name)
-            )
-        """
 
     zip_file.close()
     data = zip_data.getvalue()
@@ -244,7 +237,7 @@ class GuestManager:
         # File path of Analyses path. Storage of script
         analyses_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(self.task_id), "scripts")
         # Create folder in Analyses
-        os.makedirs(analyses_path, exist_ok=True)
+        path_mkdir(analyses_path, exist_ok=True)
 
         for name in glob.glob(os.path.join(base_dir, "*_script.*")):
             # Copy file to Analyses/{task_ID}/scripts

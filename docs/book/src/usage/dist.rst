@@ -525,10 +525,10 @@ To configure NFS on the main server (NFS calls it client)
         mkdir -p /mnt/cape_worker_<worker_name>
 
     Add workers to fstab:
-        <worker_ip/hostname>:/opt/CAPEv2 /mnt/cape_worker_<worker_name> nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
+        <worker_ip/hostname>:/opt/CAPEv2 /mnt/cape_worker_<worker_name> nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800 0 0
 
     Example:
-        192.168.1.3:/opt/CAPEv2 /mnt/cape_worker_1 nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
+        192.168.1.3:/opt/CAPEv2 /mnt/cape_worker_1 nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800 0 0
 
 CAPE worker(s) (NFS calls it servers)::
 

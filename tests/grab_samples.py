@@ -37,8 +37,7 @@ def get_filepaths(directory, args):
 
     if args.family:
         return filter(lambda path: args.family == os.path.dirname(path).rsplit("/", 1)[-1], file_paths)
-    else:
-        return file_paths  # Self-explanatory.
+    return file_paths  # Self-explanatory.
 
 
 def load_sample_lists(args):

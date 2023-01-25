@@ -141,11 +141,7 @@ class CAPE_Unpacker(Signature):
 
     def on_call(self, call, process):
 
-        if (
-            process["process_name"] == "WINWORD.EXE"
-            or process["process_name"] == "EXCEL.EXE"
-            or process["process_name"] == "POWERPNT.EXE"
-        ):
+        if process["process_name"] in ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE"):
             return False
         if call["api"] == "NtAllocateVirtualMemory":
             protection = int(self.get_argument(call, "Protection"), 0)
@@ -213,11 +209,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
         elif call["api"] in ("VirtualAllocEx", "NtAllocateVirtualMemory"):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
-        elif (
-            call["api"] == "NtWriteVirtualMemory"
-            or call["api"] == "NtWow64WriteVirtualMemory64"
-            or call["api"] == "WriteProcessMemory"
-        ):
+        elif call["api"] in ("NtWriteVirtualMemory", "NtWow64WriteVirtualMemory64", "WriteProcessMemory"):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
                 addr = int(self.get_argument(call, "BaseAddress"), 16)
@@ -229,11 +221,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
                     #                                     procname, self.handle_map[handle])
                     # self.data.append({"Injection": desc})
                     return True
-        elif (
-            call["api"] == "CreateRemoteThread"
-            or call["api"].startswith("NtCreateThread")
-            or call["api"].startswith("NtCreateThreadEx")
-        ):
+        elif call["api"].startswith(("CreateRemoteThread", "NtCreateThread", "NtCreateThreadEx")):
             handle = self.get_argument(call, "ProcessHandle")
             if handle in self.process_handles:
                 # procname = self.get_name_from_pid(self.handle_map[handle])

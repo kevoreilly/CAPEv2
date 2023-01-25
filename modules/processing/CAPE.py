@@ -25,6 +25,7 @@ from lib.cuckoo.common.cape_utils import cape_name_from_yara, pe_map, static_con
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,
@@ -161,7 +162,7 @@ class CAPE(Processing):
         @return: file_info
         """
 
-        if not Path(file_path).exists():
+        if not path_exists(file_path):
             return
 
         cape_names = set()
@@ -340,7 +341,7 @@ class CAPE(Processing):
         meta = {}
         # Required to control files extracted by selfextract.conf as we store them in dropped
         duplicated: DuplicatesType = collections.defaultdict(set)
-        if Path(self.files_metadata).exists():
+        if path_exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
 

@@ -24,6 +24,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import create_folders
 from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
 from lib.cuckoo.core.log import init_logger
@@ -76,11 +77,11 @@ def check_working_directory():
     """Checks if working directories are ready.
     @raise CuckooStartupError: if directories are not properly configured.
     """
-    if not Path(CUCKOO_ROOT).exists():
+    if not path_exists(CUCKOO_ROOT):
         raise CuckooStartupError(f"You specified a non-existing root directory: {CUCKOO_ROOT}")
 
     cwd = Path.cwd() / "cuckoo.py"
-    if not Path(cwd).exists():
+    if not path_exists(cwd):
         raise CuckooStartupError("You are not running Cuckoo from it's root directory")
 
     # Check permission for tmpfs if enabled
@@ -114,7 +115,7 @@ def check_configs():
     ]
 
     for config in configs:
-        if not Path(config).exists():
+        if not path_exists(config):
             raise CuckooStartupError(f"Config file does not exist at path: {config}")
 
     if cuckoo.resultserver.ip in ("127.0.0.1", "localhost"):
@@ -281,7 +282,7 @@ def init_yara():
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
-        if not Path(category_root).exists():
+        if not path_exists(category_root):
             log.warning("Missing Yara directory: %s?", category_root)
             continue
 

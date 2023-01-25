@@ -16,4 +16,3 @@ class ReportAlterMock(Report):
 
     def run(self, data):
         data["foo"] = "notbar"
-        return

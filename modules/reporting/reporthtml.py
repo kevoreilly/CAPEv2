@@ -10,6 +10,7 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 from web.analysis.templatetags.analysis_tags import flare_capa_attck, flare_capa_capabilities, flare_capa_mbc, malware_config
 from web.analysis.templatetags.key_tags import dict2list, getkey, parentfixup, str2list
 from web.analysis.templatetags.pdf_tags import datefmt
@@ -36,7 +37,7 @@ class ReportHTML(Report):
             raise CuckooReportError("Failed to generate HTML report: Jinja2 Python library is not installed")
 
         shots_path = os.path.join(self.analysis_path, "shots")
-        if os.path.exists(shots_path):
+        if path_exists(shots_path):
             shots = []
             counter = 1
             for shot_name in os.listdir(shots_path):

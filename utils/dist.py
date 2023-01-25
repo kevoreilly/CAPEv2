@@ -55,7 +55,8 @@ dist_conf = Config("distributed")
 
 HAVE_GCP = False
 if dist_conf.GCP.enabled:
-    from lib.cuckoo.common.gcp import HAVE_GCP, autodiscovery as gcp_autodiscovery
+    from lib.cuckoo.common.gcp import HAVE_GCP
+    from lib.cuckoo.common.gcp import autodiscovery as gcp_autodiscovery
 
 # we need original db to reserve ID in db,
 # to store later report, from master or worker

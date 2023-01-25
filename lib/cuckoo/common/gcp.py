@@ -1,12 +1,13 @@
 # From doomedraven for GCP with love
 
-import time
 import logging
+import time
 
 from lib.cuckoo.common.config import Config
 
 try:
     from google.cloud import compute_v1
+
     HAVE_GCP = True
 except ImportError:
     # pip install --upgrade google-cloud-compute
@@ -19,6 +20,7 @@ except ImportError:
     HAVE_REQUESTS = False
 
 log = logging.getLogger(__name__)
+
 
 def check_node_up(host: str) -> bool:
     """Auxiliar function for autodiscovery of instances when cluster autoscale"""
@@ -50,7 +52,7 @@ class GCP(object):
             instance_client = compute_v1.InstancesClient()
             for zone in self.zones:
                 instance_list = instance_client.list(project=self.project_id, zone=zone)
-                for instance in  instance_list.items:
+                for instance in instance_list.items:
                     ips = [access.nat_i_p for net_iface in instance.network_interfaces for access in net_iface.access_configs]
                     servers.setdefault(instance.name, ips)
 
@@ -59,7 +61,11 @@ class GCP(object):
                 try:
                     r = requests.get(f"{self.GCP_BASE_URL}projects/{self.project_id}/zones/{zone}/instances", headers=self.headers)
                     for instance in r.json().get("items", []):
-                        ips = [access["natIP"] for net_iface in instance.get("networkInterfaces", []) for access in net_iface.get("accessConfigs", [])]
+                        ips = [
+                            access["natIP"]
+                            for net_iface in instance.get("networkInterfaces", [])
+                            for access in net_iface.get("accessConfigs", [])
+                        ]
                         servers.setdefault(instance["name"], ips)
                 except Exception as e:
                     log.error(e, exc_info=True)
@@ -83,7 +89,9 @@ class GCP(object):
                         if not up:
                             continue
                         try:
-                            r = requests.post("http://localhost:9003/node", data={"name":name, "url": f"http://{ip}:8000/apiv2/"}) # -F apikey=apikey
+                            r = requests.post(
+                                "http://localhost:9003/node", data={"name": name, "url": f"http://{ip}:8000/apiv2/"}
+                            )  # -F apikey=apikey
                             if r.ok:
                                 log.info("New worker with IP: %s registered", ip)
                             else:

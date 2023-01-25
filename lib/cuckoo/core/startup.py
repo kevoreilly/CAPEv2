@@ -48,6 +48,7 @@ routing = Config("routing")
 repconf = Config("reporting")
 dist_conf = Config("distributed")
 
+
 def check_python_version():
     """Checks if Python version is supported by Cuckoo.
     @raise CuckooStartupError: if version is not supported.

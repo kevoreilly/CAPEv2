@@ -2,30 +2,30 @@
 Signatures
 ==========
 
-With CAPE you're able to create some customized signatures that you can run against
-the analysis results in order to identify some predefined pattern that might
-represent a particular malicious behavior or an indicator you're interested in.
+By taking advantage of CAPE's customizability, you can write signatures which will then
+by run against analysis results. These signatures can be used to identify a predefined
+pattern that represents a malicious behavior or an indicator that you're interested in.
 
-These signatures are very useful to give a context to the analyses: both because they
-simplify the interpretation of the results as well as for automatically identifying
+These signatures are very useful to give context to the analyses. They
+simplify the interpretation of the results and assist with automatically identifying
 malware samples of interest.
 
-Some examples of what you can use CAPE's signatures for:
-    * Identify a particular malware family you're interested in by isolating some unique behaviors (like file names or mutexes).
-    * Spot interesting modifications the malware performs on the system, such as installation of device drivers.
-    * Identify particular malware categories, such as Banking Trojans or Ransomware by isolating typical actions commonly performed by those.
+A few examples of what you can use CAPE's signatures for are:
+    * Identify a particular malware family that you're interested in, by isolating unique behaviors (like file names or mutexes).
+    * Spot interesting modifications that the malware performs on the system, such as the installation of device drivers.
+    * Identify particular malware categories, such as Banking Trojans or Ransomware, by isolating typical actions that are commonly performed by these categories.
 
-You can find signatures created by us and by other CAPE users on our `Community`_ repository.
+You can find signatures created by the CAPE administrators and other CAPE users on the `Community`_ repository.
 
 .. _`Community`: https://github.com/kevoreilly/community
 
-Getting started
+Getting Started
 ===============
 
-Creation of signatures is a very simple process and requires just a decent
+Creating a signature is a very simple process but requires a decent
 understanding of Python programming.
 
-First things first, all signatures must be located inside *modules/signatures/*.
+First things first, all signatures must be located inside the *modules/signatures/* directory.
 
 The following is a basic example signature:
 
@@ -46,17 +46,19 @@ The following is a basic example signature:
                 return self.check_file(pattern=".*\\.exe$",
                                        regex=True)
 
-As you can see the structure is really simple and consistent with the other
-modules. We're going to get into details later, but as you can see at line **12**
-from version 0.5 CAPE provides some helper functions that make the process of
-creating signatures much easier.
+As you can see the structure of the signature is really simple and consistent with the other CAPE
+modules. Note that on line **12** a helper function is used. These helper functions
+assist with signature-writing and we highly recommend becoming familiar with what helper functions are
+available to you (found in the
+[Signature class](https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/common/abstracts.py))
+before you start writing signatures. Some documentation for :ref:`Helpers` can be found below.
 
-In this example we just walk through all the accessed files in the summary and check
-if there is anything ending with "*.exe*": in that case it will return ``True``, meaning that
-the signature matched, otherwise return ``False``.
+In the example above, the helper function is used to walk through all of the accessed files in the summary and check
+if there are any files ending with "*.exe*". If there is at least one, then the helper function will return ``True``;
+otherwise it will return ``False``. When a signature returns True, that means that the signature matched.
 
-In case the signature gets matched, a new entry in the "signatures" section will be added to
-the global container as follows::
+If the signature matches, a new entry in the "signatures" section will be added to
+the **global container** `self.results` as follows::
 
     "signatures": [
         {
@@ -74,7 +76,7 @@ the global container as follows::
     ]
 
 We could rewrite the exact same signature by accessing the **global container**
-directly:
+directly, rather than through the helper function `check_file`:
 
     .. code-block:: python
         :linenos:
@@ -96,41 +98,45 @@ directly:
 
                 return False
 
-This obviously requires you to know the structure of the **global container**,
-which you can observe represented in the JSON report of your analyses.
+If you access the **global container** directly, you must know its structure,
+which can be observed in the JSON report of your analyses.
 
 Creating your new signature
 ===========================
 
-In order to make you better understand the process of creating a signature, we
+To help you better understand the process of creating a signature, we
 are going to create a very simple one together and walk through the steps and
-the available options. For this purpose, we're simply going to create a
-signature that checks whether the malware analyzed opened a mutex named
+the available options. For this purpose, we're going to create a
+signature that checks whether the malware analyzed opens a mutex named
 "i_am_a_malware".
 
-The first thing to do is import the dependencies, create a skeleton and define
-some initial attributes. These are the ones you can currently set:
+The first thing to do is to import the dependencies, create a skeleton, and define
+some initial attributes. These are the attributes that you can currently set:
 
     * ``name``: an identifier for the signature.
     * ``description``: a brief description of what the signature represents.
     * ``severity``: a number identifying the severity of the events matched (generally between 1 and 3).
-    * ``categories``: a list of categories that describe the type of event being matched (for example "*banker*", "*injection*" or "*anti-vm*").
+    * ``confidence``: a number between 1 and 100 that represents how confident the signature writer is that this signature will not be raised as a false positive.
+    * ``weight``: a number used for calculating the `malscore` of a submission. This attribute acts as a multiplier of the product of severity and confidence.
+    * ``categories``: a list of categories that describe the type of event being matched (for example "*banker*", "*injection*" or "*anti-vm*"). For a list of all categories, see :ref:`Categories`.
     * ``families``: a list of malware family names, in case the signature specifically matches a known one.
     * ``authors``: a list of people who authored the signature.
     * ``references``: a list of references (URLs) to give context to the signature.
-    * ``enable``: if set to False the signature will be skipped.
+    * ``enabled``: if set to False the signature will be skipped.
     * ``alert``: if set to True can be used to specify that the signature should be reported (perhaps by a dedicated reporting module).
     * ``minimum``: the minimum required version of CAPE to successfully run this signature.
     * ``maximum``: the maximum required version of CAPE to successfully run this signature.
+    * ``ttps``: a list of MITRE ATT&CK IDs applicable to this signature.
+    * ``mbcs``: a list of MITRE Malware Behavior Catalog IDs applicable to this signature.
 
-In our example, we would create the following skeleton:
+In our example, we will create the following skeleton:
 
     .. code-block:: python
         :linenos:
 
         from lib.cuckoo.common.abstracts import Signature
 
-        class BadBadMalware(Signature): # We initialize the class inheriting Signature.
+        class BadBadMalware(Signature): # We initialize the class by inheriting Signature.
             name = "badbadmalware" # We define the name of the signature
             description = "Creates a mutex known to be associated with Win32.BadBadMalware" # We provide a description
             severity = 3 # We set the severity to maximum
@@ -142,10 +148,10 @@ In our example, we would create the following skeleton:
         def run(self):
             return
 
-This is a perfectly valid signature. It doesn't really do anything yet,
+This is a perfectly valid signature. It doesn't do anything yet,
 so now we need to define the conditions for the signature to be matched.
 
-As we said, we want to match a particular mutex name, so we proceed as follows:
+Since we want to match a particular mutex name, we use the helper function `check_mutex`:
 
     .. code-block:: python
         :linenos:
@@ -164,10 +170,10 @@ As we said, we want to match a particular mutex name, so we proceed as follows:
         def run(self):
             return self.check_mutex("i_am_a_malware")
 
-Simple as that, now our signature will return ``True`` whether the analyzed
+It's as simple as that! Now our signature will return ``True`` if the analyzed
 malware was observed opening the specified mutex.
 
-If you want to be more explicit and directly access the global container,
+If you want to be more explicit and directly access the **global container**,
 you could translate the previous signature in the following way:
 
     .. code-block:: python
@@ -195,9 +201,9 @@ Evented Signatures
 ==================
 
 Since version 1.0, CAPE provides a way to write more high-performance signatures.
-In the past every signature was required to loop through the whole collection of API calls
+In the past, every signature was required to loop through the whole collection of API calls
 collected during the analysis. This was necessarily causing some performance issues when such
-collection would be of a large size.
+a collection would be large.
 
 CAPE now supports both the old model as well as what we call "evented signatures".
 The main difference is that with this new format, all the signatures will be executed in parallel
@@ -257,18 +263,18 @@ An example signature using this technique is the following:
                 return None
 
 The inline comments are already self-explanatory.
-You can find many more example of both evented and traditional signatures in our `community repository`_.
+You can find many more examples of both evented and traditional signatures in our `community repository`_.
 
-.. _`community repository`:https://github.com/kevoreilly/community
+.. _`community repository`: https://github.com/kevoreilly/community
 
 Matches
 =======
 
-Starting from version 1.2, signatures are able to log exactly what triggered
+Starting from version 1.2, signatures can log exactly what triggered
 the signature. This allows users to better understand why this signature is
 present in the log, and to be able to better focus malware analysis.
 
-Two helpers have been included in order to specify matching data.
+Two helpers have been included to specify matching data.
 
 .. function:: Signature.add_match(process, type, match)
 
@@ -319,6 +325,8 @@ Two helpers have been included in order to specify matching data.
 
         def on_complete(self):
             return self.has_matches()
+
+.. _Helpers:
 
 Helpers
 =======
@@ -474,3 +482,109 @@ Following is a list of available methods.
         :linenos:
 
         self.check_url(pattern="^.+\/load\.php\?file=[0-9a-zA-Z]+$", regex=True)
+
+.. _Categories:
+
+Categories
+==========
+You can put signatures into categories to facilitate grouping or sorting. You can create your own category if you wish, but
+it is easier for other users if you associate a signature
+with a category that already exists. Here is a list of all categories available:
+
+- `account`: Adds or manipulates an administrative user account.
+- `anti-analysis`: Constructed to conceal or obfuscate itself to prevent analysis.
+- `anti-av`: Attempts to conceal itself from detection by antivirus.
+- `anti-debug`: Attempts to detect if it is being debugged.
+- `anti-emulation`: Detects the presence of an emulator.
+- `anti-sandbox`: Attempts to detect if it is in a sandbox.
+- `anti-vm`: Attempts to detect if it is being run in virtualized environment.
+- `antivirus`: Antivirus hit. File is infected.
+- `banker`: Designed to gain access to confidential information stored or processed through online banking.
+- `bootkit`: Manipulates machine configurations that would affect the boot of the machine.
+- `bot`: Appears to be a bot or exhibits bot-like behaviour.
+- `browser`: Manipulates browser-settings in a suspicious way.
+- `bypass`: Attempts to bypass operating systems security controls (firewall, amsi, applocker, UAC, etc.)
+- `c2`: Communicates with a server controlled by a malicious actor.
+- `clickfraud`: Manipulates browser settings to allow for insecure clicking.
+- `command`: A suspicious command was observed.
+- `credential_access`: Uses techniques to access credentials.
+- `credential_dumping`: Uses techniques to dump credentials.
+- `cryptomining`: Facilitates mining of cryptocurrency.
+- `discovery`: Uses techniques for discovery information about the system, the user, or the environment.
+- `dns`: Uses suspicious DNS queries.
+- `dotnet`: .NET code is used in a suspicious manner.
+- `downloader`: Trojan that downloads installs files.
+- `dropper`: Trojan that drops additional malware on an affected system.
+- `encryption`: Encryption algorithms are used for obfuscating data.
+- `evasion`: Techniques are used to avoid detection.
+- `execution`: Uses techniques to execute harmful code or create executables that could run harmful code.
+- `exploit`: Exploits an known software vulnerability or security flaw.
+- `exploit_kit`: Programs designed to crack or break computer and network security measures.
+- `generic`: Basic operating system objects are used in suspicious ways.
+- `infostealer`: Collects and disseminates information such as login details, usernames, passwords, etc.
+- `injection`: Input is not properly validated and gets processed by an interpreter as part of a command or query.
+- `keylogger`: Monitoring software detected.
+- `lateral`: Techniques used to move through environment and maintain access.
+- `loader`: Download and execute additional payloads on compromised machines.
+- `locker`: Prevents access to system data and files.
+- `macro`: A set of commands that automates a software to perform a certain action, found in Office macros.
+- `malware`: The file uses techniques associated with malicious software.
+- `martians`: Command shell or script process was created by unexpected parent process.
+- `masquerading`: The name or location of an object is manipulated to evade defenses and observation.
+- `network`: Suspicious network traffic was observed.
+- `office`: Makes API calls not consistent with expected/standard behaviour.
+- `packer`: Compresses, encrypts, and/or modifies a malicious file's format.
+- `persistence`: Technique used to maintain presence in system(s) across interruptions that could cut off access.
+- `phishing`: Techniques were observed that attempted to obtain information from the user.
+- `ransomware`: Designed to block access to a system until a sum of money is paid.
+- `rat`: Designed to provide the capability of covert surveillance and/or unauthorized access to a target.
+- `rootkit`: Designed to provide continued privileged access to a system while actively hiding its presence.
+- `static`: A suspicious characteristic was discovered during static analysis.
+- `stealth`: Leverages/modifies internal processes and settings to conceal itself.
+- `trojan`: Presents itself as legitimate in attempt to infiltrate a system.
+- `virus`: Malicious software program.
+
+Troubleshooting
+===============
+No signatures
+-------------
+
+Whenever you submit a sample for analysis, when it finishes you should be able to inspect the identified signatures. If you see the *No signatures* message, you might need to download or update them. Example from the web interface:
+
+    .. image:: ../_images/screenshots/no_signatures.png
+        :align: center
+
+
+If no signatures are showing when executing a given report, you must use the ``utils/community.py`` tool so as to download them:: 
+
+$ sudo -u cape poetry run python3 utils/community.py -waf
+
+If the execution of the script does not end successfully, make sure you solve it. For example::
+
+    Installing REPORTING
+    File "/opt/CAPEv2/modules/reporting/__init__.py" installed
+    File "/opt/CAPEv2/modules/reporting/elasticsearchdb.py" installed
+    Traceback (most recent call last):
+      File "/opt/CAPEv2/utils/community.py", line 257, in <module>
+        main()
+      File "/opt/CAPEv2/utils/community.py", line 252, in main
+        install(enabled, args.force, args.rewrite, args.file, args.token)
+      File "/opt/CAPEv2/utils/community.py", line 180, in install
+        open(filepath, "wb").write(t.extractfile(member).read())
+    PermissionError: [Errno 13] Permission denied: '/opt/CAPEv2/modules/reporting/elasticsearchdb.py'
+
+happened because ``elasticsearchdb.py`` did not belong to `cape:cape` but to `root:root`.
+
+After *chowning* it to `cape:cape`, the script finished successfully. You should now see in the report page something similar to this: 
+
+    .. image:: ../_images/screenshots/signatures.png
+        :align: center
+
+Errors/warnings in the logs
+---------------------------
+
+If you ever face errors or warnings in the logs related to the signatures module (like `Signature spawns_dev_util crashing after update <https://github.com/kevoreilly/CAPEv2/issues/1261>`_)), chances are high you must update the signatures you are working with. To do so, just run the ``community``` utility like so::
+
+$ sudo -u cape poetry run python3 community.py -waf -cr
+
+

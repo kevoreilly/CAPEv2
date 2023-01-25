@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 import time
@@ -20,7 +19,8 @@ class Browser(Auxiliary, Thread):
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
-        self.do_run = True
+        self.enabled = config.browser
+        self.do_run = self.enabled
         self.seconds_elapsed = 0
 
     def stop(self):

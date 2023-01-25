@@ -3,7 +3,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import re
 
 # this is with some fixes https://github.com/kvesteri/validators/blob/master/validators/url.py

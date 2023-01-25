@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import glob
 import logging
 import os
@@ -74,7 +73,7 @@ class Package:
         @return: executable path
         """
         for path in self.enum_paths():
-            if os.path.isfile(path):
+            if application in path and os.path.isfile(path):
                 return path
 
         raise CuckooPackageError(f"Unable to find any {application} executable")
@@ -180,6 +179,10 @@ class Package:
 
 
 class Auxiliary:
+    # Setting all Auxiliary to have a default priority of 0
+    start_priority = 0
+    stop_priority = 0
+
     def __init__(self, options=None, config=None):
         """@param options: options dict."""
         if options is None:

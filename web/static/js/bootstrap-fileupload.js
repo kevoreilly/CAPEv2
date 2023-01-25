@@ -27,7 +27,7 @@
   var Fileupload = function (element, options) {
     this.$element = $(element)
     this.type = this.$element.data('uploadtype') || (this.$element.find('.thumbnail').length > 0 ? "image" : "file")
-      
+
     this.$input = this.$element.find(':file')
     if (this.$input.length === 0) return
 
@@ -49,23 +49,23 @@
 
     this.listen()
   }
-  
+
   Fileupload.prototype = {
-    
+
     listen: function() {
       this.$input.on('change.fileupload', $.proxy(this.change, this))
       if (this.$remove) this.$remove.on('click.fileupload', $.proxy(this.clear, this))
     },
-    
+
     change: function(e, invoked) {
       var file = e.target.files !== undefined ? e.target.files[0] : (e.target.value ? { name: e.target.value.replace(/^.+\\/, '') } : null)
       if (invoked === 'clear') return
-      
+
       if (!file) {
         this.clear()
         return
       }
-      
+
       this.$hidden.val('')
       this.$hidden.attr('name', '')
       this.$input.attr('name', this.name)
@@ -101,14 +101,14 @@
         e.preventDefault()
       }
     },
-    
+
     trigger: function(e) {
       this.$input.trigger('click')
       e.preventDefault()
     }
   }
 
-  
+
  /* INPUTMASK PLUGIN DEFINITION
   * =========================== */
 
@@ -131,7 +131,7 @@
       var $this = $(this)
       if ($this.data('fileupload')) return
       $this.fileupload($this.data())
-      
+
       var $target = $(e.target).parents('[data-dismiss=fileupload],[data-trigger=fileupload]').first()
       if ($target.length > 0) {
           $target.trigger('click.fileupload')

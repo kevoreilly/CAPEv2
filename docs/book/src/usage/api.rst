@@ -1,25 +1,28 @@
-===========
-REST API v2
-===========
+========
+REST API
+========
 
-To see current REST api see ``/apiv2/`` you will find all endpoints and details how to do requests
+To see the current hosted REST API documentation head to ``/apiv2/``. You will find all endpoints and details on how to do requests.
 
-`api example`: https://capesandbox.com/apiv2/
+`API example`: https://capesandbox.com/apiv2/
 
-To enable it, we use django-rest-framework::
+To enable the REST API, we use `django-rest-framework`::
 
     $ pip3 install djangorestframework
 
 .. _`django-rest-framework`: https://www.django-rest-framework.org
 
-To generate user autorization token:
+To generate a user authorization token:
 
 .. code-block:: python
+
+    # Ensure you are in CAPE's web directory
+    cd /opt/CAPEv2/web
 
     # To create super user aka admin
     python3 manage.py createsuperuser
 
-    # To Create normal user, use web interface /admin/ (in case if you not changed path)
+    # To create normal user, use web interface /admin/ (in case if you not changed path)
 
     # By hand, only required if auth enabled and user MUST exist
     python3 manage.py drf_create_token <your_user>
@@ -36,64 +39,24 @@ To generate user autorization token:
     headers = {'Authorization': 'Token <YOUR_TOKEN>'}
     r = requests.get(url, headers=headers)
 
-`CAPE throttling`_, aka request per minute/hour/day.
-====================================================
+`CAPE throttling`_, aka requests per minute/hour/day.
+=====================================================
 
-* Requires authentication enabled in ``web.conf``
+* Requires token authentication enabled in ``api.conf``
 * Default 5/m
-* To change user limit go to django admin ``/admin/`` if you didn't change path, and set limit per user in user profile at the bottom.
+* You can change the default throttle limits in ``api.conf``
+* To change the user limit go to django admin ``/admin/`` if you didn't change the path, and set the limit per user in the user profile at the bottom.
 
 .. _`CAPE throttling`: https://github.com/kevoreilly/CAPEv2/blob/master/web/apiv2/throttling.py
 
-======================
-REST API v1 DEPRICATED
-======================
 
-To see current REST api see ``/api/`` you will find all endpoints and details how to do requests
+.. warning::
+    All documentation below this warning is deprecated.
 
 
-`api example`: https://capesandbox.com/api/
-
-To enable auth on this api you can use htpasswd::
-
-    $ apt install htpasswd
-
-.. _`htpasswd`: https://httpd.apache.org/docs/2.4/programs/htpasswd.html
-
-Once you have enabled it, you can just specify ``username`` and ``password`` as ``GET/POST`` parameters, and you will have unlimited api on limited for the rest
-
-.. code-block:: python
-
-    # Simple example of authentificated api usage, just include username and password in each request
-    import requests
-    requests.get(URL, params={"username":"<your_username>", "password": "<your apikey>"})
-    requests.get(URL, data={"username":"<your_username>", "password": "<your apikey>"})
-
-
-==============================
-REST API deprecated aka api.py
-==============================
-
-As mentioned in :doc:`submit`, CAPE provides a simple and lightweight REST
-API server implemented in `Bottle.py`_, therefore in order to make the service
-work you'll need it installed. Bottle release must be 0.10 or above.
-
-With Pip::
-
-    $ pip3 install bottle
-
-.. _`Bottle.py`: http://www.bottlepy.org
-
-Starting the API server
-=======================
-
-In order to start the API server you can simply do::
-
-    $ ./utils/api.py
-
-By default it will bind the service on **localhost:8090**. If you want to change those values, you can for example do this::
-
-    $ ./utils/api.py --host 0.0.0.0 --port 1337
+=================
+api.py DEPRECATED
+=================
 
 Resources
 =========

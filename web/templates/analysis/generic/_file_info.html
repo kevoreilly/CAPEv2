@@ -256,7 +256,7 @@
                     <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
                 {% endif %}
                 <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
-                <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}" data-bs-toggle="tooltip" title="Re-submit file for analysis"><span class="fas fa-sync"></span> File</a>
+                <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{id}}/{{file.sha256}}" data-bs-toggle="tooltip" title="Re-submit file for analysis"><span class="fas fa-sync"></span> File</a>
                 {% if config.flare_capa %}
                     {% if not file.flare_capa and on_demand.flare_capa %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate CAPA findings"><span class="fas fa-cogs"></span> CAPA</a>
@@ -271,11 +271,18 @@
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                     {% endif %}
                 {% endif %}
+                {% if config.floss %}
+                    {% if not file.floss %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "floss" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate floss strings"><span class="fas fa-cogs"></span> Floss</a>
+                    {% else %}
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#floss_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
+                    {% endif %}
+                {% endif %}
                 {% if config.bingraph %}
                     {% if not graphs.bingraph.content|getkey:file.sha256 and on_demand.bingraph %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>
-                    {% elif graphs.bingraph.content|getkey:file.sha256 %}
-                        <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
+                    <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate BinGraph"><span class="fas fa-cogs"></span> BinGraph</a>
+                    {% else %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "file_nl" "bingraph" id file.sha256 %}" aria-expanded="false" aria-controls="bingraph_{{file.sha256}}"  title="Display Bingraph"><span class="fas fa-download"></span> BinGraph</a>
                     {% endif %}
                 {% endif %}
                 <!--add type check-->
@@ -292,7 +299,7 @@
                 {% if file.office and config.xlsdeobf and not file.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
                     <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "xlsdeobf" id "static" file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Run XLMMacroDeobfuscator"><span class="fas fa-cogs"></span><i class="far fa-file-excel"></i> XLMMacros</a>
                 {% endif %}
-                {% if config.vtupload and tlp != "Red" %}
+                {% if config.vtupload and analysis.info.tlp != "Red" %}
                     <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id file.name file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
                 {% endif %}
                 {% if file.data %}
@@ -302,11 +309,13 @@
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
                 {% endif %}
                 {% if file.extracted_files %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}}</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}} ({{file.extracted_files_time|floatformat:2}})</a>
                 {% endif %}
             </td>
         </tr>
         {% endif %}
+    </table>
+
         {% if file.flare_capa %}
             <tr>
                 <th></th><td>
@@ -374,8 +383,6 @@
             </td>
             </tr>
         {% endif %}
-    </table>
-
         {% if file.extracted_files %}
             <tr>
                 <th></th><td>
@@ -397,5 +404,6 @@
     {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
     {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
     {% if file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div> {% include "analysis/generic/_xlmmacro.html" %}</div></div></br>{% endif %}
+    {% if file.floss %} <div class="collapse" id="floss_{{file.sha256}}"> <div> {% include "analysis/generic/_floss.html" %}</div></div></br>{% endif %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:file.sha256|safe }}</td></center></br>{% endif %}
 </div>

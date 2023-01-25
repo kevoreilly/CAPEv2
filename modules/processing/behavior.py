@@ -2,16 +2,17 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import datetime
 import logging
 import os
 import struct
+from contextlib import suppress
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
@@ -64,19 +65,17 @@ class ParseProcessLog(list):
         self.conversion_cache = {}
         self.api_limit = cfg.processing.analysis_call_limit  # Limit of API calls per process
 
-        if os.path.exists(log_path) and os.stat(log_path).st_size > 0:
+        if path_exists(log_path) and os.stat(log_path).st_size > 0:
             self.parse_first_and_reset()
 
         if cfg.processing.ram_boost:
             self.api_call_cache = []
             self.api_pointer = 0
 
-            try:
+            with suppress(StopIteration):
                 while True:
                     i = self.cacheless_next()
                     self.api_call_cache.append(i)
-            except StopIteration:
-                pass
             self.api_call_cache.append(None)
 
     def parse_first_and_reset(self):
@@ -261,10 +260,14 @@ class ParseProcessLog(list):
         if cfg.processing.ram_boost:
             idx = 0
             ent = self.api_call_cache[idx]
-            while not ent:
+            while ent:
                 # remove the values we don't want to encode in reports
                 for arg in ent["arguments"]:
-                    del arg["raw_value"]
+                    with suppress(KeyError):
+                        if "raw_value" in arg:
+                            del arg["raw_value"]
+                        elif "raw_value_string" in arg:
+                            del arg["raw_value_string"]
                 idx += 1
                 ent = self.api_call_cache[idx]
 
@@ -289,8 +292,8 @@ class ParseProcessLog(list):
             log.debug("Unable to parse process log row: %s", e)
             return None
 
-        # Now walk through the remaining columns, which will contain API
-        # arguments.
+        # Now walk through the remaining columns, which will contain API arguments.
+
         for api_arg in row[9:]:
             # Split the argument name with its value based on the separator.
             try:
@@ -300,6 +303,7 @@ class ParseProcessLog(list):
                 continue
 
             argument = {"name": arg_name}
+            arg_value_raw = arg_value
             if isinstance(arg_value, bytes):
                 arg_value = bytes2str(arg_value)
 
@@ -308,14 +312,22 @@ class ParseProcessLog(list):
 
             try:
                 argument["value"] = convert_to_printable(arg_value, self.conversion_cache)
-            except Exception as e:
+            except Exception:
                 log.error(arg_value, exc_info=True)
                 continue
             if not self.reporting_mode:
-                argument["raw_value"] = arg_value
+                if isinstance(arg_value_raw, bytes):
+                    argument["raw_value"] = bytes.hex(arg_value_raw)
+                elif isinstance(arg_value_raw, int) and arg_value_raw > 0x7FFFFFFFFFFFFFFF:
+                    # Mongo can't support ints larger than this.
+                    argument["raw_value_string"] = str(arg_value_raw)
+                else:
+                    argument["raw_value"] = arg_value
+
             pretty = pretty_print_arg(category, api_name, arg_name, argument["value"])
             if pretty:
                 argument["pretty_value"] = pretty
+
             arguments.append(argument)
 
         call = {
@@ -362,7 +374,7 @@ class Processes:
         """
         results = []
 
-        if not os.path.exists(self._logs_path):
+        if not path_exists(self._logs_path):
             log.warning('Analysis results folder does not exist at path "%s"', self._logs_path)
             return results
 
@@ -1160,19 +1172,22 @@ class BehaviorAnalysis(Processing):
             Enhanced(),
             EncryptedBuffers(),
         ]
-        # Iterate calls and tell interested signatures about them
-        for process in behavior["processes"]:
-            for call in process["calls"]:
-                for instance in instances:
-                    try:
-                        instance.event_apicall(call, process)
-                    except Exception:
-                        log.exception('Failure in partial behavior "%s"', instance.key)
+        enabled_instances = [instance for instance in instances if getattr(cfg_process.behavior, instance.key, True)]
+
+        if enabled_instances:
+            # Iterate calls and tell interested signatures about them
+            for process in behavior["processes"]:
+                for call in process["calls"]:
+                    for instance in enabled_instances:
+                        try:
+                            instance.event_apicall(call, process)
+                        except Exception:
+                            log.exception('Failure in partial behavior "%s"', instance.key)
 
         for instance in instances:
             try:
                 behavior[instance.key] = instance.run()
-            except Exception:
-                log.exception('Failed to run partial behavior class "%s"', instance.key)
+            except Exception as e:
+                log.exception('Failed to run partial behavior class "%s" due to "%s"', instance.key, e)
 
         return behavior

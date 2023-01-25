@@ -57,7 +57,7 @@ class URL:
                 string_buf += character
             if character == "}":
                 nest_count -= 1
-            if nest_count == 0 and len(string_buf):
+            if nest_count == 0 and string_buf:
                 json_buf.append(string_buf)
                 string_buf = ""
 

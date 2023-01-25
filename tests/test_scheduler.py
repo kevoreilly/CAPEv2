@@ -1,17 +1,17 @@
-from __future__ import absolute_import, print_function
 import os
 import pathlib
 import queue
 import shutil
 from datetime import datetime
-from unittest.mock import Mock
 
 import pytest
+import pytest_asyncio
 from func_timeout import FunctionTimedOut, func_timeout
 from tcr_misc import get_sample, random_string
 
 import lib.cuckoo.core.scheduler as scheduler
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_write_file
 from lib.cuckoo.core.scheduler import AnalysisManager
 
 
@@ -24,7 +24,7 @@ class mock_task:
         self.sample_id = "testid"
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def grab_sample():
     def _grab_sample(sample_hash):
         sample_location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
@@ -34,7 +34,7 @@ def grab_sample():
     return _grab_sample
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def setup_machine_lock():
     # See lib.cuckoo.core.scheduler::Scheduler:initialize()
     class mock_lock:
@@ -49,7 +49,7 @@ def setup_machine_lock():
     scheduler.machine_lock = None
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def setup_machinery():
     def _setup_machinery(mach_id):
         scheduler.machinery = mach_id
@@ -58,33 +58,32 @@ def setup_machinery():
     scheduler.machinery = None
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def symlink():
     try:
-        os.makedirs("fstorage/binaries", exist_ok=True)
+        path_mkdir("fstorage/binaries", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     tempsym = os.getcwd() + "/storage/binaries/e3be3b"
     real = "/tmp/" + random_string()
-    with open(real, mode="w") as f:
-        f.write("\x00")
+    _ = path_write_file(real, "\x00", mode="text")
 
     try:
-        os.makedirs(os.getcwd() + "/storage/binaries/", exist_ok=True)
+        path_mkdir(os.getcwd() + "/storage/binaries/", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
-    print(os.path.exists(real), os.path.exists(tempsym))
+    print(path_exists(real), path_exists(tempsym))
     os.symlink(real, tempsym)
     yield
     try:
-        os.unlink(tempsym)
-        os.unlink(real)
-        os.unlink("binary")
+        path_delete(tempsym)
+        path_delete(real)
+        path_delete("binary")
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def clean_init_storage():
     yield
     try:
@@ -93,10 +92,10 @@ def clean_init_storage():
         print(("Error cleaning up, probably fine:" + str(e)))
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def create_store_file_dir():
     try:
-        os.makedirs(os.getcwd() + "/storage/binaries/")
+        path_mkdir(os.getcwd() + "/storage/binaries/")
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     yield
@@ -126,7 +125,12 @@ class TestAnalysisManager:
             "max_vmstartup_count": 5,
             "daydelta": 0,
             "max_analysis_count": 0,
+            "max_len": 196,
+            "sanitize_len": 32,
+            "sanitize_to_len": 24,
             "freespace_processing": 15000,
+            "periodic_log": False,
+            "fail_unserviceable": True,
         }
 
         assert analysis_man.task.id == 1234
@@ -138,7 +142,7 @@ class TestAnalysisManager:
 
     def test_init_storage_already_exists(self, clean_init_storage, caplog):
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
-        os.makedirs(os.getcwd() + "/storage/analyses/1234")
+        path_mkdir(os.getcwd() + "/storage/analyses/1234")
 
         analysis_man.init_storage()
         assert "already exists at path" in caplog.text
@@ -195,18 +199,17 @@ class TestAnalysisManager:
 
     @pytest.mark.skip(reason="TODO")
     def test_store_file_symlink_err(self, symlink, caplog):
-        with open("binary", "wb") as f:
-            f.write(b"\x00")
+        _ = path_write_file("binary", b"\x00")
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
         analysis_man.store_file(sha256="e3be3b")
         assert "Unable to create symlink/copy" in caplog.text
 
     def test_acquire_machine(self, setup_machinery, setup_machine_lock):
         class mock_machinery:
-            def availables(self):
+            def availables(self, machine_id, platform, tags, arch):
                 return True
 
-            def acquire(self, machine_id, platform, tags):
+            def acquire(self, machine_id, platform, tags, arch):
                 class mock_acquire:
                     name = "mock_mach"
                     label = "mock_label"
@@ -222,7 +225,15 @@ class TestAnalysisManager:
             platform = "plat"
 
         class mock_tags:
-            tags = "tags"
+            class mock_tag:
+                def __init__(self, name):
+                    self.name = name
+
+            tags = [mock_tag("tag1"), mock_tag("tag2")]
+
+            def __iter__(self):
+                for tag in self.tags:
+                    yield tag
 
         class mock_arch:
             arch = "x64"
@@ -309,7 +320,6 @@ class TestAnalysisManager:
         except Exception as e:
             print((str(e)))
 
-    @pytest.mark.skip(reason="TODO")
     def test_build_options(self):
         class mock_machine:
             resultserver_ip = "1.2.3.4"
@@ -341,13 +351,51 @@ class TestAnalysisManager:
             "evtx": False,
             "timeout": 10,
             "file_name": "test_scheduler.py",
-            "curtain": True,
+            "browser": True,
+            "curtain": False,
             "procmon": False,
+            "digisig": True,
+            "disguise": True,
             "sysmon": False,
+            "file_pickup": False,
+            "filecollector": True,
+            "permissions": False,
+            "screenshots_linux": False,
+            "screenshots_windows": True,
+            "tlsdump": True,
+            "usage": False,
+            "human_linux": False,
+            "human_windows": True,
+            "stap": False,
             "id": 1234,
             "do_upload_max_size": 0,
             "upload_max_size": 100000000,
+            "during_script": False,
+            "pre_script": False,
+            "windows_static_route": False,
         }
+
+    @pytest.mark.skip(reason="This error is from parse_pe get_exports, which is not part of scheduler anymore")
+    def test_build_options_false_pe(self, mocker, caplog):
+        class mock_machine(object):
+            resultserver_ip = "1.2.3.4"
+            resultserver_port = "1337"
+
+        mock_task_build_opts = mock_task()
+        mock_task_build_opts.package = "foo"
+        mock_task_build_opts.enforce_timeout = 1
+        mock_task_build_opts.clock = datetime.strptime("01-01-2099 09:01:01", "%m-%d-%Y %H:%M:%S")
+        mock_task_build_opts.timeout = 10
+
+        analysis_man = AnalysisManager(task=mock_task_build_opts, error_queue=queue.Queue())
+        analysis_man.machine = mock_machine()
+        mocker.patch(
+            "lib.cuckoo.core.scheduler.File.get_type", return_value="PE32 executable (console) Intel 80386, for MS Windows"
+        )
+
+        opts = analysis_man.build_options()
+        opts["target"] = opts["target"].rsplit("/", 1)[-1]
+        assert "PE type not recognised" in caplog.text
 
     @pytest.mark.skip(reason="TODO")
     def test_build_options_pe(self, grab_sample):
@@ -382,9 +430,18 @@ class TestAnalysisManager:
             "evtx": False,
             "timeout": 10,
             "file_name": "5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b",
-            "curtain": True,
+            "browser": True,
+            "curtain": False,
             "procmon": False,
+            "digisig": True,
+            "disguise": True,
             "sysmon": False,
+            "filepickup": False,
+            "permissions": False,
+            "screenshots": True,
+            "tlsdump": True,
+            "usage": False,
+            "human": True,
             "id": 1234,
             "do_upload_max_size": 0,
             "upload_max_size": 100000000,

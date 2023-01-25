@@ -3,11 +3,10 @@
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
 
-from __future__ import absolute_import
 import inspect
 import logging
 import subprocess
-import time
+import timeit
 from os import environ, path, sys, waitpid
 
 from lib.api.process import Process
@@ -72,8 +71,7 @@ def _guess_package_name(file_type, file_name):
         return "generic"
     elif "Unicode text" in file_type or file_name.endswith(".js"):
         return "js"
-    else:
-        return None
+    return None
 
 
 class Package:
@@ -163,7 +161,7 @@ class Package:
         kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
         log.info(self.target)
         cmd = apicalls(self.target, **kwargs)
-        stap_start = time.time()
+        stap_start = timeit.default_timer()
         log.info(cmd)
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
@@ -173,7 +171,7 @@ class Package:
             # log.debug(self.proc.stderr.readline())
             pass
 
-        stap_stop = time.time()
+        stap_stop = timeit.default_timer()
         log.info("Process startup took %.2f seconds", stap_stop - stap_start)
         return True
 
@@ -182,14 +180,14 @@ class Package:
 
         # cmd = apicalls(self.target, **kwargs)
         cmd = f"{self.target} {' '.join(kwargs['args'])}"
-        stap_start = time.time()
+        stap_start = timeit.default_timer()
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
 
         log.debug(self.proc.stderr.readline())
 
-        stap_stop = time.time()
+        stap_stop = timeit.default_timer()
         log.info("Process startup took %.2f seconds", stap_stop - stap_start)
         return True
 

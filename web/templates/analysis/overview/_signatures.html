@@ -16,8 +16,8 @@
     font-weight: bold;
 }
 </style>
-<section id="signatures">
-    <h4>Signatures</h4>
+<section id="signatures" style="overflow-wrap: break-word;">
+    <h4 style="padding-top: 5px;">Signatures</h4>
     {% if analysis.signatures %}
         {% for signature in analysis.signatures %}
             <a style="text-decoration: none;" href="#signature_{{signature.name}}" data-toggle="collapse">

@@ -2,15 +2,15 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import inspect
 import json
 import logging
 import os
 import pkgutil
 import sys
+import timeit
 from collections import defaultdict
-from datetime import datetime, timedelta
+from contextlib import suppress
 from distutils.version import StrictVersion
 
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
@@ -23,13 +23,9 @@ from lib.cuckoo.common.exceptions import (
     CuckooProcessingError,
     CuckooReportError,
 )
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -105,8 +101,7 @@ def register_plugin(group, name):
 def list_plugins(group=None):
     if group:
         return _modules[group]
-    else:
-        return _modules
+    return _modules
 
 
 class RunAuxiliary:
@@ -185,7 +180,7 @@ class RunAuxiliary:
             except NotImplementedError:
                 pass
             except Exception as e:
-                log.warning("Unable to stop auxiliary module: %s", e)
+                log.warning("Unable to stop auxiliary module: %s", e, exc_info=True)
             else:
                 log.debug("Stopped auxiliary module: %s", module.__class__.__name__)
 
@@ -244,13 +239,10 @@ class RunProcessing:
             # Run the processing module and retrieve the generated data to be
             # appended to the general results container.
             log.debug('Executing processing module "%s" on analysis at "%s"', current.__class__.__name__, self.analysis_path)
-            pretime = datetime.now()
+            pretime = timeit.default_timer()
             data = current.run()
-            posttime = datetime.now()
-            timediff = posttime - pretime
-            self.results["statistics"]["processing"].append(
-                {"name": current.__class__.__name__, "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")}
-            )
+            timediff = timeit.default_timer() - pretime
+            self.results["statistics"]["processing"].append({"name": current.__class__.__name__, "time": round(timediff, 3)})
 
             # If succeeded, return they module's key name and the data to be
             # appended to it.
@@ -283,8 +275,7 @@ class RunProcessing:
             # Run every loaded processing module.
             for module in processing_list:
                 result = self.process(module)
-                # If it provided some results, append it to the big results
-                # container.
+                # If it provided some results, append it to the big results container.
                 if result:
                     self.results.update(result)
         else:
@@ -301,7 +292,7 @@ class RunProcessing:
 
         # For correct error log on webgui
         logs = os.path.join(self.analysis_path, "logs")
-        if os.path.exists(logs):
+        if path_exists(logs):
             for file_name in os.listdir(logs):
                 file_path = os.path.join(logs, file_name)
 
@@ -330,19 +321,76 @@ class RunSignatures:
         self.cfg_processing = Config("processing")
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
 
+        # Gather all enabled & up-to-date Signatures.
+        self.signatures = []
+        for signature in list_plugins(group="signatures"):
+            if self._should_load_signature(signature):
+                # Initialize them all
+                self.signatures.append(signature(self.results))
+
+        overlay = self._load_overlay()
+        log.debug("Applying signature overlays for signatures: %s", ", ".join(overlay))
+        for signature in self.signatures:
+            self._apply_overlay(signature, overlay)
+
+        self.evented_list = []
+        self.non_evented_list = []
+        try:
+            for sig in self.signatures:
+                if sig.evented:
+                    # This is to confirm that the evented signature has its own on_call function, which is required
+                    # https://capev2.readthedocs.io/en/latest/customization/signatures.html#evented-signatures
+                    if sig.on_call.__module__ != Signature.on_call.__module__:
+                        if (
+                            not sig.filter_analysistypes
+                            or self.results.get("target", {}).get("category") in sig.filter_analysistypes
+                        ):
+                            self.evented_list.append(sig)
+
+                if sig not in self.evented_list:
+                    self.non_evented_list.append(sig)
+        except Exception as e:
+            print(e)
+
+        # Cache of signatures to call per API name.
+        self.api_sigs = {}
+
+        # Prebuild a list of signatures that *may* be interested
+        self.call_always = set()
+        self.call_for_api = defaultdict(set)
+        self.call_for_cat = defaultdict(set)
+        self.call_for_processname = defaultdict(set)
+        for sig in self.evented_list:
+            if not sig.filter_apinames and not sig.filter_categories and not sig.filter_processnames:
+                self.call_always.add(sig)
+                continue
+            for api in sig.filter_apinames:
+                self.call_for_api[api].add(sig)
+            for cat in sig.filter_categories:
+                self.call_for_cat[cat].add(sig)
+            for proc in sig.filter_processnames:
+                self.call_for_processname[proc].add(sig)
+
+    def _should_load_signature(self, signature):
+        """Should the given signature be enabled for this analysis?"""
+        if not signature.enabled or signature.name is None:
+            return False
+
+        if not self._check_signature_version(signature):
+            return False
+
+        return True
+
     def _load_overlay(self):
         """Loads overlay data from a json file.
         See example in data/signature_overlay.json
         """
         filename = os.path.join(CUCKOO_ROOT, "data", "signature_overlay.json")
 
-        try:
+        with suppress(IOError):
             with open(filename) as fh:
                 odata = json.load(fh)
                 return odata
-        except IOError:
-            pass
-
         return {}
 
     def _apply_overlay(self, signature, overlay):
@@ -407,48 +455,33 @@ class RunSignatures:
         if not self.results:
             return
 
-        # Initialize the current signature.
-        try:
-            current = signature(self.results)
-        except Exception as e:
-            log.exception('Failed to load signature "%s": %s', signature, e)
-            return
-
-        # If the signature is disabled, skip it.
-        if not current.enabled:
-            return None
-
-        if not self._check_signature_version(current):
-            return None
-
         # Give it path to the analysis results.
-        current.set_path(self.analysis_path)
-        log.debug('Running signature "%s"', current.name)
+        signature.set_path(self.analysis_path)
+        log.debug('Running signature "%s"', signature.name)
 
         try:
             # Run the signature and if it gets matched, extract key information
             # from it and append it to the results container.
-            pretime = datetime.now()
-            data = current.run()
-            posttime = datetime.now()
-            timediff = posttime - pretime
+            pretime = timeit.default_timer()
+            data = signature.run()
+            timediff = timeit.default_timer() - pretime
             self.results["statistics"]["signatures"].append(
                 {
-                    "name": current.name,
-                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
+                    "name": signature.name,
+                    "time": round(timediff, 3),
                 }
             )
 
             if data:
-                log.debug('Analysis matched signature "%s"', current.name)
+                log.debug('Analysis matched signature "%s"', signature.name)
                 # Return information on the matched signature.
-                return current.as_result()
+                return signature.as_result()
         except KeyError as e:
-            log.error('Failed to run signature "%s": %s', current.name, e)
+            log.error('Failed to run signature "%s": %s', signature.name, e)
         except NotImplementedError:
             return None
         except Exception as e:
-            log.exception('Failed to run signature "%s": %s', current.name, e)
+            log.exception('Failed to run signature "%s": %s', signature.name, e)
 
         return None
 
@@ -461,54 +494,53 @@ class RunSignatures:
         matched = []
         stats = {}
 
-        complete_list = list_plugins(group="signatures") or []
         if test_signature:
-            complete_list = [sig for sig in complete_list if sig.name == test_signature]
-        evented_list = []
-        try:
-            evented_list = [
-                sig(self.results)
-                for sig in complete_list
-                if sig.enabled
-                and sig.evented
-                and self._check_signature_version(sig)
-                and (not sig.filter_analysistypes or self.results["target"]["category"] in sig.filter_analysistypes)
-            ]
-        except Exception as e:
-            print(e)
-        overlay = self._load_overlay()
-        log.debug("Applying signature overlays for signatures: %s", ", ".join(overlay))
-        for signature in complete_list + evented_list:
-            self._apply_overlay(signature, overlay)
+            self.evented_list = next((sig for sig in self.evented_list if sig.name == test_signature), [])
+            self.non_evented_list = next((sig for sig in self.non_evented_list if sig.name == test_signature), [])
+            if not isinstance(self.evented_list, list):
+                self.evented_list = [self.evented_list]
+            if not isinstance(self.non_evented_list, list):
+                self.non_evented_list = [self.non_evented_list]
 
-        if evented_list and "behavior" in self.results:
-            log.debug("Running %d evented signatures", len(evented_list))
-            for sig in evented_list:
-                stats[sig.name] = timedelta()
-                if sig == evented_list[-1]:
+        if self.evented_list and "behavior" in self.results:
+            log.debug("Running %d evented signatures", len(self.evented_list))
+            for sig in self.evented_list:
+                stats[sig.name] = 0
+                if sig == self.evented_list[-1]:
                     log.debug("\t `-- %s", sig.name)
                 else:
                     log.debug("\t |-- %s", sig.name)
 
             # Iterate calls and tell interested signatures about them.
             for proc in self.results["behavior"]["processes"]:
-                for call in proc["calls"]:
-                    # Loop through active evented signatures.
-                    for sig in evented_list:
-                        # Skip current call if it doesn't match the filters (if any).
-                        if sig.filter_processnames and not proc["process_name"] in sig.filter_processnames:
-                            continue
-                        if sig.filter_apinames and not call["api"] in sig.filter_apinames:
-                            continue
-                        if sig.filter_categories and not call["category"] in sig.filter_categories:
-                            continue
+                process_name = proc["process_name"]
+                process_id = proc["process_id"]
+                calls = proc.get("calls", [])
+                for idx, call in enumerate(calls):
+                    api = call.get("api")
+                    sigs = self.api_sigs.get(api)
+                    if sigs is None:
+                        # Build interested signatures
+                        cat = call.get("category")
+                        sigs = self.call_always.union(
+                            self.call_for_api.get(api, set()),
+                            self.call_for_cat.get(cat, set()),
+                            self.call_for_processname.get(process_name, set()),
+                        )
+                    for sig in sigs:
+                        # Setting signature attributes per call
+                        sig.cid = idx
+                        sig.call = call
+                        sig.pid = process_id
 
-                        result = None
+                        if sig.matched:
+                            continue
                         try:
-                            pretime = datetime.now()
+                            pretime = timeit.default_timer()
                             result = sig.on_call(call, proc)
-                            posttime = datetime.now()
-                            timediff = posttime - pretime
+                            timediff = timeit.default_timer() - pretime
+                            if sig.name not in stats:
+                                stats[sig.name] = 0
                             stats[sig.name] += timediff
                         except NotImplementedError:
                             result = False
@@ -516,29 +548,17 @@ class RunSignatures:
                             log.exception("Failed to run signature %s: %s", sig.name, e)
                             result = False
 
-                        # If the signature returns None we can carry on, the
-                        # condition was not matched.
-                        if result is None:
-                            continue
-
-                        # On True, the signature is matched.
                         if result:
-                            log.debug('Analysis matched signature "%s"', sig.name)
-                            matched.append(sig.as_result())
-                            if sig in complete_list:
-                                complete_list.remove(sig)
-
-                        # Either True or False, we don't need to check this sig anymore.
-                        evented_list.remove(sig)
-                        del sig
+                            sig.matched = True
 
             # Call the stop method on all remaining instances.
-            for sig in evented_list:
+            for sig in self.evented_list:
+                if sig.matched:
+                    continue
                 try:
-                    pretime = datetime.now()
+                    pretime = timeit.default_timer()
                     result = sig.on_complete()
-                    posttime = datetime.now()
-                    timediff = posttime - pretime
+                    timediff = timeit.default_timer() - pretime
                     stats[sig.name] += timediff
                 except NotImplementedError:
                     continue
@@ -546,13 +566,14 @@ class RunSignatures:
                     log.exception('Failed run on_complete() method for signature "%s": %s', sig.name, e)
                     continue
                 else:
-                    if result:
-                        if hasattr(sig, "ttp"):
-                            [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttp]
-                        log.debug('Analysis matched signature "%s"', sig.name)
+                    if result and not sig.matched:
                         matched.append(sig.as_result())
-                        if sig in complete_list:
-                            complete_list.remove(sig)
+                        if hasattr(sig, "ttps"):
+                            [
+                                self.ttps.append({"ttp": ttp, "signature": sig.name})
+                                for ttp in sig.ttps
+                                if {"ttp": ttp, "signature": sig.name} not in self.ttps
+                            ]
 
         # Link this into the results already at this point, so non-evented signatures can use it
         self.results["signatures"] = matched
@@ -560,22 +581,34 @@ class RunSignatures:
         # Add in statistics for evented signatures that took at least some time
         for key, value in stats.items():
             if value:
-                self.results["statistics"]["signatures"].append(
-                    {"name": key, "time": float(f"{value.seconds}.{value.microseconds // 1000:03d}")}
-                )
+                self.results["statistics"]["signatures"].append({"name": key, "time": round(timediff, 3)})
         # Compat loop for old-style (non evented) signatures.
-        if complete_list:
-            complete_list.sort(key=lambda sig: sig.order)
+        if self.non_evented_list:
+            if hasattr(self.non_evented_list, "sort"):
+                self.non_evented_list.sort(key=lambda sig: sig.order)
+            else:
+                # for testing single signature with process.py
+                self.non_evented_list = [self.non_evented_list]
             log.debug("Running non-evented signatures")
 
-            for signature in complete_list:
-                if not signature.filter_analysistypes or self.results["target"]["category"] in signature.filter_analysistypes:
+            for signature in self.non_evented_list:
+                if (
+                    not signature.filter_analysistypes
+                    or self.results.get("target", {}).get("category") in signature.filter_analysistypes
+                ):
                     match = self.process(signature)
                     # If the signature is matched, add it to the list.
-                    if match:
-                        if hasattr(signature, "ttp"):
-                            [self.ttps.append({"ttp": ttp, "signature": signature.name}) for ttp in signature.ttp]
-                        matched.append(match)
+                    if match and not signature.matched:
+                        if hasattr(signature, "ttps"):
+                            [self.ttps.append({"ttp": ttp, "signature": signature.name}) for ttp in signature.ttps]
+                        signature.matched = True
+
+        for signature in self.signatures:
+            if not signature.matched:
+                continue
+            log.debug('Analysis matched signature "%s"', signature.name)
+            signature.matched = True
+            matched.append(signature.as_result())
 
         # Sort the matched signatures by their severity level.
         matched.sort(key=lambda key: key["severity"])
@@ -671,7 +704,7 @@ class RunReporting:
 
         try:
             log.debug('Executing reporting module "%s"', current.__class__.__name__)
-            pretime = datetime.now()
+            pretime = timeit.default_timer()
 
             if module_name == "submitCAPE" and self.reprocess:
                 tasks = db.list_parents(self.task["id"])
@@ -680,12 +713,11 @@ class RunReporting:
                 return
             else:
                 current.run(self.results)
-            posttime = datetime.now()
-            timediff = posttime - pretime
+            timediff = timeit.default_timer() - pretime
             self.results["statistics"]["reporting"].append(
                 {
                     "name": current.__class__.__name__,
-                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
+                    "time": round(timediff, 3),
                 }
             )
 
@@ -766,4 +798,4 @@ class GetFeeds:
                 # If the feed is disabled, skip it.
                 if feed.enabled:
                     log.debug('Running feed module "%s"', feed.name)
-                    runit = self.process(feed)
+                    self.process(feed)

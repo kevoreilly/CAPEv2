@@ -2,13 +2,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
 import contextlib
 import hashlib
 import logging
 import os
 import struct
 from binascii import crc32
+from pathlib import Path
 
 from lib.cuckoo.common.utils import store_temp_file
 
@@ -120,12 +120,8 @@ def read_sep_tag(data, offset):
 
 
 def sep_unquarantine(f):
-    filesize = os.path.getsize(f)
-    with open(f, "rb") as quarfile:
-        qdata = quarfile.read()
-
+    qdata = Path(f).read_bytes()
     data = bytearray(qdata)
-
     dataoffset = struct.unpack("<I", data[:4])[0]
 
     if dataoffset != 0x1290:
@@ -162,7 +158,7 @@ def sep_unquarantine(f):
                     headerlen = 12 + struct.unpack_from("<I", data[offset + 5 + 8 : offset + 5 + 12])[0] + 28
                     binsize = struct.unpack_from("<I", data[offset + 5 + headerlen - 12 : offset + 5 + headerlen - 8])[0]
                     collectedsize += len(tagdata) - headerlen
-                    binlen = binsize if collectedsize > binsize else collectedsize
+                    binlen = min(binsize, collectedsize)
                     bindata += data[offset + 5 + headerlen : offset + 5 + headerlen + binlen]
                     has_header = False
                 else:
@@ -174,7 +170,7 @@ def sep_unquarantine(f):
             elif decode_next_container:
                 extralen = 0
                 decode_next_container = False
-            elif codeval in [0x10, 0x8]:
+            elif codeval in (0x10, 0x8):
                 if codeval == 0x8:
                     xor_next_container = True
                     lastlen = struct.unpack_from("<Q", data[offset + 5 : offset + 5 + 8])[0]
@@ -187,7 +183,7 @@ def sep_unquarantine(f):
                 has_header = False
 
         offset += length + extralen
-        if offset == filesize:
+        if offset == os.path.getsize(f):
             break
 
     return store_temp_file(bindata, origname)
@@ -603,19 +599,13 @@ def kav_unquarantine(file):
 
 
 def trend_unquarantine(f):
-    with open(f, "rb") as quarfile:
-        qdata = quarfile.read()
-
+    qdata = Path(f).read_bytes()
     data = bytearray_xor(bytearray(qdata), 0xFF)
 
     magic, dataoffset, numtags = struct.unpack("<IIH", data[:10])
     if magic != 0x58425356:  # VSBX
         return None
-    origpath = "C:\\"
     origname = "UnknownTrendFile.bin"
-    platform = "Unknown"
-    attributes = 0x00000000
-    unknownval = 0
     basekey = 0x00000000
     encmethod = 0
 
@@ -626,20 +616,22 @@ def trend_unquarantine(f):
     offset = 10
     for _ in range(numtags):
         code, tagdata = read_trend_tag(data, offset)
-        if code == 1:  # original pathname
-            origpath = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
-        elif code == 2:  # original filename
+        if code == 2:  # original filename
             origname = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
+        elif code == 6:  # base key
+            basekey = struct.unpack("<I", tagdata)[0]
+        elif code == 7:  # encryption method: 1 == xor FF, 2 = CRC method
+            encmethod = struct.unpack("<I", tagdata)[0]
+        """
+        elif code == 1:  # original pathname
+            origpath = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
         elif code == 3:  # platform
             platform = str(tagdata)
         elif code == 4:  # file attributes
             attributes = struct.unpack("<I", tagdata)[0]
         elif code == 5:  # unknown, generally 1
             unknownval = struct.unpack("<I", tagdata)[0]
-        elif code == 6:  # base key
-            basekey = struct.unpack("<I", tagdata)[0]
-        elif code == 7:  # encryption method: 1 == xor FF, 2 = CRC method
-            encmethod = struct.unpack("<I", tagdata)[0]
+        """
         offset += 3 + len(tagdata)
 
     if encmethod != 2:
@@ -679,8 +671,7 @@ def mcafee_unquarantine(f):
     if not olefile.isOleFile(f):
         return None
 
-    with open(f, "rb") as quarfile:
-        qdata = quarfile.read()
+    qdata = Path(f).read_bytes()
 
     oledata = olefile.OleFileIO(qdata)
     olefiles = oledata.listdir()

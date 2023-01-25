@@ -6,87 +6,101 @@ CAPE provides a full-fledged web interface in the form of a Django application.
 This interface will allow you to submit files, browse through the reports as well
 as search across all the analysis results.
 
+``cape2.sh`` adds ``systemd`` deamon called ``cape-web.service`` which listen on all interfaces::
+
+    $ /lib/systemd/system/cape-web.service
+
+To modify that you need to edit that file and change from ``0.0.0.0`` to your IP.
+You need to restart deamon to reload after change it::
+
+    $ systemctl daemon-reload
+
+If you get migration-related WARNINGS when launching the cape-web service, you should execute::
+
+    $ poetry run python3 manage.py migrate
+
+.. note:: In order to improve performance, it is recommended to move from SQLite to PostgreSQL.
+
 Configuration
 =============
 
-The web interface pulls data from a Mongo database or from ElasticSearch, so having
+The web interface pulls data from a Mongo database or ElasticSearch, so having
 either the MongoDB or ElasticSearchDB reporting modules enabled in ``reporting.conf``
 is mandatory for this interface. If that's not the case, the application won't start
-and it will raise an exception. Also, currently Django only supports having one of
+and it will raise an exception. Also, currently, Django only supports having one of
 the database modules enabled at a time.
 
-The interface can be configured by editing ``local_settings.py`` under ``web/web/``::
+Enable web interface auth
+-------------------------
+To enable web authentication you need to edit `conf/web.conf` -> `web_auth` -> `enabled = yes`,
+after that you need to create your django admin user by running following command from `web` folder::
 
-    # If you want to customize your CAPE path set it here.
-    # CAPE_PATH = "/where/CAPE/is/placed/"
+    $ poetry run python manage.py createsuperuser
 
-    # Maximum upload size.
-    MAX_UPLOAD_SIZE = 26214400
+For more security tips see `Exposed to internet`_ section.
 
-    # Override default secret key stored in secret_key.py
-    # Make this unique, and don't share it with anybody.
-    # SECRET_KEY = "YOUR_RANDOM_KEY"
 
-    # Local time zone for this installation. Choices can be found here:
-    # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
-    # although not all choices may be available on all operating systems.
-    # On Unix systems, a value of None will cause Django to use the same
-    # timezone as the operating system.
-    # If running in a Windows environment this must be set to the same as your
-    # system time zone.
-    TIME_ZONE = "America/Chicago"
+Enable/Disable REST API Endpoints
+---------------------------------
+By default, there are multiple REST API endpoints that are disabled.
+To enable them, head to the `API configuration file`_
 
-    # Language code for this installation. All choices can be found here:
-    # http://www.i18nguy.com/unicode/language-identifiers.html
-    LANGUAGE_CODE = "en-us"
+For example, to enable the `machines/list` endpoint, you must find the `[machinelist]`
+header in the configuration file just mentioned and set the `enabled` field to `yes`.
 
-    ADMINS = (
-        # ("Your Name", "your_email@example.com"),
-    )
+Restart the CAPE web service for the changes to take effect::
 
-    MANAGERS = ADMINS
+    $ systemctl restart cape-web
 
-    # Allow verbose debug error message in case of application fault.
-    # It's strongly suggested to set it to False if you are serving the
-    # web application from a web server front-end (i.e. Apache).
-    DEBUG = True
+.. _`API configuration file`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/api.conf
 
-    # A list of strings representing the host/domain names that this Django site
-    # can serve.
-    # Values in this list can be fully qualified names (e.g. 'www.example.com').
-    # When DEBUG is True or when running tests, host validation is disabled; any
-    # host will be accepted. Thus it's usually only necessary to set it in production.
-    ALLOWED_HOSTS = ["*"]
 
 Usage
 =====
 
-In order to start the web interface, you can simply run the following command
+To start the web interface, you can simply run the following command
 from the ``web/`` directory::
 
-    $ python3 manage.py runserver
+    $ python3 manage.py runserver_plus --traceback --keep-meta-shutdown
 
 If you want to configure the web interface as listening for any IP on a
-specified port, you can start it with the following command (replace PORT
+specified port (by default the web interace is deployed at localhost:8000), you can start it with the following command (replace PORT
 with the desired port number)::
 
-    $ python3 manage.py runserver 0.0.0.0:PORT
+    $ python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
 You can serve CAPE's web interface using WSGI interface with common web servers:
-Apache, Nginx, Unicorn and so on.
+Apache, Nginx, Unicorn, and so on. Devs are using Nginx + Uwsgi.
 Please refer both to the documentation of the web server of your choice as well as `Django documentation`_.
 
 .. _`Django documentation`: https://docs.djangoproject.com/
 
+
+Suscription
+==========
+
+Suscription called parts that allows you to control which users what can do.
+Right now we support:
+
+    * Request - limitation per second/minute/hours limits using django-ratelimit extensions
+    * Reports - Allow or not to download reports to specific user. Check conf/web.conf to enable this feature.
+
+To extend the capabilities of control what users can do check `Django migrations a primer`_.
+
+.. _`Django migrations a primer`: https://realpython.com/django-migrations-a-primer/
+
+In few works you need to add new fields to ``models.py`` and run ``python3 manage.py makemigrations``
+
+
 Exposed to internet
 ===================
 
-To get rid of many bots/scrappers so we suggest to deploy this amazing project `Nginx Ultimate bad bot blocker`_, follow readme for installation steps
+To get rid of many bots/scrappers so we suggest deploying this amazing project `Nginx Ultimate bad bot blocker`_, follow the README for installation steps
 
-* Enable web auth with captcha in `conf/web.conf` preferly to avoid any bruteforce.
+* Enable web auth with captcha in `conf/web.conf` properly to avoid any brute force.
 * Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/settings.py``
-* You might need to "Verify" and set as "Stuff user" to your admin in Django admin panel and add your domain to Sites in Django admin too
-* `AllAuth`_ aka SSO autentification with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
+* You might need to "Verify" and set as "Stuff user" to your admin in the Django admin panel and add your domain to Sites in Django admin too
+* `AllAuth`_ aka SSO authentication with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
     * Note ``SITE_ID=1`` in django admin is ``example.com`` rename it to your domain to get it working
 
 .. _`AllAuth`: https://django-allauth.readthedocs.io/
@@ -94,6 +108,58 @@ To get rid of many bots/scrappers so we suggest to deploy this amazing project `
 .. _`StackOverflow example`: https://stackoverflow.com/a/64524223/1294762
 .. _`Nginx Ultimate bad bot blocker`: https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/
 .. _`ReCaptcha`: https://www.google.com/recaptcha/admin/
+
+
+Best practices for production
+=============================
+We suggest to use ``uwsgi/gunicorn`` + ``NGINX``.
+
+`UWSGI documentation`_
+
+Instalation::
+
+    # nginx is optional
+    # sudo apt-get install uwsgi uwsgi-plugin-python nginx
+
+To enable ``uwsgi`` copy ``/opt/CAPE/uwsgi/cape.ini`` to ``/etc/uwsgi/apps-enabled/cape.ini``:
+
+.. code-block:: python
+
+    [uwsgi]
+    lazy-apps = True
+    vacuum = True
+    ; if using with NGINX
+    ;http-socket = 127.0.0.1:8000
+    ; if standalone
+    http-socket = 0.0.0.0:8000
+    static-map = /static=/opt/CAPEv2/web/static
+    plugins = python38
+    callable = application
+    chdir = /opt/CAPEv2/web
+    file = web/wsgi.py
+    env = DJANGO_SETTINGS_MODULE=web.settings
+    uid = cape
+    gid = cape
+    enable-threads = true
+    master = true
+    processes = 10
+    workers = 10
+    ;max-requests = 300
+    manage-script-name = true
+    ;disable-logging = True
+    listen = 2056
+    ;harakiri = 30
+    hunder-lock = True
+    #max-worker-lifetime = 30
+    ;Some files found in this directory are processed by uWSGI init.d script as
+    ;uWSGI configuration files.
+
+
+.. _`UWSGI documentation`: https://uwsgi-docs.readthedocs.io/en/latest/
+
+Start uwsgi with::
+
+    $ systemctl restart uwsgi
 
 
 Some extra security TIP(s)
@@ -219,3 +285,42 @@ Some extra security TIP(s)
 * To check banned hosts::
 
     $ sudo fail2ban-client status cape-api
+
+Troubleshooting
+===============
+
+Login error: no such column: users_userprofile.reports
+------------------------------------------------------
+
+    .. image:: ../_images/screenshots/login_error_user_usersprofile.png
+        :align: center
+
+This error usually appears after updating CAPEv2 and one or more changes have been made to the database schema. To solve it, you must use the `web/manage` utility like so::
+
+$ sudo -u cape poetry run python3 manage.py migrate
+
+The output should be similar to::
+
+
+    $ sudo -u cape poetry run python3 manage.py migrate
+    CAPE parser: No module named Nighthawk - No module named 'Crypto'
+    Missed dependency flare-floss: pip3 install -U flare-floss
+    Operations to perform:
+      Apply all migrations: account, admin, auth, authtoken, contenttypes, openid, sessions, sites, socialaccount, users
+    Running migrations:
+      Applying users.0002_reports... OK
+
+
+After the OK, the web service should be back to normal (no need to restart ``cape-web.service``).
+
+No such table: auth_user
+-------------------------
+
+When executing::
+
+$ poetry run python manage.py createsuperuser
+
+an error like ``django.db.utils.OperationalError: no such table: auth_user``
+may be raised. In order to solve it just execute the ``web/manage.py`` utility with the ``migrate`` option::
+
+$ sudo -u cape poetry run python3 web/manage.py migrate

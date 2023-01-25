@@ -2,12 +2,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import json
 import locale
 import logging
 import os
 from io import BytesIO
+from pathlib import Path
 
 from lib.api.utils import Utils
 from lib.common.abstracts import Auxiliary
@@ -35,10 +35,11 @@ class DigiSig(Auxiliary):
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
+        self.config = config
+        self.enabled = self.config.digisig
         self.cert_build = []
         self.time_build = []
         self.json_data = {"sha1": None, "signers": [], "timestamp": None, "valid": False, "error": None, "error_desc": None}
-        self.enabled = True
 
     def build_output(self, outputType, line):
         if line:
@@ -103,14 +104,13 @@ class DigiSig(Auxiliary):
 
     def start(self):
         if not self.enabled:
-            return True
-
+            return False
         try:
             if self.config.category != "file":
                 log.debug("Skipping authenticode validation, analysis is not a file")
                 return True
 
-            sign_path = os.path.join(os.getcwd(), "bin", "signtool.exe")
+            sign_path = os.path.join(Path.cwd(), "bin", "signtool.exe")
             if not os.path.exists(sign_path):
                 log.info("Skipping authenticode validation, signtool.exe was not found in bin/")
                 return True
@@ -145,14 +145,14 @@ class DigiSig(Auxiliary):
 
             if self.json_data:
                 log.info("Uploading signature results to aux/%s.json", self.__class__.__name__)
-                upload = BytesIO()
-                upload.write(json.dumps(self.json_data, ensure_ascii=False).encode())
-                upload.seek(0)
-                nf = NetlogFile()
-                nf.init("aux/DigiSig.json")
-                for chunk in upload:
-                    nf.sock.send(chunk)
-                nf.close()
+                with BytesIO() as upload:
+                    upload.write(json.dumps(self.json_data, ensure_ascii=False).encode())
+                    upload.seek(0)
+                    nf = NetlogFile()
+                    nf.init("aux/DigiSig.json")
+                    for chunk in upload:
+                        nf.sock.send(chunk)
+                    nf.close()
 
         except Exception as e:
             print(e)

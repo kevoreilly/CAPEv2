@@ -2,11 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
 import os
 import random
 
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_fn
+from lib.cuckoo.common.path_utils import path_delete
 
 random.seed(1338)
 
@@ -93,7 +93,7 @@ if not os.environ.get("GEN_DATA"):
     import utils_pretty_print_funcs_data as data
 else:
     try:
-        os.unlink("CAPEv2/tests/utils_pretty_print_funcs_data.py")
+        path_delete("CAPEv2/tests/utils_pretty_print_funcs_data.py")
     except Exception as e:
         print(("Error in cleanup: " + str(e)))
     gen_data_file()

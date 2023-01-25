@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 import re
@@ -122,5 +121,4 @@ class Rar(Package):
             cmd_path = self.get_path("cmd.exe")
             cmd_args = f'/c start /wait "" "{file_path}"'
             return self.execute(cmd_path, cmd_args, file_path)
-        else:
-            return self.execute(file_path, self.options.get("arguments"), file_path)
+        return self.execute(file_path, self.options.get("arguments"), file_path)

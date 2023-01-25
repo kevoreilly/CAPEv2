@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import sys
 import time
@@ -14,7 +13,7 @@ from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 try:
     from proxmoxer import ProxmoxAPI, ResourceException
 except ImportError:
-    sys.exit("Missed dependency: pip3 install proxmoxer -U")
+    sys.exit("Install by yourself. Missed dependency: pip3 install proxmoxer -U")
 
 # silence overly verbose INFO level logging default of proxmoxer module
 logging.getLogger("proxmoxer").setLevel(logging.WARNING)
@@ -179,12 +178,14 @@ class Proxmox(Machinery):
             if task["exitstatus"] == "timeout waiting on systemd":
                 if retry > retry_index:
                     time.sleep(5)
-                    self.rollback(label, vm, node, retry, retry_index+1)
+                    self.rollback(label, vm, node, retry, retry_index + 1)
                 else:
-                    raise CuckooMachineError(f"Rollback to snapshot {snapshot} failed: {task['exitstatus']} - Proxmox may be overwhelmed")
+                    raise CuckooMachineError(
+                        f"Rollback to snapshot {snapshot} failed: {task['exitstatus']} - Proxmox may be overwhelmed"
+                    )
             else:
                 raise CuckooMachineError(f"Rollback to snapshot {snapshot} failed: {task['exitstatus']}")
-                
+
     def start(self, label):
         """Roll back VM to known-pristine snapshot and optionally start it if
         not already running after reverting to the snapshot.

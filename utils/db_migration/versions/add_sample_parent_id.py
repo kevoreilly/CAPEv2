@@ -13,14 +13,11 @@ Create Date: 2019-05-03 08:14:52.075368
 """
 
 # revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
-
 revision = "36926b59dfbb"
 down_revision = "3c8bf4133b44"
 
 import os.path
 import sys
-from datetime import datetime
 
 import sqlalchemy as sa
 
@@ -32,8 +29,6 @@ except ImportError:
 
 curdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(curdir, "..", "..", ".."))
-
-import lib.cuckoo.core.database as db
 
 
 def upgrade():

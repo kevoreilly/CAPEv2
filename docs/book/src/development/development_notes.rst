@@ -9,7 +9,7 @@ CAPE Sandbox source code is available in our `official git repository`_.
 
 .. _`official git repository`: https://github.com/kevoreilly/CAPEv2
 
-Up until version 1.0 we used to coordinate all ongoing development in a
+Up until version 1.0, we used to coordinate all ongoing development in a
 dedicated "development" branch and we've been exclusively merging pull requests
 in such branch.
 Since version 1.1 we moved development to the traditional "master" branch and we
@@ -21,8 +21,8 @@ Release Versioning
 
 CAPE releases are named using three numbers separated by dots, such as 1.2.3,
 where the first number is the release, the second number is the major version,
-the third number is the bugfix version.
-The testing stage from git ends with "-beta" and development stage with "-dev".
+and the third number is the bugfix version.
+The testing stage from git ends with "-beta" and the development stage with "-dev".
 
     .. warning::
 
@@ -30,7 +30,7 @@ The testing stage from git ends with "-beta" and development stage with "-dev".
         meant to be an official release, therefore we don't guarantee its functioning
         and we don't generally provide support.
         If you think you encountered a bug there, make sure that the nature of the
-        problem is not related to your own misconfiguration and collect all the details
+        problem is not related to your misconfiguration and collect all the details
         to be notified to our developers. Make sure to specify which exact version you
         are using, eventually with your current git commit id.
 
@@ -46,6 +46,6 @@ Contribute
 ==========
 
 To submit your patch just create a Pull Request from your GitHub fork.
-If you don't know how to create a Pull Request take a look to `GitHub help`_.
+If you don't know how to create a Pull Request take a look at `GitHub help`_.
 
 .. _`GitHub help`: https://help.github.com/articles/using-pull-requests/

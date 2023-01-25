@@ -3,13 +3,13 @@ Saving the Guest
 ================
 
 Now you should be ready to save the physical machine to a clean state.
-In order for the physical machine manager to work, you must have a way
+For the physical machine manager to work, you must have a way
 for physical machines to be returned to a clean state.
 
 Before doing this **make sure you rebooted it softly and that it's currently
 running, with CAPE's agent running and with Windows fully booted**.
 
-Now you can proceed saving the machine. The way to do it obviously depends on
+Now you can proceed with saving the machine. The way to do it depends on
 the imaging software you decided to use.
 
 In development/testing Fog (http://www.fogproject.org/) was used as a platform
@@ -34,19 +34,19 @@ Provide the proper inputs for your OS configuration and click "Add"
     .. image:: ../../_images/screenshots/fog_image_management.png
         :align: center
 
-Next you will need to add the host you plan to re-image to Fog.
+Next, you will need to add the host you plan to re-image to Fog.
 To add a host, open a web browser and navigate to the Host Management page of
 Fog (http://<your_fog_server>/fog/management/index.php?node=host).
 Click "Create New Host."
 Provide the proper inputs for your host configuration. Be sure to select the
-image you created above from the "Host Image" option, when finished click the
+image you created above from the "Host Image" option when finished click the
 "Add" button.
 
     .. image:: ../../_images/screenshots/fog_host_management.png
         :align: center
 
-At this point you should be ready to take an image from the guest machine.
-In order to take an image you will need to navigate to the Task Management page
+At this point, you should be ready to take an image from the guest machine.
+To take an image you will need to navigate to the Task Management page
 and list all hosts (http://<your_fog_server>/fog/management/index.php?node=tasks&sub=listhosts).
 From here you should be able to click the Upload icon (Green up arrow), which
 should instantly add a task to the queue to take an image.

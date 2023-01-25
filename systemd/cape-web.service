@@ -6,12 +6,13 @@ After=cape-rooter.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/web
-ExecStart=/usr/bin/python3 manage.py runserver 0.0.0.0:8000
-#ExecStart=/opt/CAPEv2/venv/bin/gunicorn -b 127.0.0.1:8000 web.wsgi
+ExecStart=/usr/bin/python3 -m poetry run python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 User=cape
 Group=cape
 Restart=always
 RestartSec=5m
+# In case if you behind of proxy, set your proxy in /etc/environment and uncomment next line
+# EnvironmentFile=/etc/environment
 
 [Install]
 WantedBy=multi-user.target

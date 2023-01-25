@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import getpass
 import logging
 import os
@@ -12,6 +11,7 @@ from stat import S_ISUID
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT, CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.core.resultserver import ResultServer
 
 log = logging.getLogger(__name__)
@@ -25,6 +25,9 @@ class Sniffer(Auxiliary):
         self.proc = None
 
     def start(self):
+        if self.task.route in ("none", "None", "drop", "false"):
+            return
+
         # Get updated machine info
         self.machine = self.db.view_machine_by_label(self.machine.label)
         tcpdump = self.options.get("tcpdump", "/usr/sbin/tcpdump")
@@ -45,7 +48,7 @@ class Sniffer(Auxiliary):
         ResultServer()
         resultserver_port = str(self.machine.resultserver_port or cfg.resultserver.port)
 
-        if not os.path.exists(tcpdump):
+        if not path_exists(tcpdump):
             log.error('Tcpdump does not exist at path "%s", network capture aborted', tcpdump)
             return
 
@@ -173,7 +176,7 @@ class Sniffer(Auxiliary):
 
         else:
             try:
-                self.proc = subprocess.Popen(pargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                self.proc = subprocess.Popen(pargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
             except (OSError, ValueError):
                 log.exception("Failed to start sniffer (interface=%s, host=%s, dump path=%s)", interface, host, file_path)
                 return
@@ -184,6 +187,10 @@ class Sniffer(Auxiliary):
         """Stop sniffing.
         @return: operation status.
         """
+
+        if self.task.route in ("none", "None", "drop", "false"):
+            return
+
         remote = self.options.get("remote", False)
         if remote:
             remote_host = self.options.get("host", "")
@@ -201,11 +208,14 @@ class Sniffer(Auxiliary):
         if self.proc and not self.proc.poll():
             try:
                 self.proc.terminate()
-            except Exception:
+                _, _ = self.proc.communicate()
+            except Exception as e:
+                log.exception("Unable to stop the sniffer (first try) with pid %d: %s", self.proc.pid, e)
                 try:
                     if not self.proc.poll():
                         log.debug("Killing sniffer")
                         self.proc.kill()
+                        _, _ = self.proc.communicate()
                 except OSError as e:
                     log.debug("Error killing sniffer: %s, continuing", e)
                 except Exception as e:

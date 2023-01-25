@@ -14,6 +14,7 @@ import gevent.thread
 
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.misc import cwd
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.core.database import Database
 
 _task_threads = {}
@@ -41,7 +42,7 @@ class DatabaseHandler(logging.Handler):
     def emit(self, record):
         # TODO Should this also attempt to guess the task ID from _tasks?
         if hasattr(record, "task_id"):
-            Database().add_error(self.format(record), int(record.task_id), getattr(record, "error_action", None))
+            Database().add_error(self.format(record), int(record.task_id))
 
 
 class TaskHandler(logging.Handler):
@@ -54,7 +55,7 @@ class TaskHandler(logging.Handler):
         if not task:
             return
 
-        task[1].write(f"{self.format(record)}\n")
+        task[1].write(f"{self.format(record)}\n".encode())
 
 
 class ConsoleHandler(logging.StreamHandler):
@@ -65,7 +66,7 @@ class ConsoleHandler(logging.StreamHandler):
 
         if record.levelname == "WARNING":
             colored.msg = yellow(record.msg)
-        elif record.levelname == "ERROR" or record.levelname == "CRITICAL":
+        elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
             if "analysis procedure completed" in record.msg:
@@ -110,7 +111,7 @@ def task_log_start(task_id):
     try:
         if task_id not in _task_threads:
             task_path = cwd(analysis=task_id)
-            if not os.path.exists(task_path):
+            if not path_exists(task_path):
                 return
 
             _task_threads[task_id] = []
@@ -145,38 +146,22 @@ def task_log_stop(task_id):
 def init_logger(name, level=None):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
-    if name == "cuckoo.log":
-        l = logging.handlers.WatchedFileHandler(cwd("log", "cuckoo.log"))
-        l.setFormatter(formatter)
-        l.setLevel(level)
-
-    if name == "cuckoo.json":
-        j = JsonFormatter()
-        l = logging.handlers.WatchedFileHandler(cwd("log", "cuckoo.json"))
-        l.setFormatter(j)
-        l.addFilter(j)
-
     if name == "console":
-        l = ConsoleHandler()
-        l.setFormatter(formatter)
-        l.setLevel(level)
+        logger = ConsoleHandler()
+        logger.setFormatter(formatter)
+        logger.setLevel(level)
 
-    if name == "database":
-        l = DatabaseHandler()
-        l.setLevel(logging.ERROR)
+    elif name == "database":
+        logger = DatabaseHandler()
+        logger.setLevel(logging.ERROR)
 
-    if name == "task":
-        l = TaskHandler()
-        l.setFormatter(formatter)
+    elif name == "task":
+        logger = TaskHandler()
+        logger.setFormatter(formatter)
+        logger.setLevel(logging.DEBUG)
 
-    if name.startswith("process-") and name.endswith(".json"):
-        j = JsonFormatter()
-        l = logging.handlers.WatchedFileHandler(cwd("log", name))
-        l.setFormatter(j)
-        l.addFilter(j)
-
-    _loggers[name] = l
-    logging.getLogger().addHandler(l)
+    _loggers[name] = logger
+    logging.getLogger().addHandler(logger)
 
 
 def logger(message, *args, **kwargs):

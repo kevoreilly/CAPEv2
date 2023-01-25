@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import gc
 import logging
 
@@ -11,7 +10,6 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportErro
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
-    from pymongo import TEXT
     from pymongo.errors import InvalidDocument
 
     from dev_utils.mongodb import (
@@ -91,7 +89,7 @@ class MongoDB(Report):
         for key in keys:
             try:
                 mongo_update_one("analysis", {"_id": obj_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
-            except InvalidDocument as e:
+            except InvalidDocument:
                 log.warning("Investigate your key: %s", key)
 
     def run(self, results):
@@ -130,13 +128,13 @@ class MongoDB(Report):
         # with large amounts of data.
         # Note: Silently ignores the creation if the index already exists.
         mongo_create_index("analysis", "info.id", name="info.id_1")
-
+        # mongo_create_index([("target.file.sha256", TEXT)], name="target_sha256")
         # We performs a lot of SHA256 hash lookup so we need this index
-        mongo_create_index(
-            "analysis",
-            [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
-            name="ALL_SHA256",
-        )
+        # mongo_create_index(
+        #     "analysis",
+        #     [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
+        #     name="ALL_SHA256",
+        # )
         # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
@@ -155,11 +153,8 @@ class MongoDB(Report):
                 self.loop_saver(report)
                 return
             parent_key, psize = self.debug_dict_size(report)[0]
-            if not self.options.get("fix_large_docs", False):
-                # Just log the error and problem keys
-                # log.error(str(e))
-                log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
-            else:
+            log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
+            if self.options.get("fix_large_docs"):
                 # Delete the problem keys and check for more
                 error_saved = True
                 size_filter = MONGOSIZELIMIT
@@ -168,11 +163,16 @@ class MongoDB(Report):
                         report = report[0]
                     try:
                         if isinstance(report[parent_key], list):
-                            for j, parent_dict in enumerate(report[parent_key]):
-                                child_key, csize = self.debug_dict_size(parent_dict)[0]
-                                if csize > size_filter:
-                                    log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
-                                    del report[parent_key][j][child_key]
+                            if parent_key == "strings":
+                                del report["strings"]
+                                parent_key, psize = self.debug_dict_size(report)[0]
+                                continue
+                            else:
+                                for j, parent_dict in enumerate(report[parent_key]):
+                                    child_key, csize = self.debug_dict_size(parent_dict)[0]
+                                    if csize > size_filter:
+                                        log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
+                                        del report[parent_key][j][child_key]
                         else:
                             child_key, csize = self.debug_dict_size(report[parent_key])[0]
                             if csize > size_filter:

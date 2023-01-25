@@ -1,3 +1,115 @@
+### [25.1.2023]
+* Google Cloud Platform (GCP) support in distributed CAPE aka dist.py
+
+### [5.1.2023]
+* Big duplicated code cleanup. Context: CAPE.py module processing all the files so it calling File(x).get_all() which is pretty heavy.
+* Deprecated standalone modules. They are moved inside of CAPE.py. Data will be under the same keys.
+    * Target info
+    * Dropped
+    * ProcDump
+* Url analysis moved to `nodules/processing/url_analysis.py`
+
+### [4.1.2023]
+* Monitor update: Fix 32-bit stack recursion hook issue (affecting, for example, golang binaries)
+
+### [28.12.2022] NETReactorSlayer
+* Integrated deobfuscator and unpacker for Eziriz .NET Reactor. [Source](https://github.com/SychicBoy/NETReactorSlayer).
+    * You need to download version for your CPU and extract it to `data/NETReactorSlayer.CLI`
+        * In case if you are on x64 host, then just run: `poetry run python utils/community.py -waf`
+    * Add execution permission with `chmod a+x data/NETReactorSlayer.CLI`
+* Now each section inside of `selfextract.conf` has timeout value. Default is 60 seconds
+
+### [24.12.2022]
+* Monitor updates: Fix NtAllocateVirtualMemoryEx & NtMapViewOfSectionEx hooks and rebuild with Visual Studio 2022
+
+### [2.12.2022]
+* Monitor updates: add 32-bit hook compatibility to allow hooking of GetCommandLine APIs (and add GetCommandLineA hook)
+
+### [17.11.2022]
+* QakBot config extraction update
+* Emotet detection & config extractor updates
+
+### [10.11.2022]
+* Monitor fixes:
+    * Fixes for CreateTimerQueueTimer hook affecting Emotet detonation
+    * Remove function name resolving via ScyllaGetExportNameByAddress() in thread & process hooks due to issues
+
+### [14.11.2022]
+* Monitor fixes:
+    * hook recursion issue in 64-bit monitor
+    * UNICODE_STRING comparison issue in add_all_dlls_to_dll_ranges()
+
+### [7.11.2022]
+* Monitor updates: misc fixes & improvements (see capemon repo for details)
+* Fix merging of split configs per family in CAPE processing module
+
+### [11.10.2022] Archive package
+* [archive package](https://github.com/kevoreilly/CAPEv2/blob/master/analyzer/windows/modules/packages/archive.py) by [@cccs-kevin](https://github.com/cccs-kevin) with a nice talk explaining how to detonate some kind of malware properly [here](https://youtu.be/-70Mlkmtdds?t=13013). Thank you Kevin and CCCS team for this contribution. [Documentation](https://capev2.readthedocs.io/en/latest/usage/packages.html).
+
+### [6.10.2022]
+* Some not core dependencies are commented out and won't be installed anympore by default.
+* Our idea is to leave CAPE core with core dependencies to avoid conflicts with another libraries.
+
+### [1-10-2022]
+* Monitor update: GetSystemInfo anti-vm improvement & 64-bit hooking engine fix
+
+### [24-9-2022]
+* Monitor update: Per-api total cap (api-cap=X) and Javascript (wscript) hookset
+
+### [17-9-2022]
+* Monitor update: misc fixes (see capemon repo for details)
+
+### [12-9-2022]
+* Monitor update: TLSdump on Win10 & other improvements (see capemon repo for details)
+
+### [2-9-2022]
+* Monitor update: Fix issue with incorrect prototype for NtCreateThreadEx hook
+
+### [28-08-2022] [Maco - Malware config extractor framework](https://github.com/CybercentreCanada/Maco)
+* [MACO foramt for malware configs](https://github.com/kevoreilly/CAPEv2/pull/1037)
+
+### [26-08-2022]
+* [Interactive mode](https://github.com/kevoreilly/CAPEv2/pull/1065) thanks to @enzok based on his [guac-session](https://github.com/enzok/guac-session/). [Docs](https://capev2.readthedocs.io/en/latest/usage/interactive_desktop.html)
+
+### [18-8-2022]
+* Function `yara_detected` now returns 4 arguments. 4th is file metadata
+
+### [17-8-2022]
+* Monitor updates:
+    * Enable enhanced .NET dumps
+    * Misc updates & fixes (see capemon repo)
+
+### [30-7-2022]
+* [Details here](https://github.com/kevoreilly/CAPEv2/pull/1020)
+* __ACTION REQUIRED__
+    * `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`
+    * Restart:
+        * CAPE service `systemctl restart cape cape-processor`
+        * Web: uwsgi or cape-web
+
+### [15-7-2022]
+* Monitor updates:
+    * MSI detonation (Win10)
+    * Misc updates & fixes (see capemon repo)
+
+### [11-7-2022]
+* FLARE-CAPA fix, you must install it from `GitHub`. Pip version is different.
+* FLOSS 2.0 integration.
+* BinGraph requires CAPE's version: `pip3 install git+https://github.com/CAPESandbox/binGraph`
+* `on_demand` fixed.
+* __ACTION REQUIRED__
+    * Now that CAPA and Floss uses the same signatures we renamed `capa-signatures` to `flare-signatures`
+    * `python3 utils/community.py -cr`
+
+### [15-6-2022]
+* [Azure machinery](https://github.com/kevoreilly/CAPEv2/pull/922) by @cccs-kevin
+
+### [8-6-2022]
+* Use poetry to handle dependencies
+    * requirements.txt is still present to continue support for pip
+* Added pre-commit hooks
+* Add community blocklist to avoid pulling some undesired modules/signatures/etc.
+
 ### [10-5-2022]
 * Added AWS machinery and ReversingLabs file lookup by @JaminB
 

@@ -1,13 +1,12 @@
-from __future__ import absolute_import
 import itertools
 import logging
 import os
+import subprocess
 import zipfile
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -34,9 +33,9 @@ class Evtx(Thread, Auxiliary):
             options = {}
         Thread.__init__(self)
         Auxiliary.__init__(self, options, config)
-        self.config = Config(cfg="analysis.conf")
-        self.enabled = self.config.evtx
-        self.do_run = self.enabled
+        self.enabled = config.evtx
+        self.startupinfo = subprocess.STARTUPINFO()
+        self.startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
     def enable_advanced_logging(self):
         """
@@ -175,7 +174,10 @@ class Evtx(Thread, Auxiliary):
                         f'auditpol /set /subcategory:"{subcategory}" /success:{settings["success"]} /failure:{settings["failure"]}'
                     )
                     log.debug("Enabling advanced logging -> %s", cmd)
-                    os.system(cmd)
+                    subprocess.call(
+                        cmd,
+                        startupinfo=self.startupinfo,
+                    )
                 except Exception as err:
                     log.error("Cannot enable advanced logging for subcategory %s - %s", subcategory, err)
 
@@ -212,7 +214,10 @@ class Evtx(Thread, Auxiliary):
             for evtx_channel in self.windows_logs:
                 cmd = f"wevtutil cl {evtx_channel}"
                 log.debug("Wiping %s", evtx_channel)
-                os.system(cmd)
+                subprocess.call(
+                    cmd,
+                    startupinfo=self.startupinfo,
+                )
         except Exception as err:
             log.error("Module error - %s", err)
 
@@ -226,5 +231,4 @@ class Evtx(Thread, Auxiliary):
     def stop(self):
         if self.enabled:
             self.collect_windows_logs()
-            return True
-        return False
+        return True

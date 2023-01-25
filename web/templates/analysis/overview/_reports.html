@@ -1,39 +1,34 @@
-<div class="card-header">
-    <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#reports"><i class="far fa-file-alt"></i> Reports</a></center>
-</div>
-<div id="reports" class="collapse">
-    <div class="container">
-        <div class="row">
+<div><center>
+    <i class="far fa-file-alt"></i> Reports:
             {% if config.jsondump %}
-                <div class="col-sm"><a  href="{% url "filereport" analysis.info.id "json" %}">JSON</a></div>
+                <a  href="{% url "filereport" analysis.info.id "json" %}">JSON </a>
             {% endif %}
             {% if config.reporthtml %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "html" %}">HTML</a></div>
+                <a href="{% url "filereport" analysis.info.id "html" %}">HTML</a>
             {% endif %}
             {% if config.reporthtmlsummary %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "htmlsummary" %}">HTML summary</a></div>
+                 <a href="{% url "filereport" analysis.info.id "htmlsummary" %}">HTML summary </a>
             {% endif %}
             {% if config.reportpdf %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "pdf" %}">PDF</a></div>
+               <a href="{% url "filereport" analysis.info.id "pdf" %}">PDF</a>
             {% endif %}
             {% if config.maec41 %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "maec" %}">MAEC</a></div>
+               <a href="{% url "filereport" analysis.info.id "maec" %}">MAEC</a>
             {% endif %}
             {% if config.maec5 %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "maec5" %}">MAEC5</a></div>
+               <a href="{% url "filereport" analysis.info.id "maec5" %}">MAEC5</a>
             {% endif %}
             {% if config.mmdef %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "metadata" %}">Metadata</a></div>
+               <a href="{% url "filereport" analysis.info.id "metadata" %}">Metadata</a>
             {% endif %}
             {% if config.misp %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "misp" %}">MISP</a></div>
+               <a href="{% url "filereport" analysis.info.id "misp" %}">MISP</a>
             {% endif %}
             {% if config.litereport %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "litereport" %}">Lite</a></div>
+               <a href="{% url "filereport" analysis.info.id "litereport" %}">Lite</a>
             {% endif %}
             {% if config.cents %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "cents" %}">CENTS</a></div>
+               <a href="{% url "filereport" analysis.info.id "cents" %}">CENTS</a>
             {% endif %}
-        </div>
-    </div>
+         </center>
 </div>

@@ -12,4 +12,4 @@ rule Lockbit
         $decode2 = {8A 44 24 ?? 30 44 0C ?? 41 83 F9 ?? 72 F2}
     condition:
         uint16(0) == 0x5A4D and (2 of them)
-} 
+}

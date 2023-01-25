@@ -36,7 +36,7 @@ def extract_config(filebuf):
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
-    with open(sys.argv[1], "rb") as f:
-        file_data = f.read()
-    print(extract_config(file_data))
+    data = Path(sys.argv[1]).read_bytes()
+    print(extract_config(data))

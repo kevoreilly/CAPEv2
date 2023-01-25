@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
 import errno
 import json
 import logging
@@ -20,7 +19,8 @@ from lib.cuckoo.common.abstracts import ProtocolHandler
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
-from lib.cuckoo.common.files import open_exclusive
+from lib.cuckoo.common.files import open_exclusive, open_inclusive
+from lib.cuckoo.common.path_utils import path_exists
 
 # from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import Singleton, create_folder, load_categories
@@ -47,11 +47,9 @@ BANNED_PATH_CHARS = b"\x00:"
 RESULT_UPLOADABLE = (
     b"CAPE",
     b"aux",
-    b"buffer",
     b"curtain",
     b"debugger",
     b"tlsdump",
-    b"extracted",
     b"files",
     b"memory",
     b"procdump",
@@ -118,7 +116,7 @@ class HandlerContext:
 
             if e.errno != errno.ECONNRESET:
                 raise
-            log.debug("Task #%s had connection reset for %s, error: %s", self.task_id, self, e)
+            log.debug("Task #%s had %s for %s", self.task_id, e.strerror.lower(), self)
             return b""
         except Exception as e:
             print(e)
@@ -202,19 +200,21 @@ class FileUpload(ProtocolHandler):
         else:
             filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
-        log.debug("Task #%s: File upload for %s", self.task_id, dump_path)
+        log.debug("Task #%s: Trying to upload file %s", self.task_id, dump_path.decode())
         if not duplicated:
             file_path = os.path.join(self.storagepath, dump_path.decode())
 
             try:
-                # open_exclusive will failing if file_path already exists
-                if not os.path.exists(file_path):
+                if file_path.endswith("_script.log"):
+                    self.fd = open_inclusive(file_path)
+                elif not path_exists(file_path):
+                    # open_exclusive will fail if file_path already exists
                     self.fd = open_exclusive(file_path)
             except OSError as e:
                 log.debug("File upload error for %s (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
                     raise CuckooOperationalError(
-                        f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}"
+                        "Task #%s: Analyzer tried to overwrite an existing file: %s" % (self.task_id, file_path)
                     )
                 raise
         # ToDo we need Windows path
@@ -242,7 +242,7 @@ class FileUpload(ProtocolHandler):
             try:
                 return self.handler.copy_to_fd(self.fd, self.upload_max_size)
             finally:
-                log.debug("Task #%s uploaded file length: %s", self.task_id, self.fd.tell())
+                log.debug("Task #%s: Uploaded file %s of length: %s", self.task_id, dump_path.decode(), self.fd.tell())
 
 
 class LogHandler(ProtocolHandler):
@@ -316,7 +316,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
     def add_task(self, task_id, ipaddr):
         with self.task_mgmt_lock:
             self.tasks[ipaddr] = task_id
-            log.debug("Now tracking machine %s for task #%s", ipaddr, task_id)
+            log.debug("Task #%s: The associated machine IP is %s", task_id, ipaddr)
 
     def del_task(self, task_id, ipaddr):
         """Delete ResultServer state and abort pending RequestHandlers. Since
@@ -327,32 +327,16 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             if self.tasks.pop(ipaddr, None) is None:
                 log.warning("ResultServer did not have a task with ID %s and IP %s", task_id, ipaddr)
             else:
-                log.debug("Stopped tracking machine %s for task #%s", ipaddr, task_id)
+                log.debug("Task #%s: Stopped tracking machine %s", task_id, ipaddr)
             ctxs = self.handlers.pop(task_id, set())
             for ctx in ctxs:
-                log.debug("Cancel %s for task %s", ctx, task_id)
+                log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
 
     def create_folders(self):
-        folders = (
-            "CAPE",
-            "aux",
-            "curtain",
-            "files",
-            "logs",
-            "memory",
-            "shots",
-            "sysmon",
-            "stap",
-            "procdump",
-            "debugger",
-            "tlsdump",
-            "evtx",
-        )
-
-        for folder in folders:
+        for folder in list(RESULT_UPLOADABLE) + [b"logs"]:
             try:
-                create_folder(self.storagepath, folder=folder)
+                create_folder(self.storagepath, folder=folder.decode())
             except Exception as e:
                 log.error(e, exc_info=True)
             # ToDo

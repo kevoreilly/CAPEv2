@@ -2,14 +2,17 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
 import copy
+import getpass as gt
 import logging
 import logging.handlers
 import os
 import platform
+import re
 import socket
 import sys
+from contextlib import suppress
+from pathlib import Path
 
 import modules.auxiliary
 import modules.feeds
@@ -21,8 +24,10 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import create_folders
 from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
+from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns
 
@@ -41,31 +46,48 @@ log = logging.getLogger()
 cuckoo = Config()
 routing = Config("routing")
 repconf = Config("reporting")
+dist_conf = Config("distributed")
 
 
 def check_python_version():
     """Checks if Python version is supported by Cuckoo.
     @raise CuckooStartupError: if version is not supported.
     """
-    if sys.version_info[:2] < (3, 6):
-        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.6")
+    if sys.version_info[:2] < (3, 8):
+        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.8")
+
+
+def check_user_permissions(as_root: bool = False):
+
+    if as_root:
+        log.warning("You running part of CAPE as non 'cape' user! That breaks permissions on temp folder and log folder.")
+        return
+    if gt.getuser() != "cape":
+        raise CuckooStartupError(
+            f"Running as not 'cape' user breaks permissions! Run with cape user! Also fix permission on tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}"
+        )
+
+    # Check permission for tmp folder
+    if cuckoo.cuckoo.tmppath and not os.access(cuckoo.cuckoo.tmppath, os.W_OK):
+        raise CuckooStartupError(
+            f"Fix permission on\n tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}"
+        )
 
 
 def check_working_directory():
     """Checks if working directories are ready.
     @raise CuckooStartupError: if directories are not properly configured.
     """
-    if not os.path.exists(CUCKOO_ROOT):
+    if not path_exists(CUCKOO_ROOT):
         raise CuckooStartupError(f"You specified a non-existing root directory: {CUCKOO_ROOT}")
 
-    cwd = os.path.join(os.getcwd(), "cuckoo.py")
-    if not os.path.exists(cwd):
+    cwd = Path.cwd() / "cuckoo.py"
+    if not path_exists(cwd):
         raise CuckooStartupError("You are not running Cuckoo from it's root directory")
 
     # Check permission for tmpfs if enabled
     if cuckoo.tmpfs.enabled and not os.access(cuckoo.tmpfs.path, os.W_OK):
-        username = os.getlogin()
-        raise CuckooStartupError(f"Fix permission on tmpfs path: chown {username}:{username} {cuckoo.tmpfs.path}")
+        raise CuckooStartupError(f"Fix permission on tmpfs path: chown cape:cape {cuckoo.tmpfs.path}")
 
 
 def check_webgui_mongo():
@@ -94,7 +116,7 @@ def check_configs():
     ]
 
     for config in configs:
-        if not os.path.exists(config):
+        if not path_exists(config):
             raise CuckooStartupError(f"Config file does not exist at path: {config}")
 
     if cuckoo.resultserver.ip in ("127.0.0.1", "localhost"):
@@ -111,12 +133,15 @@ def create_structure():
         os.path.join("storage", "analyses"),
         os.path.join("storage", "binaries"),
         os.path.join("data", "feeds"),
+        os.path.join("storage", "guacrecordings"),
     ]
 
     try:
         create_folders(root=CUCKOO_ROOT, folders=folders)
     except CuckooOperationalError as e:
-        raise CuckooStartupError(e)
+        raise CuckooStartupError(
+            "Can't create folders. Ensure that you executed CAPE with proper USER! Maybe should be cape user?. %s", str(e)
+        )
 
 
 class DatabaseHandler(logging.Handler):
@@ -138,7 +163,7 @@ class ConsoleHandler(logging.StreamHandler):
 
         if record.levelname == "WARNING":
             colored.msg = yellow(record.msg)
-        elif record.levelname == "ERROR" or record.levelname == "CRITICAL":
+        elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
             if "analysis procedure completed" in record.msg:
@@ -151,19 +176,22 @@ class ConsoleHandler(logging.StreamHandler):
 
 def check_linux_dist():
     ubuntu_versions = ("18.04", "20.04", "22.04")
-    try:
+    with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
             log.info(
                 f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS {ubuntu_versions}"
             )
-    except AttributeError:
-        pass
 
 
-def init_logging():
-    """Initializes logging."""
+def init_logging(level: int):
+    """Initializes logging.
+    @param level: The logging level for the console logs
+    """
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+
+    init_logger("console", level)
+    init_logger("database")
 
     if cuckoo.log_rotation.enabled:
         days = cuckoo.log_rotation.backup_count or 7
@@ -175,15 +203,7 @@ def init_logging():
     fh.setFormatter(formatter)
     log.addHandler(fh)
 
-    ch = ConsoleHandler()
-    ch.setFormatter(formatter)
-    log.addHandler(ch)
-
-    dh = DatabaseHandler()
-    dh.setLevel(logging.ERROR)
-    log.addHandler(dh)
-
-    log.setLevel(logging.INFO)
+    init_logger("task")
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
@@ -263,7 +283,7 @@ def init_yara():
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
-        if not os.path.exists(category_root):
+        if not path_exists(category_root):
             log.warning("Missing Yara directory: %s?", category_root)
             continue
 
@@ -285,7 +305,7 @@ def init_yara():
                 File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
                 break
             except yara.SyntaxError as e:
-                bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
+                bad_rule = re.match(r"(.+)\(\d+\):", str(e))[1]
                 log.debug("Trying to delete bad rule: %s", bad_rule)
                 if os.path.basename(bad_rule) in indexed:
                     for k, v in rules.items():
@@ -404,7 +424,8 @@ def init_routing():
             #   f"The network interface that has been configured for VPN {entry.name} is not available"
             # )
             #    add = 0
-            if not rooter("rt_available", entry.rt_table):
+            is_rt_available = rooter("rt_available", entry.rt_table)["output"]
+            if not is_rt_available:
                 raise CuckooStartupError(f"The routing table that has been configured for VPN {entry.name} is not available")
             vpns[entry.name] = entry
 
@@ -419,7 +440,7 @@ def init_routing():
                 rooter("init_rttable", entry.rt_table, entry.interface)
 
     # If we are storage and webgui only but using as default route one of the workers exitnodes
-    if repconf.distributed.master_storage_only:
+    if dist_conf.distributed.master_storage_only:
         return
 
     # Check whether the default VPN exists if specified.
@@ -436,10 +457,12 @@ def init_routing():
 
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":
-        if not rooter("nic_available", routing.routing.internet):
+        is_nic_available = rooter("nic_available", routing.routing.internet)["output"]
+        if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as dirty line is not available")
 
-        if not rooter("rt_available", routing.routing.rt_table):
+        is_rt_available = rooter("rt_available", routing.routing.rt_table)["output"]
+        if not is_rt_available:
             raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
@@ -454,7 +477,8 @@ def init_routing():
 
     # Check if tor interface exists, if yes then enable nat
     if routing.tor.enabled and routing.tor.interface:
-        if not rooter("nic_available", routing.tor.interface):
+        is_nic_available = rooter("nic_available", routing.tor.interface)["output"]
+        if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as tor line is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
@@ -471,7 +495,8 @@ def init_routing():
     # if routing.inetsim.interface and cuckoo.routing.inetsim_interface !=  routing.tor.interface:
     # Check if inetsim interface exists, if yes then enable nat
     if routing.inetsim.enabled and routing.inetsim.interface:
-        if not rooter("nic_available", routing.inetsim.interface):
+        is_nic_available = rooter("nic_available", routing.inetsim.interface)["output"]
+        if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as inetsim line is not available")
 
         # Disable & enable NAT on this network interface. Disable it just

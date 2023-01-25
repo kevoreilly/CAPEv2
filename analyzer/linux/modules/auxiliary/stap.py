@@ -2,15 +2,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 import subprocess
-import time
+import timeit
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -20,11 +18,16 @@ class STAP(Auxiliary):
 
     priority = -10  # low prio to wrap tightly around the analysis
 
-    def __init__(self, options={}, analyzer=None):
-        self.config = Config(cfg="analysis.conf")
+    def __init__(self, options, config):
+        Auxiliary.__init__(self, options, config)
+        self.config = config
+        self.enabled = self.config.stap
         self.proc = None
 
     def start(self):
+        if not self.enabled:
+            return False
+
         # helper function locating the stap module
         def has_stap(p):
             for fn in os.listdir(p):
@@ -45,7 +48,7 @@ class STAP(Auxiliary):
             log.warning("Could not find STAP LKM, aborting systemtap analysis")
             return False
 
-        stap_start = time.time()
+        stap_start = timeit.default_timer()
         self.proc = subprocess.Popen(
             [
                 "staprun",
@@ -65,11 +68,15 @@ class STAP(Auxiliary):
         self.proc.terminate()
         self.proc.wait()
 
-        stap_stop = time.time()
+        stap_stop = timeit.default_timer()
         log.info("STAP aux module startup took %.2f seconds", stap_stop - stap_start)
+
         return True
 
     def stop(self):
+        if not self.enabled:
+            return False
+
         try:
             r = self.proc.poll()
             log.debug("stap subprocess retval %d", r)
@@ -77,4 +84,4 @@ class STAP(Auxiliary):
         except Exception as e:
             log.warning("Exception killing stap: %s", e)
 
-        upload_to_host("stap.log", "stap/stap.log", False)
+        upload_to_host("stap.log", "stap/stap.log", True)

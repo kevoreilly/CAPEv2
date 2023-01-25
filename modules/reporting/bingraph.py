@@ -2,12 +2,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 reporting_conf = Config("reporting")
 
@@ -62,8 +62,8 @@ class BinGraph(Report):
     def run(self, results):
         if HAVE_BINGRAPH and reporting_conf.bingraph.enabled and not reporting_conf.bingraph.on_demand:
             bingraph_path = os.path.join(self.analysis_path, "bingraph")
-            if not os.path.exists(bingraph_path):
-                os.makedirs(bingraph_path)
+            if not path_exists(bingraph_path):
+                path_mkdir(bingraph_path)
             try:
                 if not os.listdir(bingraph_path) and results.get("target", {}).get("file", {}).get("sha256", False):
                     bingraph_args_dict.update(
@@ -81,7 +81,7 @@ class BinGraph(Report):
                     if (
                         block.get("size", 0) != 0
                         and block.get("type", "") not in excluded_filetypes
-                        and not os.path.exists(os.path.join(bingraph_path, f"{block['sha256']}-ent.svg"))
+                        and not path_exists(os.path.join(bingraph_path, f"{block['sha256']}-ent.svg"))
                     ):
                         path = ""
                         if block.get("file", False):
@@ -100,7 +100,7 @@ class BinGraph(Report):
                     if (
                         block.get("size", 0) != 0
                         and block.get("type", "") not in excluded_filetypes
-                        and not os.path.exists(os.path.join(bingraph_path, f"{block['sha256']}-ent.svg"))
+                        and not path_exists(os.path.join(bingraph_path, f"{block['sha256']}-ent.svg"))
                     ):
                         path = ""
                         if block.get("file", False):

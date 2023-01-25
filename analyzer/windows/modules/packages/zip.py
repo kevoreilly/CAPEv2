@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 import shutil
@@ -119,13 +118,13 @@ class Zip(Package):
         password = self.options.get("password", "")
         appdata = self.options.get("appdata")
         root = os.environ["APPDATA"] if appdata else os.environ["TEMP"]
-        exe_regex = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
+        exe_regex = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1)$", flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
 
         file_name = self.options.get("file")
         # If no file name is provided via option, take the first file.
-        if file_name is None:
+        if not file_name:
             # No name provided try to find a better name.
             if not len(zipinfos):
                 raise CuckooPackageError("Empty ZIP archive")

@@ -60,10 +60,13 @@ def extract_config(filebuf):
                         decrypted_data = ARC4.new(key).decrypt(enc_config)
                         config = list(filter(None, decrypted_data.split(b"\x00")))
                         return {
-                            "Bot ID": str(struct.unpack("I", decrypted_data[:4])[0]),
-                            "Minor Version": str(struct.unpack("I", decrypted_data[4:8])[0]),
-                            "Path": config[1],
-                            "address": [controller[1:] for controller in config[2:]],
+                            "family": "IcedID",
+                            "version": str(struct.unpack("I", decrypted_data[4:8])[0]),
+                            "paths": [{"path": config[1].decode(), "usage": "other"}],
+                            "http": [{"uri": controller[1:].decode()} for controller in config[2:]],
+                            "other": {
+                                "Bot ID": str(struct.unpack("I", decrypted_data[:4])[0]),
+                            },
                         }
             except Exception as e:
                 log.error("Error: %s", e)

@@ -1,0 +1,7 @@
+{
+    "path_to_extract":{
+        "a.exe":"%USERPROFILE%\\Desktop\\a\\b\\c",
+        "folder_b": "%appdata%"
+    },
+    "target_file":"a.exe"
+}

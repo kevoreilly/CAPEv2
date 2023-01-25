@@ -3,7 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import gc
+import json
 import logging
+from contextlib import suppress
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Report
@@ -17,7 +19,7 @@ if repconf.elasticsearchdb.enabled:
         from elasticsearch.exceptions import AuthorizationException, ConnectionError, RequestError
 
         from dev_utils.elasticsearchdb import (
-            ANALYSIS_INDEX_MAPPING,
+            ANALYSIS_INDEX_MAPPING_SETTINGS,
             daily_analysis_index_exists,
             daily_calls_index_exists,
             delete_analysis_and_related_calls,
@@ -58,7 +60,10 @@ class ElasticSearchDB(Report):
         try:
             log.debug("Check if the index exists")
             if not daily_analysis_index_exists():
-                self.es.indices.create(index=get_daily_analysis_index(), body=ANALYSIS_INDEX_MAPPING)
+                self.es.indices.create(
+                    index=get_daily_analysis_index(),
+                    body=ANALYSIS_INDEX_MAPPING_SETTINGS,
+                )
         except (RequestError, AuthorizationException) as e:
             raise CuckooDependencyError(f"Unable to create Elasticsearch index {e}")
 
@@ -71,10 +76,71 @@ class ElasticSearchDB(Report):
             raise CuckooDependencyError(f"Unable to create Elasticsearch index {e}")
 
     def format_dates(self, report):
-        report["info"]["started"] = datetime.strptime(report["info"]["started"], "%Y-%m-%d %H:%M:%S")
-        report["info"]["ended"] = datetime.strptime(report["info"]["ended"], "%Y-%m-%d %H:%M:%S")
-        report["info"]["machine"]["started_on"] = datetime.strptime(report["info"]["machine"]["started_on"], "%Y-%m-%d %H:%M:%S")
-        report["info"]["machine"]["shutdown_on"] = datetime.strptime(report["info"]["machine"]["shutdown_on"], "%Y-%m-%d %H:%M:%S")
+        info = report["info"]
+
+        report["info"]["started"] = (
+            datetime.strptime(info["started"], "%Y-%m-%d %H:%M:%S") if isinstance(info["started"], str) else info["started"]
+        )
+        report["info"]["ended"] = (
+            datetime.strptime(info["ended"], "%Y-%m-%d %H:%M:%S") if isinstance(info["ended"], str) else info["ended"]
+        )
+        report["info"]["machine"]["started_on"] = (
+            datetime.strptime(info["machine"]["started_on"], "%Y-%m-%d %H:%M:%S")
+            if isinstance(info["machine"]["started_on"], str)
+            else info["machine"]["started_on"]
+        )
+        report["info"]["machine"]["shutdown_on"] = (
+            datetime.strptime(info["machine"]["shutdown_on"], "%Y-%m-%d %H:%M:%S")
+            if isinstance(info["machine"]["shutdown_on"], str)
+            else info["machine"]["shutdown_on"]
+        )
+
+        for dropped in report["dropped"]:
+            if "pe" in dropped:
+                dropped["pe"]["timestamp"] = datetime.strptime(dropped["pe"]["timestamp"], "%Y-%m-%d %H:%M:%S")
+
+    # Fix signatures from string to list in order to have a common mapping
+    def fix_signature_results(self, report):
+        for s in report["signatures"]:
+            for f in s["data"]:
+                for k, val in f.items():
+                    if isinstance(val, (str, bool)):
+                        f[k] = {"name": str(val)}
+                    if k == "file" and isinstance(val, list):
+                        for index, file in enumerate(val):
+                            val[index] = {"name": file}
+
+    def fix_suricata_http_status(self, report):
+        if "http" in report["suricata"]:
+            for http in report["suricata"]["http"]:
+                if http["status"] == "None":
+                    http["status"] = None
+
+    def fix_cape_payloads(self, report):
+        if "CAPE" in report:
+            for p in report["CAPE"]["payloads"]:
+                if p["tlsh"] is False:
+                    p["tlsh"] = None
+
+    def convert_procdump_strings_to_str(self, report):
+        if "procdump" in report and report["procdump"]:
+            for item in report["procdump"]:
+                for k, val in item.items():
+                    if k == "strings":
+                        for index, string in enumerate(val):
+                            val[index] = str(string)
+
+    def fix_fields(self, report):
+        self.fix_suricata_http_status(report)
+        self.fix_signature_results(report)
+        self.fix_cape_payloads(report)
+        self.convert_procdump_strings_to_str(report)
+
+    def date_hook(self, json_dict):
+        for (key, value) in json_dict.items():
+            with suppress(Exception):
+                json_dict[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        return json_dict
 
     def run(self, results):
         """Writes report.
@@ -96,6 +162,8 @@ class ElasticSearchDB(Report):
         # the original dictionary and possibly compromise the following
         # reporting modules.
         report = get_json_document(results, self.analysis_path)
+        self.fix_fields(report)
+        report = json.loads(json.dumps(report, default=str), object_hook=self.date_hook)
         new_processes = insert_calls(report, elastic_db=elastic_handler)
 
         # Store the results in the report.

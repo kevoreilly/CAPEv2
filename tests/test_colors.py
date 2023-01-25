@@ -2,8 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-
 from lib.cuckoo.common.colors import black, blue, bold, color, cyan, green, magenta, red, white, yellow  # noqa: F401
 
 

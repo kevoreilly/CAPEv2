@@ -2,12 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import codecs
-import os
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.core.database import Database
 
 
@@ -21,7 +20,7 @@ class Debug(Processing):
         self.key = "debug"
         debug = {"log": "", "errors": []}
 
-        if os.path.exists(self.log_path):
+        if path_exists(self.log_path):
             try:
                 debug["log"] = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:

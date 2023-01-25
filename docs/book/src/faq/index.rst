@@ -78,6 +78,9 @@ the development and fixing of actual bugs.
     * Spend some of your own time trying fixing the issues before asking ours, you
       might even get to learn and understand CAPE better.
 
+.. _`Community`: https://github.com/kevoreilly/community
+.. _`Google`: https://www.google.com/
+
 Long story short: use the existing resources, put some efforts into it and don't
 abuse people.
 

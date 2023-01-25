@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import shutil
 
@@ -19,7 +18,7 @@ class HTML(Package):
     ]
 
     def start(self, path):
-        iexplore = self.get_path("browser")
+        iexplore = self.get_path("iexplore.exe")
 
         # Travelling inside malware universe you should bring a towel with you.
         # If a file detected as HTML is submitted without a proper extension,

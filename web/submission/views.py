@@ -3,25 +3,27 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
 import logging
 import os
 import random
 import sys
 import tempfile
+from base64 import urlsafe_b64encode
+from contextlib import suppress
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 sys.path.append(settings.CUCKOO_PATH)
+from uuid import NAMESPACE_DNS, uuid3
+
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
-from lib.cuckoo.common.utils import generate_fake_name, get_options, get_user_filename, sanitize_filename, store_temp_file
+from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
-    _download_file,
     all_nodes_exits_list,
     all_vms_tags,
     download_file,
@@ -29,6 +31,8 @@ from lib.cuckoo.common.web_utils import (
     get_file_content,
     parse_request_arguments,
     perform_search,
+    process_new_dlnexec_task,
+    process_new_task_files,
 )
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
@@ -65,9 +69,7 @@ def get_form_data(platform):
     # Prepare a list of VM names, description label based on tags.
     machines = []
     for machine in db.list_machines():
-        tags = []
-        for tag in machine.tags:
-            tags.append(tag.name)
+        tags = [tag.name for tag in machine.tags]
 
         label = f"{machine.label}:{machine.arch}"
         if tags:
@@ -110,12 +112,12 @@ def force_int(value):
 def get_platform(magic):
     if magic and any(x in magic for x in VALID_LINUX_TYPES):
         return "linux"
-    else:
-        return "windows"
+    return "windows"
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def index(request, resubmit_hash=False):
+def index(request, task_id=None, resubmit_hash=None):
+    remote_console = False
     if request.method == "POST":
 
         (
@@ -167,6 +169,12 @@ def index(request, resubmit_hash=False):
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
 
+        if web_conf.guacamole.enabled and request.POST.get("interactive_desktop"):
+            remote_console = True
+            options += "interactive_desktop=yes,"
+            if "nohuman=yes," not in options:
+                options += "nohuman=yes,"
+
         if request.POST.get("tor"):
             options += "tor=yes,"
 
@@ -193,6 +201,10 @@ def index(request, resubmit_hash=False):
 
         if request.POST.get("unpack"):
             options += "unpack=yes,"
+
+        job_category = False
+        if request.POST.get("job_category"):
+            job_category = request.POST.get("job_category")
 
         # amsidump is enabled by default in the monitor for Win10+
         if web_conf.amsidump.enabled and not request.POST.get("amsidump"):
@@ -223,25 +235,73 @@ def index(request, resubmit_hash=False):
             "only_extraction": False,
             "user_id": request.user.id or 0,
         }
-
+        task_category = False
+        samples = []
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
-            for hash in request.POST.get("hash").strip().split(","):
+            task_category = "resubmit"
+            samples = request.POST.get("hash").strip().split(",")
+        elif "sample" in request.FILES:
+            task_category = "sample"
+            samples = request.FILES.getlist("sample")
+        elif "quarantine" in request.FILES:
+            task_category = "quarantine"
+            samples = request.FILES.getlist("quarantine")
+        elif "static" in request.FILES:
+            task_category = "static"
+            samples = request.FILES.getlist("static")
+        elif "pcap" in request.FILES:
+            task_category = "pcap"
+            samples = request.FILES.getlist("pcap")
+        elif "url" in request.POST and request.POST.get("url").strip():
+            task_category = "url"
+            samples = request.POST.get("url").strip()
+        elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
+            task_category = "dlnexec"
+            samples = request.POST.get("dlnexec").strip()
+        elif (
+            settings.VTDL_ENABLED
+            and "vtdl" in request.POST
+            and request.POST.get("vtdl", False)
+            and request.POST.get("vtdl")[0] != ""
+        ):
+            task_category = "vtdl"
+            samples = request.POST.get("vtdl").strip()
+
+        list_of_tasks = []
+        if task_category in ("url", "dlnexec"):
+            if not samples:
+                return render(request, "error.html", {"error": "You specified an invalid URL!"})
+
+            for url in samples.split(","):
+                url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
+                if task_category == "dlnexec":
+                    path, content, sha256 = process_new_dlnexec_task(url, route, options, custom)
+                    if path:
+                        list_of_tasks.append((content, path, sha256, None))
+                elif task_category == "url":
+                    list_of_tasks.append(("", url, "", None))
+
+        elif task_category in ("sample", "quarantine", "static", "pcap"):
+            list_of_tasks, details = process_new_task_files(request, samples, details, opt_filename, unique)
+
+        elif task_category == "resubmit":
+            for hash in samples:
                 paths = []
                 if len(hash) in (32, 40, 64):
                     paths = db.sample_path_by_hash(hash)
                 else:
-                    task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(hash), "binary")
-                    if os.path.exists(task_binary):
+                    task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "binary")
+                    if path_exists(task_binary):
                         paths.append(task_binary)
                     else:
-                        tmp_paths = db.find_sample(task_id=int(hash))
+                        tmp_paths = db.find_sample(task_id=task_id)
                         if not tmp_paths:
                             details["errors"].append({hash: "Task not found for resubmission"})
                             continue
                         for tmp_sample in tmp_paths:
                             path = False
                             tmp_dict = tmp_sample.to_dict()
-                            if os.path.exists(tmp_dict.get("target", "")):
+                            if path_exists(tmp_dict.get("target", "")):
                                 path = tmp_dict["target"]
                             else:
                                 tmp_tasks = db.find_sample(sample_id=tmp_dict["sample_id"])
@@ -249,11 +309,18 @@ def index(request, resubmit_hash=False):
                                     tmp_path = os.path.join(
                                         settings.CUCKOO_PATH, "storage", "binaries", tmp_task.to_dict()["sha256"]
                                     )
-                                    if os.path.exists(tmp_path):
+                                    if path_exists(tmp_path):
                                         path = tmp_path
                                         break
                             if path:
                                 paths.append(path)
+
+                if not paths:
+                    # Self Extracted support folder
+                    path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "selfextracted", hash)
+                    if path_exists(path):
+                        paths.append(path)
+
                 if not paths:
                     details["errors"].append({hash: "File not found on hdd for resubmission"})
                     continue
@@ -263,14 +330,22 @@ def index(request, resubmit_hash=False):
                     details["errors"].append({hash: f"Can't find {hash} on disk"})
                     continue
                 folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
-                if not os.path.exists(folder):
-                    os.makedirs(folder)
+                if not path_exists(folder):
+                    path_mkdir(folder)
                 base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=folder)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
                     filename = base_dir + "/" + sanitize_filename(hash)
                 path = store_temp_file(content, filename)
+                list_of_tasks.append((content, path, hash, None))
+
+        # Hack for resubmit first find all files and then put task as proper category
+        if job_category and job_category in ("resubmit", "sample", "quarantine", "static", "pcap", "dlnexec", "vtdl"):
+            task_category = job_category
+
+        if task_category == "resubmit":
+            for content, path, sha256, _ in list_of_tasks:
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
@@ -283,45 +358,25 @@ def index(request, resubmit_hash=False):
                         for record in records or []:
                             existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
 
-        elif "sample" in request.FILES:
-            samples = request.FILES.getlist("sample")
+        elif task_category == "sample":
             details["service"] = "WebGUI"
-            for sample in samples:
-                # Error if there was only one submitted sample and it's empty.
-                # But if there are multiple and one was empty, just ignore it.
-                if not sample.size:
-                    details["errors"].append({sample.name: "You uploaded an empty file."})
-                    continue
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    details["errors"].append(
-                        {
-                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        }
-                    )
-                    continue
+            for content, path, sha256, sample_parent_id in list_of_tasks:
+                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
+                    pre_script = request.FILES["pre_script"]
+                    details["pre_script_name"] = request.FILES["pre_script"].name
+                    details["pre_script_content"] = pre_script.read()
 
-                if opt_filename:
-                    filename = opt_filename
-                else:
-                    filename = sanitize_filename(sample.name)
-                # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
-                path = store_temp_file(sample.read(), filename)
-                sha256 = File(path).get_sha256()
-                if (
-                    not request.user.is_staff
-                    and (web_conf.uniq_submission.enabled or unique)
-                    and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours)
-                ):
-                    details["errors"].append(
-                        {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
-                    )
-                    continue
+                if web_conf.during_script.enabled and "during_script" in request.FILES:
+                    during_script = request.FILES["during_script"]
+                    details["during_script_name"] = request.FILES["during_script"].name
+                    details["during_script_content"] = during_script.read()
 
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
+                details["sample_parent_id"] = sample_parent_id
                 details["path"] = path
-                details["content"] = get_file_content(path)
+                details["content"] = content
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(path): task_ids_tmp})
@@ -333,184 +388,105 @@ def index(request, resubmit_hash=False):
                                 existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
                     details["task_ids"] = task_ids_tmp
 
-        elif "quarantine" in request.FILES:
-            samples = request.FILES.getlist("quarantine")
-            for sample in samples:
-                # Error if there was only one submitted sample and it's empty.
-                # But if there are multiple and one was empty, just ignore it.
-                if not sample.size:
-                    if len(samples) != 1:
-                        continue
-
-                    return render(request, "error.html", {"error": "You uploaded an empty quarantine file."})
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(
-                        request,
-                        "error.html",
-                        {
-                            "error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        },
-                    )
-
-                # Moving sample from django temporary file to Cuckoo temporary storage to
-                # let it persist between reboot (if user like to configure it in that way).
-                filename = sanitize_filename(sample.name)
-                tmp_path = store_temp_file(sample.read(), filename)
-
+        elif task_category == "quarantine":
+            for content, tmp_path, sha256, _ in list_of_tasks:
                 path = unquarantine(tmp_path)
                 try:
-                    os.remove(tmp_path)
+                    path_delete(tmp_path)
                 except Exception as e:
                     print(e)
 
                 if not path:
-                    return render(request, "error.html", {"error": "You uploaded an unsupported quarantine file."})
+                    details["errors"].append({os.path.basename(path): "You uploaded an unsupported quarantine file."})
+                    continue
 
                 details["path"] = path
-                details["content"] = get_file_content(path)
+                details["content"] = content
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
-                    details["errors"].append({sample.name: task_ids_tmp})
+                    details["errors"].append({os.path.basename(path): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
 
-        elif "static" in request.FILES:
-            samples = request.FILES.getlist("static")
-            for sample in samples:
-                if not sample.size:
-                    if len(samples) != 1:
-                        continue
-
-                    return render(request, "error.html", {"error": "You uploaded an empty file."})
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(
-                        request,
-                        "error.html",
-                        {"error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."},
-                    )
-
-                # Moving sample from django temporary file to Cuckoo temporary storage to
-                # let it persist between reboot (if user like to configure it in that way).
-                path = store_temp_file(sample.read(), sample.name)
-
+        elif task_category == "static":
+            for content, path, sha256, sample_parent_id in list_of_tasks:
                 task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
+                details["sample_parent_id"] = sample_parent_id
 
-        elif "pcap" in request.FILES:
-            samples = request.FILES.getlist("pcap")
-            for sample in samples:
-                if not sample.size:
-                    if len(samples) != 1:
-                        continue
-
-                    return render(request, "error.html", {"error": "You uploaded an empty PCAP file."})
-                elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(
-                        request,
-                        "error.html",
-                        {
-                            "error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        },
-                    )
-
-                # Moving sample from django temporary file to Cuckoo temporary storage to
-                # let it persist between reboot (if user like to configure it in that way).
-                path = store_temp_file(sample.read(), sample.name)
-
-                if sample.name.lower().endswith(".saz"):
+        elif task_category == "pcap":
+            for content, path, sha256, _ in list_of_tasks:
+                if path.lower().endswith(b".saz"):
                     saz = saz_to_pcap(path)
                     if saz:
-                        try:
-                            os.remove(path)
-                        except Exception as e:
-                            pass
+                        with suppress(Exception):
+                            path_delete(path)
                         path = saz
                     else:
-                        return render(request, "error.html", {"error": "Conversion from SAZ to PCAP failed."})
+                        details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
+                        continue
 
                 task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if task_id:
                     details["task_ids"].append(task_id)
 
-        elif "url" in request.POST and request.POST.get("url").strip():
-            url = request.POST.get("url").strip()
-            if not url:
-                return render(request, "error.html", {"error": "You specified an invalid URL!"})
+        elif task_category == "url":
+            for _, url, _, _ in list_of_tasks:
+                if machine.lower() == "all":
+                    machines = [vm.name for vm in db.list_machines(platform=platform)]
+                elif machine:
+                    machine_details = db.view_machine(machine)
+                    if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
+                        details["errors"].append(
+                            {os.path.basename(url): f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"}
+                        )
+                        continue
+                    else:
+                        machines = [machine]
 
-            url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-
-            if machine.lower() == "all":
-                machines = [vm.name for vm in db.list_machines(platform=platform)]
-            elif machine:
-                machine_details = db.view_machine(machine)
-                if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                    return render(
-                        request,
-                        "error.html",
-                        {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
-                    )
                 else:
-                    machines = [machine]
+                    machines = [None]
+                for entry in machines:
+                    task_id = db.add_url(
+                        url=url,
+                        package=package,
+                        timeout=timeout,
+                        priority=priority,
+                        options=options,
+                        machine=entry,
+                        platform=platform,
+                        tags=tags,
+                        custom=custom,
+                        memory=memory,
+                        enforce_timeout=enforce_timeout,
+                        clock=clock,
+                        shrike_url=shrike_url,
+                        shrike_msg=shrike_msg,
+                        shrike_sid=shrike_sid,
+                        shrike_refer=shrike_refer,
+                        route=route,
+                        cape=cape,
+                        tags_tasks=tags_tasks,
+                        user_id=request.user.id or 0,
+                    )
+                    details["task_ids"].append(task_id)
 
-            else:
-                machines = [None]
-            for entry in machines:
-                task_id = db.add_url(
-                    url=url,
-                    package=package,
-                    timeout=timeout,
-                    priority=priority,
-                    options=options,
-                    machine=entry,
-                    platform=platform,
-                    tags=tags,
-                    custom=custom,
-                    memory=memory,
-                    enforce_timeout=enforce_timeout,
-                    clock=clock,
-                    shrike_url=shrike_url,
-                    shrike_msg=shrike_msg,
-                    shrike_sid=shrike_sid,
-                    shrike_refer=shrike_refer,
-                    route=route,
-                    cape=cape,
-                    tags_tasks=tags_tasks,
-                    user_id=request.user.id or 0,
-                )
-                details["task_ids"].append(task_id)
+        elif task_category == "dlnexec":
+            for content, path, sha256, sample_parent_id in list_of_tasks:
+                details["sample_parent_id"] = sample_parent_id
+                details["path"] = path
+                details["content"] = content
+                details["service"] = "DLnExec"
+                details["source_url"] = samples
+                status, task_ids_tmp = download_file(**details)
+                if status == "error":
+                    details["errors"].append({os.path.basename(path): task_ids_tmp})
+                else:
+                    details["task_ids"] = task_ids_tmp
 
-        elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
-            url = request.POST.get("dlnexec").strip()
-            if not url:
-                return render(request, "error.html", {"error": "You specified an invalid URL!"})
-
-            url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-            response = _download_file(request.POST.get("route"), url, options)
-            if not response:
-                return render(request, "error.html", {"error": "Was impossible to retrieve url"})
-
-            name = os.path.basename(url)
-            if not "." in name:
-                name = get_user_filename(options, custom) or generate_fake_name()
-
-            path = store_temp_file(response, name)
-            details["path"] = path
-            details["content"] = get_file_content(path)
-            details["service"] = "DLnExec"
-            details["source_url"] = url
-            status, task_ids_tmp = download_file(**details)
-            if status == "error":
-                details["errors"].append({name: task_ids_tmp})
-            else:
-                details["task_ids"] = task_ids_tmp
-        elif (
-            settings.VTDL_ENABLED
-            and "vtdl" in request.POST
-            and request.POST.get("vtdl", False)
-            and request.POST.get("vtdl")[0] != ""
-        ):
+        elif task_category == "vtdl":
             if not settings.VTDL_KEY or not settings.VTDL_PATH:
                 return render(
                     request,
@@ -522,7 +498,7 @@ def index(request, resubmit_hash=False):
             else:
                 if opt_apikey:
                     details["apikey"] = opt_apikey
-                details = download_from_vt(request.POST.get("vtdl").strip(), details, opt_filename, settings)
+                details = download_from_vt(samples, details, opt_filename, settings)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])
@@ -534,6 +510,7 @@ def index(request, resubmit_hash=False):
                 "tasks_count": tasks_count,
                 "errors": details["errors"],
                 "existent_tasks": existent_tasks,
+                "remote_console": remote_console,
             }
             return render(request, "submission/complete.html", data)
         else:
@@ -552,6 +529,8 @@ def index(request, resubmit_hash=False):
         enabledconf["tlp"] = web_conf.tlp.enabled
         enabledconf["timeout"] = cfg.timeouts.default
         enabledconf["amsidump"] = web_conf.amsidump.enabled
+        enabledconf["pre_script"] = web_conf.pre_script.enabled
+        enabledconf["during_script"] = web_conf.during_script.enabled
 
         if all_vms_tags:
             enabledconf["tags"] = True
@@ -568,7 +547,7 @@ def index(request, resubmit_hash=False):
                         break
             else:
                 # Get VM names for machinery config elements
-                vms = [x.strip() for x in getattr(Config(machinery), machinery).get("machines").split(",") if x.strip()]
+                vms = [x.strip() for x in str(getattr(Config(machinery), machinery).get("machines")).split(",") if x.strip()]
                 # Check each VM config element for tags
                 if any(["tags" in list(getattr(Config(machinery), vmtag).keys()) for vmtag in vms]):
                     enabledconf["tags"] = True
@@ -584,7 +563,9 @@ def index(request, resubmit_hash=False):
             socks5s_random = random.choice(socks5s.values()).get("name", False)
 
         if routing.vpn.random_vpn:
-            vpn_random = random.choice(list(vpns.values())).get("name", False)
+            vpn = list(vpns.values())
+            if vpn:
+                vpn_random = random.choice(vpn).get("name", False)
 
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("name", False)
@@ -602,7 +583,7 @@ def index(request, resubmit_hash=False):
             if web_conf.general.get("existent_tasks", False):
                 records = perform_search("target_sha256", resubmit_hash, search_limit=5)
                 for record in records:
-                    existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                    existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                     existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         return render(
@@ -642,3 +623,32 @@ def status(request, task_id):
         status = "processing"
 
     return render(request, "submission/status.html", {"completed": completed, "status": status, "task_id": task_id})
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def remote_session(request, task_id):
+    task = db.view_task(task_id)
+    if not task:
+        return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
+
+    machine_status = False
+    label = ""
+    session_data = ""
+
+    if task.status == "running":
+        machine = db.view_machine(task.machine)
+        label = machine.label
+        guest_ip = machine.ip
+        machine_status = True
+        session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
+        session_data = urlsafe_b64encode(f"{session_id}|{label}|{guest_ip}".encode("utf8")).decode("utf8")
+
+    return render(
+        request,
+        "submission/remote_status.html",
+        {
+            "running": machine_status,
+            "task_id": task_id,
+            "session_data": session_data,
+        },
+    )

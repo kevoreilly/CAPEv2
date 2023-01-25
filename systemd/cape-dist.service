@@ -4,7 +4,7 @@ Documentation=https://github.com/kevoreilly/CAPEv2
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
-ExecStart=/usr/bin/python3 dist.py -ef
+ExecStart=/usr/bin/python3 -m poetry run python dist.py -ef
 User=cape
 Group=cape
 Restart=always

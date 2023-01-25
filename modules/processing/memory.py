@@ -7,15 +7,16 @@
 
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 
-from __future__ import absolute_import
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 try:
     import re2 as re
@@ -90,7 +91,7 @@ class VolatilityAPI:
         self.loaded = False
         self.plugin_list = []
         self.ctx = False
-        self.memdump = f"file:///{memdump}" if not memdump.startswith("file:///") and os.path.exists(memdump) else memdump
+        self.memdump = f"file:///{memdump}" if not memdump.startswith("file:///") and path_exists(memdump) else memdump
 
     def run(self, plugin_class, pids=None, round=1):
         """Module which initialize all volatility 3 internals
@@ -117,7 +118,7 @@ class VolatilityAPI:
 
             single_location = self.memdump
             self.ctx.config["automagic.LayerStacker.single_location"] = single_location
-            if os.path.exists(yara_rules_path):
+            if path_exists(yara_rules_path):
                 self.ctx.config["plugins.YaraScan.yara_compiled_file"] = f"file:///{yara_rules_path}"
 
         if pids is not None:
@@ -188,7 +189,7 @@ class VolatilityManager:
         self.memfile = memfile
 
         conf_path = os.path.join(CUCKOO_ROOT, "conf", "memory.conf")
-        if not os.path.exists(conf_path):
+        if not path_exists(conf_path):
             log.error("Configuration file memory.conf not found")
             self.voptions = False
             return
@@ -290,8 +291,7 @@ class VolatilityManager:
         if not self.voptions.basic.dostrings:
             return None
         try:
-            with open(self.memfile, "rb") as f:
-                data = f.read()
+            data = Path(self.memfile).read_bytes()
         except (IOError, OSError, MemoryError) as e:
             raise CuckooProcessingError(f"Error opening file {e}") from e
 
@@ -306,8 +306,8 @@ class VolatilityManager:
             upat = b"(?:[\x20-\x7e][\x00]){" + minchars + b",}"
 
         strings = re.findall(apat, data) + [ws.decode("utf-16le").encode() for ws in re.findall(upat, data)]
-        with open(f"{self.memfile}.strings", "wb") as f:
-            f.write(b"\n".join(strings))
+        _ = Path(f"{self.memfile}.strings").write_bytes(b"\n".join(strings))
+
         return f"{self.memfile}.strings"
 
     def cleanup(self):
@@ -315,10 +315,11 @@ class VolatilityManager:
 
         if self.voptions.basic.delete_memdump:
             for memfile in (self.memfile, f"{self.memfile}.zip"):
-                try:
-                    os.remove(memfile)
-                except OSError:
-                    log.error('Unable to delete memory dump file at path "%s"', memfile)
+                if path_exists(memfile):
+                    try:
+                        path_delete(memfile)
+                    except OSError:
+                        log.error('Unable to delete memory dump file at path "%s"', memfile)
 
 
 class Memory(Processing):
@@ -336,7 +337,7 @@ class Memory(Processing):
             log.error("Cannot run volatility module: volatility library not available")
             return results
 
-        if self.memory_path and os.path.exists(self.memory_path):
+        if self.memory_path and path_exists(self.memory_path):
             try:
                 vol = VolatilityManager(self.memory_path)
                 results = vol.run()
@@ -344,7 +345,7 @@ class Memory(Processing):
                 log.exception("Generic error executing volatility")
                 if self.voptions.basic.delete_memdump_on_exception:
                     try:
-                        os.remove(self.memory_path)
+                        path_delete(self.memory_path)
                     except OSError:
                         log.error('Unable to delete memory dump file at path "%s"', self.memory_path)
         else:

@@ -3,14 +3,17 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import argparse
 import logging
 import os
 import sys
+from pathlib import Path
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+if sys.version_info[:2] < (3, 8):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+
+if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
+    sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
 
@@ -46,7 +49,7 @@ check_linux_dist()
 
 
 def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
-    cur_path = os.getcwd()
+    cur_path = Path.cwd()
     os.chdir(CUCKOO_ROOT)
 
     logo()
@@ -64,12 +67,14 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
         except KeyboardInterrupt:
             return
 
-    init_logging()
-
     if quiet:
-        log.setLevel(logging.WARN)
+        level = logging.WARN
     elif debug:
-        log.setLevel(logging.DEBUG)
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    log.setLevel(level)
+    init_logging(level)
 
     check_webgui_mongo()
     init_modules()
@@ -88,7 +93,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
 
 
 def cuckoo_main(max_analysis_count=0):
-    cur_path = os.getcwd()
+    cur_path = Path.cwd()
     os.chdir(CUCKOO_ROOT)
 
     try:

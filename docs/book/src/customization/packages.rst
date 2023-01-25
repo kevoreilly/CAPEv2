@@ -6,10 +6,10 @@ As explained in :doc:`../usage/packages`, analysis packages are structured
 Python classes that describe how CAPE's analyzer component should conduct
 the analysis procedure for a given file inside the guest environment.
 
-As you already know, you can create your own packages and add them along with
+As you already know, you can create your packages and add them along with
 the default ones.
 Designing new packages is very easy and requires just a minimal understanding
-of programming and of the Python language.
+of programming and the Python language.
 
 Getting started
 ===============
@@ -29,9 +29,9 @@ Windows executables (located at *analyzer/windows/packages/exe.py*):
                 args = self.options.get("arguments")
                 return self.execute(path, args)
 
-It seems really easy, thanks to all method inherited by Package object.
-Let's have a look as some of the main methods an analysis package inherits from
-Package object:
+It seems easy, thanks to all methods inherited by the Package object.
+Let's have a look at some of the main methods an analysis package inherits from
+the Package object:
 
     .. code-block:: python
         :linenos:
@@ -75,7 +75,7 @@ Let's walk through the code:
     * Line **1**: import the ``Process`` API class, which is used to create and manipulate Windows processes.
     * Line **2**: import the ``CuckooPackageError`` exception, which is used to notify issues with the execution of the package to the analyzer.
     * Line **4**: define the main class, inheriting ``object``.
-    * Line **5**: define the ``start()`` function, which takes as argument the path to the file to execute. It should be implemented by each analysis package.
+    * Line **5**: define the ``start()`` function, which takes as an argument the path to the file to execute. It should be implemented by each analysis package.
     * Line **8**: define the ``check()`` function.
     * Line **13**: acquire the ``free`` option, which is used to define whether the process should be monitored or not.
     * Line **18**: initialize a ``Process`` instance.
@@ -95,7 +95,7 @@ Let's walk through the code:
 
 In this function you have to place all the initialization operations you want to run.
 This may include running the malware process, launching additional applications,
-taking memory snapshots and more.
+taking memory snapshots, and more.
 
 ``check()``
 -----------
@@ -103,7 +103,7 @@ taking memory snapshots and more.
 This function is executed by CAPE every second while the malware is running.
 You can use this function to perform any kind of recurrent operation.
 
-For example if in your analysis you are looking for just one specific indicator to
+For example, if in your analysis you are looking for just one specific indicator to
 be created (e.g. a file) you could place your condition in this function and if
 it returns ``False``, the analysis will terminate straight away.
 
@@ -123,7 +123,7 @@ whenever *C:\\config.bin* is created.
 ``execute()``
 -------------
 
-Wraps the malware execution and deal with DLL injection.
+Wraps the malware execution and deals with DLL injection.
 
 ``finish()``
 ------------
@@ -136,10 +136,10 @@ all the monitored processes.
 Options
 =======
 
-Every package have automatically access to a dictionary containing all user-specified
+Every package has automatically access to a dictionary containing all user-specified
 options (see :doc:`../usage/submit`).
 
-Such options are made available in the attribute ``self.options``. For example let's
+Such options are made available in the attribute ``self.options``. For example, let's
 assume that the user specified the following string at submission::
 
     foo=1,bar=2
@@ -166,7 +166,7 @@ Process API
 ===========
 
 The ``Process`` class provides access to different process-related features and functions.
-You can import it in your analysis packages with::
+You can import it into your analysis packages with::
 
     from lib.api.process import Process
 
@@ -182,7 +182,7 @@ specify multiple arguments:
     * ``thread_id``: thread ID of a process you want to operate on.
     * ``h_thread``: handle of the thread of a process you want to operate on.
 
-This class implements several methods that you can use in your own scripts.
+This class implements several methods that you can use in your scripts.
 
 Methods
 -------

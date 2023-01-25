@@ -10,7 +10,7 @@ Disclaimer
 ==========
 
 Cuckoo/CAPE is distributed as it is, in the hope that it will be useful, but without
-any warranty neither the implied merchantability or fitness for a particular
+any warranty nor the implied merchantability or fitness for a particular
 purpose.
 
 Whatever you do with this tool is uniquely your own responsibility.
@@ -24,7 +24,7 @@ Stichting in the Netherlands and it's mainly dedicated to support of the
 development and growth of Cuckoo Sandbox, an open source malware analysis
 system, and the surrounding projects and initiatives.
 
-The Foundation operates to secure financial and infrastructure support to our
+The Foundation operates to secure financial and infrastructure support for our
 software projects and coordinates the development and contributions from the
 community.
 

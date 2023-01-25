@@ -110,7 +110,7 @@ def extract_config(filebuf):
             "install_file": get_wide_string(data, 6),
             "install": decrypt_config_item_printable(key, data, 4),
             "mutex": decrypt_config_item_printable(key, data, 8),
-            "pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b""),
+            "pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b"").decode(),
         }
     except Exception as e:
         print(e)
@@ -118,14 +118,12 @@ def extract_config(filebuf):
 
     if config["version"].startswith("0"):
         return config
-    else:
-        return {}
+    return {}
 
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
-    with open(sys.argv[1], "rb") as f:
-        data = f.read()
-
+    data = Path(sys.argv[1]).read_bytes()
     print(extract_config(data))

@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="icon" href="{% static 'img/cape.png' %}">
+    <script src="{% static 'js/jquery.js' %}"></script>
+    <script src="{% static 'js/jquery-ui.min.js' %}"></script>
+    <meta charset="utf-8"/>
+    <title>Guacamole Console</title>
+</head>
+<body>
+    {% block content %}
+        <div class="alert alert-secondary">
+            <h4>Hang on...</h4>
+            <p>The VM is not running, yet. This page will refresh every 5 seconds.</p>
+            <div class="progress progress-striped active" style="margin-top: 10px;"></div>
+            <button type="button" id="taskStatus">View Task</button>
+            <script>
+                var task_url = location.origin + '/submit/status/{{task_id}}'
+                document.getElementById("taskStatus").addEventListener("click", function() {
+                    location.replace(task_url);
+                }, false);
+            </script>
+        </div>
+        <script type="text/JavaScript">
+            function reloadpage() {
+                location.reload(true);
+            }
+            setTimeout(reloadpage, 5000);
+        </script>
+    {% endblock %}
+</body>
+</html>

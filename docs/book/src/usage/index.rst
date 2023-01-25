@@ -16,6 +16,7 @@ This chapter explains how to use CAPE.
     results
     clean
     rooter
-    utilities - processing generated data by Virtual Machine(s)
+    utilities
     performance
     monitor
+    interactive_desktop

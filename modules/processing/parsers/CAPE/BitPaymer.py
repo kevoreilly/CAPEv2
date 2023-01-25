@@ -44,8 +44,7 @@ def convert_char(c):
     if c in (string.letters + string.digits + string.punctuation + " \t\r\n"):
         # ToDo gonna break as its int
         return c
-    else:
-        return f"\\x{ord(c):02x}"
+    return f"\\x{ord(c):02x}"
 
 
 def decrypt_rc4(key, data):

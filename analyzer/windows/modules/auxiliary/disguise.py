@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import io
 import itertools
 import logging
@@ -31,10 +30,18 @@ from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
 
 log = logging.getLogger(__name__)
+PERSISTENT_ROUTE_GATEWAY = "192.168.1.1"
+si = subprocess.STARTUPINFO()
+si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
 
 class Disguise(Auxiliary):
     """Disguise the analysis environment."""
+
+    def __init__(self, options, config):
+        Auxiliary.__init__(self, options, config)
+        self.enabled = config.disguise
+        self.config = config
 
     @staticmethod
     def run_as_system(command):
@@ -49,7 +56,9 @@ class Disguise(Auxiliary):
 
         output = None
         try:
-            output = subprocess.check_output([psexec_path, "-accepteula", "-nobanner", "-s"] + command, stderr=subprocess.STDOUT)
+            output = subprocess.check_output(
+                [psexec_path, "-accepteula", "-nobanner", "-s"] + command, stderr=subprocess.STDOUT, startupinfo=si
+            )
         except subprocess.CalledProcessError as e:
             log.error(e.output)
 
@@ -70,7 +79,9 @@ class Disguise(Auxiliary):
         to detect public setups of Cuckoo, e.g., Malwr.com.
         """
         value = f"{random_integer(5)}-{random_integer(3)}-{random_integer(7)}-{random_integer(5)}"
-        with OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE) as key:
+        with OpenKey(
+            HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE | KEY_WOW64_64KEY
+        ) as key:
             SetValueEx(key, "ProductId", 0, REG_SZ, value)
 
     def _office_helper(self, key, subkey, value, size=REG_SZ):
@@ -176,7 +187,9 @@ class Disguise(Auxiliary):
                         SetValueEx(mruKey, name, 0, REG_SZ, setVal)
 
     def ramnit(self):
-        with OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE) as key:
+        with OpenKey(
+            HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE | KEY_WOW64_64KEY
+        ) as key:
             SetValueEx(key, "jfghdug_ooetvtgk", 0, REG_SZ, "TRUE")
 
     """
@@ -230,7 +243,16 @@ class Disguise(Auxiliary):
             # Replace the UUID with the new UUID
             SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
 
+    def add_persistent_route(self):
+        self.run_as_system(["C:\\Windows\\System32\ROUTE.exe", "-p", "add", "0.0.0.0", "mask", "0.0.0.0", PERSISTENT_ROUTE_GATEWAY])
+        self.run_as_system(
+            ["C:\\Windows\\System32\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", PERSISTENT_ROUTE_GATEWAY]
+        )
+
     def start(self):
+        if self.config.windows_static_route:
+            log.info(f"Config for route is: {str(self.config.windows_static_route)}")
+            self.add_persistent_route()
         self.change_productid()
         self.set_office_mrus()
         self.ramnit()
@@ -239,4 +261,5 @@ class Disguise(Auxiliary):
         # self.netbios()
         # self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\IDE')
         # self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\SCSI')
+
         return True

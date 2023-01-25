@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import os
 
 from lib.common.abstracts import Package
@@ -19,7 +18,7 @@ class VBS(Package):
     ]
 
     def start(self, path):
-        wscript = self.get_path("WScript")
+        wscript = self.get_path("wscript.exe")
 
         # Check file extension.
         # If the file doesn't have the proper .vbs extension force it

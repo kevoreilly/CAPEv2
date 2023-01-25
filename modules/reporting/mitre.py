@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import logging
 
 from lib.cuckoo.common.abstracts import Report
@@ -12,9 +11,11 @@ class MITRE_TTPS(Report):
             return
 
         attck = {}
-        ttp_dict = {block["ttp"]: block["signature"] for block in results["ttps"]}
+        ttp_dict = {}
+        for ttp in results["ttps"]:
+            ttp_dict.setdefault(ttp["ttp"], set()).add(ttp["signature"])
         try:
-            for technique in self.mitre.enterprise.techniques:
+            for technique in sorted(self.mitre.enterprise.techniques, key=lambda x: x.id):
                 if technique.id in list(ttp_dict.keys()):
                     for tactic in technique.tactics:
                         attck.setdefault(tactic.name, []).append(
@@ -22,7 +23,7 @@ class MITRE_TTPS(Report):
                                 "t_id": technique.id,
                                 "ttp_name": technique.name,
                                 "description": technique.description,
-                                "signature": ttp_dict[technique.id],
+                                "signature": list(ttp_dict[technique.id]),
                             }
                         )
             if attck:

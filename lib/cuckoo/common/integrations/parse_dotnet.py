@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-import os
 import subprocess
 from typing import Any, Dict, List
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class DotNETExecutable:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not os.path.exists(self.file_path):
+        if not path_exists(self.file_path):
             return None
 
         try:

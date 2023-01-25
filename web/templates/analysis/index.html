@@ -4,7 +4,9 @@
 <ul class="nav nav-tabs">
     <li class="nav-item"><a class="nav-link active" href="#files" data-toggle="tab">Files</a></li>
     <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static</a></li>
+    {% if config.url_analysis %}
     <li class="nav-item"><a class="nav-link" href="#urls" data-toggle="tab">URLs</a></li>
+    {% endif %}
     <li class="nav-item"><a class="nav-link" href="#pcaps" data-toggle="tab">PCAPs</a></li>
 </ul>
 
@@ -85,7 +87,13 @@
                 {% for analysis in files %}
                     <tr>
                         <td>
+                            {% if analysis.status == "reported" %}
+                            <a href="{% url "report" analysis.id %}">{{analysis.id}}</a>
+                            {% elif analysis.status in "running,completed,distributed" %}
+                            <a href="{% url "submission_status" analysis.id %}">{{analysis.id}}</a>
+                            {% else %}
                             {{analysis.id}}
+                            {% endif %}
                         </td>
                         <td>
                         {% if analysis.status == "reported" %}
@@ -105,12 +113,18 @@
                             <span class="mono">{{analysis.package}}</span>
                         </td>
                         <td>
-                        {{analysis.filename}}
+                            {% if analysis.status == "reported" %}
+                            <a href="{% url "report" analysis.id %}">{{analysis.filename}}</a>
+                            {% elif analysis.status in "running,completed,distributed" %}
+                            <a href="{% url "submission_status" analysis.id %}">{{analysis.filename}}</a>
+                            {% else %}
+                            {{analysis.filename}}
+                            {% endif %}
                         </td>
                         <td style="word-wrap: break-word;">
                             {% if analysis.status == "reported" %}
                                 <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
-                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                            {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
                             {% else %}
                                 <span class="mono">{{analysis.sample.md5}}</span>
@@ -387,7 +401,7 @@
                         <td style="word-wrap: break-word;">
                             {% if analysis.status == "reported" %}
                                 <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
-                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                            {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
                             {% else %}
                                 <span class="mono">{{analysis.sample.md5}}</span>
@@ -650,7 +664,7 @@
                         <td style="word-wrap: break-word;">
                             {% if analysis.status == "reported" %}
                                 <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.target}}</span></a>
-                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                            {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.target}}</span></a>
                             {% else %}
                                 <span class="mono">{{analysis.target}}</span>
@@ -909,7 +923,7 @@
                     <td style="word-wrap: break-word;">
                         {% if analysis.status == "reported" %}
                         <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
-                        {% elif analysis.status == "running" or analysis.status == "completed" %}
+                        {% elif analysis.status in "running,completed,distributed" %}
                         <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
                         {% else %}
                         <span class="mono">{{analysis.sample.md5}}</span>

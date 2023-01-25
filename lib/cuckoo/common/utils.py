@@ -2,14 +2,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import contextlib
 import errno
 import fcntl
 import inspect
 import logging
 import multiprocessing
-import ntpath
 import os
 import random
 import shutil
@@ -24,7 +22,7 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from typing import Tuple
+from typing import Tuple, Union
 
 from data.family_detection_names import family_detection_names
 from lib.cuckoo.common import utils_dicts
@@ -32,6 +30,8 @@ from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
+from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_is_dir, path_mkdir, path_read_file
 
 try:
     import re2 as re
@@ -86,6 +86,10 @@ zippwd = web_cfg.zipped_download.get("zip_pwd", b"infected")
 if not isinstance(zippwd, bytes):
     zippwd = zippwd.encode()
 
+max_len = config.cuckoo.get("max_len", 100)
+sanitize_len = config.cuckoo.get("sanitize_len", 32)
+sanitize_to_len = config.cuckoo.get("sanitize_to_len", 24)
+
 
 def load_categories():
     analyzing_categories = [category.strip() for category in config.cuckoo.categories.split(",")]
@@ -105,9 +109,12 @@ texttypes = [
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
 
+def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
+    return value.encode(encoding) if isinstance(value, str) else value
+
+
 def is_text_file(file_info, destination_folder, buf, file_data=False):
 
-    # print(file_info, any([file_type in file_info.get("type", "") for file_type in texttypes]))
     if any(file_type in file_info.get("type", "") for file_type in texttypes):
 
         extracted_path = os.path.join(
@@ -116,21 +123,16 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
                 "sha256",
             ),
         )
-        if not file_data and not os.path.exists(extracted_path):
+        if not file_data and not path_exists(extracted_path):
             return
 
         if not file_data:
-            with open(extracted_path, "rb") as f:
-                file_data = f.read()
+            file_data = path_read_file(extracted_path)
 
         if len(file_data) > buf:
-            data = file_data[:buf] + b" <truncated>"
-            file_info.setdefault("data", data.decode("latin-1"))
-            # file_info.setdefault("data_file", file_info["sha256"])
-
+            return file_data[:buf].decode("latin-1") + " <truncated>"
         else:
-            file_info.setdefault("data", file_data.decode("latin-1"))
-            # file_info.setdefault("data_file", file_info["sha256"])
+            return file_data.decode("latin-1")
 
 
 def create_zip(files=False, folder=False, encrypted=False):
@@ -158,7 +160,7 @@ def create_zip(files=False, folder=False, encrypted=False):
         if encrypted:
             zf.setpassword(zippwd)
         for file in files:
-            if not os.path.exists(file):
+            if not path_exists(file):
                 log.error("File does't exist: %s", file)
                 continue
 
@@ -190,20 +192,22 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             else:
                 free_space = config.cuckoo.freespace
 
-            if not os.path.exists(path):
+            if path and not path_exists(path):
                 sys.exit("Restart daemon/process, happens after full cleanup")
             space_available = shutil.disk_usage(path).free >> 20
             need_space = space_available < free_space
         except FileNotFoundError:
             log.error("Folder doesn't exist, maybe due to clean")
-            os.makedirs(path)
+            path_mkdir(path)
             continue
 
         if return_value:
             return need_space, space_available
 
         if need_space:
-            log.error("Not enough free disk space! (Only %d MB!)", space_available)
+            log.error(
+                "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
+            )
             time.sleep(5)
         else:
             break
@@ -238,8 +242,9 @@ def create_folders(root=".", folders=None):
     @param folders: folders list to be created.
     @raise CuckooOperationalError: if fails to create folder.
     """
-    if folders is None:
-        folders = []
+    if not folders:
+        return
+
     for folder in folders:
         create_folder(root, folder)
 
@@ -253,11 +258,10 @@ def create_folder(root=".", folder=None):
     if folder is None:
         raise CuckooOperationalError("Can not create None type folder")
     folder_path = os.path.join(root, folder)
-    if folder and not os.path.isdir(folder_path):
+    if folder and not path_is_dir(folder_path):
         try:
-            os.makedirs(folder_path)
+            path_mkdir(folder_path, parent=True)
         except OSError as e:
-            print(e)
             if e.errno != errno.EEXIST:
                 raise CuckooOperationalError(f"Unable to create folder: {folder_path}") from e
         except Exception as e:
@@ -269,7 +273,7 @@ def delete_folder(folder):
     @param folder: path to delete.
     @raise CuckooOperationalError: if fails to delete folder.
     """
-    if os.path.exists(folder):
+    if path_exists(folder):
         try:
             shutil.rmtree(folder)
         except OSError as e:
@@ -414,8 +418,7 @@ def wide2str(string: Tuple[str, bytes]):
         return string
     if isinstance(string, bytes):
         return string.decode("utf-16")
-    else:
-        return string.encode().decode("utf-16")
+    return string.encode().decode("utf-16")
 
 
 def sanitize_pathname(s: str):
@@ -546,7 +549,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
     elif arg_name in {"Protection", "Win32Protect", "NewAccessProtection", "OldAccessProtection", "OldProtection"}:
         return pp_funcs.arg_name_protection_and_others(arg_val)
     elif (
-        api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"] and arg_name == "CreationFlags"
+        api_name in ("CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW") and arg_name == "CreationFlags"
     ):
         return pp_funcs.api_name_in_creation(arg_val)
     elif api_name in {"MoveFileWithProgressW", "MoveFileWithProgressTransactedW"} and arg_name == "Flags":
@@ -569,7 +572,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
 
     elif api_name == "InternetSetOptionA" and arg_name == "Option":
         return pp_funcs.api_name_internetsetoptiona_arg_name_option(arg_val)
-    elif api_name in ["socket", "WSASocketA", "WSASocketW"]:
+    elif api_name in ("socket", "WSASocketA", "WSASocketW"):
         return pp_funcs.api_name_socket(arg_val, arg_name)
     elif arg_name == "FileInformationClass":
         return pp_funcs.arg_name_fileinformationclass(arg_val)
@@ -595,15 +598,6 @@ def datetime_to_iso(timestamp):
     return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").isoformat()
 
 
-def get_filename_from_path(path):
-    """Cross-platform filename extraction from path.
-    @param path: file path.
-    @return: filename.
-    """
-    dirpath, filename = ntpath.split(path)
-    return filename or ntpath.basename(dirpath)
-
-
 def store_temp_file(filedata, filename, path=None):
     """Store a temporary file.
     @param filedata: content of the original file.
@@ -611,10 +605,10 @@ def store_temp_file(filedata, filename, path=None):
     @param path: optional path for temp directory.
     @return: path to the temporary file.
     """
-    filename = get_filename_from_path(filename).encode("utf-8", "replace")
+    filename = path_get_filename(filename).encode("utf-8", "replace")
 
     # Reduce length (100 is arbitrary).
-    filename = filename[:100]
+    filename = filename[:max_len]
 
     # Create temporary directory path.
     if path:
@@ -622,8 +616,8 @@ def store_temp_file(filedata, filename, path=None):
     else:
         tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
-    if not os.path.exists(target_path):
-        os.mkdir(target_path)
+    if not path_exists(target_path.decode()):
+        path_mkdir(target_path)
 
     tmp_dir = tempfile.mkdtemp(prefix=b"upload_", dir=target_path)
     tmp_file_path = os.path.join(tmp_dir, filename)
@@ -768,20 +762,16 @@ def to_unicode(s):
 
 
 def get_user_filename(options, customs):
-    opt_filename = ""
+    # parse options, check pattern
     for block in (options, customs):
         for pattern in ("filename=", "file_name=", "name="):
-            if pattern in block:
-                for option in block.split(","):
-                    if option.startswith(pattern):
-                        opt_filename = option.split(pattern, 2)[1]
-                        break
-                if opt_filename:
-                    break
-        if opt_filename:
-            break
-
-    return opt_filename
+            if pattern not in block:
+                continue
+            for option in block.split(","):
+                if not option.startswith(pattern):
+                    continue
+                return option.split(pattern, 2)[1]
+    return ""
 
 
 def generate_fake_name():
@@ -790,20 +780,17 @@ def generate_fake_name():
     )
 
 
-MAX_FILENAME_LEN = 24
-
-
 def truncate_filename(x):
     truncated = None
     parts = x.rsplit(".", 1)
     if len(parts) > 1:
         # filename has extension
         extension = parts[1]
-        name = parts[0][: (MAX_FILENAME_LEN - (len(extension) + 1))]
+        name = parts[0][: (sanitize_to_len - (len(extension) + 1))]
         truncated = f"{name}.{extension}"
     elif len(parts) == 1:
         # no extension
-        truncated = parts[0][:(MAX_FILENAME_LEN)]
+        truncated = parts[0][:(sanitize_to_len)]
     else:
         return None
     return truncated
@@ -816,7 +803,7 @@ def sanitize_filename(x):
 
     """Prevent long filenames such as files named by hash
     as some malware checks for this."""
-    if len(out) >= 32:
+    if len(out) >= sanitize_len:
         out = truncate_filename(out)
 
     return out
@@ -824,11 +811,9 @@ def sanitize_filename(x):
 
 def default_converter(v):
     # Fix signed ints (bson is kind of limited there).
-    if isinstance(v, int):
-        return v & 0xFFFFFFFF
     # Need to account for subclasses since pymongo's bson module
-    # uses 'bson.int64.Int64' class for 64-bit values.
-    elif issubclass(type(v), int):
+    # uses 'bson.int64.Int64' clwhat ass for 64-bit values.
+    if isinstance(v, int) or issubclass(type(v), int):
         return v & 0xFFFFFFFFFFFFFFFF if v & 0xFFFFFFFF00000000 else v & 0xFFFFFFFF
     return v
 
@@ -884,3 +869,17 @@ def get_options(optstring: str):
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack("256s", ifname[:15].encode()))[20:24])  # SIOCGIFADDR
+
+
+def validate_ttp(ttp: str) -> bool:
+    regex = r"^(O?[BCTFSU]\d{4}(\.\d{3})?)|(E\d{4}(\.m\d{2})?)$"
+    return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))
+
+
+def trim_sample(first_chunk):
+    try:
+        overlay_data_offset = PortableExecutable(data=first_chunk).get_overlay_raw()
+        if overlay_data_offset is not None:
+            return overlay_data_offset
+    except Exception as e:
+        log.info(e)

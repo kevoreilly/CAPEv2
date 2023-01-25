@@ -7,6 +7,7 @@ import logging
 import os
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     import re2 as re
@@ -30,7 +31,7 @@ class TLSMasterSecrets(Processing):
 
         results = {}
         dump_tls_log = os.path.join(self.analysis_path, "tlsdump", "tlsdump.log")
-        if not os.path.exists(dump_tls_log):
+        if not path_exists(dump_tls_log):
             return results
 
         for entry in open(dump_tls_log, "r").readlines() or []:

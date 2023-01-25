@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 import shutil
@@ -105,7 +104,7 @@ class Unpacker_zip(Package):
     def start(self, path):
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile(r"(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
+        exe_regex = re.compile(r"(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf\.ps1)$", flags=re.IGNORECASE)
         dll_regex = re.compile(r"(\.dll|\.ocx)$", flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
@@ -161,5 +160,4 @@ class Unpacker_zip(Package):
             powershell = self.get_path_app_in_path("powershell.exe")
             args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
             return self.execute(powershell, args, file_path)
-        else:
-            return self.execute(file_path, self.options.get("arguments"), file_path)
+        return self.execute(file_path, self.options.get("arguments"), file_path)

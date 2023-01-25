@@ -28,6 +28,7 @@ snmp_port=161
 snmp_ip=''
 snmp_location='Rack, Room, Building, City, Country [GPSX,Y]'
 snmp_contact='Foo <foo@bar>'
+clamav_enable=0
 # enable IPMI sensor checking with LibreNMS
 librenms_ipmi=0
 # args to pass to /usr/lib/nagios/plugins/check_mongodb.py
@@ -107,6 +108,10 @@ cat << EndOfHelp
         ClamAv - Install ClamAV and unofficial signatures
         redsocks2 - install redsocks2
         logrotate - install logrotate config to rotate daily or 10G logs
+        librenms - install and setup LibreNMS support
+        librenms_cron_config - print the cron entries for the LibreNMS bits
+        librenms_snmpd_config - print the snmpd config for use with LibreNMS
+        librenms_sneck_config - print the sneck config for use with LibreNMS
         prometheus - Install Prometheus and Grafana
         die - Install Detect It Easy
         unautoit - Install UnAutoIt
@@ -189,7 +194,11 @@ function librenms_sneck_config() {
 	echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python cuckoo.py" 1:2'
 	echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python process.py" 1:'
 	echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python rooter.py" 1'
-	#echo "clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
+	if [ "$clamav_enable" -ge 1 ]; then
+		echo "clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
+	else
+		echo "#clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
+	fi
 	if [ "$mongo_enable" -ge 1 ]; then
 		echo "mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
 		echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 1:'
@@ -1458,6 +1467,9 @@ case "$COMMAND" in
         crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && python3 community.py -waf -cr && pip3 install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
 	install_librenms
+	if [ "$clamav_enable" -ge 1 ]; then
+		install_clamav
+	fi
     ;;
 'systemd')
     install_systemd;;

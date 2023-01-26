@@ -239,7 +239,6 @@ function librenms_snmpd_config() {
 		echo "#extend mdadm /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/mdadm"
 	fi
 	echo
-	echo 'agentaddress 127.0.0.1'
 	if [ ! -z "$snmp_agentaddress" ]; then
 		echo "agentaddress $snmp_agentaddress"
 	fi

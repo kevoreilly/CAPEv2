@@ -22,6 +22,34 @@ prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
 guacamole_version=1.4.0
+# if set to 1, enables snmpd and other various bits to support
+# monitoring via LibreNMS
+librenms_enable=0
+# snmp v1/2c community string to use
+snmp_community=ChangeMePublicRO
+# value for agentaddress... see snmpd.conf(5)
+# if blank the default will be used
+snmp_agentaddress=""
+snmp_location='Rack, Room, Building, City, Country [GPSX,Y]'
+snmp_contact='Foo <foo@bar>'
+clamav_enable=0
+# enable IPMI sensor checking with LibreNMS
+librenms_ipmi=0
+# args to pass to /usr/lib/nagios/plugins/check_mongodb.py
+librenms_mongo_args=''
+# warn value for the clamav check
+librenms_clamav_warn=2
+# crit value for the clamav check
+librenms_clamav_crit=3
+# enable librenms support for mdadm
+librenms_mdadm_enable=0
+
+# requires lsi_mrdsnmpmain
+# https://docs.librenms.org/Extensions/Applications/#megaraid
+librenms_megaraid_enable=0
+
+# disabling this will result in the web interface being disabled
+mongo_enable=1
 
 DIE_VERSION="3.07"
 
@@ -84,6 +112,10 @@ cat << EndOfHelp
         ClamAv - Install ClamAV and unofficial signatures
         redsocks2 - install redsocks2
         logrotate - install logrotate config to rotate daily or 10G logs
+        librenms - install and setup LibreNMS support
+        librenms_cron_config - print the cron entries for the LibreNMS bits
+        librenms_snmpd_config - print the snmpd config for use with LibreNMS
+        librenms_sneck_config - print the sneck config for use with LibreNMS
         prometheus - Install Prometheus and Grafana
         die - Install Detect It Easy
         unautoit - Install UnAutoIt
@@ -145,6 +177,111 @@ function install_jemalloc() {
     if ! $(dpkg -l "libjemalloc*" | grep -q "ii  libjemalloc"); then
         apt install -f checkinstall curl build-essential jq autoconf libjemalloc-dev -y
     fi
+}
+
+function librenms_cron_config() {
+	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/sneck -u 2> /dev/null > /dev/null'
+	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/cape | /usr/local/bin/librenms_return_optimizer 2> /dev/null > /var/cache/cape.cache'
+	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/smart -u'
+	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/hv_monitor -c 2> /dev/null > /var/cache/hv_monitor.cache'
+	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/osupdate 2> /dev/null > /var/cache/osupdate.extend'
+	echo '1 1 * * * root /bin/cat /sys/devices/virtual/dmi/id/board_serial > /etc/snmp/serial'
+}
+
+function librenms_sneck_config() {
+	if [ "$librenms_ipmi" -ge 1 ]; then
+		echo 'ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
+	else
+		echo '#ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
+	fi
+	echo 'virtqemud_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "^/usr/sbin/virtqemud" 1:1'
+	echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python cuckoo.py" 1:1'
+	echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python process.py" 1:'
+	echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python rooter.py" 1'
+	if [ "$clamav_enable" -ge 1 ]; then
+		echo "clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
+	else
+		echo "#clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
+	fi
+	if [ "$mongo_enable" -ge 1 ]; then
+		echo "mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
+		echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 1:'
+	else
+		echo "#mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
+		echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 0'
+	fi
+}
+
+function librenms_snmpd_config() {
+	echo "rocommunity $snmp_community"
+	echo
+	echo "syslocation $snmp_location"
+	echo "syscontact $snmp_contact"
+	echo
+	if [ "$librenms_megaraid_enable" -ge 1 ]; then
+		echo "pass .1.3.6.1.4.1.3582 /usr/sbin/lsi_mrdsnmpmain"
+	else
+		echo  "#pass .1.3.6.1.4.1.3582 /usr/sbin/lsi_mrdsnmpmain"
+	fi
+	echo
+	echo 'extend distro /etc/snmp/extends/distro'
+	echo "extend hardware '/bin/cat /sys/devices/virtual/dmi/id/product_name'"
+	echo "extend manufacturer '/bin/cat /sys/devices/virtual/dmi/id/sys_vendor'"
+	echo "extend serial '/bin/cat /etc/snmp/serial'"
+	echo
+	echo "extend cape /bin/cat /var/cache/cape.cache"
+	echo "extend smart /bin/cat /var/cache/smart"
+	echo "extend sneck /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/sneck -c -b"
+	echo "extend hv-monitor /bin/cat /var/cache/hv_monitor.cache"
+	echo "extend osupdate /bin/cat /var/cache/osupdate.extend"
+	if [ "$librenms_mdadm_enable" -ge 1 ]; then
+		echo "extend mdadm /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/mdadm"
+	else
+		echo "#extend mdadm /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/mdadm"
+	fi
+	echo
+	if [ ! -z "$snmp_agentaddress" ]; then
+		echo "agentaddress $snmp_agentaddress"
+	fi
+}
+
+function install_librenms() {
+	if [ "$librenms_enable" -ge 1 ]; then
+		echo "Enabling stuff for LibreNMS"
+		apt-get install -y zlib1g-dev cpanminus libjson-perl libfile-readbackwards-perl \
+				libjson-perl libconfig-tiny-perl libdbi-perl libfile-slurp-perl \
+				libstatistics-lite-perl libdbi-perl libdbd-pg-perl monitoring-plugins \
+				monitoring-plugins-contrib monitoring-plugins-standard dmidecode wget snmpd
+		cpanm HV::Monitor Monitoring::Sneck
+		mkdir -p /etc/snmp/extends
+		wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/distro -O /etc/snmp/extends/distro
+		wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/cape -O /etc/snmp/extends/cape
+		wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/smart -O /etc/snmp/extends/smart
+		wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/osupdate -O /etc/snmp/extends/osupdate
+		chmod +x /etc/snmp/extends/distro /etc/snmp/extends/cape  /etc/snmp/extends/smart /etc/snmp/extends/osupdate
+
+		if [ "$librenms_mdadm_enable" -ge 1 ]; then
+			apt-get install -y jq
+			wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/mdadm -O /etc/snmp/extends/mdadm
+			chmod +x /etc/snmp/extends/mdadm
+		fi
+
+		/etc/snmp/extends/smart -g > /etc/snmp/extends/smart.config
+		echo "You will want to check /etc/snmp/extends/smart.config to see if it looks good."
+		echo "See /etc/snmp/extends/smart for more info"
+
+		cat /sys/devices/virtual/dmi/id/board_serial > /etc/snmp/serial
+
+		librenms_sneck_config > /usr/local/etc/sneck.conf
+		librenms_cron_config > /etc/cron.d/librenms_auto
+		librenms_snmpd_config > /etc/snmp/snmpd.conf
+
+		systemctl enable snmpd.service
+		systemctl restart snmpd.service
+		systemctl restart cron.service
+	else
+		echo "Skipping stuff for LibreNMS"
+	fi
 }
 
 function install_modsecurity() {
@@ -604,43 +741,44 @@ function install_yara() {
 }
 
 function install_mongo(){
-    echo "[+] Installing MongoDB"
-    # Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
-    if grep -q ' avx ' /proc/cpuinfo; then
-        MONGO_VERSION="6.0"
-    else
-        echo "[-] Mongo >= 5 is not supported"
-        MONGO_VERSION="4.4"
-    fi
+	if ( "$mongo_enable" -ge 1 ); then
+		echo "[+] Installing MongoDB"
+		# Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
+		if grep -q ' avx ' /proc/cpuinfo; then
+			MONGO_VERSION="6.0"
+		else
+			echo "[-] Mongo >= 5 is not supported"
+			MONGO_VERSION="4.4"
+		fi
 
-    sudo curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
-    echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
+		sudo curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
+		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
     
-    apt update 2>/dev/null
-    apt install libpcre3-dev numactl -y
-    apt install -y mongodb-org
-    pip3 install pymongo -U
+		apt update 2>/dev/null
+		apt install libpcre3-dev numactl -y
+		apt install -y mongodb-org
+		pip3 install pymongo -U
+		
+		apt install -y ntp
+		systemctl start ntp.service && sudo systemctl enable ntp.service
 
-    apt install -y ntp
-    systemctl start ntp.service && sudo systemctl enable ntp.service
+		if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
+			sudo apt install sysfsutils -y
+			echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
+			echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
+		fi
 
-    if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
-        sudo apt install sysfsutils -y
-        echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
-        echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
-    fi
+		if [ -f /lib/systemd/system/mongod.service ]; then
+			systemctl stop mongod.service
+			systemctl disable mongod.service
+			rm /lib/systemd/system/mongod.service
+			rm /lib/systemd/system/mongod.service
+			systemctl daemon-reload
+		fi
 
-    if [ -f /lib/systemd/system/mongod.service ]; then
-        systemctl stop mongod.service
-        systemctl disable mongod.service
-        rm /lib/systemd/system/mongod.service
-	rm /lib/systemd/system/mongod.service
-        systemctl daemon-reload
-    fi
-
-    if [ ! -f /lib/systemd/system/mongodb.service ]; then
-        crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
-        cat >> /lib/systemd/system/mongodb.service <<EOF
+		if [ ! -f /lib/systemd/system/mongodb.service ]; then
+			crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
+			cat >> /lib/systemd/system/mongodb.service <<EOF
 [Unit]
 Description=High-performance, schema-free document-oriented database
 Wants=network.target
@@ -664,13 +802,17 @@ LimitNOFILE=65536
 [Install]
 WantedBy=multi-user.target
 EOF
-    fi
-    sudo mkdir -p /data/{config,}db
-    systemctl unmask mongodb.service
-    systemctl enable mongodb.service
-    systemctl restart mongodb.service
+		fi
+		sudo mkdir -p /data/{config,}db
+		systemctl unmask mongodb.service
+		systemctl enable mongodb.service
+		systemctl restart mongodb.service
 
-    echo -n "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
+		echo -n "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
+	else
+		echo "[+] Skipping MongoDB"
+	fi
+
 }
 
 function install_elastic() {
@@ -990,6 +1132,7 @@ function install_CAPE() {
 
     cd CAPEv2 || return
     pip3 install poetry
+    pip3 install crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
     sudo usermod -aG kvm ${USER}
@@ -1000,6 +1143,16 @@ function install_CAPE() {
     #sed -i "/memory_dump = off/cmemory_dump = on" /opt/CAPEv2/conf/cuckoo.conf
     #sed -i "/machinery =/cmachinery = kvm" /opt/CAPEv2/conf/cuckoo.conf
     sed -i "/interface =/cinterface = ${NETWORK_IFACE}" /opt/CAPEv2/conf/auxiliary.conf
+
+	# default is enabled, so we only need to disable it
+	if [ "$mongo_enable" -lt 1 ]; then
+		crudini --set /opt/CAPEv2/conf/reporting.conf mongodb enabled no
+	fi
+
+	if [ "$librenms_enable" -ge 1 ]; then
+		crudini --set /opt/CAPEv2/conf/reporting.conf litereport enabled yes
+		crudini --set /opt/CAPEv2/conf/reporting.conf runstatistics enabled yes
+	fi
 
     python3 utils/community.py -waf -cr
 }
@@ -1012,8 +1165,12 @@ function install_systemd() {
     cp /opt/CAPEv2/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
     cp /opt/CAPEv2/systemd/suricata.service /lib/systemd/system/suricata.service
     systemctl daemon-reload
-    systemctl enable cape cape-rooter cape-processor cape-web suricata
-    systemctl restart cape cape-rooter cape-processor cape-web suricata
+	cape_web_enable_string=''
+	if [ "$mongo_enable" -ge 1 ]; then
+		cape_web_enable_string="cape-web"
+	fi
+    systemctl enable cape cape-rooter cape-processor "$cape_web_enable_string" suricata
+    systemctl restart cape cape-rooter cape-processor "$cape_web_enable_string" suricata
 }
 
 function supervisor() {
@@ -1312,6 +1469,10 @@ case "$COMMAND" in
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
         crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && python3 community.py -waf -cr && pip3 install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
+	install_librenms
+	if [ "$clamav_enable" -ge 1 ]; then
+		install_clamav
+	fi
     ;;
 'systemd')
     install_systemd;;
@@ -1341,6 +1502,14 @@ case "$COMMAND" in
     dependencies;;
 'logrotate')
     install_logrotate;;
+'librenms')
+	install_librenms;;
+'librenms_cron_config')
+	librenms_cron_config;;
+'librenms_snmpd_config')
+	librenms_snmpd_config;;
+'librenms_sneck_config')
+	librenms_sneck_config;;
 'issues')
     issues;;
 'nginx')

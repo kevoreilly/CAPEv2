@@ -12,12 +12,11 @@ from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
 import pyzipper
-import requests
 from bson.objectid import ObjectId
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import StreamingHttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from rest_framework.decorators import api_view

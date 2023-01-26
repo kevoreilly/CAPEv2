@@ -1825,16 +1825,6 @@ def tasks_fullmemory(request, task_id):
         file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "memory.dmp.zip")
         if path_exists(file_path):
             filename = os.path.basename(file_path)
-    elif repconf.distributed.enabled:
-        # check for memdump on slave
-        try:
-            res = requests.get("http://127.0.0.1:9003/task/{task_id}".format(task_id=task_id), verify=False, timeout=30)
-            if res and res.ok and res.json()["status"] == 1:
-                url = res.json()["url"]
-                dist_task_id = res.json()["task_id"]
-                return redirect(url + "apiv2/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
-        except Exception as e:
-            log.error(e)
 
     if filename:
         content_type = "application/octet-stream"

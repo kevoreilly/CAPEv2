@@ -180,7 +180,7 @@ def init_logging(auto=False, tid=0, debug=False):
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
-        # result = future.result()
+        _ = future.result()
         log.info("Reports generation completed")
     except TimeoutError as error:
         log.error("Processing Timeout %s. Function: %s", error, error.args[1])

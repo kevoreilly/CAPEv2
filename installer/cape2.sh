@@ -190,8 +190,8 @@ function librenms_sneck_config() {
 	else
 		echo '#ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
 	fi
-	echo 'virtqemud_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "^/usr/sbin/virtqemud" 1:2'
-	echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python cuckoo.py" 1:2'
+	echo 'virtqemud_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "^/usr/sbin/virtqemud" 1:1'
+	echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python cuckoo.py" 1:1'
 	echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python process.py" 1:'
 	echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python rooter.py" 1'
 	if [ "$clamav_enable" -ge 1 ]; then
@@ -209,11 +209,8 @@ function librenms_sneck_config() {
 }
 
 function librenms_snmpd_config() {
-	echo "com2sec readonly  default         $snmp_community"
+	echo "rocommunity $snmp_community"
 	echo
-	echo "group MyROGroup v2c        readonly"
-	echo "view all    included  .1                               80"
-	echo "access MyROGroup ""      any       noauth    exact  all    none   none"
 	echo "syslocation $snmp_location"
 	echo "syscontact $snmp_contact"
 	echo
@@ -239,7 +236,7 @@ function librenms_snmpd_config() {
 	fi
 	echo
 	echo 'agentaddress 127.0.0.1'
-	echo "aggentaddress $snmp_ip:$snmp_port"
+	echo "agentaddress $snmp_ip:$snmp_port"
 }
 
 function install_librenms() {

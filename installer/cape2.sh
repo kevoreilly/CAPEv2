@@ -230,6 +230,7 @@ function librenms_snmpd_config() {
 	echo "extend serial '/bin/cat /etc/snmp/serial'"
 	echo
 	echo "extend cape /bin/cat /var/cache/cape.cache"
+	echo "extend smart /bin/cat /var/cache/smart"
 	echo "extend sneck /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/sneck -c -b"
 	echo "extend hv-monitor /bin/cat /var/cache/hv_monitor.cache"
 	echo "extend osupdate /bin/cat /var/cache/osupdate.extend"

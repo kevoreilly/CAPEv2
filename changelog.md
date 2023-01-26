@@ -1,3 +1,6 @@
+### [26.1.2023] Configs
+* Please read [this](https://github.com/kevoreilly/CAPEv2/blob/master/conf/readme.md) to simplify your life with configs managment
+
 ### [25.1.2023]
 * Google Cloud Platform (GCP) support in distributed CAPE aka dist.py
 

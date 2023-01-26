@@ -119,7 +119,7 @@ if processing_cfg.floss.on_demand:
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
 on_demand_conf = {}
-for cfile in ("reporting", "processing", "auxiliary", "web"):
+for cfile in ("reporting", "processing", "auxiliary", "web", "distributed"):
     curconf = Config(cfile)
     confdata = curconf.get_config()
     for item in confdata:

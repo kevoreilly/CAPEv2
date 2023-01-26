@@ -11,19 +11,21 @@ CAPE relies on six main configuration files:
     * :ref:`memory_conf`: Volatility configuration.
     * :ref:`processing_conf`: for enabling and configuring processing modules.
     * :ref:`reporting_conf`: for enabling or disabling report formats.
-    * :ref:`routing_conf`: for defining the routing of internet connection for the VMs. 
+    * :ref:`routing_conf`: for defining the routing of internet connection for the VMs.
 
 To get CAPE working you have to edit :ref:`auxiliary_conf`, :ref:`cuckoo_conf`, and :ref:`machinery_conf` at least.
 We suggest you check all configs before starting, to be familiar with the possibilities that you have and what you want to be done.
 
-Alternatively, you may create a `custom/conf/` directory and put files in there
-whose names are the same as those in the top-level `conf/` directory. These
-files only need to include settings that will override the defaults.
+.. note::
+    We recommend to you: create a `custom/conf/` directory and put files in there
+    whose names are the same as those in the top-level `conf/` directory. These
+    files only need to include settings that will override the defaults.
+    In that way you won't have problems with any upcoming changes to default configs.
 
-To allow for further flexibility, you can also create a `custom/conf/<type>.conf.d/`
-(e.g. `custom/conf/reporting.conf.d/`) directory and place files in there. Any
-file in that directory whose name ends in `.conf` will be read (in lexicographic
-order). The last value read for a value will be the one that is used.
+    To allow for further flexibility, you can also create a `custom/conf/<type>.conf.d/`
+    (e.g. `custom/conf/reporting.conf.d/`) directory and place files in there. Any
+    file in that directory whose name ends in `.conf` will be read (in lexicographic
+    order). The last value read for a value will be the one that is used.
 
 .. _cuckoo_conf:
 
@@ -199,7 +201,7 @@ The *conf/routing.conf* file contains information about how the guest VM is conn
 
 Please see the latest version of routing.conf here: `routing.conf`_.
 
-You can read more about the *routing.conf* file and its options in the :ref:`routing` chapter and more about the ``rooter.py`` utility in the :ref:`rooter` chapter. 
+You can read more about the *routing.conf* file and its options in the :ref:`routing` chapter and more about the ``rooter.py`` utility in the :ref:`rooter` chapter.
 
 
 Using environment variables in config files

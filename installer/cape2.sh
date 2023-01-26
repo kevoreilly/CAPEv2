@@ -22,7 +22,10 @@ prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
 guacamole_version=1.4.0
+# if set to 1, enables snmpd and other various bits to support
+# monitoring via LibreNMS
 librenms_enable=0
+# snmp v1/2c community string to use
 snmp_community=ChangeMePublicRO
 # value for agentaddress... see snmpd.conf(5)
 # if blank the default will be used

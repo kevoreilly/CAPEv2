@@ -24,8 +24,9 @@ node_exporter_version=1.0.1
 guacamole_version=1.4.0
 librenms_enable=0
 snmp_community=ChangeMePublicRO
-snmp_port=161
-snmp_ip=''
+# value for agentaddress... see snmpd.conf(5)
+# if blank the default will be used
+snmp_agentaddress=""
 snmp_location='Rack, Room, Building, City, Country [GPSX,Y]'
 snmp_contact='Foo <foo@bar>'
 clamav_enable=0
@@ -236,7 +237,9 @@ function librenms_snmpd_config() {
 	fi
 	echo
 	echo 'agentaddress 127.0.0.1'
-	echo "agentaddress $snmp_ip:$snmp_port"
+	if [ ! -z "$snmp_agentaddress" ]; then
+		echo "agentaddress $snmp_agentaddress"
+	fi
 }
 
 function install_librenms() {
@@ -271,7 +274,7 @@ function install_librenms() {
 		librenms_snmpd_config > /etc/snmp/snmpd.conf
 
 		systemctl enable snmpd.service
-		systemctl start snmpd.service
+		systemctl restart snmpd.service
 		systemctl restart cron.service
 	else
 		echo "Skipping stuff for LibreNMS"

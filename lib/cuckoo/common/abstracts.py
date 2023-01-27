@@ -63,6 +63,7 @@ if repconf.mitre.enabled:
     try:
         from pyattck import Attck
         from pyattck.utils.version import __version_info__ as pyattck_version
+
         # Version is hardcoded due to possible changes in load of the library
         if pyattck_version >= (4, 1, 1) and pyattck_version <= (7, 0, 0):
             mitre = Attck(

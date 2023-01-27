@@ -56,7 +56,7 @@ dist_conf = Config("distributed")
 HAVE_GCP = False
 if dist_conf.GCP.enabled:
     from lib.cuckoo.common.gcp import HAVE_GCP
-    from lib.cuckoo.common.gcp import autodiscovery as gcp_autodiscovery
+    from lib.cuckoo.common.gcp import autodiscovery
 
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
@@ -73,8 +73,7 @@ logging.getLogger("elasticsearch").setLevel(logging.WARNING)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-# Move to config
-dist_ignore_patterns = shutil.ignore_patterns("binary", "dump_sorted.pcap", "memory.dmp", "logs")
+dist_ignore_patterns = shutil.ignore_patterns(*[pattern.strip() for pattern in dist_conf.distributed.ignore_patterns.split(",")])
 STATUSES = {}
 ID2NAME = {}
 SERVER_TAGS = {}
@@ -376,7 +375,8 @@ class Retriever(threading.Thread):
         self.threads = []
 
         if dist_conf.GCP.enabled and HAVE_GCP:
-            thread = threading.Thread(target=gcp_autodiscovery, name="GCP_autodiscovery", args=())
+            # autodiscovery is generic name so in case if we have AWS or Azure it should implement the logic inside
+            thread = threading.Thread(target=autodiscovery, name="autodiscovery", args=())
             thread.daemon = True
             thread.start()
             self.threads.append(thread)

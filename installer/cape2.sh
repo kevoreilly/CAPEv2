@@ -741,7 +741,7 @@ function install_yara() {
 }
 
 function install_mongo(){
-	if ( "$mongo_enable" -ge 1 ); then
+	if [ "$mongo_enable" -ge 1 ]; then
 		echo "[+] Installing MongoDB"
 		# Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
 		if grep -q ' avx ' /proc/cpuinfo; then

@@ -53,4 +53,4 @@ def send_socket_command(socket_path: str, command: str, *args, **kwargs):
 
 
 if "__main__" == __name__:
-    print(send_socket_command("/tmp/cape-fstab", "add_entry", ["192.168.1.1", "/opt/CAPEv2/192.168.1.1"], {}))
+    print(send_socket_command("/tmp/cape-fstab", "add_entry", ["192.168.1.1", "/opt/CAPEv2/workers/192.168.1.1"], {}))

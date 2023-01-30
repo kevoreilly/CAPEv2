@@ -74,14 +74,10 @@ def remove_nfs_entry(hostname: str):
     with lock:
         fstab = path_read_file("/etc/fstab", mode="text").split("\n")
         for entry in fstab:
-            if not entry.startswith(hostname):
-                continue
-            # Preventive check
-            if " nfs, " in entry:
+            if entry.startswith(hostname) and " nfs, " in entry:
                 fstab.remove(entry)
+                _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
                 break
-
-        _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
         try:
             subprocess.check_output(["umount", worker_path])
         except Exception as e:

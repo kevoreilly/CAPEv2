@@ -16,7 +16,6 @@ import signal
 import socket
 import stat
 import sys
-import socket
 import tempfile
 import subprocess
 

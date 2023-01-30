@@ -38,7 +38,7 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_write_file, path_mount_point
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
 from lib.cuckoo.common.socket_utils import send_socket_command
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import (

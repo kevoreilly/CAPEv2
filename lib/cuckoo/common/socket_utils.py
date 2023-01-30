@@ -1,8 +1,8 @@
-import socket
+import json
 import logging
+import socket
 import tempfile
 import threading
-import json
 from pathlib import Path
 
 from lib.cuckoo.common.path_utils import path_exists

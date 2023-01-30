@@ -9,15 +9,15 @@ import argparse
 import errno
 import grp
 import json
-import threading
 import logging.handlers
 import os
 import signal
 import socket
 import stat
+import subprocess
 import sys
 import tempfile
-import subprocess
+import threading
 
 if sys.version_info[:2] < (3, 8):
     sys.exit("You are running an incompatible version of Python, please use >= 3.8")
@@ -26,7 +26,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_mount_point, path_write_file, path_read_file
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_mount_point, path_read_file, path_write_file
 
 dist_conf = Config("distributed")
 log = logging.getLogger(__name__)
@@ -67,6 +67,7 @@ def add_nfs_entry(hostname: str, worker_folder: str):
         except Exception as e:
             print("add_nfs_entry error on mount: %s", str(e))
 
+
 def remove_nfs_entry(hostname: str):
 
     worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, hostname)
@@ -82,6 +83,7 @@ def remove_nfs_entry(hostname: str):
             subprocess.check_output(["umount", worker_path])
         except Exception as e:
             print("remove_nfs_entry error on umount: %s", str(e))
+
 
 handlers = {
     "add_entry": add_nfs_entry,

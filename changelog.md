@@ -1,3 +1,12 @@
+### [30.01.2023]
+* Add `utils/fstab.py` utils which is used by `utils/dist.py` when NFS mode is used.
+    * Check configure NFS in [documentation](https://capev2.readthedocs.io/en/latest/usage/dist.html):
+* Now when you register new server in distributed cluster that uses NFS, it will automatically:
+    * Create worker folder
+    * Add NFS entry to `/etc/fstab`. Ex:
+        * `192.168.1.1:/opt/CAPEv2 /opt/CAPEv2/workers/192.168.1.1 nfs, auto,user,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0`
+    * Mount folder
+
 ### [26.1.2023] Configs
 * Please read [this](https://github.com/kevoreilly/CAPEv2/blob/master/conf/readme.md) to simplify your life with configs managment
 

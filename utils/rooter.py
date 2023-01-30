@@ -9,7 +9,6 @@ import grp
 import json
 import logging.handlers
 import os
-import os.path
 import signal
 import socket
 import stat
@@ -578,7 +577,7 @@ handlers = {
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("socket", nargs="?", default="/tmp/cuckoo-rooter", help="Unix socket path")
-    parser.add_argument("-g", "--group", default="cuckoo", help="Unix socket group")
+    parser.add_argument("-g", "--group", default="cape", help="Unix socket group")
     parser.add_argument("--systemctl", default="/bin/systemctl", help="Systemctl wrapper script for invoking OpenVPN")
     parser.add_argument("--iptables", default="/sbin/iptables", help="Path to iptables")
     parser.add_argument("--iptables-save", default="/sbin/iptables-save", help="Path to iptables-save")

@@ -521,14 +521,23 @@ To configure NFS on the main server (NFS calls it client)
     Install NFS client:
         *  sudo apt install nfs-common
 
+    To install new service for fstab utils run as root::
+
+        ln -s /opt/CAPEv2/systemd/cape-fstab.service /lib/systemd/system/cape-fstab.service
+        systemctl daemon-reload
+        systemctl enable cape-fstab.service
+        systemctl start cape-fstab.service
+
+    Following steps about folder creation, entry in fstab are automated on 30.01.2023. See utils/fstab.py
+
     On client create folder per worker:
-        mkdir -p /mnt/cape_worker_<worker_name>
+        mkdir -p /opt/CAPEv2/workers/<worker_name>
 
     Add workers to fstab:
-        <worker_ip/hostname>:/opt/CAPEv2 /mnt/cape_worker_<worker_name> nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800 0 0
+        <worker_ip/hostname>:/opt/CAPEv2 /opt/CAPEv2/workers/<worker_name> nfs, auto,user,users,nofail,noatime,nolock,intr,tcp,actimeo=1800 0 0
 
     Example:
-        192.168.1.3:/opt/CAPEv2 /mnt/cape_worker_1 nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800 0 0
+        192.168.1.3:/opt/CAPEv2 /opt/CAPEv2/workers/1 nfs, auto,user,users,nofail,noatime,nolock,intr,tcp,actimeo=1800 0 0
 
 CAPE worker(s) (NFS calls it servers)::
 

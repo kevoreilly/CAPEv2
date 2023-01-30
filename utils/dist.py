@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from itertools import combinations
 from logging import handlers
+from urllib.parse import urlparse
 
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
@@ -37,7 +38,8 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_write_file
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_write_file, path_mount_point
+from lib.cuckoo.common.socket_utils import send_socket_command
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import (
     TASK_BANNED,
@@ -188,9 +190,16 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
 
-def node_get_report_nfs(task_id, worker_name, main_task_id):
+def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
-    worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
+    worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
+
+    if not path_mount_point():
+        log.error(f"[-] Worker: {worker_name} is not mounted to: {worker_path}!")
+        return True
+
+    worker_path = os.path.join(worker_path, "storage", "analyses", str(task_id))
+
     if not path_exists(worker_path):
         log.error(f"File on destiny doesn't exist: {worker_path}")
         return True
@@ -1202,6 +1211,12 @@ class NodeRootApi(NodeBaseApi):
         db.add(node)
         db.commit()
         db.close()
+
+        if NFS_FETCH:
+            # Add entry to /etc/fstab, create folder and mount server
+            hostname = urlparse(args["url"]).netloc.split(":")[0]
+            send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", [hostname, args["name"]], {})
+
         return dict(name=args["name"], machines=machines, exitnodes=exitnodes)
 
 

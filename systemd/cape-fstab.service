@@ -1,0 +1,15 @@
+[Unit]
+Description=CAPE fstab utils
+Documentation=https://github.com/kevoreilly/CAPEv2
+
+[Service]
+WorkingDirectory=/opt/CAPEv2/utils/
+ExecStartPre=/usr/bin/python3 -m poetry config cache-dir /opt/CAPEv2/.cache/pypoetry
+ExecStart=/usr/bin/python3 -m poetry run python fstab.py -g cape
+User=root
+Group=root
+Restart=always
+RestartSec=5m
+
+[Install]
+WantedBy=multi-user.target

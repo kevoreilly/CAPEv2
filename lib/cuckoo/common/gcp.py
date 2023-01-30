@@ -1,5 +1,4 @@
 # From doomedraven for GCP with love
-
 import logging
 import time
 
@@ -98,7 +97,6 @@ class GCP(object):
                                 log.error("Can't registger worker with IP: %s. status_code: %d ", ip, r.status_code)
                         except Exception as e:
                             log.error(e, exc_info=True)
-                        # register node here
                         break
                     except Exception as e:
                         log.error(e, exc_info=True)

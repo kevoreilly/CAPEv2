@@ -198,9 +198,6 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
         log.error(f"[-] Worker: {worker_name} is not mounted to: {worker_path}!")
         return True
 
-    # Old
-    worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
-    # New
     worker_path = os.path.join(worker_path, "storage", "analyses", str(task_id))
 
     if not path_exists(worker_path):

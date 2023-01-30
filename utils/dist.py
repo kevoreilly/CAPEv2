@@ -194,7 +194,7 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
     worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
 
-    if not path_mount_point():
+    if not path_mount_point(worker_path):
         log.error(f"[-] Worker: {worker_name} is not mounted to: {worker_path}!")
         return True
 

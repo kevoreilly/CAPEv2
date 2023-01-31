@@ -128,6 +128,7 @@ def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
         "machinery": "modules/machinery",
         "analyzer": "analyzer",
         "data": "data",
+        "integrations":"lib/cuckoo/common/integrations",
     }
 
     members = t.getmembers()
@@ -197,6 +198,7 @@ def main():
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)
     parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true", required=False)
     parser.add_argument("-data", "--data", help="Download data items", action="store_true", required=False)
+    parser.add_argument("-i", "--integrations", help="Download integration items", action="store_true", required=False)
     parser.add_argument(
         "-f", "--force", help="Install files without confirmation", action="store_true", default=False, required=False
     )
@@ -222,7 +224,7 @@ def main():
     enabled = []
 
     if args.all:
-        enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data"]
+        enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data", "integrations"]
         flare_capa()
     else:
         if args.feeds:
@@ -239,6 +241,8 @@ def main():
             enabled.append("analyzer")
         if args.data:
             enabled.append("data")
+        if args.integrations:
+            enabled.append("integrations")
 
     if args.capa_rules:
         flare_capa(args.proxy)

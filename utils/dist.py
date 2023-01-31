@@ -618,7 +618,7 @@ class Retriever(threading.Thread):
                     continue
 
                 log.debug(
-                    "Fetching dist report for: id: {}, task_id: {}, main_task_id:{} from node: {}".format(
+                    "Fetching dist report for: id: {}, task_id: {}, main_task_id: {} from node: {}".format(
                         t.id, t.task_id, t.main_task_id, ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id
                     )
                 )
@@ -735,7 +735,7 @@ class Retriever(threading.Thread):
 
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
                 if not path_exists(report_path):
-                    path_mkdir(report_path, mode=0o777)
+                    path_mkdir(report_path, mode=0o755)
                 try:
                     if report.content:
                         # with pyzipper.AESZipFile(BytesIO(report.content)) as zf:

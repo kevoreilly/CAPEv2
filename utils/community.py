@@ -128,7 +128,7 @@ def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
         "machinery": "modules/machinery",
         "analyzer": "analyzer",
         "data": "data",
-        "integrations":"lib/cuckoo/common/integrations",
+        "integrations": "lib/cuckoo/common/integrations",
     }
 
     members = t.getmembers()

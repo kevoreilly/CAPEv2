@@ -1262,7 +1262,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
                 if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
                     trimmed_size = trim_sample(sample.chunks().__next__())
                     if trimmed_size:
-                        size = trimmed_size
+                        size = int(trimmed_size / 1024)
                         data = sample.chunks(size).__next__()
                 else:
                     # we need to rebuild original file

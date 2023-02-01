@@ -9,8 +9,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 log = logging.getLogger("mitre")
 
-
-def generate_mitre_attck(results, mitre):
+def mitre_generate_attck(results, mitre):
     attck = {}
     ttp_dict = {}
     for ttp in results["ttps"]:
@@ -89,7 +88,7 @@ def mitre_update():
         mitre.update()
 
 
-def load_mitre(enabled: bool = False):
+def mitre_load(enabled: bool = False):
     mitre = False
     HAVE_MITRE = False
     pyattck_version = ()

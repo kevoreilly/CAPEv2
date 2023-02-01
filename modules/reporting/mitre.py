@@ -5,7 +5,7 @@
 import logging
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.integrations.mitre import generate_mitre_attck
+from lib.cuckoo.common.integrations.mitre import mitre_generate_attck
 
 log = logging.getLogger(__name__)
 
@@ -15,6 +15,6 @@ class MITRE_TTPS(Report):
         if not results.get("ttps") or not hasattr(self, "mitre"):
             return
 
-        attck = generate_mitre_attck(results, self.mitre)
+        attck = mitre_generate_attck(results, self.mitre)
         if attck:
             results["mitre_attck"] = attck

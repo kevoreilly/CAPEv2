@@ -8,9 +8,8 @@ from utils.community import install
 
 
 def test_mitre_attck():
-
+    mitre, _, pyattck_version = load_mitre(True)
     if pyattck_version != (7, 0, 0):
-        mitre, _, pyattck_version = load_mitre(True)
         assert mitre
 
         data = {"ttps" : [

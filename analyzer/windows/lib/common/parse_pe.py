@@ -2,6 +2,7 @@ import struct
 
 try:
     import pefile
+
     HAVE_PEFILE = True
 except ImportError:
     HAVE_PEFILE = False
@@ -15,6 +16,7 @@ IMAGE_FILE_MACHINE_I386 = 0x014C
 IMAGE_FILE_MACHINE_AMD64 = 0x8664
 DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
+
 
 def is_pe_image(path):
     if not path:
@@ -48,9 +50,11 @@ def is_pe_image(path):
         return False
 
     try:
-        if 0 in (struct.unpack("<H", nt_headers[4:6])[0],
-                struct.unpack("<H", nt_headers[20:22])[0],
-                struct.unpack("<H", nt_headers[84:86])[0]):
+        if 0 in (
+            struct.unpack("<H", nt_headers[4:6])[0],
+            struct.unpack("<H", nt_headers[20:22])[0],
+            struct.unpack("<H", nt_headers[84:86])[0],
+        ):
             return False
         if struct.unpack("<H", nt_headers[22:24])[0] & IMAGE_FILE_EXECUTABLE_IMAGE == 0:
             return False
@@ -64,17 +68,20 @@ def is_pe_image(path):
     # After passing the above tests it should be safe to assume it's a PE image
     return True
 
+
 def pe_trimmed_size(path):
     if not HAVE_PEFILE:
         return 0
     f = open(path, "rb")
-    data = f.read(PE_HEADER_LIMIT*2)
+    data = f.read(PE_HEADER_LIMIT * 2)
     f.close()
     try:
         pe = pefile.PE(data=data, fast_load=False)
         if pe.FILE_HEADER.NumberOfSections:
-            return (pe.sections[pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
-                + pe.sections[pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData)
+            return (
+                pe.sections[pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
+                + pe.sections[pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
+            )
     except Exception as e:
         return 0
     return 0

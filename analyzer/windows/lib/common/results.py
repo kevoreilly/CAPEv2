@@ -8,14 +8,15 @@ import socket
 import time
 from pathlib import Path
 
+from lib.common.parse_pe import is_pe_image, pe_trimmed_size
 from lib.core.config import Config
-from lib.common.parse_pe import pe_trimmed_size, is_pe_image
 
 config = Config(cfg="analysis.conf")
 
 log = logging.getLogger(__name__)
 
 BUFSIZE = 1024 * 1024
+
 
 def get_upload_size(path):
     size = Path(path).stat().st_size
@@ -34,6 +35,7 @@ def get_upload_size(path):
             log.warning("File %s size is too big: %d, ignoring", path, size)
             return
     return size
+
 
 def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", category="", duplicated=False):
     if not os.path.exists(file_path):

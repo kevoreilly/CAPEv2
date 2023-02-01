@@ -29,7 +29,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooOperationalError,
     CuckooReportError,
 )
-from lib.cuckoo.common.integrations.mitre import load_mitre
+from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.url_validate import url as url_validator
@@ -59,7 +59,7 @@ except ImportError:
 repconf = Config("reporting")
 _, categories_need_VM = load_categories()
 
-mitre, HAVE_MITRE, _ = load_mitre(repconf.mitre.enabled)
+mitre, HAVE_MITRE, _ = mitre_load(repconf.mitre.enabled)
 
 log = logging.getLogger(__name__)
 cfg = Config()

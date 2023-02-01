@@ -55,7 +55,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          poetry run python utils/community.py --mitre-offline
+          poetry run python utils/community.py --mitre-offline -y
           poetry run pytest --import-mode=append
 
       - name: Install dependencies

@@ -1,3 +1,7 @@
+# Copyright (C) 2010-2015 Cuckoo Foundation.
+# This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
+# See the file 'docs/LICENSE' for copying permission.
+
 import logging
 
 from lib.cuckoo.common.abstracts import Report

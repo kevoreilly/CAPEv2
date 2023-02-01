@@ -6,6 +6,32 @@ import os
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 
+def mitre_update():
+    """Urls might change, for proper urls see https://github.com/swimlane/pyattck"""
+    try:
+        from pyattck import Attck
+    except ImportError:
+        print("Missed dependency: install pyattck library, see requirements for proper version")
+        return
+
+    mitre = Attck(
+        nested_techniques=True,
+        use_config=False,
+        save_config=False,
+        config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+        data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+        enterprise_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_enterprise_attck_v1.json",
+        pre_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_pre_attck_v1.json",
+        mobile_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_mobile_attck_v1.json",
+        ics_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_ics_attck_v1.json",
+        nist_controls_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_nist_controls_v1.json",
+        generated_nist_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/attck_to_nist_controls.json",
+    )
+
+    print("[+] Updating MITRE datasets")
+    mitre.update()
+
+
 def load_mitre(enabled: bool = False):
     mitre = False
     HAVE_MITRE = False

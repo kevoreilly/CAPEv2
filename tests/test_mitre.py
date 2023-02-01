@@ -18,9 +18,8 @@ def test_mitre_attck():
     ]}
 
     # Download jsons here
-    install(["mitre"], True, True)
+    install(["mitre"], True, True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
     # test if version != 7, create list of tested versions
-
 
     # if pyattck_version == (7, 0, 0):
     attck = generate_mitre_attck(data, mitre)

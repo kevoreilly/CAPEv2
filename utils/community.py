@@ -24,13 +24,13 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
+from lib.cuckoo.common.integrations.mitre import mitre_update
 
 blocklist = {}
 if path_exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):
     from utils.community_blocklist import blocklist
 
 log = logging.getLogger(__name__)
-URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
 
 def flare_capa(proxy=None):
@@ -67,50 +67,24 @@ def flare_capa(proxy=None):
         print(e)
 
 
-def mitre():
-    """Urls might change, for proper urls see https://github.com/swimlane/pyattck"""
-    try:
-        from pyattck import Attck
-    except ImportError:
-        print("Missed dependency: install pyattck library, see requirements for proper version")
-        return
-
-    mitre = Attck(
-        nested_techniques=True,
-        use_config=False,
-        save_config=False,
-        config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
-        data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
-        enterprise_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_enterprise_attck_v1.json",
-        pre_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_pre_attck_v1.json",
-        mobile_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_mobile_attck_v1.json",
-        ics_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_ics_attck_v1.json",
-        nist_controls_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/merged_nist_controls_v1.json",
-        generated_nist_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/attck_to_nist_controls.json",
-    )
-
-    print("[+] Updating MITRE datasets")
-    mitre.update()
-
-
-def install(enabled, force, rewrite, filepath: str=False, access_token=None, proxy=False):
+def install(enabled, force, rewrite, filepath: str=False, access_token=None, proxy=False, url: str = False):
     if filepath and path_exists(filepath):
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:
-        print(f"Downloading modules from {URL}")
+        print(f"Downloading modules from {url}")
         try:
             if proxy:
                 http = urllib3.ProxyManager(proxy)
             else:
                 http = urllib3.PoolManager()
             if access_token is None:
-                data = http.request("GET", URL).data
-            elif "github" in URL:
+                data = http.request("GET", url).data
+            elif "github" in url:
                 data = http.request(
-                    "GET", URL, headers={"Authorization": f"token {access_token}", "User-Agent": "CAPEv2_sandbox"}
+                    "GET", url, headers={"Authorization": f"token {access_token}", "User-Agent": "CAPEv2_sandbox"}
                 ).data
             else:
-                data = http.request("GET", URL, headers={"PRIVATE-TOKEN": access_token}).data
+                data = http.request("GET", url, headers={"PRIVATE-TOKEN": access_token}).data
 
             if b"Not Found" == data:
                 print("You don't have permissions to access this repo")
@@ -188,7 +162,6 @@ def install(enabled, force, rewrite, filepath: str=False, access_token=None, pro
 
 
 def main():
-    global URL
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--all", help="Download everything", action="store_true", required=False)
@@ -222,7 +195,6 @@ def main():
     parser.add_argument("--proxy", help="Proxy to use. Ex http://127.0.0.1:8080", action="store", required=False)
     args = parser.parse_args()
 
-    URL = args.url or URL.format(args.branch)
     enabled = []
 
     if args.all:
@@ -254,7 +226,7 @@ def main():
             return
 
     if args.mitre:
-        mitre()
+        mitre_update()
         if not enabled:
             return
 
@@ -263,7 +235,7 @@ def main():
         parser.print_help()
         return
 
-    install(enabled, args.force, args.rewrite, args.file, args.token, args.proxy)
+    install(enabled, args.force, args.rewrite, args.file, args.token, args.proxy, args.url or f"https://github.com/kevoreilly/community/archive/{args.branch}.tar.gz"))
 
 
 if __name__ == "__main__":

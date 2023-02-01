@@ -129,6 +129,7 @@ def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
         "analyzer": "analyzer",
         "data": "data",
         "integrations": "lib/cuckoo/common/integrations",
+        "mitre": "data/mitre",
     }
 
     members = t.getmembers()
@@ -211,6 +212,7 @@ def main():
         "-cr", "--capa-rules", help="Download capa rules and signatures", action="store_true", default=False, required=False
     )
     parser.add_argument("--mitre", help="Download updated MITRE JSONS", action="store_true", default=False, required=False)
+    parser.add_argument("--mitre-offline", help="Download updated MITRE JSONS from community repo", action="store_true", default=False, required=False)
     parser.add_argument(
         "-u", "--url", help="Download community modules from the specified url", action="store", default=None, required=False
     )
@@ -224,7 +226,7 @@ def main():
     enabled = []
 
     if args.all:
-        enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data", "integrations"]
+        enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data", "integrations", "mitre"]
         flare_capa()
     else:
         if args.feeds:
@@ -243,6 +245,8 @@ def main():
             enabled.append("data")
         if args.integrations:
             enabled.append("integrations")
+        if args.mitre_offline:
+            enabled.append("mitre")
 
     if args.capa_rules:
         flare_capa(args.proxy)

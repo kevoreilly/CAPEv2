@@ -58,7 +58,7 @@ except ImportError:
 repconf = Config("reporting")
 _, categories_need_VM = load_categories()
 HAVE_MITRE = False
-
+mitre = False
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck

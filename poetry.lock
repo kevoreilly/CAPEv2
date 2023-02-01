@@ -144,14 +144,14 @@ tzdata = ["tzdata"]
 
 [[package]]
 name = "beautifulsoup4"
-version = "4.11.1"
+version = "4.11.2"
 description = "Screen-scraping library"
 category = "main"
 optional = false
 python-versions = ">=3.6.0"
 files = [
-    {file = "beautifulsoup4-4.11.1-py3-none-any.whl", hash = "sha256:58d5c3d29f5a36ffeb94f02f0d786cd53014cf9b3b3951d42e0080d8a9498d30"},
-    {file = "beautifulsoup4-4.11.1.tar.gz", hash = "sha256:ad9aa55b65ef2808eb405f46cf74df7fcb7044d5cbc26487f96eb2ef2e436693"},
+    {file = "beautifulsoup4-4.11.2-py3-none-any.whl", hash = "sha256:0e79446b10b3ecb499c1556f7e228a53e64a2bfcebd455f370d8927cb5b59e39"},
+    {file = "beautifulsoup4-4.11.2.tar.gz", hash = "sha256:bc4bdda6717de5a2987436fb8d72f45dc90dd856bdfd512a1314ce90349a0106"},
 ]
 
 [package.dependencies]
@@ -1514,14 +1514,14 @@ full = ["XLMMacroDeobfuscator"]
 
 [[package]]
 name = "openpyxl"
-version = "3.0.10"
+version = "3.1.0"
 description = "A Python library to read/write Excel 2010 xlsx/xlsm files"
 category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "openpyxl-3.0.10-py2.py3-none-any.whl", hash = "sha256:0ab6d25d01799f97a9464630abacbb34aafecdcaa0ef3cba6d6b3499867d0355"},
-    {file = "openpyxl-3.0.10.tar.gz", hash = "sha256:e47805627aebcf860edb4edf7987b1309c1b3632f3750538ed962bbcc3bd7449"},
+    {file = "openpyxl-3.1.0-py2.py3-none-any.whl", hash = "sha256:24d7d361025d186ba91eff58135d50855cf035a84371b891e58fb6eb5125660f"},
+    {file = "openpyxl-3.1.0.tar.gz", hash = "sha256:eccedbe1cdd8b2494057e73959b496821141038dbb7eb9266ea59e3f34208231"},
 ]
 
 [package.dependencies]
@@ -2818,14 +2818,14 @@ test = ["pytest"]
 
 [[package]]
 name = "setuptools"
-version = "67.0.0"
+version = "67.1.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "setuptools-67.0.0-py3-none-any.whl", hash = "sha256:9d790961ba6219e9ff7d9557622d2fe136816a264dd01d5997cfc057d804853d"},
-    {file = "setuptools-67.0.0.tar.gz", hash = "sha256:883131c5b6efa70b9101c7ef30b2b7b780a4283d5fc1616383cdf22c83cbefe6"},
+    {file = "setuptools-67.1.0-py3-none-any.whl", hash = "sha256:a7687c12b444eaac951ea87a9627c4f904ac757e7abdc5aac32833234af90378"},
+    {file = "setuptools-67.1.0.tar.gz", hash = "sha256:e261cdf010c11a41cb5cb5f1bf3338a7433832029f559a6a7614bd42a967c300"},
 ]
 
 [package.extras]
@@ -2835,13 +2835,13 @@ testing-integration = ["build[virtualenv]", "filelock (>=3.4.0)", "jaraco.envs (
 
 [[package]]
 name = "sflock2"
-version = "0.3.43"
+version = "0.3.44"
 description = "Sample staging and detonation utility"
 category = "main"
 optional = false
 python-versions = "*"
 files = [
-    {file = "SFlock2-0.3.43.tar.gz", hash = "sha256:8a4d0a57cfd736b3e0e4c724c7823a7f652162b71c05c2491a033f3d4090267d"},
+    {file = "SFlock2-0.3.44.tar.gz", hash = "sha256:896bf61ecb8898222e0dc16f2bd237d2ea6c50f1f68d4dbf19c020b4b6ceb516"},
 ]
 
 [package.dependencies]
@@ -2850,11 +2850,12 @@ cryptography = ">=2.1"
 olefile = ">=0.43"
 pefile = "*"
 python-magic = ">=0.4.13"
-unicorn = ">=2.0.0"
-yara-python = ">=4.1.0"
+unicorn = {version = ">=2.0.0", optional = true, markers = "extra == \"shellcode\""}
+yara-python = {version = ">=4.1.0", optional = true, markers = "extra == \"shellcode\""}
 
 [package.extras]
 dev = ["mock", "pytest"]
+shellcode = ["unicorn (>=2.0.0)", "yara-python (>=4.1.0)"]
 
 [[package]]
 name = "six"
@@ -3545,4 +3546,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "53b3d200b53cbc584f9f559e7e18f32452f6df8bc6cdf6abf26120ac86aa9668"
+content-hash = "f71d3087c13550494d7501a70e7b81052ce8161122338e76aafde7e15027702e"

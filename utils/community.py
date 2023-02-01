@@ -93,7 +93,7 @@ def mitre():
     mitre.update()
 
 
-def install(enabled, force, rewrite, filepath, access_token=None, proxy=False):
+def install(enabled, force, rewrite, filepath: str=False, access_token=None, proxy=False):
     if filepath and path_exists(filepath):
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:

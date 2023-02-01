@@ -12,7 +12,7 @@ def load_mitre(enabled: bool = False):
     pyattck_version = ()
 
     if not enabled:
-        return mitre, HAVE_MITRE
+        return mitre, HAVE_MITRE, pyattck_version
 
     try:
         from pyattck import Attck

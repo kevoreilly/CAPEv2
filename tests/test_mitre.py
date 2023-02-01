@@ -9,7 +9,8 @@ from utils.community import install
 
 def test_mitre_attck():
 
-    mitre, HAVE_MITRE, pyattck_version = load_mitre(True)
+    mitre, _, pyattck_version = load_mitre(True)
+    assert mitre
 
     data = {"ttps" : [
         { "ttp": 'T1486', "signature": 'cape_detected_threat' },
@@ -19,8 +20,10 @@ def test_mitre_attck():
     # Download jsons here
     install(["mitre"], True, True)
     # test if version != 7, create list of tested versions
-    if mitre:
-        attck = generate_mitre_attck(data, mitre)
-        assert "Impact" in attck
-        assert len(attck["Impact"]) == 1
-        assert sorted(attck["Impact"][0]["signature"]) == ['cape_detected_threat', 'cape_extracted_content']
+
+
+    # if pyattck_version == (7, 0, 0):
+    attck = generate_mitre_attck(data, mitre)
+    assert "Impact" in attck
+    assert len(attck["Impact"]) == 1
+    assert sorted(attck["Impact"][0]["signature"]) == ['cape_detected_threat', 'cape_extracted_content']

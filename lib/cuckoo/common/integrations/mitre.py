@@ -9,6 +9,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 def load_mitre(enabled: bool = False):
     mitre = False
     HAVE_MITRE = False
+    pyattck_version = ()
 
     if not enabled:
         return mitre, HAVE_MITRE

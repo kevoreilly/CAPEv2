@@ -23,8 +23,8 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.integrations.mitre import mitre_update
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 blocklist = {}
 if path_exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):
@@ -67,7 +67,7 @@ def flare_capa(proxy=None):
         print(e)
 
 
-def install(enabled, force, rewrite, filepath: str=False, access_token=None, proxy=False, url: str = False):
+def install(enabled, force, rewrite, filepath: str = False, access_token=None, proxy=False, url: str = False):
     if filepath and path_exists(filepath):
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:
@@ -185,7 +185,13 @@ def main():
         "-cr", "--capa-rules", help="Download capa rules and signatures", action="store_true", default=False, required=False
     )
     parser.add_argument("--mitre", help="Download updated MITRE JSONS", action="store_true", default=False, required=False)
-    parser.add_argument("--mitre-offline", help="Download updated MITRE JSONS from community repo", action="store_true", default=False, required=False)
+    parser.add_argument(
+        "--mitre-offline",
+        help="Download updated MITRE JSONS from community repo",
+        action="store_true",
+        default=False,
+        required=False,
+    )
     parser.add_argument(
         "-u", "--url", help="Download community modules from the specified url", action="store", default=None, required=False
     )
@@ -235,7 +241,15 @@ def main():
         parser.print_help()
         return
 
-    install(enabled, args.force, args.rewrite, args.file, args.token, args.proxy, args.url or f"https://github.com/kevoreilly/community/archive/{args.branch}.tar.gz")
+    install(
+        enabled,
+        args.force,
+        args.rewrite,
+        args.file,
+        args.token,
+        args.proxy,
+        args.url or f"https://github.com/kevoreilly/community/archive/{args.branch}.tar.gz",
+    )
 
 
 if __name__ == "__main__":

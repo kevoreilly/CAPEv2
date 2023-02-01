@@ -8,6 +8,7 @@ from lib.cuckoo.common.abstracts import Report
 
 log = logging.getLogger(__name__)
 
+
 def generate_mitre_attck(results, mitre):
     attck = {}
     ttp_dict = {}
@@ -34,6 +35,7 @@ def generate_mitre_attck(results, mitre):
 
     return attck
 
+
 class MITRE_TTPS(Report):
     def run(self, results):
         if not results.get("ttps") or not hasattr(self, "mitre"):
@@ -42,4 +44,3 @@ class MITRE_TTPS(Report):
         attck = generate_mitre_attck(results, self.mitre)
         if attck:
             results["mitre_attck"] = attck
-

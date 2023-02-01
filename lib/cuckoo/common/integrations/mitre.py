@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 
@@ -42,13 +43,18 @@ def load_mitre(enabled: bool = False):
 
     try:
         from pyattck import Attck
-        from pyattck.utils.version import __version_info__ as pyattck_version
 
         # Till fix https://github.com/swimlane/pyattck/pull/129
-        from pyattck.configuration import Options, Configuration
+        from pyattck.configuration import Configuration, Options
         from pyattck.utils.exceptions import UnknownFileError
+        from pyattck.utils.version import __version_info__ as pyattck_version
+
         _ = Options._read_from_disk
-        import json, warnings, yaml  # noqa: E401
+        import json  # noqa: E401
+        import warnings
+
+        import yaml
+
         def _read_from_disk(self, path):
             if os.path.exists(path) and os.path.isfile(path):
                 try:
@@ -61,14 +67,13 @@ def load_mitre(enabled: bool = False):
                             raise UnknownFileError(provided_value=path, known_values=[".json", ".yml", ".yaml"])
                 except Exception:
                     warnings.warn(
-                        message=f"The provided config file {path} is not in the correct format. "
-                        "Using default values instead."
+                        message=f"The provided config file {path} is not in the correct format. " "Using default values instead."
                     )
                     pass
             elif os.path.isdir(path):
                 raise Exception(f"The provided path is a directory and must be a file: {path}")
-        Options._read_from_disk = _read_from_disk
 
+        Options._read_from_disk = _read_from_disk
 
         mitre = Attck(
             nested_techniques=True,

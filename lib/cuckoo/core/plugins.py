@@ -600,7 +600,11 @@ class RunSignatures:
                     # If the signature is matched, add it to the list.
                     if match and not signature.matched:
                         if hasattr(signature, "ttps"):
-                            [self.ttps.append({"ttp": ttp, "signature": signature.name}) for ttp in signature.ttps if {"ttp": ttp, "signature": signature.name} not in self.ttps]
+                            [
+                                self.ttps.append({"ttp": ttp, "signature": signature.name})
+                                for ttp in signature.ttps
+                                if {"ttp": ttp, "signature": signature.name} not in self.ttps
+                            ]
                         signature.matched = True
 
         for signature in self.signatures:

@@ -29,12 +29,12 @@ from lib.cuckoo.common.exceptions import (
     CuckooOperationalError,
     CuckooReportError,
 )
+from lib.cuckoo.common.integrations.mitre import load_mitre
 from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.integrations.mitre import load_mitre
 
 try:
     import re2 as re

@@ -54,9 +54,7 @@ jobs:
           poetry run pflake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Run unit tests
-        run: |
-          # poetry run python utils/community.py --mitre-offline -f
-          poetry run pytest --import-mode=append
+        run: poetry run pytest --import-mode=append
 
       - name: Install dependencies
         run: poetry run pip install ruff

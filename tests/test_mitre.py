@@ -9,20 +9,18 @@ from utils.community import install
 
 def test_mitre_attck():
 
-    mitre, _, pyattck_version = load_mitre(True)
-    assert mitre
+    if pyattck_version != (7, 0, 0):
+        mitre, _, pyattck_version = load_mitre(True)
+        assert mitre
 
-    data = {"ttps" : [
-        { "ttp": 'T1486', "signature": 'cape_detected_threat' },
-        { "ttp": 'T1486', "signature": 'cape_extracted_content' },
-    ]}
+        data = {"ttps" : [
+            { "ttp": 'T1486', "signature": 'cape_detected_threat' },
+            { "ttp": 'T1486', "signature": 'cape_extracted_content' },
+        ]}
 
-    # Download jsons here
-    install(["mitre"], True, True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
-    # test if version != 7, create list of tested versions
-
-    # if pyattck_version == (7, 0, 0):
-    attck = generate_mitre_attck(data, mitre)
-    assert "Impact" in attck
-    assert len(attck["Impact"]) == 1
-    assert sorted(attck["Impact"][0]["signature"]) == ['cape_detected_threat', 'cape_extracted_content']
+        # Download mitre jsons here
+        install(["mitre"], True, True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
+        attck = generate_mitre_attck(data, mitre)
+        assert "Impact" in attck
+        assert len(attck["Impact"]) == 1
+        assert sorted(attck["Impact"][0]["signature"]) == ['cape_detected_threat', 'cape_extracted_content']

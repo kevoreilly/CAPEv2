@@ -1,3 +1,6 @@
+### [1.2.2023]
+* Monitor update: Disable spawning WER processes (werfault.exe etc) via RtlReportSilentProcessExit hook
+
 ### [30.01.2023]
 * Add `utils/fstab.py` utils which is used by `utils/dist.py` when NFS mode is used.
     * Check configure NFS in [documentation](https://capev2.readthedocs.io/en/latest/usage/dist.html):

@@ -235,7 +235,7 @@ def main():
         parser.print_help()
         return
 
-    install(enabled, args.force, args.rewrite, args.file, args.token, args.proxy, args.url or f"https://github.com/kevoreilly/community/archive/{args.branch}.tar.gz"))
+    install(enabled, args.force, args.rewrite, args.file, args.token, args.proxy, args.url or f"https://github.com/kevoreilly/community/archive/{args.branch}.tar.gz")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 log = logging.getLogger("mitre")
 
+
 def mitre_generate_attck(results, mitre):
     attck = {}
     ttp_dict = {}

@@ -2,7 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from lib.cuckoo.common.integrations.mitre import mitre_load, mitre_generate_attck
+from lib.cuckoo.common.integrations.mitre import mitre_generate_attck, mitre_load
 from utils.community import install
 
 

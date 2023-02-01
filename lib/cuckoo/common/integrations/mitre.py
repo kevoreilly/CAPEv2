@@ -22,8 +22,8 @@ def load_mitre(enabled: bool = False):
         # Till fix https://github.com/swimlane/pyattck/pull/129
         from pyattck.configuration import Options, Configuration
         from pyattck.utils.exceptions import UnknownFileError
-        old_read_from_disk = Options._read_from_disk
-        import json, warnings, yaml
+        _ = Options._read_from_disk
+        import json, warnings, yaml  # noqa: E401
         def _read_from_disk(self, path):
             if os.path.exists(path) and os.path.isfile(path):
                 try:
@@ -34,7 +34,7 @@ def load_mitre(enabled: bool = False):
                             return Configuration(**yaml.load(f, Loader=yaml.SafeLoader))
                         else:
                             raise UnknownFileError(provided_value=path, known_values=[".json", ".yml", ".yaml"])
-                except Exception as e:
+                except Exception:
                     warnings.warn(
                         message=f"The provided config file {path} is not in the correct format. "
                         "Using default values instead."
@@ -63,4 +63,4 @@ def load_mitre(enabled: bool = False):
     except ImportError:
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
 
-    return mitre, HAVE_MITRE
+    return mitre, HAVE_MITRE, pyattck_version

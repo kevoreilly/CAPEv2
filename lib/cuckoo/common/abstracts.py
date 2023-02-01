@@ -59,7 +59,7 @@ except ImportError:
 repconf = Config("reporting")
 _, categories_need_VM = load_categories()
 
-mitre, HAVE_MITRE = load_mitre(repconf.mitre.enabled)
+mitre, HAVE_MITRE, _ = load_mitre(repconf.mitre.enabled)
 
 log = logging.getLogger(__name__)
 cfg = Config()

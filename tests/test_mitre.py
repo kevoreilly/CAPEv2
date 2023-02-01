@@ -4,16 +4,21 @@
 
 from lib.cuckoo.common.integrations.mitre import load_mitre
 from modules.reporting.mitre import generate_mitre_attck
+from utils.community import install
+
 
 def test_mitre_attck():
 
-    mitre, HAVE_MITRE = load_mitre(True)
+    mitre, HAVE_MITRE, pyattck_version = load_mitre(True)
 
     data = {"ttps" : [
         { "ttp": 'T1486', "signature": 'cape_detected_threat' },
         { "ttp": 'T1486', "signature": 'cape_extracted_content' },
     ]}
 
+    # Download jsons here
+    install(["mitre"], True, True)
+    # test if version != 7, create list of tested versions
     if mitre:
         attck = generate_mitre_attck(data, mitre)
         assert "Impact" in attck

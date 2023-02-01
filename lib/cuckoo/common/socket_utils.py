@@ -49,6 +49,10 @@ def send_socket_command(socket_path: str, command: str, *args, **kwargs):
         except socket.timeout:
             ret = {"exception": f"{socket_path} response timeout", "output": ""}
 
+        # Should we close the socket?
+        # if hasattr(s, "close"):
+        #    s.close()
+
         return ret
 
 

@@ -8,7 +8,6 @@ from pathlib import Path
 from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger("socket-aux")
-unixpath = tempfile.NamedTemporaryFile(mode="w+", delete=True)  # tempfile.mktemp()
 lock = threading.Lock()
 
 
@@ -20,6 +19,7 @@ def send_socket_command(socket_path: str, command: str, *args, **kwargs):
 
     ret = None
     with lock:
+        unixpath = tempfile.NamedTemporaryFile(mode="w+", delete=True)  # tempfile.mktemp()
         s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
 
         unix_path = Path(unixpath.name)

@@ -3,21 +3,14 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import json
 import logging
-import socket
-import tempfile
-import threading
-from pathlib import Path
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.socket_utils import send_socket_command
 
 cfg = Config()
 router_cfg = Config("routing")
 log = logging.getLogger(__name__)
-unixpath = tempfile.NamedTemporaryFile(mode="w+", delete=True)  # tempfile.mktemp()
-lock = threading.Lock()
 
 vpns = {}
 socks5s = {}
@@ -56,42 +49,7 @@ def _load_socks5_operational():
 
 
 def rooter(command, *args, **kwargs):
-    if not path_exists(cfg.cuckoo.rooter):
-        log.critical("Unable to passthrough root command (%s) as the rooter unix socket doesn't exist", command)
-        return
-
-    ret = None
-    with lock:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-
-        unix_path = Path(unixpath.name)
-        if unix_path.exists():
-            unix_path.unlink()
-
-        s.bind(unixpath.name)
-
-        try:
-            s.connect(cfg.cuckoo.rooter)
-        except socket.error as e:
-            log.critical("Unable to passthrough root command as we're unable to connect to the rooter unix socket: %s", e)
-            return
-
-        s.send(
-            json.dumps(
-                {
-                    "command": command,
-                    "args": args,
-                    "kwargs": kwargs,
-                }
-            ).encode()
-        )
-
-        try:
-            ret = json.loads(s.recv(0x10000))
-        except socket.timeout:
-            ret = {"exception": "rooter response timeout", "output": ""}
-
-    if ret and ret["exception"]:
+    ret = send_socket_command(cfg.cuckoo.rooter, command, *args, **kwargs)
+    if ret and ret.get("exception"):
         log.warning("Rooter returned error: %s", ret["exception"])
-
     return ret

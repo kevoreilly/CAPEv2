@@ -82,6 +82,6 @@ def pe_trimmed_size(path):
                 pe.sections[pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
                 + pe.sections[pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
             )
-    except Exception as e:
+    except Exception:
         return 0
     return 0

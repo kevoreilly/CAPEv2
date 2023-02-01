@@ -14,7 +14,10 @@ import sys
 import time
 from contextlib import suppress
 
-from setproctitle import getproctitle, setproctitle
+try:
+    from setproctitle import getproctitle, setproctitle
+except ImportError:
+    sys.exit("Missed dependency. Run: poetry install")
 
 if sys.version_info[:2] < (3, 8):
     sys.exit("You are running an incompatible version of Python, please use >= 3.8")
@@ -22,7 +25,7 @@ if sys.version_info[:2] < (3, 8):
 try:
     import pebble
 except ImportError:
-    sys.exit("Missed dependency: pip3 install Pebble")
+    sys.exit("Missed dependency. Run: poetry install")
 
 log = logging.getLogger()
 

@@ -4,8 +4,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-import tempfile
-import threading
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.socket_utils import send_socket_command
@@ -13,8 +11,6 @@ from lib.cuckoo.common.socket_utils import send_socket_command
 cfg = Config()
 router_cfg = Config("routing")
 log = logging.getLogger(__name__)
-unixpath = tempfile.NamedTemporaryFile(mode="w+", delete=True)  # tempfile.mktemp()
-lock = threading.Lock()
 
 vpns = {}
 socks5s = {}
@@ -53,9 +49,7 @@ def _load_socks5_operational():
 
 
 def rooter(command, *args, **kwargs):
-
-    ret = send_socket_command(cfg.cuckoo.rooter, command, args, kwargs)
+    ret = send_socket_command(cfg.cuckoo.rooter, command, *args, **kwargs)
     if ret and ret.get("exception"):
         log.warning("Rooter returned error: %s", ret["exception"])
-
     return ret

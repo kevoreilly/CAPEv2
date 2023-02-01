@@ -17,4 +17,4 @@ def test_mitre_attck():
     if mitre:
         attck = generate_mitre_attck(data, mitre)
         assert len(attck["Impact"]) == 1
-        assert attck["Impact"][0]["signature"] == ['cape_detected_threat', 'cape_extracted_content']
+        assert sorted(attck["Impact"][0]["signature"]) == ['cape_detected_threat', 'cape_extracted_content']

@@ -1,4 +1,5 @@
 import struct
+from contextlib import suppress
 
 try:
     import pefile
@@ -75,13 +76,11 @@ def pe_trimmed_size(path):
     f = open(path, "rb")
     data = f.read(PE_HEADER_LIMIT * 2)
     f.close()
-    try:
+    with suppress(Exception):
         pe = pefile.PE(data=data, fast_load=False)
         if pe.FILE_HEADER.NumberOfSections:
             return (
                 pe.sections[pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
                 + pe.sections[pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
             )
-    except Exception:
-        return 0
     return 0

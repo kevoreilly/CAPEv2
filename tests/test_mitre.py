@@ -26,5 +26,6 @@ def test_mitre_attck():
         assert len(attck["Impact"]) == 1
         assert sorted(attck["Impact"][0]["signature"]) == ["cape_detected_threat", "cape_extracted_content"]
 
+
 if __name__ == "__main__":
     test_mitre_attck()

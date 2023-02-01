@@ -17,6 +17,7 @@ from lib.cuckoo.core.resultserver import ResultServer
 log = logging.getLogger(__name__)
 
 cfg = Config()
+router_cfg = Config("routing")
 
 
 class Sniffer(Auxiliary):
@@ -25,7 +26,7 @@ class Sniffer(Auxiliary):
         self.proc = None
 
     def start(self):
-        if self.task.route in ("none", "None", "drop", "false"):
+        if not router_cfg.routing.enable_pcap and self.task.route in ("none", "None", "drop", "false"):
             return
 
         # Get updated machine info
@@ -188,7 +189,7 @@ class Sniffer(Auxiliary):
         @return: operation status.
         """
 
-        if self.task.route in ("none", "None", "drop", "false"):
+        if not router_cfg.routing.enable_pcap and self.task.route in ("none", "None", "drop", "false"):
             return
 
         remote = self.options.get("remote", False)

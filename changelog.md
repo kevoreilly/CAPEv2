@@ -1,3 +1,6 @@
+### [2.2.2023]
+* Monitor update: Process dump improvements & 'export' option to allow DLL export to be defined by monitor yara signature
+
 ### [1.2.2023]
 * Monitor update: Disable spawning WER processes (werfault.exe etc) via RtlReportSilentProcessExit hook
 

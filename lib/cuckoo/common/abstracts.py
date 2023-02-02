@@ -1506,8 +1506,11 @@ class Signature:
         return res
 
     def mark_call(self, *args, **kwargs):
-        """Mark the current call as explanation as to why this signature
-        matched."""
+        """Mark the current call as explanation as to why this signature matched."""
+
+        if not cfg.general.apicall_details:
+            return
+
         mark = {
             "type": "call",
             "pid": self.pid,

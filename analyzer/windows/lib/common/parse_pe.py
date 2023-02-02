@@ -22,9 +22,10 @@ PE_HEADER_LIMIT = 0x200
 def is_pe_image(path):
     if not path:
         return False
-    f = open(path, "rb")
-    buf = f.read(PE_HEADER_LIMIT)
-    f.close()
+
+    with open(path, "rb") as f:
+        buf = f.read(PE_HEADER_LIMIT)
+
     if len(buf) < DOS_HEADER_LIMIT:
         return False
 
@@ -73,9 +74,10 @@ def is_pe_image(path):
 def pe_trimmed_size(path):
     if not HAVE_PEFILE:
         return 0
-    f = open(path, "rb")
-    data = f.read(PE_HEADER_LIMIT * 2)
-    f.close()
+
+    with open(path, "rb") as f:
+        data = f.read(PE_HEADER_LIMIT * 2)
+
     with suppress(Exception):
         pe = pefile.PE(data=data, fast_load=False)
         if pe.FILE_HEADER.NumberOfSections:

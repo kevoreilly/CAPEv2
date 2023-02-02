@@ -12,3 +12,16 @@ rule QakBot
     condition:
         uint16(0) == 0x5A4D and any of them
 }
+
+rule QakBotLoader
+{
+    meta:
+        author = "kevoreilly"
+        description = "QakBot Export Selection"
+        cape_options = "export=$export1-307,export=$export2-105"
+    strings:
+        $export1 = {66 3B E4 74 34 F7 F6 0F B6 44 15 ?? 33 C8 EB ?? BB D2 04 00 00 53 E8 [4] 66 3B FF 74 ?? 0F B6 4C 05 ?? 8B 45 ?? 33 D2 3A D2 74}
+        $export2 = {66 3B F6 74 0B FF 75 ?? BB 00 00 00 00 53 EB ?? BB D2 04 00 00 53 E8 [4] 3A FF 74 ?? 0F B6 4C 05 ?? 8B 45 ?? 33 D2 66 3B D2 74}
+    condition:
+        uint16(0) == 0x5A4D and any of them
+}

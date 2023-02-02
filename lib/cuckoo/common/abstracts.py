@@ -1508,7 +1508,7 @@ class Signature:
     def mark_call(self, *args, **kwargs):
         """Mark the current call as explanation as to why this signature matched."""
 
-        if not cfg.general.apicall_details:
+        if not cfg.cuckoo.apicall_details:
             return
 
         mark = {

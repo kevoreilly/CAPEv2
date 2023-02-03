@@ -350,14 +350,18 @@ def main():
 
     # # Detect if all graphs are being requested
     __graphtypes__ = []
-    graphs = []
+    graphs = {}
     if args.graphtype == "all":
         __graphtypes__ = graphs
     else:
         __graphtypes__ = {args.graphtype: graphs[args.graphtype]}
     # # Allow graph modules to verify if their arguments have been set correctly
-    for name, module in __graphtypes__.items():
-        module.args_validation(args)
+    
+    try:
+        for name, module in __graphtypes__.items():
+            module.args_validation(args)
+    except:
+        pass
 
     generate_graphs(args.__dict__)
 

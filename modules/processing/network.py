@@ -56,7 +56,7 @@ try:
     except (ImportError, GeoIP.error):
         IS_GEOIP = False
 except NameError:
-    print("Can't import GeoIP")
+    print("OPTIONAL! Can't import GeoIP")
 
 try:
     import dpkt

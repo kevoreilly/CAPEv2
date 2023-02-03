@@ -161,4 +161,4 @@ def test_open_exclusive():
     _ = path_write_file(fpath, "42421337Test", mode="text")
 
     with pytest.raises(OSError):
-        open_exclusive(fpath, bufsize=1)
+        open_exclusive(fpath)

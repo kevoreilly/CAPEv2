@@ -15,6 +15,8 @@ from lib.common.defines import UNICODE_STRING
 
 log = logging.getLogger(__name__)
 
+unicode = str
+
 RegOpenKeyExW = windll.advapi32.RegOpenKeyExW
 RegOpenKeyExW.argtypes = HANDLE, LPCWSTR, DWORD, ULONG, POINTER(HANDLE)
 RegOpenKeyExW.restype = LONG

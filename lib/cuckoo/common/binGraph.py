@@ -196,6 +196,7 @@ def generate_graphs(args_dict):
 
     # # Detect if all graphs are being requested
     __graphtypes__ = []
+    graphs = {}
     if args_dict["graphtype"] == "all":
         __graphtypes__ = graphs
         log.info("Set all")

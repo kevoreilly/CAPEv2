@@ -350,6 +350,7 @@ def main():
 
     # # Detect if all graphs are being requested
     __graphtypes__ = []
+    graphs = []
     if args.graphtype == "all":
         __graphtypes__ = graphs
     else:

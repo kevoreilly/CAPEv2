@@ -320,7 +320,8 @@ def main():
     subparsers.required = True
 
     subparsers.add_parser("all")
-
+    #initalize graphs dictionary
+    graphs = {}
     # # Loop over all graph types to add their graph specific options
     for name, module in graphs.items():
         module_parser = subparsers.add_parser(name)
@@ -351,7 +352,7 @@ def main():
 
     # # Detect if all graphs are being requested
     __graphtypes__ = []
-    graphs = {}
+
     if args.graphtype == "all":
         __graphtypes__ = graphs
     else:

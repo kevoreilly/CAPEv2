@@ -1,0 +1,11 @@
+rule:
+  meta:
+    name: read and send data from client to server
+    namespace: c2/file-transfer
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+  features:
+    - and:
+      - match: host-interaction/file-system/read
+      - match: send data

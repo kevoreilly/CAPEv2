@@ -1,0 +1,20 @@
+rule:
+  meta:
+    name: timestomp file
+    namespace: anti-analysis/anti-forensic/timestomp
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Indicator Removal::Timestomp [T1070.006]
+    examples:
+      - Practical Malware Analysis Lab 03-04.exe_:0x4014e0
+  features:
+    - and:
+      - or:
+        - api: kernel32.GetSystemTime
+        - api: kernel32.FileTimeToLocalFileTime
+        - api: kernel32.GetSystemTimeAsFileTime
+        - api: kernel32.SystemTimeToFileTime
+        - api: kernel32.GetFileTime
+      - api: kernel32.SetFileTime

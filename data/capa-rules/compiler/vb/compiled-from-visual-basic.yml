@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: compiled from Visual Basic
+    namespace: compiler/vb
+    authors:
+      - "@williballenthin"
+    scope: file
+    examples:
+      - 9bca6b99e7981208af4c7925b96fb9cf
+  features:
+    - and:
+      - string: /VB5!.*/
+      - import: msvbvm60.ThunRTMain

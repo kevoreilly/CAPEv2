@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: get Explorer PID
+    namespace: host-interaction/process/list
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    att&ck:
+      - Discovery::Process Discovery [T1057]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiDebug/ParentProcess.cpp
+    examples:
+      - al-khaser_x86.exe_:0x425210
+  features:
+    - and:
+      - api: GetShellWindow
+      - api: GetWindowThreadProcessId

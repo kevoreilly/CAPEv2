@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: contain an embedded PE file
+    namespace: executable/subfile/pe
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: file
+    mbc:
+      - Execution::Install Additional Program [B0023]
+    examples:
+      - Practical Malware Analysis Lab 01-04.exe_:0x4060
+  features:
+    - or:
+      - count(characteristic(embedded pe)): 1 or more
+      - count(string(This program cannot be run in DOS mode.)): 2 or more

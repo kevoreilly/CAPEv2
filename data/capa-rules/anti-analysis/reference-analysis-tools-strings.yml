@@ -1,0 +1,49 @@
+rule:
+  meta:
+    name: reference analysis tools strings
+    namespace: anti-analysis
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: file
+    mbc:
+      - Discovery::Analysis Tool Discovery::Process detection [B0013.001]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiAnalysis/process.cpp
+    examples:
+      - al-khaser_x86.exe_
+  features:
+    - or:
+      - string: /ollydbg\.exe/i
+      - string: /ProcessHacker\.exe/i
+      - string: /tcpview\.exe/i
+      - string: /autoruns\.exe/i
+      - string: /autorunsc\.exe/i
+      - string: /filemon\.exe/i
+      - string: /procmon\.exe/i
+      - string: /regmon\.exe/i
+      - string: /procexp\.exe/i
+      - string: /idaq\.exe/i
+      - string: /idaq64\.exe/i
+      - string: /ImmunityDebugger\.exe/i
+      - string: /Wireshark\.exe/i
+      - string: /dumpcap\.exe/i
+      - string: /HookExplorer\.exe/i
+      - string: /ImportREC\.exe/i
+      - string: /PETools\.exe/i
+      - string: /LordPE\.exe/i
+      - string: /SysInspector\.exe/i
+      - string: /proc_analyzer\.exe/i
+      - string: /sysAnalyzer\.exe/i
+      - string: /sniff_hit\.exe/i
+      - string: /windbg\.exe/i
+      - string: /joeboxcontrol\.exe/i
+      - string: /joeboxserver\.exe/i
+      - string: /ResourceHacker\.exe/i
+      - string: /x32dbg\.exe/i
+      - string: /x64dbg\.exe/i
+      - string: /Fiddler\.exe/i
+      - string: /httpdebugger\.exe/i
+      - string: /fakenet\.exe/i
+      - string: /netmon\.exe/i
+      - string: /WPE PRO\.exe/i
+      - string: /decompile\.exe/i

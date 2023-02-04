@@ -1,0 +1,26 @@
+rule:
+  meta:
+    name: get file version info
+    namespace: host-interaction/file-system/meta
+    authors:
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::File and Directory Discovery [T1083]
+    mbc:
+      - Discovery::File and Directory Discovery [E1083]
+    examples:
+      - mimikatz.exe_:0x45E308
+  features:
+    - and:
+      - or:
+        - api: version.GetFileVersionInfo
+        - api: version.GetFileVersionInfoEx
+        - api: System.Diagnostics.FileVersionInfo::GetVersionInfo
+      - optional:
+        - description: retrieve specified version information from the version-information resource
+        - api: version.VerQueryValue
+        - or:
+          - api: version.GetFileVersionInfoSize
+          - api: version.GetFileVersionInfoSizeEx

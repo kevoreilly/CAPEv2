@@ -1,0 +1,29 @@
+rule:
+  meta:
+    name: encrypt data using DES via WinAPI
+    namespace: data-manipulation/encryption/des
+    authors:
+      - "@_re_fox"
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Defense Evasion::Obfuscated Files or Information::Encryption-Standard Algorithm [E1027.m05]
+      - Cryptography::Encrypt Data::3DES [C0027.004]
+    examples:
+      - 5f66b82558ca92e54e77f216ef4c066c:0x403377
+  features:
+    - and:
+      - or:
+        - number: 0x6601 = CALG_DES
+        - number: 0x6603 = CALG_3DES
+        - number: 0x6609 = CALG_3DES_112
+      - or:
+        - api: CryptGenKey
+        - api: CryptDeriveKey
+        - api: CryptImportKey
+      - optional:
+        - or:
+          - api: CryptAcquireContext
+          - api: CryptEncrypt
+          - api: CryptDecrypt

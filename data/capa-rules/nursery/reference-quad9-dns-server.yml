@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: reference Quad9 DNS server
+    namespace: communication/dns
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    references:
+      - https://www.techradar.com/news/best-dns-server
+  features:
+    - or:
+      - string: "9.9.9.9"
+      - string: "149.112.112.112"

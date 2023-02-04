@@ -1,0 +1,12 @@
+rule:
+  meta:
+    name: get OS version in .NET
+    namespace: host-interaction/os/version
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Information Discovery [T1082]
+  features:
+    - or:
+      - property/read: System.Environment::OSVersion

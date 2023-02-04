@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: implement COM DLL
+    namespace: executable/pe
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: file
+    references:
+      - https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-dllgetclassobject
+  features:
+    - and:
+      - export: DllGetClassObject
+      - optional:
+        - export: DllRegisterServer

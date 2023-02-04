@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: reference L3 DNS server
+    namespace: communication/dns
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    references:
+      - https://www.quora.com/What-is-a-4-2-2-1-DNS-server
+  features:
+    - or:
+      - string: "4.2.2.1"
+      - string: "4.2.2.2"
+      - string: "4.2.2.3"
+      - string: "4.2.2.4"
+      - string: "4.2.2.5"
+      - string: "4.2.2.6"

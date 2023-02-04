@@ -1,0 +1,12 @@
+rule:
+  meta:
+    name: get system firmware table
+    namespace: host-interaction/hardware/firmware
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/Shared/Utils.cpp#L854
+  features:
+    - and:
+      - api: kernel32.GetSystemFirmwareTable

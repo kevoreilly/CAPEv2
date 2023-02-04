@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: compiled with ps2exe
+    namespace: compiler/ps2exe
+    authors:
+      - "@_re_fox"
+      - jakub.jozwiak@mandiant.com
+    scope: file
+    references:
+      - https://github.com/ikarstein/ps2exe
+      - https://github.com/MScholtes/PS2EXE
+    examples:
+      - 8775ed26068788279726e08ff9665aab
+      - 805f79e57e4ce24b95a04541e4ea55dd2ce9ba314ab2c43491328204bc25d017
+  features:
+    - and:
+      - match: compiled to the .NET platform
+      - or:
+        - and:
+          - string: "PS2EXEApp"
+          - string: "PS2EXE"
+          - string: "PS2EXE_Host"
+        - and:
+          - string: "If you spzzcify thzz -zzxtract option you nzzed to add a filzz for zzxtraction in this way"
+          - string: "   -zzxtract:\"<filzznamzz>\""

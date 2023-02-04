@@ -1,0 +1,20 @@
+rule:
+  meta:
+    name: create process via WMI in .NET
+    namespace: host-interaction/wmi
+    authors:
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Execution::Windows Management Instrumentation [T1047]
+  features:
+    - and:
+      - string: "Win32_Process"
+      - optional:
+        - string: "Win32_ProcessStartup"
+      - string: "Create"
+      - api: System.Management.ManagementObject::GetMethodParameters
+      - optional:
+        - string: "CommandLine"
+        - string: "ProcessStartupInformation"
+      - api: System.Management.ManagementObject::InvokeMethod

@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: schedule task via ITaskScheduler
+    namespace: persistence/scheduled-tasks
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Persistence::Scheduled Task/Job::Scheduled Task [T1053.005]
+    examples:
+      - 2B8BEC5BCB1777EAA155D832F7AFC797:0x405887
+  features:
+    - and:
+      - api: ole32.CoCreateInstance
+      - bytes: 2A D5 8B 14 AB A2 CE 11 B1 1F 00 AA 00 53 05 03 = CLSID_CTaskScheduler
+      - bytes: 27 D5 8B 14 AB A2 CE 11 B1 1F 00 AA 00 53 05 03 = IID_ITaskScheduler
+      - or:
+        - offset: 0x20 = pts->NewWorkItem
+        - offset: 0x24 = pts->AddWorkItem

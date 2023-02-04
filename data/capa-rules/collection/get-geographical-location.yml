@@ -1,0 +1,32 @@
+# generated using capa explorer for IDA Pro
+rule:
+  meta:
+    name: get geographical location
+    namespace: collection
+    authors:
+      - moritz.raabe
+    scope: function
+    att&ck:
+      - Discovery::System Location Discovery [T1614]
+    examples:
+      - 9879D201DC5ACA863F357184CD1F170E:0x10001A99
+  features:
+    - or:
+      - api: GetLocaleInfo
+      - api: GetLocaleInfoEx
+      # strings part of requests or parsed from response
+      # "geo" and "zip" are too short
+      # "region" results in FPs mostly related to memory
+      - string: /geolocation/i
+      - string: /geo-location/i
+      - string: /^city/i
+      - string: /region_code/i
+      - string: /region_name/i
+      - string: /^country/i
+      - string: /country_code/i
+      - string: /countrycode/i
+      - string: /country_name/i
+      - string: /continent_code/i
+      - string: /continent_name/i
+      - string: /^latitude/i
+      - string: /^longitude/i

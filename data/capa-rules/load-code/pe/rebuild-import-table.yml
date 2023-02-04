@@ -1,0 +1,36 @@
+rule:
+  meta:
+    name: rebuild import table
+    namespace: load-code/pe
+    authors:
+      - "@Ana06"
+    scope: function
+    mbc:
+      - Defense Evasion::Hijack Execution Flow::Import Address Table Hooking [F0015.003]
+    references:
+      - https://0x00sec.org/t/reflective-dll-injection/3080
+      - https://www.ired.team/offensive-security/code-injection-process-injection/reflective-dll-injection
+    examples:
+      - E4C33AC3638EEF68311F8AC0D72483C7:0x401510
+  features:
+    - and:
+      - os: windows
+      - offset: 0x7C = IMAGE_NT_HEADERS.OptionalHeader.DataDirectory.Size
+      - offset: 0x78 = IMAGE_NT_HEADERS.OptionalHeader.DataDirectory.VirtualAddress
+      - basic block:
+        - and:
+          - offset: 0xC = IMAGE_IMPORT_DESCRIPTOR.Name
+          - api: LoadLibraryA
+      - offset: 0x10 = IMAGE_IMPORT_DESCRIPTOR.FirstThunk
+      - api: GetProcAddress
+      - optional:
+        - description: import by ordinal
+        - or:
+          - and:
+            - arch: i386
+            - number: 0x80000000 = IMAGE_SNAP_BY_ORDINAL32
+          - and:
+            - arch: amd64
+            - number: 0x8000000000000000 = IMAGE_SNAP_BY_ORDINAL64
+          - number: 0xFFFF = IMAGE_ORDINAL
+          - number: 0x2 = thunk->u1.AddressOfData

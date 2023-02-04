@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: decode data using Base64 via WinAPI
+    namespace: data-manipulation/encoding/base64
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    att&ck:
+      - Defense Evasion::Deobfuscate/Decode Files or Information [T1140]
+    examples:
+      - mimikatz.exe_:0x40D742
+  features:
+    - and:
+      - or:
+        - number: 0x1 = dwFlags=CRYPT_STRING_BASE64
+        - number: 0x6 = dwFlags=CRYPT_STRING_BASE64_ANY
+        - number: 0x7 = dwFlags=CRYPT_STRING_ANY
+      - api: CryptStringToBinary

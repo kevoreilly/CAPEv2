@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: reference processor manufacturer constants
+    namespace: anti-analysis/anti-vm/vm-detection
+    authors:
+      - matthew.williams@mandiant.com
+    scope: basic block
+    att&ck:
+      - Defense Evasion::Virtualization/Sandbox Evasion::System Checks [T1497.001]
+    mbc:
+      - Anti-Behavioral Analysis::Virtual Machine Detection::Instruction Testing - CPUID [B0009.034]
+    references:
+      - https://en.wikipedia.org/wiki/CPUID
+  features:
+    - and:
+      - mnemonic: cmp
+      - or:
+        - number: 0x61774D56 = 'awMV' (VMware)
+        - number: 0x566E6558 = 'VneX' (Xen HVM)
+        - number: 0x7263694D = 'rciM' (Microsoft Hyper-V)
+        - number: 0x4B4D564B = 'KMVK' (KVM)
+        - number: 0x70726C20 = 'prl ' (Parallels)
+        - number: 0x786F4256 = 'xoBV' (VirtualBox)
+      - optional:
+        - mnemonic: cpuid

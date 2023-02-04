@@ -1,0 +1,33 @@
+rule:
+  meta:
+    name: inject dll
+    namespace: host-interaction/process/inject
+    authors:
+      - 0x534a@mailbox.org
+    scope: function
+    att&ck:
+      - Defense Evasion::Process Injection::Dynamic-link Library Injection [T1055.001]
+    references:
+      - Practical Malware Analysis, p. 676
+      - https://www.researchgate.net/publication/279155742_A_Novel_Approach_to_Detect_Malware_Based_on_API_Call_Sequence_Analysis
+      - https://www.welivesecurity.com/wp-content/uploads/2016/10/eset-sednit-part3.pdf
+      - https://www.accenture.com/t20180127T003755Z_w_/us-en/_acnmedia/PDF-46/Accenture-Security-Dragonfish-Threat-Analysis.pdf
+      - https://unit42.paloaltonetworks.com/unit42-kazuar-multiplatform-espionage-backdoor-api-access/
+      - https://www.welivesecurity.com/wp-content/uploads/2018/10/ESET_GreyEnergy.pdf
+      - https://www.welivesecurity.com/2019/05/29/turla-powershell-usage/
+    examples:
+      - Practical Malware Analysis Lab 17-02.dll_:0x1000D10D
+  features:
+    - and:
+      - optional:
+        - or:
+          - match: open process
+          - match: host-interaction/process/create
+      - match: allocate RW memory
+      - match: write process memory
+      - and:
+        - or:
+          - api: kernel32.GetModuleHandle
+          - api: kernel32.GetModuleHandleEx
+        - string: "/LoadLibrary[AW]/"
+      - match: create thread

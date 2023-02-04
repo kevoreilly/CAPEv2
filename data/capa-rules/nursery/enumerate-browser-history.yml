@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: enumerate browser history
+    namespace: host-interaction/browser/history/list
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - and:
+      - api: ole32.CoCreateInstance
+      - bytes: 11 DC A0 AF 13 C3 D0 11 83 1A 00 C0 4F D5 AE 38 = IUrlHistoryStg2
+      - bytes: 40 4A 37 3C E4 BA CF 11 BF 7D 00 AA 00 69 46 EE = CUrlHistory
+      - offset: 28 = IUrlHistoryStg2.EnumUrls, enumerate IE URLs
+      - optional:
+        - offset: 20 = IEnumSTATURL.Reset, reset iterator to start of IE URLs
+        - offset: 12 = IEnumSTATURL.Next

@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: linked against Go WMI library
+    namespace: collection/database/wmi
+    authors:
+      - joakim@intezer.com
+    description: StackExchange's WMI library is used to interact with WMI.
+    scope: file
+    att&ck:
+      - Collection::Data from Information Repositories [T1213]
+    references:
+      - https://github.com/StackExchange/wmi
+  features:
+    - and:
+      - match: compiled with Go
+      - or:
+        - string: "github.com/StackExchange/wmi.CreateQuery"
+        - string: "github.com/StackExchange/wmi.Query"

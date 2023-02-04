@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: flush cabinet file
+    namespace: host-interaction/file-system
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    references:
+      - https://docs.microsoft.com/en-us/windows/win32/msi/cabinet-files
+  features:
+    - or:
+      - api: cabinet.FCIFlushFolder = flush current folder under construction
+      - api: cabinet.FCIFlushCabinet = completes current cabinet

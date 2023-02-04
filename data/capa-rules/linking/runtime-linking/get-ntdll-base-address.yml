@@ -1,0 +1,28 @@
+rule:
+  meta:
+    name: get ntdll base address
+    namespace: linking/runtime-linking
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: basic block
+    att&ck:
+      - Execution::Shared Modules [T1129]
+    references:
+      - https://idafchev.github.io/exploit/2017/09/26/writing_windows_shellcode.html
+      - https://www.geoffchappell.com/studies/windows/win32/ntdll/structs/ldr_data_table_entry.htm
+    examples:
+      - 67f8302a2fd28d15f62d6d20d748bfe350334e5353cbdef112bd1f8231b5599d:0x40694A
+  features:
+    - and:
+      # PEB -> PEB.Ldr -> PEB_LDR_DATA.InLoadOrderModuleList.Flink
+      - match: access PEB ldr_data
+      # -> current module
+      - count(offset(0)): 1
+      # -> ntdll -> LDR_DATA_TABLE_ENTRY.DllBase
+      - or:
+        - and:
+          - arch: i386
+          - offset: 0x18 = LDR_DATA_TABLE_ENTRY.DllBase
+        - and:
+          - arch: amd64
+          - offset: 0x30 = LDR_DATA_TABLE_ENTRY.DllBase

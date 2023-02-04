@@ -1,0 +1,53 @@
+rule:
+  meta:
+    name: compute adler32 checksum
+    namespace: data-manipulation/checksum/adler32
+    authors:
+      - matthew.williams@mandiant.com
+    scope: function
+    mbc:
+      - Data::Checksum::Adler [C0032.005]
+    references:
+      - https://en.wikipedia.org/wiki/Adler-32
+    examples:
+      - 42E81CC1145BA3C1936A6CF9B8DA0CCD:0x10001000
+  features:
+    - and:
+      - basic block:
+        - and:
+          - instruction:
+            - mnemonic: shr
+            - operand[1].number: 0xF
+
+          - number: 0x80078071
+          - mnemonic: mul
+
+          - instruction:
+            - mnemonic: imul
+            - or:
+              - number: 0xFFFF000F = -65521
+              - number: 0xFFF1 = 65521
+          - or:
+            - mnemonic: add
+            - mnemonic: sub
+        # Examples:
+        # The sequence below performs mod 65521 using the example 262089 % 65521 = 5:
+        # mov     eax, 80078071h  ; ecx = 262089 (0x3FFC9)
+        # mul     ecx             ; 0x3FFC9 * 0x80078071 = 0x20002802767B9
+        #                         ; edx = 0x20002
+        # shr     edx, 0Fh        ; edx = 0x2002 >> 0xF = 4
+        # imul    edx, 0FFFF000Fh ; edx = 4 * -65521 (0xFFFF000F) = -262084 = 0xFFFC003C (-0x3FFC4)
+        # add     ecx, edx        ; ecx = 0x3FFC9 + -0x3FFC4 = 5
+
+        # A variation of the above was observed in a deobfuscated MAZE sample (hash not available):           
+        # mov     eax, ebx          ; eax = ebx = 262089 (0x3FFC9)
+        # mov     esi, 80078071h
+        # mul     esi               ; 0x3FFC9 * 0x80078071 = 0x20002802767B9
+        #                           ; edx = 0x20002
+        # shr     edx, 0Fh          ; edx = 0x2002 >> 0xF = 4
+        # imul    eax, edx, 0FFF1h  ; eax = 4 * 65521 (0xFFF1) = 262084 (3FFC4)
+        # sub     ebx, eax          ; ebx = 0x3FFC9 - 0x3FFC4 = 5
+      - instruction:
+        - mnemonic: shl
+        - number: 0x10
+      - count(characteristic(tight loop)): 2 or more

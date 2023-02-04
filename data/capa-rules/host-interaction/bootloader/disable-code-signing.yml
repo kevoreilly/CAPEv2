@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: disable code signing
+    namespace: host-interaction/bootloader
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Subvert Trust Controls::Code Signing Policy Modification [T1553.006]
+    examples:
+      - 0596C4EA5AA8DEF47F22C85D75AACA95:0x10710B3  # old Necurs rootkit
+  features:
+    - and:
+      - match: host-interaction/process/create
+      - string: /^bcdedit(\.exe)? -set TESTSIGNING ON/i

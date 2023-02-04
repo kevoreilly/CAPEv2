@@ -1,0 +1,20 @@
+rule:
+  meta:
+    name: start HTTP server
+    namespace: communication/http/server
+    authors:
+      - michael.hunhoff@mandiant.com
+      - jakub.jozwiak@mandiant.com
+    scope: function
+    mbc:
+      - Communication::HTTP Communication::Start Server [C0002.018]
+    examples:
+      - 6A352C3E55E8AE5ED39DC1BE7FB964B1:0x10001970
+      - 039a6336d0802a2255669e6867a5679c7eb83313dbc61fb1c7232147379bd304:0x6000026
+  features:
+    - or:
+      - and:
+        - api: httpapi.HttpInitialize
+        - optional:
+          - api: httpapi.HttpTerminate
+      - api: System.Net.HttpListener::Start

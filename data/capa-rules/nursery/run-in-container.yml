@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: run in container
+    namespace: host-interaction/container/docker
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    att&ck:
+      - Execution::Container Administration Command [T1609]
+    references:
+      - https://docs.docker.com/engine/api/v1.24/
+  features:
+    - or:
+      - string: /^docker(\.exe)? exec/
+      - string: /^kubectl(\.exe)? exec/
+      - string: /^kubectl(\.exe)? run/
+      - and:
+        - match: send HTTP request
+        - string: /\/v1\.[0-9]{1,2}\/containers\/[0-9a-fA-F]+\/exec/
+          description: docker API endpoint, e.g., /v1.24/containers/e90e34656806/exec
+      - and:
+        - match: send HTTP request
+        - string: /\/v1\.[0-9]{1,2}\/exec\/[0-9a-fA-F]+\/start/
+          description: docker API endpoint, e.g., /v1.24/exec/e90e34656806/start

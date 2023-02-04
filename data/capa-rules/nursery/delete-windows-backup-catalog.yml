@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: delete Windows backup catalog
+    namespace: impact/inhibit-system-recovery
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    att&ck:
+      - Impact::Inhibit System Recovery [T1490]
+  features:
+    - and:
+      - os: windows
+      - string: /wbadmin(\.exe)?\s+delete\s+catalog/i

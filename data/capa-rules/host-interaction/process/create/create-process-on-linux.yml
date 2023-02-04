@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: create process on Linux
+    namespace: host-interaction/process/create
+    authors:
+      - joakim@intezer.com
+    scope: basic block
+    mbc:
+      - Process::Create Process [C0017]
+    examples:
+      - 7351f8a40c5450557b24622417fc478d:0x40236D
+  features:
+    - and:
+      - os: linux
+      - or:
+        - api: execve
+        - api: execl
+        - api: execlp
+        - api: execle
+        - api: execv
+        - api: execvp
+        - api: execvpe
+        - api: posix_spawn
+        - api: posix_spawnp
+        - api: popen

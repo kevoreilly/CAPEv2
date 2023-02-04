@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: allocate thread local storage
+    namespace: host-interaction/process
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Process::Allocate Thread Local Storage [C0040]
+    examples:
+      - 03B236B23B1EC37C663527C1F53AF3FE:0x18000ADF6
+  features:
+    - or:
+      - api: kernel32.TlsAlloc

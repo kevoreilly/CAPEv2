@@ -1,0 +1,10 @@
+rule:
+  meta:
+    name: manipulate user privileges
+    namespace: host-interaction/user
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - and:
+      - api: advapi32.LsaAddAccountRights

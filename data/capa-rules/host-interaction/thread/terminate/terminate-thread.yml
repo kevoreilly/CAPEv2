@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: terminate thread
+    namespace: host-interaction/thread/terminate
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: basic block
+    mbc:
+      - Process::Terminate Thread [C0039]
+    examples:
+      - Practical Malware Analysis Lab 03-02.dll_:0x10003286
+      - B5F85C26D7AA5A1FB4AF5821B6B5AB9B:0x407E90
+  features:
+    - or:
+      - api: kernel32.TerminateThread
+      - api: PsTerminateSystemThread
+      - api: System.Threading.Thread.Abort

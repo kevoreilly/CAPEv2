@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: enable safe mode boot
+    namespace: host-interaction/bootloader
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Impair Defenses::Safe Mode Boot [T1562.009]
+  features:
+    - and:
+      - os: windows
+      - or:
+        - substring: "bootcfg /raw /a /safeboot:network"
+          description: XP-era method for safe mode
+        - string: "bcdedit /set {current} safeboot minimal"
+          description: modern-era method for safe mode, no internet
+        - string: "bcdedit /set {current} safeboot network"
+          description: modern-era method for safe mode, with internet

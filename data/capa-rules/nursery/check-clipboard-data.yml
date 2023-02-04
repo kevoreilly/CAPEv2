@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: check clipboard data
+    namespace: host-interaction/clipboard
+    authors:
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Collection::Clipboard Data [T1115]
+  features:
+    - or:
+      - api: System.Windows.Forms.Clipboard::ContainsAudio
+      - api: System.Windows.Forms.Clipboard::ContainsData
+      - api: System.Windows.Forms.Clipboard::ContainsFileDropList
+      - api: System.Windows.Forms.Clipboard::ContainsImage
+      - api: System.Windows.Forms.Clipboard::ContainsText

@@ -1,0 +1,23 @@
+rule:
+  meta:
+    name: resolve function by djb2 hash
+    namespace: linking/runtime-linking
+    authors:
+      - still@teamt5.org
+    description: known import name hashes calculated using the non-cryptographic djb2 hashing algorithm
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information::Indicator Removal from Tools [T1027.005]
+    mbc:
+      - Data::Non-Cryptographic Hash [C0030]
+  features:
+    - or:
+      - number: 0x5FBFF0FB = djb2(LoadLibraryA)
+      - number: 0x3870CA07 = djb2(CloseHandle)
+      - number: 0x382C0F97 = djb2(VirtualAlloc)
+      - number: 0x844FF18D = djb2(VirtualProtect)
+      - number: 0xCF31BB1F = djb2(GetProcAddress)
+      - number: 0xEB96C5FA = djb2(CreateFileA)
+      - number: 0xEB96C610 = djb2(CreateFileW)
+      - number: 0x71019921 = djb2(ReadFile)
+      - number: 0x0E19E5FE = djb2(Sleep)

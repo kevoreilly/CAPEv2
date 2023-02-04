@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, 'v[0-9]+' ]
+  pull_request:
+    branches: [ master, 'v[0-9]+' ]
+    # trigger workflow on edited as well (opened and synchronize are default)
+    types: [opened, edited, synchronize]
+  workflow_dispatch:
+    inputs:
+      thorough:
+        description: 'lint --thorough'
+        type: boolean
+        required: true
+  schedule:
+    # run every week at 04:05 on Sunday
+    - cron: '5 4 * * 0'
+
+# save workspaces to speed up testing
+env:
+  CAPA_SAVE_WORKSPACE: "True"
+
+jobs:
+  rule_linter:
+    runs-on: ubuntu-20.04
+    env:
+      # expect this text in the PR body to trigger thorough lint of all rules
+      LINT_THOROUGH: '[x] lint thorough all'
+    steps:
+    # We check the submodules separately as the rules submodule's reference may not be our PR/master
+    - name: Checkout capa without submodules
+      uses: actions/checkout@v3
+      with:
+        repository: mandiant/capa
+    - name: Checkout capa-rules
+      uses: actions/checkout@v3
+      with:
+        path: rules
+    - name: Checkout capa-testfiles
+      uses: actions/checkout@v3
+      with:
+        repository: mandiant/capa-testfiles
+        path: tests/data
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    - name: Install capa
+      run: pip install -e .
+    # Regular lint is fast, so do this first
+    - name: Run regular lint on all rules
+      run: python scripts/lint.py rules/
+    # Then run thorough lint
+    - name: Get modified files
+      if: github.event_name != 'workflow_dispatch' && github.event_name != 'schedule'
+      id: files
+      uses: Ana06/get-changed-files@v2.2.0
+      # this Action may throw the below error, e.g. when not properly rebased
+      # however, it still gets the modified files and we can continue
+      # Error: The head commit for this pull_request event is not ahead of the base commit.
+      continue-on-error: true
+    - name: Check PR text body contains LINT_THOROUGH
+      if: github.event_name != 'workflow_dispatch' && github.event_name != 'schedule'
+      id: lint_thorough
+      env:
+        PR_BODY: ${{ github.event.pull_request.body }}
+      # grep returns 0 (success) if string is found
+      run: echo $PR_BODY | grep -qiF "$LINT_THOROUGH"
+      # otherwise not finding LINT_THOROUGH would fail this step
+      continue-on-error: true
+    - name: Run thorough lint on all rule files
+      # if $LINT_THOROUGH is provided in the PR body, manual run specifies it, or this is a scheduled run
+      if: github.event_name != 'workflow_dispatch' && github.event_name != 'schedule' && steps.lint_thorough.outcome == 'success' || github.event_name == 'workflow_dispatch' && github.event.inputs.thorough == 'true' || github.event_name == 'schedule'
+      run: python scripts/lint.py --thorough -v rules/
+    - name: Run thorough lint on modified rule files
+      # otherwise only lint modified rules thoroughly
+      if: github.event_name != 'workflow_dispatch' && github.event_name != 'schedule' && steps.lint_thorough.outcome != 'success'
+      run: |
+        cd rules/
+        for changed_file in ${{ steps.files.outputs.added_modified }} ${{ steps.files.outputs.renamed }}; do
+          if [[ ! $changed_file =~ .git|.md ]]; then
+            tag=$(grep '\sname:' $changed_file | sed 's/^.*: //')
+            python ../scripts/lint.py --thorough -t "$tag" -v .
+          fi
+        done
+  # On update of version branch, ensure that branch rules are compatible with latest respective release
+  # assume we only update the branch that corresponds to the latest release
+  rules_latest_release:
+    # e.g. v4
+    if: startsWith(github.base_ref, 'v')
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Get latest release executable name and version
+      run: |
+        v=$(curl -s https://api.github.com/repos/mandiant/capa/releases/latest | jq .name | tr -d '"')
+        echo "zip_name=capa-$v-linux.zip" >> $GITHUB_ENV
+        echo "major_version=$(echo $v | cut -d. -f1)" >> $GITHUB_ENV
+    - name: Checkout capa-rules
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ env.major_version }}
+        path: rules
+    - name: Checkout capa-testfiles
+      uses: actions/checkout@v3
+      with:
+        repository: mandiant/capa-testfiles
+        path: tests/data
+    - name: Fetch latest capa release executable
+      uses: robinraju/release-downloader@v1
+      with:
+        repository: "mandiant/capa"
+        latest: true
+        fileName: ${{ env.zip_name }}
+    - name: Unzip
+      run: unzip ${{ env.zip_name }} -d latest-release
+    - name: Run latest release with current rules
+      run: latest-release/capa -r rules/ tests/data/9324d1a8ae37a36ae560c37448c9705a.exe_

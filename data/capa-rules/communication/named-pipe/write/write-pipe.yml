@@ -1,0 +1,23 @@
+rule:
+  meta:
+    name: write pipe
+    namespace: communication/named-pipe/write
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Communication::Interprocess Communication::Write Pipe [C0003.004]
+    examples:
+      - C91887D861D9BD4A5872249B641BC9F9:0x401A77
+  features:
+    - or:
+      - and:
+        - or:
+          - match: create pipe
+          - match: connect pipe
+        - api: kernel32.WriteFile
+      - api: kernel32.TransactNamedPipe
+        description: writes and reads pipe in single operation
+      - api: kernel32.CallNamedPipe
+        description: connects, writes, and reads pipe in single operation

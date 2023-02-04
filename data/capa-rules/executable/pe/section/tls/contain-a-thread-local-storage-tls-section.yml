@@ -1,0 +1,11 @@
+rule:
+  meta:
+    name: contain a thread local storage (.tls) section
+    namespace: executable/pe/section/tls
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: file
+    examples:
+      - Practical Malware Analysis Lab 16-02.exe_
+  features:
+    - section: .tls

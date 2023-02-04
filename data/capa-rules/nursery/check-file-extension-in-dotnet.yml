@@ -1,0 +1,11 @@
+rule:
+  meta:
+    name: check file extension in .NET
+    namespace: host-interaction/file-system
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - or:
+      - api: System.IO.Path::GetExtension
+      - api: System.IO.Path::HasExtension

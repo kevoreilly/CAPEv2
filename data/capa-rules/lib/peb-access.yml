@@ -1,0 +1,46 @@
+rule:
+  meta:
+    name: PEB access
+    authors:
+      - michael.hunhoff@mandiant.com
+    lib: true
+    scope: basic block
+    mbc:
+      - Anti-Behavioral Analysis::Debugger Detection::Process Environment Block [B0001.019]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiDebug/NtGlobalFlag.cpp
+    examples:
+      - al-khaser_x86.exe_:0x420D20
+  features:
+    - or:
+      - characteristic: peb access
+      - and:
+        # https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiDebug/NtGlobalFlag.cpp#L41
+        - arch: i386
+        - characteristic: fs access
+        - or:
+          # in 0f5d5d07c6533bc6d991836ce79daaa1
+          # then we have:
+          #
+          #     xor edx, edx
+          #     mov edx, fs:[edx+30h]
+          - offset: 0x30
+          - instruction:
+            # in the case of CallObfuscator, gs:[rax]
+            - mnemonic: add
+            - number: 0x30
+      - and:
+        - arch: amd64
+        - characteristic: gs access
+        - or:
+          - offset: 0x60
+          - instruction:
+            - mnemonic: add
+            - number: 0x60
+      - and:
+        # WoW64 PEB address is fetched via the WoW64 Thread Environment Block (TEB) at FS:[0x18]-0x2000
+        # https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiDebug/NtGlobalFlag.cpp#L45
+        - characteristic: fs access
+        - instruction:
+          - mnemonic: sub
+          - number: 0x2000

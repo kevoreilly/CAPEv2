@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: execute via .NET startup hook
+    namespace: runtime/dotnet
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: file
+    references:
+      - https://rastamouse.me/net-startup-hooks/
+      - https://github.com/dotnet/runtime/blob/main/docs/design/features/host-startup-hook.md
+    examples:
+      - 1ee70f829fa4f21b97fea53412383b4c83be1aaf8bab2f4b692549f8ceb4388f
+  features:
+    - and:
+      - format: dotnet
+      - function-name: "StartupHook::Initialize"

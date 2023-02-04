@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: get OS version
+    authors:
+      - "@mr-tz"
+    lib: true
+    scope: function
+    examples:
+      - 493167E85E45363D09495D0841C30648:0x401000
+      - 5f66b82558ca92e54e77f216ef4c066c:0x44580A
+  features:
+    - or:
+      - api: RtlGetVersion
+      - api: ntoskrnl.PsGetVersion
+      - api: GetVersion
+      - api: GetVersionEx
+      - api: VerifyVersionInfo
+      - api: VerSetConditionMask
+      - api: RtlGetNtVersionNumbers

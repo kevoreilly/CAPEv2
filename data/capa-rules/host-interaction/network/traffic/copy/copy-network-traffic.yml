@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: copy network traffic
+    namespace: host-interaction/network/traffic/copy
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::Network Sniffing [T1040]
+    examples:
+      - 493167E85E45363D09495D0841C30648:0x404780
+  features:
+    - and:
+      - api: fwpkclnt.FwpsCopyStreamDataToBuffer0

@@ -1,0 +1,28 @@
+rule:
+  meta:
+    name: capture webcam image
+    namespace: collection/webcam
+    authors:
+      - johnk3r
+    scope: function
+    att&ck:
+      - Collection::Video Capture [T1125]
+    examples:
+      - a30101595f6f28ab2f4b0b2cd177c3c4d2ab34a355ab7761a3795d0887c24ada:0x4011C0
+  features:
+    - or:
+      - and:
+        - api: capCreateCaptureWindow
+        - basic block:
+          - and:
+            - api: SendMessage
+            - number: 0x40a = WM_CAP_DRIVER_CONNECT
+        - optional:
+          - basic block:
+            - and:
+              - api: SendMessage
+              - number: 0x40B = WM_CAP_DRIVER_DISCONNECT
+      - basic block:
+        - and:
+          - api: SendMessage
+          - number: 0x419 = WM_CAP_FILE_SAVEDIB

@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: compiled with AutoHotKey
+    namespace: compiler/autohotkey
+    authors:
+      - awillia2@cisco.com
+    scope: file
+    att&ck:
+      - Execution::Command and Scripting Interpreter [T1059]
+    references:
+      - https://www.trendmicro.com/en_us/research/20/l/stealth-credential-stealer-targets-us-canadian-bank-customers.html
+      - https://en.wikipedia.org/wiki/AutoHotkey
+    examples:
+      - 92D8EA10EA30E8B534334A1C9857A455
+  features:
+    - and:
+      - string: ">AUTOHOTKEY SCRIPT<"
+      - string: "AutoHotkeyGUI"

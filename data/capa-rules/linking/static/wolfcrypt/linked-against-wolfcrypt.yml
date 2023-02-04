@@ -1,0 +1,22 @@
+rule:
+  meta:
+    name: linked against wolfCrypt
+    namespace: linking/static/wolfcrypt
+    authors:
+      - jakub.jozwiak@mandiant.com
+    scope: file
+    mbc:
+      - Cryptography::Crypto Library [C0059]
+    references:
+      - https://www.wolfssl.com/products/wolfcrypt-2/
+      - https://github.com/wolfSSL/wolfssl/blob/master/wolfcrypt/src/error.c
+    examples:
+      - 5789181cba467fa940cdce809b88b9bf7e0e9d4e079e32a68d2b911a8cc47da9
+  features:
+    - or:
+      - string: "mp_init error state"
+      - string: "wolfcrypt cleanup failed"
+      - string: "Async Init error"
+      - string: "Compress Init error"
+      - string: "wolfCrypt Initialize Failure error"
+      - string: "wolfCrypt operation not pending error"

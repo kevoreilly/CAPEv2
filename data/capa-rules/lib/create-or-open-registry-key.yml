@@ -1,0 +1,43 @@
+rule:
+  meta:
+    name: create or open registry key
+    authors:
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    lib: true
+    scope: basic block
+    mbc:
+      - Operating System::Registry::Create Registry Key [C0036.004]
+      - Operating System::Registry::Open Registry Key [C0036.003]
+    examples:
+      - Practical Malware Analysis Lab 03-02.dll_:0x10004706
+      - Practical Malware Analysis Lab 11-01.exe_:0x401000
+      - 493167E85E45363D09495D0841C30648:0x404D60
+      - B5F85C26D7AA5A1FB4AF5821B6B5AB9B:0x4045F2
+      - B5F85C26D7AA5A1FB4AF5821B6B5AB9B:0x40433E
+      - 692f7fd6d198e804d6af98eb9e390d61:0x6000003
+  features:
+    - or:
+      - api: advapi32.RegOpenKey
+      - api: advapi32.RegOpenKeyEx
+      - api: advapi32.RegCreateKey
+      - api: advapi32.RegCreateKeyEx
+      - api: advapi32.RegOpenCurrentUser
+      - api: advapi32.RegOpenKeyTransacted
+      - api: advapi32.RegOpenUserClassesRoot
+      - api: advapi32.RegCreateKeyTransacted
+      - api: ZwOpenKey
+      - api: ZwOpenKeyEx
+      - api: ZwCreateKey
+      - api: ZwOpenKeyTransacted
+      - api: ZwOpenKeyTransactedEx
+      - api: ZwCreateKeyTransacted
+      - api: NtOpenKey
+      - api: NtCreateKey
+      - api: SHRegOpenUSKey
+      - api: SHRegCreateUSKey
+      - api: RtlCreateRegistryKey
+      - api: Microsoft.Win32.RegistryKey::OpenSubKey
+      - api: Microsoft.Win32.RegistryKey::OpenBaseKey
+      - api: Microsoft.Win32.RegistryKey::OpenRemoteBaseKey
+      - api: Microsoft.Win32.RegistryKey::CreateSubKey

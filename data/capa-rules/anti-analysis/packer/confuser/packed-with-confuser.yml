@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: packed with Confuser
+    namespace: anti-analysis/packer/confuser
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: file
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information::Software Packing [T1027.002]
+    mbc:
+      - Anti-Static Analysis::Software Packing::Confuser [F0001.009]
+    examples:
+      - b9f5bd514485fb06da39beff051b9fdc
+  features:
+    - or:
+      - class: "ConfusedByAttribute"

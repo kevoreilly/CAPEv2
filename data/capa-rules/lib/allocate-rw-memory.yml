@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: allocate RW memory
+    authors:
+      - 0x534a@mailbox.org
+    lib: true
+    scope: basic block
+    mbc:
+      - Memory::Allocate Memory [C0007]
+    examples:
+      - Practical Malware Analysis Lab 17-02.dll_:0x1000D10D
+  features:
+    - and:
+      - match: allocate memory
+      - number: 0x4 = PAGE_READWRITE

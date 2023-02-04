@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: create directory
+    namespace: host-interaction/file-system/create
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    mbc:
+      - File System::Create Directory [C0046]
+    examples:
+      - Practical Malware Analysis Lab 17-02.dll_:0x10008f62
+      - 692f7fd6d198e804d6af98eb9e390d61:0x6000003
+  features:
+    - or:
+      - api: kernel32.CreateDirectory
+      - api: kernel32.CreateDirectoryEx
+      - api: kernel32.CreateDirectoryTransacted
+      - api: NtCreateDirectoryObject
+      - api: ZwCreateDirectoryObject
+      - api: SHCreateDirectory
+      - api: SHCreateDirectoryEx
+      - api: _mkdir
+      - api: _wmkdir
+      - api: System.IO.Directory::CreateDirectory

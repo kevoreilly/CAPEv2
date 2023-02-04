@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: initialize Winsock library
+    namespace: communication/socket
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Communication::Socket Communication::Initialize Winsock Library [C0001.009]
+    examples:
+      - 6A352C3E55E8AE5ED39DC1BE7FB964B1:0x10001D30
+  features:
+    - and:
+      - api: ws2_32.WSAStartup

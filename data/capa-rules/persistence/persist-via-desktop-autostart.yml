@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: persist via .desktop autostart
+    namespace: persistence
+    authors:
+      - joakim@intezer.com
+    scope: function
+    att&ck:
+      - Persistence::Boot or Logon Autostart Execution::XDG Autostart Entries [T1547.013]
+    examples:
+      - 7351f8a40c5450557b24622417fc478d:0x407D11
+  features:
+    - and:
+      - os: linux
+      - match: host-interaction/file-system/write
+      - or:
+        - string: /\/\.config\/autostart\/.+\.desktop/
+        - substring: "/etc/xdg/autostart"

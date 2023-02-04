@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: get Linux distribution
+    namespace: host-interaction/os/version
+    authors:
+      - joakim@intezer.com
+    scope: function
+    att&ck:
+      - Discovery::System Information Discovery [T1082]
+    examples:
+      - 7351f8a40c5450557b24622417fc478d:0x405438
+  features:
+    - and:
+      - os: linux
+      - match: host-interaction/file-system/read
+      - or:
+        - string: "/etc/os-release"
+        - string: "/etc/lsb-release"
+        - string: "/etc/issue"

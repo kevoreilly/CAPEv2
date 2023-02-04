@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: (internal) autohotkey file limitation
+    namespace: internal/limitation/file
+    authors:
+      - "@mr-tz"
+    description: |
+      This sample appears to be compiled with AutoHotkey.
+
+      AutoHotkey is a free, open-source scripting language for Windows that allows users to easily create scripts.
+      AutoHotkey was developed from AutoIT and the scripts may be similar.
+      capa cannot handle AutoHotkey scripts. This means that the results will be misleading or incomplete.
+      You may have to analyze the file manually, using a tool like the AutoIt decompiler MyAut2Exe.
+    scope: file
+    examples:
+      - 92D8EA10EA30E8B534334A1C9857A455
+  features:
+    - or:
+      - match: compiler/autohotkey

@@ -1,0 +1,23 @@
+rule:
+  meta:
+    name: get system information on Windows
+    namespace: host-interaction/os/info
+    authors:
+      - moritz.raabe@mandiant.com
+      - joakim@intezer.com
+    scope: function
+    att&ck:
+      - Discovery::System Information Discovery [T1082]
+    examples:
+      - 563653399B82CD443F120ECEFF836EA3678D4CF11D9B351BB737573C2D856299:0x140002280
+  features:
+    - and:
+      - os: windows
+      - or:
+        - api: kernel32.GetSystemInfo
+        - api: kernel32.GetNativeSystemInfo
+        - api: NtQuerySystemInformation
+        - api: NtQuerySystemInformationEx
+        - api: ntdll.RtlGetNativeSystemInformation
+        - api: ZwQuerySystemInformation
+        - api: ZwQuerySystemInformationEx

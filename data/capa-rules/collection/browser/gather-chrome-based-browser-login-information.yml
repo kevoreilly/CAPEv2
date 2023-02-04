@@ -1,0 +1,27 @@
+rule:
+  meta:
+    name: gather chrome based browser login information
+    namespace: collection/browser
+    authors:
+      - "@_re_fox"
+    scope: function
+    att&ck:
+      - Credential Access::Credentials from Password Stores::Credentials from Web Browsers [T1555.003]
+    examples:
+      - 2fd45662e3d0ec0077ea2fa66b6378f0:0x6000039
+  features:
+    - and:
+      - or:
+        - string: /\\(Edge|Chrome|Chromium|Brave\-Browser|YandexBrowser|Kometa|Orbitum|Dragon|Torch|Amigo)\\User Data\\Default\\Login Data/
+        - string: /\\Opera Software\\Opera Stable\\Login Data/
+      - or:
+        - string: /SELECT [(date_created|username_element|password_element|origin_url|signon_realm|action_url|username_value|password_value)\s+,]+ FROM logins/i
+        - 2 or more:
+          - string: /date_created/i
+          - string: /username_element/i
+          - string: /username_value/i
+          - string: /password_element/i
+          - string: /origin_url/i
+          - string: /signon_realm/i
+          - string: /action_url/i
+          - string: /password_value/i

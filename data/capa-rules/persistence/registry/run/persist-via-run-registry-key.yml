@@ -1,0 +1,32 @@
+rule:
+  meta:
+    name: persist via Run registry key
+    namespace: persistence/registry/run
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Persistence::Boot or Logon Autostart Execution::Registry Run Keys / Startup Folder [T1547.001]
+    mbc:
+      - Persistence::Registry Run Keys / Startup Folder [F0012]
+    examples:
+      - Practical Malware Analysis Lab 06-03.exe_:0x401130
+      - b87e9dd18a5533a09d3e48a7a1efbcf6:0x1400070E0
+      - 9ff8e68343cc29c1036650fc153e69f7:0x470624
+  features:
+    - and:
+      - or:
+        - match: set registry value
+        - number: 0x80000001 = HKEY_CURRENT_USER
+        - number: 0x80000002 = HKEY_LOCAL_MACHINE
+      - or:
+        - and:
+          - string: /Software\\Microsoft\\Windows\\CurrentVersion/i
+          - or:
+            - string: /Run/i
+            - string: /Explorer\\Shell Folders/i
+            - string: /User Shell Folders/i
+            - string: /RunServices/i
+            - string: /Policies\\Explorer\\Run/i
+        - string: /Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\load/i
+        - string: /System\\CurrentControlSet\\Control\\Session Manager\\BootExecute/i

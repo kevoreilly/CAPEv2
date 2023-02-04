@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: set HTTP cookie
+    namespace: communication/http
+    authors:
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Command and Control::Application Layer Protocol::Web Protocols [T1071.001]
+    references:
+      - https://docs.microsoft.com/en-us/dotnet/api/system.net.cookiecontainer.setcookies
+  features:
+    - or:
+      - api: System.Net.CookieContainer::SetCookies
+      - property/write: System.Net.HttpWebRequest::CookieContainer

@@ -1,0 +1,70 @@
+rule:
+  meta:
+    name: validate payment card number using luhn algorithm with lookup table
+    authors:
+      - "@_re_fox"
+    lib: true
+    scope: function
+    mbc:
+      - Data::Checksum::Luhn [C0032.002]
+    examples:
+      - 1d8fd13c890060464019c0f07b928b1a:0x401920
+      - 60abaef3fda131ffa20df480cb3f8029:0x4048e0
+  features:
+    - and:
+      - not:
+        - characteristic: nzxor
+      - characteristic: loop
+        description: Iterate over CC digits
+      - basic block:
+        - or:
+          - 8 or more:
+            - description: Digital root lookup table
+            - number: 0x0
+            - number: 0x2
+            - number: 0x4
+            - number: 0x6
+            - number: 0x8
+            - number: 0x1
+            - number: 0x3
+            - number: 0x5
+            - number: 0x7
+            - number: 0x9
+          - 8 or more:
+            - description: Digital root lookup table via neg numbers
+            - number: 0x0
+            - number: 0x1
+            - number: 0x2
+            - number: 0x3
+            - number: 0x4
+            - number: 0xfffffffc
+            - number: 0xfffffffd
+            - number: 0xfffffffe
+            - number: 0xffffffff
+      - or:
+        - instruction:
+          - description: Conversion of chr to int (SUB 0x30)
+          - number: 0x30
+          - mnemonic: sub
+        - instruction:
+          - description: Conversion of chr to int (LEA REG,[REG+ -0x30])
+          - mnemonic: lea
+          - offset: -0x30
+      - basic block:
+        - or:
+          - and:
+            - description: Final section returning checkum % 10
+            - mnemonic: idiv
+            - mnemonic: cdq
+            - number: 0xa
+            - optional:
+              - mnemonic: neg
+          - and:
+            - description: Compiler optimized returning checkum % 10
+            - mnemonic: shr
+            - mnemonic: imul
+            - number: 0x66666667
+            - number: 0x1f
+            - number: 0x2
+            - optional:
+              - mnemonic: neg

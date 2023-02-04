@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: linked against CPP standard library
+    namespace: linking/static
+    authors:
+      - "@mr-tz"
+    scope: file
+    references:
+      - https://en.wikipedia.org/wiki/P._J._Plauger
+      - https://www.dinkumware.com/
+    examples:
+      - 03b236b23b1ec37c663527c1f53af3fe
+  features:
+    - or:
+      - string: "Copyright (c) by P.J. Plauger, licensed by Dinkumware, Ltd. ALL RIGHTS RESERVED."
+      - string: "Copyright (c) 1992-2004 by P.J. Plauger, licensed by Dinkumware, Ltd. ALL RIGHTS RESERVED."

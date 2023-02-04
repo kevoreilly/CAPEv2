@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: migrate process to active window station
+    namespace: host-interaction/gui/window-station
+    authors:
+      - william.ballenthin@mandiant.com
+    description: set process to the active window station so it can receive GUI events. commonly seen in keyloggers.
+    scope: function
+    references:
+      - https://www.installsetupconfig.com/win32programming/windowstationsdesktops13_1.html
+      - https://brianbondy.com/blog/100/understanding-windows-at-a-deeper-level-sessions-window-stations-and-desktops
+      - https://cboard.cprogramming.com/windows-programming/144588-[win7]-setwindowshookex-windows-service-setthreaddesktop.html
+  features:
+    - and:
+      - api: OpenWindowStation
+      - or:
+        - string: "winsta0"
+        - string: "WinSta0"
+      - api: SetProcessWindowStation
+      - api: OpenInputDesktop
+      - api: SetThreadDesktop
+      - optional:
+        - string: "Default"
+          description: default desktop name

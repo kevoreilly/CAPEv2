@@ -1,0 +1,26 @@
+rule:
+  meta:
+    name: hash data using tiger
+    namespace: data-manipulation/hashing/tiger
+    authors:
+      - "@_re_fox"
+    scope: basic block
+    mbc:
+      - Cryptography::Cryptographic Hash::Tiger [C0029.005]
+    examples:
+      - 0761142efbda6c4b1e801223de723578:0x65471B97
+  features:
+    - or:
+      - bytes: 5e 0c e9 f7 7c b1 aa 02 ec a8 43 e2 03 4b 42 ac d3 fc d5 0d e3 5b cd 72 3a 7f f9 f6 93 9b 01 6d 93 91 1f d2 ff 78 99 cd e2 29 80 70 c9 a1 73 75 c3 83 2a 92 6b 32 64 b1 70 58 91 04 ee 3e 88 46 e6 ec 03 71 05 e3 ac ea 5c 53 a3 08 b8 69 41 c5 7c c4 de 8d 91 54 e7 4c 0c f4 0d dc df f4 a2 0a fa be 4d a7 18 6f b7 10 6a ab d1 5a 23 b6 cc c6 ff e2 2f 57 21 61 72 13 1e 92 9d 19 6f 8c 48 1a ca 07 00 da f4 f9 c9 4b c7 41 52 e8 f6 e6 f5 26 b6 47 59 ea db 79 90 85 92 8c 9e c9 c5 85 18 4f 4b 86 6f a9 1e 76 8e d7 7d c1 b5 = sbox1
+      - bytes: 38 21 a1 05 5a be a6 e6 98 7c f8 b4 a5 22 a1 b5 90 69 0b 14 89 60 3c 56 d5 5d 1f 39 2e cb 46 4c 34 94 b7 c9 db ad 32 d9 f5 af 15 20 e4 70 ea 08 f1 8c 47 3e 67 a6 65 d7 99 8d 27 ab 7e 75 fb c4 92 06 6e 2d 86 c6 11 df 16 3b 7f 0d f1 84 eb dd 04 ea 65 a6 04 f6 2e 6f b3 df e0 f0 0f 0f 8e 4a 51 ba bc 3d f8 ee ed a5 1e 37 a4 0e 2a 0a 4f fc 29 84 b3 5c a8 1d 3e e8 e2 1c 1b ba 82 f8 8f dc 0d e8 53 83 5e 50 45 cd 17 07 db d4 00 9a d1 18 01 81 f3 a5 ed cf a0 34 f2 ca 87 88 51 7e e7 0b 36 51 c4 b3 38 14 34 1e f9 cc 89 = sbox2
+      - bytes: 9b f3 da f1 2f cc 9f f4 81 92 f2 6f c6 d5 7f 48 3f a8 dc fc 67 06 a3 e8 63 ce fc d2 e3 4b 9b 2c c2 bb fb 93 4b f7 3f da 66 ba 70 fe d2 65 a1 2f d4 93 0e 97 79 e2 03 a1 71 5e e4 b0 77 ec cd be 97 e4 85 39 72 1e b4 cf 17 50 f7 5e 02 aa 0a b7 e0 b8 40 38 f0 09 23 d4 79 85 89 35 d0 1a fc 8e c5 ab b2 e2 0b 92 c6 96 72 91 5a 37 63 41 af 66 fb 27 71 ca dc ab 74 21 41 ff 72 4a a6 ce 3c b3 a5 66 30 08 33 49 4a f0 f5 9a 28 d7 cd 0a 97 8d 5e c2 c8 31 e0 e8 96 8f 47 5d 87 76 22 c0 fe f3 dd 90 61 05 10 f3 7b ec 91 14 0f = sbox3
+      - bytes: 55 3c 32 26 85 60 0e 5b f5 59 1b fa a9 c1 46 1a fa 8f 4c 7c a1 45 e2 a9 d7 55 29 db 59 51 ca 65 c2 af 35 ce 76 0a db 05 45 3d 11 a9 7e c7 ea 81 0d 0a ac b6 8a f8 8e 52 ff e3 7b 59 53 a2 9e a0 56 cd 48 ac b3 df 0d 43 6f e4 5c f4 7a a6 b3 c4 5e d0 e2 fb d8 cf ce 4e f0 35 99 b3 10 6f f5 3e c6 19 d6 9c 82 d6 22 0b 69 20 df 74 0a 46 fd 17 40 ed 10 85 8e cc f8 6c a7 ca 6e 3a bf 24 c8 d6 49 70 81 1a 58 3d 24 61 a2 63 c1 bb b6 ac 8b 04 32 cc 44 7d c2 8a a3 d9 ab 10 f4 aa 5b ff dd 7f 4b 82 04 a8 5a 49 6d ad 94 9f 8c = sbox4
+      - and:
+        - description: tiger key schedule
+        - number: 0xa5a5a5a5a5a5a5a5
+        - number: 0x0123456789abcdef
+        - number: 0x13
+        - number: 0x17
+        - count(mnemonic(shr)): 2 or more
+        - count(mnemonic(shl)): 2 or more
+        - characteristic: nzxor

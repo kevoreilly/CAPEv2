@@ -1,0 +1,21 @@
+rule:
+  meta:
+    name: compiled from EPL
+    namespace: compiler/epl
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: file
+    references:
+      - https://www.hexacorn.com/blog/2019/02/13/pe-files-and-the-easy-programming-language-epl/
+  features:
+    - or:
+      - string: "GetNewSock"
+      - string: "Software\\FlySky\\E\\Install"
+      - string: "Not found the kernel library or the kernel library is invalid!"
+      - string: "Failed to allocate memory!"
+      - string: "/ MADE BY E COMPILER – WUTAO"
+      - section: .ecode
+      - import: krnln.fne
+      - import: krnln.fnr
+      - import: eAPI.fne
+      - import: RegEx.fnr

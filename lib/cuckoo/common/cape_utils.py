@@ -3,14 +3,12 @@ import logging
 import os
 import tempfile
 from collections.abc import Iterable, Mapping
-from pathlib import Path
 from types import ModuleType
 from typing import Dict, Tuple
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_read_file
 
 try:
     import yara
@@ -18,7 +16,6 @@ try:
     HAVE_YARA = True
 except ImportError:
     HAVE_YARA = False
-
 
 cape_malware_parsers = {}
 
@@ -123,6 +120,14 @@ if process_cfg.CAPE_extractors.enabled:
         HAVE_CAPE_EXTRACTORS = True
     assert "test cape" in cape_malware_parsers
 
+try:
+    from modules.processing.parsers.plugxconfig import plugx
+
+    plugx_parser = plugx.PlugXConfig()
+except ImportError as e:
+    plugx_parser = False
+    log.error(e)
+
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
 
 pe_map = {
@@ -147,7 +152,7 @@ def init_yara():
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
-        if not path_exists(category_root):
+        if not os.path.exists(category_root):
             log.warning("Missing Yara directory: %s?", category_root)
             continue
 
@@ -224,7 +229,8 @@ def convert(data):
         return dict(list(map(convert, data.items())))
     elif isinstance(data, Iterable):
         return type(data)(list(map(convert, data)))
-    return data
+    else:
+        return data
 
 
 def static_config_parsers(cape_name, file_path, file_data):
@@ -389,32 +395,26 @@ def static_config_lookup(file_path, sha256=False):
         return document_dict["info"]
 
 
-# add your families here, should match file name as in cape yara
-named_static_extractors = []
-
-
 def static_extraction(path):
-    config = False
     try:
         if not File.yara_initialized:
             init_yara()
         hits = File(path).get_yara(category="CAPE")
-        path_name = Path(path).name
-        if not hits and path_name not in named_static_extractors:
+        if not hits:
             return False
-        file_data = path_read_file(path)
-        if path_name in named_static_extractors:
-            config = static_config_parsers(path_name, path, file_data)
-        else:
-            for hit in hits:
-                cape_name = File.get_cape_name_from_yara_hit(hit)
-                config = static_config_parsers(cape_name, path, file_data)
-                if config:
-                    break
+        # Get the file data
+        with open(path, "rb") as file_open:
+            file_data = file_open.read()
+        for hit in hits:
+            cape_name = File.get_cape_name_from_yara_hit(hit)
+            config = static_config_parsers(cape_name, path, file_data)
+            if config:
+                return config
+        return False
     except Exception as e:
         log.error(e)
 
-    return config
+    return False
 
 
 def cape_name_from_yara(details, pid, results):

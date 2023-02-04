@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: obfuscated with callobfuscator
+    namespace: anti-analysis/obfuscation
+    authors:
+      - johnk3r
+    scope: file
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Anti-Static Analysis::Executable Code Obfuscation [B0032]
+    examples:
+      - 71A4F9B800D81FF6632B9892A6A502C412C141341E46D697A8C004E2F460913B
+  features:
+    - section: .cobf

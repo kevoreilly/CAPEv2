@@ -1,0 +1,10 @@
+rule:
+  meta:
+    name: allocate unmanaged memory in .NET
+    namespace: host-interaction/memory
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - or:
+      - api: System.Runtime.InteropServices.Marshal::AllocHGlobal

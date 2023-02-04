@@ -1,0 +1,10 @@
+rule:
+  meta:
+    name: serialize JSON in .NET
+    namespace: data-manipulation/json
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - or:
+      - api: System.Web.Script.Serialization.JavaScriptSerializer::Serialize

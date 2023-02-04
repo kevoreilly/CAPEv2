@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: authenticate data with MD5-MAC
+    namespace: data-manipulation/hashing/md5
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    mbc:
+      - Cryptography::Cryptographic Hash::MD5 [C0029.001]
+    references:
+      - https://cacr.uwaterloo.ca/hac/about/chap9.pdf
+  features:
+    - or:
+      - and:
+        - description: magic initialization constants from MD5-MAC
+        - bytes: 97 ef 45 ac 29 0f 43 cd 45 7e 1b 55 1c 80 11 34 = T0
+        - bytes: b1 77 ce 96 2e 72 8e 7c 5f 5a ab 0a 36 43 be 18 = T1
+        - bytes: 9d 21 b4 21 bc 87 b9 4d a2 9d 27 bd c7 5b d7 c3 = T2

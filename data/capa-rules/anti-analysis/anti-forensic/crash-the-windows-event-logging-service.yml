@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: crash the Windows event logging service
+    namespace: anti-analysis/anti-forensic
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    att&ck:
+      - Defense Evasion::Impair Defenses::Disable Windows Event Logging [T1562.002]
+    references:
+      - https://github.com/limbenjamin/LogServiceCrash
+    examples:
+      - 82BF6347ACF15E5D883715DC289D8A2B:0x14005E0C0
+  features:
+    - and:
+      - count(api(advapi32.ElfClearEventLogFileW)): 3 or more
+      - count(api(advapi32.OpenEventLogA)): 1 or more

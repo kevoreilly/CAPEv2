@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: get MAC address on Linux
+    namespace: collection/network
+    authors:
+      - joakim@intezer.com
+    scope: function
+    att&ck:
+      - Discovery::System Information Discovery [T1082]
+  features:
+    - and:
+      - os: linux
+      - match: host-interaction/file-system/read
+      - string: /\/sys\/class\/net\/\S+\/address/
+        description: pseudo-file path like /sys/class/net/eth0/address

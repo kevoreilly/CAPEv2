@@ -1,0 +1,21 @@
+rule:
+  meta:
+    name: overwrite Master Boot Record (MBR)
+    namespace: impact/wipe-disk/wipe-mbr
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Impact::Disk Wipe::Disk Structure Wipe [T1561.002]
+    examples:
+      - 39C05B15E9834AC93F206BC114D0A00C357C888DB567BA8F5345DA0529CBED41:0x100070A0
+  features:
+    - and:
+      - string: "\\\\.\\PHYSICALDRIVE0"
+      - api: kernel32.WriteFile
+      - number: 0x200 = MBR/sector size in bytes
+      - or:
+        - number: 0x55 = MBR signature constant
+        - number: 0xAA = MBR signature constant
+      - optional:
+        - api: kernel32.CreateFile

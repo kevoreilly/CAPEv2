@@ -1,0 +1,29 @@
+rule:
+  meta:
+    name: encrypt data using Salsa20 or ChaCha
+    namespace: data-manipulation/encryption/salsa20
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    references:
+      - http://cr.yp.to/snuffle/ecrypt.c
+  features:
+    # The constant words spell "expand 32-byte k" in ASCII (i.e. the 4 words are "expa", "nd 3", "2-by", and "te k")
+    - or:
+      - description: part of key setup
+      - string: "expand 32-byte k = sigma"
+      - string: "expand 16-byte k = tau"
+      # if sigma and tau are in contiguous memory, may result in concatenated string
+      - string: "expand 32-byte kexpand 16-byte k"
+      - and:
+        - string: "expa"
+        - string: "nd 3"
+        - string: "2-by"
+        - string: "te k"
+      - and:
+        - number: 0x61707865 = "apxe"
+        - number: 0x3320646E = "3 dn"
+        - number: 0x79622D32 = "yb-2"
+        - number: 0x6B206574 = "k et"

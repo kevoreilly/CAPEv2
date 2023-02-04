@@ -1,0 +1,21 @@
+rule:
+  meta:
+    name: get current user on Linux
+    namespace: collection
+    authors:
+      - joakim@intezer.com
+    scope: function
+    att&ck:
+      - Discovery::System Owner/User Discovery [T1033]
+    examples:
+      - 7351f8a40c5450557b24622417fc478d:0x405438
+  features:
+    - and:
+      - os: linux
+      - or:
+        - and:
+          - api: geteuid
+          - api: getpwuid
+        - api: getlogin
+        - api: getlogin_r
+        - api: cuserid

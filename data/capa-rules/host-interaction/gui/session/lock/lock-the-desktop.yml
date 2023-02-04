@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: lock the desktop
+    namespace: host-interaction/gui/session/lock
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Impact::Endpoint Denial of Service [T1499]
+    examples:
+      - 39C05B15E9834AC93F206BC114D0A00C357C888DB567BA8F5345DA0529CBED41:0x100084D0
+  features:
+    - api: user32.LockWorkStation

@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: list containers
+    namespace: host-interaction/container/docker
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::Container and Resource Discovery [T1613]
+    references:
+      - https://docs.docker.com/engine/api/v1.24/
+  features:
+    - or:
+      - string: /^docker(\.exe)? ps/
+      - and:
+        - match: send HTTP request
+        - string: /\/v1\.[0-9]{1,2}\/containers\/json/
+          description: docker API endpoint, e.g., /v1.24/containers/json?all=1&before=8dfafdbc3a40&size=1

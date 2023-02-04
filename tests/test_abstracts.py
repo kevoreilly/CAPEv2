@@ -8,7 +8,6 @@ import tempfile
 import pytest
 
 import lib.cuckoo.common.abstracts as abstracts
-from lib.cuckoo.common.path_utils import path_exists
 
 
 @pytest.fixture
@@ -48,7 +47,7 @@ class TestReport:
         dir = tempfile.mkdtemp()
         rep_dir = os.path.join(dir, "reports")
         rep.set_path(dir)
-        assert path_exists(rep_dir)
+        assert os.path.exists(rep_dir)
         os.rmdir(rep_dir)
 
     def test_options_none(self, rep):

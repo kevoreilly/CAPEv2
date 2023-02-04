@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: compress data using LZO
+    namespace: data-manipulation/compression
+    authors:
+      - david@edeca.net
+      - david.cannings@pwc.com
+    description: detects the compression routine from LZO
+    scope: function
+    mbc:
+      - Data::Compress Data [C0024]
+    references:
+      - https://github.com/zenzhang/msgclient/blob/f7c346287022dd41b21aedc8664a281b32e4a1f1/src/framework/string/Compress.cpp
+    examples:
+      - ee3b869b668abec332d07c66d1a39f6dbf3a598cc1325b57a0504f8d24ac2e28.dll_:0x10026370
+  features:
+    - and:
+      - number: 0x4000
+      - number: 0x3FFF
+      - or:
+        - number: 0xBFFE
+        - number: 0xBFFF
+      - number: 0x800
+      - number: 0x7FF
+      - number: 0x201F

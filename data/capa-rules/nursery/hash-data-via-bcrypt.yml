@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: hash data via BCrypt
+    namespace: data-manipulation/hashing
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Cryptography::Cryptographic Hash [C0029]
+  features:
+    - and:
+      - or:
+        - api: BCryptHash
+        - and:
+          - api: BCryptHashData
+          - optional:
+            - api: BCryptFinishHash
+            - api: BCryptDestroyHash
+            - api: BCryptCreateHash
+      - optional:
+        - api: BCryptOpenAlgorithmProvider
+        - api: BCryptCloseAlgorithmProvider

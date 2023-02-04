@@ -6,9 +6,7 @@ import json
 import logging
 import os
 import sys
-from contextlib import suppress
 from datetime import datetime, timedelta
-from pathlib import Path
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
@@ -22,7 +20,6 @@ from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
 
 try:
@@ -41,6 +38,7 @@ try:
         event,
         func,
         not_,
+        or_,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.ext.declarative import declarative_base
@@ -97,7 +95,6 @@ sandbox_packages = (
     "iso",
     "vhd",
     "udf",
-    "one",
 )
 
 log = logging.getLogger(__name__)
@@ -185,7 +182,8 @@ def _get_linux_vm_tag(mgtype):
         return "x32"
     elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
         return "x64"
-    return "x64"
+    else:
+        return "x64"
 
 
 class Machine(Base):
@@ -539,16 +537,16 @@ class Database(object, metaclass=Singleton):
         elif self.cfg.database.connection:
             self._connect_database(self.cfg.database.connection)
         else:
-            file_path = os.path.join(CUCKOO_ROOT, "db", "cuckoo.db")
-            if not path_exists(file_path):
-                db_dir = os.path.dirname(file_path)
-                if not path_exists(db_dir):
+            db_file = os.path.join(CUCKOO_ROOT, "db", "cuckoo.db")
+            if not os.path.exists(db_file):
+                db_dir = os.path.dirname(db_file)
+                if not os.path.exists(db_dir):
                     try:
                         create_folder(folder=db_dir)
                     except CuckooOperationalError as e:
                         raise CuckooDatabaseError(f"Unable to create database directory: {e}")
 
-            self._connect_database(f"sqlite:///{file_path}")
+            self._connect_database(f"sqlite:///{db_file}")
 
         # Disable SQL logging. Turn it on for debugging.
         self.engine.echo = False
@@ -596,8 +594,10 @@ class Database(object, metaclass=Singleton):
 
     def __del__(self):
         """Disconnects pool."""
-        with suppress(KeyError, AttributeError):
+        try:
             self.engine.dispose()
+        except (KeyError, AttributeError):
+            pass
 
     def _connect_database(self, connection_string):
         """Connect to a Database.
@@ -813,7 +813,7 @@ class Database(object, metaclass=Singleton):
         @return: boolean indicating if a relevant machine is available
         """
         # Are there available machines that match up with a task?
-        task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
+        task_archs = [tag.name for tag in task.tags if tag.name in ["x86", "x64"]]
         task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
         relevant_available_machines = self.list_machines(
             locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs
@@ -822,24 +822,8 @@ class Database(object, metaclass=Singleton):
             # There are? Awesome!
             self.set_status(task_id=task.id, status=TASK_RUNNING)
             return True
-        return False
-
-    @classlock
-    def is_serviceable(self, task: Task) -> bool:
-        """Checks if the task is serviceable.
-
-        This method is useful when there are tasks that will never be serviced
-        by any of the machines available. This allows callers to decide what to
-        do when tasks like this are created.
-
-        @return: boolean indicating if any machine could service the task in the future
-        """
-        task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
-        task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
-        relevant_machines = self.list_machines(label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs)
-        if len(relevant_machines) > 0:
-            return True
-        return False
+        else:
+            return False
 
     @classlock
     def fetch_task(self, categories: list = []):
@@ -1199,7 +1183,7 @@ class Database(object, metaclass=Singleton):
     @classlock
     def register_sample(self, obj, source_url=False):
         sample_id = None
-        if isinstance(obj, (File, PCAP, Static)):
+        if isinstance(obj, File) or isinstance(obj, PCAP) or isinstance(obj, Static):
             session = self.Session()
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
@@ -1245,7 +1229,8 @@ class Database(object, metaclass=Singleton):
                 session.close()
 
             return sample_id
-        return None
+        else:
+            return None
 
     @classlock
     def add(
@@ -1309,7 +1294,7 @@ class Database(object, metaclass=Singleton):
         if not priority:
             priority = 1
 
-        if isinstance(obj, (File, PCAP, Static)):
+        if isinstance(obj, File) or isinstance(obj, PCAP) or isinstance(obj, Static):
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
@@ -1379,7 +1364,7 @@ class Database(object, metaclass=Singleton):
             except OperationalError:
                 return None
 
-            if isinstance(obj, (PCAP, Static)):
+            if isinstance(obj, PCAP) or isinstance(obj, Static):
                 # since no VM will operate on this PCAP
                 task.started_on = datetime.now()
 
@@ -1494,7 +1479,7 @@ class Database(object, metaclass=Singleton):
         @username: username from custom auth
         @return: cursor or None.
         """
-        if not file_path or not path_exists(file_path):
+        if not file_path or not os.path.exists(file_path):
             log.warning("File does not exist: %s", file_path)
             return None
 
@@ -1573,6 +1558,7 @@ class Database(object, metaclass=Singleton):
         # force auto package for linux files
         if platform == "linux":
             package = ""
+        original_options = options
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
@@ -1581,7 +1567,7 @@ class Database(object, metaclass=Singleton):
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
-                Path(file_path.decode()).unlink()
+                os.remove(file_path)
 
         # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
         opts = get_options(options)
@@ -1615,7 +1601,7 @@ class Database(object, metaclass=Singleton):
                     f = SflockFile.from_path(file)
 
                     try:
-                        tmp_package = sflock_identify(f, check_shellcode=True)
+                        tmp_package = sflock_identify(f)
                     except Exception as e:
                         log.error(f"Failed to sflock_ident due to {e}")
                         tmp_package = "generic"
@@ -1623,24 +1609,20 @@ class Database(object, metaclass=Singleton):
                     if tmp_package and tmp_package in sandbox_packages:
                         package = tmp_package
                     else:
-                        log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
+                        log.info("Does sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
                     del f
                     if package == "dll" and "function" not in options:
-                        dll_export = PortableExecutable(file).choose_dll_export()
-                        if dll_export == "DllRegisterServer":
+                        dll_exports = PortableExecutable(file).get_dll_exports()
+                        if "DllRegisterServer" in dll_exports:
                             package = "regsvr"
-                        elif dll_export == "xlAutoOpen":
+                        elif "xlAutoOpen" in dll_exports:
                             package = "xls"
-                        elif dll_export:
-                            if options:
-                                options += f",function={dll_export}"
-                            else:
-                                options = f"function={dll_export}"
-                    if package in ("iso", "udf", "vhd"):
+                    if package in ["iso", "udf", "vhd"]:
                         package = "archive"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
+                options = original_options
                 if static and not config and repconf.distributed.enabled:
                     if options:
                         options += ",dist_extract=1"
@@ -1763,7 +1745,7 @@ class Database(object, metaclass=Singleton):
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
-                Path(file_path).unlink()
+                os.remove(file_path)
 
         task_ids = []
         # create tasks for each file in the archive
@@ -1922,7 +1904,7 @@ class Database(object, metaclass=Singleton):
             # All other task types have a "target" pointing to a temp location,
             # so get a stable path "target" based on the sample hash.
             paths = self.sample_path_by_hash(task.sample.sha256)
-            paths = [file_path for file_path in paths if path_exists(file_path)]
+            paths = [x for x in paths if os.path.exists(x)]
             if not paths:
                 return None
 
@@ -1936,7 +1918,7 @@ class Database(object, metaclass=Singleton):
             log.warning("Unable to find valid target for task: %s", task_id)
             return
 
-        new_task_id = add(
+        return add(
             task_target,
             task.timeout,
             task.package,
@@ -1951,18 +1933,6 @@ class Database(object, metaclass=Singleton):
             task.clock,
             tlp=task.tlp,
         )
-
-        session = self.Session()
-        session.query(Task).get(task_id).custom = f"Recovery_{new_task_id}"
-        try:
-            session.commit()
-        except SQLAlchemyError as e:
-            log.debug("Database error rescheduling task: %s", e)
-            session.rollback()
-            return False
-        finally:
-            session.close()
-        return new_task_id
 
     @classlock
     def count_matching_tasks(self, category=None, status=None, not_status=None):
@@ -2185,14 +2155,15 @@ class Database(object, metaclass=Singleton):
         try:
             _min = session.query(func.min(Task.started_on).label("min")).first()
             _max = session.query(func.max(Task.completed_on).label("max")).first()
-            if _min and _max and _min[0] and _max[0]:
+            if _min and _max:
                 return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
+            else:
+                return 0
         except SQLAlchemyError as e:
             log.debug("Database error counting tasks: %s", e)
+            return 0
         finally:
             session.close()
-
-        return 0, 0
 
     @classlock
     def get_tlp_tasks(self):
@@ -2221,7 +2192,9 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             unfiltered = session.query(Sample.file_type).group_by(Sample.file_type)
-            res = [asample[0] for asample in unfiltered.all()]
+            res = []
+            for asample in unfiltered.all():
+                res.append(asample[0])
             res.sort()
         except SQLAlchemyError as e:
             log.debug("Database error getting file_types: %s", e)
@@ -2343,7 +2316,7 @@ class Database(object, metaclass=Singleton):
     def delete_tasks(self, ids):
         session = self.Session()
         try:
-            _ = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
+            search = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
         except SQLAlchemyError as e:
             log.debug("Database error deleting task: %s", e)
             session.rollback()
@@ -2445,9 +2418,9 @@ class Database(object, metaclass=Singleton):
 
                 db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
                 if db_sample is not None:
-                    file_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
-                    if path_exists(file_path):
-                        sample = [file_path]
+                    path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                    if os.path.exists(path):
+                        sample = [path]
 
                 if not sample:
                     if repconf.mongodb.enabled:
@@ -2472,7 +2445,7 @@ class Database(object, metaclass=Singleton):
                         for task in tasks:
                             for block in task.get("CAPE", {}).get("payloads", []) or []:
                                 if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                    file_path = os.path.join(
+                                    path = os.path.join(
                                         CUCKOO_ROOT,
                                         "storage",
                                         "analyses",
@@ -2480,8 +2453,8 @@ class Database(object, metaclass=Singleton):
                                         folders.get("CAPE"),
                                         block["sha256"],
                                     )
-                                    if path_exists(file_path):
-                                        sample = [file_path]
+                                    if os.path.exists(path):
+                                        sample = [path]
                                         break
                             if sample:
                                 break
@@ -2510,7 +2483,7 @@ class Database(object, metaclass=Singleton):
                             for task in tasks:
                                 for block in task.get(category, []) or []:
                                     if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                        file_path = os.path.join(
+                                        path = os.path.join(
                                             CUCKOO_ROOT,
                                             "storage",
                                             "analyses",
@@ -2518,8 +2491,8 @@ class Database(object, metaclass=Singleton):
                                             folders.get(category),
                                             block["sha256"],
                                         )
-                                        if path_exists(file_path):
-                                            sample = [file_path]
+                                        if os.path.exists(path):
+                                            sample = [path]
                                             break
                                 if sample:
                                     break
@@ -2530,7 +2503,7 @@ class Database(object, metaclass=Singleton):
                     if db_sample is not None:
                         samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
                         # hash validation and if exist
-                        samples = [file_path for file_path in samples if path_exists(file_path)]
+                        samples = [path for path in samples if os.path.exists(path)]
                         for path in samples:
                             with open(path, "rb").read() as f:
                                 if sample_hash == sizes[len(sample_hash)](f).hexdigest():
@@ -2558,10 +2531,10 @@ class Database(object, metaclass=Singleton):
                     if tasks:
                         for task in tasks:
                             for item in task["suricata"]["files"] or []:
-                                file_path = item["file_info"]["path"]
-                                if sample_hash in file_path:
-                                    if path_exists(file_path):
-                                        sample = [file_path]
+                                path = item["file_info"]["path"]
+                                if sample_hash in path:
+                                    if os.path.exists(path):
+                                        sample = [path]
                                         break
 
             except AttributeError:
@@ -2673,7 +2646,7 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         _ = (
             session.query(Task)
-            .filter(Task.user_id == user_id)
+            .filter(Task.user_id == int(user_id))
             .filter(Task.status == TASK_PENDING)
             .update({Task.status: TASK_BANNED}, synchronize_session=False)
         )

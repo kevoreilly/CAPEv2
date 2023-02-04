@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: reference Diebold ATM routines
+    namespace: targeting/automated-teller-machine/diebold-nixdorf
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: file
+    references:
+      - https://www.mandiant.com/resources/new-ploutus-variant
+    examples:
+      - b2ad4409323147b63e370745e5209996
+  features:
+    - or:
+      - string: "DBD_AdvFuncDisp"
+        description: dispenser function
+      - string: "DBD_EPP4"
+        description: pin pad function

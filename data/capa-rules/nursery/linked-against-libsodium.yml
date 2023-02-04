@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: linked against libsodium
+    namespace: linking/static/crypto
+    authors:
+      - "@mr-tz"
+    description: Sodium is a software library for encryption, decryption, signatures, password hashing and more.
+    scope: file
+    mbc:
+      - Cryptography::Crypto Library [C0059]
+  features:
+    - or:
+      - string: "sodium_crit_enter"
+      - string: "_sodium_malloc"
+      - string: "randombytes_sysrandom_implementation"

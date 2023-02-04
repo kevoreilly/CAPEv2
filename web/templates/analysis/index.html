@@ -4,9 +4,7 @@
 <ul class="nav nav-tabs">
     <li class="nav-item"><a class="nav-link active" href="#files" data-toggle="tab">Files</a></li>
     <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static</a></li>
-    {% if config.url_analysis %}
     <li class="nav-item"><a class="nav-link" href="#urls" data-toggle="tab">URLs</a></li>
-    {% endif %}
     <li class="nav-item"><a class="nav-link" href="#pcaps" data-toggle="tab">PCAPs</a></li>
 </ul>
 
@@ -45,6 +43,9 @@
                     <th width="8%">Package</th>
                     <th width="33%">Filename</th>
                     <th width="18%">MD5</th>
+                    {% if config.mispdisplay %}
+                    <th width="17%">MISP Event</th>
+                    {% endif %}
                     <th width="7%">Detections</th>
 
                     {% if config.display_task_tags %}
@@ -130,6 +131,10 @@
                                 <span class="mono">{{analysis.sample.md5}}</span>
                             {% endif %}
                         </td>
+                        {% if config.mispdisplay %}
+                        <td>
+                        </td>
+                        {% endif %}
                         <td>
                             {% if analysis.detections|is_string %}
                                 <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
@@ -295,6 +300,7 @@
             <div class="card-body">No files to display on this page.</div>
             {% endif %}
         </div>
+        <br>
         {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
@@ -737,7 +743,8 @@
                                 {% elif analysis.malscore <= 6.0 %}
                                 class="badge badge-warning"
                                 {% else %}
-                                class="badge badge-danger"
+                                class="badge badge
+                                -danger"
                                 {% endif %}
                                 {% if analysis.detections %}
                                 title="{{analysis.detections}}"

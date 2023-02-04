@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: encrypt data using RSA
+    namespace: data-manipulation/encryption/rsa
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Defense Evasion::Obfuscated Files or Information::Encryption-Standard Algorithm [E1027.m05]
+      - Cryptography::Encrypt Data::RSA [C0027.011]
+    references:
+      - https://docs.microsoft.com/en-us/dotnet/api/system.security.cryptography.rsacryptoserviceprovider.encrypt
+  features:
+    - or:
+      - api: System.Security.Cryptography.RSACryptoServiceProvider::Encrypt

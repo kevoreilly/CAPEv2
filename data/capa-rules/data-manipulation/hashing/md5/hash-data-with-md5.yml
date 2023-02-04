@@ -1,0 +1,37 @@
+rule:
+  meta:
+    name: hash data with MD5
+    namespace: data-manipulation/hashing/md5
+    authors:
+      - moritz.raabe@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    mbc:
+      - Cryptography::Cryptographic Hash::MD5 [C0029.001]
+    references:
+      - https://github.com/rwfpl/rewolf-x86-virtualizer/blob/master/src/test_app/main.cpp
+    examples:
+      - Practical Malware Analysis Lab 05-01.dll_:0x100108ED
+  features:
+    - or:
+      - and:
+        - description: magic initialization constants from MD4 and MD5
+        - number: 0x67452301 = A
+        - number: 0xefcdab89 = B
+        - number: 0x98badcfe = C
+        - number: 0x10325476 = D
+        - not:
+          - number: 0xc3d2e1f0 = likely SHA1
+        - optional:
+          - description: specific compilation from https://github.com/rwfpl/rewolf-x86-virtualizer/blob/master/src/test_app/main.cpp
+          - and:
+            - offset: -0x28955B88
+            - offset: -0x173848AA
+      - basic block:
+        - and:
+          - number: 0x8003 = CALG_MD5
+          - api: advapi32.CryptCreateHash
+      - and:
+        - format: dotnet
+        - api: System.Security.Cryptography.MD5::Create
+        - api: System.Security.Cryptography.HashAlgorithm::ComputeHash

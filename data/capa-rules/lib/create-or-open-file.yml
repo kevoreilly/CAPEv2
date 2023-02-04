@@ -1,0 +1,28 @@
+rule:
+  meta:
+    name: create or open file
+    authors:
+      - michael.hunhoff@mandiant.com
+      - joakim@intezer.com
+    lib: true
+    scope: basic block
+    mbc:
+      - File System::Create File [C0016]
+    examples:
+      - B5F85C26D7AA5A1FB4AF5821B6B5AB9B:0x401D7E
+  features:
+    - or:
+      - api: CreateFile
+      - api: CreateFileEx
+      - api: IoCreateFile
+      - api: IoCreateFileEx
+      - api: ZwOpenFile
+      - api: ZwCreateFile
+      - api: NtOpenFile
+      - api: NtCreateFile
+      - api: fopen
+      - api: fopen64
+      - api: fdopen
+      - api: freopen
+      - api: open
+      - api: openat

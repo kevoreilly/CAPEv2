@@ -1,0 +1,57 @@
+rule:
+  meta:
+    name: parse PE header
+    namespace: load-code/pe
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Execution::Shared Modules [T1129]
+    examples:
+      - 9324D1A8AE37A36AE560C37448C9705A:0x403DD0
+  features:
+    # TODO filter out false positives
+    - and:
+      - os: windows
+      - and:
+        - mnemonic: cmp
+        - or:
+          - number: 0x4550 = IMAGE_NT_SIGNATURE (PE)
+          - and:
+            - number: 0x50
+            - number: 0x45
+        - or:
+          - number: 0x5A4D = IMAGE_DOS_SIGNATURE (MZ)
+          - and:
+            - number: 0x4D
+            - number: 0x5A
+        - optional:
+          - and:
+            - offset: 0x3C = IMAGE_DOS_HEADER.e_lfanew
+            - or:
+              - and:
+                - arch: i386
+                - offset: 0x50 = IMAGE_NT_HEADERS.OptionalHeader.SizeOfImage
+                - offset: 0x34 = IMAGE_NT_HEADERS.OptionalHeader.ImageBase
+              - and:
+                - arch: amd64
+                - offset: 0x50 = IMAGE_NT_HEADERS64.OptionalHeader.SizeOfImage
+                - offset: 0x30 = IMAGE_NT_HEADERS64.OptionalHeader.ImageBase
+          - basic block:
+            - and:
+              - offset: 0x3C = IMAGE_DOS_HEADER.e_lfanew
+              - 3 or more:
+                - offset: 0x4 = IMAGE_NT_HEADERS.FileHeader.Machine
+                - offset: 0x6 = IMAGE_NT_HEADERS.FileHeader.NumberOfSections
+                - offset: 0x14 = IMAGE_NT_HEADERS.FileHeader.SizeOfOptionalHeader
+                - offset: 0x16 = IMAGE_NT_HEADERS.FileHeader.Characteristics
+                - offset: 0x28 = IMAGE_NT_HEADERS.OptionalHeader.AddressOfEntryPoint  # for 32 and 64 bit
+                - or:
+                  - and:
+                    - arch: i386
+                    - offset: 0x34 = IMAGE_NT_HEADERS.OptionalHeader.ImageBase
+                    - offset: 0x50 = IMAGE_NT_HEADERS.OptionalHeader.SizeOfImage
+                  - and:
+                    - arch: amd64
+                    - offset: 0x30 = IMAGE_NT_HEADERS.OptionalHeader.ImageBase
+                    - offset: 0x50 = IMAGE_NT_HEADERS64.OptionalHeader.SizeOfImage

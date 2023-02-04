@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: execute shell command received from socket on Linux
+    namespace: c2/shell
+    authors:
+      - joakim@intezer.com
+    scope: function
+    att&ck:
+      - Execution::Command and Scripting Interpreter::Unix Shell [T1059.004]
+    examples:
+      - 7351f8a40c5450557b24622417fc478d:0x406549
+  features:
+    - and:
+      - os: linux
+      - match: receive data on socket
+      - api: system

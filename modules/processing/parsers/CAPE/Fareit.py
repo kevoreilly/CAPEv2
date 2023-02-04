@@ -1,8 +1,10 @@
 import re
 import sys
-from pathlib import Path
 
-"""
+AUTHOR = "CAPE"
+DESCRIPTION = "Fareit configuration parser."
+
+rule_source = """
 rule pony {
     meta:
         author = "adam"
@@ -25,7 +27,8 @@ dll_url = re.compile(b".*\\.dll$")
 
 def extract_config(memdump_path, read=False):
     if read:
-        F = Path(memdump_path).read_bytes()
+        with open(memdump_path, "rb") as f:
+            F = f.read()
     else:
         F = memdump_path
     """
@@ -35,10 +38,7 @@ def extract_config(memdump_path, read=False):
     if buf and len(buf[0]) > 200:
         cData = buf[0][200:]
     """
-    artifacts_raw = {
-        "controllers": [],
-        "downloads": [],
-    }
+    controllers, downloads = set(), set()
 
     start = F.find(b"YUIPWDFILE0YUIPKDFILE0YUICRYPTED0YUI1.0")
     if start:
@@ -54,14 +54,18 @@ def extract_config(memdump_path, read=False):
                 if url is None:
                     continue
                 if gate_url.match(url):
-                    artifacts_raw["controllers"].append(url.lower().decode())
+                    controllers.add(url.lower().decode())
                 elif exe_url.match(url) or dll_url.match(url):
-                    artifacts_raw["downloads"].append(url.lower().decode())
+                    downloads.add(url.lower().decode())
         except Exception as e:
             print(e, sys.exc_info(), "PONY")
-    artifacts_raw["controllers"] = list(set(artifacts_raw["controllers"]))
-    artifacts_raw["downloads"] = list(set(artifacts_raw["downloads"]))
-    return artifacts_raw if len(artifacts_raw["controllers"]) != 0 or len(artifacts_raw["downloads"]) != 0 else False
+
+    config = {
+        "family": "Fareit",
+        "http": [{"uri": c, "usage": "c2"} for c in controllers] + [{"uri": d, "usage": "download"} for d in downloads],
+    }
+
+    return config
 
 
 if __name__ == "__main__":

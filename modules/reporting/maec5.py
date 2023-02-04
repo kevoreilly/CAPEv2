@@ -13,7 +13,6 @@ import re
 import sys
 import uuid
 from collections import OrderedDict
-from contextlib import suppress
 
 import dateutil.parser
 
@@ -142,9 +141,10 @@ def convert_to_unicode(input):
         return {convert_to_unicode(key): convert_to_unicode(value) for key, value in input.items()}
     elif isinstance(input, list):
         return [convert_to_unicode(element) for element in input]
-    elif isinstance(input, (str, int, float)):
+    elif isinstance(input, str) or isinstance(input, int) or isinstance(input, float):
         return str(input)
-    return input
+    else:
+        return input
 
 
 def sort_dict(d):
@@ -494,12 +494,13 @@ class MaecReport(Report):
         # Populate the properties of the Object
         if not isinstance(arguments, list):
             arguments = [arguments]
+        found = False
         v2_arguments = {}
         for args in arguments:
             if "name" in args and "value" in args:
                 v2_arguments[args["name"]] = args["value"]
         arguments = v2_arguments
-        with suppress(Exception):
+        try:
             for entry in mapping[objects_class]:
                 if arguments.get(entry["cuckoo_arg"]):
                     self.map_object_properties(obj, entry, arguments)
@@ -508,11 +509,12 @@ class MaecReport(Report):
                 action[objects_class] = []
                 real_obj_id = self.post_process_object(obj, arguments)
                 action[objects_class].append(real_obj_id)
+        except Exception as e:
+            pass
 
     def post_process_object(self, obj, arguments):
         """Perform any necessary post-processing on Cyber Observable Objects"""
         protocol_mappings = {"1": "ftp", "3": "http"}
-        """
         reg_datatype_mappings = {
             "0": "REG_NONE",
             "1": "REG_SZ",
@@ -527,7 +529,6 @@ class MaecReport(Report):
             "10": "REG_RESOURCE_REQUIREMENTS_LIST",
             "11": "REG_QWORD",
         }
-        """
         if obj["type"] == "file":
             self.create_directory_from_file_path(obj, obj["name"])
         elif obj["type"] == "windows-registry-key":

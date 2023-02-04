@@ -1,0 +1,31 @@
+rule:
+  meta:
+    name: check HTTP status code
+    namespace: communication/http/client
+    authors:
+      - "@mr-tz"
+    scope: function
+    mbc:
+      - Communication::HTTP Communication::Read Header [C0002.014]
+    examples:
+      - 54ac78733552a62d1d05ea4ba3fc604bb49fe000d7fc948da45335b726e64d75:0x10001a20
+  features:
+    - and:
+      - os: windows
+      - or:
+        - number: 0x20000013 = HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_STATUS_CODE
+        - number: 0x13 = HTTP_QUERY_STATUS_CODE
+      - optional:
+        - api: atoi
+        - api: wininet.HttpQueryInfo
+      - instruction:
+        - and:
+          - or:
+            - mnemonic: cmp
+            - mnemonic: test
+          - or:
+            - number: 200 = OK
+            - number: 400 = Bad Request
+            - number: 401 = Unauthorized
+            - number: 403 = Forbidden
+            - number: 404 = Not Found

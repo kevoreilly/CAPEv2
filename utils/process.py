@@ -6,16 +6,16 @@ import argparse
 import gc
 import json
 import logging
+import multiprocessing
 import os
 import platform
 import resource
 import signal
 import sys
 import time
-from contextlib import suppress
 
-if sys.version_info[:2] < (3, 8):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 try:
     import pebble
@@ -30,7 +30,6 @@ from concurrent.futures import TimeoutError
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import free_space_monitor
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
@@ -111,11 +110,11 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
         Database().set_status(task_id, TASK_REPORTED)
 
         if auto:
-            if cfg.cuckoo.delete_original and path_exists(target):
-                path_delete(target)
+            if cfg.cuckoo.delete_original and os.path.exists(target):
+                os.unlink(target)
 
-            if copy_path is not None and cfg.cuckoo.delete_bin_copy and path_exists(copy_path):
-                path_delete(copy_path)
+            if copy_path is not None and cfg.cuckoo.delete_bin_copy and os.path.exists(copy_path):
+                os.unlink(copy_path)
 
     if memory_debugging:
         gc.collect()
@@ -145,8 +144,8 @@ def init_logging(auto=False, tid=0, debug=False):
     ch.setFormatter(FORMATTER)
     log.addHandler(ch)
     try:
-        if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
-            path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
+        if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
+            os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
         if auto:
             if cfg.log_rotation.enabled:
                 days = cfg.log_rotation.backup_count or 7
@@ -176,7 +175,7 @@ def init_logging(auto=False, tid=0, debug=False):
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
-        # result = future.result()
+        result = future.result()
         log.info("Reports generation completed")
     except TimeoutError as error:
         log.error("Processing Timeout %s. Function: %s", error, error.args[1])
@@ -188,8 +187,8 @@ def processing_finished(future):
         log.error("Exception when processing task: %s", error, exc_info=True)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
 
-    pending_future_map.pop(future)
-    pending_task_id_map.pop(task_id)
+    del pending_future_map[future]
+    del pending_task_id_map[task_id]
     set_formatter_fmt()
 
 
@@ -212,7 +211,14 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                     # Resolve the full base path to the analysis folder, just in
                     # case somebody decides to make a symbolic link out of it.
                     dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                    free_space_monitor(dir_path, processing=True)
+                    need_space, space_available = free_space_monitor(dir_path, return_value=True, processing=True)
+                    if need_space:
+                        log.error(
+                            "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
+                            space_available,
+                        )
+                        time.sleep(60)
+                        continue
 
                 # If still full, don't add more (necessary despite pool).
                 if len(pending_task_id_map) >= parallel:
@@ -253,10 +259,10 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                         log.info("(after) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
                     count += 1
                     added = True
-                    if copy_path is not None:
+                    if copy_path != None:
                         copy_origin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
-                        if cfg.cuckoo.delete_bin_copy and path_exists(copy_origin_path):
-                            path_delete(copy_origin_path)
+                        if cfg.cuckoo.delete_bin_copy and os.path.exists(copy_origin_path):
+                            os.unlink(copy_origin_path)
                     break
                 if not added:
                     # don't hog cpu
@@ -270,7 +276,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         print("Remain: %.2f GB" % mem)
         sys.stderr.write("\n\nERROR: Memory Exception\n")
         sys.exit(1)
-    except Exception:
+    except Exception as e:
         import traceback
 
         traceback.print_exc()
@@ -285,7 +291,9 @@ def _load_report(task_id: int, return_one: bool = False):
         if return_one:
             analysis = mongo_find_one("analysis", {"info.id": int(task_id)}, sort=[("_id", -1)])
             for process in analysis.get("behavior", {}).get("processes", []):
-                calls = [ObjectId(call) for call in process["calls"]]
+                calls = []
+                for call in process["calls"]:
+                    calls.append(ObjectId(call))
                 process["calls"] = []
                 for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
                     process["calls"] += call["calls"]
@@ -334,9 +342,7 @@ def parse_id(id_string: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "id",
-        type=parse_id,
-        help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10",
+        "id", type=parse_id, help="ID of the analysis to process (auto for continuous processing of unprocessed tasks)."
     )
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
@@ -410,7 +416,7 @@ def main():
             for num in range(start, end + 1):
                 set_formatter_fmt(num)
                 log.debug("Processing task")
-                if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
+                if not os.path.exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
                     sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
                 handlers = init_logging(tid=str(num), debug=args.debug)
                 task = Database().view_task(num)
@@ -420,17 +426,14 @@ def main():
                     if not results:
                         # fallback to json
                         report = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num), "reports", "report.json")
-                        if not path_exists(report):
-                            if args.json_report and path_exists(args.json_report):
+                        if not os.path.exists(report):
+                            if args.json_report and os.path.exists(args.json_report):
                                 report = args.json_report
                             else:
                                 sys.exit(f"File {report} doest exist")
                         if report:
                             results = json.load(open(report))
                     if results is not None:
-                        # If the "statistics" key-value pair has not been set by now, set it here
-                        if "statistics" not in results:
-                            results["statistics"] = {"signatures": []}
                         RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
                 else:
                     process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
@@ -442,5 +445,7 @@ def main():
 
 
 if __name__ == "__main__":
-    with suppress(KeyboardInterrupt):
+    try:
         main()
+    except KeyboardInterrupt:
+        pass

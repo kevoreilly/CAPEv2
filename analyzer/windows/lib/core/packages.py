@@ -36,8 +36,6 @@ def choose_package(file_type, file_name, exports, target):
         return "msi"
     elif file_name.endswith(".pub"):
         return "pub"
-    elif file_name.endswith(".one"):
-        return "one"
     elif (
         "Rich Text Format" in file_type
         or "Microsoft Word" in file_type
@@ -94,12 +92,7 @@ def choose_package(file_type, file_name, exports, target):
     elif file_name.endswith(".xps"):
         return "xps"
     elif "HTML" in file_type:
-        if file_name.endswith(".wsf") or file_name.endswith(".wsc"):
-            return "wsf"
-        elif re.search(b'(?:<hta\\:application|<script\\s+language\\s*=\\s*"(J|VB|Perl)Script")', file_content, re.I):
-            return "html"
-        else:
-            return "chrome"
+        return "html"
     elif file_name.endswith(".mht"):
         return "mht"
     elif file_name.endswith(".url") or "MS Windows 95 Internet shortcut" in file_type or "Windows URL shortcut" in file_type:
@@ -137,7 +130,5 @@ def choose_package(file_type, file_name, exports, target):
         return "ichitaro"
     elif file_name.endswith(".reg"):
         return "reg"
-    elif "ISO 9660" in file_type or file_name.endswith((".iso", ".udf", ".vhd")):
-        return "archive"
     else:
         return "generic"

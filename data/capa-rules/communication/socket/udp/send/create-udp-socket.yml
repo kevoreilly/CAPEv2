@@ -1,0 +1,21 @@
+rule:
+  meta:
+    name: create UDP socket
+    namespace: communication/socket/udp/send
+    authors:
+      - moritz.raabe@mandiant.com
+      - joakim@intezer.com
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    mbc:
+      - Communication::Socket Communication::Create UDP Socket [C0001.010]
+    examples:
+      - 203BD48BCC18434314AD60F4C8BC21E3D3422EB0624B22B827410F9BC63B4082:0x401240
+  features:
+    - and:
+      - count(number(2 = AF_INET/SOCK_DGRAM)): 2 or more
+      - or:
+        - api: ws2_32.socket
+        - api: ws2_32.WSASocket
+        - api: socket
+        - api: System.Net.Sockets.Socket::ctor

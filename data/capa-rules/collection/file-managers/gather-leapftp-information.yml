@@ -1,0 +1,26 @@
+rule:
+  meta:
+    name: gather leapftp information
+    namespace: collection/file-managers
+    authors:
+      - "@_re_fox"
+    scope: function
+    att&ck:
+      - Credential Access::Credentials from Password Stores [T1555]
+    examples:
+      - 5a2f620f29ca2f44fc22df67b674198f:0x407A33
+  features:
+    - or:
+      - and:
+        - string: "InstallPath"
+        - string: "DataDir"
+        - string: "sites.dat"
+        - string: "sites.ini"
+      - and:
+        - or:
+          - substring: "SOFTWARE\\LeapWare"
+          - substring: "\\LeapWare\\LeapFTP"
+        - 2 or more:
+          - string: "sites.dat"
+          - string: "sites.ini"
+          - string: "leapftp"

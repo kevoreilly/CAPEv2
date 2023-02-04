@@ -312,9 +312,7 @@
                     {% if config.virustotal %}
                     <th width="5%">VT</th>
                     {% endif %}
-                    {% if config.malscore %}
                     <th width="5%">MalScore</th>
-                    {% endif %}
                     {% if config.expanded_dashboard %}
                     <th width="4%">Detections</th>
                     <th width="3%">PCAP</th>
@@ -459,7 +457,6 @@
                             {% endif %}
                         </td>
                         {% endif %}
-                        {% if config.malscore %}
                         <td>
                             {% if analysis.malscore != None %}
                                 <span
@@ -478,7 +475,6 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
-                        {% endif %}
                         {% if config.expanded_dashboard %}
                         <td>
                             <span class="mono">

@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: disable automatic Windows recovery features
+    namespace: impact/inhibit-system-recovery
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    att&ck:
+      - Impact::Inhibit System Recovery [T1490]
+  features:
+    - and:
+      - os: windows
+      - or:
+        - string: /bcdedit(\.exe)?\s+/set\s+{default}\s+bootstatuspolicy\s+ignoreallfailures/i
+          description: ignore errors and boot normally even if there is a failed boot, shutdown, or checkpoint
+        - string: /bcdedit(\.exe)?\s+/set\s+{default}\s+recoveryenabled\s+no/i
+          description: disable automatic repair

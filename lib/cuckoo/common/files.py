@@ -5,15 +5,14 @@
 import errno
 import hashlib
 import logging
+import ntpath
 import os
 import shutil
 import tempfile
-from pathlib import PureWindowsPath
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.misc import getuser
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 cuckoo_conf = Config()
 
@@ -60,7 +59,8 @@ class Storage:
         @param path: file path.
         @return: filename.
         """
-        return PureWindowsPath(path).name
+        dirpath, filename = ntpath.split(path)
+        return filename or ntpath.basename(dirpath)
 
 
 class Folders(Storage):
@@ -84,7 +84,7 @@ class Folders(Storage):
             folder_path = os.path.join(root, folder)
             if not os.path.isdir(folder_path):
                 try:
-                    path_mkdir(folder_path)
+                    os.makedirs(folder_path)
                 except OSError as e:
                     if e.errno == errno.EEXIST:
                         # Race condition, ignore
@@ -93,7 +93,7 @@ class Folders(Storage):
 
     @staticmethod
     def copy(src, dest):
-        if path_exists(dest):
+        if os.path.exists(dest):
             shutil.rmtree(dest)
         shutil.copytree(src, dest)
 
@@ -108,7 +108,7 @@ class Folders(Storage):
         @raise CuckooOperationalError: if fails to delete folder.
         """
         folder = os.path.join(*folder)
-        if path_exists(folder):
+        if os.path.exists(folder):
             try:
                 shutil.rmtree(folder)
             except OSError as e:

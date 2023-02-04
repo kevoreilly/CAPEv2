@@ -1,0 +1,21 @@
+rule:
+  meta:
+    name: send request in .NET
+    namespace: communication/http/client
+    authors:
+      - anushka.virgaonakr@mandiant.com
+    scope: function
+    att&ck:
+      - Command and Control::Application Layer Protocol::Web Protocols [T1071.001]
+    mbc:
+      - Communication::HTTP Communication::Send Request [C0002.003]
+  features:
+    - and:
+      - or:
+        - api: System.Net.WebRequest::GetRequestStream
+        - api: System.Net.WebRequest::GetRequestStreamAsync
+        - and:
+          - api: System.Net.WebRequest::BeginGetRequestStream
+          - api: System.Net.WebRequest::EndGetRequestStream
+      - api: System.IO.Stream::Write
+      - api: System.IO.Stream::Close

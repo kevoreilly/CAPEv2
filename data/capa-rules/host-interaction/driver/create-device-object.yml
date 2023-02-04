@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: create device object
+    namespace: host-interaction/driver
+    authors:
+      - "@mr-tz"
+    scope: function
+    examples:
+      - Practical Malware Analysis Lab 10-03.sys_:0x00010706
+  features:
+    - and:
+      - api: IoCreateDevice
+      - optional:
+        - description: sets up a symbolic link between a device object name and a user-visible name for the device
+        - api: IoCreateSymbolicLink

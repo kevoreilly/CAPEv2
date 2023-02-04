@@ -1,0 +1,34 @@
+rule:
+  meta:
+    name: resolve function by parsing PE exports
+    namespace: load-code/pe
+    authors:
+      - sara-rn
+    scope: function
+    examples:
+      - 73CE04892E5F39EC82B00C02FC04C70F:0x406BA1
+  features:
+    - and:
+      - os: windows
+      - or:
+        - characteristic: loop
+        - mnemonic: movzx
+      - and:
+        - offset: 0x3C = IMAGE_DOS_HEADER.PE.e_lfanew
+        - or:
+          - and:
+            - arch: i386
+            - offset: 0x78 = offset to IMAGE_DATA_DIRECTORY[IMAGE_DIRECTORY_ENTRY_EXPORT]
+          - and:
+            - arch: amd64
+            - offset: 0x88 = offset to IMAGE_DATA_DIRECTORY[IMAGE_DIRECTORY_ENTRY_EXPORT]
+        - 3 or more:
+          - offset: 0x14 = IMAGE_EXPORT_DIRECTORY.NumberOfFunctions
+          - offset: 0x24 = IMAGE_EXPORT_DIRECTORY.AddressOfNameOrdinals
+          - offset: 0x20 = IMAGE_EXPORT_DIRECTORY.AddressOfNames
+          - offset: 0x18 = IMAGE_EXPORT_DIRECTORY.NumberOfNames
+          - offset: 0x1C = IMAGE_EXPORT_DIRECTORY.AddressOfFunctions
+      - optional:
+        - or:
+          - api: LoadLibrary
+          - api: strcmp

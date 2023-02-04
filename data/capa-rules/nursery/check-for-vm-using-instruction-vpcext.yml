@@ -1,0 +1,22 @@
+rule:
+  meta:
+    name: check for VM using instruction VPCEXT
+    # Please be aware: Vivisect does not support "VPCEXT" currently, so this rule works in IDA only.
+    namespace: anti-analysis/anti-vm/vm-detection
+    authors:
+      - richard.weiss@mandiant.com
+    description: Detects virtualization using VPCEXT (visual property container extender) instruction. Execution of this instruction will cause an illegal instruction exception outside of a virtual environment otherwise return 0
+    scope: function
+    att&ck:
+      - Defense Evasion::Virtualization/Sandbox Evasion [T1497]
+    mbc:
+      - Anti-Behavioral Analysis::Virtual Machine Detection::Instruction Testing [B0009.029]
+    references:
+      - https://unprotect.it/technique/vpcext/
+      - https://research.nccgroup.com/2017/12/13/hidden-cobra-volgmer-a-technical-analysis/
+      - https://shasaurabh.blogspot.com/2017/07/virtual-machine-detection-techniques.html
+  features:
+    # vpcext imm8 imm8
+    # result in ebx
+    # if ebx == 0: Virtual PC detected, else: illegal instruction exception
+    - mnemonic: vpcext

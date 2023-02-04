@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: write and execute a file
+    namespace: c2/file-transfer
+    maec/malware-category: launcher
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    mbc:
+      - Execution::Install Additional Program [B0023]
+    examples:
+      - 9324D1A8AE37A36AE560C37448C9705A:0x403A40
+      - Practical Malware Analysis Lab 01-04.exe_:0x4011FC
+  features:
+    - and:
+      - match: host-interaction/file-system/write
+      - match: host-interaction/process/create

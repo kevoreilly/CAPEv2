@@ -140,3 +140,4 @@ class VMwareREST(Machinery):
             return id
         else:
             log.info("Vm %s is not running", id)
+            return

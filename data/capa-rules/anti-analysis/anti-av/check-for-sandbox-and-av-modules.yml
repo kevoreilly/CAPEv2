@@ -1,0 +1,44 @@
+rule:
+  meta:
+    name: check for sandbox and av modules
+    namespace: anti-analysis/anti-av
+    authors:
+      - "@_re_fox"
+    scope: basic block
+    mbc:
+      - Anti-Behavioral Analysis::Virtual Machine Detection [B0009]
+      - Anti-Behavioral Analysis::Sandbox Detection [B0007]
+    examples:
+      - ccbf7cba35bab56563c0fbe4237fdc41:0x0040a4a0
+  features:
+    - and:
+      - api: GetModuleHandle
+      - or:
+        - string: /avghook(x|a)\.dll/i
+          description: AVG
+        - string: /snxhk\.dll/i
+          description: Avast
+        - string: /sf2\.dll/i
+          description: Avast
+        - string: /sbiedll\.dll/i
+          description: Sandboxie
+        - string: /dbghelp\.dll/i
+          description: WindBG
+        - string: /api_log\.dll/i
+          description: iDefense Lab
+        - string: /dir_watch\.dll/i
+          description: iDefense Lab
+        - string: /pstorec\.dll/i
+          description: SunBelt Sandbox
+        - string: /vmcheck\.dll/i
+          description: Virtual PC
+        - string: /wpespy\.dll/i
+          description: WPE Pro
+        - string: /cmdvrt(64|32).dll/i
+          description: Comodo Container
+        - string: /sxin.dll/i
+          description: 360 SOFTWARE
+        - string: /dbghelp\.dll/i
+          description: WINE
+        - string: /printfhelp\.dll/i
+          description: Unknown Sandbox

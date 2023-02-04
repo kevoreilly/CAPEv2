@@ -1,0 +1,31 @@
+rule:
+  meta:
+    name: enumerate domain computers via LDAP
+    namespace: host-interaction/network/domain
+    authors:
+      - awillia2@cisco.com
+    description: Looks for an LDAP query and related Windows API calls used to enumerate other computers on the Windows domain that a computer is connected to.
+    scope: function
+    att&ck:
+      - Discovery::System Network Configuration Discovery [T1016]
+    references:
+      - https://docs.microsoft.com/en-us/windows/win32/api/adshlp/nf-adshlp-adsopenobject
+      - https://www.vkremez.com/2017/12/lets-learn-introducing-new-trickbot.html
+      - https://chuongdong.com/reverse%20engineering/2021/05/23/MountLockerRansomware/
+    examples:
+      - 1e2791877da02d49998dea79515a89ca:0x6CD41FF8
+      - 3808f21e56dede99bc914d90aeabe47a:0x140007144
+  features:
+    - and:
+      - or:
+        - api: activeds.ADsOpenObject
+        - api: activeds.#9
+      - optional:
+        - string: "{001677D0-FD16-11CE-ABC4-02608C9E7553}"
+          description: IID_IADsContainer
+        - string: "{109BA8EC-92F0-11D0-A790-00C04FD8D5A8}"
+          description: IID_IDirectorySearch
+        - substring: "LDAP://"
+      - or:
+        - substring: "(objectClass=computer)"
+        - substring: "(objectCategory=computer)"

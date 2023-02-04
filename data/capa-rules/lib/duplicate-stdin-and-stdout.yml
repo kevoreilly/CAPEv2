@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: duplicate stdin and stdout
+    authors:
+      - joakim@intezer.com
+    lib: true
+    scope: basic block
+    examples:
+      - 7351f8a40c5450557b24622417fc478d:0x40236D
+  features:
+    - and:
+      - os: linux
+      - api: dup2
+      - number: 0 = STDIN
+      - number: 1 = STDOUT

@@ -1,0 +1,15 @@
+# generated using capa explorer for IDA Pro
+rule:
+  meta:
+    name: load Windows Common Language Runtime
+    namespace: load-code/dotnet
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+  features:
+    - or:
+      - api: mscoree.CorBindToRuntime
+      - api: mscoree.CorBindToRuntimeEx
+      - api: mscoree.CorBindToRuntimeHost
+      - api: mscoree.CorBindToRuntimeByCfg
+      - api: mscoree.CorBindToCurrentRuntime

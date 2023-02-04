@@ -1,0 +1,28 @@
+rule:
+  meta:
+    name: manipulate console buffer
+    namespace: host-interaction/console
+    authors:
+      - william.ballenthin@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Operating System::Console [C0033]
+    references:
+      - https://stackoverflow.com/a/15770935/87207
+    examples:
+      - 3aa7ee4d67f562933bc998f352b1f319:0x705413A0
+  features:
+    - or:
+      - and:
+        - or:
+          - api: kernel32.SetConsoleCursorPosition
+          - api: kernel32.ReadConsoleOutputCharacter
+          - api: kernel32.WriteConsoleOutputCharacter
+          - api: kernel32.WriteConsoleOutput
+          - api: kernel32.WriteConsoleInput
+        - optional:
+          - api: kernel32.GetStdHandle
+          - number: 0xfffffff5 = STD_OUTPUT_HANDLE
+      - api: System.Console::Write
+      - api: System.Console::WriteLine

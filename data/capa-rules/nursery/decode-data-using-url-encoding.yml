@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: decode data using URL encoding
+    namespace: data-manipulation/encoding/url
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Defense Evasion::Obfuscated Files or Information::Encoding-Standard Algorithm [E1027.m02]
+  features:
+    - or:
+      - api: System.Web.HttpUtility::UrlDecode
+      - api: System.Web.HttpUtility::UrlDecodeToBytes

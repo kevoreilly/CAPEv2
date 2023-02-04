@@ -1,5 +1,3 @@
-.. _Network Configuration:
-
 =====================
 Network Configuration
 =====================

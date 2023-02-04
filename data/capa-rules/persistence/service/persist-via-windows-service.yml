@@ -1,0 +1,31 @@
+rule:
+  meta:
+    name: persist via Windows service
+    namespace: persistence/service
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Persistence::Create or Modify System Process::Windows Service [T1543.003]
+      - Execution::System Services::Service Execution [T1569.002]
+    examples:
+      - Practical Malware Analysis Lab 03-02.dll_:0x10004706
+  features:
+    - or:
+      - and:
+        - basic block:
+          - and:
+            - number: 2 = SERVICE_AUTO_START
+            - api: advapi32.CreateService
+        - optional:
+          - or:
+            - api: advapi32.OpenService
+            - api: advapi32.StartService
+      - and:
+        - match: host-interaction/process/create
+        - or:
+          - and:
+            - string: /^sc(|\.exe)$/i
+            - string: /create /i
+          - string: /^sc(|\.exe) create/i
+          - string: /New-Service /i

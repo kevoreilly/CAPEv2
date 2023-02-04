@@ -9,7 +9,6 @@ import random
 import shutil
 import tempfile
 import zipfile
-from contextlib import suppress
 from xml.dom.minidom import parse
 
 try:
@@ -55,6 +54,8 @@ def build_handshake(src, dst, sport, dport, pktdump, smac, dmac):
 def build_finshake(src, dst, sport, dport, seq, ack, pktdump, smac, dmac):
     ipsrc = src
     ipdst = dst
+    portsrc = sport
+    portdst = dport
     finAck = Ether(src=smac, dst=dmac) / IP(src=ipsrc, dst=ipdst) / TCP(flags="FA", sport=sport, dport=dport, seq=seq, ack=ack)
     finalAck = (
         Ether(src=dmac, dst=smac)
@@ -77,6 +78,8 @@ def make_pkts(src, dst, sport, dport, seq, ack, payload, pktdump, smac, dmac):
         segments.append(payload)
     ipsrc = src
     ipdst = dst
+    portsrc = sport
+    portdst = dport
     for segment in segments:
         p = (
             Ether(src=smac, dst=dmac)
@@ -209,6 +212,8 @@ def saz_to_pcap(sazpath):
 
     pktdump.close()
     if tmpdir:
-        with suppress(Exception):
+        try:
             shutil.rmtree(tmpdir)
+        except Exception:
+            pass
     return pcappath

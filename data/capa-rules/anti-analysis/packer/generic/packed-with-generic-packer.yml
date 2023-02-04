@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: packed with generic packer
+    namespace: anti-analysis/packer/generic
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information::Software Packing [T1027.002]
+    mbc:
+      - Anti-Static Analysis::Software Packing::Standard Compression [F0001.002]
+    examples:
+      - Practical Malware Analysis Lab 18-01.exe_:0x409dc0
+  features:
+    - and:
+      - or:
+        - mnemonic: pusha
+        - mnemonic: pushad  # vivisect
+      - or:
+        - mnemonic: popa
+        - mnemonic: popad  # vivisect
+      - characteristic: cross section flow
+      - not:
+        - match: contain pusha popa sequence

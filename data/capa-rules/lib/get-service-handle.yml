@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: get service handle
+    authors:
+      - moritz.raabe@mandiant.com
+    lib: true
+    scope: function
+    examples:
+      - Practical Malware Analysis Lab 03-02.dll_:0x10004706
+  features:
+    - or:
+      - api: advapi32.CreateService
+      - api: advapi32.OpenService

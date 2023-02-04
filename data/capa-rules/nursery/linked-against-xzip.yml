@@ -1,0 +1,31 @@
+rule:
+  meta:
+    name: linked against XZip
+    namespace: linking/static/xzip
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: file
+    mbc:
+      - Data::Compression Library [C0060]
+    references:
+      - https://github.com/ValveSoftware/source-sdk-2013/blob/master/sp/src/public/XZip.cpp
+  features:
+    - or:
+      - string: "ct_init: length != 256"
+      - string: "ct_init: dist != 256"
+      - string: "ct_init: 256+dist != 512"
+      - string: "bit length overflow"
+      - string: "code %d bits %d->%d"
+      - string: "inconsistent bit counts"
+      - string: "gen_codes: max_code %d "
+      - string: "dyn trees: dyn %ld, stat %ld"
+      - string: "bad pack level"
+      - string: "Code too clever"
+      - string: "unknown zip result code"
+      - string: "Culdn't duplicate handle"  # typo in library code
+      - string: "File not found in the zipfile"
+      - string: "Still more data to unzip"
+      - string: "Caller: the file had already been partially unzipped"
+      - string: "Caller: can only get memory of a memory zipfile"
+      - string: "Zip-bug: internal initialisation not completed"
+      - string: "Zip-bug: an internal error during flation"

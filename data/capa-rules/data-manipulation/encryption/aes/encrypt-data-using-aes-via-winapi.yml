@@ -1,0 +1,31 @@
+rule:
+  meta:
+    name: encrypt data using AES via WinAPI
+    namespace: data-manipulation/encryption/aes
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Defense Evasion::Obfuscated Files or Information::Encryption-Standard Algorithm [E1027.m05]
+      - Cryptography::Encrypt Data::AES [C0027.001]
+    examples:
+      - BC577119D1A5B7DA489E7B5817D3CC38:0x10002FAC
+  features:
+    - and:
+      - or:
+        - number: 0x6611 = CALG_AES
+        - number: 0x660E = CALG_AES_128
+        - number: 0x660F = CALG_AES_192
+        - number: 0x6610 = CALG_AES_256
+      - or:
+        - api: CryptGenKey
+        - api: CryptDeriveKey
+        - api: CryptImportKey
+      - optional:
+        - or:
+          - number: 1 = PROV_RSA_FULL
+          - api: CryptAcquireContext
+          - api: CryptEncrypt
+          - api: CryptDecrypt

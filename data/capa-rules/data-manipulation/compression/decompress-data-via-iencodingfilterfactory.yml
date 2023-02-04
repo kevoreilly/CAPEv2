@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: decompress data via IEncodingFilterFactory
+    namespace: data-manipulation/compression
+    authors:
+      - matthew.williams@mandiant.com
+    scope: function
+    mbc:
+      - Data::Decompress Data::IEncodingFilterFactory [C0025.002]
+    references:
+      - https://www.virusbulletin.com/virusbulletin/2012/09/urlzone-reloaded-new-evolution/
+    examples:
+      - FBBAAF569B63F6398503E4F1979CABEF:0x40691F
+  features:
+    - and:
+      - api: ole32.CoCreateInstance
+      - bytes: D0 7C C3 54 44 D9 D0 11 A9 F4 00 60 97 94 23 11 = StdEncodingFilterFac
+      - bytes: 00 DE BD 70 8E C1 D0 11 A9 CE 00 60 97 94 23 11 = IEncodingFilterFactory
+      - count(offset(0x10 = IEncodingFilterFactory.GetDefaultFilter and <filter>.DoDecode)): 2 or more

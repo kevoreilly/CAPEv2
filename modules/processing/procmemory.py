@@ -9,7 +9,6 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File, ProcDump
-from lib.cuckoo.common.path_utils import path_exists, path_write_file
 from lib.cuckoo.common.utils import add_family_detection
 
 processing_conf = Config("processing")
@@ -17,7 +16,7 @@ processing_conf = Config("processing")
 log = logging.getLogger(__name__)
 
 try:
-    import re2  # noqa: F401
+    import re2 as re
 
     HAVE_RE2 = True
 except ImportError:
@@ -43,7 +42,8 @@ class ProcessMemory(Processing):
 
                 # save pe to disk
                 path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
-                _ = path_write_file(path, data)
+                with open(path, "wb") as f:
+                    f.write(data)
 
                 data, pefile_object = File(path).get_all()
                 if pefile_object:
@@ -65,6 +65,7 @@ class ProcessMemory(Processing):
                         return lastmemmap["start"]
                 lastoffset = offset
             lastmemmap = memmap
+        return
 
     def run(self):
         """Run analysis.
@@ -76,7 +77,7 @@ class ProcessMemory(Processing):
         nulltermonly = self.options.get("nullterminated_only", True)
         minchars = str(self.options.get("minchars", 5)).encode()
 
-        if path_exists(self.pmemory_path):
+        if os.path.exists(self.pmemory_path):
             for dmp in os.listdir(self.pmemory_path):
                 # if we're re-processing this task, this means if zips are enabled, we won't do any reprocessing on the
                 # process dumps (only matters for now for Yara)
@@ -137,7 +138,8 @@ class ProcessMemory(Processing):
 
                     proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
-                    _ = path_write_file(proc["strings_path"], b"\n".join(strings))
+                    with open(proc["strings_path"], "wb") as f:
+                        f.write(b"\n".join(strings))
                 procdump.close()
                 results.append(proc)
 

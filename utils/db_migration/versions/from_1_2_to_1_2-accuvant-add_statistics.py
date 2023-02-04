@@ -19,6 +19,7 @@ import sys
 from datetime import datetime
 
 import sqlalchemy as sa
+from alembic import op
 
 try:
     from dateutil.parser import parse

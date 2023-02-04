@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: check for time delay via GetTickCount
+    namespace: anti-analysis/anti-debugging/debugger-detection
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Anti-Behavioral Analysis::Debugger Detection::Timing/Delay Check GetTickCount [B0001.032]
+    examples:
+      - Practical Malware Analysis Lab 16-03.exe_:0x4013d0
+  features:
+    - and:
+      - count(api(kernel32.GetTickCount)): 2 or more
+      - basic block:
+        - and:
+          - mnemonic: sub
+          - mnemonic: cmp

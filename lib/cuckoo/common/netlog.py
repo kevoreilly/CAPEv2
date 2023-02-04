@@ -15,22 +15,15 @@ except ImportError:
 else:
     # The BSON module provided by pymongo works through its "BSON" class.
     if hasattr(bson, "BSON"):
-
-        def bson_decode(d):
-            return bson.decode(d)
-
+        bson_decode = lambda d: bson.decode(d)
     # The BSON module provided by "pip3 install bson" works through the "loads" function (just like pickle etc.)
     elif hasattr(bson, "loads"):
-
-        def bson_decode(d):
-            return bson.loads(d)
-
+        bson_decode = lambda d: bson.loads(d)
     else:
         HAVE_BSON = False
 
 from lib.cuckoo.common.logtbl import table as LOGTBL
-from lib.cuckoo.common.path_utils import path_get_filename
-from lib.cuckoo.common.utils import default_converter
+from lib.cuckoo.common.utils import default_converter, get_filename_from_path
 
 log = logging.getLogger(__name__)
 
@@ -289,7 +282,7 @@ class BsonParser:
                     pid = argdict["ProcessIdentifier"]
                     ppid = argdict["ParentProcessIdentifier"]
                     modulepath = argdict["ModulePath"]
-                    procname = path_get_filename(modulepath)
+                    procname = get_filename_from_path(modulepath)
 
                     self.fd.log_process(context, vmtime, pid, ppid, modulepath, procname)
                     return True

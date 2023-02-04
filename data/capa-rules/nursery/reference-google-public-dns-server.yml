@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: reference Google Public DNS server
+    namespace: communication/dns
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    references:
+      - https://www.techradar.com/news/best-dns-server
+      - https://developers.google.com/speed/public-dns/docs/using
+  features:
+    - or:
+      - string: "8.8.8.8"
+      - string: "8.8.4.4"
+      - string: "2001:4860:4860::8888"
+      - string: "2001:4860:4860::8844"

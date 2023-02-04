@@ -13,7 +13,7 @@ from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 try:
     from proxmoxer import ProxmoxAPI, ResourceException
 except ImportError:
-    sys.exit("Install by yourself. Missed dependency: pip3 install proxmoxer -U")
+    sys.exit("Missed dependency: pip3 install proxmoxer -U")
 
 # silence overly verbose INFO level logging default of proxmoxer module
 logging.getLogger("proxmoxer").setLevel(logging.WARNING)

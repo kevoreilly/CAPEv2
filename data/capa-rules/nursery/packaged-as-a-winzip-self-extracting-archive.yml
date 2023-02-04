@@ -1,0 +1,12 @@
+rule:
+  meta:
+    name: packaged as a WinZip self-extracting archive
+    namespace: executable/installer/winzip
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: file
+    references:
+      - https://www.hexacorn.com/blog/2016/12/15/pe-section-names-re-visited/
+  features:
+    - or:
+      - section: _winzip_

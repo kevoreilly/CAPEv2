@@ -1,0 +1,29 @@
+rule:
+  meta:
+    name: check for software breakpoints
+    namespace: anti-analysis/anti-debugging/debugger-detection
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Anti-Behavioral Analysis::Debugger Detection::Software Breakpoints [B0001.025]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiDebug/SoftwareBreakpoints.cpp
+      - https://anti-debug.checkpoint.com/techniques/assembly.html
+    examples:
+      - al-khaser_x86.exe_:0x431020
+  features:
+    - and:
+      - or:
+        - instruction:
+          - mnemonic: cmp
+          - number: 0xCC = INT3
+        - and:
+          - description: INT3 (long form)
+          - instruction:
+            - mnemonic: cmp
+            - number: 0xCD = INT3 (long form byte 1)
+          - instruction:
+            - mnemonic: cmp
+            - number: 0x03 = INT3 (long form byte 2)
+      - match: contain loop

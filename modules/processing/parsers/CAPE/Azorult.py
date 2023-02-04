@@ -54,10 +54,11 @@ def string_from_offset(data, offset):
 def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
+    config = {}
 
     ref_c2 = yara_scan(filebuf, "$ref_c2")
     if ref_c2 is None:
-        return
+        return config
 
     ref_c2_offset = int(ref_c2["$ref_c2"])
 
@@ -71,6 +72,6 @@ def extract_config(filebuf):
 
     c2_domain = string_from_offset(filebuf, c2_list_offset)
     if c2_domain:
-        return {"address": c2_domain.decode()}
+        config["tcp"] = [{"server_domain": c2_domain.decode(), "usage": "c2"}]
 
-    return {}
+    return config

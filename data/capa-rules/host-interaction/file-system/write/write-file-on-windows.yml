@@ -1,0 +1,47 @@
+rule:
+  meta:
+    name: write file on Windows
+    namespace: host-interaction/file-system/write
+    authors:
+      - william.ballenthin@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    mbc:
+      - File System::Writes File [C0052]
+    examples:
+      - Practical Malware Analysis Lab 01-04.exe_:0x4011FC
+      # ntdll
+      - 563653399B82CD443F120ECEFF836EA3678D4CF11D9B351BB737573C2D856299:0x1400025C4
+  features:
+    - or:
+      - and:
+        - os: windows
+        - optional:
+          - or:
+            - and:
+              - number: 0x40000000 = GENERIC_WRITE
+              - api: kernel32.CreateFile
+            - and:
+              - number: 0x2 = FILE_WRITE_DATA
+              - or:
+                - api: NtCreateFile
+                - api: ZwCreateFile
+        - or:
+          - api: kernel32.WriteFile
+          - api: kernel32.WriteFileEx
+          - api: NtWriteFile
+          - api: ZwWriteFile
+          - api: _fwrite
+          - api: fwrite
+      - api: System.IO.File::WriteAllBytes
+      - api: System.IO.File::WriteAllBytesAsync
+      - api: System.IO.File::WriteAllLines
+      - api: System.IO.File::WriteAllLinesAsync
+      - api: System.IO.File::WriteAllText
+      - api: System.IO.File::WriteAllTextAsync
+      - api: System.IO.File::AppendAllLines
+      - api: System.IO.File::AppendAllLinesAsync
+      - api: System.IO.File::AppendAllText
+      - api: System.IO.File::AppendAllTextAsync
+      - api: System.IO.File::AppendText
+      - api: System.IO.FileInfo::AppendText

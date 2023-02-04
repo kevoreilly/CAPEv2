@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: hash data using sha1 via x86 extensions
+    namespace: data-manipulation/hashing/sha1
+    authors:
+      - "@_re_fox"
+    scope: basic block
+  features:
+    - or:
+      - mnemonic: sha1rnds4 = Perform Four Rounds of SHA1 Operation
+      - mnemonic: sha1nexte = Calculate SHA1 State Variable E after Four Rounds
+      - mnemonic: sha1msg1 = Perform an Intermediate Calculation for the Next Four SHA1 Message Dwords
+      - mnemonic: sha1msg2 = Perform a Final Calculation for the Next Four SHA1 Message Dwords

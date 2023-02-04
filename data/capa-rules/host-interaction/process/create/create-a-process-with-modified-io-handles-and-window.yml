@@ -1,0 +1,51 @@
+rule:
+  meta:
+    name: create a process with modified I/O handles and window
+    namespace: host-interaction/process/create
+    authors:
+      - matthew.williams@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    mbc:
+      - Process::Create Process [C0017]
+    references:
+      - https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-startupinfoa
+    examples:
+      - Practical Malware Analysis Lab 14-02.exe_:0x4011C0
+  features:
+    - or:
+      - and:
+        - or:
+          - description: API functions that accept a pointer to a STARTUPINFO structure
+          - api: kernel32.CreateProcess
+          - api: kernel32.CreateProcessInternal
+          - api: advapi32.CreateProcessAsUser
+          - api: advapi32.CreateProcessWithLogon
+          - api: advapi32.CreateProcessWithToken
+        - number: 0x101 = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW
+          # STARTF_USESTDHANDLES indicates the hStdInput, hStdOutput, and hStdError members contain additional information
+          # STARTF_USESHOWWINDOW indicates the wShowWindow member contains additional information
+        - or:
+          - and:
+            - arch: i386
+            - number: 0x44 = StartupInfo.cb (size)
+          - and:
+            - arch: amd64
+            - number: 0x68 = StartupInfo.cb (size)
+          # STARTUPINFOEX size values not currently supported by this rule.
+        - optional:
+          - api: kernel32.GetStartupInfo
+      - and:
+        - api: System.Diagnostics.Process::Start
+        - or:
+          - property/write: System.Diagnostics.ProcessStartInfo::UseShellExecute
+          - property/write: System.Diagnostics.ProcessStartInfo::Verb
+          - property/write: System.Diagnostics.ProcessStartInfo::WindowStyle
+          - property/write: System.Diagnostics.ProcessStartInfo::WorkingDirectory
+          - property/write: System.Diagnostics.ProcessStartInfo::FileName
+          - property/write: System.Diagnostics.ProcessStartInfo::Arguments
+          - property/write: System.Diagnostics.ProcessStartInfo::CreateNoWindow
+          - property/write: System.Diagnostics.ProcessStartInfo::RedirectStandardOutput
+          - property/write: System.Diagnostics.ProcessStartInfo::RedirectStandardInput
+          - property/read: System.Diagnostics.Process::StandardOutput
+          - property/read: System.Diagnostics.Process::StandardInput

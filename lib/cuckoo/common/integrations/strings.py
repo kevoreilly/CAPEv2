@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-from pathlib import Path
+import os.path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import bytes2str
@@ -31,13 +31,15 @@ def extract_strings(filepath: str, on_demand: bool = False):
     nulltermonly = processing_cfg.strings.nullterminated_only
     minchars = processing_cfg.strings.minchars
 
-    p = Path(filepath)
-    if not p.exists():
+    if not os.path.exists(filepath):
         log.error("Sample file doesn't exist: %s", filepath)
         return
 
+    strings = []
+
     try:
-        data = p.read_bytes()
+        with open(filepath, "rb") as f:
+            data = f.read()
     except (IOError, OSError) as e:
         log.error("Error reading file: %s", e)
         return

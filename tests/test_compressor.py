@@ -6,7 +6,6 @@ import os
 import pathlib
 
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
-from lib.cuckoo.common.path_utils import path_delete
 
 
 class TestCuckooBsonCompresson:
@@ -17,6 +16,6 @@ class TestCuckooBsonCompresson:
         file_path = os.path.join(pathlib.Path(__file__).absolute().parent.as_posix(), "test_bson.bson")
         CuckooBsonCompressor().run(file_path=file_path)
         try:
-            path_delete("CAPEv2/tests/test_bson.bson.compressed")
+            os.unlink("CAPEv2/tests/test_bson.bson.compressed")
         except Exception as e:
             print(("Exception cleaning up, should be fine:" + str(e)))

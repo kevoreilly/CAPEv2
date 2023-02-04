@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: check for unexpected memory writes
+    namespace: anti-analysis/anti-debugging/debugger-detection
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    mbc:
+      - Anti-Behavioral Analysis::Debugger Detection::Memory Write Watching [B0001.010]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiDebug/WriteWatch.cpp
+    examples:
+      - al-khaser_x86.exe_:0x431EBC
+  features:
+    - and:
+      - api: kernel32.GetWriteWatch
+      - number: 0x0

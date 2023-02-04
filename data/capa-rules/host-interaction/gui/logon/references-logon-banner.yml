@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: references logon banner
+    namespace: host-interaction/gui/logon
+    authors:
+      - "@_re_fox"
+    scope: basic block
+    examples:
+      - c3341b7dfbb9d43bca8c812e07b4299f:0x4066FC
+  features:
+    - and:
+      - substring: "\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"
+      - or:
+        - substring: "LegalNoticeCaption"
+        - substring: "LegalNoticeText"

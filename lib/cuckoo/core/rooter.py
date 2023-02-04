@@ -5,13 +5,12 @@
 
 import json
 import logging
+import os.path
 import socket
 import tempfile
 import threading
-from pathlib import Path
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.path_utils import path_exists
 
 cfg = Config()
 router_cfg = Config("routing")
@@ -33,7 +32,7 @@ def _load_socks5_operational():
     try:
         from socks5man.exceptions import Socks5manDatabaseError
         from socks5man.manager import Manager
-    except (ImportError, OSError):
+    except (ImportError, OSError) as e:
         return socks5s
     except Exception as e:
         log.error(e)
@@ -56,7 +55,7 @@ def _load_socks5_operational():
 
 
 def rooter(command, *args, **kwargs):
-    if not path_exists(cfg.cuckoo.rooter):
+    if not os.path.exists(cfg.cuckoo.rooter):
         log.critical("Unable to passthrough root command (%s) as the rooter unix socket doesn't exist", command)
         return
 
@@ -64,9 +63,8 @@ def rooter(command, *args, **kwargs):
     with lock:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
 
-        unix_path = Path(unixpath.name)
-        if unix_path.exists():
-            unix_path.unlink()
+        if os.path.exists(unixpath.name):
+            os.remove(unixpath.name)
 
         s.bind(unixpath.name)
 

@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: find taskbar
+    namespace: host-interaction/gui/taskbar/find
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    mbc:
+      - Discovery::Taskbar Discovery [B0043]
+    examples:
+      - B7841B9D5DC1F511A93CC7576672EC0C:0x10007250
+  features:
+    - and:
+      - string: "Shell_TrayWnd"
+      - match: find graphical window

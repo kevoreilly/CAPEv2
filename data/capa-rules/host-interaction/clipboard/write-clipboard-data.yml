@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: write clipboard data
+    namespace: host-interaction/clipboard
+    authors:
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    mbc:
+      - Impact::Clipboard Modification [E1510]
+    examples:
+      - 6F99A2C8944CB02FF28C6F9CED59B161:0x403180
+  features:
+    - and:
+      - optional:
+        - match: open clipboard
+      - or:
+        - api: user32.SetClipboardData
+        - api: System.Windows.Forms.Clipboard::SetAudio
+        - api: System.Windows.Forms.Clipboard::SetData
+        - api: System.Windows.Forms.Clipboard::SetDataObject
+        - api: System.Windows.Forms.Clipboard::SetFileDropList
+        - api: System.Windows.Forms.Clipboard::SetImage
+        - api: System.Windows.Forms.Clipboard::SetText

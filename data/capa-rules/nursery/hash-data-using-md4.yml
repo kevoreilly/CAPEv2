@@ -1,0 +1,11 @@
+rule:
+  meta:
+    name: hash data using MD4
+    namespace: data-manipulation/hashing/md4
+    authors:
+      - anamaria.martinezgom@mandiant.com
+    scope: basic block
+  features:
+    - and:
+      - number: 0x8002 = CALG_MD4
+      - api: advapi32.CryptCreateHash

@@ -1,0 +1,51 @@
+rule:
+  meta:
+    name: hash data using SHA256
+    namespace: data-manipulation/hashing/sha256
+    authors:
+      - moritz.raabe@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+      - william.ballenthin@mandiant.com
+    scope: function
+    mbc:
+      - Cryptography::Cryptographic Hash::SHA256 [C0029.003]
+    references:
+      - https://www.rfc-editor.org/rfc/rfc6234
+    examples:
+      - C0CFFCF211035A839E28D542DE300298:0x180011400
+      - 6CC148363200798A12091B97A17181A1:0x140120240
+      - 44d40faf3f1fe4ed969befab7afcd2f0:0x10033570
+  features:
+    - or:
+      - and:
+        - number: 0x6A09E667 = H(0)0
+        - number: 0xBB67AE85 = H(0)1
+        - number: 0x3C6EF372 = H(0)2
+        - number: 0xA54FF53A = H(0)3
+        - number: 0x510E527F = H(0)4
+        - number: 0x9B05688C = H(0)5
+        - number: 0x1F83D9AB = H(0)6
+        - number: 0x5BE0CD19 = H(0)7
+      - bytes: 67 E6 09 6A 85 AE 67 BB 72 F3 6E 3C 3A F5 4F A5 7F 52 0E 51 8C 68 05 9B AB D9 83 1F 19 CD E0 5B = H(0)
+      - and:
+        # there are 64 constants but we'll only include 8 here for simplicity
+        - number: 0x428a2f98
+        - number: 0x71374491
+        - number: 0xb5c0fbcf
+        - number: 0xe9b5dba5
+        - number: 0x3956c25b
+        - number: 0x59f111f1
+        - number: 0x923f82a4
+        - number: 0xab1c5ed5
+        - not:
+          - or:
+            - number: 0xd728ae22 = lower half of SHA512 constant, 0x428a2f98d728ae22
+            - number: 0x23ef65cd = lower half of SHA512 constant, 0x7137449123ef65cd
+      - and:
+        - format: dotnet
+        - or:
+          - api: System.Security.Cryptography.SHA256Managed::Initialize
+          - api: System.Security.Cryptography.SHA256CryptoServiceProvider::Initialize
+          - api: System.Security.Cryptography.SHA256::Create
+          - api: System.Security.Cryptography.SHA256Managed::ctor
+        - api: System.Security.Cryptography.HashAlgorithm::ComputeHash

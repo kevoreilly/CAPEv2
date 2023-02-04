@@ -15,7 +15,7 @@ class Structure(ctypes.Structure):
             elif hasattr(value, "value"):
                 ret[field] = value
             elif hasattr(value, "__getitem__"):
-                ret[field] = value.copy()
+                ret[field] = value[:]
             else:
                 ret[field] = value
         return ret

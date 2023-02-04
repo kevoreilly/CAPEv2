@@ -1,0 +1,22 @@
+rule:
+  meta:
+    name: get HTTP document via IWebBrowser2
+    namespace: communication/http/client
+    authors:
+      - matthew.williams@mandiant.com
+    scope: function
+    mbc:
+      - Communication::HTTP Communication::Get Response [C0002.017]
+      - Communication::HTTP Communication::IWebBrowser [C0002.010]
+    references:
+      - https://docs.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa752127(v%3Dvs.85)
+    examples:
+      - 395EB0DDD99D2C9E37B6D0B73485EE9C:0x402000
+  features:
+    - and:
+      - api: oleaut32.SysAllocString
+      - api: oleaut32.VariantInit
+      - offset: 0x2C = pBrowser2->Navigate
+      - offset: 0x48 = pBrowser2->get_Document
+      - offset: 0x80 = pBrowser2->Quit
+      - count(characteristic(indirect call)): 3 or more

@@ -30,8 +30,8 @@ RC4_KEY_LENGTH = 0x80
 
 # Config pattern
 CONFIG_PATTERNS = [
-    re.compile("\xC3\x90\x68(....)\xE8(....)\x59\x6A\x01\x58\xC3", re.DOTALL),
-    re.compile("\x6A\x04\x68(....)\x8D(.....)\x56\x50\xE8", re.DOTALL),
+    re.compile("\xC3\x90\x68(....)\xE8(....)\x59\x6A\x01\x58\xC3".encode(), re.DOTALL),
+    re.compile("\x6A\x04\x68(....)\x8D(.....)\x56\x50\xE8".encode(), re.DOTALL),
 ]
 CONFIG_SIZE = 0x8D4
 
@@ -65,17 +65,22 @@ def parse_config(config):
     config_dict = collections.OrderedDict()
     for i in range(4):
         if config[0x10 + 0x100 * i] != "\x00":
-            config_dict[f"Server name #{i + 1}"] = __format_string(
-                unpack_from("<240s", config, 0x10 + 0x100 * i)[0].decode("utf-16")
+            server_name = (__format_string(unpack_from("<240s", config, 0x10 + 0x100 * i)[0].decode("utf-16")),)
+            main_port = unpack_from("<H", config, 0x4 + 0x100 * i)[0]
+            backup_port = unpack_from("<H", config, 0x8 + 0x100 * i)[0]
+            config_dict.setdefault("tcp", []).extend(
+                [{"server_domain": server_name, "server_port": port} for port in [main_port, backup_port]]
             )
-            config_dict[f"Main port #{i + 1}"] = unpack_from("<H", config, 0x4 + 0x100 * i)[0]
-            config_dict[f"Backup port #{i + 1}"] = unpack_from("<H", config, 0x8 + 0x100 * i)[0]
     if config[0x400] != "\x00":
-        config_dict["Proxy server"] = __format_string(unpack_from("<128s", config, 0x400)[0].decode("utf-16"))
-        config_dict["Proxy port"] = unpack_from("<H", config, 0x480)[0]
-    config_dict["ID"] = __format_string(unpack_from("<256s", config, 0x500)[0].decode("utf-16"))
-    config_dict["Key"] = f"0x{unpack_from('>I', config, 0x604)[0]:X}"
-    config_dict["Sleep time"] = unpack_from("<H", config, 0x89C)[0]
+        config_dict["proxy"] = [
+            {
+                "hostname": __format_string(unpack_from("<128s", config, 0x400)[0].decode("utf-16")),
+                "port": unpack_from("<H", config, 0x480)[0],
+            }
+        ]
+    config_dict["identifier"] = [__format_string(unpack_from("<256s", config, 0x500)[0].decode("utf-16"))]
+    config_dict["encryption"] = [{"algorithm": "RC4", "key": f"0x{unpack_from('>I', config, 0x604)[0]:X}"}]
+    config_dict["sleep_delay"] = [unpack_from("<H", config, 0x89C)[0]]
     return config_dict
 
 

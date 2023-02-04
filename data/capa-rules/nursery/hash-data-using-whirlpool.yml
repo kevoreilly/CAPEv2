@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: hash data using Whirlpool
+    namespace: data-manipulation/hashing/whirlpool
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    mbc:
+      - Cryptography::Cryptographic Hash [C0029]
+    references:
+      - https://github.com/jzelinskie/whirlpool/blob/master/const.go
+    #examples:
+    #  - 0761142efbda6c4b1e801223de723578:0x65472CC0
+  features:
+    - or:
+      - description: the first 16 bytes of the C* constants
+      - bytes: D8 30 78 C0 18 60 18 18 26 46 AF 05 23 8C 23 23 = C0
+      - bytes: 13 A1 4C 87 26 87 87 CB 6D 62 A9 B8 DA B8 B8 11 = C1
+      - bytes: 78 C0 18 60 18 18 D8 30 AF 05 23 8C 23 23 26 46 = C2
+      - bytes: C0 18 60 18 18 D8 30 78 05 23 8C 23 23 26 46 AF = C3
+      - bytes: 18 60 18 18 D8 30 78 C0 23 8C 23 23 26 46 AF 05 = C4
+      - bytes: 60 18 18 D8 30 78 C0 18 8C 23 23 26 46 AF 05 23 = C5
+      - bytes: 18 18 D8 30 78 C0 18 60 23 23 26 46 AF 05 23 8C = C6
+      - bytes: 18 D8 30 78 C0 18 60 18 23 26 46 AF 05 23 8C 23 = C7

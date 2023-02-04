@@ -3,7 +3,7 @@
 # run this via...
 # cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/poetry_libvirt_installer.sh
 
-LIB_VERSION=8.10.0
+LIB_VERSION=8.2.0
 
 cd /tmp
 wget "https://github.com/libvirt/libvirt-python/archive/v${LIB_VERSION}.zip"

@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: collect ssh keys
+    namespace: collection
+    authors:
+      - joakim@intezer.com
+    scope: function
+    att&ck:
+      - Credential Access::Unsecured Credentials::Private Keys [T1552.004]
+  features:
+    - and:
+      - match: host-interaction/file-system/read
+      - or:
+        - substring: "/.ssh/id_rsa"

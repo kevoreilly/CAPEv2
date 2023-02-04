@@ -1,0 +1,23 @@
+rule:
+  meta:
+    name: enumerate disk volumes
+    namespace: host-interaction/hardware/storage
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Information Discovery [T1082]
+  features:
+    - and:
+      - match: contain loop
+      - or:
+        - and:
+          - api: kernel32.FindFirstVolume
+          - api: kernel32.FindNextVolume
+          - optional:
+            - api: kernel32.FindVolumeClose
+        - and:
+          - api: kernel32.FindFirstVolumeMountPoint
+          - api: kernel32.FindNextVolumeMountPoint
+          - optional:
+            - api: kernel32.FindVolumeMountPointClose

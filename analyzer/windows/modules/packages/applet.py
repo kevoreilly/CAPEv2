@@ -3,9 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import tempfile
-from pathlib import Path
 
-from lib.common.abstracts import CuckooPackageError, Package
+from lib.common.abstracts import Package
 
 
 class Applet(Package):
@@ -27,16 +26,13 @@ class Applet(Package):
         """
 
         _, file_path = tempfile.mkstemp(suffix=".html")
-        _ = Path(file_path).write_text(html)
+        with open(file_path, "w") as file_handle:
+            file_handle.write(html)
 
         return file_path
 
     def start(self, path):
-        try:
-            browser = self.get_path("firefox.exe")
-        except CuckooPackageError:
-            browser = self.get_path("iexplore.exe")
-
+        browser = self.get_path("browser")
         class_name = self.options.get("class")
         html_path = self.make_html(path, class_name)
         return self.execute(browser, f'"{html_path}"', html_path)

@@ -1,0 +1,27 @@
+rule:
+  meta:
+    name: simulate CTRL ALT DEL
+    namespace: host-interaction/hardware/keyboard
+    authors:
+      - michael.hunhoff@mandiant.com
+      - johnk3r
+    scope: function
+    mbc:
+      - Hardware::Simulate Hardware::Ctrl-Alt-Del [C0057.001]
+    examples:
+      - b766cc43d649d30e9f27aff8f7ee7de0:0x406153
+  features:
+    - and:
+      - optional:
+        - basic block:
+          - and:
+            - or:
+              - api: OpenDesktop
+              - api: OpenInputDesktop
+            - string: "Winlogon"
+      - basic block:
+        - and:
+          - api: PostMessage
+          - number: 0x2E0003 = (MOD_ALT | MOD_CONTROL | VK_DELETE)
+          - number: 0x312 = WM_HOTKEY
+          - number: 0xFFFF = HWND_BROADCAST

@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: register minifilter driver
+    namespace: host-interaction/filter
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    mbc:
+      - Hardware::Install Driver::Minifilter [C0037.001]
+    references:
+      - https://docs.microsoft.com/en-us/windows-hardware/drivers/ifs/filter-manager-concepts
+    examples:
+      - B5F85C26D7AA5A1FB4AF5821B6B5AB9B:0x4060C8
+  features:
+    - and:
+      - api: FltRegisterFilter

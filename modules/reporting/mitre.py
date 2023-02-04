@@ -29,7 +29,7 @@ class MITRE_TTPS(Report):
             if attck:
                 results["mitre_attck"] = attck
         except FileNotFoundError:
-            print("MITRE Att&ck data missed, execute: 'python3 utils/community.py -waf'")
+            log.error("MITRE Att&ck data missed, execute: 'python3 utils/community.py -waf'")
         except Exception as e:
             # simplejson.errors.JSONDecodeError
             log.error(("Mitre", e))

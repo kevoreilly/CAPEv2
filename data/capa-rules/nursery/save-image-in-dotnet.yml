@@ -1,0 +1,12 @@
+rule:
+  meta:
+    name: save image in .NET
+    namespace: collection
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - and:
+      - api: System.Drawing.Image::Save
+      - optional:
+        - class: System.Drawing.Imaging.ImageFormat

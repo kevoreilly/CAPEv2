@@ -1,0 +1,26 @@
+name: release
+
+on:
+  push:
+    tags:
+      # alternatively, use '*' here for all tag names
+      - v[0-9]+.[0-9]+.[0-9]+
+
+jobs:
+
+  create_release:
+    runs-on: ubuntu-20.04
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        # get all history and tags
+        fetch-depth: 0
+    - name: Get release text
+      run: python .github/scripts/create_releases.py ${{ github.ref_name }} > release_body.txt
+    - name: Create GitHub release
+      uses: ncipollo/release-action@v1.12.0
+      with:
+        bodyFile: release_body.txt

@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: packed with amber
+    namespace: anti-analysis/packer/amber
+    authors:
+      - "john.gorman@mandiant.com"
+    scope: file
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information::Software Packing [T1027.002]
+    mbc:
+      - Anti-Static Analysis::Software Packing [F0001]
+    references:
+      - https://github.com/EgeBalci/amber
+    examples:
+      - bb7922d368a9a9c8d981837b5ad988f1
+  features:
+    - or:
+      - string: "Amber - Reflective PE Packer"

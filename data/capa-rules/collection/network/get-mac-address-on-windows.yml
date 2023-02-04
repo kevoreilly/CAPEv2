@@ -1,0 +1,27 @@
+rule:
+  meta:
+    name: get MAC address on Windows
+    namespace: collection/network
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Information Discovery [T1082]
+    examples:
+      - al-khaser_x64.exe_:0x14001A1BC
+  features:
+    - or:
+      - api: System.Net.NetworkInformation.NetworkInterface::GetPhysicalAddress
+      - and:
+        - os: windows
+        - api: iphlpapi.GetAdaptersInfo
+        - or:
+          - offset: 0x194 = IP_ADAPTER_INFO.Address
+          - offset: 0x195 = IP_ADAPTER_INFO.Address+1
+          - offset: 0x196 = IP_ADAPTER_INFO.Address+2
+          - offset: 0x197 = IP_ADAPTER_INFO.Address+3
+          - offset: 0x198 = IP_ADAPTER_INFO.Address+4
+          - offset: 0x199 = IP_ADAPTER_INFO.Address+5
+        - optional:
+          - string: "%02X-%02X-%02X-%02X-%02X-%02X"

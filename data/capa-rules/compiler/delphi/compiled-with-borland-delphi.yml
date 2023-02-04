@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: compiled with Borland Delphi
+    namespace: compiler/delphi
+    authors:
+      - william.ballenthin@mandiant.com
+      - "@mr-tz"
+    scope: file
+    examples:
+      - 4BDD67FF852C221112337FECD0681EAC
+  features:
+    - or:
+      - string: "Borland C++ - Copyright 2002 Borland Corporation"
+      - string: "Sysutils::Exception"
+      - string: "TForm1"
+      - import: "BORLNDMM.DLL"
+      - substring: "SOFTWARE\\Borland\\Delphi\\RTL"
+      - substring: "Embarcadero Delphi for Win32 compiler"

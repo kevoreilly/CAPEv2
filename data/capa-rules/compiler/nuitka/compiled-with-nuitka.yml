@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: compiled with nuitka
+    namespace: compiler/nuitka
+    authors:
+      - "@williballenthin"
+      - "@mr-tz"
+    scope: file
+    examples:
+      - 39ce034911a6ebd482af5893f9bdbd95
+  features:
+    - or:
+      - and:
+        # https://github.com/Nuitka/Nuitka/blob/f87667fec2748a735834fc699daa20cedfb8f2c7/nuitka/build/static_src/InspectPatcher.c#L218
+        - string: "nuitka_types_patch"
+        # https://github.com/Nuitka/Nuitka/blob/f87667fec2748a735834fc699daa20cedfb8f2c7/nuitka/build/static_src/MetaPathBasedLoader.c#L1173
+        - string: "O:is_package"
+        # https://github.com/Nuitka/Nuitka/blob/f87667fec2748a735834fc699daa20cedfb8f2c7/nuitka/build/static_src/HelpersConstantsBlob.c#L1229
+        - string: "Error, corrupted constants object"
+      - and:
+        - description: binary created using --onefile option
+        # https://github.com/Nuitka/Nuitka/blob/ada92366675bd9c797359a260667545d53ef62fb/nuitka/build/static_src/OnefileBootstrap.c#L199
+        - string: "NUITKA_ONEFILE_PARENT"
+        # https://github.com/Nuitka/Nuitka/blob/ada92366675bd9c797359a260667545d53ef62fb/nuitka/build/static_src/OnefileBootstrap.c#L136
+        - string: "Error, couldn't runtime expand temporary files."

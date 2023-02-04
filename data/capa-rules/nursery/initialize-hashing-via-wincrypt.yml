@@ -1,0 +1,12 @@
+rule:
+  meta:
+    name: initialize hashing via WinCrypt
+    namespace: data-manipulation/hashing
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - and:
+      - api: advapi32.CryptCreateHash
+      - optional:
+        - api: advapi32.CryptDestroyHash

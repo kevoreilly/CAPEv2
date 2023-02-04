@@ -183,12 +183,13 @@ class Auxiliary:
     start_priority = 0
     stop_priority = 0
 
-    def __init__(self, options=None, config=None):
+    def __init__(self, options=None, config=None, analyzer=None):
         """@param options: options dict."""
         if options is None:
             options = {}
         self.options = options
         self.config = config
+        self.analyzer = analyzer
 
     def add_pid(self, pid):
         pass

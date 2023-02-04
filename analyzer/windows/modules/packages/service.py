@@ -63,13 +63,13 @@ class Service(Package):
 
     def start(self, path):
         try:
-            servicename = self.options.get("servicename", "CAPEService").encode("utf8")
-            servicedesc = self.options.get("servicedesc", "CAPE Service").encode("utf8")
+            servicename = self.options.get("servicename", "CAPEService")
+            servicedesc = self.options.get("servicedesc", "CAPE Service")
             arguments = self.options.get("arguments")
             path = check_file_extension(path, ".exe")
-            binpath = f'"{path}"'.encode("utf8")
+            binPath = f'"{path}"'
             if arguments:
-                binpath += f" {arguments}"
+                binPath += f" {arguments}"
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
             if scm_handle == 0:
                 log.info("Failed to open SCManager")
@@ -83,7 +83,7 @@ class Service(Package):
                 SERVICE_WIN32_OWN_PROCESS,
                 SERVICE_DEMAND_START,
                 SERVICE_ERROR_IGNORE,
-                binpath,
+                binPath,
                 None,
                 None,
                 None,
@@ -95,7 +95,7 @@ class Service(Package):
                 log.info(ctypes.FormatError())
                 return
             log.info("Created service (handle: 0x%s)", service_handle)
-            servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid)
+            servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid, suspended=False)
             filepath = servproc.get_filepath()
             servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
             servproc.close()

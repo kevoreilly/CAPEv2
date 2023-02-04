@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: get token membership
+    namespace: host-interaction/session
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Owner/User Discovery [T1033]
+    examples:
+      - mimikatz.exe_:0x40DABE
+  features:
+    - and:
+      - api: advapi32.CheckTokenMembership
+      - optional:
+        - api: advapi32.AllocateAndInitializeSid
+        - api: advapi32.FreeSid

@@ -1,0 +1,12 @@
+rule:
+  meta:
+    name: hook routines via microsoft detours
+    # namespace: linking/hooking
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    references:
+      - https://www.fireeye.com/content/dam/fireeye-www/global/en/blog/threat-research/Flare-On%202017/Challenge7.pdf
+  features:
+    - or:
+      - number: 0x52727464 = DETOUR_REGION_SIGNATURE

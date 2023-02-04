@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: get number of processor cores
+    namespace: host-interaction/hardware/cpu
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Information Discovery [T1082]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiVM/Generic.cpp#L207
+    examples:
+      - al-khaser_x86.exe_:0x435BA0
+  features:
+    - and:
+      - string: /SELECT\s+\*\s+FROM\s+Win32_Processor/
+      - string: "NumberOfCores"

@@ -2,9 +2,6 @@
     Qakbot decoder for Core/Main DLL
 """
 
-DESCRIPTION = "Qakbot configuration parser."
-AUTHOR = "threathive, r1n9w0rm"
-
 import datetime
 import hashlib
 import logging
@@ -13,6 +10,10 @@ import struct
 
 import pefile
 from Cryptodome.Cipher import ARC4
+
+DESCRIPTION = "Qakbot configuration parser."
+AUTHOR = "threathive, r1n9w0rm"
+
 
 try:
     HAVE_BLZPACK = True
@@ -57,7 +58,7 @@ def parse_config(data):
                 config[CONFIG.get(k, k)] = datetime.datetime.fromtimestamp(int(v)).strftime("%H:%M:%S %d-%m-%Y")
             else:
                 k = k[-2:]
-                config[CONFIG.get(k, k)] = v.decode()
+                config[CONFIG.get(k, f"ukn_{k.decode()}")] = v
         except Exception:
             log.info("Failed to parse config entry: %s", entry)
 
@@ -77,37 +78,39 @@ def parse_controllers(data):
     return controllers
 
 
-def parse_binary_c2(data, alignment):
+def parse_binary_c2(data):
     """
     Parses the binary CNC block format introduced Nov'20
     """
     length = len(data)
     controllers = []
-    for c2_offset in range(0, length, alignment):
+    for c2_offset in range(0, length, 7):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])
         controllers.append(f"{ip}:{port}")
     return controllers
 
 
-def parse_binary_c2_2(data, alignment):
+def parse_binary_c2_2(data):
     """
     Parses the binary CNC block format introduced April'21
     """
-    expected_sha1 = data[:0x14]
-    data = data[0x14:]
-    actual_sha1 = hashlib.sha1(data).digest()
+    c2_data = data
+
+    expected_sha1 = c2_data[:0x14]
+    c2_data = c2_data[0x14:]
+    actual_sha1 = hashlib.sha1(c2_data).digest()
 
     if actual_sha1 != expected_sha1:
         log.error("Expected sha1: %s actual: %s", expected_sha1, actual_sha1)
         return
 
-    length = len(data)
+    length = len(c2_data)
 
     controllers = []
-    for c2_offset in range(0, length, alignment):
-        ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
-        port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])
+    for c2_offset in range(0, length, 7):
+        ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", c2_data[c2_offset + 1 : c2_offset + 5])[0]))
+        port = str(struct.unpack(">H", c2_data[c2_offset + 5 : c2_offset + 7])[0])
         controllers.append(f"{ip}:{port}")
     return controllers
 
@@ -116,8 +119,6 @@ def decompress(data):
     """
     Decompress data with blzpack decompression
     """
-    if not HAVE_BLZPACK:
-        return
     return blzpack.decompress_data(BRIEFLZ_HEADER.join(data.split(QAKBOT_HEADER)))
 
 
@@ -166,64 +167,21 @@ def decrypt_data3(data):
     if not decrypted_data:
         return
 
-    if hashlib.sha1(decrypted_data[0x14:]).digest() == decrypted_data[:0x14]:
-        return decrypted_data
-
-    # From around 403.902 onwards (30-09-2022)
-    hash_obj = hashlib.sha1(b"Muhcu#YgcdXubYBu2@2ub4fbUhuiNhyVtcd")
-    rc4_key = hash_obj.digest()
-    decrypted_data = ARC4.new(rc4_key).decrypt(data)
-
-    if not decrypted_data:
-        return
-
-    if rc4_key == decrypted_data[:0x14]:
-        return decrypted_data
-
-    decrypted_data = ARC4.new(decrypted_data[0x14:0x28]).decrypt(decrypted_data[0x28:])
-    if not decrypted_data:
-        return
-
-    if hashlib.sha1(decrypted_data[0x14:]).digest() != decrypted_data[:0x14]:
-        return
-
-    return decrypted_data
-
-
-def decrypt_data4(data):
-    if not data:
-        return
-
-    hash_obj = hashlib.sha1(b"bUdiuy81gYguty@4frdRdpfko(eKmudeuMncueaN")
-    rc4_key = hash_obj.digest()
-    decrypted_data = ARC4.new(rc4_key).decrypt(data)
-
-    if not decrypted_data:
-        return
-
-    decrypted_data = ARC4.new(decrypted_data[0x14:0x28]).decrypt(decrypted_data[0x28:])
-    if not decrypted_data:
-        return
-
-    if hashlib.sha1(decrypted_data[0x14:]).digest() != decrypted_data[:0x14]:
-        return
-
     return decrypted_data
 
 
 def extract_config(filebuf):
     end_config = {}
-    if filebuf[:2] == b"MZ":
-        try:
-            pe = pefile.PE(data=filebuf, fast_load=False)
-            # image_base = pe.OPTIONAL_HEADER.ImageBase
-            if not hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
-                return end_config
-            for rsrc in pe.DIRECTORY_ENTRY_RESOURCE.entries:
-                for entry in rsrc.directory.entries:
-                    if entry.name is None:
-                        continue
+    if not HAVE_BLZPACK:
+        return
+    try:
+        pe = pefile.PE(data=filebuf, fast_load=False)
+        # image_base = pe.OPTIONAL_HEADER.ImageBase
+        for rsrc in pe.DIRECTORY_ENTRY_RESOURCE.entries:
+            for entry in rsrc.directory.entries:
+                if entry.name is not None:
                     # log.info("id: %s", entry.name)
+                    end_config["family"] = "QakBot"
                     controllers = []
                     config = {}
                     offset = entry.directory.entries[0].data.struct.OffsetToData
@@ -233,64 +191,49 @@ def extract_config(filebuf):
                         # we found the parent process and still need to decrypt/(blzpack) decompress the main DLL
                         dec_bytes = decrypt_data(res_data)
                         decompressed = decompress(dec_bytes)
-                        end_config["Loader Build"] = parse_build(pe).decode()
+                        end_config["version"] = parse_build(pe).decode()
                         pe2 = pefile.PE(data=decompressed)
-                        if not hasattr(pe2, "DIRECTORY_ENTRY_RESOURCE"):
-                            continue
                         for rsrc in pe2.DIRECTORY_ENTRY_RESOURCE.entries:
                             for entry in rsrc.directory.entries:
-                                if entry.name is None:
-                                    continue
-                                offset = entry.directory.entries[0].data.struct.OffsetToData
-                                size = entry.directory.entries[0].data.struct.Size
-                                res_data = pe2.get_memory_mapped_image()[offset : offset + size]
-                                if str(entry.name) == "308":
-                                    dec_bytes = decrypt_data(res_data)
-                                    config = parse_config(dec_bytes)
-                                    # log.info("qbot_config: %s", config)
-                                    end_config["Core DLL Build"] = parse_build(pe2).decode()
-                                elif str(entry.name) == "311":
-                                    dec_bytes = decrypt_data(res_data)
-                                    controllers = parse_controllers(dec_bytes)
+                                if entry.name is not None:
+                                    offset = entry.directory.entries[0].data.struct.OffsetToData
+                                    size = entry.directory.entries[0].data.struct.Size
+                                    res_data = pe2.get_memory_mapped_image()[offset : offset + size]
+                                    if str(entry.name) == "308":
+                                        dec_bytes = decrypt_data(res_data)
+                                        config = parse_config(dec_bytes)
+                                        # log.info("qbot_config: %s", config)
+                                        end_config.setdefault("other", {})["Core DLL Build"] = parse_build(pe2).decode()
+                                    elif str(entry.name) == "311":
+                                        dec_bytes = decrypt_data(res_data)
+                                        controllers = parse_controllers(dec_bytes)
                     elif str(entry.name) == "308":
                         dec_bytes = decrypt_data(res_data)
                         config = parse_config(dec_bytes)
                     elif str(entry.name) == "311":
                         dec_bytes = decrypt_data(res_data)
-                        controllers = parse_binary_c2(dec_bytes, 7)
+                        controllers = parse_binary_c2(dec_bytes)
                     elif str(entry.name) in ("118", "3719"):
                         dec_bytes = decrypt_data2(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes, 7)
+                        controllers = parse_binary_c2_2(dec_bytes)
                     elif str(entry.name) in ("524", "5812"):
                         dec_bytes = decrypt_data2(res_data)
                         config = parse_config(dec_bytes)
-                    elif str(entry.name) in ("18270D2E", "BABA", "103", "89210AF9"):
+                    elif str(entry.name) in ("18270D2E", "BABA", "103"):
                         dec_bytes = decrypt_data3(res_data)
                         config = parse_config(dec_bytes)
-                    elif str(entry.name) in ("26F517AB", "EBBA", "102", "3C91E639"):
+                    elif str(entry.name) in ("26F517AB", "EBBA", "102"):
                         dec_bytes = decrypt_data3(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes, 7)
-                    elif str(entry.name) in ("89290AF9"):
-                        dec_bytes = decrypt_data4(res_data)
-                        config = parse_config(dec_bytes)
-                    elif str(entry.name) in ("3C91E539"):
-                        dec_bytes = decrypt_data4(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes, 8)
-                    end_config["Loader Build"] = parse_build(pe).decode()
+                        controllers = parse_binary_c2_2(dec_bytes)
+                    end_config["version"] = parse_build(pe).decode()
                     for k, v in config.items():
                         # log.info({ k: v })
-                        end_config.setdefault(k, v)
+                        end_config.setdefault("other", {})[k] = v
                     # log.info("controllers: %s", controllers)
                     for controller in controllers:
-                        end_config.setdefault("address", []).append(controller)
-        except Exception as e:
-            log.warning(e)
-    elif filebuf[:1] == b"\x01":
-        controllers = parse_binary_c2(filebuf[: len(filebuf) - 20], 8)
-        for controller in controllers:
-            end_config.setdefault("address", []).append(controller)
-    elif b"=" in filebuf:
-        config = parse_config(filebuf[: len(filebuf) - 20])
-        for k, v in config.items():
-            end_config.setdefault(k, v)
+                        ip, port = controller.split(":", 1)
+                        end_config.setdefault("tcp", []).append({"server_ip": ip, "server_port": port})
+    except Exception as e:
+        log.warning(e)
+
     return end_config

@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: swap mouse buttons
+    namespace: host-interaction/hardware/mouse
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    mbc:
+      - Impact::Modify Hardware::Mouse [B0042.002]
+    examples:
+      - B7841B9D5DC1F511A93CC7576672EC0C:0x10007250
+  features:
+    - or:
+      - api: user32.SwapMouseButton

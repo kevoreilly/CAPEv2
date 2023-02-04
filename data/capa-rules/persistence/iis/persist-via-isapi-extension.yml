@@ -1,0 +1,22 @@
+rule:
+  meta:
+    name: persist via ISAPI extension
+    namespace: persistence
+    authors:
+      - william.ballenthin@mandiant.com
+    description: Internet Server Application Programming Interface (ISAPI) extensions and filters can be installed to examine and/or modify incoming and outgoing IIS web requests.
+    scope: file
+    att&ck:
+      - Persistence::Server Software Component::IIS Components [T1505.004]
+    examples:
+      - 22d0a2e4c9c2163b2bf5f0e41a2e1762
+  features:
+    - and:
+      - os: windows
+      - or:
+        - export: GetExtensionVersion
+        - export: GetFilterVersion
+        - export: HttpExtensionProc
+        - export: HttpFilterProc
+        - export: TerminateExtension
+        - export: TerminateFilter

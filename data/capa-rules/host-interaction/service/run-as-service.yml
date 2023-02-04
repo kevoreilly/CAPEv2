@@ -1,0 +1,21 @@
+rule:
+  meta:
+    name: run as service
+    namespace: host-interaction/service
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: file
+    mbc:
+      - Anti-Behavioral Analysis::Conditional Execution::Runs as Service [B0025.007]
+    examples:
+      - Practical Malware Analysis Lab 03-02.dll_
+  features:
+    - or:
+      - export: ServiceMain
+      - function:
+        - or:
+          - api: RegisterServiceCtrlHandler
+          - api: RegisterServiceCtrlHandlerEx
+          - api: StartServiceCtrlDispatcher
+          - api: System.ServiceProcess.ServiceBase::Run

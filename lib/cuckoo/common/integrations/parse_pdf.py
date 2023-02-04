@@ -4,17 +4,11 @@
 
 import json
 import logging
+import os
 from typing import Any, Dict
 
 from lib.cuckoo.common.integrations.peepdf import peepdf_parse
-from lib.cuckoo.common.path_utils import path_exists
-
-try:
-    HAVE_PDF = True
-    from lib.cuckoo.common.integrations.pdftools.pdfid import PDFiD, PDFiD2JSON
-except ImportError:
-    HAVE_PDF = False
-
+from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 
 log = logging.getLogger(__name__)
 
@@ -30,9 +24,6 @@ class PDF:
         @param filepath: Path to file to be analyzed.
         @return: results dict or None.
         """
-        if not HAVE_PDF:
-            return {}
-
         # Load the PDF with PDFiD and convert it to JSON for processing
         pdf_data = PDFiD(filepath, False, True)
         try:
@@ -66,7 +57,7 @@ class PDF:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not path_exists(self.file_path):
+        if not os.path.exists(self.file_path):
             return None
         log.debug("Starting to load PDF")
         return self._parse(self.file_path)

@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: download URL
+    namespace: communication/http/client
+    authors:
+      - matthew.williams@mandiant.com
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    mbc:
+      - Communication::HTTP Communication::Download URL [C0002.006]
+    examples:
+      - F5C93AC768C8206E87544DDD76B3277C:0x100020F0
+      - Practical Malware Analysis Lab 20-01.exe_:0x401040
+  features:
+    - or:
+      - api: urlmon.URLDownloadToFile
+      - api: urlmon.URLDownloadToCacheFile
+      - api: urlmon.URLOpenBlockingStream
+      - api: urlmon.URLOpenPullStream
+      - api: urlmon.URLOpenStream
+      - api: System.Net.WebClient::DownloadFile
+      - api: System.Net.WebClient::DownloadFileAsync
+      - api: System.Net.WebClient::DownloadFileTaskAsync
+      - api: Microsoft.VisualBasic.Devices.Network::DownloadFile

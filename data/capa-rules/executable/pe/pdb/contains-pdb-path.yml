@@ -1,0 +1,11 @@
+rule:
+  meta:
+    name: contains PDB path
+    namespace: executable/pe/pdb
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: file
+    examples:
+      - 464EF2CA59782CE697BC329713698CCC  # level32.exe
+  features:
+    - string: /:\\.*\.pdb/

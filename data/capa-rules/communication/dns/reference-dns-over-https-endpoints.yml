@@ -1,0 +1,79 @@
+rule:
+  meta:
+    name: reference DNS over HTTPS endpoints
+    namespace: communication/dns
+    authors:
+      - markus.neis@swisscom.com / @markus_neis
+    scope: file
+    mbc:
+      - Communication::DNS Communication::Server Connect [C0011.002]
+    references:
+      - https://github.com/curl/curl/wiki/DNS-over-HTTPS
+    examples:
+      - 749e7becf00fccc6dff324a83976dc0d:0x00004589  # https://dns.google.com/resolve?name=
+      - 749e7becf00fccc6dff324a83976dc0d:0x000045d6  # https://cloudflare-dns.com/dns-query?ct=application/dns-json&name= 
+  features:
+    - or:
+      - string: /https://doh.seby.io:8443/dns-query.*/i
+      - string: /https://family.cloudflare-dns.com/dns-query.*/i
+      - string: /https://free.bravedns.com/dns-query.*/i
+      - string: /https://doh.familyshield.opendns.com/dns-query.*/i
+      - string: /https://doh-de.blahdns.com/dns-query.*/i
+      - string: /https://adblock.mydns.network/dns-query.*/i
+      - string: /https://bravedns.com/configure.*/i
+      - string: /https://cloudflare-dns.com/dns-query.*/i
+      - string: /https://commons.host.*/i
+      - string: /https://dns.aa.net.uk/dns-query.*/i
+      - string: /https://dns.alidns.com/dns-query.*/i
+      - string: /https://dns-asia.wugui.zone/dns-query.*/i
+      - string: /https://dns.containerpi.com/dns-query.*/i
+      - string: /https://dns.containerpi.com/doh/family-filter/.*/i
+      - string: /https://dns.containerpi.com/doh/secure-filter/.*/i
+      - string: /https://dns.digitale-gesellschaft.ch/dns-query.*/i
+      - string: /https://dns.dnshome.de/dns-query.*/i
+      - string: /https://dns.dns-over-https.com/dns-query.*/i
+      - string: /https://dns.dnsoverhttps.net/dns-query.*/i
+      - string: /https://dns.flatuslifir.is/dns-query.*/i
+      - string: /https://dnsforge.de/dns-query.*/i
+      - string: /https://dns.google/dns-query.*/i
+      - string: /https://dns.nextdns.io/<config_id>.*/i
+      - string: /https://dns.rubyfish.cn/dns-query.*/i
+      - string: /https://dns.switch.ch/dns-query.*/i
+      - string: /https://dns.twnic.tw/dns-query.*/i
+      - string: /https://dns.wugui.zone/dns-query.*/i
+      - string: /https://doh-2.seby.io/dns-query.*/i
+      - string: /https://doh.42l.fr/dns-query.*/i
+      - string: /https://doh.applied-privacy.net/query.*/i
+      - string: /https://doh.armadillodns.net/dns-query.*/i
+      - string: /https://doh.captnemo.in/dns-query.*/i
+      - string: /https://doh.centraleu.pi-dns.com/dns-query.*/i
+      - string: /https://doh.cleanbrowsing.org/doh/family-filter/.*/i
+      - string: /https://doh.crypto.sx/dns-query.*/i
+      - string: /https://doh.dnslify.com/dns-query.*/i
+      - string: /https://doh.dns.sb/dns-query.*/i
+      - string: /https://dohdot.coxlab.net/dns-query.*/i
+      - string: /https://doh.eastas.pi-dns.com/dns-query.*/i
+      - string: /https://doh.eastau.pi-dns.com/dns-query.*/i
+      - string: /https://doh.eastus.pi-dns.com/dns-query.*/i
+      - string: /https://doh.ffmuc.net/dns-query.*/i
+      - string: /https://doh.libredns.gr/dns-query.*/i
+      - string: /https://doh.li/dns-query.*/i
+      - string: /https://doh.northeu.pi-dns.com/dns-query.*/i
+      - string: /https://doh.pi-dns.com/dns-query.*/i
+      - string: /https://doh.powerdns.org.*/i
+      - string: /https://doh.tiarap.org/dns-query.*/i
+      - string: /https://doh.tiar.app/dns-query.*/i
+      - string: /https://doh.westus.pi-dns.com/dns-query.*/i
+      - string: /https://doh.xfinity.com/dns-query.*/i
+      - string: /https://example.doh.blockerdns.com/dns-query.*/i
+      - string: /https://fi.doh.dns.snopyta.org/dns-query.*/i
+      - string: /https://ibksturm.synology.me/dns-query.*/i
+      - string: /https://ibuki.cgnat.net/dns-query.*/i
+      - string: /https://jcdns.fun/dns-query.*/i
+      - string: /https://jp.tiarap.org/dns-query.*/i
+      - string: /https://jp.tiar.app/dns-query.*/i
+      - string: /https://odvr.nic.cz/doh.*/i
+      - string: /https://ordns.he.net/dns-query.*/i
+      - string: /https://rdns.faelix.net/.*/i
+      - string: /https://resolver-eu.lelux.fi/dns-query.*/i
+      - string: /https://doh-jp.blahdns.com/dns-query.*/i

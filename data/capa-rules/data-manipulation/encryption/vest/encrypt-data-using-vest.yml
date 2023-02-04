@@ -1,0 +1,21 @@
+rule:
+  meta:
+    name: encrypt data using vest
+    namespace: data-manipulation/encryption/vest
+    authors:
+      - "@_re_fox"
+    scope: basic block
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Defense Evasion::Obfuscated Files or Information::Encryption-Standard Algorithm [E1027.m05]
+      - Cryptography::Encrypt Data [C0027]
+    references:
+      - https://www.ecrypt.eu.org/stream/vest.html
+    examples:
+      - 9a00ebe67d833edb70ed6dd0f4652592:0x180003EE9
+  features:
+    - or:
+      - bytes: 07 56 d2 37 3a f7 0a 52 5d c6 2c 87 da 05 c1 d7 f4 1f 8c 34 = vest_sbox
+      - bytes: 41 4b 1b dd 0d 65 72 ee 09 e7 a1 93 3f 0e 55 9c 63 89 3f b2 ab 5a 0e cb 2f 13 e3 9a c7 09 c5 8d c9 09 0d d7 59 1f a2 d6 cb b0 61 e5 39 44 f8 c5 8b c6 e5 b2 bd e3 82 d2 ab 04 dd d6 1f 94 ca ec 73 43 e7 94 5d 52 66 86 4f 4b 05 d4 ad 0f 66 a3 f9 15 9c c6 c9 3e 3a b8 9d 31 65 f8 c7 9a ce e0 6d bd 18 8d 63 f5 0a cd 11 b4 b5 ee 9b 28 9c a5 93 78 5b d1 d3 b1 2b 84 17 ab f4 85 ef 22 e1 d1 = rns_f
+      - bytes: 4f 70 46 da e1 8d f6 41 59 e8 5d 26 1e cc 2f 89 26 6d 52 ba bc 11 6b a9 c6 47 e4 9c 1e b6 65 a2 b6 cd 90 47 1c df f8 10 4b d2 7c c4 72 25 c6 97 25 5d c6 1d 4b 36 bc 38 36 33 f8 89 b4 4c 65 a7 96 ca 1b 63 c3 4b 6a 63 dc 85 4c 57 ee 2a 05 c7 0c e7 39 35 8a c1 bf 13 d9 52 51 3d 2e 41 f5 72 85 23 fe a1 aa 53 61 3b 25 5f 62 b4 36 ee 2a 51 af 18 8e 9a c6 cf c4 07 4a 9b 25 9b 76 62 0e 3e 96 3a a7 64 23 6b b6 19 bc 2d 40 d7 36 3e e2 85 9a d1 22 9f bc 30 15 9f c2 5d f1 23 e6 3a 73 c0 a6 ad 71 b0 94 1c 9d b6 56 b6 2b = vest_f

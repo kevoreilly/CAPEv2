@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: linked against CPP JSON library
+    namespace: linking/static/jsoncpp
+    authors:
+      - "@mr-tz"
+    scope: file
+    references:
+      - https://github.com/open-source-parsers/jsoncpp
+  features:
+    - or:
+      - string: "Exceeded stackLimit in readValue()."
+      - string: "Missing ',' or '}' in object declaration"
+      - string: "Extra non-whitespace after JSON value."

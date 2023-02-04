@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: get file size
+    namespace: host-interaction/file-system/meta
+    authors:
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::File and Directory Discovery [T1083]
+    mbc:
+      - Discovery::File and Directory Discovery [E1083]
+    examples:
+      - mimikatz.exe_:0x40630D
+  features:
+    - or:
+      - api: kernel32.GetFileSize
+      - api: kernel32.GetFileSizeEx
+      - property/read: System.IO.FileInfo::Length

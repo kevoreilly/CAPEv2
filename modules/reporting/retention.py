@@ -9,12 +9,10 @@ import shutil
 from collections import defaultdict
 from datetime import datetime, timedelta
 from multiprocessing import Lock
-from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.core.database import TASK_REPORTED, Database, Task
 
 log = logging.getLogger(__name__)
@@ -45,9 +43,9 @@ def delete_files(curtask, delfiles, target_id):
                 log.debug("Task #%s deleting %s due to retention quota", curtask, delent)
             except (IOError, OSError) as e:
                 log.warn("Error removing %s: %s", delent, e)
-        elif path_exists(delent):
+        elif os.path.exists(delent):
             try:
-                path_delete(delent)
+                os.remove(delent)
                 log.debug("Task #%s deleting %s due to retention quota", curtask, delent)
             except OSError as e:
                 log.warn("Error removing %s: %s", delent, e)
@@ -79,7 +77,7 @@ class Retention(Report):
 
         if not os.path.isdir(retPath):
             log.warn("Retention log directory doesn't exist, creating it now")
-            path_mkdir(retPath)
+            os.mkdir(retPath)
         else:
             try:
                 taskFile = os.path.join(retPath, "task_check.log")
@@ -148,6 +146,7 @@ class Retention(Report):
 
             # Write the task log for future reporting, to avoid returning tasks
             # that we have already deleted data from.
-            _ = Path(retPath / "task_check.log").write_text(json.dumps(saveTaskLogged))
+            with open(os.path.join(retPath, "task_check.log"), "w") as taskLog:
+                taskLog.write(json.dumps(saveTaskLogged))
         finally:
             lock.release()

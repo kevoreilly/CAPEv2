@@ -1,0 +1,30 @@
+# generated using capa explorer for IDA Pro
+rule:
+  meta:
+    name: connect to WMI namespace via WbemLocator
+    namespace: host-interaction/wmi
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Execution::Windows Management Instrumentation [T1047]
+    examples:
+      - al-khaser_x64.exe_:0x14001956e
+      - al-khaser_x86.exe_:0x00445270
+  features:
+    - and:
+      - basic block:
+        - and:
+          - api: ole32.CoCreateInstance
+          - bytes: 11 F8 90 45 3A 1D D0 11 89 1F 00 AA 00 4B 2E 24 = CLSID_WbemLocator
+          - bytes: 87 A6 12 DC 7F 73 CF 11 88 4D 00 AA 00 4B 2E 24 = IID_IWbemLocator
+      - or:
+        - and:
+          - arch: i386
+          - offset: 0xC = ppv->ConnectServer
+        - and:
+          - arch: amd64
+          - offset: 0x18 = ppv->ConnectServer
+      - optional:
+        - string: /ROOT\\CIMV2/i
+        - string: /ROOT\\DEFAULT/i

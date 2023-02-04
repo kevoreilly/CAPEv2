@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: write file to startup folder
+    namespace: persistence/startup-folder
+    authors:
+      - matthew.williams@mandiant.com
+    scope: function
+    att&ck:
+      - Persistence::Boot or Logon Autostart Execution::Registry Run Keys / Startup Folder [T1547.001]
+    examples:
+      - 07F7846BBCDA782E5639292AD93907EB:0x401040
+  features:
+    - and:
+      - match: get startup folder
+      - or:
+        - match: copy file
+        - match: move file
+        - match: host-interaction/file-system/write

@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: open process
+    authors:
+      - 0x534a@mailbox.org
+    lib: true
+    scope: basic block
+    mbc:
+      - Process::Open Process [C0065]
+    examples:
+      - Practical Malware Analysis Lab 17-02.dll_:0x1000D10D
+  features:
+    - or:
+      - api: kernel32.OpenProcess
+      - api: NtOpenProcess
+      - api: ZwOpenProcess

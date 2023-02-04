@@ -1,0 +1,15 @@
+# generated using capa explorer for IDA Pro
+rule:
+  meta:
+    name: list groups for user account
+    namespace: host-interaction/accounts
+    authors:
+      - michael.hunhoff@mandiant.com
+    description: enumerates all the groups to which a user account belongs
+    scope: basic block
+    att&ck:
+      - Discovery::Account Discovery [T1087]
+  features:
+    - or:
+      - api: netapi32.NetUserGetGroups
+      - api: netapi32.NetUserGetLocalGroups

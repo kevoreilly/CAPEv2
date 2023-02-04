@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: access PE header
+    namespace: load-code/pe
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Execution::Shared Modules [T1129]
+    examples:
+      - 563653399B82CD443F120ECEFF836EA3678D4CF11D9B351BB737573C2D856299:0x1400018E0
+  features:
+    - and:
+      - os: windows
+      - or:
+        - api: RtlImageNtHeader
+        - api: RtlImageNtHeaderEx

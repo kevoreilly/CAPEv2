@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: identify system language via API
+    namespace: targeting/language
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Location Discovery::System Language Discovery [T1614.001]
+    examples:
+      - 9b7ccaa2ae6a5b96e3110ebcbc4311f6:0x10001F96
+  features:
+    - and:
+      - os: windows
+      - or:
+        - api: GetUserDefaultUILanguage
+        - api: GetSystemDefaultUILanguage
+        - api: GetUserDefaultLangID

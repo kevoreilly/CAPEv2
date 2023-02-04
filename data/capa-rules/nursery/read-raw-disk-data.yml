@@ -1,0 +1,11 @@
+rule:
+  meta:
+    name: read raw disk data
+    namespace: host-interaction/file-system
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: file
+  features:
+    - or:
+      - string: "\\\\.\\PhysicalDrive0"
+      - string: "\\\\.\\C:"

@@ -23,16 +23,10 @@ grafana_version=7.1.5
 node_exporter_version=1.0.1
 guacamole_version=1.4.0
 
-DIE_VERSION="3.07"
+DIE_VERSION="3.05"
+UBUNTU_VERSION=$(lsb_release -rs)
 
 TOR_SOCKET_TIMEOUT="60"
-
-# if a config file is present, read it in
-if [ -f "./cape-config.sh" ]; then
-	. ./cape-config.sh
-fi
-
-UBUNTU_VERSION=$(lsb_release -rs)
 OS="$(uname -s)"
 MAINTAINER="$(whoami)"_"$(hostname)"
 ARCH="$(dpkg --print-architecture)"
@@ -130,10 +124,8 @@ function install_crowdsecurity() {
 function install_docker() {
     # https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
     sudo apt install apt-transport-https ca-certificates curl software-properties-common
-
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
-    echo "deb [signed-by=/etc/apt/keyrings/docker.gpg arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
-
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
     sudo apt update
     sudo apt install docker-ce
     sudo usermod -aG docker ${USER}
@@ -509,6 +501,7 @@ fi
 
 function install_suricata() {
     echo '[+] Installing Suricata'
+
     add-apt-repository ppa:oisf/suricata-stable -y
     apt install suricata -y
     touch /etc/suricata/threshold.config
@@ -595,9 +588,6 @@ function install_yara() {
     cd /tmp || return
     git clone --recursive https://github.com/VirusTotal/yara-python
     cd yara-python
-    # Temp workarond to fix issues compiling yara-python https://github.com/VirusTotal/yara-python/issues/212
-    # partially applying PR https://github.com/VirusTotal/yara-python/pull/210/files
-    sed -i "191 i \ \ \ \ # Needed to build tlsh'\n    module.define_macros.extend([('BUCKETS_128', 1), ('CHECKSUM_1B', 1)])\n    # Needed to build authenticode parser\n    module.libraries.append('ssl')" setup.py
     python3 setup.py build --enable-cuckoo --enable-magic --enable-dotnet --enable-profiling
     cd ..
     pip3 install ./yara-python
@@ -605,7 +595,8 @@ function install_yara() {
 
 function install_mongo(){
     echo "[+] Installing MongoDB"
-    # Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
+    # Mongo 5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
+    # $(lsb_release -cs) on 20.04 they uses 18.04 repo
     if grep -q ' avx ' /proc/cpuinfo; then
         MONGO_VERSION="6.0"
     else
@@ -613,10 +604,14 @@ function install_mongo(){
         MONGO_VERSION="4.4"
     fi
 
-    sudo curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
-    echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
-    
+    wget -qO - https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc | sudo apt-key add -
+    # mongo 22 uses repo of 20
+    # echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
+    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
     apt update 2>/dev/null
+    # From Ubuntu version 20 repo we need to add extra dependency libssl1.1
+    curl -LO http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
+    sudo dpkg -i ./libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
     apt install libpcre3-dev numactl -y
     apt install -y mongodb-org
     pip3 install pymongo -U
@@ -674,15 +669,9 @@ EOF
 }
 
 function install_elastic() {
-    
-    sudo curl -fsSL "https://artifacts.elastic.co/GPG-KEY-elasticsearch" | sudo gpg --dearmor -o /etc/apt/keyrings/elasticsearch-keyring.gpg --yes
-    
-    # Elasticsearch 7.x
-    echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/7.x/apt stable main" > /etc/apt/sources.list.d/elastic-7.x.list
-
-    # Elasticsearch 8.x
-    # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
-
+    # https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-elasticsearch-on-ubuntu-20-04
+    curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+    echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
     apt update && apt install elasticsearch
     pip3 install elasticsearch
     systemctl enable elasticsearch
@@ -691,8 +680,8 @@ function install_elastic() {
 function install_postgresql() {
     echo "[+] Installing PostgreSQL"
 
-    curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null
-    echo "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+    echo "deb [ arch=amd64 ] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
 
     sudo apt update -y
     sudo apt -y install libpq-dev postgresql postgresql-client
@@ -716,9 +705,9 @@ function dependencies() {
     #sudo canonical-livepatch enable APITOKEN
 
     # deps
-    apt install python3-pip build-essential libssl-dev libssl3 python3-dev cmake -y
+    apt install python3-pip build-essential libssl-dev python3-dev cmake -y
     apt install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
-    apt install upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
+    apt install upx-ucl libssl-dev wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
     apt install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
     apt install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt install openvpn wireguard -y
@@ -758,13 +747,11 @@ function dependencies() {
     sudo -u postgres -H sh -c "psql -c \"CREATE USER ${USER} WITH PASSWORD '$PASSWD'\"";
     sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}\"";
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER} to ${USER};\""
-    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE ${USER} OWNER TO ${USER};\""
     #exit
 
     apt install apparmor-utils -y
-    TCPDUMP_PATH=`which tcpdump`
-    aa-complain ${TCPDUMP_PATH}
-    aa-disable ${TCPDUMP_PATH}
+    aa-complain /usr/sbin/tcpdump
+    aa-disable /usr/sbin/tcpdump
 
     if id "${USER}" &>/dev/null; then
         echo "user ${USER} already exist"
@@ -775,19 +762,19 @@ function dependencies() {
 
     groupadd pcap
     usermod -a -G pcap ${USER}
-    chgrp pcap ${TCPDUMP_PATH}
-    setcap cap_net_raw,cap_net_admin=eip ${TCPDUMP_PATH}
+    chgrp pcap /usr/sbin/tcpdump
+    setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
 
     usermod -a -G systemd-journal ${USER}
 
     # https://www.torproject.org/docs/debian.html.en
+    echo "deb [ arch=amd64 ] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list
+    echo "deb-src http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list
     sudo apt install gnupg2 -y
-
-    wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/tor-archive-keyring.gpg >/dev/null
-    echo "deb     [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
-    echo "deb-src [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
-    
-
+    gpg --keyserver keyserver.ubuntu.com --recv A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
+    #gpg2 --recv A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
+    #gpg2 --export A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89 | apt-key add -
+    wget -qO - https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | sudo apt-key add -
     sudo apt update 2>/dev/null
     apt install tor deb.torproject.org-keyring libzstd1 -y
 
@@ -990,8 +977,8 @@ function install_CAPE() {
 
     cd CAPEv2 || return
     pip3 install poetry
-    CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
+    CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} poetry install
+    sudo -u ${USER} poetry run extra/poetry_libvirt_installer.sh
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
@@ -1219,7 +1206,7 @@ function install_guacamole() {
     fi
 
     cd /opt/CAPEv2
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
+    poetry install
     cd ..
 
     sudo mount -a

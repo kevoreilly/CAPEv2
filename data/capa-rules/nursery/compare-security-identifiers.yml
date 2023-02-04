@@ -1,0 +1,11 @@
+# generated using capa explorer for IDA Pro
+rule:
+  meta:
+    name: compare security identifiers
+    namespace: host-interaction/sid
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+  features:
+    - or:
+      - api: advapi32.EqualSid

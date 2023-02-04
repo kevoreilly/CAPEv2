@@ -1,0 +1,22 @@
+rule:
+  meta:
+    name: encrypt data using DPAPI
+    namespace: data-manipulation/encryption/dpapi
+    authors:
+      - william.ballenthin@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Cryptography::Encrypt Data [C0027]
+    examples:
+      - 6cc148363200798a12091b97a17181a1:0x1400CE9A0
+  features:
+    - or:
+      - api: CryptProtectMemory
+      - api: CryptUnprotectMemory
+      - api: crypt32.CryptProtectData
+      - api: crypt32.CryptUnprotectData
+      - api: System.Security.Cryptography.ProtectedData::Unprotect
+      - api: System.Security.Cryptography.ProtectedData::Protect

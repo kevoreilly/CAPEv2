@@ -1,0 +1,53 @@
+rule:
+  meta:
+    name: enumerate files on windows
+    namespace: host-interaction/file-system/files/list
+    authors:
+      - moritz.raabe@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::File and Directory Discovery [T1083]
+    mbc:
+      - Discovery::File and Directory Discovery [E1083]
+    references:
+      - https://github.com/hfiref0x/TDL/blob/cc4b46ae1c939b14a22a734a727b163f873a41b5/Source/Furutaka/sup.c#L315
+    examples:
+      - Practical Malware Analysis Lab 01-01.exe_:0x4011E0
+      - Practical Malware Analysis Lab 20-02.exe_:0x401000
+      - 563653399B82CD443F120ECEFF836EA3678D4CF11D9B351BB737573C2D856299:0x14000203C
+  features:
+    - or:
+      - and:
+        - or:
+          - api: kernel32.FindFirstFile
+          - api: kernel32.FindFirstFileEx
+          - api: kernel32.FindFirstFileTransacted
+          - api: kernel32.FindFirstFileName
+          - api: kernel32.FindFirstFileNameTransacted
+        - or:
+          - api: kernel32.FindNextFile
+          - api: kernel32.FindNextFileName
+        - optional:
+          - api: kernel32.FindClose
+          - match: contain loop
+      - and:
+        - basic block:
+          - and:
+            - number: 1 = DIRECTORY_QUERY
+            - api: ntdll.NtOpenDirectoryObject
+        - api: ntdll.NtQueryDirectoryObject
+        - optional:
+          - api: RtlAllocateHeap
+          - match: contain loop
+          - characteristic: indirect call
+      - or:
+        - api: System.IO.DirectoryInfo::GetFiles
+        - api: System.IO.DirectoryInfo::EnumerateFiles
+        - api: System.IO.Directory::GetFiles
+        - api: System.IO.Directory::EnumerateFiles
+        - api: System.IO.Directory::EnumerateFileSystemEntries
+        - api: System.IO.DirectoryInfo::GetDirectories
+        - api: System.IO.DirectoryInfo::EnumerateDirectories
+        - api: System.IO.Directory::GetDirectories
+        - api: System.IO.Directory::EnumerateDirectories

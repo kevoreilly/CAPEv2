@@ -1,0 +1,42 @@
+rule:
+  meta:
+    name: enumerate process modules
+    namespace: host-interaction/process/modules/list
+    authors:
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::Process Discovery [T1057]
+    examples:
+      - 6F99A2C8944CB02FF28C6F9CED59B161:0x419FF8
+      - 9B2FD471274C41626B75DDBB5C897877:0x100046B0
+  features:
+    - or:
+      - and:
+        - optional:
+          - or:
+            - api: kernel32.OpenProcess
+            - api: kernel32.CloseHandle
+        - or:
+          - api: kernel32.K32EnumProcessModules
+          - api: kernel32.K32EnumProcessModulesEx
+          - api: kernel32.K32EnumProcesses
+          # depending on OS version in kernel32 or psapi
+          - api: EnumProcessModules
+          - api: EnumProcessModulesEx
+          - api: EnumProcesses
+      - and:
+        - api: kernel32.Module32First
+        - api: kernel32.Module32Next
+        - optional:
+          - basic block:
+            - and:
+              - or:
+                - number: 0x8 = TH32CS_SNAPMODULE
+                - number: 0x10 = TH32CS_SNAPMODULE32
+                - number: 0x18 = TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32
+              - api: kernel32.CreateToolhelp32Snapshot
+      - and:
+        - property/read: System.Diagnostics.Process::Modules
+        - property/read: System.Diagnostics.ProcessModuleCollection::Item

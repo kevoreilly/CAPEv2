@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: send HTTP response
+    namespace: communication/http/server
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Communication::HTTP Communication::Send Response [C0002.016]
+    examples:
+      - 6A352C3E55E8AE5ED39DC1BE7FB964B1:0x10001B20
+  features:
+    - or:
+      - api: httpapi.HttpSendHttpResponse
+      - api: httpapi.HttpSendResponseEntityBody

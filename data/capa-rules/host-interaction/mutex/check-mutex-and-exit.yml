@@ -1,0 +1,30 @@
+rule:
+  meta:
+    name: check mutex and exit
+    namespace: host-interaction/mutex
+    authors:
+      - "@_re_fox"
+      - moritz.raabe@mandiant.com
+    scope: function
+    mbc:
+      - Process::Check Mutex [C0043]
+      - Process::Terminate Process [C0018]
+    examples:
+      - 1d8fd13c890060464019c0f07b928b1a:0x402eb0
+      - Practical Malware Analysis Lab 11-03.dll_:0x10001410
+  features:
+    - and:
+      - match: create mutex
+      - or:
+        - api: ExitProcess
+        - api: exit
+        - api: _Exit
+        - api: _exit
+        - or:
+          - api: WaitForSingleObject
+          - and:
+            - api: GetLastError
+            - or:
+              - number: 2 = ERROR_FILE_NOT_FOUND
+              - number: 0xB7 = ERROR_ALREADY_EXISTS
+              - number: 5 = ERROR_ACCESS_DENIED

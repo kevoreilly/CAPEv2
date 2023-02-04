@@ -8,28 +8,24 @@ from lib.common.abstracts import Package
 
 
 class JS_ANTIVM(Package):
-    """JavaScript analysis package, with anti-VM technique prevention.."""
+    """JavaScript analysis package."""
 
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
 
     def start(self, path):
-        # Determine if the submitter wants the sample to be monitored
         free = self.options.get("free", False)
-
-        # We will be temporarily setting this option so that the background processes will not be monitored.
+        # to not track calcs
         self.options["free"] = 1
-
-        # Start 20 Calculator windows
-        for _ in range(20):
+        # fuck antivm
+        for _ in range(50):
+            # calc
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
+            # cl = Process()
             self.execute(calc, "", path)
-
-        # If the user did not request the monitor to be disabled, enable it
         if not free:
             self.options["free"] = 0
-
         wscript = self.get_path("wscript.exe")
         args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()

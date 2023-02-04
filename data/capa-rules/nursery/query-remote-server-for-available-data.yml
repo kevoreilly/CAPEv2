@@ -1,0 +1,11 @@
+# generated using capa explorer for IDA Pro
+rule:
+  meta:
+    name: query remote server for available data
+    namespace: communication
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+  features:
+    - or:
+      - api: wininet.InternetQueryDataAvailable

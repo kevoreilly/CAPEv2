@@ -1,0 +1,22 @@
+rule:
+  meta:
+    name: inject shellcode using a file mapping object
+    namespace: host-interaction/process/inject
+    authors:
+      - jakub.jozwiak@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Process Injection [T1055]
+    mbc:
+      - Defense Evasion::Process Injection [E1055]
+    references:
+      - https://github.com/antonioCoco/Mapping-Injection/tree/1.1
+      - https://github.com/Kara-4search/MappingInjection_CSharp
+    examples:
+      - 8b1682c85612db9f62eb3600a90b54e83117bb756a7456c9f82ccdcb0bf4b7e4:0x401000
+  features:
+    - and:
+      - match: create thread
+      - api: CreateFileMapping
+      - api: MapViewOfFile
+      - api: MapViewOfFileNuma2

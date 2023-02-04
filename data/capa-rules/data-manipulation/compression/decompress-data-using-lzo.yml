@@ -1,0 +1,45 @@
+rule:
+  meta:
+    name: decompress data using LZO
+    namespace: data-manipulation/compression
+    authors:
+      - david@edeca.net
+      - david.cannings@pwc.com
+    description: detects the decompression routine from LZO
+    scope: function
+    mbc:
+      - Data::Decompress Data [C0025]
+    references:
+      - https://github.com/zenzhang/msgclient/blob/f7c346287022dd41b21aedc8664a281b32e4a1f1/src/framework/string/Compress.cpp
+    examples:
+      - ee3b869b668abec332d07c66d1a39f6dbf3a598cc1325b57a0504f8d24ac2e28.dll_:0x1000BB90
+  features:
+    - and:
+      - instruction:
+        - description: t += 255;
+        - mnemonic: add
+        - number: 0xFF
+      - or:
+        - instruction:
+          - or:
+            - mnemonic: and
+            - mnemonic: add
+          - number: 0xFFFFFFFC
+        - instruction:
+          - mnemonic: sub
+          - number: 4
+      - instruction:
+        - description: t &= 31;
+        - mnemonic: and
+        - number: 0x1F
+      - instruction:
+        - description: m_pos -= 0x4000;
+        - mnemonic: sub
+        - number: 0x4000
+      - instruction:
+        - description: m_pos -= t >> 2;
+        - mnemonic: shr
+        - number: 2
+      - or:
+        - characteristic: loop
+        - characteristic: tight loop

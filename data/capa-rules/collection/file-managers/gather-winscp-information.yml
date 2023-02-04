@@ -1,0 +1,21 @@
+rule:
+  meta:
+    name: gather winscp information
+    namespace: collection/file-managers
+    authors:
+      - "@_re_fox"
+    scope: function
+    att&ck:
+      - Credential Access::Credentials from Password Stores [T1555]
+    references:
+      - https://winscp.net/eng/download.php
+    examples:
+      - 5a2f620f29ca2f44fc22df67b674198f:0x407BBA
+  features:
+    - and:
+      - string: "Password"
+      - string: "HostName"
+      - string: "UserName"
+      - string: "RemoteDirectory"
+      - string: "PortNumber"
+      - string: "FSProtocol"

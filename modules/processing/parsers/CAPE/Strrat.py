@@ -75,6 +75,27 @@ def extract_config(data):
     configdata = unzip_config(tmpzip)
 
     if configdata:
-        raw_config["config"] = decode(configdata)
+        c2_1, mutex_1, dl_url, c2_2, mutex_2, startup_persist, secondary_persist, skype_persist, license = decode(configdata).split(
+            "|"
+        )
+        raw_config["tcp"] = [{"server_domain": c2_1, "usage": "c2"}, {"server_domain": c2_2, "usage": "c2"}]
+        raw_config["http"] = [{"uri": dl_url, "usage": "download"}]
+        raw_config["mutex"] = [mutex_1, mutex_2]
+        raw_config["other"]["license"] = license
+
+        if startup_persist == "true":
+            raw_config.setdefault("capability_enabled", []).append("Setup Startup Folder Persistence")
+        else:
+            raw_config.setdefault("capability_disabled", []).append("Setup Startup Folder Persistence")
+
+        if secondary_persist == "true":
+            raw_config.setdefault("capability_enabled", []).append("Secondary Startup Folder Persistence")
+        else:
+            raw_config.setdefault("capability_disabled", []).append("Secondary Startup Folder Persistence")
+
+        if skype_persist == "true":
+            raw_config.setdefault("capability_enabled", []).append("Setup Skype Scheduled Task Persistence")
+        else:
+            raw_config.setdefault("capability_disabled", []).append("Setup Skype Scheduled Task Persistence")
 
     return raw_config

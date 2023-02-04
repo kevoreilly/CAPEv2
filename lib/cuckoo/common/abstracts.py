@@ -11,7 +11,6 @@ import threading
 import time
 import timeit
 import xml.etree.ElementTree as ET
-from pathlib import Path
 from typing import Dict, List
 
 try:
@@ -29,9 +28,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooOperationalError,
     CuckooReportError,
 )
-from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.objects import Dictionary
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
 from lib.cuckoo.core.database import Database
@@ -58,8 +55,32 @@ except ImportError:
 
 repconf = Config("reporting")
 _, categories_need_VM = load_categories()
+HAVE_MITRE = False
 
-mitre, HAVE_MITRE, _ = mitre_load(repconf.mitre.enabled)
+if repconf.mitre.enabled:
+    try:
+        from pyattck import Attck
+        from pyattck.utils.version import __version_info__ as pyattck_version
+
+        if pyattck_version >= (4, 1, 1) and pyattck_version <= (5, 2, 0):
+            mitre = Attck(
+                nested_subtechniques=True,
+                use_config=True,
+                save_config=True,
+                config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+                data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+                enterprise_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json"),
+                pre_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "pre_attck_json.json"),
+                mobile_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "mobile_attck_json.json"),
+                ics_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "ics_attck_json.json"),
+                nist_controls_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "nist_controls_json.json"),
+                generated_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_attck_json.json"),
+                generated_nist_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_nist_json.json"),
+            )
+            HAVE_MITRE = True
+
+    except ImportError:
+        print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -219,7 +240,7 @@ class Machinery:
         for machine in self.machines():
             # If this machine is already in the "correct" state, then we
             # go on to the next machine.
-            if machine.label in configured_vms and self._status(machine.label) in (self.POWEROFF, self.ABORTED):
+            if machine.label in configured_vms and self._status(machine.label) in [self.POWEROFF, self.ABORTED]:
                 continue
 
             # This machine is currently not in its correct state, we're going
@@ -261,7 +282,8 @@ class Machinery:
             return self.db.lock_machine(label=machine_id)
         elif platform:
             return self.db.lock_machine(platform=platform, tags=tags, arch=arch)
-        return self.db.lock_machine(tags=tags, arch=arch)
+        else:
+            return self.db.lock_machine(tags=tags, arch=arch)
 
     def release(self, label=None):
         """Release a machine.
@@ -888,7 +910,7 @@ class Signature:
                 pids.append(int(pid.get("pid", "")))
                 pids += [int(cpid["pid"]) for cpid in pid.get("children", []) if "pid" in cpid]
         # in case if bsons too big
-        if path_exists(logs):
+        if os.path.exists(logs):
             pids += [int(pidb.replace(".bson", "")) for pidb in os.listdir(logs) if ".bson" in pidb]
 
         #  in case if injection not follows
@@ -1162,7 +1184,7 @@ class Signature:
                       matched items or the first matched item
         """
         subject = self.results["behavior"]["summary"]["started_services"]
-        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
 
     def check_created_service(self, pattern, regex=False, all=False):
         """Checks for a service being created.
@@ -1175,7 +1197,7 @@ class Signature:
                       matched items or the first matched item
         """
         subject = self.results["behavior"]["summary"]["created_services"]
-        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
 
     def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
         """Checks for a command being executed.
@@ -1506,11 +1528,8 @@ class Signature:
         return res
 
     def mark_call(self, *args, **kwargs):
-        """Mark the current call as explanation as to why this signature matched."""
-
-        if not cfg.cuckoo.apicall_details:
-            return
-
+        """Mark the current call as explanation as to why this signature
+        matched."""
         mark = {
             "type": "call",
             "pid": self.pid,
@@ -1706,9 +1725,12 @@ class Feed:
             lock = threading.Lock()
             with lock:
                 if modified and self.data:
-                    _ = Path(self.feedpath).write_text(self.data)
+                    with open(self.feedpath, "w") as feedfile:
+                        feedfile.write(self.data)
                 elif self.downloaddata:
-                    _ = Path(self.feedpath).write_text(self.downloaddata)
+                    with open(self.feedpath, "w") as feedfile:
+                        feedfile.write(self.downloaddata)
+        return
 
 
 class ProtocolHandler:

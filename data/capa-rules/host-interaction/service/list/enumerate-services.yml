@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: enumerate services
+    namespace: host-interaction/service/list
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Service Discovery [T1007]
+    examples:
+      - Practical Malware Analysis Lab 05-01.dll_:0x1000B823
+  features:
+    - or:
+      - api: advapi32.EnumServicesStatus
+      - api: advapi32.EnumServicesStatusEx
+      - api: advapi32.EnumDependentServices

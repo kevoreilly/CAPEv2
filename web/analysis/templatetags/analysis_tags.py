@@ -136,9 +136,7 @@ def flare_capa_capabilities(obj, *args, **kwargs):
     _print(2, "</tbody>\n")
     _print(1, "</table>\n")
 
-    ret_result = result.getvalue()
-    result.close()
-    return mark_safe(ret_result)
+    return mark_safe(result.getvalue())
 
 
 @register.filter(name="flare_capa_attck")
@@ -168,9 +166,7 @@ def flare_capa_attck(obj, *args, **kwargs):
     _print(2, "</tbody>\n")
     _print(1, "</table>\n")
 
-    ret_result = result.getvalue()
-    result.close()
-    return mark_safe(ret_result)
+    return mark_safe(result.getvalue())
 
 
 @register.filter(name="flare_capa_mbc")
@@ -200,9 +196,7 @@ def flare_capa_mbc(obj, *args, **kwargs):
     _print(2, "</tbody>\n")
     _print(1, "</table>\n")
 
-    ret_result = result.getvalue()
-    result.close()
-    return mark_safe(ret_result)
+    return mark_safe(result.getvalue())
 
 
 # Thanks Sandor
@@ -244,9 +238,7 @@ def malware_config(obj, *args, **kwargs):
     else:
         result.write('<pre style="margin: 0">' + escape(str(obj)) + "</pre>")
 
-    ret_result = result.getvalue()
-    result.close()
-    return mark_safe(ret_result)
+    return mark_safe(result.getvalue())
 
 
 @register.filter(name="playback_url")

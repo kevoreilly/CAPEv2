@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: generate random numbers via WinAPI
+    namespace: data-manipulation/prng
+    authors:
+      - michael.hunhoff@mandiant.com
+      - johnk3r
+    scope: function
+    mbc:
+      - Cryptography::Generate Pseudo-random Sequence::Use API [C0021.003]
+    examples:
+      - ba947eb07d8c823949316a97364d060f:0x1400031E0
+      - 3ca359f5085bb96a7950d4735b089ffe:0x403A80
+      - e59ffeaf7acb0c326e452fa30bb71a36:0x40403E
+      - 1195d0d18be9362fb8dd9e1738404c9d:0x404E90
+  features:
+    - and:
+      - or:
+        - api: BCryptGenRandom
+        - api: CryptGenRandom
+      - optional:
+        - api: BCryptOpenAlgorithmProvider
+        - api: BCryptCloseAlgorithmProvider
+        - api: CryptAquireContext

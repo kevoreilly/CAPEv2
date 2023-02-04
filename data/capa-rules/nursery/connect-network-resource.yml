@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: connect network resource
+    namespace: communication/http
+    authors:
+      - michael.hunhoff@mandiant.com
+    description: connect to disk or print resource
+    scope: function
+  features:
+    - and:
+      - or:
+        - api: mpr.WNetAddConnection
+        - api: mpr.WNetAddConnection2
+        - api: mpr.WNetAddConnection3
+      - optional:
+        - api: mpr.WNetCancelConnection
+        - api: mpr.WNetCancelConnection2

@@ -1,0 +1,27 @@
+rule:
+  meta:
+    name: move file
+    namespace: host-interaction/file-system/move
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - File System::Move File [C0063]
+    examples:
+      - Practical Malware Analysis Lab 01-04.exe_:0x401350
+  features:
+    - or:
+      - api: kernel32.MoveFile
+      - api: kernel32.MoveFileEx
+      - api: MoveFileWithProgress
+      - api: MoveFileTransacted
+      - api: rename
+      - api: _wrename
+      - api: System.IO.FileInfo::MoveTo
+      - api: System.IO.File::Move
+      - basic block:
+        - and:
+          - number: 1 = FO_MOVE
+          - or:
+            - api: kernel32.SHFileOperation

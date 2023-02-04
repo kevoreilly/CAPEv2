@@ -1,11 +1,6 @@
-# Copyright (C) 2010-2015 Cuckoo Foundation.
-# This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
-# See the file 'docs/LICENSE' for copying permission.
-
 import logging
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.integrations.mitre import mitre_generate_attck
 
 log = logging.getLogger(__name__)
 
@@ -15,6 +10,26 @@ class MITRE_TTPS(Report):
         if not results.get("ttps") or not hasattr(self, "mitre"):
             return
 
-        attck = mitre_generate_attck(results, self.mitre)
-        if attck:
-            results["mitre_attck"] = attck
+        attck = {}
+        ttp_dict = {}
+        for ttp in results["ttps"]:
+            ttp_dict.setdefault(ttp["ttp"], set()).add(ttp["signature"])
+        try:
+            for technique in sorted(self.mitre.enterprise.techniques, key=lambda x: x.id):
+                if technique.id in list(ttp_dict.keys()):
+                    for tactic in technique.tactics:
+                        attck.setdefault(tactic.name, []).append(
+                            {
+                                "t_id": technique.id,
+                                "ttp_name": technique.name,
+                                "description": technique.description,
+                                "signature": list(ttp_dict[technique.id]),
+                            }
+                        )
+            if attck:
+                results["mitre_attck"] = attck
+        except FileNotFoundError:
+            log.error("MITRE Att&ck data missed, execute: 'python3 utils/community.py -waf'")
+        except Exception as e:
+            # simplejson.errors.JSONDecodeError
+            log.error(("Mitre", e))

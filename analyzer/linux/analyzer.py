@@ -11,7 +11,6 @@ import tempfile
 import time
 import traceback
 import zipfile
-from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -111,7 +110,7 @@ class Analyzer:
         """
         self.prepare()
 
-        log.debug("Starting analyzer from: %s", Path.cwd())
+        log.debug("Starting analyzer from: %s", os.getcwd())
         log.debug("Storing results at: %s", PATHS["root"])
 
         # If no analysis package was specified at submission, we try to select

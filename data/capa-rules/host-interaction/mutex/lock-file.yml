@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: lock file
+    namespace: host-interaction/mutex
+    authors:
+      - joakim@intezer.com
+    scope: basic block
+    mbc:
+      - Process::Create Mutex [C0042]
+    examples:
+      - 7351f8a40c5450557b24622417fc478d:0x40858F
+  features:
+    - and:
+      - os: linux
+      - api: fcntl
+      - number: 1 = F_WRLCK
+      - number: 6 = F_SETLK

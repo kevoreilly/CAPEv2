@@ -160,4 +160,5 @@ class Unpacker_zip(Package):
             powershell = self.get_path_app_in_path("powershell.exe")
             args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
             return self.execute(powershell, args, file_path)
-        return self.execute(file_path, self.options.get("arguments"), file_path)
+        else:
+            return self.execute(file_path, self.options.get("arguments"), file_path)

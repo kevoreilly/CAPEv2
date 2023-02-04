@@ -385,4 +385,5 @@ def get_error_string(error_code):
     """
     if error_code in ERRORS:
         return f"{ERRORS[error_code]['description']} ({ERRORS[error_code]['name']})"
-    return str(error_code)
+    else:
+        return str(error_code)

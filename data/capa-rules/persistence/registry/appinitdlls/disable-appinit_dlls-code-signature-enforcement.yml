@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: disable AppInit_DLLs code signature enforcement
+    namespace: persistence/registry/appinitdlls
+    authors:
+      - william.ballenthin@fireye.com
+    scope: function
+    att&ck:
+      - Persistence::Event Triggered Execution::AppInit DLLs [T1546.010]
+      - Defense Evasion::Subvert Trust Controls::Code Signing Policy Modification [T1553.006]
+    references:
+      - https://docs.microsoft.com/en-us/windows/win32/win7appqual/appinit-dlls-in-windows-7-and-windows-server-2008-r2
+    examples:
+      - 58ADC2E97FBEE01B71073CCD7FF1B9A4:0x401350
+  features:
+    - and:
+      - string: /RequireSignedAppInit_DLLs/i
+        description: disable DLL code signature enforcement
+      - number: 0 = state disabled
+      - or:
+        - match: set registry value
+        - number: 0x80000002 = HKEY_LOCAL_MACHINE
+      - or:
+        - string: /Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows/i
+        - string: /Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows/i

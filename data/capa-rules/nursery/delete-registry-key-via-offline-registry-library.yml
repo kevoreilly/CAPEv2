@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: delete registry key via offline registry library
+    namespace: host-interaction/registry
+    authors:
+      - johnk3r
+    scope: function
+    att&ck:
+      - Defense Evasion::Modify Registry [T1112]
+    mbc:
+      - Operating System::Registry::Delete Registry Key [C0036.002]
+      - Operating System::Registry::Delete Registry Value [C0036.007]
+  features:
+    - or:
+      - api: ORDeleteKey
+      - api: ORDeleteValue

@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: open registry key via offline registry library
+    namespace: host-interaction/registry
+    authors:
+      - johnk3r
+    scope: function
+    mbc:
+      - Operating System::Registry::Open Registry Key [C0036.003]
+    examples:
+      - 5fbbfeed28b258c42e0cfeb16718b31c:0x4071E1
+  features:
+    - or:
+      - api: OROpenHive
+      - api: OROpenKey

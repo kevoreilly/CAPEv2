@@ -1,0 +1,32 @@
+rule:
+  meta:
+    name: encrypt data using OpenSSL RSA
+    namespace: data-manipulation/encryption/rsa
+    authors:
+      - "Ana06"
+    scope: function
+    mbc:
+      - Cryptography::Encrypt Data::RSA [C0027.011]
+    references:
+      - https://github.com/openssl/openssl/blob/fdc5043d58900663b493147298e64f11353b35fe/crypto/objects/obj_dat.h
+  features:
+    - or:
+      - bytes: 2A 86 48 86 F7 0D 01 01 01 = RSA
+      - bytes: 2A 86 48 86 F7 0D 01 01 02 = RSA-MD2
+      - bytes: 2A 86 48 86 F7 0D 01 01 04 = RSA-MD5
+      - bytes: 2B 0E 03 02 0F = RSA-SHA
+      - bytes: 2A 86 48 86 F7 0D 01 01 05 = RSA-SHA1
+      - bytes: 2A 86 48 86 F7 0D 01 01 03 = RSA-MD4
+      - bytes: 2A 86 48 86 F7 0D 01 01 0B = RSA-SHA256
+      - bytes: 2A 86 48 86 F7 0D 01 01 0C = RSA-SHA384
+      - bytes: 2A 86 48 86 F7 0D 01 01 0D = RSA-SHA512
+      - bytes: 2A 86 48 86 F7 0D 01 01 0E = RSA-SHA224
+      - bytes: 2A 81 1C CF 55 01 83 78 = RSA-SM3
+      - bytes: 2A 86 48 86 F7 0D 01 01 0F = RSA-SHA512/224
+      - bytes: 2A 86 48 86 F7 0D 01 01 10 = RSA-SHA512/256
+      - bytes: 55 08 03 64 = RSA-MDC2
+      - bytes: 2B 24 03 03 01 02 = RSA-RIPEMD160
+      - bytes: 60 86 48 01 65 03 04 03 0D = RSA-SHA3-224
+      - bytes: 60 86 48 01 65 03 04 03 0E = RSA-SHA3-256
+      - bytes: 60 86 48 01 65 03 04 03 0F = RSA-SHA3-384
+      - bytes: 60 86 48 01 65 03 04 03 10 = RSA-SHA3-512

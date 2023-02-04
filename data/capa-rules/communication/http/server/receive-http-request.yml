@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: receive HTTP request
+    namespace: communication/http/server
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Communication::HTTP Communication::Receive Request [C0002.015]
+    examples:
+      - 6A352C3E55E8AE5ED39DC1BE7FB964B1:0x10001D30
+      - 6A352C3E55E8AE5ED39DC1BE7FB964B1:0x100027D0
+  features:
+    - or:
+      - and:
+        - api: httpapi.HttpReceiveHttpRequest
+        - or:
+          - number: 0
+          - number: 1 = HTTP_RECEIVE_REQUEST_FLAG_COPY_BODY
+          - number: 2 = HTTP_RECEIVE_REQUEST_FLAG_FLUSH_BODY
+      - and:
+        - api: httpapi.HttpReceiveRequestEntityBody
+        - or:
+          - number: 0 = Must be zero on Windows Server 2003 with SP1 and Windows XP with SP2
+          - number: 1 = HTTP_RECEIVE_REQUEST_ENTITY_BODY_FLAG_FILL_BUFFER

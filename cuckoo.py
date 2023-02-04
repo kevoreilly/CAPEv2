@@ -7,10 +7,9 @@ import argparse
 import logging
 import os
 import sys
-from pathlib import Path
 
-if sys.version_info[:2] < (3, 8):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
     sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
@@ -49,7 +48,7 @@ check_linux_dist()
 
 
 def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
-    cur_path = Path.cwd()
+    cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)
 
     logo()
@@ -93,7 +92,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
 
 
 def cuckoo_main(max_analysis_count=0):
-    cur_path = Path.cwd()
+    cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)
 
     try:

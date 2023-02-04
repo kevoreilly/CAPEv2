@@ -7,7 +7,6 @@ import locale
 import logging
 import os
 from io import BytesIO
-from pathlib import Path
 
 from lib.api.utils import Utils
 from lib.common.abstracts import Auxiliary
@@ -110,7 +109,7 @@ class DigiSig(Auxiliary):
                 log.debug("Skipping authenticode validation, analysis is not a file")
                 return True
 
-            sign_path = os.path.join(Path.cwd(), "bin", "signtool.exe")
+            sign_path = os.path.join(os.getcwd(), "bin", "signtool.exe")
             if not os.path.exists(sign_path):
                 log.info("Skipping authenticode validation, signtool.exe was not found in bin/")
                 return True
@@ -145,14 +144,14 @@ class DigiSig(Auxiliary):
 
             if self.json_data:
                 log.info("Uploading signature results to aux/%s.json", self.__class__.__name__)
-                with BytesIO() as upload:
-                    upload.write(json.dumps(self.json_data, ensure_ascii=False).encode())
-                    upload.seek(0)
-                    nf = NetlogFile()
-                    nf.init("aux/DigiSig.json")
-                    for chunk in upload:
-                        nf.sock.send(chunk)
-                    nf.close()
+                upload = BytesIO()
+                upload.write(json.dumps(self.json_data, ensure_ascii=False).encode())
+                upload.seek(0)
+                nf = NetlogFile()
+                nf.init("aux/DigiSig.json")
+                for chunk in upload:
+                    nf.sock.send(chunk)
+                nf.close()
 
         except Exception as e:
             print(e)

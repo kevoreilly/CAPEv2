@@ -1,0 +1,27 @@
+rule:
+  meta:
+    name: send file using FTP
+    namespace: communication/ftp/send
+    authors:
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    mbc:
+      - Communication::FTP Communication::Send File [C0004.001]
+      - Communication::FTP Communication::WinINet [C0004.002]
+    examples:
+      - Practical Malware Analysis Lab 20-02.exe_:0x401380
+  features:
+    - or:
+      - and:
+        - api: wininet.FtpPutFile
+        - optional:
+          - or:
+            - api: wininet.FtpSetCurrentDirectory
+            - and:
+              - api: wininet.InternetConnect
+              - number: 0x15 = IPPORT_FTP
+      - and:
+        - api: System.Net.WebRequest::Create
+        - string: "STOR"
+        - property/write: System.Net.WebRequest::Method

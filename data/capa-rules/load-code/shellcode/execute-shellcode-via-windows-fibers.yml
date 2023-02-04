@@ -1,0 +1,20 @@
+rule:
+  meta:
+    name: execute shellcode via Windows fibers
+    namespace: load-code/shellcode
+    authors:
+      - jakub.jozwiak@mandiant.com
+    scope: function
+    mbc:
+      - Defense Evasion::Process Injection::Injection via Windows Fibers [E1055.m05]
+    references:
+      - https://www.ired.team/offensive-security/code-injection-process-injection/executing-shellcode-with-createfiber
+      - https://github.com/S4R1N/AlternativeShellcodeExec/blob/master/FiberContextEdit/Source.cpp
+    examples:
+      - f03bdb9fa52f7b61ef03141fefff1498ad2612740b1fdbf6941f1c5af5eee70a:0x4026E0
+  features:
+    - and:
+      - match: allocate RWX memory
+      - api: ConvertThreadToFiber
+      - api: CreateFiber
+      - api: SwitchToFiber

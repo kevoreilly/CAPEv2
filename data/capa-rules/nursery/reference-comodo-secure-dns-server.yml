@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: reference Comodo Secure DNS server
+    namespace: communication/dns
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    references:
+      - https://www.techradar.com/news/best-dns-server
+  features:
+    - or:
+      - string: "8.26.56.26"
+      - string: "8.20.247.20"

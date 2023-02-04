@@ -1,0 +1,12 @@
+rule:
+  meta:
+    name: check if directory exists
+    namespace: host-interaction/file-system/exists
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::File and Directory Discovery [T1083]
+  features:
+    - or:
+      - api: System.IO.Directory::Exists

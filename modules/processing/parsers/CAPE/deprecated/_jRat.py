@@ -51,7 +51,8 @@ def get_parts(data):
     elif enckey and dropper:
         newkey, conf = get_dropper(enckey, dropper)
         return newkey, conf
-    return None, None
+    else:
+        return None, None
 
 
 # This extracts the Encryption Key and New conf from a 'Dropper' jar

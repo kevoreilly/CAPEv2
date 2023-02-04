@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: hash data using murmur2
+    namespace: data-manipulation/hashing/murmur
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: instruction
+    references:
+      - https://github.com/abrandoned/murmur2/blob/master/MurmurHash2.c
+  features:
+    - and:
+      - mnemonic: imul
+      - or:
+        - number: 0xc6a4a7935bd1e995 = 64-bit mixing constant m
+        - number: 0x5bd1e995 = 32-bit mixing constant m

@@ -1,0 +1,10 @@
+rule:
+  meta:
+    name: send email in .NET
+    namespace: communication/smtp/send
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - or:
+      - api: System.Web.Mail.SmtpMail::Send

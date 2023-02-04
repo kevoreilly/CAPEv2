@@ -2,7 +2,9 @@
 {% block content %}
 {% if statistics %}
 
-<h4>Information for {{days}} days. Total number of tasks: {{statistics.total}}, Average per day: {{statistics.average}}</h4>
+<h4><b><u>Information For {{days}} Days:</u></b></h4>
+<h4>Total No. of Tasks - {{statistics.total}}</h4>
+<h4>No. of Tasks Per Day - {{statistics.average}}</h4><br>
 
 {% if statistics.detections %}
   <table class="table table-striped table-bordered">
@@ -20,8 +22,8 @@
 </table>
 {% endif %}
 
-<h4>Tasks per day</h4>
-<table class="table table-striped table-hover">
+<h4><b><u>Tasks Per Day</u></b></h4>
+<table class="table table-striped table-hover table-bordered">
     <thead>
       <tr>
         <th scope="col">Day</th>
@@ -47,7 +49,7 @@
 
   {% if statistics.custom_statistics %}
   <h4>Custom Signatures data only for Volatility/static extraction</h4>
-  <table class="table table-striped table-hover">
+  <table class="table table-striped table-hover table-bordered">
     <thead>
       <tr>
         <th scope="col">Name</th>
@@ -70,85 +72,83 @@
     </tbody>
   </table>
 {% endif %}
-<h4>Time per module</h4>
-<div class="container">
-    <div class="row">
-        {% if statistics.processing %}
-        <div class="col-sm">
-            <h4>Processing</h4>
-            <table class="table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Total time in minutes</th>
-                  <th scope="col">Runs</th>
-                  <th scope="col">Average time in minutes(Total/runs)</th>
-                </tr>
-              </thead>
-              <tbody>
-              {% for name, time in statistics.processing.items %}
-                  <tr>
-                      <td>{{name}}</td>
-                      <td>{{time.total}}</td>
-                      <td>{{time.runs}}</td>
-                      <td>{{time.average}}</td>
-                  </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-        </div>
-        {% endif %}
-        {% if statistics.signatures %}
-        <div class="col-sm">
-            <h4>Signatures</h4>
-            <table class="table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Total time in minutes</th>
-                  <th scope="col">Runs</th>
-                  <th scope="col">Average time in minutes(Total/runs)</th>
-                </tr>
-              </thead>
-              <tbody>
-              {% for name, time in statistics.signatures.items %}
-                  <tr>
-                      <td>{{name}}</td>
-                      <td>{{time.total}}</td>
-                      <td>{{time.runs}}</td>
-                      <td>{{time.average}}</td>
-                  </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-        </div>
-        {% endif %}
-        {% if statistics.reporting %}
-        <div class="col-sm">
-            <h4>Reporting</h4>
-            <table class="table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Total time in minutes</th>
-                  <th scope="col">Runs</th>
-                  <th scope="col">Average time in minutes(Total/runs)</th>
-                </tr>
-              </thead>
-              <tbody>
-              {% for name, time in statistics.reporting.items %}
-                  <tr>
-                      <td>{{name}}</td>
-                      <td>{{time.total}}</td>
-                      <td>{{time.runs}}</td>
-                      <td>{{time.average}}</td>
-                  </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-        </div>
-        {% endif %}
+<h4><b><u>Time Used Per Module</u></b></h4>
+<div class="row">
+    {% if statistics.processing %}
+    <div class="col-lg">
+        <h4><b>Processing</b></h4>
+        <table class="table table-striped table-hover table-bordered">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Total Time In Minutes</th>
+              <th scope="col">Runs</th>
+              <th scope="col">Average Time In Minutes(Total/Runs)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for name, time in statistics.processing.items %}
+              <tr>
+                  <td>{{name}}</td>
+                  <td>{{time.total}}</td>
+                  <td>{{time.runs}}</td>
+                  <td>{{time.average}}</td>
+              </tr>
+          {% endfor %}
+          </tbody>
+        </table>
     </div>
+    {% endif %}
+    {% if statistics.signatures %}
+    <div class="col-lg">
+        <h4><b>Signatures</b></h4>
+        <table class="table table-striped table-hover table-bordered">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Total Time In Minutes</th>
+              <th scope="col">Runs</th>
+              <th scope="col">Average Time In Minutes(Total/Runs)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for name, time in statistics.signatures.items %}
+              <tr>
+                  <td>{{name}}</td>
+                  <td>{{time.total}}</td>
+                  <td>{{time.runs}}</td>
+                  <td>{{time.average}}</td>
+              </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% if statistics.reporting %}
+    <div class="col-lg">
+        <h4><b>Reporting</b></h4>
+        <table class="table table-striped table-hover table-bordered">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Total Time In Minutes</th>
+              <th scope="col">Runs</th>
+              <th scope="col">Average Time In Minutes(Total/Runs)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for name, time in statistics.reporting.items %}
+              <tr>
+                  <td>{{name}}</td>
+                  <td>{{time.total}}</td>
+                  <td>{{time.runs}}</td>
+                  <td>{{time.average}}</td>
+              </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+    </div>
+    {% endif %}
 </div>
 
 {% else %}
@@ -157,7 +157,6 @@
 
 {% if statistics.distributed_tasks %}
 <h4>Cluster details</h4>
-<div class="container">
     <div class="row">
         {% for day, block in statistics.distributed_tasks.items %}
         <div class="col-2">
@@ -171,7 +170,6 @@
         </div>
         {% endfor %}
     </div>
-</div>
 {% endif %}
 
 {% endblock %}

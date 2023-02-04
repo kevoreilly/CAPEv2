@@ -8,7 +8,6 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists
 
 repconf = Config("reporting")
 
@@ -40,7 +39,7 @@ if repconf.elasticsearchdb.enabled:
 
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
-for cfile in ("reporting", "processing", "auxiliary", "web"):
+for cfile in ["reporting", "processing", "auxiliary", "web"]:
     curconf = Config(cfile)
     confdata = curconf.get_config()
     for item in confdata:
@@ -65,6 +64,11 @@ def remove(task_id):
         else:
             analyses = []
 
+        if len(analyses) > 1:
+            message = "Multiple tasks with this ID deleted."
+        elif len(analyses) == 1:
+            message = "Task deleted."
+
         if len(analyses) > 0:
             # Delete dups too.
             for analysis in analyses:
@@ -79,7 +83,7 @@ def remove(task_id):
                     delete_analysis_and_related_calls(analysis["info"]["id"])
 
             analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
-            if path_exists(analyses_path):
+            if os.path.exists(analyses_path):
                 shutil.rmtree(analyses_path)
         else:
             print("nothing found")

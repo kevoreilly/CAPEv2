@@ -14,14 +14,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import os
+
+import requests
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.web_utils import submit_task
+from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
 
 reporting_conf = Config("reporting")
+distributed = reporting_conf.submitCAPE.distributed
+report_key = reporting_conf.submitCAPE.keyword
 
 NUMBER_OF_DEBUG_REGISTERS = 4
 bp = 0
@@ -146,12 +151,79 @@ class SubmitCAPE(Report):
         if cape_yara["name"] == "Hancitor":
             detections.add("Hancitor")
 
+    def submit_task(
+        self,
+        target,
+        package,
+        timeout,
+        task_options,
+        priority,
+        machine,
+        platform,
+        memory,
+        enforce_timeout,
+        clock,
+        tags,
+        parent_id,
+        tlp,
+    ):
+
+        db = Database()
+
+        if os.path.exists(target):
+            task_id = False
+            if distributed:
+                options = {
+                    "package": package,
+                    "timeout": timeout,
+                    "options": task_options,
+                    "priority": priority,
+                    # "machine": machine,
+                    "platform": platform,
+                    "memory": memory,
+                    "enforce_timeout": enforce_timeout,
+                    "clock": clock,
+                    "tags": tags,
+                    "parent_id": parent_id,
+                }
+                multipart_file = [("file", (os.path.basename(target), open(target, "rb")))]
+                try:
+                    res = requests.post(reporting_conf.submitCAPE.url, files=multipart_file, data=options)
+                    if res and res.ok:
+                        task_id = res.json()["data"]["task_ids"][0]
+                except Exception as e:
+                    log.error(e)
+            else:
+                task_id = db.add_path(
+                    file_path=target,
+                    package=package,
+                    timeout=timeout,
+                    options=task_options,
+                    priority=priority,  # increase priority to expedite related submission
+                    machine=machine,
+                    platform=platform,
+                    memory=memory,
+                    enforce_timeout=enforce_timeout,
+                    clock=None,
+                    tags=None,
+                    parent_id=parent_id,
+                    tlp=tlp,
+                )
+            if task_id:
+                log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)
+                return task_id
+            else:
+                log.warn("Error adding CAPE task to database: %s", package)
+        else:
+            log.info("File doesn't exist")
+
     def run(self, results):
         self.task_options_stack = []
         self.task_options = None
         self.task_custom = None
         detections = set()
         children = []
+        bp = 0
 
         # allow ban unittests
         filename = results.get("target", {}).get("file", {}).get("name", "")
@@ -164,7 +236,7 @@ class SubmitCAPE(Report):
         package = None
 
         # allow custom extractors
-        if reporting_conf.submitCAPE.keyword in results:
+        if report_key in results:
             return
 
         self.task_options = self.task["options"]
@@ -205,7 +277,7 @@ class SubmitCAPE(Report):
                 self.task_custom = f"{self.task_custom} Parent_Custom:{results['info']['custom']}"
 
             log.debug("submit_task options: %s", self.task_options)
-            task_id = submit_task(
+            task_id = self.submit_task(
                 self.task["target"],
                 self.task["package"],
                 self.task["timeout"],
@@ -219,9 +291,6 @@ class SubmitCAPE(Report):
                 None,
                 parent_id,
                 self.task["tlp"],
-                distributed=reporting_conf.submitCAPE.distributed,
-                filename=filename,
-                server_url=reporting_conf.submitCAPE.url or "",
             )
             if task_id:
                 children = []
@@ -332,3 +401,5 @@ class SubmitCAPE(Report):
 
         if children:
             results["CAPE_children"] = children
+
+        return

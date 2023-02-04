@@ -1,0 +1,23 @@
+rule:
+  meta:
+    name: hash data using SHA384
+    namespace: data-manipulation/hashing/sha384
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    references:
+      - https://www.rfc-editor.org/rfc/rfc6234
+    examples:
+      - 44d40faf3f1fe4ed969befab7afcd2f0:0x1003D970
+  features:
+    - or:
+      - and:
+        - number: 0xcbbb9d5dc1059ed8 = H(0)0
+        - number: 0x629a292a367cd507 = H(0)1
+        - number: 0x9159015a3070dd17 = H(0)2
+        - number: 0x152fecd8f70e5939 = H(0)3
+        - number: 0x67332667ffc00b31 = H(0)4
+        - number: 0x8eb44a8768581511 = H(0)5
+        - number: 0xdb0c2e0d64f98fa7 = H(0)6
+        - number: 0x47b5481dbefa4fa4 = H(0)7
+      - bytes: D8 9E 05 C1 5D 9D BB CB 07 D5 7C 36 2A 29 9A 62 17 DD 70 30 5A 01 59 91 39 59 0E F7 D8 EC 2F 15 31 0B C0 FF 67 26 33 67 11 15 58 68 87 4A B4 8E A7 8F F9 64 0D 2E 0C DB A4 4F FA BE 1D 48 B5 47 = H(0)

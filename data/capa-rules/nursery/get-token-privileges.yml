@@ -1,0 +1,16 @@
+# generated using capa explorer for IDA Pro
+rule:
+  meta:
+    name: get token privileges
+    namespace: host-interaction/session
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - and:
+      - basic block:
+        - and:
+          - api: advapi32.GetTokenInformation
+          - number: 0x3 = TokenPrivileges
+      - optional:
+        - api: advapi32.LookupPrivilegeName

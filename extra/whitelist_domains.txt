@@ -94,7 +94,6 @@ ocsp09\.actalis\.it
 ocsp1\.hongkongpost\.gov\.hk
 ocsp1\.netlock\.hu
 ocsp1\.trustisfps\.com
-ocsp\.globalsign\.com
 ocsp2\.globalsign\.com
 ocsp2\.netlock\.hu
 ocsp2\.wisekey\.com

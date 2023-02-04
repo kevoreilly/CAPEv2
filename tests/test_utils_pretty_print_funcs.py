@@ -6,7 +6,6 @@ import os
 import random
 
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_fn
-from lib.cuckoo.common.path_utils import path_delete
 
 random.seed(1338)
 
@@ -93,7 +92,7 @@ if not os.environ.get("GEN_DATA"):
     import utils_pretty_print_funcs_data as data
 else:
     try:
-        path_delete("CAPEv2/tests/utils_pretty_print_funcs_data.py")
+        os.unlink("CAPEv2/tests/utils_pretty_print_funcs_data.py")
     except Exception as e:
         print(("Error in cleanup: " + str(e)))
     gen_data_file()

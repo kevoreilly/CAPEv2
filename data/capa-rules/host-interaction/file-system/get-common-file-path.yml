@@ -1,0 +1,38 @@
+rule:
+  meta:
+    name: get common file path
+    namespace: host-interaction/file-system
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::File and Directory Discovery [T1083]
+    mbc:
+      - Discovery::File and Directory Discovery [E1083]
+    examples:
+      - Practical Malware Analysis Lab 03-02.dll_:0x10003415
+      - 972B219F18379907A045431303F4DA7D:0x404887
+  features:
+    - or:
+      - api: kernel32.GetTempPath
+      - api: kernel32.GetTempFileName
+      - api: kernel32.GetSystemDirectory
+      - api: kernel32.GetWindowsDirectory
+      - api: kernel32.GetSystemWow64Directory
+      - api: GetAllUsersProfileDirectory
+      - api: GetAppContainerFolderPath
+      - api: GetCurrentDirectory
+      - api: GetDefaultUserProfileDirectory
+      - api: GetProfilesDirectory
+      - api: GetUserProfileDirectory
+      - api: SHGetFolderPathAndSubDir
+      - api: shell32.SHGetFolderPath
+      - api: shell32.SHGetFolderLocation
+      - api: shell32.SHGetSpecialFolderPath
+      - api: shell32.SHGetSpecialFolderLocation
+      - api: System.IO.Directory::GetCurrentDirectory
+      - api: System.Environment::GetFolderPath
+      - property/read: System.Environment::SystemDirectory
+      - property/read: System.Environment::CurrentDirectory

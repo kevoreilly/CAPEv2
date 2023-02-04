@@ -11,18 +11,16 @@ import itertools
 import json
 import logging
 import math
+import os
 import struct
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from typing import Dict, List, Tuple
 
 from PIL import Image
 
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
-from lib.cuckoo.common.path_utils import path_exists, path_read_file
 
 try:
     import cryptography
@@ -54,20 +52,18 @@ try:
 except ImportError:
     import re
 
-process_cfg = Config("processing")
 
 HAVE_USERDB = False
-if process_cfg.CAPE.userdb_signature:
-    try:
-        import peutils
+try:
+    import peutils
 
-        userdb_path = Path(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
-        userdb_signatures = peutils.SignatureDatabase()
-        if userdb_path.exists():
-            userdb_signatures.load(userdb_path)
-            HAVE_USERDB = True
-    except (ImportError, AttributeError) as e:
-        print(f"Failed to initialize peutils: {e}")
+    userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
+    userdb_signatures = peutils.SignatureDatabase()
+    if os.path.exists(userdb_path):
+        userdb_signatures.load(userdb_path)
+        HAVE_USERDB = True
+except (ImportError, AttributeError) as e:
+    print(f"Failed to initialize peutils: {str(e)}")
 
 
 log = logging.getLogger(__name__)
@@ -117,10 +113,10 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
 
     try:
         # if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
-        if 0 in (
-            struct.unpack("<H", nt_headers[4:6])[0],
-            struct.unpack("<H", nt_headers[20:22])[0],
-            struct.unpack("<H", nt_headers[84:86])[0],
+        if (
+            struct.unpack("<H", nt_headers[4:6])[0] == 0
+            or struct.unpack("<H", nt_headers[20:22])[0] == 0
+            or struct.unpack("<H", nt_headers[84:86])[0] == 0
         ):
             return False
 
@@ -147,38 +143,20 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
 class PortableExecutable:
     """PE analysis."""
 
-    def __init__(self, file_path: str = False, data: bytes = False):
+    def __init__(self, file_path: str):
         """@param file_path: file path."""
-        if file_path:
-            self.file_path = file_path if isinstance(file_path, str) else file_path.decode()
+        self.file_path = file_path
         self._file_data = None
-        self.pe = None
-        self.HAVE_PE = False
-        try:
-            if data:
-                self.pe = pefile.PE(data=data)
-            else:
-                self.pe = pefile.PE(self.file_path)
-            self.HAVE_PE = True
-        except Exception as e:
-            log.error("PE type not recognised: %s", e)
+        # pe = None
         # self.results = results
 
     @property
     def file_data(self):
-        if not self._file_data and path_exists(self.file_path):
-            self._file_data = path_read_file(self.file_path)
+        if not self._file_data:
+            if os.path.exists(self.file_path):
+                with open(self.file_path, "rb") as f:
+                    self._file_data = f.read()
         return self._file_data
-
-    def is_64bit(self) -> bool:
-        """Determines if a PE is 64bit.
-        @return: True if 64bit, False if not
-        """
-        if not self.pe:
-            return None
-        if self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64:
-            return True
-        return False
 
     # Obtained from
     # https://github.com/erocarrera/pefile/blob/master/pefile.py
@@ -222,18 +200,6 @@ class PortableExecutable:
             log.error(e, exc_info=True)
 
         return None
-
-    def get_overlay_raw(self) -> int:
-        """Get information on the PE overlay
-        @return: overlay offset or None.
-        """
-        if not self.pe:
-            return None
-
-        return (
-            self.pe.sections[self.pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
-            + self.pe.sections[self.pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
-        )
 
     def get_overlay(self, pe: pefile.PE) -> dict:
         """Get information on the PE overlay
@@ -561,7 +527,7 @@ class PortableExecutable:
             if value:
                 decimal_value += 2 ** (index % 8)
             if index % 8 == 7:
-                hex_string.append(f"{hex(decimal_value):2}"[2:].rjust(2, "0"))
+                hex_string.append(hex(decimal_value)[2:].rjust(2, "0"))
                 decimal_value = 0
 
         return "".join(hex_string)
@@ -820,9 +786,11 @@ class PortableExecutable:
     def get_guest_digital_signers(self, task_id: str = False) -> dict:
         if not task_id:
             return {}
-        cert_info_path = Path(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "DigiSig.json")
-        if cert_info_path.exists():
-            cert_data = json.loads(cert_info_path.read_text())
+        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "DigiSig.json")
+
+        if os.path.exists(cert_info):
+            with open(cert_info, "r") as cert_file:
+                cert_data = json.load(cert_file)
             if cert_data:
                 return {
                     "aux_sha1": cert_data["sha1"],
@@ -836,11 +804,12 @@ class PortableExecutable:
 
     def get_dll_exports(self) -> str:
         file_type = self._get_filetype(self.file_data)
-        if HAVE_PEFILE and file_type and ("PE32" in file_type or "MS-DOS executable" in file_type) and self.HAVE_PE:
+        if HAVE_PEFILE and file_type and ("PE32" in file_type or "MS-DOS executable" in file_type):
             try:
-                if hasattr(self.pe, "DIRECTORY_ENTRY_EXPORT"):
+                pe = pefile.PE(self.file_path)
+                if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                     exports = []
-                    for exported_symbol in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
+                    for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
                         try:
                             if not exported_symbol.name:
                                 continue
@@ -857,29 +826,6 @@ class PortableExecutable:
                 log.error(e, exc_info=True)
 
         return ""
-
-    def choose_dll_export(self) -> str:
-        if not self.pe:
-            return None
-        if hasattr(self.pe, "DIRECTORY_ENTRY_EXPORT"):
-            for exp in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                try:
-                    if not exp.name:
-                        continue
-                    if exp.name.decode() in ("DllInstall", "DllRegisterServer", "xlAutoOpen"):
-                        return exp.name.decode()
-                    entry = self.pe.get_offset_from_rva(exp.address)
-                    if (
-                        self.is_64bit()
-                        and self.file_data[entry] == 0xB9
-                        and self.file_data[entry + 5] in (0xE8, 0xE9)
-                        or self.file_data[entry + 4] == 0xB9
-                        and self.file_data[entry + 9] in (0xE8, 0xE9)
-                    ):
-                        return exp.name.decode()
-                except Exception as e:
-                    log.error(e, exc_info=True)
-        return None
 
     def get_entrypoint(self, pe: pefile.PE) -> str:
         """Get entry point (PE).
@@ -913,49 +859,52 @@ class PortableExecutable:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not path_exists(self.file_path):
+        if not os.path.exists(self.file_path):
             log.debug("File doesn't exist anymore")
             return {}
 
         # Advanced check if is real PE
-        contents = path_read_file(self.file_path)
+        with open(self.file_path, "rb") as f:
+            contents = f.read()
         if not IsPEImage(contents):
             return {}
 
-        if not self.HAVE_PE:
+        try:
+            pe = pefile.PE(self.file_path)
+        except Exception as e:
+            log.error("PE type not recognised: %s", e)
             return {}
-
         peresults = {
             "guest_signers": self.get_guest_digital_signers(task_id),
-            "digital_signers": self.get_digital_signers(self.pe),
-            "imagebase": self.get_imagebase(self.pe),
-            "entrypoint": self.get_entrypoint(self.pe),
-            "ep_bytes": self.get_ep_bytes(self.pe),
-            "peid_signatures": self.get_peid_signatures(self.pe),
-            "reported_checksum": self.get_reported_checksum(self.pe),
-            "actual_checksum": self.get_actual_checksum(self.pe),
-            "osversion": self.get_osversion(self.pe),
-            "pdbpath": self.get_pdb_path(self.pe),
-            "imports": self.get_imported_symbols(self.pe),
-            "exported_dll_name": self.get_exported_dll_name(self.pe),
-            "exports": self.get_exported_symbols(self.pe),
-            "dirents": self.get_directory_entries(self.pe),
-            "sections": self.get_sections(self.pe),
-            "overlay": self.get_overlay(self.pe),
-            "resources": self.get_resources(self.pe),
-            "versioninfo": self.get_versioninfo(self.pe),
-            "imphash": self.get_imphash(self.pe),
-            "timestamp": self.get_timestamp(self.pe),
+            "digital_signers": self.get_digital_signers(pe),
+            "imagebase": self.get_imagebase(pe),
+            "entrypoint": self.get_entrypoint(pe),
+            "ep_bytes": self.get_ep_bytes(pe),
+            "peid_signatures": self.get_peid_signatures(pe),
+            "reported_checksum": self.get_reported_checksum(pe),
+            "actual_checksum": self.get_actual_checksum(pe),
+            "osversion": self.get_osversion(pe),
+            "pdbpath": self.get_pdb_path(pe),
+            "imports": self.get_imported_symbols(pe),
+            "exported_dll_name": self.get_exported_dll_name(pe),
+            "exports": self.get_exported_symbols(pe),
+            "dirents": self.get_directory_entries(pe),
+            "sections": self.get_sections(pe),
+            "overlay": self.get_overlay(pe),
+            "resources": self.get_resources(pe),
+            "versioninfo": self.get_versioninfo(pe),
+            "imphash": self.get_imphash(pe),
+            "timestamp": self.get_timestamp(pe),
         }
         (
             peresults["icon"],
             peresults["icon_hash"],
             peresults["icon_fuzzy"],
             peresults["icon_dhash"],
-        ) = self.get_icon_info(self.pe)
+        ) = self.get_icon_info(pe)
 
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len(peresults["imports"])
 
-        self.pe.close()
+        pe.close()
         return peresults

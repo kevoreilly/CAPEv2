@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: modify service
+    namespace: host-interaction/service/modify
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Persistence::Create or Modify System Process::Windows Service [T1543.003]
+      - Execution::System Services::Service Execution [T1569.002]
+    examples:
+      - 7D16EFD0078F22C17A4BD78B0F0CC468:0x401000
+  features:
+    - and:
+      - optional:
+        - match: get service handle
+      - or:
+        - api: advapi32.ChangeServiceConfig
+        - api: advapi32.ChangeServiceConfig2

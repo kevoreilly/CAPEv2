@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: reference Base64 string
+    namespace: data-manipulation/encoding/base64
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: file
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Data::Encode Data::Base64 [C0026.001]
+      - Data::Check String [C0019]
+    examples:
+      - BFB9B5391A13D0AFD787E87AB90F14F5
+      - 074072B261FC27B65C72671F13510C05
+      - 5DB2D2BE20D59AA0BE6709A6850F1775
+  features:
+    - string: /ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/

@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: create TCP socket
+    namespace: communication/socket/tcp
+    authors:
+      - william.ballenthin@mandiant.com
+      - joakim@intezer.com
+      - anushka.virgaonkar@mandiant.com
+    scope: basic block
+    mbc:
+      - Communication::Socket Communication::Create TCP Socket [C0001.011]
+    examples:
+      - Practical Malware Analysis Lab 01-01.dll_:0x10001010
+  features:
+    - or:
+      - and:
+        - number: 6 = IPPROTO_TCP
+        - number: 1 = SOCK_STREAM
+        - number: 2 = AF_INET
+        - or:
+          - api: ws2_32.socket
+          - api: ws2_32.WSASocket
+          - api: socket
+      - property/read: System.Net.Sockets.TcpClient::Client

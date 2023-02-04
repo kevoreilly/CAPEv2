@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: contain anti-disasm techniques
+    namespace: anti-analysis/anti-disasm
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: file
+    mbc:
+      - Anti-Static Analysis::Disassembler Evasion [B0012]
+    examples:
+      - a5c70086b3bc4fe64f4e7a0aa452e620
+  features:
+    - or:
+      - count(match(contain pusha popa sequence)): 10 or more

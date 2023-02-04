@@ -1,0 +1,29 @@
+rule:
+  meta:
+    name: get process heap flags
+    namespace: host-interaction/process
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    att&ck:
+      - Discovery::Process Discovery [T1057]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/bed03d2f849d9060c68f8d5905bd204d0cb3f593/al-khaser/AntiDebug/ProcessHeap_Flags.cpp#L13
+    examples:
+      - al-khaser_x86.exe_:0x425470
+  features:
+    - and:
+      - match: PEB access
+      - or:
+        - and:
+          - arch: i386
+          - number: 0x18 = PEB->ProcessHeap
+          - or:
+            - number: 0x40 = ProcessHeap->HeapFlags >= Vista
+            - number: 0xC = ProcessHeap->HeapFlags < Vista
+        - and:
+          - arch: amd64
+          - number: 0x30 = PEB->ProcessHeap
+          - or:
+            - number: 0x70 = ProcessHeap->HeapFlags >= Vista
+            - number: 0x14 = ProcessHeap->HeapFlags < Vista

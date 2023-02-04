@@ -1,0 +1,78 @@
+rule:
+  meta:
+    name: match known PlugX module
+    namespace: malware-family/plugx
+    maec/malware-family: PlugX
+    authors:
+      - still@teamt5.org
+    description: the sample references known PlugX watermarks (hexified YYYYMMDD + command opcode)
+    scope: function
+    references:
+      - https://circl.lu/assets/files/tr-12/tr-12-circl-plugx-analysis-v1.pdf
+      - https://www.fireeye.com/blog/threat-research/2014/07/pacific-ring-of-fire-plugx-kaba.html
+      - https://www.avira.com/en/blog/new-wave-of-plugx-targets-hong-kong
+    examples:
+      - 64E9F62840DB2F65FC717CFAF99081F9:0x10024950
+  features:
+    - and:
+      - or:
+        - description: module timestamp
+        - number: 0x20120225
+        - number: 0x20120324
+        - number: 0x20121107
+        - number: 0x20190301
+        - number: 0x20190520
+        - number: 0x20200208
+        - number: 0x88888888 # scrubbed timestamp
+      - or:
+        - number: 0x1001 = get system information
+        - number: 0x1002 = start pipe comms
+        - number: 0x1003 = echo input
+        - number: 0x1005 = restart self
+        - number: 0x2000 = lock workstation
+        - number: 0x2001 = shutdown workstation (forced)
+        - number: 0x2002 = reboot workstation
+        - number: 0x2003 = shutdown workstation (graceful)
+        - number: 0x2005 = show messagebox
+        - number: 0x3000 = get disk information
+        - number: 0x3001 = search directory for files
+        - number: 0x3004 = read file
+        - number: 0x3007 = write file
+        - number: 0x300A = create directory
+        - number: 0x300B = check if file exists
+        - number: 0x300C = create a new Windows desktop
+        - number: 0x300D = PerformSH_FileOperation
+        - number: 0x300E = ExpandEnvironmentVariable
+        - number: 0x300F = get current PlugX module directory
+        - number: 0x4000 = create remote desktop thread
+        - number: 0x4004 = send mouse event
+        - number: 0x4005 = send keyboard event
+        - number: 0x4006 = send CTRL-Alt-Delete
+        - number: 0x4100 = take screenshot
+        - number: 0x5000 = create process
+        - number: 0x5001 = enumerate processes
+        - number: 0x5002 = kill process
+        - number: 0x6000 = query service config
+        - number: 0x6001 = change service config (forced)
+        - number: 0x6002 = start service
+        - number: 0x6003 = control service
+        - number: 0x6004 = delete service
+        - number: 0x7002 = create remote shell
+        - number: 0x7100 = create telnet server
+        - number: 0x9000 = enumerate registry keys
+        - number: 0x9001 = create registry key
+        - number: 0x9002 = delete registry key
+        - number: 0x9003 = copy registry key
+        - number: 0x9004 = enumerate registry values
+        - number: 0x9005 = set registry value
+        - number: 0x9006 = delete registry value
+        - number: 0x9007 = get registry value
+        - number: 0xA000 = enumerate network resources
+        - number: 0xB000 = start port mapping
+        - number: 0xC000 = get sql data source information
+        - number: 0xC001 = get sql driver description
+        - number: 0xC002 = execute sql statement
+        - number: 0xD000 = get TCP table
+        - number: 0xD001 = get UDP table
+        - number: 0xD002 = set TCP entry
+        - number: 0xE000 = start keylogger thread

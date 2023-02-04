@@ -1,0 +1,82 @@
+rule:
+  meta:
+    name: create TCP socket via raw AFD driver
+    namespace: communication/socket/tcp
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    mbc:
+      - Communication::Socket Communication::Create TCP Socket [C0001.011]
+    references:
+      - https://www.x86matthew.com/view_post?id=ntsockets
+    examples:
+      - 0fd8330e00aa48676d6d0c4f36e9a80b:0x1400132B0
+      # FLIRT FP: ?DERReencode@CryptoPP@@YAXAEAVBufferedTransformation@1@0@Z
+      # - 59a6c5036241a2f604e755bf523eb084:0x1400010D0
+  features:
+    - and:
+      # wanted, but the routine is resolved via GetProcAddress into a global
+      # - api: ntdll.NtCreateFile
+
+      - api: kernel32.CreateEvent
+      - string: "\\Device\\Afd\\Endpoint"
+      - or:
+        - description: a hardcoded byte array that provides the socket details to the AFD driver via "extended attributes".
+
+        # the raw byte sequence
+        - bytes: 00 00 00 00 00 0F 1E 00 41 66 64 4F 70 65 6E 50 61 63 6B 65 74 58 58 00 00 00 00 00 00 00 00 00 02 00 00 00 01 00 00 00 06 00 00 00 00 00 00 00 00 00 00 00 60 EF 3D 47 FE = bExtendedAttributes for IPv4 TCP
+
+        # in the example code, in debug mode, the array is constructed bytewise on the stack
+        - basic block:
+          - and:
+            - description: bExtendedAttributes for IPv4 TCP on stack, bytewise
+            # i've kept the values approximately in order while removing some duplicates for clarity
+            - number: 0x00
+            - number: 0x0F
+            - number: 0x1E
+            - number: 0x41 = A
+            - number: 0x66 = f
+            - number: 0x64 = d
+            - number: 0x4F = O
+            - number: 0x70 = p
+            - number: 0x65 = e
+            - number: 0x6E = n
+            - number: 0x50 = P
+            - number: 0x61 = a
+            - number: 0x63 = c
+            - number: 0x6B = k
+            - number: 0x65 = e
+            - number: 0x74 = t
+            - number: 0x58 = X
+            - number: 0x02
+            - number: 0x01
+            - number: 0x06
+            - number: 0x00
+            - number: 0x60
+            - number: 0xEF
+            - number: 0x3D
+            - number: 0x47
+            - number: 0xFE
+
+        # in the example code, in release mode, the array is constructed word-wise on the stack
+        - basic block:
+          - and:
+            - description: bExtendedAttributes for IPv4 TCP on stack, wordwise
+            - number: 0x1E0F00 = bExtendedAttributes+0x4
+            - number: 0x4F646641 = AfdO
+            - number: 0x506E6570 = penP
+            - number: 0x656B6361 = acke
+            - number: 0x585874 = tXx
+            - number: 6 = IPPROTO_TCP
+            - number: 1 = SOCK_STREAM
+            - number: 2 = AF_INET
+            - number: 0x473DEF60 = bExtendedAttributes+0x34
+            - number: 0x0FE = bExtendedAttributes+0x38
+      - optional:
+        - api: NtCreateFile
+        - api: NtDeviceIoControlFile
+        - api: kernel32.WaitForSingleObject
+        - number: 0x12003 = IOCTL_AFD_BIND
+        - number: 0x12007 = IOCTL_AFD_CONNECT
+        - number: 0x12017 = IOCTL_AFD_RECV
+        - number: 0x1201F = IOCTL_AFD_SEND

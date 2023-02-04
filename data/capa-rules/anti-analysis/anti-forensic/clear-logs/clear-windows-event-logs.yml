@@ -1,0 +1,26 @@
+rule:
+  meta:
+    name: clear Windows event logs
+    namespace: anti-analysis/anti-forensic/clear-logs
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Indicator Removal::Clear Windows Event Logs [T1070.001]
+    examples:
+      - 82BF6347ACF15E5D883715DC289D8A2B:0x14005E0C0
+      - mimikatz.exe_:0x45228B
+  features:
+    - and:
+      - os: windows
+      - or:
+        - and:
+          - or:
+            - api: advapi32.ElfClearEventLogFile
+            - api: advapi32.ClearEventLog
+          - optional:
+            - api: advapi32.OpenEventLog
+            - api: advapi32.GetNumberOfEventLogRecords
+        - basic block:
+          - and:
+            - string: /wevtutil(\.exe)?\s+(clear-log|cl)/i

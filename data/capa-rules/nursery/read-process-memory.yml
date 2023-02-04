@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: read process memory
+    namespace: host-interaction/process
+    authors:
+      - matthew.williams@mandiant.com
+      - "@_re_fox"
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - and:
+      - api: kernel32.ReadProcessMemory
+      - api: kernel32.Toolhelp32ReadProcessMemory
+      - optional:
+        - or:
+          - api: kernel32.OpenProcess
+          - api: kernel32.VirtualQueryEx
+          - api: psapi.QueryWorkingSet

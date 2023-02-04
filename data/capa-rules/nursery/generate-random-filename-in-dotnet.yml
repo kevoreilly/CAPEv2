@@ -1,0 +1,11 @@
+rule:
+  meta:
+    name: generate random filename in .NET
+    namespace: host-interaction/file-system
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - or:
+      - api: System.IO.Path::GetRandomFileName
+      - api: System.IO.Path::GetTempFileName

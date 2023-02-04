@@ -88,8 +88,17 @@ $(function() {
         {% if analysis.procmemory %}
             <li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procmemory/" data-toggle="tab" >Process Memory ({{analysis.procmemory}})</a></li>
         {% endif %}
+        {% if analysis.befmemory %}
+            <li class="nav-item"><a class="nav-link" href="#befmemory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/befmemory/" data-toggle="tab">Memory Before Analysis</a></li>
+        {% endif %}
+        {% if analysis.midmemory %}
+        <li class="nav-item"><a class="nav-link" href="#midmemory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/midmemory/" data-toggle="tab">Memory During Analysis (1)</a></li>
+        {% endif %}
+        {% if analysis.midmemory2 %}
+        <li class="nav-item"><a class="nav-link" href="#midmemory2" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/midmemory2/" data-toggle="tab">Memory During Analysis (2)</a></li>
+        {% endif %}
         {% if analysis.memory %}
-            <li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/memory/" data-toggle="tab">Memory Analysis</a></li>
+            <li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/memory/" data-toggle="tab">Memory After Analysis</a></li>
         {% endif %}
         {% if analysis.procdump %}
             <li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procdump/">Process Dumps ({{analysis.procdump}})</a></li>
@@ -113,7 +122,7 @@ $(function() {
     {% endif %}
     {% if analysis.backscatter %}<li class="nav-item"><a class="nav-link" href="#backscatter" data-toggle="tab">Backscatter</a></li>{% endif %}
     {% if analysis.classification%}<li class="nav-item"><a class="nav-link" href="#classification" data-toggle="tab">Classification</a> </li>{% endif %}
-     {% if analysis.info.category == "file" and analysis.target %}<li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></li>{% endif %}
+     {% if analysis.info.category == "file" and analysis.target %}<li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare Analysis</a></li>{% endif %}
     {% if settings.ADMIN or user.is_staff %}<li class="nav-item"><a class="nav-link" href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
 </ul>
 <div class="tab-content">
@@ -139,6 +148,21 @@ $(function() {
     <div class="tab-pane fade" id="procmemory">
         {% include "analysis/procmemory/index.html" %}
     </div>
+    {% endif %}
+    {% if analysis.befmemory %}
+        <div class="tab-pane fade" id="befmemory">
+            {% include "analysis/befmemory/index.html" %}
+        </div>
+    {% endif %}
+    {% if analysis.midmemory %}
+        <div class="tab-pane fade" id="midmemory">
+            {% include "analysis/midmemory/index.html" %}
+        </div>
+    {% endif %}
+    {% if analysis.midmemory2 %}
+        <div class="tab-pane fade" id="midmemory2">
+            {% include "analysis/midmemory2/index.html" %}
+        </div>
     {% endif %}
     {% if analysis.memory %}
         <div class="tab-pane fade" id="memory">

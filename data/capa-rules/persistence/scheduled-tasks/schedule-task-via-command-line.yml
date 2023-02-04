@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: schedule task via command line
+    namespace: persistence/scheduled-tasks
+    authors:
+      - 0x534a@mailbox.org
+    scope: function
+    att&ck:
+      - Persistence::Scheduled Task/Job::Scheduled Task [T1053.005]
+    examples:
+      - 79cde1aa711e321b4939805d27e160be:0x401440
+  features:
+    - and:
+      - match: host-interaction/process/create
+      - or:
+        - and:
+          - string: /schtasks/i
+          - string: /\/create /i
+        - string: /Register-ScheduledTask /i

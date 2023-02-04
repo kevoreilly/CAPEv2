@@ -3,9 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
+import os
 import pathlib
 
 import pytest
+from bson.binary import Binary
 
 from lib.cuckoo.common.netlog import BsonParser
 
@@ -54,5 +56,5 @@ class TestBsonParser:
             1976,
             476,
             b"C:\\Windows\\sysnative\\lsass.exe",
-            "lsass.exe",
+            b"lsass.exe",
         )

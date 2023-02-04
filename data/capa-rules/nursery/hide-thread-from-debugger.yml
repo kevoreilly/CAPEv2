@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: hide thread from debugger
+    namespace: anti-analysis/anti-debugging
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiDebug/NtSetInformationThread_ThreadHideFromDebugger.cpp
+  features:
+    - and:
+      - api: NtSetInformationThread
+      - number: 0x11 = ThreadHideFromDebugger

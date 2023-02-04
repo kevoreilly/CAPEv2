@@ -1,14 +1,23 @@
+import os
+from gettext import install
+
+
 def ver_52(data):
     config_parts = data.split("!!<3SAFIA<3!!")
+    config = {
+        "family": "SmallNet",
+        "category": ["rat"],
+        "version": "5.2",
+        "tcp": [
+            {"server_domain": config_parts[1], "server_port": config_parts[2]},
+            {"server_domain": config_parts[5], "usage": "c2"},  # Install Server
+        ],
+        "registry": [{"key": config_parts[8]}],
+    }
     config_dict = {
-        "Domain": config_parts[1],
-        "Port": config_parts[2],
-        "Disbale Registry": config_parts[3],
-        "Disbale TaskManager": config_parts[4],
-        "Install Server": config_parts[5],
-        "Registry Key": config_parts[8],
-        "Install Name": config_parts[9],
-        "Disbale UAC": config_parts[10],
+        "Disable Registry": config_parts[3],
+        "Disable TaskManager": config_parts[4],
+        "Disable UAC": config_parts[10],
         "Anti-Sandboxie": config_parts[13],
         "Anti-Anubis": config_parts[14],
         "Anti-VirtualBox": config_parts[15],
@@ -21,7 +30,7 @@ def ver_52(data):
         "MSN Spread": config_parts[22],
         "Yahoo Spread": config_parts[23],
         "LAN Spread": config_parts[24],
-        "Disbale Firewall": config_parts[25],
+        "Disable Firewall": config_parts[25],
         "Delay Execution MiliSeconds": config_parts[26],
         "Attribute Read Only": config_parts[27],
         "Attribute System File": config_parts[28],
@@ -46,28 +55,37 @@ def ver_52(data):
         "MessageBox Title": config_parts[47],
     }
 
+    install_path = config_parts[9]
     if config_parts[6] == 1:
-        config_dict["Install Path"] = "Temp"
+        install_path = os.path.join("Temp", config_parts[9])
     if config_parts[7] == 1:
-        config_dict["Install Path"] = "Windows"
+        install_path = os.path.join("Windows", config_parts[9])
     if config_parts[11] == 1:
-        config_dict["Install Path"] = "System32"
+        install_path = os.path.join("System32", config_parts[9])
     if config_parts[12] == 1:
-        config_dict["Install Path"] = "Program Files"
-    return config_dict
+        install_path = os.path.join("Program Files", config_parts[9])
+
+    config["paths"] = [{"path": install_path, "usage": "install"}]
+    config["other"] = config_dict  # Placing in other for now
+    return config
 
 
 def ver_5(data):
     config_parts = data.split("!!ElMattadorDz!!")
+    config = {
+        "family": "SmallNet",
+        "category": ["rat"],
+        "version": "5",
+        "tcp": [
+            {"server_domain": config_parts[1], "server_port": config_parts[2]},
+            {"server_domain": config_parts[5], "usage": "c2"},  # Install Server
+        ],
+        "registry": [{"key": config_parts[8]}],
+    }
     config_dict = {
-        "Domain": config_parts[1],
-        "Port": config_parts[2],
         "Disable Registry": config_parts[3],
-        "Disbale TaskManager": config_parts[4],
-        "Install Server": config_parts[5],
-        "Registry Key": config_parts[8],
-        "Install Name": config_parts[9],
-        "Disbale UAC": config_parts[10],
+        "Disable TaskManager": config_parts[4],
+        "Disable UAC": config_parts[10],
         "Anti-Sandboxie": config_parts[13],
         "Anti-Anubis": config_parts[14],
         "Anti-VirtualBox": config_parts[15],
@@ -80,22 +98,32 @@ def ver_5(data):
         "MSN Spread": config_parts[22],
         "Yahoo Spread": config_parts[23],
         "LAN Spread": config_parts[24],
-        "Disbale Firewall": config_parts[25],
+        "Disable Firewall": config_parts[25],
         "Delay Execution MiliSeconds": config_parts[26],
     }
 
+    install_path = config_parts[9]
     if config_parts[6] == 1:
-        config_dict["Install Path"] = "Temp"
+        install_path = os.path.join("Temp", config_parts[9])
     if config_parts[7] == 1:
-        config_dict["Install Path"] = "Windows"
+        install_path = os.path.join("Windows", config_parts[9])
     if config_parts[11] == 1:
-        config_dict["Install Path"] = "System32"
+        install_path = os.path.join("System32", config_parts[9])
     if config_parts[12] == 1:
-        config_dict["Install Path"] = "Program Files"
-    return [config_dict, [config_dict["Domain"]]]
+        install_path = os.path.join("Program Files", config_parts[9])
+    config["paths"] = [{"path": install_path, "usage": "install"}]
+    config["other"] = config_dict  # Placing in other for now
+
+    return config
 
 
 def extract_config(data):
+    try:
+        if isinstance(data, bytes):
+            data = data.decode()
+    except:
+        return
+
     if "!!<3SAFIA<3!!" in data:
         return ver_52(data)
 

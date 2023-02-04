@@ -1,0 +1,19 @@
+rule:
+  meta:
+    name: generate random numbers in .NET
+    namespace: data-manipulation/prng
+    authors:
+      - anushka.virgaonkar@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Cryptography::Generate Pseudo-random Sequence::Use API [C0021.003]
+  features:
+    - or:
+      - api: System.Random::Next
+      - api: System.Random::NextBytes
+      - api: System.Random::NextDouble
+      - api: System.Random::NextIn64
+      - api: System.Random::NextSingle
+      - api: System.Random::Sample
+      - api: System.Security.Cryptography.RandomNumberGenerator::GetInt32

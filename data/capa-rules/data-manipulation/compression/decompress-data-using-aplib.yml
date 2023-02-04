@@ -1,0 +1,43 @@
+rule:
+  meta:
+    name: decompress data using aPLib
+    namespace: data-manipulation/compression
+    authors:
+      - "@r3c0nst (Frank Boldewin)"
+      - moritz.raabe@mandiant.com
+      - cdong49@gatech.edu
+    description: detects decompression function of library aPLib
+    scope: function
+    mbc:
+      - Data::Decompress Data::aPLib [C0025.003]
+    references:
+      - https://ibsensoftware.com/files/aPLib-1.1.1.zip
+    examples:
+      - DAA13AE302FE8B618DDBF590537443EF:0x419F50
+      - B43FCA5283BFC7022553EFF663683834:0x424
+      - 757139E76FAE876AE50DD2C3AC11D5D8:0x413074
+  features:
+    - and:
+      - description: aP_depack
+      - match: contain loop
+      - instruction:
+        - description: line 138, if (offs >= 32000)
+        - mnemonic: cmp
+        - number: 32000
+      - instruction:
+        - description: line 144, if (offs < 128)
+        - mnemonic: cmp
+        - or:
+          - number: 127
+          - number: 128
+      - instruction:
+        - description: line 133, offs <<= 8;
+        - mnemonic: shl
+        - number: 8
+      - instruction:
+        - description: line 96, offs >>= 1;
+        - mnemonic: shr
+        - number: 1
+      - optional:
+        - count(characteristic(calls from)): 2 or more
+          description: calls aP_getbit and aP_getgamma

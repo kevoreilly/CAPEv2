@@ -1,0 +1,28 @@
+rule:
+  meta:
+    name: execute shell command and capture output
+    namespace: c2/shell
+    authors:
+      - matthew.williams@mandiant.com
+    scope: function
+    att&ck:
+      - Execution::Command and Scripting Interpreter::Windows Command Shell [T1059.003]
+    references:
+      - https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-startupinfoa
+    examples:
+      - Practical Malware Analysis Lab 14-02.exe_:0x4011C0
+  features:
+    - and:
+      - match: create a process with modified I/O handles and window
+      - match: create pipe
+      - or:
+        - match: get COMSPEC environment variable
+        - string: "\\cmd.exe"
+        - string: "cmd.exe"
+        - string: "cmd.exe /c "
+        - string: "C:\\Windows\\system32\\cmd.exe"
+      - optional:
+        - api: kernel32.GetSystemDirectory
+        - api: kernel32.SetCurrentDirectory
+        - match: create thread
+        - match: read pipe

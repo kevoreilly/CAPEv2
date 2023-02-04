@@ -30,7 +30,8 @@ $(function () {
             <p><b>There is no other analysis for the same file.</b></p>
         {% endif %}
 
-        <p>If you want to compare the analysis to a different file, please provide the MD5 hash:</p>
+        <!-- #Added: Modified provide MD5 hash to provide analysis ID -->
+        <p>If you want to compare the analysis to a different file, please provide the ID of that analysis:</p>
         <form class="form-inline" action="#" id="hash">
             <input class="form-control" type="text" name="hash" /> <button type="submit" class="btn btn-secondary btn-small">Search</button>
         </form>

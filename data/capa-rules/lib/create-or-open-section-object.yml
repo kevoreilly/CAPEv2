@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: create or open section object
+    authors:
+      - william.ballenthin@mandiant.com
+    lib: true
+    scope: function
+    examples:
+      - daa13ae302fe8b618ddbf590537443ef:0x401116
+  features:
+    - and:
+      - os: windows
+      - or:
+        - api: NtCreateSection
+        - api: ZwCreateSection
+        - api: NtOpenSection
+        - api: ZwOpenSection

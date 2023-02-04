@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: run PowerShell expression
+    namespace: load-code/powershell/
+    authors:
+      - anamaria.martinezgom@mandiant.com
+    scope: function
+    att&ck:
+      - Execution::Command and Scripting Interpreter::PowerShell [T1059.001]
+    mbc:
+      - Execution::Command and Scripting Interpreter [E1059]
+    examples:
+      - 692f7fd6d198e804d6af98eb9e390d61:0x6000004
+  features:
+    - and:
+      - or:
+        - string: / iex\(/i
+        - string: / iex /i
+        - string: /Invoke-Expression/i
+        - api: System.Management.Automation.PowerShell::Create
+        - api: System.Management.Automation.PowerShell::AddScript
+        - api: System.Management.Automation.PowerShell::Invoke
+      - optional:
+        - substring: "powershell.exe "

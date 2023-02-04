@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: packed with CCG
+    namespace: anti-analysis/packer/ccg
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: file
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information::Software Packing [T1027.002]
+    mbc:
+      - Anti-Static Analysis::Software Packing [F0001]
+    references:
+      - https://www.hexacorn.com/blog/2016/12/15/pe-section-names-re-visited/
+  features:
+    - or:
+      - section: .ccg

@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: delete service
+    namespace: host-interaction/service/delete
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Persistence::Create or Modify System Process::Windows Service [T1543.003]
+    examples:
+      - E544A4D616B60147D9774B48C2B65EF2:0x402140
+      - Practical Malware Analysis Lab 03-02.dll_:0x10004B18
+  features:
+    - and:
+      - optional:
+        - match: get service handle
+      - api: advapi32.DeleteService

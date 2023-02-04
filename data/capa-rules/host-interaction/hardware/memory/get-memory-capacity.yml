@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: get memory capacity
+    namespace: host-interaction/hardware/memory
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Information Discovery [T1082]
+    examples:
+      - 9324D1A8AE37A36AE560C37448C9705A:0x4052A0
+  features:
+    - or:
+      - api: kernel32.GlobalMemoryStatus
+      - api: kernel32.GlobalMemoryStatusEx
+        # TODO kernel32.GetSystemInfo with offset

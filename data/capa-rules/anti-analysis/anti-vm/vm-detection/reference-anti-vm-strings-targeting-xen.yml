@@ -1,0 +1,22 @@
+rule:
+  meta:
+    name: reference anti-VM strings targeting Xen
+    namespace: anti-analysis/anti-vm/vm-detection
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: file
+    att&ck:
+      - Defense Evasion::Virtualization/Sandbox Evasion::System Checks [T1497.001]
+    mbc:
+      - Anti-Behavioral Analysis::Virtual Machine Detection [B0009]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiVM/Xen.cpp
+    examples:
+      - al-khaser_x86.exe_
+  features:
+    - or:
+      - string: /^Xen/i
+      - string: /XenVMMXenVMM/i
+      - string: /xenservice.exe/i
+      - string: /XenVMMXenVMM/i
+      - string: /HVM domU/i

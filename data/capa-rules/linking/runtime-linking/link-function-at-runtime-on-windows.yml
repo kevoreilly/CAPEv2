@@ -1,0 +1,25 @@
+rule:
+  meta:
+    name: link function at runtime on Windows
+    namespace: linking/runtime-linking
+    authors:
+      - moritz.raabe@mandiant.com
+    scope: function
+    att&ck:
+      - Execution::Shared Modules [T1129]
+    examples:
+      - 9324D1A8AE37A36AE560C37448C9705A:0x404130
+      - Practical Malware Analysis Lab 01-04.exe_:0x401350
+  features:
+    - and:
+      - os: windows
+      - or:
+        - api: kernel32.LoadLibrary
+        - api: kernel32.GetModuleHandle
+        - api: kernel32.GetModuleHandleEx
+        - api: ntdll.LdrLoadDll
+      - or:
+        - api: kernel32.GetProcAddress
+        - api: ntdll.LdrGetProcedureAddress
+      - optional:
+        - characteristic: indirect call

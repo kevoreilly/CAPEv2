@@ -1,0 +1,36 @@
+rule:
+  meta:
+    name: hash data using SHA1
+    namespace: data-manipulation/hashing/sha1
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+      - william.ballenthin@mandiant.com
+    scope: function
+    mbc:
+      - Cryptography::Cryptographic Hash::SHA1 [C0029.002]
+    examples:
+      - D063B1804E8D2BB26BD2E097141C1BBC:0x4344D0
+      - 91B08896FBDA9EDB8B6F93A6BC811EC6:0x180004878
+  features:
+    - or:
+      - and:
+        - description: Magic initialization constants used in SHA1
+        - number: 0x67452301 = A, also used by MD5
+        - number: 0xEFCDAB89 = B, also used by MD5
+        - number: 0x98BADCFE = C, also used by MD5
+        - number: 0x10325476 = D, also used by MD5
+        - number: 0xC3D2E1F0 = specific to SHA1, not MD4 nor MD5
+      - and:
+        - number: 0x5A827999 = K(t) (0 <= t <= 19)
+        - number: 0x6ED9EBA1 = K(t) (20 <= t <= 39)
+        - number: 0x8F1BBCDC = K(t) (40 <= t <= 59)
+        - number: 0xCA62C1D6 = K(t) (60 <= t <= 79)
+      - basic block:
+        - and:
+          - number: 0x8004 = CALG_SHA1
+          - api: advapi32.CryptCreateHash
+      - and:
+        - api: System.Security.Cryptography.SHA1Managed::ctor
+        - optional:
+          - api: System.Security.Cryptography.HashAlgorithm::ComputeHash

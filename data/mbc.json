@@ -1,0 +1,1010 @@
+{
+    "B0001": {
+        "long": "Malware detects whether it's being executed inside a debugger. If so, conditional execution selects a benign execution path.",
+        "short": "Debugger Detection"
+    },
+    "B0001.001": {
+        "long": "Module bounds based .",
+        "short": "API Hook Detection"
+    },
+    "B0001.002": {
+        "long": "The kernel32!CheckRemoteDebuggerPresent function calls NtQueryInformationProcess with ProcessInformationClass parameter set to 7 (ProcessDebugPort constant).",
+        "short": "CheckRemoteDebuggerPresent"
+    },
+    "B0001.003": {
+        "long": "(NtClose); If an invalid handle is passed to the CloseHandle function and a debugger is present, then an EXCEPTION_INVALID_HANDLE (0xC0000008) exception will be raised.",
+        "short": "CloseHandle"
+    },
+    "B0001.004": {
+        "long": "Malware may detect a debugger by its artifact (window title, device driver, exports, etc.).",
+        "short": "Debugger Artifacts"
+    },
+    "B0001.005": {
+        "long": "(SEH/GetThreadContext); Debug registers will indicate the presence of a debugger. See  for details.",
+        "short": "Hardware Breakpoints"
+    },
+    "B0001.006": {
+        "long": "If int 0x2d is mishandled by the debugger, it can cause a single-byte instruction to be inadvertently skipped, which can be detected by malware.",
+        "short": "Interrupt 0x2d"
+    },
+    "B0001.007": {
+        "long": "",
+        "short": "Interrupt 1"
+    },
+    "B0001.008": {
+        "long": "The kernel32!IsDebuggerPresent API function call checks the PEB BeingDebugged flag to see if the calling process is being debugged. It returns 1 if the process is being debugged, 0 otherwise. This is one of the most common ways of debugger detection.",
+        "short": "IsDebuggerPresent"
+    },
+    "B0001.009": {
+        "long": "(PAGE_GUARD); Guard pages trigger an exception the first time they are accessed and can be used to detect a debugger. See  for details.",
+        "short": "Memory Breakpoints"
+    },
+    "B0001.010": {
+        "long": "",
+        "short": "Memory Write Watching"
+    },
+    "B0001.011": {
+        "long": "Malware may spawn a monitoring thread to detect tampering, breakpoints, etc.",
+        "short": "Monitoring Thread"
+    },
+    "B0001.012": {
+        "long": "Calling NtQueryInformationProcess with its ProcessInformationClass parameter set to 0x07 (ProcessDebugPort constant) will cause the system to set ProcessInformation to -1 if the process is being debugged. Calling with ProcessInformationClass set to 0x0E (ProcessDebugFlags) or 0x11 (ProcessDebugObject) are used similarly. Testing \"ProcessDebugPort\" is equivalent to using the kernel32!CheckRemoteDebuggerPresent API call (see next method).",
+        "short": "NtQueryInformationProcess"
+    },
+    "B0001.013": {
+        "long": "The ObjectTypeInformation and ObjectAllTypesInformation flags are checked for debugger detection.",
+        "short": "NtQueryObject"
+    },
+    "B0001.014": {
+        "long": "Calling this API with a fake class length or thread handle can indicate whether it is hooked. After calling NtSetInformationThread properly, the HideThreadFromDebugger flag is checked with the NtQueryInformationThread API.",
+        "short": "NtSetInformationThread"
+    },
+    "B0001.015": {
+        "long": "",
+        "short": "NtYieldExecution/SwitchToThread"
+    },
+    "B0001.016": {
+        "long": "(GetLastError); The OutputDebugString function will demonstrate different behavior depending whether or not a debugger is present. See  for details.",
+        "short": "OutputDebugString"
+    },
+    "B0001.017": {
+        "long": "",
+        "short": "Page Exception Breakpoint Detection"
+    },
+    "B0001.018": {
+        "long": "(Explorer.exe); Executing an application by a debugger will result in the parent process being the debugger process rather than the shell process (Explorer.exe) or the command line. Malware checks its parent process; if it's not explorer.exe, it's assumed to be a debugger.",
+        "short": "Parent Process"
+    },
+    "B0001.019": {
+        "long": "The Process Environment Block (PEB) is a Windows data structure associated with each process that contains several fields, such as \"BeingDebugged,\" \"NtGlobalFlag,\" and \"IsDebugged\". Testing the value of this PEB field of a particular process can indicate whether the process is being debugged. Testing \"BeingDebugged\" is equivalent to using the kernel32!IsDebuggerPresent API call (see separate method).",
+        "short": "Process Environment Block"
+    },
+    "B0001.020": {
+        "long": "",
+        "short": "Process Jobs"
+    },
+    "B0001.021": {
+        "long": "Process heaps are affected by debuggers. Malware can detect a debugger by checking heap header fields such as Flags (debugger present if value greater than 2) or ForceFlags (debugger present if value greater than 0).",
+        "short": "ProcessHeap"
+    },
+    "B0001.022": {
+        "long": "Malware may call RtlAdjustPrivilege to detect if a debugger is attached (or to prevent a debugger from attaching).",
+        "short": "RtlAdjustPrivilege"
+    },
+    "B0001.023": {
+        "long": "(Csrss.exe); Using the OpenProcess function on the csrss.exe process can detect a debugger.",
+        "short": "SeDebugPrivilege"
+    },
+    "B0001.024": {
+        "long": "(Protected Handle)",
+        "short": "SetHandleInformation"
+    },
+    "B0001.025": {
+        "long": "(INT3/0xCC)",
+        "short": "Software Breakpoints"
+    },
+    "B0001.026": {
+        "long": "Similar to the anti-exploitation method of the same name, malware may try to detect mucking with values on the stack.",
+        "short": "Stack Canary"
+    },
+    "B0001.027": {
+        "long": "Malware may access information in the Thread Information Block (TIB) for debug detection or process obfuscation detection. The TIB can be accessed as an offset of the segment register (e.g., fs:[20h]).",
+        "short": "TIB Aware"
+    },
+    "B0001.028": {
+        "long": "Malware may compare time between two points to detect unusual execution, such as the (relative) massive delays introduced by debugging.",
+        "short": "Timing/Delay Check"
+    },
+    "B0001.029": {
+        "long": "",
+        "short": "TLS Callbacks"
+    },
+    "B0001.030": {
+        "long": "The UnhandledExceptionFilter function is called if no registered exception handlers exist, but it will not be reached if a debugger is present. See  for details.",
+        "short": "UnhandledExceptionFilter"
+    },
+    "B0001.031": {
+        "long": "Includes use of WudfIsAnyDebuggerPresent, WudfIsKernelDebuggerPresent, WudfIsUserDebuggerPresent.",
+        "short": "WudfIsAnyDebuggerPresent"
+    },
+    "B0001.032": {
+        "long": "Malware uses GetTickCount function in a timing/delay check.",
+        "short": "Timing/Delay Check GetTickCount"
+    },
+    "B0001.033": {
+        "long": "Malware uses QueryPerformanceCounter in a timing/delay check.",
+        "short": "Timing/Delay Check QueryPerformanceCounter"
+    },
+    "B0001.034": {
+        "long": "Malware code contains mnemonics related to anti-debugging (e.g., rdtsc, icebp).",
+        "short": "Anti-debugging Instructions"
+    },
+    "B0001.035": {
+        "long": "The BeingDebugged field is tested to determine whether the process is being debugged.",
+        "short": "Process Environment Block BeingDebugged"
+    },
+    "B0001.036": {
+        "long": "The NtGlobalFlag field is tested to determine whether the process is being debugged.",
+        "short": "Process Environment Block NtGlobalFlag"
+    },
+    "B0001.037": {
+        "long": "The IsDebugged field is tested to determine whether the process is being debugged.",
+        "short": "Process Environment Block IsDebugged"
+    },
+    "B0002": {
+        "long": "Behaviors that make debugging difficult.",
+        "short": "Debugger Evasion"
+    },
+    "B0002.001": {
+        "long": "Block interrupt (via hooking) 1 and/or 3 to prevent debuggers from working.",
+        "short": "Block Interrupts"
+    },
+    "B0002.002": {
+        "long": "Intentionally clearing software or hardware breakpoints.",
+        "short": "Break Point Clearing"
+    },
+    "B0002.003": {
+        "long": "Move or copy the first bytes / instructions of the original code elsewhere. AKA stolen bytes or code splicing. For example, a packer may incorporate the first few instructions of the original EntryPoint (EP) into its unpacking stub before the tail transition in order to confuse automated unpackers and novice analysts. This can make it harder for rebuilding and may bypass breakpoints if set prematurely.",
+        "short": "Byte Stealing"
+    },
+    "B0002.004": {
+        "long": "Changing this value during run time can prevent some debuggers from attaching. Also confuses some unpackers and dumpers.",
+        "short": "Change SizeOfImage"
+    },
+    "B0002.005": {
+        "long": "Check that the unpacking code is unmodified. Variation exists where unpacking code is part of the \"key\" used to unpack, therefore any Software Breakpoints during debugging causes unpacking to completely fail or result in malformed unpacked code.",
+        "short": "Code Integrity Check"
+    },
+    "B0002.006": {
+        "long": "Using exception handling (SEH) to cause flow of program to non-obvious paths.",
+        "short": "Exception Misdirection"
+    },
+    "B0002.007": {
+        "long": "CALL to a POP; finds base of code or data, often the packed version of the code; also used often in obfuscated/packed shellcode.",
+        "short": "Get Base Indirectly"
+    },
+    "B0002.008": {
+        "long": "Encrypt blocks of code individually and decrypt temporarily only upon execution.",
+        "short": "Guard Pages"
+    },
+    "B0002.009": {
+        "long": "Modification of interrupt vector or descriptor tables.",
+        "short": "Hook Interrupt"
+    },
+    "B0002.010": {
+        "long": "Add obfuscation between imports calls and APIs.",
+        "short": "Import Obfuscation"
+    },
+    "B0002.011": {
+        "long": "Variation of static linking where full API code inserted everywhere it would have been called.",
+        "short": "Inlining"
+    },
+    "B0002.012": {
+        "long": "Use SEH or other methods to break out of a loop instead of a conditional jump.",
+        "short": "Loop Escapes"
+    },
+    "B0002.013": {
+        "long": "Instead of unpacking into a pre-defined section/segment (ex: .text) of the binary, use malloc() / VirtualAlloc() to create a new segment. This makes keeping track of memory locations across different runs more difficult, as there is no guarantee that malloc/VirtualAlloc will assign the same address range each time.",
+        "short": "Malloc Use"
+    },
+    "B0002.014": {
+        "long": "Any part of the header is changed or erased.",
+        "short": "Modify PE Header"
+    },
+    "B0002.015": {
+        "long": "int3 with code replacement table; debugs itself.",
+        "short": "Nanomites"
+    },
+    "B0002.016": {
+        "long": "LoadLibrary API calls or direct access of kernel32 via PEB (fs[0]) pointers, used to rebuild IAT or just obfuscate library use.",
+        "short": "Obfuscate Library Use"
+    },
+    "B0002.017": {
+        "long": "Use several parallel threads to make analysis harder.",
+        "short": "Parallel Threads"
+    },
+    "B0002.018": {
+        "long": "Take advantage of pipelining in modern processors to misdirect debugging, emulation, or static analysis tools. An unpacker can assume a certain number of opcodes will be cached and then proceed to overwrite them in memory, causing a debugger/emulator/analyzer to follow different code than is normally executed.",
+        "short": "Pipeline Misdirection"
+    },
+    "B0002.019": {
+        "long": "Prevents debugger from attaching to process or to break until after the code of interest has been executed.",
+        "short": "Pre-Debug"
+    },
+    "B0002.020": {
+        "long": "Relocate API code in separate buffer (calls don\u2019t lead to imported DLLs).",
+        "short": "Relocate API Code"
+    },
+    "B0002.021": {
+        "long": "Overwrite the RET address on the stack or the code at the RET address. Variation seen that writes to the start-up code or main module that called the malware's WinMain or DllMain.",
+        "short": "Return Obfuscation"
+    },
+    "B0002.022": {
+        "long": "Calling RtlAdjustPrivilege to either prevent a debugger from attaching or to detect if a debugger is attached.",
+        "short": "RtlAdjustPrivilege"
+    },
+    "B0002.023": {
+        "long": "Some analysis tools cannot handle binaries with misaligned sections.",
+        "short": "Section Misalignment"
+    },
+    "B0002.024": {
+        "long": "Debug itself to prevent another debugger to be attached.",
+        "short": "Self-Debugging"
+    },
+    "B0002.025": {
+        "long": "UnmapViewOfFile() on itself.",
+        "short": "Self-Unmapping"
+    },
+    "B0002.026": {
+        "long": "Copy locally the whole content of API code.",
+        "short": "Static Linking"
+    },
+    "B0002.027": {
+        "long": "A variation of \"byte stealing\" where the first few instructions or bytes of an API are executed in user code, allowing the IAT to point into the middle of an API function. This confuses IAT rebuilders such as ImpRec and Scylla and may bypass breakpoints.",
+        "short": "Stolen API Code"
+    },
+    "B0002.028": {
+        "long": "Erase or corrupt specific file parts to prevent rebuilding (header, packer stub, etc.).",
+        "short": "Tampering"
+    },
+    "B0002.029": {
+        "long": "Setting dwMilliseconds in WaitForSingleObject to a small number will timeout the thread before the analyst can step through and analyze the code executing in the thread. Modifying this via patch, register, or stack to the value `0xFFFFFFFF`, the **INFINITE** constant circumvents this anti-debugging technique.",
+        "short": "Thread Timeout"
+    },
+    "B0002.030": {
+        "long": "The unpacking code relies on use of int 1 or int 3, or it uses the interrupt vector table as part of the decryption \"key\".",
+        "short": "Use Interrupts"
+    },
+    "B0003": {
+        "long": "Malware may obstruct dynamic analysis in a sandbox, emulator, or virtual machine.",
+        "short": "Dynamic Analysis Evasion"
+    },
+    "B0003.001": {
+        "long": "A copy of ntdll.dll is dropped to the filesystem and then loaded. This alternative DLL is used to execute function calls to evade sandboxes which use hooking in the operating system's ntdll.dll.",
+        "short": "Alternative ntdll.dll"
+    },
+    "B0003.002": {
+        "long": "Overloads a sandbox by generating a flood of meaningless behavioral data.",
+        "short": "Data Flood"
+    },
+    "B0003.003": {
+        "long": "Stalling code is typically executed before any malicious behavior. The malware's aim is to delay the execution of the malicious activity long enough so that an automated dynamic analysis system fails to extract the interesting malicious behavior. This method is very similar to ATT&CK's [Virtualization/Sandbox Evasion: Time Based Evasion](https://attack.mitre.org/techniques/T1497/003/) sub-technique.",
+        "short": "Delayed Execution"
+    },
+    "B0003.004": {
+        "long": "Inclusion of a demo binary/mode that is executed when token is absent or not privileged enough.",
+        "short": "Demo Mode"
+    },
+    "B0003.005": {
+        "long": "Original file is written to disk then executed. May confuse some sandboxes, especially if the dropped executable must be provided specific arguments and the original dropper is not associated with the drop file(s).",
+        "short": "Drop Code"
+    },
+    "B0003.006": {
+        "long": "Encode a file on disk, such as an implant's config file.",
+        "short": "Encode File"
+    },
+    "B0003.007": {
+        "long": "Execution happens when a particular file or directory is accessed, often through hooking certain API calls such as CreateFileA and CreateFileW.",
+        "short": "Hook File System"
+    },
+    "B0003.008": {
+        "long": "Modification of interrupt vector or descriptor tables.",
+        "short": "Hook Interrupt"
+    },
+    "B0003.009": {
+        "long": "Creates an illusion; makes the analyst think something happened when it didn't.",
+        "short": "Illusion"
+    },
+    "B0003.010": {
+        "long": "Restarts or shuts down system to bypass sandboxing.",
+        "short": "Restart"
+    },
+    "B0004": {
+        "long": "Detects whether the malware instance is being executed inside an emulator. If so, conditional execution selects a benign execution path.",
+        "short": "Emulator Detection"
+    },
+    "B0004.001": {
+        "long": "Checks whether particular files (e.g., QEMU files) exist.",
+        "short": "Check for Emulator-related Files"
+    },
+    "B0004.002": {
+        "long": "Checks for WINE via the `get_wine_version` function from WINE's `ntdll.dll`.",
+        "short": "Check for WINE Version"
+    },
+    "B0004.003": {
+        "long": "Emulators register artifacts in the registry, which can be detected by malware. For example, installation of QEMU results in the registry key: *HARDWARE\\DEVICEMAP\\Scsi\\Scsi Port 0\\Scsi Bus 0\\Target Id 0\\Logical Unit Id 0* with value=*Identifier* and data=*QEMU*, or registry key: *HARDWARE\\Description\\System* with value=*SystemBiosVersion* and data=*QEMU*.",
+        "short": "Check Emulator-related Registry Keys"
+    },
+    "B0004.004": {
+        "long": "Some emulated systems fail to handle some network communications; such failures will indicate the emulated environment.",
+        "short": "Failed Network Connections"
+    },
+    "B0005": {
+        "long": "Behaviors that obstruct analysis in an emulator.",
+        "short": "Emulator Evasion"
+    },
+    "B0005.001": {
+        "long": "Use different opcodes sets (ex: FPU, MMX, SSE) to block emulators.",
+        "short": "Different Opcode Sets"
+    },
+    "B0005.002": {
+        "long": "Use rare or undocumented opcodes to block non-exhaustive emulators.",
+        "short": "Undocumented Opcodes"
+    },
+    "B0005.003": {
+        "long": "Call unusual APIs to block non-exhaustive emulators (particularly anti-virus).",
+        "short": "Unusual/Undocumented API Calls"
+    },
+    "B0005.004": {
+        "long": "Add extra loops to make time-constraint emulators give up.",
+        "short": "Extra Loops/Time Locks"
+    },
+    "B0006": {
+        "long": "Malware hinders retrieval and/or discovery of the contents of the physical memory of the system on which the malware instance is executing [[1]](#1).",
+        "short": "Memory Dump Evasion"
+    },
+    "B0006.001": {
+        "long": "Encrypt the executing malware instance code in memory.",
+        "short": "Code Encryption in Memory"
+    },
+    "B0006.002": {
+        "long": "Erase PE header from memory.",
+        "short": "Erase the PE header"
+    },
+    "B0006.003": {
+        "long": "Hide arbitrary segments of virtual memory.",
+        "short": "Hide virtual memory"
+    },
+    "B0006.004": {
+        "long": "Set the SizeOfImage field of PEB.LoaderData to be huge.",
+        "short": "SizeOfImage"
+    },
+    "B0006.005": {
+        "long": "Erase or corrupt specific file parts to prevent rebuilding (header, packer stub, etc.).",
+        "short": "Tampering"
+    },
+    "B0006.006": {
+        "long": "Encrypt blocks of code individually and decrypt temporarily only upon execution.",
+        "short": "Guard Pages"
+    },
+    "B0006.007": {
+        "long": "Resolve API addresses before each use to prevent complete dumping.",
+        "short": "On-the-Fly APIs"
+    },
+    "B0006.008": {
+        "long": "API behavior can be altered to prevent memory dumps. For example, inaccurate data can be reported when the contents of the physical memory of the system on which the malware instance is executing is retrieved. See [Hooking](https://github.com/MBCProject/mbc-markdown/blob/v2.0/credential-access/hooking.md).",
+        "short": "Feed Misinformation"
+    },
+    "B0006.009": {
+        "long": "Flow opcodes (e.g., jumps, loops) are removed and emulated (or decrypted) by the packer during execution, resulting in incorrect dumps. .",
+        "short": "Flow Opcode Obstruction"
+    },
+    "B0007": {
+        "long": "Detects whether the malware instance is being executed inside an instrumented sandbox environment (e.g., Cuckoo Sandbox). If so, conditional execution selects a benign execution path.",
+        "short": "Sandbox Detection"
+    },
+    "B0007.001": {
+        "long": "Checks clipboard data which can be used to detect whether execution is inside a sandbox.",
+        "short": "Check Clipboard Data"
+    },
+    "B0007.002": {
+        "long": "Sandboxes create files on the file system. Malware can check the different folders to find sandbox artifacts.",
+        "short": "Check Files"
+    },
+    "B0007.003": {
+        "long": "Detects whether there is any \"user\" activity on the machine, such as the movement of the mouse cursor, non-default wallpaper, or recently opened Office files. Directories or file might be counted. If there is no human activity, the machine is suspected to be a virtualized machine and/or sandbox. Other items used to detect a user: mouse clicks (single/double), DialogBox, scrolling, color of background pixel . This method is very similar to ATT&CK's [Virtualization/Sandbox Evasion: User Activity Based Checks](https://attack.mitre.org/techniques/T1497/002/) sub-technique.",
+        "short": "Human User Check"
+    },
+    "B0007.004": {
+        "long": "Testing for the name of a particular DLL that is known to be injected by a sandbox for API hooking is a common way of detecting sandbox environments. This can be achieved through the kernel32!GetModuleHandle API call and other means.",
+        "short": "Injected DLL Testing"
+    },
+    "B0007.005": {
+        "long": "Checking for a particular product key/ID associated with a sandbox environment (commonly associated with the Windows host OS used in the environment) can be used to detect whether a malware instance is being executed in a particular sandbox. This can be achieved through several means, including testing for the Key/ID in the Windows registry.",
+        "short": "Product Key/ID Testing"
+    },
+    "B0007.006": {
+        "long": "Sandboxes aren't used in the same manner as a typical user environment, so most of the time the screen resolution stays at the minimum 800x600 or lower. No one is actually working on a such small screen. Malware could potentially detect the screen resolution to determine if it's a user machine or a sandbox.",
+        "short": "Screen Resolution Testing"
+    },
+    "B0007.007": {
+        "long": "Malware may check its own characteristics to determine whether it's running in a sandbox. For example, a malicious Office document might check its file name or VB project name.",
+        "short": "Self Check"
+    },
+    "B0007.008": {
+        "long": "Calling GetSystemTime or equiv and only executing code if the current date/hour/minute/second passes some check. Often this is for running only after or only until a specific date. This behavior can be mitigated in non-automated analysis environments.",
+        "short": "Timing/Date Check"
+    },
+    "B0007.009": {
+        "long": "Comparing single GetTickCount with some value to see if system has been started at least *X* amount ago. This behavior can be mitigated in non-automated analysis environments.",
+        "short": "Timing/Uptime Check"
+    },
+    "B0008": {
+        "long": "Original executable code is virtualized by translating the code into a special format that only a special virtual machine (VM) can run; the VM uses a customized virtual instruction set. A \"stub\" function calls the VM when the code is run. Virtualized code makes static analysis and reverse engineering more difficult; dumped code won\u2019t run without the VM.",
+        "short": "Executable Code Virtualization"
+    },
+    "B0008.001": {
+        "long": "Multiple virtual machines with different architectures (CISC, RISC, etc.) can be used inside of a single executable in order to make reverse engineering even more difficult.",
+        "short": "Multiple VMs"
+    },
+    "B0009": {
+        "long": "Detects whether the malware instance is being executed in a virtual machine (VM), such as VMWare. If so, conditional execution selects a benign execution path.",
+        "short": "Virtual Machine Detection"
+    },
+    "B0009.001": {
+        "long": "Virtual machines create files on the file system (e.g., VMware creates files in the installation directory C:\\Program Files\\VMware\\VMware Tools). Malware can check the different folders to find virtual machine artifacts (e.g., Virtualbox has the artifact VBoxMouse.sys).",
+        "short": "Check File and Directory Artifacts"
+    },
+    "B0009.002": {
+        "long": "VMware leaves many artifacts in memory. Some are critical processor structures, which, because they are either moved or changed on a virtual machine, leave recognizable footprints. Malware can search through physical memory for the strings VMware, commonly used to detect memory artifacts.",
+        "short": "Check Memory Artifacts"
+    },
+    "B0009.003": {
+        "long": "Virtual machines often include specific named system objects by default, such as Windows device drivers, which can be detected by testing for specific strings, whether found in the Windows registry or other places.",
+        "short": "Check Named System Objects"
+    },
+    "B0009.004": {
+        "long": "The VMware Tools use processes like VMwareServices.exe or VMwareTray.exe, to perform actions on the virtual environment. Malware can list the process and searches for the VMware string. Process related to Virtualbox can be detected by malware by query the process list.",
+        "short": "Check Processes"
+    },
+    "B0009.005": {
+        "long": "Virtual machines register artifacts in the registry, which can be detected by malware. For example, a search for \"VMware\" or \"VBOX\" in the registry might reveal keys that include information about a virtual hard drive, adapters, running services, or virtual mouse.  Example registry key value artifacts include \"HARDWARE\\Description\\System (SystemBiosVersion) (VBOX)\" and \"SYSTEM\\ControlSet001\\Control\\SystemInformation (SystemManufacturer) (VMWARE)\"; example registry key artifacts include \"SOFTWARE\\VMware, Inc.\\VMware Tools (VMWARE)\" and \"SOFTWARE\\Oracle\\VirtualBox Guest Additions (VBOX)\".",
+        "short": "Check Registry Keys"
+    },
+    "B0009.006": {
+        "long": "VMwareService.exe runs the VMware Tools Service as a child of services.exe. It can be identified by listing services.",
+        "short": "Check Running Services"
+    },
+    "B0009.007": {
+        "long": "Malware may check software version; for example, to determine whether the software is relatively current.",
+        "short": "Check Software"
+    },
+    "B0009.008": {
+        "long": "The presence of virtual devices can indicate a virtualized environment (e.g., \"\\\\.\\VBoxTrayIPC\").",
+        "short": "Check Virtual Devices"
+    },
+    "B0009.009": {
+        "long": "Malware may check windows for VM-related characteristics.",
+        "short": "Check Windows"
+    },
+    "B0009.010": {
+        "long": "Virtual machines offer guest additions that can be installed to add functionality such as clipboard sharing. Detecting the process responsible for these tasks, via its name or other methods, is a technique employed by malware for detecting whether it is being executed in a virtual machine.",
+        "short": "Guest Process Testing"
+    },
+    "B0009.011": {
+        "long": "In three browser families, it is possible to extract the frequency of the Windows performance counter frequency, using standard HTML and Javascript. This value can then be used to detect whether the code is being executed in a virtual machine, by detecting two specific frequencies commonly used in virtual but not physical machines.",
+        "short": "HTML5 Performance Object Check"
+    },
+    "B0009.012": {
+        "long": "Detects whether there is any \"user\" activity on the machine, such as the movement of the mouse cursor, non-default wallpaper, or recently opened Office files. Directories or file might be counted. If there is no human activity, the machine is suspected to be a virtualized machine and/or sandbox. Other items used to detect a user: mouse clicks (single/double), DialogBox, scrolling, color of background pixel, change in foreground window . This method is very similar to ATT&CK's [Virtualization/Sandbox Evasion: User Activity Based Checks](https://attack.mitre.org/techniques/T1497/002/) sub-technique.",
+        "short": "Human User Check"
+    },
+    "B0009.013": {
+        "long": "Different aspects of the hardware are inspected to determine whether the machine has modern characteristics. A machine with substandard specifications indicates a virtual environment.",
+        "short": "Modern Specs Check"
+    },
+    "B0009.014": {
+        "long": "Different aspects of the hardware are inspected to determine whether the machine has modern characteristics. A machine with substandard specifications indicates a virtual environment. Most modern machines have at leave 4 GB of memory. (GlobalMemoryStatusEx) .",
+        "short": "Modern Specs Check - Total physical memory"
+    },
+    "B0009.015": {
+        "long": "Different aspects of the hardware are inspected to determine whether the machine has modern characteristics. A machine with substandard specifications indicates a virtual environment. Most modern machines have at least 80 GB disks. May use DeviceloControl (IOCTL_DISK_GET_LENGTH_INFO) or GetDiskFreeSpaceEx (TotalNumberOfBytes) .",
+        "short": "Modern Specs Check - Drive size"
+    },
+    "B0009.016": {
+        "long": "Different aspects of the hardware are inspected to determine whether the machine has modern characteristics. A machine with substandard specifications indicates a virtual environment. Checks whether there is a potential USB drive; if not a virtual environment is suspected.",
+        "short": "Modern Specs Check - USB drive"
+    },
+    "B0009.017": {
+        "long": "Different aspects of the hardware are inspected to determine whether the machine has modern characteristics. A machine with substandard specifications indicates a virtual environment. Checks whether there is a potential connected printer or default Windows printers; if not a virtual environment is suspected.",
+        "short": "Modern Specs Check - Printer"
+    },
+    "B0009.018": {
+        "long": "Different aspects of the hardware are inspected to determine whether the machine has modern characteristics. A machine with substandard specifications indicates a virtual environment. Checks number of processors; single CPU machines are suspect.",
+        "short": "Modern Specs Check - Processor count"
+    },
+    "B0009.019": {
+        "long": "Different aspects of the hardware are inspected to determine whether the machine has modern characteristics. A machine with substandard specifications indicates a virtual environment. Check keyboard layout.",
+        "short": "Modern Specs Check - Keyboard layout"
+    },
+    "B0009.020": {
+        "long": "Malware may check windows for VM-related characteristics. Tiny window size may indicate a VM.",
+        "short": "Check Windows - Window size"
+    },
+    "B0009.021": {
+        "long": "Malware may check windows for VM-related characteristics. May check for the presence of known windows from analysis tools running in a VM.",
+        "short": "Check Windows - Unique windows"
+    },
+    "B0009.022": {
+        "long": "Malware may check windows for VM-related characteristics. May inject malicious code to svchost.exe to check all open window title bar text to a list of strings indicating virtualized environment.",
+        "short": "Check Windows - Title bars"
+    },
+    "B0009.023": {
+        "long": "Malware may check for hardware characteristics unique to being virtualized, allowing the malware to detect the virtual environment.",
+        "short": "Unique Hardware/Firmware Check"
+    },
+    "B0009.024": {
+        "long": "Malware may check for hardware characteristics unique to being virtualized, allowing the malware to detect the virtual environment. Characteristics of the BIOS, such as version, can indicate virtualization.",
+        "short": "Unique Hardware/Firmware Check - BIOS"
+    },
+    "B0009.025": {
+        "long": "Malware may check for hardware characteristics unique to being virtualized, allowing the malware to detect the virtual environment. VMware uses virtual I/O ports for communication between the virtual machine and the host operating system to support functionality like copy and paste between the two systems. The port can be queried and compared with a magic number VMXh to identify the use of VMware.",
+        "short": "Unique Hardware/Firmware Check - I/O Communication Port"
+    },
+    "B0009.026": {
+        "long": "Malware may check for hardware characteristics unique to being virtualized, allowing the malware to detect the virtual environment. Checks the CPU name to determine virtualization.",
+        "short": "Unique Hardware/Firmware Check - CPU Name"
+    },
+    "B0009.027": {
+        "long": "Malware may check for hardware characteristics unique to being virtualized, allowing the malware to detect the virtual environment. When an Operating System is virtualized, the CPU is relocated.",
+        "short": "Unique Hardware/Firmware Check - CPU Location"
+    },
+    "B0009.028": {
+        "long": "Malware may check for hardware characteristics unique to being virtualized, allowing the malware to detect the virtual environment. VMware uses specific virtual MAC address that can be detected. The usual MAC address used started with the following numbers: \"00:0C:29\", \"00:1C:14\", \"00:50:56\", \"00:05:69\". Virtualbox uses specific virtual MAC address that can be detected by Malware. The usual MAC address used started with the following numbers: 08:00:27.",
+        "short": "Unique Hardware/Firmware Check - MAC Address"
+    },
+    "B0009.029": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.",
+        "short": "Instruction Testing"
+    },
+    "B0009.030": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.  Red Pill is an anti-VM technique that executes the SIDT instruction to grab the value of the IDTR register. The virtual machine monitor must relocate the guest's IDTR to avoid conflict with the host's IDTR. Since the virtual machine monitor is not notified when the virtual machine runs the SIDT instruction, the IDTR for the virtual machine is returned.",
+        "short": "Instruction Testing - SIDT (red pill)"
+    },
+    "B0009.031": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.  The No Pill technique relies on the fact that the LDT structure is assigned to a processor not an Operating System. The LDT location on a host machine will be zero and on a virtual machine will be non-zero.",
+        "short": "Instruction Testing - SGDT/SLDT (no pill)"
+    },
+    "B0009.032": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.",
+        "short": "Instruction Testing - SMSW"
+    },
+    "B0009.033": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.",
+        "short": "Instruction Testing - STR"
+    },
+    "B0009.034": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.  Checking the CPU ID found within the registry can provide information to system type.",
+        "short": "Instruction Testing - CPUID"
+    },
+    "B0009.035": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.",
+        "short": "Instruction Testing - IN"
+    },
+    "B0009.036": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.",
+        "short": "Instruction Testing - RDTSC"
+    },
+    "B0009.037": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.",
+        "short": "Instruction Testing - VMCPUID"
+    },
+    "B0009.038": {
+        "long": "The execution of certain x86 instructions will result in different values when executed inside of a VM instead of on bare metal. Accordingly, these can be used to detect the execution of the malware in a VM.",
+        "short": "Instruction Testing - VPCEXT"
+    },
+    "B0010": {
+        "long": "Malware code evades accurate call graph generation during disassembly. Call graphs are used by malware similarity tools and algorithms ([[1]](#1), [[4]](#4)), as well as for malware detection [[2]](#2).",
+        "short": "Call Graph Generation Evasion"
+    },
+    "B0010.001": {
+        "long": "Two layer jumping confuses tools plotting call graphs.",
+        "short": "Two-layer Function Return"
+    },
+    "B0010.002": {
+        "long": "Invokes ntdll.dll functions without using an export table; an encoded translation table on the stack is used instead.",
+        "short": "Invoke NTDLL System Calls via Encoded Table"
+    },
+    "B0011": {
+        "long": "Malware may provide an attacker with explicit commands. This behavior differs from the [Remote Access](https://github.com/MBCProject/mbc-markdown/blob/v2.0/impact/remote-access.md) behavior under the [Impact](https://github.com/MBCProject/mbc-markdown/tree/v2.0/impact) objective in that *Impact: Remote Access* is potentially much broader and may include full remote access.",
+        "short": "Remote Commands"
+    },
+    "B0011.001": {
+        "long": "",
+        "short": "Delete File"
+    },
+    "B0011.002": {
+        "long": "",
+        "short": "Download File"
+    },
+    "B0011.003": {
+        "long": "",
+        "short": "Execute"
+    },
+    "B0011.004": {
+        "long": "",
+        "short": "Shutdown"
+    },
+    "B0011.005": {
+        "long": "",
+        "short": "Sleep"
+    },
+    "B0011.006": {
+        "long": "",
+        "short": "Uninstall"
+    },
+    "B0011.007": {
+        "long": "",
+        "short": "Upload File"
+    },
+    "B0012": {
+        "long": "Malware code evades disassembly in a recursive or linear disassembler. Some methods apply to both types of disassemblers; others apply to one type and not the other.",
+        "short": "Disassembler Evasion"
+    },
+    "B0012.001": {
+        "long": "Simple number or string arguments to API calls are calculated at runtime, making linear disassembly more difficult.",
+        "short": "Argument Obfuscation"
+    },
+    "B0012.002": {
+        "long": "Conditional jumps are sometimes used to confuse disassembly engines, resulting in the wrong instruction boundaries and thus wrong mnemonic and operands; identified by instructions *jmp/jcc to a label+#* (e.g., JNE loc_401345fe+2).",
+        "short": "Conditional Misdirection"
+    },
+    "B0012.003": {
+        "long": "Explicit use of computed values for control flow, often many times in the same basic block or function.",
+        "short": "Value Dependent Jumps"
+    },
+    "B0012.004": {
+        "long": "Variables, often strings, are broken into multiple parts and store out of order, in different memory ranges, or both. They must then be recomposed before use.",
+        "short": "Variable Recomposition"
+    },
+    "B0012.005": {
+        "long": "Typically, VBA source code is compiled into p-code, which is stored with compressed sourced code in the OLE file with VBA macros. VBA Stomping - when the VBA source code is removed and only the p-code remains - makes analysis much harder. See  for an analysis of a VBA-Stomped malicious VBA Office document. See  for information on Evil Clippy, a tool that creates malicious MS Office documents.",
+        "short": "VBA Stomping"
+    },
+    "B0013": {
+        "long": "Malware can employ various means to detect whether analysis tools are present or running on the system on which it is executing. Note that analysis tools are used to *analyze* malware whereas security software (see [Software Discovery: Security Software Discovery](https://attack.mitre.org/techniques/T1518/001/)) aims to *detect/mitigate* malware on a system or network.",
+        "short": "Analysis Tool Discovery"
+    },
+    "B0013.001": {
+        "long": "Malware can scan for the process name associated with common analysis tools.",
+        "short": "Process detection"
+    },
+    "B0013.002": {
+        "long": "Malware can scan for the process name associated with common analysis tools. OllyDBG / ImmunityDebugger / WinDbg / IDA Pro",
+        "short": "Process detection - Debuggers"
+    },
+    "B0013.003": {
+        "long": "Malware can scan for the process name associated with common analysis tools. Process Explorer / Process Monitor / Regmon / Filemon, TCPView, Autoruns",
+        "short": "Process detection - SysInternals Suite Tools"
+    },
+    "B0013.004": {
+        "long": "Malware can scan for the process name associated with common analysis tools. Wireshark / Dumpcap",
+        "short": "Process detection - PCAP Utilities"
+    },
+    "B0013.005": {
+        "long": "Malware can scan for the process name associated with common analysis tools. ProcessHacker / SysAnalyzer / HookExplorer / SysInspector",
+        "short": "Process detection - Process Utilities"
+    },
+    "B0013.006": {
+        "long": "Malware can scan for the process name associated with common analysis tools. ImportREC / PETools / LordPE",
+        "short": "Process detection - PE Utilities"
+    },
+    "B0013.007": {
+        "long": "Malware can scan for the process name associated with common analysis tools. Joe Sandbox, etc.",
+        "short": "Process detection - Sandboxes"
+    },
+    "B0013.008": {
+        "long": "Malware may detect an analysis tool by the presence of a file in a known location.",
+        "short": "Known File Location"
+    },
+    "B0013.009": {
+        "long": "Malware may detect an analysis tool via the presence of a known window.",
+        "short": "Known Window"
+    },
+    "B0014": {
+        "long": "Malware may test whether an outgoing SMTP connection can be made from the system on which the malware instance is executing to some SMTP server, by sending a test SMTP transaction.",
+        "short": "SMTP Connection Discovery"
+    },
+    "B0016": {
+        "long": "Data stored on the file system of a compromised system is manipulated to compromise its integrity.",
+        "short": "Compromise Data Integrity"
+    },
+    "B0017": {
+        "long": "Destroys a physical piece of hardware. For example, malware may cause hardware to overheat.",
+        "short": "Destroy Hardware"
+    },
+    "B0018": {
+        "long": "Uses system resources for other purposes; as a result, the system may not be available for intended uses.",
+        "short": "Resource Hijacking"
+    },
+    "B0018.001": {
+        "long": "Consume system resources for the purpose of password cracking.",
+        "short": "Password Cracking"
+    },
+    "B0018.002": {
+        "long": "Consume system resources to mine for cryptocurrency (e.g., Bitcoin, Litecoin, etc.).",
+        "short": "Cryptojacking"
+    },
+    "B0019": {
+        "long": "Malware intercepts and manipulates network traffic, typically accessing or modifying data, going to or originating from the system on which the malware instance is executing. Also known as a Man-in-the-Middle attack.",
+        "short": "Manipulate Network Traffic"
+    },
+    "B0020": {
+        "long": "Sends an email message from the system on which the malware is executing to one or more recipients, mostly commonly for the purpose of spamming or for distributing a malicious attachment or URL (malspamming).",
+        "short": "Send Email"
+    },
+    "B0021": {
+        "long": "A malicious attachment is sent via spam SMS or MMS messages. When the user clicks the link, malware is installed.",
+        "short": "Send Poisoned Text Message"
+    },
+    "B0022": {
+        "long": "Malware may provide an attacker with potentially full access to a system via a remote network connection, which may also provide persistence.",
+        "short": "Remote Access"
+    },
+    "B0022.001": {
+        "long": "Malware may create a reverse shell. For example, malware can invoke cmd.exe and create three pipes (stdin, stdout, stderr) to forward data between cmd.exe and an adversary.",
+        "short": "Reverse Shell"
+    },
+    "B0023": {
+        "long": "Installs another, different program on the system. The additional program can be any secondary module; examples include backdoors, malicious drivers, kernel modules, and OS X Apps.",
+        "short": "Install Additional Program"
+    },
+    "B0024": {
+        "long": "To avoid running multiple instances of itself, malware may check a system to see if it is already running.",
+        "short": "Prevent Concurrent Execution"
+    },
+    "B0025": {
+        "long": "Malware checks system environment conditions or characteristics to determine execution path. For example, malware may not run or be dormant unless system conditions are right, or file that is dropped may vary according to execution environment. Conditional execution happens autonomously, not because of an attacker's command.",
+        "short": "Conditional Execution"
+    },
+    "B0025.001": {
+        "long": "Malware terminates its execution based on a trigger condition or value (or because it has completed).",
+        "short": "Suicide Exit"
+    },
+    "B0026": {
+        "long": "Malicious network drivers can be installed on several machines on a network via an exploited server with high uptime. Once the drivers are installed on the host machines, they can re-infect the server if it is restarted (persistence), can infect other machines on the network (lateral movement), and can redirect traffic on the network.",
+        "short": "Malicious Network Driver"
+    },
+    "B0027": {
+        "long": "Malware may install itself not as a file on the hard drive.",
+        "short": "Alternative Installation Location"
+    },
+    "B0027.001": {
+        "long": "Stores itself in memory.",
+        "short": "Fileless Malware"
+    },
+    "B0027.002": {
+        "long": "Stores itself in the Windows registry.",
+        "short": "Registry Install"
+    },
+    "B0028": {
+        "long": "Malware accesses files that contain sensitive data or credentials related to Bitcoin and other cryptocurrency wallets.",
+        "short": "Cryptocurrency"
+    },
+    "B0028.001": {
+        "long": "Access Bitcoin data.",
+        "short": "Bitcoin"
+    },
+    "B0028.002": {
+        "long": "Access Ethereum data.",
+        "short": "Ethereum"
+    },
+    "B0028.003": {
+        "long": "Access Zcash data.",
+        "short": "Zcash"
+    },
+    "B0029": {
+        "long": "Polymorphic code, a file with the same functionality but different execution, is created, often on the fly, making it difficult to detect. This behavior includes metamorphic code where the code is changed (not just executed differently), but with the behavior the same. Polymorphic Code behavior is typically identified through analysis of related samples.",
+        "short": "Polymorphic Code"
+    },
+    "B0029.001": {
+        "long": "A packer stub can generate polymorphic code.",
+        "short": "Packer Stub"
+    },
+    "B0029.002": {
+        "long": "",
+        "short": "Call Indirections"
+    },
+    "B0029.003": {
+        "long": "",
+        "short": "Code Reordering"
+    },
+    "B0030": {
+        "long": "All command and control malware use client/server communication. The methods listed below can be used to capture explicit communication details. Remote file copy behavior is captured separately, as is done in ATT&CK - see [Remote File Copy](https://github.com/MBCProject/mbc-markdown/blob/v2.0/command-and-control/remote-file-copy.md).",
+        "short": "C2 Communication"
+    },
+    "B0030.001": {
+        "long": "Send data to a C2 server.",
+        "short": "Send Data"
+    },
+    "B0030.002": {
+        "long": "Receive data from a C2 server.",
+        "short": "Receive Data"
+    },
+    "B0030.003": {
+        "long": "File is transferred from server to client.",
+        "short": "Server to Client File Transfer"
+    },
+    "B0030.004": {
+        "long": "File is transferred from client to server.",
+        "short": "Client to Server File Transfer"
+    },
+    "B0030.005": {
+        "long": "Check for payload.",
+        "short": "Check for Payload"
+    },
+    "B0030.006": {
+        "long": "Client sends system information.",
+        "short": "Send System Information"
+    },
+    "B0030.007": {
+        "long": "Heartbeat sent.",
+        "short": "Send Heartbeat"
+    },
+    "B0030.008": {
+        "long": "Client requests a command.",
+        "short": "Request Command"
+    },
+    "B0030.009": {
+        "long": "Request email template.",
+        "short": "Request Email Template"
+    },
+    "B0030.010": {
+        "long": "Request email address list.",
+        "short": "Request Email Address List"
+    },
+    "B0031": {
+        "long": "Malware generates the domain name of the command and control server to which it connects. Access to on the fly domains enables C2 to operate as domains and IP addresses are blocked. The algorithm can be complicated in more advanced bots; understanding the details so that names can be predicted can be useful in mitigation and response.",
+        "short": "Domain Name Generation"
+    },
+    "B0032": {
+        "long": "Executable code can be obfuscated to hinder disassembly and static code analysis. This behavior is specific to a malware sample's executable code (data and text sections).",
+        "short": "Executable Code Obfuscation"
+    },
+    "B0032.001": {
+        "long": "Instead of storing function names in the Import Address Table (IAT) and calling GetProcAddress, a DLL is loaded and the name of each of its exports is hashed until it matches a specific hash. Manual symbol resolution is then used to access and execute the exported function. This method is often used by shellcode because it reduces the size of each import from a human-readable string to a sequence of four bytes. The Method is also known as \"Imports by Hash\" and \"GET_APIS_WITH_CRC.\"",
+        "short": "API Hashing"
+    },
+    "B0032.002": {
+        "long": "Insert code to impede disassembly.",
+        "short": "Code Insertion"
+    },
+    "B0032.003": {
+        "long": "Include \"dead\" code with no real functionality.",
+        "short": "Dead Code Insertion"
+    },
+    "B0032.004": {
+        "long": "Add fake code similar to known packers or known goods to fool identification. Can confuse some automated unpackers.",
+        "short": "Fake Code Insertion"
+    },
+    "B0032.005": {
+        "long": "Insert jumps to make analysis visually harder.",
+        "short": "Jump Insertion"
+    },
+    "B0032.006": {
+        "long": "Variation on Jump Insertion. Used by some compilers for user-generated functions.",
+        "short": "Thunk Code Insertion"
+    },
+    "B0032.007": {
+        "long": "Insert dummy code between relevant opcodes. Can make signature writing more complex.",
+        "short": "Junk Code Insertion"
+    },
+    "B0032.008": {
+        "long": "Obfuscate data values through indirection of local or global variables. For example, the instruction *if (a == 0) do x* can be obfuscated by setting a global variable, *Z*, to zero and using it in the instruction: *if (a==Z) do x*.  [NEEDS REVIEW]",
+        "short": "Data Value Obfuscation"
+    },
+    "B0032.009": {
+        "long": "Obfuscate the entry point of the malware executable.",
+        "short": "Entry Point Obfuscation"
+    },
+    "B0032.010": {
+        "long": "Encrypt blocks of code individually and decrypt temporarily only upon execution.",
+        "short": "Guard Pages"
+    },
+    "B0032.011": {
+        "long": "Obfuscate the import address table.",
+        "short": "Import Address Table Obfuscation"
+    },
+    "B0032.012": {
+        "long": "Store and load imports with a compact import table format. Each DLL needed by the executable is mentioned in the IAT, but only one function from each/most is imported; the rest are imported via GetProcAddress calls.",
+        "short": "Import Compression"
+    },
+    "B0032.013": {
+        "long": "Jump after the first byte of an instruction to confuse disassembler.",
+        "short": "Instruction Overlap"
+    },
+    "B0032.014": {
+        "long": "Split code into sections that may be rearranged and are connected by unconditional jumps.",
+        "short": "Interleaving Code"
+    },
+    "B0032.015": {
+        "long": "Merge all sections resulting in just one entry in the sections table to make readability more difficult. May affect some detection signatures if written to be section dependent.",
+        "short": "Merged Code Sections"
+    },
+    "B0032.016": {
+        "long": "A portion of the code always generates an exception so that malicious code is executed with the exception handling. See  .",
+        "short": "Structured Exception Handling (SEH)"
+    },
+    "B0032.017": {
+        "long": "Build and decrypt strings on the stack at each use, then discard to avoid obvious references.",
+        "short": "Stack Strings"
+    },
+    "B0032.018": {
+        "long": "Remove or rename symbolic information commonly inserted by compilers for debugging purposes.",
+        "short": "Symbol Obfuscation"
+    },
+    "B0033": {
+        "long": "Malware may make a network unavailable, for example, by launching a network-based denial of service (DoS) attack.",
+        "short": "Denial of Service"
+    },
+    "B0034": {
+        "long": "Code is optimized, making it harder to statically analyze.",
+        "short": "Executable Code Optimization"
+    },
+    "B0034.001": {
+        "long": "Relative operands of jumps and calls into are made absolute (better compression). May confuse some basic block detection algorithms.",
+        "short": "Jump/Call Absolute Address"
+    },
+    "B0034.002": {
+        "long": "Minification is 'the process of removing all unnecessary characters from source code without changing its functionality.'  A simple example is when all the unnecessary whitespace and comments are removed. Minification is distinguished from compression in that it neither adds to nor changes the code seen by the interpreter. Minification is often used for malware written in interpreted languages, such as JavaScript, PHP, or Python. Legitimate code that is transmitted many times a second, such as JavaScript on websites, often uses minification to simply reduce the number of bytes transmitted.",
+        "short": "Minification"
+    },
+    "B0035": {
+        "long": "Malware can register the shutdown event triggered by WinLogon to allow a malicious DLL to execute every time the machine shuts down: when the machine is shutdown the malware will be loaded into memory; then it will download the primary malware and reinfect the machine. The malware will also lie dormant during incident reporting processes. To check whether malware has registered for login events, check the registry key: HKEY_LOCAL_MACHINESoftwareMicrosoftWindows NTCurrentVersionWinlogonNotify. If a subkey with any name exists and it has a \"shutdown\" value then the dll in the \"DLLName\" key will be launched during the shutdown process.",
+        "short": "Shutdown Event"
+    },
+    "B0036": {
+        "long": "Malware has characteristics enabling it to evade capture from the infected system.",
+        "short": "Capture Evasion"
+    },
+    "B0036.001": {
+        "long": "Malware is never written to disk (e.g., RAT plugins received from the controller are never written to disk).",
+        "short": "Memory-only Payload"
+    },
+    "B0036.002": {
+        "long": "Decryption key is stored external to the executable or never touches the disk.",
+        "short": "Encrypted Payloads"
+    },
+    "B0036.003": {
+        "long": "Multiple stages of loaders are used with an encoded payload.",
+        "short": "Multiple Stages of Loaders"
+    },
+    "B0037": {
+        "long": "Malware may bypass Data Execution Prevention (DEP).",
+        "short": "Bypass Data Execution Prevention"
+    },
+    "B0037.001": {
+        "long": "Return-Oriented Programming can be used to bypass DEP. It can also be used to bypass code signing.",
+        "short": "ROP Chains"
+    },
+    "B0038": {
+        "long": "Malware may gather information about itself, such as its filename or size on disk.",
+        "short": "Self Discovery"
+    },
+    "B0039": {
+        "long": "Malware may use a victim machine to create and send spam.",
+        "short": "Spamming"
+    },
+    "B0040": {
+        "long": "Malware may hide data or binary files within other files, the registry, etc.",
+        "short": "Covert Location"
+    },
+    "B0040.001": {
+        "long": "Malware may use a registry key to store a long sequence of bytes.",
+        "short": "Hide Data in Registry"
+    },
+    "B0040.002": {
+        "long": "Malware may store information in an image.",
+        "short": "Steganography"
+    }
+}

@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: acquire debug privileges
+    namespace: host-interaction/process/modify
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: basic block
+    att&ck:
+      - Privilege Escalation::Access Token Manipulation [T1134]
+    examples:
+      - Practical Malware Analysis Lab 01-04.exe_:0x401174
+  features:
+    - and:
+      - string: "SeDebugPrivilege"
+      - optional:
+        - match: modify access privileges

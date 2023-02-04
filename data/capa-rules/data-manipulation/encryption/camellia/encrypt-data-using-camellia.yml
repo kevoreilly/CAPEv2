@@ -1,0 +1,56 @@
+rule:
+  meta:
+    name: encrypt data using Camellia
+    namespace: data-manipulation/encryption/camellia
+    authors:
+      - '@_re_fox'
+    scope: basic block
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Defense Evasion::Obfuscated Files or Information::Encryption-Standard Algorithm [E1027.m05]
+      - Cryptography::Encrypt Data::Camellia [C0027.003]
+    examples:
+      - 0761142efbda6c4b1e801223de723578:0x6541CD50
+      - 112f9f0e8d349858a80dd8c14190e620:0x4CE3B2
+  features:
+    - or:
+      - bytes: 00 70 70 70 00 82 82 82 00 2c 2c 2c 00 ec ec ec 00 b3 b3 b3 00 27 27 27 00 c0 c0 c0 00 e5 e5 e5 00 e4 e4 e4 00 85 85 85 00 57 57 57 00 35 35 35 00 ea ea ea 00 0c 0c 0c 00 ae ae ae 00 41 41 41 00 23 23 23 00 ef ef ef 00 6b 6b 6b 00 93 93 93 00 45 45 45 00 19 19 19 00 a5 a5 a5 00 21 21 21 00 ed ed ed 00 0e 0e 0e 00 4f 4f 4f 00 4e 4e 4e 00 1d 1d 1d 00 65 65 65 00 92 92 92 00 bd bd bd 00 86 86 86 00 b8 b8 b8 00 af af af 00 8f 8f 8f 00 7c 7c 7c 00 eb eb eb 00 1f 1f 1f 00 ce ce ce 00 3e 3e 3e 00 30 30 30 00 dc dc = libgcrypt_sp1110
+      - bytes: e0 e0 e0 00 05 05 05 00 58 58 58 00 d9 d9 d9 00 67 67 67 00 4e 4e 4e 00 81 81 81 00 cb cb cb 00 c9 c9 c9 00 0b 0b 0b 00 ae ae ae 00 6a 6a 6a 00 d5 d5 d5 00 18 18 18 00 5d 5d 5d 00 82 82 82 00 46 46 46 00 df df df 00 d6 d6 d6 00 27 27 27 00 8a 8a 8a 00 32 32 32 00 4b 4b 4b 00 42 42 42 00 db db db 00 1c 1c 1c 00 9e 9e 9e 00 9c 9c 9c 00 3a 3a 3a 00 ca ca ca 00 25 25 25 00 7b 7b 7b 00 0d 0d 0d 00 71 71 71 00 5f 5f 5f 00 1f 1f 1f 00 f8 f8 f8 00 d7 d7 d7 00 3e 3e 3e 00 9d 9d 9d 00 7c 7c 7c 00 60 60 60 00 b9 b9 b9 = libgcrypt_sp0222
+      - bytes: 38 38 00 38 41 41 00 41 16 16 00 16 76 76 00 76 d9 d9 00 d9 93 93 00 93 60 60 00 60 f2 f2 00 f2 72 72 00 72 c2 c2 00 c2 ab ab 00 ab 9a 9a 00 9a 75 75 00 75 06 06 00 06 57 57 00 57 a0 a0 00 a0 91 91 00 91 f7 f7 00 f7 b5 b5 00 b5 c9 c9 00 c9 a2 a2 00 a2 8c 8c 00 8c d2 d2 00 d2 90 90 00 90 f6 f6 00 f6 07 07 00 07 a7 a7 00 a7 27 27 00 27 8e 8e 00 8e b2 b2 00 b2 49 49 00 49 de de 00 de 43 43 00 43 5c 5c 00 5c d7 d7 00 d7 c7 c7 00 c7 3e 3e 00 3e f5 f5 00 f5 8f 8f 00 8f 67 67 00 67 1f 1f 00 1f 18 18 00 18 6e 6e 00 = libgcrypt_sp3033
+      - bytes: 70 00 70 70 2c 00 2c 2c b3 00 b3 b3 c0 00 c0 c0 e4 00 e4 e4 57 00 57 57 ea 00 ea ea ae 00 ae ae 23 00 23 23 6b 00 6b 6b 45 00 45 45 a5 00 a5 a5 ed 00 ed ed 4f 00 4f 4f 1d 00 1d 1d 92 00 92 92 86 00 86 86 af 00 af af 7c 00 7c 7c 1f 00 1f 1f 3e 00 3e 3e dc 00 dc dc 5e 00 5e 5e 0b 00 0b 0b a6 00 a6 a6 39 00 39 39 d5 00 d5 d5 5d 00 5d 5d d9 00 d9 d9 5a 00 5a 5a 51 00 51 51 6c 00 6c 6c 8b 00 8b 8b 9a 00 9a 9a fb 00 fb fb b0 00 b0 b0 74 00 74 74 2b 00 2b 2b f0 00 f0 f0 84 00 84 84 df 00 df df cb 00 cb cb 34 00 34 = libgcrypt_sp4404
+      - bytes: 70 82 2c ec b3 27 c0 e5 e4 85 57 35 ea 0c ae 41 23 ef 6b 93 45 19 a5 21 ed 0e 4f 4e 1d 65 92 bd 86 b8 af 8f 7c eb 1f ce 3e 30 dc 5f 5e c5 0b 1a a6 e1 39 ca d5 47 5d 3d d9 01 5a d6 51 56 6c 4d 8b 0d 9a 66 fb cc b0 2d 74 12 2b 20 f0 b1 84 99 df 4c cb c2 34 7e 76 05 6d b7 a9 31 d1 17 04 d7 14 58 3a 61 de 1b 11 1c 32 0f 9c 16 53 18 f2 22 fe 44 cf b2 c3 b5 7a 91 24 08 e8 a8 60 fc 69 50 aa d0 a0 7d a1 89 62 97 54 5b 1e 95 e0 ff 64 d2 10 c4 00 48 a3 f7 75 db 8a 03 e6 da 09 3f dd 94 87 5c 83 02 cd 4a 90 33 73 67 f6 f3 9d 7f bf e2 52 9b d8 26 c8 37 c6 3b 81 96 6f 4b 13 be 63 2e e9 79 a7 8c 9f 6e bc 8e 29 f5 f9 b6 2f fd b4 59 78 98 06 6a e7 46 71 ba d4 25 ab 42 88 a2 8d fa 72 07 b9 55 f8 ee ac 0a 36 49 2a 68 3c 38 f1 a4 40 28 d3 7b bb c9 43 c1 15 e3 ad f4 77 c7 80 9e = calccrypto_sbox
+      - or:
+        - and:
+          - number: 0x3bcc908b = CAMELLIA_SIGMA1R
+          - number: 0xa09e667f = CAMELLIA_SIGMA1L
+          - number: 0x4caa73b2 = CAMELLIA_SIGMA2R
+          - number: 0xb67ae858 = CAMELLIA_SIGMA2L
+          - number: 0xc6ef372f = CAMELLIA_SIGMA3L
+          - number: 0xe94f82be = CAMELLIA_SIGMA3R
+          - number: 0x54ff53a5 = CAMELLIA_SIGMA4L
+          - number: 0xf1d36f1c = CAMELLIA_SIGMA4R
+          - number: 0x10e527fa = CAMELLIA_SIGMA5L
+          - number: 0xde682d1d = CAMELLIA_SIGMA5R
+          - number: 0xb05688c2 = CAMELLIA_SIGMA6L
+          - number: 0xb3e6c1fd = CAMELLIA_SIGMA6R
+        - and:
+          - bytes: 8b 90 cc 3b 7f 66 9e a0 = sigma1
+          - bytes: b2 73 aa 4c 58 e8 7a b6 = sigma2
+          - bytes: be 82 4f e9 2f 37 ef c6 = sigma3
+          - bytes: 1c 6f d3 f1 a5 53 ff 54 = sigma4
+          - bytes: 1d 2d 68 de fa 27 e5 10 = sigma5
+          - bytes: fd c1 e6 b3 c2 88 56 b0 = sigma6
+        - and:
+          - string: /A09E667F3BCC908B/i
+            description: sigma1_str
+          - string: "/B67AE8584CAA73B"
+            description: sigma2_str
+          - string: /C6EF372FE94F82BE/i
+            description: sigma3_str
+          - string: /54FF53A5F1D36F1C/i
+            description: sigma4_str
+          - string: /10E527FADE682D1D/i
+            description: sigma5_str
+          - string: /B05688C2B3E6C1FD/i
+            description: sigma6_str

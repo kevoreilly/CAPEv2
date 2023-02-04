@@ -1,0 +1,19 @@
+# generated using capa explorer for IDA Pro
+rule:
+  meta:
+    name: get process image filename
+    namespace: host-interaction/process
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: basic block
+  features:
+    - or:
+      - and:
+        - os: windows
+        - or:
+          - api: kernel32.K32GetProcessImageFileName
+          - api: kernel32.GetProcessImageFileName
+      - and:
+        - api: System.Diagnostics.Process::GetCurrentProcess
+        - property/read: System.Diagnostics.Process::MainModule
+        - property/read: System.Diagnostics.ProcessModule::FileName

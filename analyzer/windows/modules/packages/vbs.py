@@ -18,7 +18,7 @@ class VBS(Package):
     ]
 
     def start(self, path):
-        wscript = self.get_path("wscript.exe")
+        wscript = self.get_path("WScript")
 
         # Check file extension.
         # If the file doesn't have the proper .vbs extension force it

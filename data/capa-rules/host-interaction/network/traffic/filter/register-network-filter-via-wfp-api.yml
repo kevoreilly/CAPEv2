@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: register network filter via WFP API
+    namespace: host-interaction/network/traffic/filter
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Impact::Data Manipulation::Transmitted Data Manipulation [T1565.002]
+    examples:
+      - 493167E85E45363D09495D0841C30648:0x404220
+  features:
+    - and:
+      - api: fwpkclnt.FwpmFilterAdd0

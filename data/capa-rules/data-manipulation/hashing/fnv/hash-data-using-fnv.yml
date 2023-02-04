@@ -1,0 +1,35 @@
+rule:
+  meta:
+    name: hash data using fnv
+    namespace: data-manipulation/hashing/fnv
+    authors:
+      - moritz.raabe@mandiant.com
+      - "@_re_fox"
+      - michael.hunhoff@mandiant.com
+    description: can be any Fowler-Noll-Vo (FNV) hash variant, including FNV-1, FNV-1a, FNV-0
+    scope: function
+    mbc:
+      - Data::Non-Cryptographic Hash::FNV [C0030.005]
+    references:
+      - https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+      - http://isthe.com/chongo/tech/comp/fnv/
+      - https://create.stephan-brumme.com/fnv-hash/
+    examples:
+      - ad4229879180e267f431ac6666b6a0a2:0x14007B4D4
+  features:
+    - and:
+      - optional:
+        - characteristic: loop
+        - number: 0xcbf29ce484222325 = FNV_offset_basis, unused by FNV-0
+        - number: 0x811c9dc5 = FNV_offset_basis, unused by FNV-0
+      - or:
+        - number: 0x100000001b3 = FNV prime
+        - number: 0x01000193 = FNV prime
+      - basic block:
+        # FNV-1 hash does multiply then XOR
+        # FNV-1a hash does XOR then multiply
+        - and:
+          - characteristic: nzxor
+          - or:
+            - mnemonic: imul
+            - mnemonic: mul

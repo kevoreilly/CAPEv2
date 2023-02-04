@@ -1,0 +1,78 @@
+rule:
+  meta:
+    name: validate payment card number using luhn algorithm with no lookup table
+    authors:
+      - "@_re_fox"
+    lib: true
+    scope: function
+    mbc:
+      - Data::Checksum::Luhn [C0032.002]
+    examples:
+      - 6fcc13563aad936c7d0f3165351cb453:0x4026C0
+  features:
+    - and:
+      - characteristic: loop
+        description: Iterate over CC digits
+      - or:
+        - basic block:
+          - and:
+            # 6fcc13563aad936c7d0f3165351cb453:402842
+            - or:
+              - instruction:
+                - mnemonic: shl
+                - number: 0x1
+              - instruction:
+                - mnemonic: imul
+                - number: 0x2
+              - mnemonic: add = add al, al
+            - instruction:
+              - mnemonic: cmp
+              - number: 0x9
+            - description: Digital Root check number*2 < 0x9
+        - and:
+          - instruction:
+            - mnemonic: cmp
+            - number: 0x9
+            - description: Compare number to 0x9 for Digital Root
+          - basic block:
+            - or:
+              - instruction:
+                - mnemonic: imul
+                - number: 0x2
+              - instruction:
+                - mnemonic: shl
+                - number: 0x1
+              - mnemonic: add = add al, al
+              - description: 2*Number for Digital Root
+      - or:
+        - instruction:
+          # 6fcc13563aad936c7d0f3165351cb453:0x402820
+          - mnemonic: sub
+          - number: 0x30
+          - description: Conversion of chr to int (SUB 0x30)
+        - instruction:
+          - offset: -0x30
+          - mnemonic: lea
+          - description: Conversion of chr to int (LEA REG,[REG+ -0x30])
+      - basic block:
+        - or:
+          - and:
+            # 6fcc13563aad936c7d0f3165351cb453:0x402857
+            - or:
+              - mnemonic: div
+              - and:
+                - mnemonic: idiv
+                - mnemonic: cdq
+            - number: 0xa
+            - optional:
+              - mnemonic: neg
+            - description: Final section returning checkum % 10
+          - and:
+            - mnemonic: shr
+            - mnemonic: imul
+            - number: 0x66666667
+            - number: 0x1f
+            - number: 0x2
+            - optional:
+              - mnemonic: neg
+            - description: Compiler optimized returning checkum % 10

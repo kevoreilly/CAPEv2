@@ -4,7 +4,7 @@
 
 import contextlib
 import logging
-from pathlib import Path
+import os
 from subprocess import PIPE, Popen
 from typing import Any, Dict
 
@@ -24,14 +24,14 @@ class Java:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        p = Path(self.file_path)
-        if not p.exists():
+        if not os.path.exists(self.file_path):
             return None
 
         results = {"java": {}}
 
         if self.decomp_jar:
-            data = p.read_bytes()
+            with open(self.file_path, "rb") as f:
+                data = f.read()
             jar_file = store_temp_file(data, "decompile.jar")
 
             try:
@@ -44,5 +44,5 @@ class Java:
                 log.error(e, exc_info=True)
 
             with contextlib.suppress(Exception):
-                Path(jar_file.decode()).unlink()
+                os.unlink(jar_file)
         return results

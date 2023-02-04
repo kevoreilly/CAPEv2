@@ -1,0 +1,36 @@
+rule:
+  meta:
+    name: decompress data using UCL
+    namespace: data-manipulation/compression
+    authors:
+      - jakub.jozwiak@mandiant.com
+    scope: function
+    mbc:
+      - Data::Decompress Data [C0025]
+    references:
+      - http://www.oberhumer.com/opensource/ucl/
+    examples:
+      - 3d0d79c4715e5b6dd2f8704e4878d57646d5a92e1116aec2ef81a5679ba45cd8:0x14005BB40
+  features:
+    - and:
+      - match: contain loop
+      - or:
+        - and:
+          - count(mnemonic(shr)): 7 or more
+          - or:
+            - count(number(0x1f)): 7 or more
+              description: ucl_nrv2b_decompress_safe_le32
+            - count(number(0x10)): 7 or more
+              description: ucl_nrv2b_decompress_safe_le16
+        - and:
+          - description: ucl_nrv2b_decompress_safe_8
+          - count(mnemonic(test)): 7 or more
+          - count(number(0x7f)): 7 or more
+      - 2 or more:
+        - number: 0x500 = M2_MAX_OFFSET
+        - number: 0xFFFFFF37 = UCL_E_INPUT_OVERRUN
+        - number: 0xFFFFFF36 = UCL_E_OUTPUT_OVERRUN
+        - number: 0xFFFFFF35 = UCL_E_LOOKBEHIND_OVERRUN
+        - number: 0xFFFFFF34 = UCL_E_EOF_NOT_FOUND
+        - number: 0xFFFFFF33 = UCL_E_INPUT_NOT_CONSUMED
+        - number: 0xFFFFFF32 = UCL_E_OVERLAP_OVERRUN

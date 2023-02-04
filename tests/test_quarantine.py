@@ -8,7 +8,7 @@ import tempfile
 import pytest
 from tcr_misc import get_sample
 
-from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.quarantine import mbam_unquarantine, unquarantine, xorff_unquarantine
 
 
 @pytest.fixture

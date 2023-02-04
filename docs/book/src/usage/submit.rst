@@ -111,60 +111,6 @@ some options (in this case a command line argument for the malware)::
 
     $ ./utils/submit.py --memory --options free=True /path/to/binary
 
-``--options`` Options Available
--------------------------------
-- ``filename``: Rename the sample file
-- ``name``: This will force family extractor to run, Ex: name=trickbot
-- ``curdir``: Change from where execute sample, by default %TEMP%, Ex: curdir=%APPDATA% or
-        curdir=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
-- ``executiondir``: Sets directory to launch the file from. Need not be the same as the directory of sample file. Defaults to %TEMP% if both executiondir and curdir are not specified. Only supports full paths
-- ``free``: Run without monitoring (disables many capabilities) Ex: free=1
-- ``force-sleepskip``: Override default sleep skipping behavior:  0 disables all sleep skipping, 1 skips all sleeps.
-- ``full-logs``: By default, logs prior to network activity for URL analyses and prior to access of the file in question for non-executable formats are suppressed.  Set to 1 to disable log suppression.
-- ``force-flush``: For performance reasons, logs are buffered before being sent back to the result server.  We make every attempt to flush the buffer at critical points including when exceptions occur, but in some rare termination scenarios, logs may be lost.  Set to 1 to force flushing of the log buffers after any non-duplicate API is called, set to 2 to force flushing of every log.
-- ``no-stealth``: Set to 1 to disable anti-anti-VM/sandbox code enabled by default.
-- ``buffer-max``: When set to an integer of your choice, changes the maximum number of bytes that can be logged for most API buffers.
-- ``large-buffer-max``: Some hooked APIs permit larger buffers to be logged.  To change the limit for this, set this to an integer of your choice.
-- ``norefer``: Disables use of a fake referrer when performing URL analyses
-- ``file``: When using the zip or rar package, set the name of the file to execute
-- ``password``: When using the zip or rar package, set the password to use for extraction.  Also used when analyzing password-protected Office documents.
-- ``function``: When using the dll package, set the name of the exported function to execute
-- ``dllloader``: When using the dll package, set the name of the process loading the DLL (defaults to rundll32.exe).
-- ``arguments``: When using the dll, exe, or python packages, set the arguments to be passed to the executable or exported function.
-- ``appdata``: When using the exe package, set to 1 to run the executable out of the Application Data path instead of the Temp directory.
-- ``startbrowser``: Setting this option to 1 will launch a browser 30 seconds into the analysis (useful for some banking trojans).
-- ``browserdelay``: Sets the number of seconds to wait before starting the browser with the startbrowser option.  Defaults to 30 seconds.
-- ``url``: When used with the startbrowser option, this will determine the URL the started browser will access.
-- ``debug``: Set to 1 to enable reporting of critical exceptions occurring during analysis, set to 2 to enable reporting of all exceptions.
-- ``disable_hook_content``: Set to 1 to remove functionality of all hooks except those critical for monitoring other processes.  Set to 2 to apply to all hooks.
-- ``hook-type``: Valid for 32-bit analyses only.  Specifies the hook type to use: direct, indirect, or safe.  Safe attempts a Detours-style hook.
-- ``serial``: Spoof the serial of the system volume as the provided hex value
-- ``single-process``: When set to 1 this will limit behaviour monitoring to the initial process only.
-- ``exclude-apis``: Exclude the colon-separated list of APIs from being hooked
-- ``exclude-dlls``: Exclude the colon-separated list of DLLs from being hooked
-- ``dropped-limit``: Override the default dropped file limit of 100 files
-- ``compression``: When set to 1 this will enable CAPE's extraction of compressed payloads
-- ``extraction``: When set to 1 this will enable CAPE's extraction of payloads from within each process
-- ``injection``: When set to 1 this will enable CAPE's capture of injected payloads between processes
-- ``combo``: This combines compression, injection and extraction with process dumps
-- ``dump-on-api``: Dump the calling module when a function from the colon-separated list of APIs is used
-- ``bp0``: Sets breakpoint 0 (processor/hardware) to a VA or RVA value (or module::export). Applies also to bp1-bp3.
-- ``file-offsets``: Breakpoints in bp0-bp3 will be interpreted as PE file offsets rather than RVAs
-- ``break-on-return``: Sets breakpoints on the return address(es) from a colon-separated list of APIs
-- ``base-on-api``: Sets the base address to which breakpoints will be applied (and sets breakpoints)
-- ``depth``: Sets the depth an instruction trace will step into (defaults to 0, requires Trace package)
-- ``count``: Sets the number of instructions in a trace (defaults to 128, requires Trace package)
-- ``referrer``: Specify the referrer to be used for URL tasks, overriding the default Google referrer
-- ``loop_detection``: Set this option to 1 to enable loop detection (compress call logs - behavior analysis)
-- ``static``: Check if config can be extracted statically, if not, send to vm
-- ``Dl&Exec add headers``: Example: dnl_user_agent: "CAPE Sandbox", dnl_referer: google
-- ``servicedesc`` - for service package: Service description
-- ``arguments`` - for service package: Service arguments
-- ``store_memdump``: Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this 
-- ``pre_script_args``: Command line arguments for pre_script. Example: pre_script_args=file1 file2 file3
-- ``pre_script_timeout``: pre_script_timeout will default to 60 seconds. Script will stop after timeout Example: pre_script_timeout=30
-- ``during_script_args``: Command line arguments for during_script. Example: during_script_args=file1 file2 file3
-
 .. _webpy:
 
 Web Interface

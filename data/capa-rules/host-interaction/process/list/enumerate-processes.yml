@@ -1,0 +1,27 @@
+rule:
+  meta:
+    name: enumerate processes
+    namespace: host-interaction/process/list
+    authors:
+      - moritz.raabe@mandiant.com
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::Process Discovery [T1057]
+      - Discovery::Software Discovery [T1518]
+    examples:
+      - 2D3EDC218A90F03089CC01715A9F047F:0x403DAB
+      - 35d04ecd797041eee796f4ddaa96cae8:0x10004F34
+  features:
+    - or:
+      - api: System.Diagnostics.Process::GetProcesses
+      - and:
+        - api: kernel32.Process32First
+        - api: kernel32.Process32Next
+        - optional:
+          - basic block:
+            - and:
+              - or:
+                - number: 0xF = TH32CS_SNAPALL
+                - number: 0x2 = TH32CS_SNAPPROCESS
+              - api: kernel32.CreateToolhelp32Snapshot

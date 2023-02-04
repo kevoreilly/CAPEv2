@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: reference AES constants
+    namespace: data-manipulation/encryption/aes
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+  features:
+    - or:
+      - bytes: 50 a7 f4 51 53 65 41 7e = d-0
+      - bytes: 63 7c 77 7b f2 6b 6f c5 = s-box
+      - bytes: 52 09 6a d5 30 36 a5 38 = inv-s-box

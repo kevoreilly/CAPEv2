@@ -11,7 +11,6 @@ from functools import reduce
 import dateutil.parser
 
 from lib.cuckoo.common.abstracts import BehaviorHandler
-from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ class LinuxSystemTap(BehaviorHandler):
 
     def _check_for_probelkm(self):
         path_lkm = os.path.join(self.analysis.logs_path, "all.lkm")
-        if path_exists(path_lkm):
+        if os.path.exists(path_lkm):
             with open(path_lkm) as f:
                 lines = f.readlines()
 
@@ -115,13 +114,13 @@ class LinuxStrace(BehaviorHandler):
         self._check_for_straceds()
 
     def _check_for_straceds(self):
-        if not path_exists(self.analysis.logs_path):
+        if not os.path.exists(self.analysis.logs_path):
             return
         for path in os.listdir(self.analysis.logs_path):
             if path.startswith("straced.") and path != "straced.error":
                 current_pid = path.replace("straced.", "")
                 path_straced = os.path.join(self.analysis.logs_path, path)
-                if path_exists(path_straced):
+                if os.path.exists(path_straced):
                     with open(path_straced) as f:
                         lines = f.readlines()
                     # get pid from filename and add fork one
@@ -279,7 +278,8 @@ class StapParser:
             return self.parse_array(argstr)
         elif self.is_string(argstr):
             return self.parse_string(argstr)
-        return argstr
+        else:
+            return argstr
 
     def parse_array(self, argstr):
         return [self.parse_arg(a) for a in argstr.lstrip("[").split(", ")]

@@ -1,5 +1,5 @@
 import logging
-from pathlib import Path
+from os import getcwd
 from subprocess import STARTF_USESHOWWINDOW, STARTUPINFO, call
 from threading import Thread
 
@@ -18,7 +18,7 @@ class Permissions(Auxiliary):
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
-        self.enabled = config.permissions
+        self.enabled = config.file_pickup
         self.startupinfo = STARTUPINFO()
         self.startupinfo.dwFlags |= STARTF_USESHOWWINDOW
 
@@ -26,7 +26,7 @@ class Permissions(Auxiliary):
         if not self.enabled:
             return False
         # Put locations here that you want to protect, such as the analyzer path or the Python path
-        locations = [Path.cwd(), "C:\\tmp*"]
+        locations = [getcwd(), "C:\\tmp*"]
         log.debug("Adjusting permissions for %s", locations)
         for location in locations:
 

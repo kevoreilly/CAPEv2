@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: enumerate processes via NtQuerySystemInformation
+    namespace: host-interaction/process/list
+    authors:
+      - "@_re_fox"
+    scope: basic block
+    att&ck:
+      - Discovery::Process Discovery [T1057]
+      - Discovery::Software Discovery [T1518]
+    examples:
+      - 31bd8dd48ac0de3d4da340bf29f4d280:0x00401be3
+  features:
+    - and:
+      - number: 0x5 = SYSTEM_PROCESS_INFORMATION
+      - api: NtQuerySystemInformation

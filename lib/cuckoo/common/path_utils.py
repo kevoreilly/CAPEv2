@@ -64,7 +64,3 @@ def path_write_file(path: str, content, mode="bytes"):
 
 def path_cwd():
     return Path().cwd()
-
-
-def path_mount_point(path: str):
-    return Path(path_to_ascii(path)).is_mount()

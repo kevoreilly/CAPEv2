@@ -1,0 +1,16 @@
+rule:
+  meta:
+    name: change the wallpaper
+    namespace: host-interaction/gui/session
+    authors:
+      - "@_re_fox"
+    scope: basic block
+    mbc:
+      - Operating System::Wallpaper [C0035]
+    examples:
+      - 5dd0b130d5c3d40c69e3972f39fd7d62:0x45AC6F
+  features:
+    - and:
+      - api: SystemParametersInfo
+      - number: 0x14 = SPI_SETDESKWALLPAPER
+      - number: 0x3 = SPIF_SENDWININICHANGE | SPIF_UPDATEINIFILE

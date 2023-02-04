@@ -1,0 +1,29 @@
+rule:
+  meta:
+    name: inject pe
+    namespace: host-interaction/process/inject
+    authors:
+      - 0x534a@mailbox.org
+    scope: function
+    att&ck:
+      - Defense Evasion::Process Injection::Portable Executable Injection [T1055.002]
+      - Defense Evasion::Reflective Code Loading [T1620]
+    references:
+      - https://www.elastic.co/de/blog/ten-process-injection-techniques-technical-survey-common-and-trending-process
+    examples:
+      - ce8d7590182db2e51372a4a04d6a0927a65b2640739f9ec01cfd6c143b1110da:0x4014E0
+  features:
+    - and:
+      - characteristic: loop
+      - optional:
+        - or:
+          - match: open process
+          - match: host-interaction/process/create
+      - match: allocate RWX memory
+      - basic block:
+        - description: virtual address offset calculation
+        - and:
+          - mnemonic: and
+          - number: 0x0FFF
+      - match: write process memory
+      - match: create thread

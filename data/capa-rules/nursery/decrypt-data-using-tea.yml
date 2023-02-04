@@ -1,0 +1,17 @@
+rule:
+  meta:
+    name: decrypt data using TEA
+    namespace: data-manipulation/encryption/tea
+    authors:
+      - william.ballenthin@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Defense Evasion::Obfuscated Files or Information::Encryption-Standard Algorithm [E1027.m05]
+    references:
+      - https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm
+  features:
+    - and:
+      - number: 0x9E3779B9 = delta
+      - number: 0xC6EF3720 = sum

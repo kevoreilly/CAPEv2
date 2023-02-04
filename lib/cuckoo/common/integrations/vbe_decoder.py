@@ -14,9 +14,9 @@ https://github.com/JohnHammond/vbe-decoder/blob/master/vbe-decoder.py
 """
 
 
+import os
 import re
 import sys
-from pathlib import Path
 from typing import List
 
 
@@ -258,25 +258,24 @@ def validate_files(files: List[str]):
     Check if the supplied files actually exist and are in fact files
     """
     for file in files:
-        p = Path(file)
-        if not p.exists() or not p.is_file():
+        if not os.path.exists(file):
             fatal_error(f"supplied file '{file}' does not exist")
+        if not os.path.isfile(file):
+            fatal_error(f"supplied file '{file}' is not a file (maybe directory?)")
 
 
 def decode_files(files: List[str]) -> str:
     return "\n".join(decode_file(file) for file in files)
 
 
-def decode_file(file: str, contents: bytes = False) -> str:
+def decode_file(file: str, contents=False) -> str:
     if not contents:
         try:
-            contents = Path(file).read_bytes().decode("latin-1", errors="ignore")
+            with open(file, "rb") as handle:
+                binary_content = handle.read()
+                contents = binary_content.decode("latin-1", errors="ignore")
         except Exception as e:
             fatal_error(f"{e.message}")
-
-    else:
-        if isinstance(contents, bytes):
-            contents = contents.decode("latin-1", errors="ignore")
 
     encoded_data = re.findall(r"#@~\^......==(.+)......==\^#~@", contents)
     return "\n".join(decode_data(data) for data in encoded_data)
@@ -296,7 +295,8 @@ def main(files: List[str], output_file: str):
         sys.stdout.write(output)
     else:
         try:
-            _ = Path(output_file).write_text(output)
+            with open(output_file, "w") as handle:
+                handle.write(output)
             success(f"wrote decoded vbscript to '{output_file}'")
         except Exception as e:
             fatal_error(f"{e.message}")

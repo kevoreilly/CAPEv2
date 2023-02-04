@@ -1,8 +1,9 @@
 # Thanks to @MuziSec - https://github.com/MuziSec/malware_scripts/blob/main/bumblebee/extract_config.py
 #
 import logging
+import os
 import traceback
-from contextlib import suppress
+from binascii import hexlify, unhexlify
 
 import pefile
 import regex as re
@@ -95,9 +96,10 @@ def extract_config(data):
 
     cfg = {}
     pe = None
-    with suppress(Exception):
+    try:
         pe = pefile.PE(data=data, fast_load=False)
-
+    except Exception:
+        pass
     if pe is None:
         return
 
@@ -126,6 +128,8 @@ def extract_config(data):
 
     # Extract config ciphertext
     config_match = regex.search(data)
+    if not config_match:
+        return cfg
     campaign_id, botnet_id, c2s = extract_config_data(data, pe, config_match)
 
     # RC4 Decrypt

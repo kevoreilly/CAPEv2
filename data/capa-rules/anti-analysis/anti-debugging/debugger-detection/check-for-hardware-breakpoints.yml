@@ -1,0 +1,22 @@
+rule:
+  meta:
+    name: check for hardware breakpoints
+    namespace: anti-analysis/anti-debugging/debugger-detection
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Anti-Behavioral Analysis::Debugger Detection::Hardware Breakpoints [B0001.005]
+    references:
+      - https://github.com/LordNoteworthy/al-khaser/blob/master/al-khaser/AntiDebug/HardwareBreakpoints.cpp
+    examples:
+      - al-khaser_x86.exe_:0x42035D
+  features:
+    - and:
+      - api: kernel32.GetThreadContext
+      - number: 0x10010 = CONTEXT_DEBUG_REGISTERS
+      - offset: 0x4 = DR0
+      - offset: 0x8 = DR1
+      - offset: 0xC = DR2
+      - offset: 0x10 = DR3
+      - count(mnemonic(cmp)): 4 or more

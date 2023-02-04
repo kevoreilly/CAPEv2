@@ -8,17 +8,16 @@ import logging
 import os
 import shutil
 import sys
-from contextlib import suppress
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_is_dir
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
@@ -100,7 +99,7 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
                 if db.delete_task(id):
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
-                        if path_is_dir(path):
+                        if os.path.isdir(path):
                             delete_folder(path)
                     except Exception as e:
                         log.error(e)
@@ -109,7 +108,7 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             for id in ids_tmp:
                 try:
                     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
-                    if path_is_dir(path):
+                    if os.path.isdir(path):
                         delete_folder(path)
                 except Exception as e:
                     log.error(e)
@@ -140,9 +139,9 @@ def delete_data(tid):
 def dist_delete_data(data, dist_db):
     for id, file in data:
         try:
-            if path_exists(file):
+            if os.path.exists(file):
                 try:
-                    path_delete(file)
+                    os.remove(file)
                 except Exception as e:
                     log.info(e)
             db.delete_task(id)
@@ -186,7 +185,7 @@ def cuckoo_clean():
 
     # Delete various directories.
     for path in paths:
-        if path_is_dir(path):
+        if os.path.isdir(path):
             try:
                 shutil.rmtree(path)
             except (IOError, OSError) as e:
@@ -201,7 +200,7 @@ def cuckoo_clean():
             path = os.path.join(CUCKOO_ROOT, dirpath, fname)
 
             try:
-                path_delete(path)
+                os.unlink(path)
             except (IOError, OSError) as e:
                 log.warning("Error removing file %s: %s", path, e)
 
@@ -246,7 +245,7 @@ def cuckoo_clean_bson_suri_logs():
             new = el2.to_dict()
             id = new["id"]
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % id)
-            if path_exists(path):
+            if os.path.exists(path):
                 jsonlogs = glob("%s/logs/*json*" % (path))
                 bsondata = glob("%s/logs/*.bson" % (path))
                 filesmeta = glob("%s/logs/files/*.meta" % (path))
@@ -254,7 +253,7 @@ def cuckoo_clean_bson_suri_logs():
                     for fe in f:
                         try:
                             log.info(("removing %s" % (fe)))
-                            path_delete(fe)
+                            os.remove(fe)
                         except Exception as Err:
                             log.info(("failed to remove sorted_pcap from disk %s" % (Err)))
 
@@ -346,13 +345,13 @@ def tmp_clean_before_day(args):
 
             if file_time.days > days:
                 try:
-                    if path_is_dir(path):
+                    if os.path.isdir(path):
                         log.info("Delete folder: {0}".format(path))
                         delete_folder(path)
                     else:
-                        if path_exists(path):
+                        if os.path.exists(path):
                             log.info("Delete file: {0}".format(path))
-                            path_delete(path)
+                            os.remove(path)
                 except Exception as e:
                     log.error(e)
 
@@ -457,7 +456,7 @@ def cuckoo_clean_sorted_pcap_dump():
                         log.info(("failed to remove sorted pcap from db for id %s" % (e["info"]["id"])))
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % (e["info"]["id"]), "dump_sorted.pcap")
-                        path_delete(path)
+                        os.remove(path)
                     except Exception as e:
                         log.info(("failed to remove sorted_pcap from disk %s" % (e)))
                 else:
@@ -513,9 +512,11 @@ def cuckoo_dedup_cluster_queue():
     )
 
     for sample, task in duplicated:
-        with suppress(UnicodeDecodeError):
+        try:
             # hash -> [[id, file]]
             hash_dict.setdefault(sample.sha256, []).append((task.id, task.target))
+        except UnicodeDecodeError:
+            pass
 
     resolver_pool.map(lambda sha256: dist_delete_data(hash_dict[sha256][1:], dist_db), hash_dict)
 

@@ -1,0 +1,24 @@
+rule:
+  meta:
+    name: create new key via CryptAcquireContext
+    namespace: data-manipulation/encryption
+    authors:
+      - chuong.dong@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Cryptography::Encryption Key [C0028]
+    references:
+      - https://docs.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptacquirecontexta
+    examples:
+      - E5369AC309F1BE6D77AFEEB3EDAB0ED8:0x401350
+  features:
+    - and:
+      - api: advapi32.CryptAcquireContext
+      - or:
+        - number: 0x8 = CRYPT_NEWKEYSET
+        - number: 0x18 = CRYPT_NEWKEYSET | CRYPT_DELETEKEYSET
+        - number: 0x28 = CRYPT_NEWKEYSET | CRYPT_MACHINE_KEYSET
+        - number: 0x48 = CRYPT_NEWKEYSET | CRYPT_SILENT
+        - number: 0x88 = CRYPT_NEWKEYSET | CRYPT_DEFAULT_CONTAINER_OPTIONAL

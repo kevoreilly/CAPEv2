@@ -14,7 +14,7 @@ def clean_string(line):
 
 
 def first_split(data):
-    splits = data.split("Software\\Microsoft\\Active Setup\\Installed Components\\")
+    splits = data.split("Software\\Microsoft\\Active Setup\\Installed Components\\".encode())
     return splits[1] if len(splits) == 2 else None
 
 
@@ -45,7 +45,7 @@ def walk_data(data):
 
 
 def walk_domain(raw_stream):
-    domains = ""
+    domains = []
     offset = 0
     stream = bytearray(raw_stream)
     while offset < len(stream):
@@ -55,54 +55,59 @@ def walk_domain(raw_stream):
 
         port = calc_length(raw_stream[offset + length + 2 : offset + length + 4])
         offset += length + 4
-        domains += f"{domain}:{port}|"
+        domains.append((domain, port))
     return domains
 
 
-def extract_config_final(config_raw):
+def extract_final_config(config_raw):
     config = {}
 
     for field in config_raw:
         if field[0] == "FA0A":
-            config["Campaign ID"] = clean_string(field[1])
+            # Camps
+            config.setdefault("campaign_id", []).append(clean_string(field[1]))
         elif field[0] == "F90B":
-            config["Group ID"] = clean_string(field[1])
+            # Group ID
+            config.setdefault("campaign_id", []).append(clean_string(field[1]))
         elif field[0] == "9001":
-            config["Domains"] = walk_domain(field[1])
+            config.setdefault("tcp", []).extend(
+                [{"server_domain": domain, "server_port": port} for domain, port in walk_domain(field[1])]
+            )
         elif field[0] == "4501":
-            config["Password"] = clean_string(field[1])
-        elif field[0] == "090D":
-            config["Enable HKLM"] = bytetohex(field[1])
+            config.setdefault("password", []).append(clean_string(field[1]))
         elif field[0] == "120E":
-            config["HKLM Value"] = clean_string(field[1])
-        elif field[0] == "F603":
-            config["Enable ActiveX"] = bytetohex(field[1])
+            config.setdefault("registry", []).append({"key": clean_string(field[1])})
         elif field[0] == "6501":
-            config["ActiveX Key"] = clean_string(field[1])
-        elif field[0] == "4101":
-            config["Flag 3"] = bytetohex(field[1])
+            config.setdefault("registry", []).append({"key": clean_string(field[1])})
         elif field[0] == "4204":
-            config["Inject Exe"] = clean_string(field[1])
+            config.setdefault("inject_exe", []).append(clean_string(field[1]))
         elif field[0] == "Fb03":
-            config["Mutex"] = clean_string(field[1])
-        elif field[0] == "F40A":
-            config["Hijack Proxy"] = bytetohex(field[1])
-        elif field[0] == "F50A":
-            config["Persistent Proxy"] = bytetohex(field[1])
+            config.setdefault("mutex", []).append(clean_string(field[1]))
         elif field[0] == "2D01":
-            config["Install Name"] = clean_string(field[1])
+            config.setdefault("other", {})["Install Name"] = clean_string(field[1])
         elif field[0] == "F703":
-            config["Install Path"] = clean_string(field[1])
+            config.setdefault("paths", []).append({"path": clean_string(field[1]), "usage": "install"})
+        # Below might be capabilities/proxy details?
         elif field[0] == "120D":
-            config["Copy to ADS"] = bytetohex(field[1])
+            config.setdefault("other", {})["Copy to ADS"] = bytetohex(field[1])
         elif field[0] == "F803":
-            config["Melt"] = bytetohex(field[1])
+            config.setdefault("other", {})["Melt"] = bytetohex(field[1])
         elif field[0] == "F903":
-            config["Enable Thread Persistence"] = bytetohex(field[1])
+            config.setdefault("other", {})["Enable Thread Persistence"] = bytetohex(field[1])
         elif field[0] == "080D":
-            config["Inject Default Browser"] = bytetohex(field[1])
+            config.setdefault("other", {})["Inject Default Browser"] = bytetohex(field[1])
         elif field[0] == "FA03":
-            config["Enable KeyLogger"] = bytetohex(field[1])
+            config.setdefault("other", {})["Enable KeyLogger"] = bytetohex(field[1])
+        elif field[0] == "090D":
+            config.setdefault("other", {})["Enable HKLM"] = bytetohex(field[1])
+        elif field[0] == "F603":
+            config.setdefault("other", {})["Enable ActiveX"] = bytetohex(field[1])
+        elif field[0] == "4101":
+            config.setdefault("other", {})["Flag 3"] = bytetohex(field[1])
+        elif field[0] == "F40A":
+            config.setdefault("other", {})["Hijack Proxy"] = bytetohex(field[1])
+        elif field[0] == "F50A":
+            config.setdefault("other", {})["Persistent Proxy"] = bytetohex(field[1])
 
     return config
 
@@ -121,7 +126,7 @@ def extract_config(data):
         # If the split works try to walk the strings.
         two = walk_data(one)
         # Let's Process this and format the config.
-        final_config = extract_config_final(two)
+        final_config = extract_final_config(two)
         domain_data = domain_parse(final_config)
         return [final_config, domain_data]
     except Exception:

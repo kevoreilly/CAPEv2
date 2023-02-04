@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: get system web proxy
+    namespace: communication/http
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    att&ck:
+      - Discovery::System Network Configuration Discovery [T1016]
+    references:
+      - https://docs.microsoft.com/en-us/dotnet/api/system.net.webrequest.getsystemwebproxy
+  features:
+    - and:
+      - api: System.Net.WebRequest::GetSystemWebProxy

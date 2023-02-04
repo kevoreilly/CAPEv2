@@ -1,0 +1,54 @@
+rule:
+  meta:
+    name: encrypt data using HC-128
+    namespace: data-manipulation/encryption/hc-128
+    authors:
+      - awillia2@cisco.com
+    description: Looks for instruction mnemonics associated with initialization of the HC-128 stream cipher
+    scope: basic block
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information [T1027]
+    mbc:
+      - Defense Evasion::Obfuscated Files or Information::Encryption-Standard Algorithm [E1027.m05]
+      - Cryptography::Encrypt Data::HC-128 [C0027.006]
+    references:
+      - https://download.bitdefender.com/resources/files/News/CaseStudies/study/318/Bitdefender-TRR-Whitepaper-Maze-creat4351-en-EN-GenericUse.pdf
+      - https://github.com/rost1993/hc128/blob/master/hc128.c
+    examples:
+      - e69a8eb94f65480980deaf1ff5a431a6:0x405D0D
+  features:
+    - and:
+      - instruction:
+        - mnemonic: shl
+        - number: 0x0F = (v << (32 - 17)) from ROTR32(x, 17) in F2(x)
+      - instruction:
+        - mnemonic: shr
+        - number: 0x11 = (v >> 17) from ROTR32(x, 17) in F2(x)
+      - instruction:
+        - mnemonic: shl
+        - number: 0xD = (v << (32 - 19)) from ROTR32(x, 19) in F2(x)
+      - instruction:
+        - mnemonic: shr
+        - number: 0x13 = (v >> 19) from ROTR32(x, 19) in F2(x)
+      - instruction:
+        - mnemonic: shr
+        - number: 0xA = (v >> 10) in F2(x)
+      - instruction:
+        - mnemonic: shl
+        - number: 0x19 = (v << (32 - 7)) from ROTR32(x, 7) in F1(x)
+      - instruction:
+        - mnemonic: shr
+        - number: 0x7 = (v >> 7) from ROTR32(x, 7) in F1(x)
+      - instruction:
+        - mnemonic: shl
+        - number: 0xE = (v << (32 - 18)) from ROTR32(x, 18) in F1(x)
+      - instruction:
+        - mnemonic: shr
+        - number: 0x12 = (v >> 18) from ROTR32(x, 18) in F1(X)
+      - instruction:
+        - mnemonic: shr
+        - number: 0x3 = (x >> 3) in F1(x)
+      - count(mnemonic(shl)): 4
+      - count(mnemonic(shr)): 6
+      - count(mnemonic(or)): 4
+      - count(characteristic(nzxor)): 4

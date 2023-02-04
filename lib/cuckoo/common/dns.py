@@ -143,4 +143,5 @@ def resolve(name: str) -> str:
         return resolve_cares(name)
     # elif HAVE_GEVENT:
     #    return resolve_gevent(name)
-    return resolve_thread(name)
+    else:
+        return resolve_thread(name)

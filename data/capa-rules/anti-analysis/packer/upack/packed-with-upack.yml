@@ -1,0 +1,20 @@
+rule:
+  meta:
+    name: packed with upack
+    namespace: anti-analysis/packer/upack
+    authors:
+      - "@_re_fox"
+    scope: file
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information::Software Packing [T1027.002]
+    mbc:
+      - Anti-Static Analysis::Software Packing [F0001]
+    references:
+      - https://www.hexacorn.com/blog/2016/12/15/pe-section-names-re-visited/
+    examples:
+      - 9d98f8519d9fee8219caca5b31eef0bd
+  features:
+    - or:
+      - section: .Upack
+      - section: .ByDwing
+      - string: "UpackByDwing@"

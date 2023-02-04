@@ -1,0 +1,14 @@
+rule:
+  meta:
+    name: compile .NET assembly
+    namespace: load-code/dotnet
+    authors:
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Obfuscated Files or Information::Compile After Delivery [T1027.004]
+  features:
+    - or:
+      - api: System.CodeDom.Compiler.CodeDomProvider::CompileAssemblyFromDom
+      - api: System.CodeDom.Compiler.CodeDomProvider::CompileAssemblyFromFile
+      - api: System.CodeDom.Compiler.CodeDomProvider::CompileAssemblyFromSource

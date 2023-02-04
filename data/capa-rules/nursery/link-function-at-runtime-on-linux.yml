@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: link function at runtime on Linux
+    namespace: linking/runtime-linking
+    authors:
+      - joakim@intezer.com
+    scope: function
+    att&ck:
+      - Execution::Shared Modules [T1129]
+  features:
+    - and:
+      - os: linux
+      - or:
+        - api: dlopen
+        - api: dlmopen
+      - or:
+        - api: dlsym
+        - api: dlvsym

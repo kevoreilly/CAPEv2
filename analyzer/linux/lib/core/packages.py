@@ -71,7 +71,8 @@ def _guess_package_name(file_type, file_name):
         return "generic"
     elif "Unicode text" in file_type or file_name.endswith(".js"):
         return "js"
-    return None
+    else:
+        return None
 
 
 class Package:

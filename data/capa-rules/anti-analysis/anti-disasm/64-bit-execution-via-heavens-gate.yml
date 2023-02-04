@@ -1,0 +1,31 @@
+rule:
+  meta:
+    name: 64-bit execution via heavens gate
+    namespace: anti-analysis/anti-disasm
+    authors:
+      - awillia2@cisco.com
+    description: Looks for instructions related to executing 64-bit code from a 32-bit process (Heaven's Gate)
+    scope: function
+    mbc:
+      - Defense Evasion::Disable or Evade Security Tools::Heavens Gate [F0004.008]
+    references:
+      - https://download.bitdefender.com/resources/files/News/CaseStudies/study/318/Bitdefender-TRR-Whitepaper-Maze-creat4351-en-EN-GenericUse.pdf
+      - https://www.malwaretech.com/2014/02/the-0x33-segment-selector-heavens-gate.html
+    examples:
+      - 79abd17391adc6251ecdc58d13d76baf:0x10002385
+  features:
+    - and:
+      - or:
+        - description: set up retf to push 0x33 to CS indicating 64-bit mode
+        - instruction:
+          - mnemonic: push
+          - number: 0x33
+        - instruction:
+          - mnemonic: mov
+          - number: 0x33
+      - characteristic: call $+5
+        description: call $+5 pushes the current EIP onto the stack, +5 to jump past call insn bytes
+      - instruction:
+        - mnemonic: add = 'add dword ptr[esp], 5' updates the return address to point after retf
+        - number: 0x5 = length of add + retf insn bytes
+      - mnemonic: retf = set EIP = [ESP] and CS = [ESP+4]

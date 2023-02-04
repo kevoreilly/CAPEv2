@@ -1,0 +1,40 @@
+rule:
+  meta:
+    name: bypass UAC via token manipulation
+    namespace: host-interaction/uac/bypass
+    authors:
+      - richard.cole@mandiant.com
+      - david.cannings@pwc.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Abuse Elevation Control Mechanism::Bypass User Account Control [T1548.002]
+    references:
+      - https://github.com/hfiref0x/UACME/blob/0a4d2bd67f4872c595f0217ef6ebdcf135186945/Source/Akagi/methods/tyranid.c#L83
+      - https://gist.github.com/dezhub/c0fee68d1e06657a45ec39365362fca7
+    examples:
+      - 2f43138aa75fb12ac482b486cbc98569:0x180001B48
+  features:
+    - and:
+      # Could expand this to include other processes that run elevated by default.
+      - string: "wusa.exe"
+
+      # APIs to run an elevated program. Could expand this to process enumeration.
+      - or:
+        - api: ShellExecuteEx
+        - api: ShellExecuteExW
+
+      # Functions designed to obtain the token
+      - or:
+        - api: NtOpenProcessToken
+        - api: NtFilterToken
+        - api: NtDuplicateToken
+        # Some samples import the Nt* APIs dynamically, this constant is relatively
+        # unique.
+        - number: 0xF01FF = TOKEN_ALL_ACCESS
+
+      # Functions designed to (ab)use the token
+      - or:
+        - api: NtSetInformationToken
+        - api: ImpersonateLoggedOnUser
+        - api: CreateProcessWithLogon
+        - api: CreateProcessWithLogonW

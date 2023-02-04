@@ -1,0 +1,18 @@
+rule:
+  meta:
+    name: execute SQLite statement in .NET
+    namespace: data-manipulation/database/sql
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+  features:
+    - and:
+      - or:
+        - api: System.Data.SQLite.SQLiteCommand::ExecuteReader
+        - api: System.Data.SQLite.SQLiteCommand::ExecuteReaderAsync
+        - api: System.Data.SQLite.SQLiteCommand::ExecuteScalar
+        - api: System.Data.SQLite.SQLiteCommand::ExecuteDbDataReader
+        - api: System.Data.SQLite.SQLiteCommand::ExecuteDbDataReaderAsync
+        - api: System.Data.SQLite.SQLiteCommand::ExecuteNonQuery
+      - optional:
+        - api: System.Data.SQLite.SQLiteCommand::ctor

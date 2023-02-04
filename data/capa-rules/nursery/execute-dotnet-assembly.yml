@@ -1,0 +1,13 @@
+rule:
+  meta:
+    name: execute .NET assembly
+    namespace: load-code/dotnet
+    authors:
+      - anushka.virgaonkar@mandiant.com
+    scope: function
+    att&ck:
+      - Defense Evasion::Reflective Code Loading [T1620]
+  features:
+    - or:
+      - api: System.AppDomain::ExecuteAssembly
+      - api: System.AppDomain::ExecuteAssemblyByName

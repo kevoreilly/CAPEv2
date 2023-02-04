@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: send TCP data via WFP API
+    namespace: communication/socket/tcp/send
+    authors:
+      - michael.hunhoff@mandiant.com
+    scope: function
+    mbc:
+      - Communication::Socket Communication::Send TCP Data [C0001.014]
+    examples:
+      - 493167E85E45363D09495D0841C30648:0x404560
+  features:
+    - and:
+      - api: fwpkclnt.FwpsStreamInjectAsync0
+      - number: 0x10000 = FWPS_STREAM_FLAG_SEND

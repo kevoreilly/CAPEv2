@@ -1,0 +1,15 @@
+rule:
+  meta:
+    name: access .NET resource
+    namespace: executable/resource
+    authors:
+      - "@mr-tz"
+    scope: function
+    examples:
+      - 387f15043f0198fd3a637b0758c2b6dde9ead795c3ed70803426fc355731b173:0x06000084
+  features:
+    - and:
+      - format: dotnet
+      - or:
+        - api: System.Resources.ResourceManager::ctor
+        - api: System.Reflection.Assembly::GetManifestResourceStream

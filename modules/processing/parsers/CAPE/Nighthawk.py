@@ -95,7 +95,7 @@ def _get_section_data(data, section_name):
     with contextlib.suppress(Exception):
         pe = pefile.PE(data=data, fast_load=False)
 
-    if pe is None:
+    if not pe:
         return None
 
     for section in pe.sections:

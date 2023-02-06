@@ -90,8 +90,7 @@ class OneNoteExtractor:
         """Check if the first 16 bytes in `self.data` match known OneNote file header structure."""
         if self.data[0:16] == HEADER:
             return True
-        else:
-            return False
+        return False
 
     def _get_time(self, date: bytes) -> datetime:
         i_value = struct.unpack("<Q", bytearray(date))[0]
@@ -123,7 +122,7 @@ class OneNoteExtractor:
                 return
         else:
             logger.debug("No embedded files found.")
-            return
+        return
 
     def extract_meta(self) -> Iterator[OneNoteMetadataObject]:
         """Extract metadata from embedded objects in .one files.

@@ -1,9 +1,0 @@
-config_file_path: /opt/CAPEv2/data/mitre/config.yml
-data_path: /opt/CAPEv2/data/mitre
-enterprise_attck_json: /opt/CAPEv2/data/mitre/enterprise_attck_json.json
-generated_attck_json: /opt/CAPEv2/data/mitre/generated_attck_json.json
-generated_nist_json: /opt/CAPEv2/data/mitre/generated_nist_json.json
-ics_attck_json: /opt/CAPEv2/data/mitre/ics_attck_json.json
-mobile_attck_json: /opt/CAPEv2/data/mitre/mobile_attck_json.json
-nist_controls_json: /opt/CAPEv2/data/mitre/nist_controls_json.json
-pre_attck_json: /opt/CAPEv2/data/mitre/pre_attck_json.json

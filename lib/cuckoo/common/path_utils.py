@@ -9,6 +9,10 @@ def path_to_ascii(path: bytes):
     return path.decode() if isinstance(path, bytes) else path
 
 
+def path_object(path: bytes):
+    return Path(path_to_ascii(path))
+
+
 def path_get_filename(path):
     """Cross-platform filename extraction from path.
     @param path: file path.

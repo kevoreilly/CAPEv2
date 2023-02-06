@@ -417,7 +417,7 @@ def main():
     (options, args) = parser.parse_args()
     file_path = options.filename
     dir_path = options.dirname
-    if file_path is None and dir_path is None:
+    if not file_path and not dir_path:
         parser.print_help()
         sys.exit(1)
 

@@ -26,7 +26,15 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_write_file, path_is_file, path_object
+from lib.cuckoo.common.path_utils import (
+    path_exists,
+    path_get_size,
+    path_is_file,
+    path_mkdir,
+    path_object,
+    path_read_file,
+    path_write_file,
+)
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file
@@ -634,9 +642,7 @@ def msi_extract(file: str, *, filetype: str, **_) -> ExtractorReturnType:
         )
         if output:
             extracted_files = [
-                extracted_file
-                for extracted_file in list(filter(None, output.split("\n")))
-                if path_is_file(tempdir, extracted_file)
+                extracted_file for extracted_file in list(filter(None, output.split("\n"))) if path_is_file(tempdir, extracted_file)
             ]
         else:
             output = subprocess.check_output(

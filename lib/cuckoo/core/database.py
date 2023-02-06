@@ -816,7 +816,7 @@ class Database(object, metaclass=Singleton):
         task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
         task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
         relevant_available_machines = self.list_machines(
-            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs
+            locked=False, name=task.machine, platform=task.platform, tags=task_tags, arch=task_archs
         )
         if len(relevant_available_machines) > 0:
             # There are? Awesome!
@@ -836,7 +836,7 @@ class Database(object, metaclass=Singleton):
         """
         task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
         task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
-        relevant_machines = self.list_machines(label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs)
+        relevant_machines = self.list_machines(name=task.machine, platform=task.platform, tags=task_tags, arch=task_archs)
         if len(relevant_machines) > 0:
             return True
         return False
@@ -985,7 +985,7 @@ class Database(object, metaclass=Singleton):
         return machines
 
     @classlock
-    def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None):
+    def list_machines(self, locked=None, label=None, name=None, platform=None, tags=[], arch=None):
         """Lists virtual machines.
         @return: list of virtual machines
         """
@@ -994,6 +994,8 @@ class Database(object, metaclass=Singleton):
             machines = session.query(Machine).options(joinedload("tags"))
             if locked is not None and isinstance(locked, bool):
                 machines = machines.filter_by(locked=locked)
+            if name:
+                machines = machines.filter_by(name=name)
             if label:
                 machines = machines.filter_by(label=label)
             if platform:

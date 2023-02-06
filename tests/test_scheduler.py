@@ -63,12 +63,12 @@ def symlink():
         path_mkdir("fstorage/binaries", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
-    tempsym = path_cwd() + "/storage/binaries/e3be3b"
+    tempsym = path_cwd() / "storage/binaries/e3be3b"
     real = "/tmp/" + random_string()
     _ = path_write_file(real, "\x00", mode="text")
 
     try:
-        path_mkdir(path_cwd() + "/storage/binaries/", exist_ok=True)
+        path_mkdir(path_cwd() / "storage/binaries/", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     print(path_exists(real), path_exists(tempsym))
@@ -86,7 +86,7 @@ def symlink():
 def clean_init_storage():
     yield
     try:
-        shutil.rmtree(path_cwd() + "/storage/analyses/1234")
+        shutil.rmtree(path_cwd() / "storage/analyses/1234")
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 
@@ -94,12 +94,12 @@ def clean_init_storage():
 @pytest_asyncio.fixture
 def create_store_file_dir():
     try:
-        path_mkdir(path_cwd() + "/storage/binaries/")
+        path_mkdir(path_cwd() / "storage/binaries/")
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     yield
     try:
-        shutil.rmtree(path_cwd() + "/storage/binaries")
+        shutil.rmtree(path_cwd() / "storage/binaries")
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 
@@ -142,7 +142,7 @@ class TestAnalysisManager:
 
     def test_init_storage_already_exists(self, clean_init_storage, caplog):
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
-        path_mkdir(path_cwd() + "/storage/analyses/1234")
+        path_mkdir(path_cwd() / "storage/analyses/1234")
 
         analysis_man.init_storage()
         assert "already exists at path" in caplog.text

@@ -3,7 +3,7 @@ import os
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_get_filename
+from lib.cuckoo.common.path_utils import path_get_filename, path_exists
 
 try:
     from google.oauth2 import service_account
@@ -50,8 +50,10 @@ class ReportBackup(Report):
                 log.error("You need to specify Google Drive shared folder in config")
                 return
 
-            # Replace key file with own credentials file (this file should be located i)
             key_file_location = self.options.get("drive_credentials_location")
+            if not key_file_location or not path_exists(os.path.join(CUCKOO_ROOT, key_file_location)):
+                log.error("You need to specify path for Google Drive credentials")
+                return
 
             # Authenticate and construct service.
             service = self._get_google_service(

@@ -1,0 +1,38 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>Offset</th>
+            <th>PID</th>
+            <th>Local Address</th>
+            <th>Local Port</th>
+            <th>Remote Address</th>
+            <th>Remote Port</th>
+            <th>Protocol</th>
+            <th>Created</th>
+            <th>Owner</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for sock in results.memory.netscan %}
+        <tr>
+            <td>{{sock.Offset}}</td>
+            <td>{{sock.PID}}</td>
+            <td>{{sock.LocalAddr}}</td>
+            <td>{{sock.LocalPort}}</td>
+            <td>{{sock.ForeignAddr}}</td>
+            <td>{{sock.ForeignPort}}</td>
+            <td>{{sock.Proto}}</td>
+            {% if sock.Created %}
+                <td>{{sock.Created}}</td>
+            {% else %}
+                <td>-</td>
+            {% endif %}
+            {% if sock.Owner %}
+                <td>{{sock.Owner}}</td>
+            {% else %}
+                <td>-</td>
+            {% endif %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

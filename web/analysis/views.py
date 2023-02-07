@@ -1707,8 +1707,8 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
 
-    # if not os.path.normpath(dumpfile).startswith(ANALYSIS_BASE_PATH):
-    #     return render(request, "error.html", {"error": "File not found".format(os.path.basename(dumpfile))})
+    if not os.path.normpath(dumpfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found"})
 
     if not os.path.exists(dumpfile):
         dumpfile += ".zip"
@@ -1794,7 +1794,8 @@ def filereport(request, task_id, category):
         content_type = "application/octet-stream"
 
         if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
+
 
         if os.path.exists(file_path):
             response = HttpResponse(open(file_path, "rb").read(), content_type=content_type)
@@ -1831,7 +1832,8 @@ def mispjson(request, task_id, category):
         content_type = "application/octet-stream"
 
         if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
+
 
         if os.path.exists(file_path):
             response = HttpResponse(open(file_path, "rb").read(), content_type=content_type)
@@ -1861,7 +1863,7 @@ def full_memory_dump_file(request, analysis_number):
         except Exception as e:
             print(e)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), 8192), content_type=content_type)
@@ -1884,7 +1886,8 @@ def full_memory_dump_strings(request, analysis_number):
         if os.path.exists(file_path):
             filename = os.path.basename(file_path)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
+
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)

@@ -80,5 +80,5 @@ class ReportBackup(Report):
     def run(self, results):
         """Upload report files to external service"""
 
-        if self.options.get("enabled") and self.options.get("googledrive") and HAVE_GOOGLE_CLIENT:
+        if self.options.get("googledrive") and HAVE_GOOGLE_CLIENT:
             self._backup_to_google_drive()

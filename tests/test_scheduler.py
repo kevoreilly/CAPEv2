@@ -3,6 +3,7 @@ import pathlib
 import queue
 import shutil
 from datetime import datetime
+from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
@@ -11,7 +12,6 @@ from tcr_misc import get_sample, random_string
 
 import lib.cuckoo.core.scheduler as scheduler
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_write_file
 from lib.cuckoo.core.scheduler import AnalysisManager
 
 
@@ -61,24 +61,25 @@ def setup_machinery():
 @pytest_asyncio.fixture
 def symlink():
     try:
-        path_mkdir("fstorage/binaries", exist_ok=True)
+        os.makedirs("fstorage/binaries", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     tempsym = os.getcwd() + "/storage/binaries/e3be3b"
     real = "/tmp/" + random_string()
-    _ = path_write_file(real, "\x00", mode="text")
+    with open(real, mode="w") as f:
+        f.write("\x00")
 
     try:
-        path_mkdir(os.getcwd() + "/storage/binaries/", exist_ok=True)
+        os.makedirs(os.getcwd() + "/storage/binaries/", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
-    print(path_exists(real), path_exists(tempsym))
+    print(os.path.exists(real), os.path.exists(tempsym))
     os.symlink(real, tempsym)
     yield
     try:
-        path_delete(tempsym)
-        path_delete(real)
-        path_delete("binary")
+        os.unlink(tempsym)
+        os.unlink(real)
+        os.unlink("binary")
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 
@@ -95,7 +96,7 @@ def clean_init_storage():
 @pytest_asyncio.fixture
 def create_store_file_dir():
     try:
-        path_mkdir(os.getcwd() + "/storage/binaries/")
+        os.makedirs(os.getcwd() + "/storage/binaries/")
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     yield
@@ -110,7 +111,6 @@ class TestAnalysisManager:
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
 
         assert analysis_man.cfg.cuckoo == {
-            "apicall_details": False,
             "categories": "static, pcap, url, file",
             "freespace": 50000,
             "delete_original": False,
@@ -126,12 +126,8 @@ class TestAnalysisManager:
             "max_vmstartup_count": 5,
             "daydelta": 0,
             "max_analysis_count": 0,
-            "max_len": 196,
-            "sanitize_len": 32,
-            "sanitize_to_len": 24,
             "freespace_processing": 15000,
             "periodic_log": False,
-            "fail_unserviceable": True,
         }
 
         assert analysis_man.task.id == 1234
@@ -143,7 +139,7 @@ class TestAnalysisManager:
 
     def test_init_storage_already_exists(self, clean_init_storage, caplog):
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
-        path_mkdir(os.getcwd() + "/storage/analyses/1234")
+        os.makedirs(os.getcwd() + "/storage/analyses/1234")
 
         analysis_man.init_storage()
         assert "already exists at path" in caplog.text
@@ -200,7 +196,8 @@ class TestAnalysisManager:
 
     @pytest.mark.skip(reason="TODO")
     def test_store_file_symlink_err(self, symlink, caplog):
-        _ = path_write_file("binary", b"\x00")
+        with open("binary", "wb") as f:
+            f.write(b"\x00")
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
         analysis_man.store_file(sha256="e3be3b")
         assert "Unable to create symlink/copy" in caplog.text
@@ -345,7 +342,6 @@ class TestAnalysisManager:
             "terminate_processes": False,
             "ip": "1.2.3.4",
             "clock": datetime(2099, 1, 1, 9, 1, 1),
-            "enable_trim": 0,
             "port": "1337",
             "file_type": "Python script, ASCII text executable",
             "options": "foo=bar",
@@ -359,7 +355,7 @@ class TestAnalysisManager:
             "digisig": True,
             "disguise": True,
             "sysmon": False,
-            "file_pickup": False,
+            "filepickup": False,
             "filecollector": True,
             "permissions": False,
             "screenshots_linux": False,
@@ -374,7 +370,6 @@ class TestAnalysisManager:
             "upload_max_size": 100000000,
             "during_script": False,
             "pre_script": False,
-            "windows_static_route": False,
         }
 
     @pytest.mark.skip(reason="This error is from parse_pe get_exports, which is not part of scheduler anymore")
@@ -425,7 +420,6 @@ class TestAnalysisManager:
             "terminate_processes": False,
             "ip": "1.2.3.4",
             "clock": datetime(2099, 1, 1, 9, 1, 1),
-            "enable_trim": 0,
             "port": "1337",
             "file_type": "PE32 executable (console) Intel 80386, for MS Windows",
             "options": "foo=bar",
@@ -506,3 +500,4 @@ class TestAnalysisManager:
         mocker.patch("lib.cuckoo.core.scheduler.Database.view_sample", return_value=mock_sample())
 
         assert analysis_man.category_checks() is True
+

@@ -1,5 +1,4 @@
 import os
-import pathlib
 import queue
 import shutil
 from datetime import datetime
@@ -11,7 +10,7 @@ from tcr_misc import get_sample, random_string
 
 import lib.cuckoo.core.scheduler as scheduler
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_write_file
+from lib.cuckoo.common.path_utils import path_cwd, path_delete, path_exists, path_mkdir, path_object, path_write_file
 from lib.cuckoo.core.scheduler import AnalysisManager
 
 
@@ -27,7 +26,7 @@ class mock_task:
 @pytest_asyncio.fixture
 def grab_sample():
     def _grab_sample(sample_hash):
-        sample_location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
+        sample_location = path_object(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         get_sample(hash=sample_hash, download_location=sample_location)
         return sample_location
 
@@ -64,12 +63,12 @@ def symlink():
         path_mkdir("fstorage/binaries", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
-    tempsym = os.getcwd() + "/storage/binaries/e3be3b"
+    tempsym = path_cwd() / "storage/binaries/e3be3b"
     real = "/tmp/" + random_string()
     _ = path_write_file(real, "\x00", mode="text")
 
     try:
-        path_mkdir(os.getcwd() + "/storage/binaries/", exist_ok=True)
+        path_mkdir(path_cwd() / "storage/binaries/", exist_ok=True)
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     print(path_exists(real), path_exists(tempsym))
@@ -87,7 +86,7 @@ def symlink():
 def clean_init_storage():
     yield
     try:
-        shutil.rmtree(os.getcwd() + "/storage/analyses/1234")
+        shutil.rmtree(path_cwd() / "storage/analyses/1234")
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 
@@ -95,12 +94,12 @@ def clean_init_storage():
 @pytest_asyncio.fixture
 def create_store_file_dir():
     try:
-        path_mkdir(os.getcwd() + "/storage/binaries/")
+        path_mkdir(path_cwd() / "storage/binaries/")
     except Exception as e:
         print(("Error setting up, probably fine:" + str(e)))
     yield
     try:
-        shutil.rmtree(os.getcwd() + "/storage/binaries")
+        shutil.rmtree(path_cwd() / "storage/binaries")
     except Exception as e:
         print(("Error cleaning up, probably fine:" + str(e)))
 
@@ -143,7 +142,7 @@ class TestAnalysisManager:
 
     def test_init_storage_already_exists(self, clean_init_storage, caplog):
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
-        path_mkdir(os.getcwd() + "/storage/analyses/1234")
+        path_mkdir(path_cwd() / "storage/analyses/1234")
 
         analysis_man.init_storage()
         assert "already exists at path" in caplog.text

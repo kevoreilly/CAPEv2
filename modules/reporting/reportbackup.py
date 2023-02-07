@@ -1,6 +1,4 @@
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
 from googleapiclient.http import MediaFileUpload
 import os
@@ -65,5 +63,5 @@ class ReportBackup(Report):
                 file = service.files().create(body=file_metadata, media_body=media,
                         fields='id').execute()
                 log.info(F'Uploaded Report: {item} ({file.get("id")}) as ' + final_name)
-        except Exception as e:
-            log.error(f'Unable to upload reports to Google Drive: ' + e)
+        except Exception:
+            log.error('Unable to upload reports to Google Drive: ')

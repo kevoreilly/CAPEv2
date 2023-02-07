@@ -29,7 +29,6 @@ def index(request, task_id, session_data):
 
     if state:
         if state[0] == 1:
-            status = "RUNNING"
             vmXml = dom.XMLDesc(0)
             root = ET.fromstring(vmXml)
             graphics = root.find("./devices/graphics")

@@ -725,11 +725,11 @@ def ext_tasks_search(request):
 
     if term and value:
         records = False
-        if not term in search_term_map.keys() and term not in ("malscore", "ttp"):
+        if term not in search_term_map.keys() and term not in ("malscore", "ttp"):
             resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return Response(resp)
 
-        if term not in ("ids", "options", "tags_tasks"):
+        if term in ("ids", "options", "tags_tasks"):
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
             else:
@@ -1481,7 +1481,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "shots")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+        return render(request, "error.html", {"error": "File not found"})
 
     if len(os.listdir(srcdir)) == 0:
         resp = {"error": True, "error_value": f"No screenshots created for task {task_id}"}
@@ -1526,7 +1526,7 @@ def tasks_pcap(request, task_id):
 
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
+        return render(request, "error.html", {"error": "File not found"})
     if os.path.exists(srcfile):
         fname = "%s_dump.pcap" % task_id
         resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
@@ -1553,7 +1553,7 @@ def tasks_dropped(request, task_id):
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "files")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+        return render(request, "error.html", {"error": "File not found"})
 
     if not os.path.exists(srcdir) or not len(os.listdir(srcdir)):
         resp = {"error": True, "error_value": "No files dropped for task %s" % task_id}
@@ -1597,7 +1597,7 @@ def tasks_surifile(request, task_id):
 
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "logs", "files.zip")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
+        return render(request, "error.html", {"error": "File not found"})
     if os.path.exists(srcfile):
         fname = "%s_surifiles.zip" % task_id
         resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8192), content_type="application/octet-stream;")
@@ -1980,7 +1980,7 @@ def tasks_payloadfiles(request, task_id):
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+        return render(request, "error.html", {"error": "File not found"})
 
     if os.path.exists(srcdir):
 

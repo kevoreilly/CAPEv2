@@ -21,6 +21,7 @@ from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
+from pathlib import Path
 from urllib.parse import urlunparse
 
 #Added: Added whois query information for hosts

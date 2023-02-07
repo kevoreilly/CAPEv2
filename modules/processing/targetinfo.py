@@ -28,7 +28,6 @@ class TargetInfo(Processing):
         try:
             from pymisp import PyMISP
             from pymisp import logger as pymisp_logger
-            HAVE_PYMISP = True
             pymisp_logger.setLevel(logging.ERROR)
         except ImportError:
             log.error("pip3 install pymisp")

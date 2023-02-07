@@ -239,8 +239,6 @@ class Pcap:
                 network_high = network_low | (1 << (32 - bits)) - 1
                 if ipaddr <= network_high and ipaddr >= network_low:
                     return True
-        except Exception:
-            pass
 
         return False
 

@@ -508,8 +508,7 @@ class AnalysisManager(threading.Thread):
                 # Deal with race conditions using a lock.
                 latest_symlink_lock.acquire()
                 try:
-                    # As per documentation, lexists() returns True for dead
-                    # symbolic links.
+                    # As per documentation, lexists() returns True for dead symbolic links.
                     if os.path.lexists(latest):
                         path_delete(latest)
 
@@ -933,7 +932,7 @@ class Scheduler:
             if machine.platform:
                 specific_locked_machine_counts[machine.platform] += 1
         log.debug(
-          "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Specific Locked Machines: %s; # Total Machines: %d;",
+           "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Specific Locked Machines: %s; # Total Machines: %d;",
             self.db.count_tasks(status=TASK_PENDING),
             dict(specific_pending_task_counts),
             self.db.count_machines_available(),

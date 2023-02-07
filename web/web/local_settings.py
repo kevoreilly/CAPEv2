@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 LOCAL_SETTINGS = True
-from .settings import *
+from .settings import *  # noqa: F403
 
 # If you want to customize your cuckoo path set it here.
 # CUCKOO_PATH = "/where/cuckoo/is/placed/"

@@ -47,26 +47,9 @@ urlpatterns = [
         r"^vtupload/(?P<category>\w+)/(?P<task_id>\d+)/(?P<filename>.+)/(?P<dlfile>\w+)/$", analysis_views.vtupload, name="vtupload"
     ),
     re_path(r"^filereport/(?P<task_id>\w+)/(?P<category>\w+)/$", analysis_views.filereport, name="filereport"),
-    #Added: Added download function for MISP Attributes and Events JSON Files
-    re_path(r"^mispjson/(?P<task_id>\w+)/(?P<category>\w+)/$", analysis_views.mispjson, name="mispjson"),
-    #Added: Add path to view HTML Report
-    re_path(r"^viewhtmlreport/(?P<task_id>\w+)/$", analysis_views.viewhtmlreport, name="viewhtmlreport"),
     re_path(r"^full_memory/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_file, name="full_memory_dump_file"),
     re_path(
         r"^full_memory_strings/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_strings, name="full_memory_dump_strings"
-    ),
-    #Added: Add downloads for memory dumps before and mid analyses
-    re_path(r"^full_befmemory/(?P<analysis_number>\w+)/$", analysis_views.full_befmemory_dump_file, name="full_befmemory_dump_file"),
-    re_path(
-        r"^full_befmemory_strings/(?P<analysis_number>\w+)/$", analysis_views.full_befmemory_dump_strings, name="full_befmemory_dump_strings"
-    ),
-    re_path(r"^full_midmemory/(?P<analysis_number>\w+)/$", analysis_views.full_midmemory_dump_file, name="full_midmemory_dump_file"),
-    re_path(
-        r"^full_midmemory_strings/(?P<analysis_number>\w+)/$", analysis_views.full_midmemory_dump_strings, name="full_midmemory_dump_strings"
-    ),
-    re_path(r"^full_midmemory/(?P<analysis_number>\w+)/$", analysis_views.full_midmemory2_dump_file, name="full_midmemory2_dump_file"),
-    re_path(
-        r"^full_midmemory_strings/(?P<analysis_number>\w+)/$", analysis_views.full_midmemory2_dump_strings, name="full_midmemory2_dump_strings"
     ),
     re_path(r"^dashboard/", include(dashboard)),
     re_path(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name="statistics_data"),

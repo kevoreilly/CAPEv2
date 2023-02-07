@@ -3,18 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 import os
 import sys
+from contextlib import suppress
 from pathlib import Path
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
     sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 
 # Cuckoo path.
-CUCKOO_PATH = os.path.join(os.getcwd(), "..")
+CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -86,12 +82,13 @@ VTDL_PATH = vtdl_cfg.get("dlpath")
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 
-# DEPRICATED - Enabled/Disable Zer0m0n tickbox on the submission page
+# DEPRECATED - Enabled/Disable Zer0m0n tickbox on the submission page
 OPT_ZER0M0N = False
 
 COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
+ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
 
 # If false run next command
 # python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
@@ -120,7 +117,7 @@ USE_TZ = True
 # Unique secret key generator.
 # Secret key will be placed in secret_key.py file.
 try:
-    from .secret_key import *
+    from .secret_key import SECRET_KEY  # noqa: F401
 except ImportError:
     SETTINGS_DIR = os.path.abspath(os.path.dirname(__file__))
     # Using the same generation schema of Django startproject.
@@ -129,17 +126,10 @@ except ImportError:
     key = get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)")
 
     # Write secret_key.py
-    with open(os.path.join(SETTINGS_DIR, "secret_key.py"), "w") as key_file:
-        key_file.write('SECRET_KEY = "{0}"'.format(key))
+    _ = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
 
     # Reload key.
-    from .secret_key import *
-
-try:
-    from captcha.fields import ReCaptchaField
-except ImportError:
-    sys.exit("Missed dependency: django-recaptcha")
-
+    from .secret_key import SECRET_KEY  # noqa: F401
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
@@ -161,7 +151,7 @@ STATIC_ROOT = ""
 STATIC_URL = "/static/"
 
 # Additional locations of static files
-STATICFILES_DIRS = (os.path.join(os.getcwd(), "static"),)
+STATICFILES_DIRS = (os.path.join(Path.cwd(), "static"),)
 
 # List of finder classes that know how to find static files in
 # various locations.
@@ -177,8 +167,6 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
             "templates",
-            #Added: Added additional path to render HTML reports
-            "/opt/CAPEv2/storage/analyses"
         ],
         "OPTIONS": {
             "debug": True,
@@ -216,7 +204,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # 'django_otp.middleware.OTPMiddleware',
     # in case you want custom auth, place logic in web/web/middleware.py
-    # "web.middleware.CustoAuth",
+    # "web.middleware.CustomAuth",
 ]
 
 OTP_TOTP_ISSUER = "CAPE Sandbox"
@@ -367,7 +355,7 @@ if api_cfg.api.token_auth_enabled:
             "rest_framework.authentication.SessionAuthentication",
         ],
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-        "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle", "apiv2.throttling.SubscriptionRateThrottle"],
+        "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
         "DEFAULT_THROTTLE_RATES": {
             "user": api_cfg.api.default_user_ratelimit,
             "subscription": api_cfg.api.default_subscription_ratelimit,
@@ -502,7 +490,5 @@ RATELIMIT_ERROR_MSG = "Too many request without auth! You have exceed your free 
 try:
     LOCAL_SETTINGS
 except NameError:
-    try:
-        from .local_settings import *
-    except ImportError:
-        pass
+    with suppress(ImportError):
+        from .local_settings import *  # noqa: F403

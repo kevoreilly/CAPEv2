@@ -3,13 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import sys
+from contextlib import suppress
 
 from django.conf import settings
 
-try:
+with suppress(Exception):
     from django.utils.deprecation import MiddlewareMixin
-except Exception:
-    pass
 
 sys.path.append(settings.CUCKOO_PATH)
 

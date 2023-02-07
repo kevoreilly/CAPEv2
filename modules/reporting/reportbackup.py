@@ -71,7 +71,7 @@ class ReportBackup(Report):
                 # Reformat file name for uploads to Google Drive
                 report_name = path_get_filename(item)
                 base_name, extension = report_name.rsplit(".", 1)
-                final_name = f"{base_name}_{self.task.id}.{extension}"
+                final_name = f"{base_name}_{self.task['id']}.{extension}"
                 file_metadata = {"name": final_name, "parents": [folder_id]}
                 media = MediaFileUpload(item)
                 file = service.files().create(body=file_metadata, media_body=media, fields="id").execute()

@@ -31,7 +31,6 @@ class TargetInfo(Processing):
             HAVE_PYMISP = True
             pymisp_logger.setLevel(logging.ERROR)
         except ImportError:
-            HAVE_PYMISP = True
             log.error("pip3 install pymisp")
         
         # Initialize MISP Variables
@@ -128,7 +127,6 @@ class TargetInfo(Processing):
             all_intrusion_sets = ''
             all_enterprise_attack_intrusion_sets = ''
             all_microsoft_activity_groups = ''
-            all_360net_threat_actors = ''
 
             try:
                 # Search for threat actor description (id 59 --> misp threat actor galaxy)
@@ -142,7 +140,7 @@ class TargetInfo(Processing):
                 # CURRENTLY USELESS BECAUSE NO ASSOCIATION WITH CURRENT EVENTS
                 # # Search for 360.net threat actors description (id 1 --> 360.net threat actor galaxy)
                 # all_360net_threat_actors = misp.search_galaxy_clusters(1)
-            except:
+            except Exception:
                 log.error("Could not access MISP Galaxy Information")
 
             all_galaxies = all_threat_actors + all_intrusion_sets + all_enterprise_attack_intrusion_sets + all_microsoft_activity_groups
@@ -201,7 +199,7 @@ class TargetInfo(Processing):
                     target_info["file"]["ids_links"] = ids_links
                     target_info["file"]["links"] = link_list
                     target_info["file"]["related_events"] = related_events_dict
-            except:
+            except Exception:
                 log.info("MISP Comparison for Threat Attribution has been skipped. Check if MISP Server is up and running.")
 
             target_info["file"]["name"] = File(self.task["target"]).get_name()

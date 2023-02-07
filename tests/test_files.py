@@ -161,4 +161,4 @@ def test_open_exclusive():
         fp.write("42421337Test")
 
     with pytest.raises(OSError):
-        open_exclusive(fpath, bufsize=1)
+        open_exclusive(fpath)

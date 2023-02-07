@@ -1,0 +1,18 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th width="150px">Module</th>
+            <th width="150px">Callback</th>
+            <th>Type</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for x in befmemory.callbacks %}
+        <tr>
+            <td>{{x.Module}}</td>
+            <td><span class="mono">{{x.Callback}}</span></td>
+            <td>{{x.Type}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

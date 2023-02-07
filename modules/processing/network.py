@@ -51,20 +51,13 @@ except ImportError:
 
 # This is a weird import. Sometime there is GeoIP.error
 try:
-try:
     try:
-    import GeoIP
         import GeoIP
 
-
         IS_GEOIP = True
-    IS_GEOIP = True
         gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-    gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
     except (ImportError, GeoIP.error):
-except ImportError:
         IS_GEOIP = False
-    IS_GEOIP = False
 except NameError:
     print("OPTIONAL! Can't import GeoIP")
 
@@ -74,7 +67,7 @@ try:
     IS_DPKT = True
 except ImportError:
     IS_DPKT = False
-    print("OPTIONAL! Missed dependency: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
+    print("Missed dependency: pip3 install -U dpkt")
 
 HAVE_HTTPREPLAY = False
 try:
@@ -267,7 +260,7 @@ class Pcap:
         """Add IPs to unique list.
         @param connection: connection data
         """
-        try:
+        with suppress(Exception):
             if connection["dst"] not in self.hosts:
                 ip = convert_to_printable(connection["dst"])
 
@@ -281,8 +274,6 @@ class Pcap:
                     # first packet they appear in.
                     if not self._is_private_ip(ip):
                         self.unique_hosts.append(ip)
-        except Exception:
-            pass
 
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
@@ -1097,7 +1088,7 @@ class NetworkAnalysis(Processing):
         """Obtain the client/server random to TLS master secrets mapping that we have obtained through dynamic analysis."""
         tlsmaster = {}
         dump_tls_log = os.path.join(self.analysis_path, "tlsdump", "tlsdump.log")
-        if not os.path.exists(dump_tls_log):
+        if not path_exists(dump_tls_log):
             return tlsmaster
 
         for entry in open(dump_tls_log, "r").readlines() or []:

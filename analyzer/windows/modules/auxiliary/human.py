@@ -334,7 +334,7 @@ class Human(Auxiliary, Thread):
 
                 if (seconds % (15 + randoff)) == 0:
                     # curwind = USER32.GetForegroundWindow()
-                    other_hwnds = INITIAL_HWNDS[:]
+                    other_hwnds = INITIAL_HWNDS.copy()
                     with contextlib.suppress(Exception):
                         other_hwnds.remove(USER32.GetForegroundWindow())
                     if len(other_hwnds):

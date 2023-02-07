@@ -215,10 +215,8 @@ class Analyzer:
 
     def prepare(self):
         """Prepare env for analysis."""
-        global MONITOR_DLL
-        global MONITOR_DLL_64
+        global MONITOR_DLL, MONITOR_DLL_64, HIDE_PIDS
         # global SERVICES_PID
-        global HIDE_PIDS
 
         # Get SeDebugPrivilege for the Python process. It will be needed in
         # order to perform the injections.
@@ -328,11 +326,7 @@ class Analyzer:
         """Run analysis.
         @return: operation status.
         """
-        global MONITOR_DLL
-        global MONITOR_DLL_64
-        global LOADER32
-        global LOADER64
-        global ANALYSIS_TIMED_OUT
+        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64, ANALYSIS_TIMED_OUT
 
         log.debug("Starting analyzer from: %s", Path.cwd())
         log.debug("Storing results at: %s", PATHS["root"])

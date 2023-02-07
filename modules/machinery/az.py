@@ -228,11 +228,7 @@ class Azure(Machinery):
         """
         Ready. Set. Action! Set the stage for the VMSSs
         """
-        global machine_pools
-        global is_platform_scaling
-        global current_vmss_operations
-        global reimage_vm_list
-        global delete_vm_list
+        global machine_pools, is_platform_scaling, current_vmss_operations, reimage_vm_list, delete_vm_list
 
         # Now assign the gallery image to the VMSS
         for scale_set_id, scale_set_values in self.options.az.scale_sets.items():
@@ -427,9 +423,7 @@ class Azure(Machinery):
         @param label: virtual machine label
         @return: End method call
         """
-        global reimage_vm_list
-        global delete_vm_list
-        global vms_currently_being_deleted
+        global reimage_vm_list, delete_vm_list, vms_currently_being_deleted
         log.debug(f"Stopping machine '{label}'")
         # Parse the tag and instance id out to confirm which VMSS to modify
         vmss_name, instance_id = label.split("_")
@@ -716,8 +710,7 @@ class Azure(Machinery):
         @param vmss_image_os: The platform of the image
         @param vmss_tag: the tag used that represents the OS image
         """
-        global machine_pools
-        global current_vmss_operations
+        global machine_pools, current_vmss_operations
 
         vmss_managed_disk = models.VirtualMachineScaleSetManagedDiskParameters(
             storage_account_type=self.options.az.storage_account_type
@@ -833,9 +826,7 @@ class Azure(Machinery):
         @param per_platform: A boolean flag indicating that we should scale machine pools "per platform" vs. "per tag"
         @return: Ends method call
         """
-        global machine_pools
-        global is_platform_scaling
-        global current_vmss_operations
+        global machine_pools, is_platform_scaling, current_vmss_operations
 
         platform = None
         if per_platform and Azure.WINDOWS_TAG_PREFIX in tag:
@@ -1132,10 +1123,8 @@ class Azure(Machinery):
         """
         Provides the logic for a list reader thread which performs batch reimaging
         """
-        global current_vmss_operations
-        global vms_currently_being_reimaged
-        global reimage_vm_list
-        global delete_vm_list
+        global current_vmss_operations, vms_currently_being_reimaged, reimage_vm_list, delete_vm_list
+
         while True:
             try:
                 time.sleep(5)
@@ -1256,9 +1245,8 @@ class Azure(Machinery):
                 log.error(f"Exception occurred in the reimage thread: {e}. Trying again...")
 
     def _thr_delete_list_reader(self):
-        global current_vmss_operations
-        global delete_vm_list
-        global vms_currently_being_deleted
+        global current_vmss_operations, delete_vm_list, vms_currently_being_deleted
+
         while True:
             try:
                 time.sleep(5)

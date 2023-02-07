@@ -5,9 +5,6 @@ rule TrickBot
         description = "TrickBot Payload"
         cape_type = "TrickBot Payload"
     strings:
-        $ua1 = "TrickLoader" ascii wide
-        $ua2 = "TrickBot" ascii wide
-        $ua3 = "BotLoader" ascii wide
         $str1 = "<moduleconfig>*</moduleconfig>" ascii wide
         $str2 = "group_tag" ascii wide
         $str3 = "client_id" ascii wide
@@ -19,7 +16,7 @@ rule TrickBot
         $code6 = {53 8B 5C 24 0C 56 8B 74 24 14 B8 ?? ?? ?? ?? F7 E9 C1 FA 02 8B C2 C1 E8 1F 03 C2 6B C0 16 8B D1 2B D0 8A 04 1A 30 04 31 41 3B CF 75 DD 5E 5B 5F C3}
         $code7 = {B8 ?? ?? 00 00 85 C9 74 32 BE ?? ?? ?? ?? BA ?? ?? ?? ?? BF ?? ?? ?? ?? BB ?? ?? ?? ?? 03 F2 8B 2B 83 C3 04 33 2F 83 C7 04 89 29 83 C1 04 3B DE 0F 43 DA}
     condition:
-        any of ($ua*) or all of ($str*) or any of ($code*)
+        all of ($str*) or any of ($code*)
 }
 
 rule Trickbot_PermaDll_UEFI_Module

@@ -1177,7 +1177,21 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp", "logs"]},
         #  Use the 'lite' option if you want the generated files files.json, dump.pcap, and those found
         # in the /CAPE, /files, /procdump, /macros and /shots directories
-        "lite": {"type": "+", "files": ["files.json", "CAPE", "files", "procdump", "macros", "shots", "dump.pcap"]},
+        "lite": {
+            "type": "+",
+            "files": [
+                "files.json",
+                "CAPE",
+                "files",
+                "procdump",
+                "macros",
+                "shots",
+                "dump.pcap",
+                "selfextracted",
+                "evtx",
+                "tlsdump",
+            ],
+        },
     }
 
     if report_format.lower() in formats:

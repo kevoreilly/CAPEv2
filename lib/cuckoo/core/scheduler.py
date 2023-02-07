@@ -645,7 +645,6 @@ class AnalysisManager(threading.Thread):
                     "hostports_reject_disable", self.machine.interface, self.machine.ip, self.reject_hostports
                 )
                 self._rooter_response_check()
-
             log.info("Disabled route '%s'", self.route)
 
         if self.rt_table:

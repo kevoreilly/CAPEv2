@@ -37,7 +37,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.integrations.whoismlapi import whoisxmlapi_lookup
+from lib.cuckoo.common.integrations.whoisxmlapi import whoisxmlapi_lookup
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 
 try:

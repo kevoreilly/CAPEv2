@@ -1,0 +1,213 @@
+{% load key_tags %}
+
+{% if file.event_link %}
+<div class="card-header">
+    <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#misp_info"><i class="fas fa-lightbulb"></i> MISP Threat Intelligence</a></center>
+</div>
+
+<div class="collapse" id="misp_info">
+    <div class="card card-body">
+        {% if file.event_info %}
+            <div class="column center">
+                <a class="btn btn-secondary btn-sm" href='{% url "mispjson" id "attribute" %}' role="button" data-bs-toggle="tooltip" title="Download MISP Attribute JSON File"><span class="fas fa-download"></span> Download MISP Attribute JSON File</a>
+                <a class="btn btn-secondary btn-sm" href='{% url "mispjson" id "event" %}' role="button" data-bs-toggle="tooltip" title="Download MISP Event JSON File"><span class="fas fa-download"></span> Download MISP Event JSON File</a>
+                {% if file.ids_links %}
+                <a class="btn btn-secondary btn-sm" href='{{file.ids_links.0}}' role="button" data-bs-toggle="tooltip" title="Download Snort IDS Signatures"><span class="fas fa-download"></span> Download Snort IDS Signatures</a>
+                <a class="btn btn-secondary btn-sm" href='{{file.ids_links.1}}' role="button" data-bs-toggle="tooltip" title="Download Suricata IDS Signatures"><span class="fas fa-download"></span> Download Suricata IDS Signatures</a>
+                {% endif %}
+            </div>      
+            <h1></h1>
+            <h4><a href="{{file.event_link}}" target="_blank" ><b><span class="fas fa-calendar-check"></span> {{file.event_info}}</b></a></h4>
+        {% endif %}
+
+        <table class="table table-striped table-bordered">
+            {% if file.related_events %}
+            <tr>
+                <th><span class="fas fa-calendar-plus"></span> Related Events [{{file.related_events|length}}]</th>
+                <td>
+                    <ul>
+                    {% for event_link, event_info in file.related_events.items %}
+                    <li><a href="{{event_link}}" target="_blank">{{event_info}}</a></li>
+                    {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endif %}
+            {% if file.threat_actor %}
+            <tr>
+                <th><span class="fas fa-user-secret"></span>
+                    {% if file.threat_actor|length == 1 %}
+                    Threat Actor
+                    {% else %}
+                    Threat Actors
+                    {% endif %}
+                    [{{file.threat_actor|length}}]
+                </th>
+                <td style="word-wrap: break-word;">
+                    <ul>
+                    {% for threat_actor_name, threat_actor_value in file.threat_actor.items %}
+                    <li><b><u>{{threat_actor_name}}</u></b> 
+                    {% if threat_actor_value.1 != 0 %}
+                    {% if file.galaxy_link %}
+                    <a href="{{file.galaxy_link}}{{threat_actor_value.1}}" target="_blank" style="color: #e74c3c">[View MISP Threat Actor Information Here]</a><br>{{threat_actor_value.0}}<br><br>
+                    {% else %}
+                    <a href="https://192.168.122.18 5/galaxy_clusters/view/{{threat_actor_value.1}}" target="_blank" style="color: #e74c3c">[View MISP Threat Actor Information Here]</a><br>{{threat_actor_value.0}}<br><br>
+                    {% endif %}
+                    {% else %}
+                    <br><br>
+                    {% endif %}
+                    </li>
+                    {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endif %}
+            {% if file.event_tags %}
+            {% for tag_name, tag_value in file.event_tags.items %}
+            <tr>
+                {% if tag_name == "Topic" %}
+                <th><span class="fas fa-info-circle"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Topic
+                    {% else %}
+                    Topics 
+                    {% endif %}
+                    [{{tag_value|length}}]
+                </th>
+                {% elif tag_name == "Malware-Category" %}
+                <th><span class="fas fa-virus"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Malware Category
+                    {% else %}
+                    Malware Categories
+                    {% endif %}
+                    [{{tag_value|length}}]</th>
+                {% elif tag_name == "Mitre-Enterprise-Attack-Malware" %}
+                <th><span class="fas fa-virus"></span>&nbsp;MITRE Enterprise Attack Malware [{{tag_value|length}}]</th>
+                {% elif tag_name == "Mitre-Malware" %}
+                <th><span class="fas fa-virus"></span>&nbsp;MITRE Malware [{{tag_value|length}}]</th>
+                {% elif tag_name == "Tool" %}
+                <th><span class="fas fa-screwdriver-wrench"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Tool
+                    {% else %}
+                    Tools
+                    {% endif %}
+                    [{{tag_value|length}}]</th>
+                {% elif tag_name == "Incident-Classification" %}
+                <th><span class="fas fa-virus"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Incident Classification
+                    {% else %}
+                    Incident Classifications
+                    {% endif %}
+                    [{{tag_value|length}}]</th>
+                {% elif tag_name == "Mitre-Enterprise-Attack-Attack-Pattern" %}
+                <th><span class="fas fa-triangle-exclamation"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    MITRE Enterprise Attack Pattern
+                    {% else %}
+                    MITRE Enterprise Attack Patterns
+                    {% endif %}
+                    [{{tag_value|length}}]
+                </th>
+                {% elif tag_name == "Mitre-Attack-Pattern" %}
+                <th><span class="fas fa-triangle-exclamation"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    MITRE Attack Pattern
+                    {% else %}
+                    MITRE Attack Patterns
+                    {% endif %}
+                    [{{tag_value|length}}]
+                </th>
+                {% elif tag_name == "Rat" %}
+                <th><span class="fas fa-screwdriver-wrench"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Remote Access Tool
+                    {% else %}
+                    Remote Access Tools
+                    {% endif %}
+                    [{{tag_value|length}}]</th>
+                {% elif tag_name == "Confidence-In-Analytic-Judgment" %}
+                <th><span class="fas fa-eye"></span>&nbsp;Confidence in Analytic Judgment</th>
+                {% elif tag_name == "Sector" %}
+                <th><span class="fas fa-building"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Sector Involved
+                    {% else %}
+                    Sectors Involved
+                    {% endif %}
+                    [{{tag_value|length}}]</th>
+                {% elif tag_name == "Country" %}
+                <th><span class="fas fa-flag"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Country
+                    {% else %}
+                    Countries
+                    {% endif %}
+                    [{{tag_value|length}}]</th>
+                {% elif tag_name == "Target-Information" %}
+                <th><span class="fas fa-bullseye"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Target Information
+                    {% else %}
+                    Targets
+                    {% endif %}
+                    [{{tag_value|length}}]</th>
+                {% elif tag_name == "Malpedia" %}
+                <th><span class="fas fa-globe"></span>&nbsp;Malpedia Archives Information [{{tag_value|length}}]</th>
+                {% elif tag_name == "Lifetime" %}
+                <th><span class="fas fa-clock"></span>&nbsp;Lifetime</th>
+                {% elif tag_name == "Certainty" %}
+                <th><span class="fas fa-star-half-stroke"></span>&nbsp;Certainty</th>
+                {% elif tag_name == "Backdoor" %}
+                <th><span class="fas fa-door-open"></span>&nbsp;
+                    {% if tag_value|length == 1 %}
+                    Backdoor
+                    {% else %}
+                    Backdoors
+                    {% endif %}[{{tag_value|length}}]</th>
+                {% else %}
+                <th>{{tag_name}}</th>
+                {% endif %}
+                <td>
+                    <ul>
+                    {% for event_tag, event_tag_value in tag_value.items %}
+                    {% if 'str' in event_tag_value|gettype %}
+                    <li><a href="{{file.search_tag_link}}{{event_tag_value}}" target="_blank">{{event_tag}}</a></li>
+                    {% else %}
+                    {% if 'int' in event_tag_value.1|gettype %}
+                    <li><a href="{{file.search_tag_link}}{{event_tag_value.0}}" target="_blank">{{event_tag}}</a></li>
+                    {% else %}
+                    <li><a href="{{file.search_tag_link}}{{event_tag_value.0}}" target="_blank" title="{{event_tag_value.1}}">{{event_tag}}</a></li>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+            {% if file.links %}
+            <tr>
+                <th><span class="fas fa-external-link-alt"></span>
+                    {% if file.links|length == 1 %}
+                    External Analysis Link
+                    {% else %}
+                    External Analysis Links
+                    {% endif %}
+                    [{{file.links|length}}]
+                </th>
+                <td>
+                    <ul>
+                    {% for link in file.links %}
+                    <li><a href="{{link}}" target="_blank">{{link}}</a></li>
+                    {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endif %}

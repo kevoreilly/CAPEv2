@@ -9,12 +9,12 @@ Revises: 6ab863a3b510
 Create Date: 2021-05-02 18:24:43.075702
 
 """
+from contextlib import suppress
 
 # revision identifiers, used by Alembic.
 revision = "703266a6bbc5"
 down_revision = "6ab863a3b510"
 
-import sqlalchemy as sa
 from alembic import op
 
 
@@ -30,10 +30,8 @@ def upgrade():
 
 
 def downgrade():
-    try:
+    with suppress(Exception):
         op.execute("DROP TYPE status_type_old;")
-    except Exception as e:
-        pass
     op.execute("ALTER TABLE tasks alter status drop default")
     op.execute("ALTER TYPE status_type RENAME TO status_type_old;")
     op.execute(

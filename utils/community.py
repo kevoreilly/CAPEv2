@@ -7,10 +7,11 @@ import os
 import shutil
 import sys
 import zipfile
-from io import BytesIO
+from contextlib import suppress
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+if sys.version_info[:2] < (3, 8):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+
 import argparse
 import logging
 import tarfile
@@ -26,20 +27,23 @@ from lib.cuckoo.common.integrations.mitre import mitre_update
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 blocklist = {}
-if os.path.exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):
+if path_exists(os.path.join(CUCKOO_ROOT, "utils", "community_blocklist.py")):
     from utils.community_blocklist import blocklist
 
 log = logging.getLogger(__name__)
 
 
-def flare_capa():
+def flare_capa(proxy=None):
     signature_urls = (
         "https://github.com/mandiant/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig",
         "https://github.com/mandiant/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig",
         "https://github.com/mandiant/capa/raw/master/sigs/3_flare_common_libs.sig",
     )
     try:
-        http = urllib3.PoolManager()
+        if proxy:
+            http = urllib3.ProxyManager(proxy)
+        else:
+            http = urllib3.PoolManager()
         data = http.request("GET", "https://github.com/mandiant/capa-rules/archive/master.zip").data
         dest_folder = os.path.join(CUCKOO_ROOT, "data")
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
@@ -48,9 +52,9 @@ def flare_capa():
         os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
 
         # shutil.rmtree((os.path.join(dest_folder, "capa-signatures")), ignore_errors=True)
-        capa_sigs_path = os.path.join(dest_folder, "flare-signatures")
+        capa_sigs_path = os.path.join(dest_folder, "capa-signatures")
         if not os.path.isdir(capa_sigs_path):
-            os.mkdir(capa_sigs_path)
+            path_mkdir(capa_sigs_path)
         for url in signature_urls:
             signature_name = url.rsplit("/", 1)[-1]
             with http.request("GET", url, preload_content=False) as sig, open(
@@ -69,7 +73,10 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
     else:
         print(f"Downloading modules from {url}")
         try:
-            http = urllib3.PoolManager()
+            if proxy:
+                http = urllib3.ProxyManager(proxy)
+            else:
+                http = urllib3.PoolManager()
             if access_token is None:
                 data = http.request("GET", url).data
             elif "github" in url:
@@ -120,11 +127,11 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
                 continue
 
             if member.isdir():
-                if not os.path.exists(filepath):
-                    os.mkdir(filepath)
+                if not path_exists(filepath):
+                    path_mkdir(filepath)
                 continue
 
-            if not rewrite and os.path.exists(filepath):
+            if not rewrite and path_exists(filepath):
                 print(f'File "{filepath}" already exists, {colors.yellow("skipped")}')
                 continue
 
@@ -143,14 +150,12 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
                         break
                     elif choice.lower() in ("n", "no"):
                         break
-                    else:
-                        continue
             else:
                 install = True
 
             if install:
-                if not os.path.exists(os.path.dirname(filepath)):
-                    os.makedirs(os.path.dirname(filepath))
+                if not path_exists(os.path.dirname(filepath)):
+                    path_mkdir(os.path.dirname(filepath))
 
                 print(f'File "{filepath}" {colors.green("installed")}')
                 open(filepath, "wb").write(t.extractfile(member).read())
@@ -193,6 +198,7 @@ def main():
     parser.add_argument(
         "-t", "--token", help="Access token to download private repositories", action="store", default=None, required=False
     )
+    parser.add_argument("--proxy", help="Proxy to use. Ex http://127.0.0.1:8080", action="store", required=False)
     args = parser.parse_args()
 
     enabled = []
@@ -221,7 +227,7 @@ def main():
             enabled.append("mitre")
 
     if args.capa_rules:
-        flare_capa()
+        flare_capa(args.proxy)
         if not enabled:
             return
 
@@ -247,7 +253,5 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
+    with suppress(KeyboardInterrupt):
         main()
-    except KeyboardInterrupt:
-        pass

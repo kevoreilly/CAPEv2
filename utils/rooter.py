@@ -15,8 +15,13 @@ import stat
 import subprocess
 import sys
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+if sys.version_info[:2] < (3, 8):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+
+CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
+sys.path.append(CUCKOO_ROOT)
+
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 username = False
 log = logging.getLogger("cuckoo-rooter")
@@ -74,10 +79,7 @@ def cleanup_rooter():
     if not stdout:
         return
 
-    cleaned = []
-    for l in stdout.split("\n"):
-        if l and "CAPE-rooter" not in l:
-            cleaned.append(l)
+    cleaned = [line for line in stdout.split("\n") if line and "CAPE-rooter" not in line]
 
     p = subprocess.Popen([s.iptables_restore], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(input="\n".join(cleaned))
@@ -150,7 +152,7 @@ def disable_nat(interface):
 def init_rttable(rt_table, interface):
     """Initialise routing table for this interface using routes
     from main table."""
-    if rt_table in ["local", "main", "default"]:
+    if rt_table in ("local", "main", "default"):
         return
 
     stdout, _ = run(settings.ip, "route", "list", "dev", interface)
@@ -162,7 +164,7 @@ def init_rttable(rt_table, interface):
 
 def flush_rttable(rt_table):
     """Flushes specified routing table entries."""
-    if rt_table in ["local", "main", "default"]:
+    if rt_table in ("local", "main", "default"):
         return
 
     run(settings.ip, "route", "flush", "table", rt_table)
@@ -197,6 +199,26 @@ def forward_reject_disable(src, dst, ipaddr, reject_segments):
     """Disable forwarding a specific IP address from one interface into another
     but reject some targets network segments."""
     run_iptables("-D", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
+
+
+def hostports_reject_enable(src, ipaddr, reject_hostports):
+    """Enable drop a specific IP address from one interface to host ports."""
+    run_iptables(
+        "-A", "INPUT", "-i", src, "--source", ipaddr, "-p", "tcp", "-m", "multiport", "--dport", reject_hostports, "-j", "REJECT"
+    )
+    run_iptables(
+        "-A", "INPUT", "-i", src, "--source", ipaddr, "-p", "udp", "-m", "multiport", "--dport", reject_hostports, "-j", "REJECT"
+    )
+
+
+def hostports_reject_disable(src, ipaddr, reject_hostports):
+    """Disable drop a specific IP address from one interface to host ports."""
+    run_iptables(
+        "-D", "INPUT", "-i", src, "--source", ipaddr, "-p", "tcp", "-m", "multiport", "--dport", reject_hostports, "-j", "REJECT"
+    )
+    run_iptables(
+        "-D", "INPUT", "-i", src, "--source", ipaddr, "-p", "udp", "-m", "multiport", "--dport", reject_hostports, "-j", "REJECT"
+    )
 
 
 def srcroute_enable(rt_table, ipaddr):
@@ -539,6 +561,8 @@ handlers = {
     "forward_disable": forward_disable,
     "forward_reject_enable": forward_reject_enable,
     "forward_reject_disable": forward_reject_disable,
+    "hostports_reject_enable": hostports_reject_enable,
+    "hostports_reject_disable": hostports_reject_disable,
     "srcroute_enable": srcroute_enable,
     "srcroute_disable": srcroute_disable,
     "inetsim_enable": inetsim_enable,
@@ -568,21 +592,21 @@ if __name__ == "__main__":
         log.setLevel(logging.DEBUG)
         log.info("Verbose logging enabled")
 
-    if not settings.systemctl or not os.path.exists(settings.systemctl):
+    if not settings.systemctl or not path_exists(settings.systemctl):
         sys.exit(
             "The systemctl binary is not available, please configure it!\n"
             "Note that on CentOS you should provide --systemctl /bin/systemctl, "
             "rather than using the Ubuntu/Debian default /bin/systemctl."
         )
 
-    if not settings.iptables or not os.path.exists(settings.iptables):
+    if not settings.iptables or not path_exists(settings.iptables):
         sys.exit("The `iptables` binary is not available, eh?!")
 
     if os.getuid():
         sys.exit("This utility is supposed to be ran as root.")
 
-    if os.path.exists(settings.socket):
-        os.remove(settings.socket)
+    if path_exists(settings.socket):
+        path_delete(settings.socket)
 
     server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     server.bind(settings.socket)

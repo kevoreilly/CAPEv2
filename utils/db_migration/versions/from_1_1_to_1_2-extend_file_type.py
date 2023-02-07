@@ -32,21 +32,20 @@ def _perform(upgrade):
 
     sample_list = conn.execute("SELECT id, file_size, file_type, md5, crc32, " "sha1, sha256, sha512, ssdeep FROM samples")
 
-    samples = []
-    for sample in sample_list:
-        samples.append(
-            {
-                "id": sample[0],
-                "file_size": sample[1],
-                "file_type": sample[2],
-                "md5": sample[3],
-                "crc32": sample[4],
-                "sha1": sample[5],
-                "sha256": sample[6],
-                "sha512": sample[7],
-                "ssdeep": sample[8],
-            }
-        )
+    samples = [
+        {
+            "id": sample[0],
+            "file_size": sample[1],
+            "file_type": sample[2],
+            "md5": sample[3],
+            "crc32": sample[4],
+            "sha1": sample[5],
+            "sha256": sample[6],
+            "sha512": sample[7],
+            "ssdeep": sample[8],
+        }
+        for sample in sample_list
+    ]
 
     # PostgreSQL and MySQL have different names for the foreign key of
     # Task.sample_id -> Sample.id; for SQLite we don't drop/recreate the

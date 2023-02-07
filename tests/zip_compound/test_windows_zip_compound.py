@@ -5,7 +5,7 @@
 import os
 import shutil
 import sys
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import Dict
 
 import pytest
@@ -15,6 +15,7 @@ module_dir = os.path.join(testfile_dir, "", "../..", "analyzer", "windows")
 sys.path.append(module_dir)
 
 from lib.common.exceptions import CuckooPackageError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from modules.packages.zip_compound import ZipCompound
 
 # Note: References "single_layer_json.zip" and "multi_layer_json.zip" files
@@ -74,14 +75,12 @@ def test_curdir():
         # Checks whether all the files are present inside the specified directory.
         for f in files:
             path_to_check = os.path.join(expected_dir, f)
-            assert os.path.exists(path_to_check)
+            assert path_exists(path_to_check)
 
     def cleanup_temp():
         for f in files:
-            try:
-                os.remove(os.path.join(os.path.expandvars("%TEMP%"), f))
-            except FileNotFoundError:
-                continue
+            with suppress(FileNotFoundError):
+                path_delete(os.path.join(os.path.expandvars("%TEMP%"), f))
 
     # Assumes that "file" submission option is provided (required)
     # No JSON config
@@ -163,7 +162,7 @@ def test_folder_extraction():
             os.path.join(dest_folders[2], "fld\\nested\\last", "test_loadable.dll"),
         )
         for f in expected_files:
-            assert os.path.exists(f)
+            assert path_exists(f)
 
     with cleanup():
         z = ZipCompound(options=generate_analysis_dict(curdir=True, file=True))
@@ -211,7 +210,7 @@ def test_json_target_2():
             os.path.join(dest_folders[2], "fld\\nested\\last", "test_loadable.dll"),
         )
         for f in expected_files:
-            assert os.path.exists(f)
+            assert path_exists(f)
 
     with cleanup():
         z = ZipCompound(options=generate_analysis_dict(curdir=True, file=True))

@@ -7,8 +7,9 @@ import os
 import shutil
 from tempfile import NamedTemporaryFile
 
+from lib.cuckoo.common.path_utils import path_cwd, path_delete, path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
-from lib.cuckoo.core.database import Database, Task
+from lib.cuckoo.core.database import Database, Tag, Task
 
 
 class TestDatabaseEngine:
@@ -26,12 +27,12 @@ class TestDatabaseEngine:
         self.d = Database(dsn="sqlite://")
         # self.d.connect(dsn=self.URI)
         self.session = self.d.Session()
-        self.binary_storage = os.path.join(os.getcwd(), "storage/binaries")
-        os.makedirs(self.binary_storage)
+        self.binary_storage = os.path.join(path_cwd(), "storage/binaries")
+        path_mkdir(self.binary_storage)
 
     def teardown_method(self):
         del self.d
-        os.unlink(self.temp_filename)
+        path_delete(self.temp_filename)
         shutil.rmtree(self.binary_storage)
 
     def add_url(self, url, priority=1, status="pending"):
@@ -203,3 +204,41 @@ class TestDatabaseEngine:
             "tags": ["tag1tag2"],
             "arch": "x64",
         }
+
+    def test_is_serviceable(self):
+        self.d.add_machine(
+            name="win10-x64-1",
+            label="label",
+            ip="1.2.3.4",
+            platform="windows",
+            tags="tag1",
+            interface="int0",
+            snapshot="snap0",
+            resultserver_ip="5.6.7.8",
+            resultserver_port=2043,
+            arch="x64",
+        )
+        task = Task()
+        task.platform = "windows"
+        task.tags = [Tag("tag1")]
+        # tasks matching the available machines are serviceable
+        assert self.d.is_serviceable(task)
+
+    def test_is_not_serviceable(self):
+        self.d.add_machine(
+            name="win10-x64-1",
+            label="label",
+            ip="1.2.3.4",
+            platform="windows",
+            tags="tag1",
+            interface="int0",
+            snapshot="snap0",
+            resultserver_ip="5.6.7.8",
+            resultserver_port=2043,
+            arch="x64",
+        )
+        task = Task()
+        task.platform = "linux"
+        task.tags = [Tag("tag1")]
+        # tasks not matching the available machines aren't serviceable
+        assert not self.d.is_serviceable(task)

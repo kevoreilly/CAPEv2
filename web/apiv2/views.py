@@ -26,29 +26,24 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.dist_db import Node, Task, create_session
 from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.common.objects import File
+
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (
     convert_to_printable,
     create_zip,
     delete_folder,
-    generate_fake_name,
     get_options,
     get_user_filename,
     sanitize_filename,
     store_temp_file,
-    validate_referrer,
 )
 from lib.cuckoo.common.web_utils import (
-    _download_file,
     apiconf,
     download_file,
     download_from_vt,
     force_int,
-    get_file_content,
     parse_request_arguments,
     perform_search,
     process_new_dlnexec_task,
@@ -734,7 +729,7 @@ def ext_tasks_search(request):
             resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return Response(resp)
 
-        if term in ("ids", "options", "tags_tasks"):
+        if term not in ("ids", "options", "tags_tasks"):
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
             else:
@@ -1489,7 +1484,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
 
     if len(os.listdir(srcdir)) == 0:
-        resp = {"error": True, "error_value": "No screenshots created for task %s" % task_id}
+        resp = {"error": True, "error_value": f"No screenshots created for task {task_id}"}
         return Response(resp)
 
     if screenshot == "all":

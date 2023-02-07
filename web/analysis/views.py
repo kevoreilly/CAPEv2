@@ -2249,14 +2249,13 @@ def pcapstream(request, task_id, conntuple):
 
     try:
         # This will check if we have a sorted PCAP
-        test_pcap = conndata["network"]["sorted_pcap_sha256"]
         # if we do, build out the path to it
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_sorted.pcap")
         if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "standalone_error.html", {"error": "File not found".format(os.path.basename(path))})
+            return render(request, "standalone_error.html", {"error": "File not found"})
 
         fobj = open(path, "rb")
-    except Exception as e:
+    except Exception:
         # print str(e)
         return render(request, "standalone_error.html", {"error": "The required sorted PCAP does not exist"})
 
@@ -2325,7 +2324,7 @@ def vtupload(request, category, task_id, filename, dlfile):
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, folder_name, filename)
 
             if not path or not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
-                return render(request, "error.html", {"error": "File not found".format(os.path.basename(path))})
+                return render(request, "error.html", {"error": "File not found"})
 
             headers = {"x-apikey": settings.VTDL_KEY}
             files = {"file": (filename, open(path, "rb"))}

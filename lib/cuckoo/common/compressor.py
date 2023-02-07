@@ -2,6 +2,7 @@ import binascii
 import logging
 import os
 import struct
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -14,11 +15,17 @@ except ImportError:
 else:
     # The BSON module provided by pymongo works through its "BSON" class.
     if hasattr(bson, "BSON"):
-        bson_decode = lambda d: bson.BSON(d).decode()
+
+        def bson_decode(d):
+            return bson.BSON(d).decode()
+
     # The BSON module provided by "pip3 install bson" works through the
     # "loads" function (just like pickle etc.)
     elif hasattr(bson, "loads"):
-        bson_decode = lambda d: bson.loads(d)
+
+        def bson_decode(d):
+            return bson.loads(d)
+
     else:
         HAVE_BSON = False
 
@@ -136,8 +143,9 @@ class CuckooBsonCompressor:
         # threads compressed call lists trying preserve original order
 
         compressed_path = f"{file_path}.compressed"
-        if os.path.isfile(compressed_path):
-            os.remove(compressed_path)
+        p = Path(compressed_path)
+        if p.is_file():
+            p.unlink()
 
         fd = open(compressed_path, "wb")
 

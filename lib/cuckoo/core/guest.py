@@ -8,7 +8,6 @@ import glob
 import json
 import logging
 import os
-from re import S
 import shutil
 import socket
 import sys
@@ -22,6 +21,7 @@ import requests
 from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def analyzer_zipfile(platform):
     root = os.path.join(CUCKOO_ROOT, "analyzer", platform)
     root_len = len(os.path.abspath(root))
 
-    if not os.path.exists(root):
+    if not path_exists(root):
         log.error("No valid analyzer found at path: %s", root)
         raise CuckooGuestError(f"No valid analyzer found for {platform} platform!")
 
@@ -53,13 +53,6 @@ def analyzer_zipfile(platform):
             path = os.path.join(root, name)
             archive_name = os.path.join(archive_root, name)
             zip_file.write(path, archive_name)
-        # ToDo remove
-        """
-        for name in os.listdir(dirpath):
-            zip_file.write(
-                os.path.join(dirpath, name), os.path.join("bin", name)
-            )
-        """
 
     zip_file.close()
     data = zip_data.getvalue()
@@ -235,7 +228,6 @@ class GuestManager:
                     data = {"filepath": os.path.join(self.determine_temp_path(), xf)}
                     files = {"file": (xf, open(target, "rb"))}
                     self.post("/store", files=files, data=data)
-        return
 
     def upload_scripts(self):
         """Upload various scripts such as pre_script and during_scripts."""
@@ -245,7 +237,7 @@ class GuestManager:
         # File path of Analyses path. Storage of script
         analyses_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(self.task_id), "scripts")
         # Create folder in Analyses
-        os.makedirs(analyses_path, exist_ok=True)
+        path_mkdir(analyses_path, exist_ok=True)
 
         for name in glob.glob(os.path.join(base_dir, "*_script.*")):
             # Copy file to Analyses/{task_ID}/scripts
@@ -254,9 +246,7 @@ class GuestManager:
             data = {"filepath": os.path.join(self.determine_temp_path(), basename).replace("/", "\\")}
             files = {"file": (basename, open(name, "rb"))}
             self.post("/store", files=files, data=data)
-        return
 
-    #Added: Add machinery parameter to start_analysis function
     def start_analysis(self, options):
         """Start the analysis by uploading all required files.
         @param options: the task options
@@ -324,7 +314,7 @@ class GuestManager:
         # self.aux.callback("prepare_guest")
 
         # If the target is a file, upload it to the guest.
-        if options["category"] == "file" or options["category"] == "archive":
+        if options["category"] in ("file", "archive"):
             data = {
                 "filepath": os.path.join(self.determine_temp_path(), options["file_name"]),
             }
@@ -342,7 +332,7 @@ class GuestManager:
         # Debug analyzer.py in vm
         if "CAPE_DBG" in os.environ:
             while True:
-                pass 
+                pass
 
         if "execpy" in features:
             data = {
@@ -360,35 +350,18 @@ class GuestManager:
             }
             self.post("/execute", data=data)
 
-    #Added: Added machinery, label, dumppath and dumpinterval parameters
-    def wait_for_completion(self, machinery, label, dumppath, dumppath2, dumpinterval):
+    def wait_for_completion(self):
 
         count = 0
         start = timeit.default_timer()
-        #dumpinterval refers to the time interval between 2 memory dumps, which can be configured in cuckoo.conf
-        sleeptime = dumpinterval/5
 
         while db.guest_get_status(self.task_id) == "running" and self.do_run:
             if count >= 5:
-                #Added: Added memory dump(s) during analysis
-                try:
-                    #If midmemory.dmp does not exist, then dump memory as midmemory.dmp (first dump)
-                    if not os.path.exists(dumppath):
-                        machinery.dump_memory(label, dumppath)
-                        log.info("The memory dump before the completion of the analysis is generated")
-                    else:
-                        #If taking a second memory dump during analysis, check that midmemory2.dmp does not exist and dump memory as midmemory2.dmp (second dump)
-                        if not os.path.exists(dumppath2):
-                            machinery.dump_memory(label, dumppath2)
-                            log.info("The second memory dump before the completion of the analysis is generated")
-                except:
-                    log.error("The memory dump functionality is not available for the current machine manager")
                 log.debug("Task #%s: Analysis is still running (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
                 count = 0
 
             count += 1
-            
-            time.sleep(sleeptime)
+            time.sleep(1)
 
             # If the analysis hits the critical timeout, just return straight
             # away and try to recover the analysis results from the guest.
@@ -397,8 +370,8 @@ class GuestManager:
                 return
 
             try:
-                status = self.get("/status", timeout=10).json()
-            except CuckooGuestError:
+                status = self.get("/status", timeout=5).json()
+            except (CuckooGuestError, requests.exceptions.ReadTimeout):
                 # this might fail due to timeouts or just temporary network
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover

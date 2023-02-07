@@ -18,11 +18,12 @@ import json
 import os
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists
 
 
 def get_dga_lookup_dict():
     dga_lookup_path = os.path.join(CUCKOO_ROOT, "data", "dga_lookup_dict.json.gz")
-    if os.path.exists(dga_lookup_path):
+    if path_exists(dga_lookup_path):
         with gzip.GzipFile(dga_lookup_path, "r") as fin:
             return json.loads(fin.read().decode())
 

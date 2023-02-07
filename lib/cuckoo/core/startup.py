@@ -11,6 +11,8 @@ import platform
 import re
 import socket
 import sys
+from contextlib import suppress
+from pathlib import Path
 
 import modules.auxiliary
 import modules.feeds
@@ -22,6 +24,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import create_folders
 from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
 from lib.cuckoo.core.log import init_logger
@@ -50,8 +53,8 @@ def check_python_version():
     """Checks if Python version is supported by Cuckoo.
     @raise CuckooStartupError: if version is not supported.
     """
-    if sys.version_info[:2] < (3, 6):
-        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.6")
+    if sys.version_info[:2] < (3, 8):
+        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.8")
 
 
 def check_user_permissions(as_root: bool = False):
@@ -75,11 +78,11 @@ def check_working_directory():
     """Checks if working directories are ready.
     @raise CuckooStartupError: if directories are not properly configured.
     """
-    if not os.path.exists(CUCKOO_ROOT):
+    if not path_exists(CUCKOO_ROOT):
         raise CuckooStartupError(f"You specified a non-existing root directory: {CUCKOO_ROOT}")
 
-    cwd = os.path.join(os.getcwd(), "cuckoo.py")
-    if not os.path.exists(cwd):
+    cwd = Path.cwd() / "cuckoo.py"
+    if not path_exists(cwd):
         raise CuckooStartupError("You are not running Cuckoo from it's root directory")
 
     # Check permission for tmpfs if enabled
@@ -113,7 +116,7 @@ def check_configs():
     ]
 
     for config in configs:
-        if not os.path.exists(config):
+        if not path_exists(config):
             raise CuckooStartupError(f"Config file does not exist at path: {config}")
 
     if cuckoo.resultserver.ip in ("127.0.0.1", "localhost"):
@@ -137,7 +140,7 @@ def create_structure():
         create_folders(root=CUCKOO_ROOT, folders=folders)
     except CuckooOperationalError as e:
         raise CuckooStartupError(
-            f"Can't create folders. Ensure that you executed CAPE with proper USER! Maybe should be cape user?. %s", str(e)
+            "Can't create folders. Ensure that you executed CAPE with proper USER! Maybe should be cape user?. %s", str(e)
         )
 
 
@@ -160,7 +163,7 @@ class ConsoleHandler(logging.StreamHandler):
 
         if record.levelname == "WARNING":
             colored.msg = yellow(record.msg)
-        elif record.levelname == "ERROR" or record.levelname == "CRITICAL":
+        elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
             if "analysis procedure completed" in record.msg:
@@ -173,14 +176,12 @@ class ConsoleHandler(logging.StreamHandler):
 
 def check_linux_dist():
     ubuntu_versions = ("18.04", "20.04", "22.04")
-    try:
+    with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
             log.info(
                 f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS {ubuntu_versions}"
             )
-    except AttributeError:
-        pass
 
 
 def init_logging(level: int):
@@ -282,7 +283,7 @@ def init_yara():
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
-        if not os.path.exists(category_root):
+        if not path_exists(category_root):
             log.warning("Missing Yara directory: %s?", category_root)
             continue
 

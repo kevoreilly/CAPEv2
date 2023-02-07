@@ -14,6 +14,7 @@ import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.utils import convert_to_printable
 
 try:
@@ -117,8 +118,8 @@ class Office:
                 log.error(e, exc_info=True)
 
         for elem in app._get_documentElement().childNodes:
-            n = elem._get_tagName()
             try:
+                n = elem._get_tagName()
                 data = app.getElementsByTagName(n)
                 if not data:
                     continue
@@ -140,8 +141,8 @@ class Office:
         rtfp = RtfObjParser(data)
         rtfp.parse()
         save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "rtf_objects")
-        if rtfp.objects and not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        if rtfp.objects and not path_exists(save_dir):
+            path_mkdir(save_dir)
         for rtfobj in rtfp.objects:
             results.setdefault(str(rtfobj.format_id), [])
             temp_dict = {"class_name": "", "size": "", "filename": "", "type_embed": "", "CVE": "", "sha256": "", "index": ""}
@@ -155,8 +156,7 @@ class Office:
                 fname = convert_to_printable(rtfobj.filename) if rtfobj.filename else sha256
                 log.debug("  Saving to file %s", sha256)
                 temp_dict["filename"] = fname
-                with open(os.path.join(save_dir, sha256), "wb") as f:
-                    f.write(rtfobj.olepkgdata)
+                _ = path_write_file(os.path.join(save_dir, sha256), rtfobj.olepkgdata)
                 temp_dict["sha256"] = sha256
                 temp_dict["size"] = len(rtfobj.olepkgdata)
                 # temp_dict["source_path"] = convert_to_printable(rtfobj.src_path))
@@ -188,8 +188,7 @@ class Office:
                 temp_dict["filename"] = f"object_{rtfobj.start:08X}.{ext}"
                 save_path = os.path.join(save_dir, sha256)
                 log.debug("  Saving to file %s", sha256)
-                with open(save_path, "wb") as f:
-                    f.write(rtfobj.oledata)
+                _ = path_write_file(save_path, rtfobj.oledata)
                 temp_dict["sha256"] = sha256
             else:
                 log.debug("Saving raw data in object #%d:", rtfobj.format_id)
@@ -197,8 +196,7 @@ class Office:
                 sha256 = hashlib.sha256(rtfobj.rawdata).hexdigest()
                 save_path = os.path.join(save_dir, sha256)
                 log.debug("  Saving object to file %s", sha256)
-                with open(save_path, "wb") as f:
-                    f.write(rtfobj.rawdata)
+                _ = path_write_file(save_path, rtfobj.rawdata)
                 temp_dict["sha256"] = sha256
                 temp_dict["size"] = len(rtfobj.rawdata)
             temp_dict["index"] = f"{rtfobj.start:08X}h"
@@ -219,8 +217,8 @@ class Office:
         vba = False
         if is_rtf(filepath):
             try:
-                with open(filepath, "rb") as f:
-                    contents = f.read()
+
+                contents = path_read_file(filepath)
                 temp_results = self._parse_rtf(contents)
                 if temp_results:
                     results["office_rtf"] = temp_results
@@ -248,10 +246,13 @@ class Office:
         officeresults = {"Metadata": {}}
         macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "macros")
         if olefile.isOleFile(filepath):
-            with olefile.OleFileIO(filepath) as ole:
-                meta = ole.get_metadata()
-                # must be left this way or we won't see the results
-                officeresults["Metadata"] = self._get_meta(meta)
+            try:
+                with olefile.OleFileIO(filepath) as ole:
+                    meta = ole.get_metadata()
+                    # must be left this way or we won't see the results
+                    officeresults["Metadata"] = self._get_meta(meta)
+            except AttributeError as e:
+                log.error("Problems with olefile library: %s", e)
         else:
             with contextlib.suppress(KeyError):
                 officeresults["Metadata"] = self._get_xml_meta(filepath)
@@ -273,11 +274,10 @@ class Office:
                         officeresults["Macro"]["Code"][outputname] = [
                             (convert_to_printable(vba_filename), convert_to_printable(vba_code))
                         ]
-                        if not os.path.exists(macro_folder):
-                            os.makedirs(macro_folder)
+                        if not path_exists(macro_folder):
+                            path_mkdir(macro_folder)
                         macro_file = os.path.join(macro_folder, outputname)
-                        with open(macro_file, "w") as f:
-                            f.write(convert_to_printable(vba_code))
+                        _ = path_write_file(macro_file, convert_to_printable(vba_code), mode="text")
                         officeresults["Macro"]["info"][outputname] = {"yara_macro": File(macro_file).get_yara(category="macro")}
                         officeresults["Macro"]["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 
@@ -328,4 +328,4 @@ class Office:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        return self._parse(self.file_path) if os.path.exists(self.file_path) else None
+        return self._parse(self.file_path) if path_exists(self.file_path) else None

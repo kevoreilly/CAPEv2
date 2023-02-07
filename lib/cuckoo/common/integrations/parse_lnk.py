@@ -89,6 +89,12 @@ class LnkShortcut:
             if HAVE_LNK3:
                 try:
                     data = LnkParse3.lnk_file(f).get_json(get_all=True)
+                    if "creation_time" in data.get("header", {}) and data["header"].get("creation_time"):
+                        data["header"]["creation_time"] = data["header"]["creation_time"].strftime("%Y-%m-%d %H:%S:%M")
+                    if "accessed_time" in data.get("header", {}) and data["header"].get("accessed_time"):
+                        data["header"]["accessed_time"] = data["header"]["accessed_time"].strftime("%Y-%m-%d %H:%S:%M")
+                    if "modified_time" in data.get("header", {}) and data["header"].get("modified_time"):
+                        data["header"]["modified_time"] = data["header"]["modified_time"].strftime("%Y-%m-%d %H:%S:%M")
                 except (LnkParserError, struct.error) as e:
                     log.error("Parse LNK error: %s", str(e))
                     return {}
@@ -129,7 +135,7 @@ class LnkShortcut:
                 else:
                     try:
                         ret["net_share"] = self.read_stringz(offset + off.net_volume + 20)
-                    except TypeError:
+                    except (TypeError, ValueError):
                         log.error("parse_lnk: subsection not found")
 
                     network_drive = self.read_uint32(offset + off.net_volume + 12)

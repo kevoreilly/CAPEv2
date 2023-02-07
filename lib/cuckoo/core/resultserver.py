@@ -20,6 +20,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
 from lib.cuckoo.common.files import open_exclusive, open_inclusive
+from lib.cuckoo.common.path_utils import path_exists
 
 # from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import Singleton, create_folder, load_categories
@@ -206,7 +207,7 @@ class FileUpload(ProtocolHandler):
             try:
                 if file_path.endswith("_script.log"):
                     self.fd = open_inclusive(file_path)
-                elif not os.path.exists(file_path):
+                elif not path_exists(file_path):
                     # open_exclusive will fail if file_path already exists
                     self.fd = open_exclusive(file_path)
             except OSError as e:
@@ -250,7 +251,7 @@ class LogHandler(ProtocolHandler):
     def init(self):
         self.logpath = os.path.join(self.handler.storagepath, "analysis.log")
         try:
-            self.fd = open_exclusive(self.logpath)
+            self.fd = open_exclusive(self.logpath, bufsize=1)
         except OSError:
             log.error("Task #%s: attempted to reopen live log analysis.log", self.task_id)
             return

@@ -11,6 +11,7 @@ import threading
 import time
 import timeit
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Dict, List
 
 try:
@@ -30,6 +31,7 @@ from lib.cuckoo.common.exceptions import (
 )
 from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.objects import Dictionary
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
 from lib.cuckoo.core.database import Database
@@ -217,7 +219,7 @@ class Machinery:
         for machine in self.machines():
             # If this machine is already in the "correct" state, then we
             # go on to the next machine.
-            if machine.label in configured_vms and self._status(machine.label) in [self.POWEROFF, self.ABORTED]:
+            if machine.label in configured_vms and self._status(machine.label) in (self.POWEROFF, self.ABORTED):
                 continue
 
             # This machine is currently not in its correct state, we're going
@@ -259,8 +261,7 @@ class Machinery:
             return self.db.lock_machine(label=machine_id)
         elif platform:
             return self.db.lock_machine(platform=platform, tags=tags, arch=arch)
-        else:
-            return self.db.lock_machine(tags=tags, arch=arch)
+        return self.db.lock_machine(tags=tags, arch=arch)
 
     def release(self, label=None):
         """Release a machine.
@@ -887,7 +888,7 @@ class Signature:
                 pids.append(int(pid.get("pid", "")))
                 pids += [int(cpid["pid"]) for cpid in pid.get("children", []) if "pid" in cpid]
         # in case if bsons too big
-        if os.path.exists(logs):
+        if path_exists(logs):
             pids += [int(pidb.replace(".bson", "")) for pidb in os.listdir(logs) if ".bson" in pidb]
 
         #  in case if injection not follows
@@ -1161,7 +1162,7 @@ class Signature:
                       matched items or the first matched item
         """
         subject = self.results["behavior"]["summary"]["started_services"]
-        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_created_service(self, pattern, regex=False, all=False):
         """Checks for a service being created.
@@ -1174,7 +1175,7 @@ class Signature:
                       matched items or the first matched item
         """
         subject = self.results["behavior"]["summary"]["created_services"]
-        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
         """Checks for a command being executed.
@@ -1705,12 +1706,9 @@ class Feed:
             lock = threading.Lock()
             with lock:
                 if modified and self.data:
-                    with open(self.feedpath, "w") as feedfile:
-                        feedfile.write(self.data)
+                    _ = Path(self.feedpath).write_text(self.data)
                 elif self.downloaddata:
-                    with open(self.feedpath, "w") as feedfile:
-                        feedfile.write(self.downloaddata)
-        return
+                    _ = Path(self.feedpath).write_text(self.downloaddata)
 
 
 class ProtocolHandler:

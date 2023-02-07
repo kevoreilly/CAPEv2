@@ -84,8 +84,8 @@ class ircMessage:
         @buf: tcp stream data
         """
         try:
-            f = BytesIO(buf)
-            lines = f.readlines()
+            with BytesIO(buf) as f:
+                lines = f.readlines()
         except Exception:
             log.error("Failed reading tcp stream buffer")
             return False
@@ -107,7 +107,7 @@ class ircMessage:
                 irc_client_msg = re.findall(b"([a-zA-Z]+\x20)(.+[\x0a\0x0d])", element)
                 if irc_client_msg and irc_client_msg[0][0].strip() in self.__methods_client:
                     self._cc["command"] = convert_to_printable(irc_client_msg[0][0].strip())
-                    if self._cc["command"] in ["NICK", "USER"]:
+                    if self._cc["command"] in ("NICK", "USER"):
                         logirc = True
                     self._cc["params"] = convert_to_printable(irc_client_msg[0][1].strip())
                     self._cc["type"] = "client"

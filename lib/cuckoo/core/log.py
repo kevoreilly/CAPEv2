@@ -14,6 +14,7 @@ import gevent.thread
 
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.misc import cwd
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.core.database import Database
 
 _task_threads = {}
@@ -65,7 +66,7 @@ class ConsoleHandler(logging.StreamHandler):
 
         if record.levelname == "WARNING":
             colored.msg = yellow(record.msg)
-        elif record.levelname == "ERROR" or record.levelname == "CRITICAL":
+        elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
             if "analysis procedure completed" in record.msg:
@@ -110,7 +111,7 @@ def task_log_start(task_id):
     try:
         if task_id not in _task_threads:
             task_path = cwd(analysis=task_id)
-            if not os.path.exists(task_path):
+            if not path_exists(task_path):
                 return
 
             _task_threads[task_id] = []
@@ -146,21 +147,21 @@ def init_logger(name, level=None):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     if name == "console":
-        l = ConsoleHandler()
-        l.setFormatter(formatter)
-        l.setLevel(level)
+        logger = ConsoleHandler()
+        logger.setFormatter(formatter)
+        logger.setLevel(level)
 
     elif name == "database":
-        l = DatabaseHandler()
-        l.setLevel(logging.ERROR)
+        logger = DatabaseHandler()
+        logger.setLevel(logging.ERROR)
 
     elif name == "task":
-        l = TaskHandler()
-        l.setFormatter(formatter)
-        l.setLevel(logging.DEBUG)
+        logger = TaskHandler()
+        logger.setFormatter(formatter)
+        logger.setLevel(logging.DEBUG)
 
-    _loggers[name] = l
-    logging.getLogger().addHandler(l)
+    _loggers[name] = logger
+    logging.getLogger().addHandler(logger)
 
 
 def logger(message, *args, **kwargs):

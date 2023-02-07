@@ -6,7 +6,9 @@ import sys
 import tempfile
 import time
 from collections import OrderedDict
+from contextlib import suppress
 from datetime import datetime, timedelta
+from pathlib import Path
 from random import choice
 
 import magic
@@ -16,6 +18,7 @@ from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import (
     bytes2str,
     generate_fake_name,
@@ -24,6 +27,7 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
+    trim_sample,
     validate_referrer,
     validate_ttp,
 )
@@ -32,6 +36,7 @@ from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
+    TASK_RECOVERED,
     TASK_REPORTED,
     Database,
     Sample,
@@ -59,6 +64,11 @@ rps = web_cfg.ratelimit.get("rps", "1/rps")
 rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
 
 db = Database()
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
 
@@ -149,8 +159,7 @@ def my_rate_seconds(group, request):
 
     if not rateblock or request.user.is_authenticated:
         return "99999999999999/s"
-    else:
-        return rps
+    return rps
 
 
 def my_rate_minutes(group, request):
@@ -166,8 +175,7 @@ def my_rate_minutes(group, request):
     """
     if not rateblock or request.user.is_authenticated:
         return "99999999999999/m"
-    else:
-        return rpm
+    return rpm
 
 
 def load_vms_exits():
@@ -212,6 +220,8 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
+    if web_cfg.general.get("top_detections", False) is False:
+        return False
 
     t = int(time.time())
 
@@ -295,10 +305,9 @@ def get_stats_per_category(category: str, date_since):
                 "name": 1,
                 "successful": 1,
                 "runs": 1,
-                "average": 1,
-                #Added: Removed round functions for total and average values
-                "total": "$total_time",
-                "average": {"$divide": [f"$total_time", "$runs"]},
+                # "average": 1,
+                "total": {"$round": ["$total_time", 2]},
+                "average": {"$round": [{"$divide": ["$total_time", "$runs"]}, 2]},
             }
         },
         {"$limit": 20},
@@ -419,7 +428,7 @@ def statistics(s_days: int) -> dict:
         sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
     )
 
-    details["detections"] = top_detections(date_since=date_since, results_limit=20)
+    details["detections"] = top_detections(date_since=date_since)
 
     session.close()
     return details
@@ -435,8 +444,7 @@ def jsonize(data, response=False):
     if response:
         jdata = json.dumps(data, sort_keys=False, indent=4)
         return HttpResponse(jdata, content_type="application/json; charset=UTF-8")
-    else:
-        return json.dumps(data, sort_keys=False, indent=4)
+    return json.dumps(data, sort_keys=False, indent=4)
 
 
 def get_file_content(paths):
@@ -444,10 +452,10 @@ def get_file_content(paths):
     if not isinstance(paths, list):
         paths = [paths]
     for path in paths:
-        if os.path.exists(path):
-            with open(path, "rb") as f:
-                content = f.read()
-            break
+        path = path.decode() if isinstance(path, bytes) else path
+        p = Path(path)
+        if p.exists():
+            return p.read_bytes()
     return content
 
 
@@ -485,12 +493,12 @@ def recon(filename, orig_options, timeout, enforce_timeout):
 
 def get_magic_type(data):
     try:
-        if os.path.exists(data):
+        if path_exists(data):
             return magic.from_file(data)
         else:
             return magic.from_buffer(data)
     except Exception as e:
-        print(e)
+        print(e, "get_magic_type")
 
     return False
 
@@ -498,8 +506,7 @@ def get_magic_type(data):
 def get_platform(magic):
     if magic and any(x in magic for x in VALID_LINUX_TYPES):
         return "linux"
-    else:
-        return "windows"
+    return "windows"
 
 
 def download_file(**kwargs):
@@ -616,11 +623,12 @@ def download_file(**kwargs):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
-        if not os.path.exists(kwargs.get("path")):
-            with open(kwargs["path"], "wb") as f:
-                f.write(kwargs["content"])
+
+        path = kwargs.get("path") if isinstance(kwargs.get("path", ""), str) else kwargs.get("path").decode()
+        if not path_exists(path):
+            _ = path_write_file(path, kwargs["content"])
     except Exception as e:
-        print(e)
+        print(e, sys.exc_info())
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
 
     # Distribute task based on route support by worker
@@ -635,10 +643,7 @@ def download_file(**kwargs):
 
         if not node:
             # get nodes that supports this exit
-            tmp_workers = []
-            for node, exitnodes in all_nodes_exits.items():
-                if route in exitnodes:
-                    tmp_workers.append(node)
+            tmp_workers = [node for node, exitnodes in all_nodes_exits.items() if route in exitnodes]
             if tmp_workers:
                 if kwargs["options"]:
                     kwargs["options"] += f",node={choice(tmp_workers)}"
@@ -708,9 +713,9 @@ def download_file(**kwargs):
             cape=cape,
             user_id=kwargs.get("user_id"),
             username=username,
-            source_url=kwargs.get("source_url", False)
+            source_url=kwargs.get("source_url", False),
             # parent_id=kwargs.get("parent_id"),
-            # sample_parent_id=kwargs.get("sample_parent_id")
+            sample_parent_id=kwargs.get("sample_parent_id"),
         )
 
         try:
@@ -737,28 +742,24 @@ def save_script_to_storage(task_ids, kwargs):
     Retrieve pre_script and during_script contents and save it to a temp storage
     """
     for task_id in task_ids:
-        task_id = str(task_id)
         # Temp Folder for storing scripts
-        script_temp_path = os.path.join("/tmp/cuckoo-tmp", task_id)
+        script_temp_path = os.path.join("/tmp/cuckoo-tmp", str(task_id))
         if "pre_script_name" in kwargs and "pre_script_content" in kwargs:
             file_ext = os.path.splitext(kwargs["pre_script_name"])[-1]
             if file_ext not in (".py", ".ps1", ".exe"):
                 raise ValueError(f"Unknown file_extention of {file_ext} to run for pre_script")
 
-            os.makedirs(script_temp_path, exist_ok=True)
+            path_mkdir(script_temp_path, exist_ok=True)
             log.info("Writing pre_script to temp folder %s", script_temp_path)
-            with open(os.path.join(script_temp_path, f"pre_script{file_ext}"), "wb") as f:
-                f.write(kwargs["pre_script_content"])
-
+            _ = Path(os.path.join(script_temp_path, f"pre_script{file_ext}")).write_bytes(kwargs["pre_script_content"])
         if "during_script_name" in kwargs and "during_script_content" in kwargs:
             file_ext = os.path.splitext(kwargs["during_script_name"])[-1]
             if file_ext not in (".py", ".ps1", ".exe"):
                 raise ValueError(f"Unknown file_extention of {file_ext} to run for during_script")
 
-            os.makedirs(script_temp_path, exist_ok=True)
+            path_mkdir(script_temp_path, exist_ok=True)
             log.info("Writing during_script to temp folder %s", script_temp_path)
-            with open(os.path.join(script_temp_path, f"during_script{file_ext}"), "wb") as f:
-                f.write(kwargs["during_script_content"])
+            _ = Path(os.path.join(script_temp_path, f"during_script{file_ext}")).write_bytes(kwargs["during_script_content"])
 
 
 def url_defang(url):
@@ -824,13 +825,24 @@ def category_all_files(task_id, category, base_path):
 
 
 def validate_task(tid, status=TASK_REPORTED):
-    task = db.view_task(tid)
+    task = db.view_task(tid, details=True)
+    task_id = tid
     if not task:
         return {"error": True, "error_value": "Task does not exist"}
+
+    if task.status == TASK_RECOVERED and task.custom:
+        m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+        if m:
+            task_id = int(m.group("taskid"))
+            task = db.view_task(task_id, details=True)
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}
     elif status == task.status:
+        if tid != task_id:
+            return {"error": False, "rtid": task_id}
+        else:
+            return {"error": False}
         return {"error": False}
     elif task.status in {TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING}:
         return {"error": True, "error_value": "Task failed"}
@@ -846,7 +858,7 @@ def validate_task_by_path(tid):
     # if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
     #    return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
-    return os.path.exists(analysis_path)
+    return path_exists(analysis_path)
 
 
 perform_search_filters = {
@@ -966,7 +978,6 @@ search_term_map = {
         "network.smtp_ex.dport",
     ),
     "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
-    "package": "info.package",
     # File_extra_info
     "extracted_tool": (
         "info.parent_sample.extracted_files_tool",
@@ -1019,10 +1030,8 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
     elif term in normalized_int_terms:
         query_val = int(value)
     elif term in ("surisid", "id"):
-        try:
+        with suppress(Exception):
             query_val = int(value)
-        except Exception:
-            pass
     elif term in ("ids", "options", "tags_tasks", "user_tasks"):
         try:
             ids = []
@@ -1148,15 +1157,10 @@ def parse_request_arguments(request, keyword="POST"):
     route = getattr(request, keyword).get("route")
     cape = getattr(request, keyword).get("cape", "")
 
-    if getattr(request, keyword).get("process_dump"):
-        if options:
-            options += ","
-        options += "procmemdump=1,procdump=1"
-
     if referrer:
         if options:
             options += ","
-        options += "referrer=%s" % (referrer)
+        options += f"referrer={referrer}"
 
     # Linux options
     if lin_options:
@@ -1248,11 +1252,28 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         if not sample.size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
             continue
-        elif sample.size > web_cfg.general.max_sample_size:
-            details["errors"].append(
-                {sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."}
-            )
-            continue
+
+        sample_parent_id = None
+        size = sample.size
+        data = False
+        if size > web_cfg.general.max_sample_size:
+            if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]):
+                first_chunk = sample.chunks().__next__()
+                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
+                    trimmed_size = trim_sample(sample.chunks().__next__())
+                    if trimmed_size:
+                        size = trimmed_size
+                        data = sample.chunks(size).__next__()
+                else:
+                    # we need to rebuild original file
+                    data = first_chunk + sample.read()
+                if size > web_cfg.general.max_sample_size:
+                    details["errors"].append(
+                        {
+                            sample.name: f"You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf. Sample size is: {size/float(1<<20):,.0f} Allowed size is:{web_cfg.general.max_sample_size/float(1<<20):,.0f} "
+                        }
+                    )
+                    continue
 
         if opt_filename:
             filename = opt_filename
@@ -1261,14 +1282,19 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
         # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
         try:
-            path = store_temp_file(sample.read(), filename)
+            path = store_temp_file(data or sample.read(), filename)
         except OSError:
             details["errors"].append(
-                {filename: "Your specified temp folder, disk is out of space. Clean some space before continue."}
+                {filename: "Your specified temp folder in cuckoo.conf, disk is out of space. Clean some space before continue."}
             )
             continue
 
-        sha256 = File(path).get_sha256()
+        target_file = File(path)
+        # Trimmed. We need to registger sample parent id
+        if size != sample.size:
+            sample_parent_id = db.register_sample(target_file)
+
+        sha256 = target_file.get_sha256()
 
         if (
             not request.user.is_staff
@@ -1281,7 +1307,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             continue
 
         content = get_file_content(path)
-        list_of_files.append((content, path, sha256))
+        list_of_files.append((content, path, sha256, sample_parent_id))
 
     return list_of_files, details
 
@@ -1293,9 +1319,89 @@ def process_new_dlnexec_task(url, route, options, custom):
         return False, False, False
 
     name = os.path.basename(url)
-    if not "." in name:
+    if "." not in name:
         name = get_user_filename(options, custom) or generate_fake_name()
 
     path = store_temp_file(response, name)
 
     return path, response, ""
+
+
+def submit_task(
+    target: str,
+    package: str = "",
+    timeout: int = 0,
+    task_options: str = "",
+    priority: int = 1,
+    machine: str = "",
+    platform: str = "",
+    memory: bool = False,
+    enforce_timeout: bool = False,
+    clock: str = None,
+    tags: str = None,
+    parent_id: int = None,
+    tlp: bool = None,
+    distributed: bool = False,
+    filename: str = "",
+    server_url: str = "",
+):
+
+    """
+    ToDo add url support in future
+    """
+    if not path_exists(target):
+        log.info("File doesn't exist")
+        return
+
+    task_id = False
+    if distributed:
+        options = {
+            "package": package,
+            "timeout": timeout,
+            "options": task_options,
+            "priority": priority,
+            # "machine": machine,
+            "platform": platform,
+            "memory": memory,
+            "enforce_timeout": enforce_timeout,
+            "clock": clock,
+            "tags": tags,
+            "parent_id": parent_id,
+            "filename": filename,
+        }
+
+        multipart_file = [("file", (os.path.basename(target), open(target, "rb")))]
+        try:
+            res = requests.post(server_url, files=multipart_file, data=options)
+            if res and res.ok:
+                task_id = res.json()["data"]["task_ids"][0]
+        except Exception as e:
+            log.error(e)
+    else:
+        task_id = db.add_path(
+            file_path=target,
+            package=package,
+            timeout=timeout,
+            options=task_options,
+            priority=priority,
+            machine=machine,
+            platform=platform,
+            memory=memory,
+            enforce_timeout=enforce_timeout,
+            parent_id=parent_id,
+            tlp=tlp,
+            filename=filename,
+        )
+    if not task_id:
+        log.warn("Error adding CAPE task to database: %s", package)
+        return task_id
+
+    log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)
+    return task_id
+
+
+# https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
+def get_running_commit() -> str:
+    git_folder = Path(CUCKOO_ROOT, ".git")
+    head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
+    return Path(git_folder, head_name).read_text().replace("\n", "")

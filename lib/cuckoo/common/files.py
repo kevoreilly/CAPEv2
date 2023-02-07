@@ -5,14 +5,15 @@
 import errno
 import hashlib
 import logging
-import ntpath
 import os
 import shutil
 import tempfile
+from pathlib import PureWindowsPath
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.misc import getuser
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 cuckoo_conf = Config()
 
@@ -30,22 +31,22 @@ def temppath():
     return tmppath
 
 
-def open_exclusive(path, mode="xb"):
+def open_exclusive(path, mode="xb", bufsize=-1):
     """Open a file with O_EXCL, failing if it already exists
     [In Python 3, use open with x]"""
     fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
     try:
-        return os.fdopen(fd, mode)
+        return os.fdopen(fd, mode, bufsize)
     except OSError as e:
         log.error(e, "You might need to add whitelist folder in resultserver.py")
         os.close(fd)
         raise
 
 
-def open_inclusive(path, mode="ab"):
+def open_inclusive(path, mode="ab", bufsize=-1):
     fd = os.open(path, os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o644)
     try:
-        return os.fdopen(fd, mode)
+        return os.fdopen(fd, mode, bufsize)
     except OSError as e:
         log.error(e, "You might need to add whitelist folder in resultserver.py")
         os.close(fd)
@@ -59,8 +60,7 @@ class Storage:
         @param path: file path.
         @return: filename.
         """
-        dirpath, filename = ntpath.split(path)
-        return filename or ntpath.basename(dirpath)
+        return PureWindowsPath(path).name
 
 
 class Folders(Storage):
@@ -84,7 +84,7 @@ class Folders(Storage):
             folder_path = os.path.join(root, folder)
             if not os.path.isdir(folder_path):
                 try:
-                    os.makedirs(folder_path)
+                    path_mkdir(folder_path)
                 except OSError as e:
                     if e.errno == errno.EEXIST:
                         # Race condition, ignore
@@ -93,7 +93,7 @@ class Folders(Storage):
 
     @staticmethod
     def copy(src, dest):
-        if os.path.exists(dest):
+        if path_exists(dest):
             shutil.rmtree(dest)
         shutil.copytree(src, dest)
 
@@ -108,7 +108,7 @@ class Folders(Storage):
         @raise CuckooOperationalError: if fails to delete folder.
         """
         folder = os.path.join(*folder)
-        if os.path.exists(folder):
+        if path_exists(folder):
             try:
                 shutil.rmtree(folder)
             except OSError as e:

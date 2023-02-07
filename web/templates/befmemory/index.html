@@ -1,0 +1,135 @@
+{% if befmemory %}
+    <div class="alert alert-primary center">
+        <!-- <a class="btn btn-secondary btn-sm" href="{% url "full_befmemory_dump_file" id %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span> Full Memory Dump (Before Analysis)</a> -->
+        <a class="btn btn-secondary btn-sm" href="{% url "full_befmemory_dump_strings" id %}" data-bs-toggle="tooltip" title="Download strings"><span class="fas fa-download" ></span> Full Memory Dump Strings (Before Analysis)</a>
+    </div>
+    <div class="tabbable tabs">
+        <ul class="nav nav-tabs" style="margin-bottom: 0;">
+            {% if befmemory.pslist %}<li class="nav-item active"><a class="nav-link" href="#befmemory_pslist" data-toggle="tab">Process List</a></li>{% endif %}
+            {% if befmemory.svcscan %}<li class="nav-item"><a class="nav-link" href="#befmemory_svcscan" data-toggle="tab">Services</a></li>{% endif %}
+            {% if befmemory.modscan %}<li class="nav-item"><a class="nav-link" href="#befmemory_modscan" data-toggle="tab">Kernel Modules</a></li>{% endif %}
+            {% if befmemory.devicetree %}<li class="nav-item"><a class="nav-link" href="#befmemory_devicetree" data-toggle="tab">Device Tree</a></li>{% endif %}
+            {% if befmemory.malfind %}<li class="nav-item"><a class="nav-link" href="#befmemory_malfind" data-toggle="tab">Code Injection</a></li>{% endif %}
+            {% if befmemory.timers %}<li class="nav-item"><a class="nav-link" href="#befmemory_timers" data-toggle="tab">Timers</a></li>{% endif %}
+            {% if befmemory.messagehooks %}<li class="nav-item"><a class="nav-link" href="#befmemory_messagehooks" data-toggle="tab">Messagehooks</a></li>{% endif %}
+            {% if befmemory.apihooks %}<li class="nav-item"><a class="nav-link" href="#befmemory_apihooks" data-toggle="tab">API Hooks</a></li>{% endif %}
+            {% if befmemory.callbacks %}<li class="nav-item"><a class="nav-link" href="#befmemory_callbacks" data-toggle="tab">Callbacks</a></li>{% endif %}
+            {% if befmemory.yarascan %}<li class="nav-item"><a class="nav-link" href="#befmemory_yarascan" data-toggle="tab">Yarascan</a></li>{% endif %}
+            {% if befmemory.ssdt %}<li class="nav-item"><a class="nav-link" href="#befmemory_ssdt" data-toggle="tab">SSDT</a></li>{% endif %}
+            {% if befmemory.idt %}<li class="nav-item"><a class="nav-link" href="#befmemory_idt" data-toggle="tab">IDT</a></li>{% endif %}
+            {% if befmemory.gdt %}<li class="nav-item"><a class="nav-link" href="#befmemory_gdt" data-toggle="tab">GDT</a></li>{% endif %}
+            {% if befmemory.privs %}<li class="nav-item"><a class="nav-link" href="#befmemory_privs" data-toggle="tab">Privilege</a></li>{% endif %}
+            {% if befmemory.handles %}<li class="nav-item"><a class="nav-link" href="#befmemory_handles" data-toggle="tab">Handles</a></li>{% endif %}
+            {% if befmemory.getsids %}<li class="nav-item"><a class="nav-link" href="#befmemory_getsids" data-toggle="tab">Sid by Process</a></li>{% endif %}
+            {% if befmemory.dlllist %}<li class="nav-item"><a class="nav-link" href="#befmemory_dlllist" data-toggle="tab">Dll List</a></li>{% endif %}
+            {% if befmemory.mutantscan %}<li class="nav-item"><a class="nav-link" href="#befmemory_mutantscan" data-toggle="tab">Mutex</a></li>{% endif %}
+            {% if befmemory.sockscan or befmemory.netscan %}
+            <li class="nav-item"><a class="nav-link" href="#befmemory_sockets" data-toggle="tab">Sockets</a></li>
+            {% endif %}
+        </ul>
+
+        <div class="tab-content">
+            {% if befmemory.pslist %}
+            <div class="tab-pane fade show active" id="befmemory_pslist">
+                {% include "analysis/befmemory/_pslist.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.svcscan %}
+            <div class="tab-pane fade show" id="befmemory_svcscan">
+                {% include "analysis/befmemory/_svcscan.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.modscan %}
+            <div class="tab-pane fade show" id="befmemory_modscan">
+                {% include "analysis/befmemory/_modscan.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.devicetree %}
+            <div class="tab-pane fade show" id="befmemory_devicetree">
+                {% include "analysis/befmemory/_devicetree.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.malfind %}
+            <div class="tab-pane fade show" id="befmemory_malfind">
+                {% include "analysis/befmemory/_malfind.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.apihooks %}
+            <div class="tab-pane fade show" id="befmemory_apihooks">
+                {% include "analysis/befmemory/_apihooks.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.ssdt %}
+            <div class="tab-pane fade show" id="befmemory_ssdt">
+                {% include "analysis/befmemory/_ssdt.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.idt %}
+            <div class="tab-pane fade show" id="befmemory_idt">
+                {% include "analysis/befmemory/_idt.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.gdt %}
+            <div class="tab-pane fade show" id="befmemory_gdt">
+                {% include "analysis/befmemory/_gdt.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.timers %}
+            <div class="tab-pane fade show" id="befmemory_timers">
+                {% include "analysis/befmemory/_timers.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.messagehooks %}
+            <div class="tab-pane fade show" id="befmemory_messagehooks">
+                {% include "analysis/befmemory/_messagehooks.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.yarascan %}
+            <div class="tab-pane fade show" id="befmemory_yarascan">
+                {% include "analysis/befmemory/_yarascan.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.callbacks %}
+            <div class="tab-pane fade show" id="befmemory_callbacks">
+                {% include "analysis/befmemory/_callbacks.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.sockscan %}
+            <div class="tab-pane fade show" id="befmemory_sockets">
+                {% include "analysis/befmemory/_sockscan.html" %}
+            </div>
+            {% elif befmemory.netscan %}
+            <div class="tab-pane fade show" id="befmemory_sockets">
+                {% include "analysis/befmemory/_netscan.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.privs %}
+            <div class="tab-pane fade show" id="befmemory_privs">
+                {% include "analysis/befmemory/_privs.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.handles %}
+            <div class="tab-pane fade show" id="befmemory_handles">
+                {% include "analysis/befmemory/_handles.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.getsids %}
+            <div class="tab-pane fade show" id="befmemory_getsids">
+                {% include "analysis/befmemory/_getsids.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.dlllist %}
+            <div class="tab-pane fade show" id="befmemory_dlllist">
+                {% include "analysis/befmemory/_dlllist.html" %}
+            </div>
+            {% endif %}
+            {% if befmemory.mutantscan %}
+            <div class="tab-pane fade show" id="befmemory_mutantscan">
+                {% include "analysis/befmemory/_mutantscan.html" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-secondary"><b>Sorry!</b> No Memory details. {{befmemory}}</div>
+{% endif %}

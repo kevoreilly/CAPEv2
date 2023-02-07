@@ -8,7 +8,6 @@ import glob
 import json
 import logging
 import os
-from re import S
 import shutil
 import socket
 import sys
@@ -381,7 +380,7 @@ class GuestManager:
                         if not os.path.exists(dumppath2):
                             machinery.dump_memory(label, dumppath2)
                             log.info("The second memory dump before the completion of the analysis is generated")
-                except:
+                except Exception:
                     log.error("The memory dump functionality is not available for the current machine manager")
                 log.debug("Task #%s: Analysis is still running (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
                 count = 0

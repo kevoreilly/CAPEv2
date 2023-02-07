@@ -162,7 +162,7 @@ def _connect_via_jump_box(server: str) -> SSHClient:
         This is SSH pivoting it ssh to host Y via host X, can be used due to different networks
         We doing direct-tcpip channel and pasing it as socket to be used
         """
-        if jumpbox_used and JUMP_BOX_USERNAME:
+        if jumpbox_used:
             jumpbox_transport = jumpbox.get_transport()
             src_addr = (JUMP_BOX, JUMP_BOX_PORT)
             dest_addr = (server, JUMP_BOX_PORT)

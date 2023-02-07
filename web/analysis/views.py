@@ -33,13 +33,6 @@ from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 
-try:
-    from django_ratelimit.decorators import ratelimit
-except ImportError:
-    try:
-        from ratelimit.decorators import ratelimit
-    except ImportError:
-        print("missed dependency: pip3 install django-ratelimit -U")
 
 from lib.cuckoo.common.admin_utils import disable_user
 
@@ -1708,12 +1701,12 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
 
-    if not os.path.normpath(dumpfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(dumpfile))})
+    if not path_safe(dumpfile):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(dumpfile)}"})
 
-    if not os.path.exists(dumpfile):
+    if not path_exists(dumpfile):
         dumpfile += ".zip"
-        if not os.path.exists(dumpfile):
+        if not path_exists(dumpfile):
             return render(request, "error.html", {"error": "File not found"})
         f = zipfile.ZipFile(dumpfile, "r")
         tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=settings.TEMP_PATH)
@@ -1723,7 +1716,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
     content_type = "application/octet-stream"
 
-    if not os.path.exists(dumpfile):
+    if not path_exists(dumpfile):
         return render(request, "error.html", {"error": "File not found"})
 
     file_name = f"{process_id}_{int(start, 16):x}.dmp"
@@ -1751,18 +1744,17 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
                 response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
                 break
 
-    try:
+    with suppress(Exception):
         if tmp_file_path:
-            os.unlink(tmp_file_path)
+            Path(tmp_file_path).unlink()
         if tmpdir:
             delete_folder(tmpdir)
-    except Exception:
-        pass
 
     if response:
         return response
 
     return render(request, "error.html", {"error": "File not found"})
+
 
 #Added: Added function to view HTML Report
 @require_safe

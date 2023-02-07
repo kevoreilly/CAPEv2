@@ -142,7 +142,7 @@ class AnalysisManager(threading.Thread):
             try:
                 create_folder(folder=os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id)))
                 shutil.copy(self.task.target, self.binary)
-            except (IOError, shutil.Error) as e:
+            except (IOError, shutil.Error):
                 log.error(
                     "Task #%s: Unable to store file from '%s' to '%s', analysis aborted",
                     self.task.id,
@@ -157,7 +157,7 @@ class AnalysisManager(threading.Thread):
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
                 shutil.copy(self.task.target, copy_path)
-            except (IOError, shutil.Error) as e:
+            except (IOError, shutil.Error):
                 log.error(
                     "Task #%s: Unable to store file from '%s' to '%s', analysis aborted", self.task.id, self.task.target, copy_path
                 )
@@ -289,7 +289,7 @@ class AnalysisManager(threading.Thread):
             for dirname in dirnames:
                 try:
                     os.makedirs(os.path.join(self.storage, dirname))
-                except Exception as e:
+                except Exception:
                     log.debug("Failed to create folder %s", dirname)
             return True
 
@@ -358,7 +358,7 @@ class AnalysisManager(threading.Thread):
                 dump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "befmemory.dmp")
                 machinery.dump_memory(self.machine.label, dump_path)
                 log.info("The memory dump before the start of the auxiliary modules is generated")
-            except:
+            except Exception:
                 log.error("The memory dump functionality is not available for the current machine manager")
 
             aux.start()
@@ -377,7 +377,7 @@ class AnalysisManager(threading.Thread):
             try:
                 dump_interval = self.cfg.interval.time
                 log.info("The time interval between the 2 memory dumps during analysis would be " + str(dump_interval) + " seconds.")
-            except:
+            except Exception:
                 log.info("The time interval between the 2 memory dumps during analysis is set wrongly")
             if self.db.guest_get_status(self.task.id) == "starting":
                 self.db.guest_set_status(self.task.id, "running")

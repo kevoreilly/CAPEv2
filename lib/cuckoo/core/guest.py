@@ -21,6 +21,7 @@ import requests
 from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ def analyzer_zipfile(platform):
     root = os.path.join(CUCKOO_ROOT, "analyzer", platform)
     root_len = len(os.path.abspath(root))
 
-    if not os.path.exists(root):
+    if not path_exists(root):
         log.error("No valid analyzer found at path: %s", root)
         raise CuckooGuestError(f"No valid analyzer found for {platform} platform!")
 
@@ -244,7 +245,7 @@ class GuestManager:
         # File path of Analyses path. Storage of script
         analyses_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(self.task_id), "scripts")
         # Create folder in Analyses
-        os.makedirs(analyses_path, exist_ok=True)
+        path_mkdir(analyses_path, exist_ok=True)
 
         for name in glob.glob(os.path.join(base_dir, "*_script.*")):
             # Copy file to Analyses/{task_ID}/scripts
@@ -323,7 +324,7 @@ class GuestManager:
         # self.aux.callback("prepare_guest")
 
         # If the target is a file, upload it to the guest.
-        if options["category"] == "file" or options["category"] == "archive":
+        if options["category"] in ("file", "archive"):
             data = {
                 "filepath": os.path.join(self.determine_temp_path(), options["file_name"]),
             }
@@ -341,7 +342,7 @@ class GuestManager:
         # Debug analyzer.py in vm
         if "CAPE_DBG" in os.environ:
             while True:
-                pass 
+                pass
 
         if "execpy" in features:
             data = {
@@ -396,8 +397,8 @@ class GuestManager:
                 return
 
             try:
-                status = self.get("/status", timeout=10).json()
-            except CuckooGuestError:
+                status = self.get("/status", timeout=5).json()
+            except (CuckooGuestError, requests.exceptions.ReadTimeout):
                 # this might fail due to timeouts or just temporary network
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover

@@ -90,7 +90,7 @@ class AnalysisManager(threading.Thread):
         self.rooter_response = ""
         self.reject_segments = None
         self.reject_hostports = None
-        
+
     def init_storage(self):
         """Initialize analysis storage folder."""
         self.storage = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id))
@@ -511,7 +511,7 @@ class AnalysisManager(threading.Thread):
                     # As per documentation, lexists() returns True for dead
                     # symbolic links.
                     if os.path.lexists(latest):
-                        path_deletelatest)
+                        path_delete(latest)
 
                     os.symlink(self.storage, latest)
                 except OSError as e:
@@ -625,7 +625,7 @@ class AnalysisManager(threading.Thread):
                     "hostports_reject_enable", self.machine.interface, self.machine.ip, self.reject_hostports
                 )
                 self._rooter_response_check()
-                
+
         log.info("Enabled route '%s'. Bear in mind that routes none and drop won't generate PCAP file", self.route)
 
         if self.rt_table:
@@ -646,7 +646,7 @@ class AnalysisManager(threading.Thread):
                     "hostports_reject_disable", self.machine.interface, self.machine.ip, self.reject_hostports
                 )
                 self._rooter_response_check()
-                
+
             log.info("Disabled route '%s'", self.route)
 
         if self.rt_table:
@@ -930,10 +930,10 @@ class Scheduler:
             for tag in machine.tags:
                 if tag:
                     specific_locked_machine_counts[tag.name] += 1
-                if machine.platform:
-                    specific_locked_machine_counts[machine.platform] += 1
+            if machine.platform:
+                specific_locked_machine_counts[machine.platform] += 1
         log.debug(
-           "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Specific Locked Machines: %s; # Total Machines: %d;",
+          "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Specific Locked Machines: %s; # Total Machines: %d;",
             self.db.count_tasks(status=TASK_PENDING),
             dict(specific_pending_task_counts),
             self.db.count_machines_available(),

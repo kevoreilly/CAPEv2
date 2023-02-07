@@ -7,6 +7,7 @@ import zipfile
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 
 
 class Compression(Report):
@@ -23,32 +24,32 @@ class Compression(Report):
             strings_path = proc.get("strings_path")
 
             for option in (zipprocdump, zipprocstrings):
-                if option and dmp_path and dmp_path.endswith((".dmp", ".strings")) and os.path.exists(dmp_path):
+                if option and dmp_path and dmp_path.endswith((".dmp", ".strings")) and path_exists(dmp_path):
                     try:
                         f = zipfile.ZipFile(f"{dmp_path}.zip", "w")
                         f.write(dmp_path, os.path.basename(dmp_path), zipfile.ZIP_DEFLATED)
                         f.close()
-                        os.remove(dmp_path)
+                        path_delete(dmp_path)
                         proc["file"] = f"{dmp_path}.zip"
                     except Exception as e:
                         raise CuckooReportError(f"Error creating Process Memory Zip File: {e}")
 
-        if zipmemdump and self.memory_path and os.path.exists(self.memory_path):
+        if zipmemdump and self.memory_path and path_exists(self.memory_path):
             try:
                 f = zipfile.ZipFile(f"{self.memory_path}.zip", "w", allowZip64=True)
                 f.write(self.memory_path, os.path.basename(self.memory_path), zipfile.ZIP_DEFLATED)
                 f.close()
-                os.remove(self.memory_path)
+                path_delete(self.memory_path)
             except Exception as e:
                 raise CuckooReportError(f"Error creating Full Memory Zip File: {e}")
 
-        if zipmemstrings and self.memory_path and os.path.exists(f"{self.memory_path}.strings"):
+        if zipmemstrings and self.memory_path and path_exists(f"{self.memory_path}.strings"):
             strings_path = f"{self.memory_path}.strings"
             try:
                 f = zipfile.ZipFile(f"{strings_path}.zip", "w", allowZip64=True)
                 f.write(strings_path, os.path.basename(strings_path), zipfile.ZIP_DEFLATED)
                 f.close()
-                os.remove(strings_path)
+                path_delete(strings_path)
                 strings_path = f"{strings_path}.zip"
             except Exception as e:
                 raise CuckooReportError(f"Error creating Full Memory Strings Zip File: {e}")

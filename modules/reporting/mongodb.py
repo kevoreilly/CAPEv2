@@ -10,7 +10,6 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportErro
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
-    from pymongo import TEXT
     from pymongo.errors import InvalidDocument
 
     from dev_utils.mongodb import (
@@ -90,7 +89,7 @@ class MongoDB(Report):
         for key in keys:
             try:
                 mongo_update_one("analysis", {"_id": obj_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
-            except InvalidDocument as e:
+            except InvalidDocument:
                 log.warning("Investigate your key: %s", key)
 
     def run(self, results):

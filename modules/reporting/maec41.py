@@ -32,8 +32,9 @@ try:
     from maec.package import Analysis, MalwareSubject, Package
 
     HAVE_MAEC = True
-except ImportError as e:
+except ImportError:
     HAVE_MAEC = False
+    print("pip3 install maec=4.1.0.17\npip3 install mixbox=1.0.5")
 
 
 api_call_mappings = {
@@ -2640,22 +2641,21 @@ api_call_mappings = {
 def hiveHexToString(hive_hex_value):
     """Maps a Registry Hive hex input to its String (name) equivalent"""
     str_val = str(hive_hex_value)
-    if str_val == "0x80000000" or str_val == "-2147483648" or str_val == "2147483648":
+    if str_val in ("0x80000000", "-2147483648", "2147483648"):
         return "HKEY_CLASSES_ROOT"
-    elif str_val == "0x80000001" or str_val == "-2147483647" or str_val == "2147483649":
+    elif str_val in ("0x80000001", "-2147483647", "2147483649"):
         return "HKEY_CURRENT_USER"
-    elif str_val == "0x80000002" or str_val == "-2147483646" or str_val == "2147483650":
+    elif str_val in ("0x80000002", "-2147483646", "2147483650"):
         return "HKEY_LOCAL_MACHINE"
-    elif str_val == "0x80000003" or str_val == "-2147483645" or str_val == "2147483651":
+    elif str_val in ("0x80000003", "-2147483645" "2147483651"):
         return "HKEY_USERS"
     elif str_val == "0x80000004":
         return "HKEY_PERFORMANCE_DATA"
-    elif str_val == "0x80000005" or str_val == "2147483653":
+    elif str_val in ("0x80000005", "2147483653"):
         return "HKEY_CURRENT_CONFIG"
     elif str_val == "0x80000006":
         return "HKEY_DYN_DATA"
-    else:
-        return hive_hex_value
+    return hive_hex_value
 
 
 def regDatatypeToString(datatype_int_value):
@@ -2682,8 +2682,7 @@ def regDatatypeToString(datatype_int_value):
         return "REG_RESOURCE_REQUIREMENTS_LIST"
     elif str(datatype_int_value) == "11":
         return "REG_QWORD"
-    else:
-        return datatype_int_value
+    return datatype_int_value
 
 
 def socketProtoToString(proto_int_value):
@@ -2702,8 +2701,7 @@ def socketProtoToString(proto_int_value):
         return "IPPROTO_ICMPV6"
     elif str(proto_int_value) == "113":
         return "IPPROTO_RM"
-    else:
-        return proto_int_value
+    return proto_int_value
 
 
 def socketAFToString(af_int_value):
@@ -2724,8 +2722,7 @@ def socketAFToString(af_int_value):
         return "AF_IRDA"
     elif str(af_int_value) == "32":
         return "AF_BTH"
-    else:
-        return af_int_value
+    return af_int_value
 
 
 def socketTypeToString(type_int_value):
@@ -2740,8 +2737,7 @@ def socketTypeToString(type_int_value):
         return "SOCK_RDM"
     elif str(type_int_value) == "5":
         return "SOCK_SEQPACKET"
-    else:
-        return type_int_value
+    return type_int_value
 
 
 def intToHex(value):
@@ -2943,9 +2939,10 @@ class MAEC41Report(Report):
             }
         # Layer 7-specific object properties.
         if layer7_protocol == "DNS":
-            answer_resource_records = []
-            for answer_record in network_data["answers"]:
-                answer_resource_records.append({"entity_type": answer_record["type"], "record_data": answer_record["data"]})
+            answer_resource_records = [
+                {"entity_type": answer_record["type"], "record_data": answer_record["data"]}
+                for answer_record in network_data["answers"]
+            ]
             object_properties["layer7_connections"] = {
                 "dns_queries": [
                     {
@@ -3066,7 +3063,7 @@ class MAEC41Report(Report):
                 action_dict["name"] = {"value": mapping_dict["action_name"], "xsi:type": None}
         # Try to add the mapped Action Arguments and Associated Objects.
         # Only output in "overview" or "full" modes.
-        if self.options["mode"].lower() == "overview" or self.options["mode"].lower() == "full":
+        if self.options["mode"].lower() in ("overview", "full"):
             # Check to make sure we have a mapping for this API call.
             if call["api"] in api_call_mappings:
                 mapping_dict = api_call_mappings[call["api"]]
@@ -3087,7 +3084,7 @@ class MAEC41Report(Report):
                     )
 
         # Only output Implementation in "api" or "full" modes.
-        if self.options["mode"].lower() == "api" or self.options["mode"].lower() == "full":
+        if self.options["mode"].lower() in ("api", "full"):
             action_dict["implementation"] = self.processActionImplementation(call, parameter_list)
 
         # Add the common Action properties.
@@ -3203,8 +3200,7 @@ class MAEC41Report(Report):
             self.processRegKeys(associated_objects_list)
             # Perform Windows Handle Update/Replacement Processing.
             return self.processWinHandles(associated_objects_list)
-        else:
-            return None
+        return None
 
     def processWinHandles(self, associated_objects_list):
         """Process any Windows Handles that may be associated with an Action. Replace Handle references with
@@ -3491,7 +3487,8 @@ class MAEC41Report(Report):
 
             # Add the action ID to the list of Actions spawned by the process.
             if pid in self.pidActionMap:
-                action_list = self.pidActionMap[pid].append({"action_id": action_dict["id"]})
+                # action_list = self.pidActionMap[pid].append({"action_id": action_dict["id"]})
+                pass
             else:
                 self.pidActionMap[pid] = [{"action_id": action_dict["id"]}]
 
@@ -3506,8 +3503,7 @@ class MAEC41Report(Report):
             return "Success"
         elif not status:
             return "Fail"
-        else:
-            return None
+        return None
 
     def createWinExecFileObj(self):
         """Creates a Windows Executable File (PE) object for capturing static analysis output."""
@@ -3638,9 +3634,9 @@ class MAEC41Report(Report):
 
     def createFileStringsObj(self):
         """Creates a File object for capturing strings output."""
-        extracted_string_list = []
-        for extracted_string in self.results["strings"]:
-            extracted_string_list.append({"string_value": self._illegal_xml_chars_RE.sub("?", extracted_string)})
+        extracted_string_list = [
+            {"string_value": self._illegal_xml_chars_RE.sub("?", extracted_string)} for extracted_string in self.results["strings"]
+        ]
         extracted_features = {"strings": extracted_string_list}
         object_dict = {
             "id": mixbox.idgen.create_id(prefix="object"),

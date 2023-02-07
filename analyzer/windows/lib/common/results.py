@@ -8,6 +8,7 @@ import socket
 import time
 from pathlib import Path
 
+from lib.common.parse_pe import is_pe_image, pe_trimmed_size
 from lib.core.config import Config
 
 config = Config(cfg="analysis.conf")
@@ -17,25 +18,48 @@ log = logging.getLogger(__name__)
 BUFSIZE = 1024 * 1024
 
 
+def get_upload_size(path):
+    size = Path(path).stat().st_size
+    if int(config.upload_max_size) < size and not config.do_upload_max_size:
+        if config.enable_trim and is_pe_image(path):
+            new_size = pe_trimmed_size(path)
+            if new_size:
+                size = new_size
+                if int(config.upload_max_size) < size and not config.do_upload_max_size:
+                    log.warning("PE File %s size is too big: %d, trim failed to bring size down", path, size)
+                    return
+            else:
+                log.warning("PE File %s size is too big: %d, trim failed - check pefile is installed in guest", path, size)
+                return
+        else:
+            log.warning("File %s size is too big: %d, ignoring", path, size)
+            return
+    return size
+
+
 def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", category="", duplicated=False):
-    nc = None
     if not os.path.exists(file_path):
         log.warning("File %s doesn't exist anymore", file_path)
         return
-    file_size = Path(file_path).stat().st_size
-    log.info("File %s size is %d, Max size: %s", file_path, file_size, config.upload_max_size)
-    if int(config.upload_max_size) < file_size and not config.do_upload_max_size:
-        log.warning("File %s size is too big: %d, ignoring", file_path, file_size)
+
+    size = get_upload_size(file_path)
+    if not size:
         return
+
+    log.info("Uploading file %s to %s; Size is %d; Max size: %s", file_path, dump_path, size, config.upload_max_size)
+    nc = None
     try:
         nc = NetlogFile()
-        # nc = NetlogBinary(file_path.encode(errors="replace"), dump_path, duplicate)
         nc.init(dump_path, file_path, pids, ppids, metadata, category, duplicated)
         if not duplicated and file_path:
             with open(file_path, "rb") as infd:
                 buf = infd.read(BUFSIZE)
                 while buf:
-                    nc.send(buf, retry=True)
+                    read_size = len(buf)
+                    nc.send(buf[:size], retry=True)
+                    if read_size > size:
+                        break
+                    size -= read_size
                     buf = infd.read(BUFSIZE)
     except Exception as e:
         log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)

@@ -14,13 +14,18 @@ import signal
 import sys
 import time
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+try:
+    from setproctitle import getproctitle, setproctitle
+except ImportError:
+    sys.exit("Missed dependency. Run: poetry install")
+
+if sys.version_info[:2] < (3, 8):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
 
 try:
     import pebble
 except ImportError:
-    sys.exit("Missed dependency: pip3 install Pebble")
+    sys.exit("Missed dependency. Run: poetry install")
 
 log = logging.getLogger()
 
@@ -53,6 +58,7 @@ check_linux_dist()
 
 pending_future_map = {}
 pending_task_id_map = {}
+original_proctitle = getproctitle()
 
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
 def memory_limit(percentage: float = 0.8):
@@ -83,6 +89,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
     set_formatter_fmt(task_id)
+    setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     if memory_debugging:
         gc.collect()
@@ -175,7 +182,7 @@ def init_logging(auto=False, tid=0, debug=False):
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
-        result = future.result()
+        _ = future.result()
         log.info("Reports generation completed")
     except TimeoutError as error:
         log.error("Processing Timeout %s. Function: %s", error, error.args[1])
@@ -190,6 +197,7 @@ def processing_finished(future):
     del pending_future_map[future]
     del pending_task_id_map[task_id]
     set_formatter_fmt()
+    setproctitle(original_proctitle)
 
 
 def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300):

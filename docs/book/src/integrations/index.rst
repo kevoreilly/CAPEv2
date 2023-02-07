@@ -10,3 +10,5 @@ to fit the needs of all users.
 .. toctree::
 
     box-js
+    curtain
+    librenms

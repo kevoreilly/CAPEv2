@@ -43,6 +43,7 @@ log = logging.getLogger()
 cuckoo = Config()
 routing = Config("routing")
 repconf = Config("reporting")
+dist_conf = Config("distributed")
 
 
 def check_python_version():
@@ -438,7 +439,7 @@ def init_routing():
                 rooter("init_rttable", entry.rt_table, entry.interface)
 
     # If we are storage and webgui only but using as default route one of the workers exitnodes
-    if repconf.distributed.master_storage_only:
+    if dist_conf.distributed.master_storage_only:
         return
 
     # Check whether the default VPN exists if specified.

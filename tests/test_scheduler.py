@@ -111,6 +111,7 @@ class TestAnalysisManager:
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
 
         assert analysis_man.cfg.cuckoo == {
+            "apicall_details": False,
             "categories": "static, pcap, url, file",
             "freespace": 50000,
             "delete_original": False,
@@ -342,6 +343,7 @@ class TestAnalysisManager:
             "terminate_processes": False,
             "ip": "1.2.3.4",
             "clock": datetime(2099, 1, 1, 9, 1, 1),
+            "enable_trim": 0,
             "port": "1337",
             "file_type": "Python script, ASCII text executable",
             "options": "foo=bar",
@@ -420,6 +422,7 @@ class TestAnalysisManager:
             "terminate_processes": False,
             "ip": "1.2.3.4",
             "clock": datetime(2099, 1, 1, 9, 1, 1),
+            "enable_trim": 0,
             "port": "1337",
             "file_type": "PE32 executable (console) Intel 80386, for MS Windows",
             "options": "foo=bar",

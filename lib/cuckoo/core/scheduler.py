@@ -47,6 +47,7 @@ machinery = None
 machine_lock = None
 latest_symlink_lock = threading.Lock()
 routing = Config("routing")
+enable_trim = int(Config("web").general.enable_trim)
 
 active_analysis_count = 0
 
@@ -246,6 +247,7 @@ class AnalysisManager(threading.Thread):
             "terminate_processes": self.cfg.cuckoo.terminate_processes,
             "upload_max_size": self.cfg.resultserver.upload_max_size,
             "do_upload_max_size": int(self.cfg.resultserver.do_upload_max_size),
+            "enable_trim": enable_trim,
             "timeout": self.task.timeout or self.cfg.timeouts.default,
         }
 

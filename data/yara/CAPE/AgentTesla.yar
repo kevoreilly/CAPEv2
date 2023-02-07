@@ -85,6 +85,14 @@ rule AgentTeslaV3 {
         $s11 = "credential" fullword wide
         $s12 = "AccountConfiguration+" wide
         $s13 = "<a.+?href\\s*=\\s*([\"'])(?<href>.+?)\\1[^>]*>" fullword wide
+        $s14 = "set_Lenght" fullword ascii
+        $s15 = "get_Keys" fullword ascii
+        $s16 = "set_AllowAutoRedirect" fullword ascii
+        $s17 = "set_wtqQe" fullword ascii
+        $s18 = "set_UseShellExecute" fullword ascii
+        $s19 = "set_IsBodyHtml" fullword ascii
+        $s20 = "set_FElvMn" fullword ascii
+        $s21 = "set_RedirectStandardOutput" fullword ascii
 
         $g1 = "get_Clipboard" fullword ascii
         $g2 = "get_Keyboard" fullword ascii

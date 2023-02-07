@@ -41,6 +41,7 @@ from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 cfg = Config("cuckoo")
 routing = Config("routing")
 repconf = Config("reporting")
+distconf = Config("distributed")
 processing = Config("processing")
 aux_conf = Config("auxiliary")
 web_conf = Config("web")
@@ -518,7 +519,7 @@ def index(request, resubmit_hash=False):
         enabledconf["dlnexec"] = settings.DLNEXEC
         enabledconf["url_analysis"] = settings.URL_ANALYSIS
         enabledconf["tags"] = False
-        enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
+        enabledconf["dist_master_storage_only"] = distconf.distributed.master_storage_only
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
         enabledconf["tlp"] = web_conf.tlp.enabled
         enabledconf["timeout"] = cfg.timeouts.default

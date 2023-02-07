@@ -117,7 +117,7 @@ if processing_cfg.floss.on_demand:
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
 on_demand_conf = {}
-for cfile in ["reporting", "processing", "auxiliary", "web"]:
+for cfile in ("reporting", "processing", "auxiliary", "web", "distributed"):
     curconf = Config(cfile)
     confdata = curconf.get_config()
     for item in confdata:
@@ -410,9 +410,10 @@ def index(request, page=1):
                 paging["show_file_next"] = "hide"
             if page <= 1:
                 paging["show_file_prev"] = "hide"
-            #Added: Fix page navigation for pages after the first page
+
+            # Added =: Fix page navigation for pages after the first page
             else:
-                paging["show_file_prev"] = "show" 
+                paging["show_file_prev"] = "show"
             if db.view_errors(task.id):
                 new["errors"] = True
 

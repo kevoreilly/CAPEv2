@@ -45,13 +45,18 @@ try:
 except ImportError:
     import re
 
-try:
-    import GeoIP
 
-    IS_GEOIP = True
-    gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-except (ImportError, GeoIP.error):
-    IS_GEOIP = False
+# This is a weird import. Sometime there is GeoIP.error
+try:
+    try:
+        import GeoIP
+
+        IS_GEOIP = True
+        gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
+    except (ImportError, GeoIP.error):
+        IS_GEOIP = False
+except NameError:
+    print("Can't import GeoIP")
 
 try:
     import dpkt

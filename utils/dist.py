@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from itertools import combinations
 from logging import handlers
-from zipfile import ZipFile
+from urllib.parse import urlparse
 
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
@@ -32,12 +32,13 @@ try:
 except ImportError:
     sys.exti("Missed pyzipper dependency: pip3 install pyzipper -U")
 
-
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
+from lib.cuckoo.common.socket_utils import send_socket_command
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import (
     TASK_DISTRIBUTED,
@@ -50,8 +51,15 @@ from lib.cuckoo.core.database import (
 )
 from lib.cuckoo.core.database import Task as MD_Task
 
+dist_conf = Config("distributed")
+
+HAVE_GCP = False
+if dist_conf.GCP.enabled:
+    from lib.cuckoo.common.gcp import HAVE_GCP, autodiscovery
+
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
+
 reporting_conf = Config("reporting")
 
 zip_pwd = Config("web").zipped_download.zip_pwd
@@ -63,18 +71,19 @@ logging.getLogger("elasticsearch").setLevel(logging.WARNING)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-# Move to config
-dist_ignore_patterns = shutil.ignore_patterns("binary", "dump_sorted.pcap", "memory.dmp", "logs")
+dist_ignore_patterns = shutil.ignore_patterns(*[pattern.strip() for pattern in dist_conf.distributed.ignore_patterns.split(",")])
 STATUSES = {}
 ID2NAME = {}
 SERVER_TAGS = {}
 main_db = Database()
 
 dead_count = 5
-if reporting_conf.distributed.dead_count:
-    dead_count = reporting_conf.distributed.dead_count
+if dist_conf.distributed.dead_count:
+    dead_count = dist_conf.distributed.dead_count
 
-NFS_BASED_FETCH = reporting_conf.distributed.get("nfs")
+
+NFS_FETCH = dist_conf.distributed.get("nfs")
+RESTAPI_FETCH = dist_conf.distributed.get("restapi")
 
 INTERVAL = 10
 
@@ -84,7 +93,7 @@ failed_count = {}
 status_count = {}
 
 lock_retriever = threading.Lock()
-dist_lock = threading.BoundedSemaphore(int(reporting_conf.distributed.dist_threads))
+dist_lock = threading.BoundedSemaphore(int(dist_conf.distributed.dist_threads))
 fetch_lock = threading.BoundedSemaphore(1)
 
 delete_enabled = False
@@ -118,21 +127,21 @@ try:
 except ImportError:
     required("flask-restful")
 
-session = create_session(reporting_conf.distributed.db, echo=False)
+session = create_session(dist_conf.distributed.db, echo=False)
 
 binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
 if not os.path.exists(binaries_folder):
     os.makedirs(binaries_folder, mode=0o755)
 
 
-def node_status(url, name, apikey):
+def node_status(url: str, name: str, apikey: str) -> dict:
     try:
         r = requests.get(
             os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=300
         )
         return r.json().get("data", {})
     except Exception as e:
-        log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
+        log.critical("Possible invalid CAPE node (%s): %s", name, e)
     return {}
 
 
@@ -182,10 +191,17 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
 
-def node_get_report_nfs(task_id, worker_name, main_task_id):
+def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
-    worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
-    if not os.path.exists(worker_path):
+    worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
+
+    if not path_mount_point(worker_path):
+        log.error(f"[-] Worker: {worker_name} is not mounted to: {worker_path}!")
+        return True
+
+    worker_path = os.path.join(worker_path, "storage", "analyses", str(task_id))
+
+    if not path_exists(worker_path):
         log.error(f"File on destiny doesn't exist: {worker_path}")
         return True
 
@@ -367,15 +383,23 @@ class Retriever(threading.Thread):
         self.stop_dist = threading.Event()
         self.threads = []
 
-        for x in range(int(reporting_conf.distributed.dist_threads)):
+        if dist_conf.GCP.enabled and HAVE_GCP:
+            # autodiscovery is generic name so in case if we have AWS or Azure it should implement the logic inside
+            thread = threading.Thread(target=autodiscovery, name="autodiscovery", args=())
+            thread.daemon = True
+            thread.start()
+            self.threads.append(thread)
+
+        for _ in range(int(dist_conf.distributed.dist_threads)):
             if dist_lock.acquire(blocking=False):
-                if NFS_BASED_FETCH:
+                if NFS_FETCH:
                     thread = threading.Thread(target=self.fetch_latest_reports_nfs, name="fetch_latest_reports_nfs", args=())
-                else:
+                elif RESTAPI_FETCH:
                     thread = threading.Thread(target=self.fetch_latest_reports, name="fetch_latest_reports", args=())
-                thread.daemon = True
-                thread.start()
-                self.threads.append(thread)
+                if RESTAPI_FETCH or NFS_FETCH:
+                    thread.daemon = True
+                    thread.start()
+                    self.threads.append(thread)
 
         if fetch_lock.acquire(blocking=False):
             thread = threading.Thread(target=self.fetcher, name="fetcher", args=())
@@ -385,13 +409,13 @@ class Retriever(threading.Thread):
 
         # Delete the task and all its associated files.
         # (It will still remain in the nodes" database, though.)
-        if reporting_conf.distributed.remove_task_on_worker or delete_enabled:
+        if dist_conf.distributed.remove_task_on_worker or delete_enabled:
             thread = threading.Thread(target=self.remove_from_worker, name="remove_from_worker", args=())
             thread.daemon = True
             thread.start()
             self.threads.append(thread)
 
-        if reporting_conf.distributed.failed_cleaner or failed_clean_enabled:
+        if dist_conf.distributed.failed_cleaner or failed_clean_enabled:
             thread = threading.Thread(target=self.failed_cleaner, name="failed_to_clean", args=())
             thread.daemon = True
             thread.start()
@@ -417,6 +441,7 @@ class Retriever(threading.Thread):
                 log.exception(e)
             time.sleep(60)
 
+    # import from utils
     def free_space_mon(self):
         # If not enough free disk space is available, then we print an
         # error message and wait another round (this check is ignored
@@ -610,7 +635,7 @@ class Retriever(threading.Thread):
                     continue
 
                 log.debug(
-                    "Fetching dist report for: id: {}, task_id: {}, main_task_id:{} from node: {}".format(
+                    "Fetching dist report for: id: {}, task_id: {}, main_task_id: {} from node: {}".format(
                         t.id, t.task_id, t.main_task_id, ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id
                     )
                 )
@@ -736,8 +761,8 @@ class Retriever(threading.Thread):
                 log.info(f"Report size for task {t.task_id} is: {int(report.headers.get('Content-length', 1))/int(1<<20):,.0f} MB")
 
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
-                if not os.path.exists(report_path):
-                    os.makedirs(report_path, mode=0o777)
+                if not path_exists(report_path):
+                    path_mkdir(report_path, mode=0o755)
                 try:
                     if report.content:
                         # with pyzipper.AESZipFile(BytesIO(report.content)) as zf:
@@ -950,7 +975,7 @@ class StatusThread(threading.Thread):
                 # Order by task priority and task id.
                 q = q.order_by(-Task.priority, Task.main_task_id)
                 # if we have node set in options push
-                if reporting_conf.distributed.enable_tags:
+                if dist_conf.distributed.enable_tags:
                     # Create filter query from tasks in ta
                     tags = [getattr(Task, "tags") == ""]
                     for tg in SERVER_TAGS[node.name]:
@@ -1014,7 +1039,7 @@ class StatusThread(threading.Thread):
 
         db = session()
         master_storage_only = False
-        if not reporting_conf.distributed.master_storage_only:
+        if not dist_conf.distributed.master_storage_only:
             master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name="master").first()
             if master is None:
                 master_storage_only = True
@@ -1206,6 +1231,12 @@ class NodeRootApi(NodeBaseApi):
         db.add(node)
         db.commit()
         db.close()
+
+        if NFS_FETCH:
+            # Add entry to /etc/fstab, create folder and mount server
+            hostname = urlparse(args["url"]).netloc.split(":")[0]
+            send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", [hostname, args["name"]], {})
+
         return dict(name=args["name"], machines=machines, exitnodes=exitnodes)
 
 
@@ -1414,7 +1445,7 @@ def create_app(database_connection):
     app = Flask("Distributed CAPE")
     # app.config["SQLALCHEMY_DATABASE_URI"] = database_connection
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
-    app.config["SQLALCHEMY_POOL_SIZE"] = int(reporting_conf.distributed.dist_threads) + 5
+    app.config["SQLALCHEMY_POOL_SIZE"] = int(dist_conf.distributed.dist_threads) + 5
     app.config["SECRET_KEY"] = os.urandom(32)
     restapi = DistRestApi(app)
     restapi.add_resource(NodeRootApi, "/node")
@@ -1509,7 +1540,7 @@ if __name__ == "__main__":
         sys.exit()
 
     else:
-        app = create_app(database_connection=reporting_conf.distributed.db)
+        app = create_app(database_connection=dist_conf.distributed.db)
 
         t = StatusThread(name="StatusThread")
         t.daemon = True
@@ -1524,7 +1555,7 @@ if __name__ == "__main__":
         app.run(host=args.host, port=args.port, debug=args.debug, use_reloader=False)
 
 else:
-    app = create_app(database_connection=reporting_conf.distributed.db)
+    app = create_app(database_connection=dist_conf.distributed.db)
 
     # this allows run it with gunicorn/uwsgi
     log = init_logging(True)

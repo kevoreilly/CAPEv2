@@ -19,7 +19,7 @@ Python versions > 3.6 are preferred.
 
     .. warning::
         When installing Python, it is recommended to select the `Add Python <version> to PATH` option.
-        
+
         .. image:: ../../_images/screenshots/python_guest_win10_installation_PATH.png
             :align: center
 
@@ -62,6 +62,8 @@ additional software such as browsers, PDF readers, office suites, etc.
 
         Remember to disable the "Auto Update" or "Check For Updates" feature of
         any additional software that you install.
+
+        For Microsoft Office we suggest to use Office 2010 SP2
 
 For hints about what your needs may be, give the :doc:`../../introduction/sandboxing` chapter a read.
 

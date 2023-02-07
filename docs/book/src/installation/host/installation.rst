@@ -13,6 +13,38 @@ Automated installation, read the full page before you start
 We have automated all work for you, but bear in mind, that 3rd party dependencies change frequently and can break the installation,
 so please check the installation log and try to provide the fix / correct issue to the developers.
 
+To install KVM
+==============
+
+While you can install and use any hypervisor you like, we recommend using KVM. The script to install everything related to KVM (including KVM itself) can be found here: `kvm-qemu.sh`_.
+
+.. note:: We recommend using the script to install everything related with KVM-Qemu since the script performs a stealthier configuration and achieves better performance than the installation from APT.
+
+.. _`kvm-qemu.sh`: https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh
+
+**BEFORE** executing the script, you should replace the **<WOOT>** occurrences withing the script itself with real hardware patterns. You can use ``acpidump`` in Linux and ``acpiextract`` in Windows to obtain such patterns, as stated `in the script itself`_.
+
+    .. warning:: If you are installing or using CAPE in a laboratory environment you can replace **<WOOT>** with any random 4 chars you like. However, if you are planning to use CAPE in real production environments and you want to hinder the sandbox/VM detection, you should use *REAL* hardware 4 chars. To find out which chars correspond to each piece of HW, you should use ACPIDUMP/ACPIEXTRACT and Google.
+
+.. _`in the script itself`: https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh#L37
+
+In order to install KVM itself, execute the following command::
+
+    $ sudo ./kvm-qemu.sh all <username> | tee kvm-qemu.log
+
+`replacing <username> with your actual username.`
+
+Remember to **reboot** after the installation.
+
+If you want to install Virtual Machine Manager (``virt-manager``), execute the following command::
+
+    $ sudo ./kvm-qemu.sh virtmanager <username> | tee kvm-qemu-virt-manager.log
+
+`replacing <username> with your actual username.`
+
+Remember to **reboot** after the installation.
+
+
 To install CAPE
 ================
 
@@ -51,37 +83,6 @@ To restart any service use::
 To see service log use::
 
     $ journalctl -u <service_name>
-
-To install KVM
-==============
-
-While you can install and use any hypervisor you like, we recommend using KVM. The script to install everything related to KVM (including KVM itself) can be found here: `kvm-qemu.sh`_.
-
-.. note:: We recommend using the script to install everything related with KVM-Qemu since the script performs a stealthier configuration and achieves better performance than the installation from APT.
-
-.. _`kvm-qemu.sh`: https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh
-
-**BEFORE** executing the script, you should replace the **<WOOT>** occurrences withing the script itself with real hardware patterns. You can use ``acpidump`` in Linux and ``acpiextract`` in Windows to obtain such patterns, as stated `in the script itself`_.
-
-    .. warning:: If you are installing or using CAPE in a laboratory environment you can replace **<WOOT>** with any random 4 chars you like. However, if you are planning to use CAPE in real production environments and you want to hinder the sandbox/VM detection, you should use *REAL* hardware 4 chars. To find out which chars correspond to each piece of HW, you should use ACPIDUMP/ACPIEXTRACT and Google.
-
-.. _`in the script itself`: https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh#L37
-
-In order to install KVM itself, execute the following command::
-
-    $ sudo ./kvm-qemu.sh all <username> | tee kvm-qemu.log
-
-`replacing <username> with your actual username.`
-
-Remember to **reboot** after the installation.
-
-If you want to install Virtual Machine Manager (``virt-manager``), execute the following command::
-
-    $ sudo ./kvm-qemu.sh virtmanager <username> | tee kvm-qemu-virt-manager.log
-
-`replacing <username> with your actual username.`
-
-Remember to **reboot** after the installation.
 
 To install dependencies
 =======================

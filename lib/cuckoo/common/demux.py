@@ -246,5 +246,18 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # original file
     if not retlist:
         retlist.append(filename)
+    else:
+        for filename in retlist:
+            if File(filename).get_size() > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+            ):
+                file_chunk = File(filename).get_chunks(64).__next__()
+                retlist.remove(filename)
+                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
+                    trimmed_size = trim_sample(file_chunk)
+                    if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
+                        data = File(filename).get_chunks(trimmed_size).__next__()
+                        _ = path_write_file(filename, data)
+                        retlist.append(filename)
 
     return retlist[:10]

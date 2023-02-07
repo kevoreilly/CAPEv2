@@ -145,7 +145,8 @@ class PortableExecutable:
 
     def __init__(self, file_path: str):
         """@param file_path: file path."""
-        self.file_path = file_path
+        if file_path:
+            self.file_path = file_path if isinstance(file_path, str) else file_path.decode()
         self._file_data = None
         # pe = None
         # self.results = results

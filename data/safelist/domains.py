@@ -64,6 +64,7 @@ domain_passlist_re = [
     "^pki\.goog$",
     "^trustocean\.crt\.sectigo\.com$",
     "^statuse\.digitalcertvalidation\.com$",
+    "certificates\.intel\.com",
 ]
 
 
@@ -142,4 +143,5 @@ domain_passlist = [
     "pki.goog",
     "trustocean.crt.sectigo.com",
     "statuse.digitalcertvalidation.com",
+    "certificates.intel.com",
 ]

@@ -11,5 +11,5 @@ rule UrsnifV3
         $cpuid = {8B C4 FF 18 8B F0 33 C0 0F A2 66 8C D8 66 8E D0 8B E5 8B C6 5E 5B 5D C3}
         $cape_string = "cape_options"
     condition:
-        uint16(0) == 0x5A4D and 1 of ($crypto32_*) and not $cape_string
+        uint16(0) == 0x5A4D and 1 of ($crypto32_*) and $cpuid and not $cape_string
 }

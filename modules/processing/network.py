@@ -24,10 +24,6 @@ from json import loads
 from pathlib import Path
 from urllib.parse import urlunparse
 
-#Added: Added whois query information for hosts
-import requests
-import json
-
 import dns.resolver
 from dns.reversename import from_address
 
@@ -41,7 +37,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
-
+from lib.cuckoo.common.integrations.whoismlapi import whoisxmlapi_lookup
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 
 try:
@@ -98,10 +94,6 @@ passlist_file = proc_cfg.network.dnswhitelist_file
 
 enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
-
-#Added: Added whois query information for hosts
-whois_enabled = proc_cfg.network.whois_query
-whois_apikey = proc_cfg.network.whois_apikey
 
 # Be less verbose about httpreplay logging messages.
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
@@ -240,8 +232,6 @@ class Pcap:
                 if ipaddr <= network_high and ipaddr >= network_low:
                     return True
 
-        return False
-
     def _get_cn(self, ip):
         cn = "unknown"
         log = logging.getLogger("Processing.Pcap")
@@ -275,15 +265,22 @@ class Pcap:
 
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
-
+        whois_hosts = []
         if cfg.processing.reverse_dns:
             d = dns.resolver.Resolver()
             d.timeout = 5.0
             d.lifetime = 5.0
-        #Modified: Changed pop to for loop to accomodate whois query
-        for ip in unique_hosts:
+
+        while unique_hosts:
+            ip = unique_hosts.pop()
             inaddrarpa = ""
             hostname = ""
+
+            if proc_cfg.network.whoisxmlapi_query:
+                result = whoisxmlapi_lookup(ip, proc_cfg.network.whois_apikey)
+                if result:
+                    whois_hosts.append(result)
+
             if cfg.processing.reverse_dns:
                 with suppress(Exception):
                     inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text()
@@ -296,21 +293,9 @@ class Pcap:
                     break
 
             enriched_hosts.append({"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa})
-        return enriched_hosts
+        return enriched_hosts, whois_hosts
 
-    # Added: Added whois query information for hosts
-    def _whois_hosts(self, unique_hosts, api_key):
-        whois_hosts = []
-        whois_apikey = api_key
-        for ip in unique_hosts:
-            log.info("Performing WHOIS Query for IP/Domain: " + str(ip))
-            url = "https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey={apikey}&domainName={domainname}&outputFormat=json"
-            whois_url = url.format(apikey = whois_apikey, domainname = ip)
-            whois_response = requests.get(whois_url, verify=False)
-            whois_hosts.append(json.loads(whois_response.text))
 
-        return whois_hosts
-            
     def _tcp_dissect(self, conn, data):
         """Runs all TCP dissectors.
         @param conn: connection.
@@ -801,10 +786,7 @@ class Pcap:
 
         # Build results dict.
         if not self.options.get("sorted", False):
-            self.results["hosts"] = self._enrich_hosts(self.unique_hosts)
-            # Added: Added whois query information for hosts
-            if whois_enabled:
-                self.results["whois_hosts"] = self._whois_hosts(self.unique_hosts, whois_apikey)
+            self.results["hosts"], self.results["whois_hosts"] = self._enrich_hosts(self.unique_hosts)
             self.results["domains"] = self.unique_domains
             self.results["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
             self.results["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]

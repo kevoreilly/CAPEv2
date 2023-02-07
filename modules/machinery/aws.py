@@ -1,12 +1,17 @@
 import logging
+import sys
 import time
 
-import boto3
+try:
+    import boto3
+except ImportError:
+    sys.exit("Missed boto3 dependency: pip3 install boto3")
+
 from sqlalchemy.exc import SQLAlchemyError
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooMachineError
 
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
@@ -79,7 +84,7 @@ class AWS(Machinery):
         for machine in self.db.get_available_machines():
             if num_of_machines_to_start <= 0:
                 break
-            if self._status(machine.label) in [AWS.POWEROFF, AWS.STOPPING]:
+            if self._status(machine.label) in (AWS.POWEROFF, AWS.STOPPING):
                 self.ec2_machines[machine.label].start()  # not using self.start() to avoid _wait_ method
                 num_of_machines_to_start -= 1
 
@@ -238,7 +243,7 @@ class AWS(Machinery):
                 status = AWS.PENDING
             elif state == "stopping":
                 status = AWS.STOPPING
-            elif state in ["shutting-down", "terminated"]:
+            elif state in ("shutting-down", "terminated"):
                 status = AWS.ERROR
             else:
                 status = AWS.ERROR
@@ -333,7 +338,7 @@ class AWS(Machinery):
             try:
                 new_instance.modify_attribute(SourceDestCheck={"Value": False})
                 break
-            except Exception as e:
+            except Exception:
                 attempts += 1
                 log.warning("Failed while modifying new instance attribute. Trying again.")
         log.debug("Created %s\n%s", new_instance.id, repr(response))

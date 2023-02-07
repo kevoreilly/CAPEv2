@@ -3,12 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-import os.path
 import subprocess
 import time
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class VMwareServer(Machinery):
         if not vmx_path.endswith(".vmx"):
             raise CuckooMachineError(f"Wrong configuration: vm path not ending with .vmx: {vmx_path}")
 
-        if not os.path.exists(vmx_path):
+        if not path_exists(vmx_path):
             raise CuckooMachineError(f"Vm file {vmx_path} not found")
 
     def _check_snapshot(self, vmx_path, snapshot):

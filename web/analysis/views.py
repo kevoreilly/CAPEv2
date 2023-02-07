@@ -1918,7 +1918,8 @@ def full_befmemory_dump_file(request, analysis_number):
         except Exception as e:
             print(e)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
+
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), 8192), content_type=content_type)
@@ -1941,7 +1942,7 @@ def full_befmemory_dump_strings(request, analysis_number):
         if os.path.exists(file_path):
             filename = os.path.basename(file_path)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)
@@ -1972,7 +1973,8 @@ def full_midmemory_dump_file(request, analysis_number):
         except Exception as e:
             print(e)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
+
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), 8192), content_type=content_type)
@@ -1995,7 +1997,7 @@ def full_midmemory_dump_strings(request, analysis_number):
         if os.path.exists(file_path):
             filename = os.path.basename(file_path)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)
@@ -2026,7 +2028,8 @@ def full_midmemory2_dump_file(request, analysis_number):
         except Exception as e:
             print(e)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
+
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), 8192), content_type=content_type)
@@ -2049,7 +2052,8 @@ def full_midmemory2_dump_strings(request, analysis_number):
         if os.path.exists(file_path):
             filename = os.path.basename(file_path)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+            return render(request, "error.html", {"error": "File not found"})
+
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)

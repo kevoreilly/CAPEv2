@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="icon" href="{% static 'img/cape.png' %}">
+    <meta charset="utf-8"/>
+    <title>Guacamole Console</title>
+</head>
+<body>
+    {% block content %}
+        <div class="alert alert-secondary">
+            <h4>Error</h4>
+            <p>{{error_msg}}</p>
+            <script>
+                switch ('{{error}}') {
+                    case 'remote session':
+                        var task_url = location.origin + 'submit/status/{{task_id}}';
+                        break;
+                }
+                document.getElementById("taskStatus").addEventListener("click", function() {
+                    location.replace(task_url);
+                }, false);
+            </script>
+        </div>
+    {% endblock %}
+</body>
+</html>

@@ -109,7 +109,7 @@ class LnkShortcut:
                     return
 
                 header = LnkHeader.from_buffer_copy(self.buf[: ctypes.sizeof(LnkHeader)])
-                if header.signature[:] != self.signature or header.guid[:] != self.guid:
+                if header.signature.copy() != self.signature or header.guid.copy() != self.guid:
                     return
 
                 ret = {"flags": {}, "attrs": []}

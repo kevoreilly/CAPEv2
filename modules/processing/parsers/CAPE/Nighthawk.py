@@ -1,4 +1,3 @@
-import contextlib
 import gzip
 import itertools
 import json
@@ -91,9 +90,10 @@ def _get_section_data(data, section_name):
     :rtype: <class 'bytes'> or None
     """
 
-    pe = None
-    with contextlib.suppress(Exception):
+    try:
         pe = pefile.PE(data=data, fast_load=False)
+    except Exception:
+        pe = None
 
     if not pe:
         return None

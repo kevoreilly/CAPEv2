@@ -11,11 +11,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import yara
-
 DESCRIPTION = "ChChes configuration parser."
 AUTHOR = "kevoreilly"
 
+import yara
 
 rule_source = """
 rule ChChes
@@ -64,7 +63,10 @@ def extract_config(filebuf):
     if yara_matches.get("$payload3"):
         c2_offsets.append(0xE2B9)
     # no c2 for type4
-    c2_urls = [string_from_offset(filebuf, c2_offset) for c2_offset in c2_offsets if string_from_offset(filebuf, c2_offset)]
-    tmp_config = {"http": [{"uri": url, "usage": "c2"} for url in c2_urls]}
+
+    for c2_offset in c2_offsets:
+        c2_url = string_from_offset(filebuf, c2_offset)
+        if c2_url:
+            tmp_config.setdefault("c2_url", []).append(c2_url)
 
     return tmp_config

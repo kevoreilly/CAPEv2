@@ -2,10 +2,8 @@
 
 import base64
 import logging
-import os
 import string
 import struct
-from urllib.parse import urlparse
 
 import yara
 from Cryptodome.Cipher import AES
@@ -15,8 +13,6 @@ log = logging.getLogger(__name__)
 
 DESCRIPTION = "AsyncRat configuration parser."
 AUTHOR = "Based on work of c3rb3ru5"
-
-IP_REGEX = r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
 
 rule_source = """
 rule asyncrat {
@@ -105,64 +101,29 @@ def extract_config(filebuf):
     key = base64.b64decode(get_string(data, 7))
     log.debug("extracted key: " + str(key))
     try:
-        family = "asyncrat"
-        hosts = decrypt_config_item_list(key, data, 2)
-        ports = decrypt_config_item_list(key, data, 1)
-        version = decrypt_config_item_printable(key, data, 3)
-        install_folder = get_wide_string(data, 5)
-        install_file = get_wide_string(data, 6)
-        install = decrypt_config_item_printable(key, data, 4)
-        mutex = decrypt_config_item_printable(key, data, 8)
-        pastebin = decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b"")
-
         config = {
-            "family": family,
-            "version": version,
-            "category": "rat",
-            "mutex": mutex,
-            "paths": [{"path": os.path.join(install_folder, install_file), "usage": "install" if install else "other"}],
-            "other": {
-                # No context around how these are used
-                "hosts": hosts,
-                "ports": ports,
-            },
+            "family": "asyncrat",
+            "hosts": decrypt_config_item_list(key, data, 2),
+            "ports": decrypt_config_item_list(key, data, 1),
+            "version": decrypt_config_item_printable(key, data, 3),
+            "install_folder": get_wide_string(data, 5),
+            "install_file": get_wide_string(data, 6),
+            "install": decrypt_config_item_printable(key, data, 4),
+            "mutex": decrypt_config_item_printable(key, data, 8),
+            "pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b"").decode(),
         }
-
-        if pastebin != b"null":
-            parsed_url = urlparse(pastebin).decode()
-            port = parsed_url.port
-            if not port:
-                port = 443 if parsed_url.scheme == "https" else 80
-
-            config.update(
-                {
-                    "http": [
-                        {
-                            "uri": parsed_url.geturl(),
-                            "protocol": parsed_url.scheme,
-                            "hostname": parsed_url.netloc,
-                            "port": port,
-                            "path": parsed_url.path,
-                            "method": "GET",
-                            "usage": "c2",
-                        }
-                    ]
-                }
-            )
     except Exception as e:
         print(e)
         return {}
 
     if config["version"].startswith("0"):
         return config
-    else:
-        return {}
+    return {}
 
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
-    with open(sys.argv[1], "rb") as f:
-        data = f.read()
-
+    data = Path(sys.argv[1]).read_bytes()
     print(extract_config(data))

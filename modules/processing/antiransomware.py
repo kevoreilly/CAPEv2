@@ -14,10 +14,10 @@
 
 import json
 import logging
-import os
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger()
 # ToDo store list of exclude files if conf enable to store them
@@ -122,7 +122,7 @@ class AntiRansomware(Processing):
         extensions = {}
         tmp_ext_list = {}
         self.results["ransom_exclude_files"] = []
-        if not os.path.exists(self.files_metadata):
+        if not path_exists(self.files_metadata):
             return
         with open(self.files_metadata, "rb") as f:
             lines = f.readlines()

@@ -24,21 +24,19 @@ def extract_config(filebuf):
                 ENCRYPT_DATA = DATA_SECTION[24:2000]
                 DECRYPTED_DATA = ARC4.new(key).decrypt(ENCRYPT_DATA)
                 build_id, controllers = list(filter(None, DECRYPTED_DATA.split(b"\x00")))
-                cfg.setdefault("version", build_id.decode())
+                cfg.setdefault("Build ID", build_id.decode())
                 controllers = list(filter(None, controllers.split(b"|")))
                 if controllers:
-                    cfg.setdefault("http", []).extend([{"uri": url.decode(), "usage": "c2"} for url in controllers])
+                    cfg.setdefault("address", [url.decode() for url in controllers])
     except Exception as e:
         log.warning(e)
 
-    if cfg:
-        cfg["family"] = "Hancitor"
     return cfg
 
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
-    with open(sys.argv[1], "rb") as f:
-        file_data = f.read()
-    print(extract_config(file_data))
+    data = Path(sys.argv[1]).read_bytes()
+    print(extract_config(data))

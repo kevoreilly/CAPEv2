@@ -12,14 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+DESCRIPTION = "EvilGrab configuration parser."
+AUTHOR = "kevoreilly"
+
 import struct
 
 import pefile
 import yara
-
-DESCRIPTION = "EvilGrab configuration parser."
-AUTHOR = "kevoreilly"
-
 
 rule_source = """
 rule EvilGrab
@@ -81,34 +80,31 @@ def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
     # image_base = pe.OPTIONAL_HEADER.ImageBase
     yara_matches = yara_scan(filebuf)
-    end_config = {"family": "EvilGrab"}
+    end_config = {}
     for key, values in map_offset.keys():
         if not yara_matches.get(key):
             continue
 
         yara_offset = int(yara_matches[key])
 
-        c2_tcp = dict()
         c2_address = string_from_va(pe, yara_offset + values[0])
         if c2_address:
-            c2_tcp["server_ip"] = c2_address
+            end_config["c2_address"] = c2_address
         port = str(struct.unpack("h", filebuf[yara_offset + values[1] : yara_offset + values[1] + 2])[0])
         if port:
-            c2_tcp["server_port"] = port
+            end_config["port"] = [port, "tcp"]
         missionid = string_from_va(pe, yara_offset + values[3])
         if missionid:
-            end_config.setdefault("campaign_id", []).append(missionid)
+            end_config["missionid"] = missionid
         version = string_from_va(pe, yara_offset + values[4])
         if version:
             end_config["version"] = version
         injectionprocess = string_from_va(pe, yara_offset + values[5])
         if injectionprocess:
-            end_config.setdefault("inject_exe", []).append(injectionprocess)
+            end_config["injectionprocess"] = injectionprocess
         if key != "$configure3":
             mutex = string_from_va(pe, yara_offset - values[6])
             if mutex:
-                end_config.setdefault("mutex", []).append(mutex)
-        if c2_tcp:
-            end_config.setdefault("tcp", []).append(c2_tcp)
+                end_config["mutex"] = mutex
 
     return end_config

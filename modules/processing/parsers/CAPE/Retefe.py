@@ -3,14 +3,13 @@
 # http://tomasuh.github.io/2018/12/28/retefe-unpack.html
 # Many thanks to Tomasuh
 
+DESCRIPTION = "Retefe configuration parser."
+AUTHOR = "Tomasuh"
+
 import struct
 
 import pefile
 import yara
-
-DESCRIPTION = "Retefe configuration parser."
-AUTHOR = "Tomasuh"
-
 
 rule_source = """
 rule Retefe
@@ -35,7 +34,7 @@ def yara_scan(raw_data):
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == "Retefe":
+        if match.rule == "Emotet":
             for item in match.strings:
                 addresses[item[1]] = item[0]
     return addresses
@@ -118,10 +117,10 @@ def extract_config(filebuf):
     n = 0
     result = ""
     for ch in buffer:
-        result += chr(ch ^ xor_arr[n % 4])
+        result += chr((ord(ch) ^ xor_arr[n % 4]))
         n += 1
 
-    return {"family": "Retefe", "decoded_strings": [result]}
+    return {"Script": result}
 
 
 # Some logical reasoning left behind....

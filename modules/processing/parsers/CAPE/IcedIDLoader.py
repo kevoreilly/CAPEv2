@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import struct
+from contextlib import suppress
 
 import pefile
 
@@ -20,10 +21,8 @@ import pefile
 def extract_config(filebuf):
     cfg = {}
     pe = None
-    try:
+    with suppress(Exception):
         pe = pefile.PE(data=filebuf, fast_load=False)
-    except Exception:
-        pass
     if pe is None:
         return
     for section in pe.sections:
@@ -36,14 +35,14 @@ def extract_config(filebuf):
                 if n > 32:
                     break
             campaign, c2 = struct.unpack("I30s", bytes(dec))
-            cfg["family"] = "IcedIDLoader"
-            cfg["tcp"] = [{"server_domain": c2.split(b"\00", 1)[0].decode(), "usage": "c2"}]
-            cfg["campaign_id"] = campaign
+            cfg["C2"] = c2.split(b"\00", 1)[0].decode()
+            cfg["Campaign"] = campaign
             return cfg
 
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
-    with open(sys.argv[1], "rb") as f:
-        print(extract_config(f.read()))
+    data = Path(sys.argv[1]).read_bytes()
+    print(extract_config(data))

@@ -87,13 +87,13 @@ def reversing_labs_lookup(target: str, is_hash: bool = False):
     classification = sample_summary["classification"]
     classification_result = sample_summary["classification_result"]
     file = ticore["info"]["file"]
-    malicious = classification in ["malicious", "suspicious"] and sample_summary["goodware_override"] is False
+    malicious = classification in ("malicious", "suspicious") and sample_summary["goodware_override"] is False
     md5 = sample_summary["md5"]
     sha1 = sample_summary["sha1"]
     sha256 = sample_summary["sha256"]
     riskscore = ticloud["riskscore"]
     name = file["proposed_filename"]
-    entropy = file["entropy"]
+    # entropy = file["entropy"]
     story = ticore["story"]
 
     reversing_labs = {

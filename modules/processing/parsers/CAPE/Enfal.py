@@ -12,11 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import yara
-
 DESCRIPTION = "Enfal configuration parser."
 AUTHOR = "kevoreilly"
 
+import yara
 
 rule_source = """
 rule Enfal
@@ -59,20 +58,17 @@ def list_from_offset(data, offset):
 
 def extract_config(filebuf):
     config = yara_scan(filebuf, "$config")
-    return_conf = {"family": "Enfal"}
+    return_conf = {}
     if config:
         yara_offset = int(config["$config"])
 
-        http = dict()
         c2_address = string_from_offset(filebuf, yara_offset + 0x2E8)
         if c2_address:
-            # Based on other extractors, this is the domain?
-            http["hostname"] = c2_address
+            return_conf["c2_address"] = c2_address
 
-        # Assuming c2_url is related to c2_address
         c2_url = string_from_offset(filebuf, yara_offset + 0xE8)
         if c2_url:
-            http["uri"] = c2_url
+            return_conf["c2_url"] = c2_url
 
         if filebuf[yara_offset + 0x13B0 : yara_offset + 0x13B1] == "S":
             registrypath = string_from_offset(filebuf, yara_offset + 0x13B0)
@@ -84,7 +80,7 @@ def extract_config(filebuf):
             registrypath = ""
 
         if registrypath:
-            return_conf["registry"] = [{"key": registrypath, "usage": "c2"}]
+            return_conf["registrypath"] = registrypath
 
         if filebuf[yara_offset + 0x14A2 : yara_offset + 0x14A3] == "C":
             servicename = ""
@@ -104,11 +100,7 @@ def extract_config(filebuf):
             filepaths = []
 
         if servicename:
-            return_conf["service"] = [{"name": servicename}]
+            return_conf["servicename"] = servicename
         if filepaths:
             for path in filepaths:
-                return_conf.setdefault("paths", []).append({"path": path, "usage": "c2"})
-        if http:
-            return_conf["http"] = [http]
-
-    return return_conf
+                return_conf.setdefault("filepath", []).append(path)

@@ -21,6 +21,7 @@ except ImportError:
     print("Missed dependency: pip3 install Pillow")
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger()
 
@@ -82,13 +83,16 @@ class Deduplicate(Processing):
             elif hashmethod == "whash-haar":
                 hashfunc = imagehash.whash
             elif hashmethod == "whash-db4":
-                hashfunc = lambda img: imagehash.whash(img, mode="db4")
+
+                def hashfunc(img):
+                    return imagehash.whash(img, mode="db4")
+
             else:
                 # Default
                 hashfunc = imagehash.average_hash
 
             shots_path = os.path.join(self.analysis_path, "shots")
-            if os.path.exists(shots_path):
+            if path_exists(shots_path):
                 screenshots = sorted(self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc))
                 shots = [screenshot.replace(".jpg", "") for screenshot in screenshots]
         except Exception as e:

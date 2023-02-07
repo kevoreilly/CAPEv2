@@ -3,7 +3,7 @@ import os
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_get_filename, path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_get_filename
 
 try:
     from google.oauth2 import service_account
@@ -12,10 +12,11 @@ try:
 
     HAVE_GOOGLE_CLIENT = True
 except ImportError:
-    HAVE_GOOGLE_CLIENT=False
+    HAVE_GOOGLE_CLIENT = False
     print("Missed google client: poetry run pip install google-api-python-client")
 
 log = logging.getLogger(__name__)
+
 
 class ReportBackup(Report):
     """Submit reports to external storage."""
@@ -57,10 +58,11 @@ class ReportBackup(Report):
 
             # Authenticate and construct service.
             service = self._get_google_service(
-                api_name='drive',
-                api_version='v3',
-                scopes=['https://www.googleapis.com/auth/drive'],
-                key_file_location=os.path.join(CUCKOO_ROOT, key_file_location))
+                api_name="drive",
+                api_version="v3",
+                scopes=["https://www.googleapis.com/auth/drive"],
+                key_file_location=os.path.join(CUCKOO_ROOT, key_file_location),
+            )
             upload_file_list = [os.path.join(self.reports_path, f) for f in os.listdir(self.reports_path)]
 
             log.debug("List of reports to be uploaded: %s", str(upload_file_list))
@@ -70,12 +72,12 @@ class ReportBackup(Report):
                 report_name = path_get_filename(item)
                 base_name, extension = report_name.rsplit(".", 1)
                 final_name = f"{base_name}_{self.task.id}.{extension}"
-                file_metadata = {'name': final_name, 'parents': [folder_id]}
+                file_metadata = {"name": final_name, "parents": [folder_id]}
                 media = MediaFileUpload(item)
-                file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-                log.debug('Uploaded Report: %s (%s) as %s', item, file.get("id"), final_name)
+                file = service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+                log.debug("Uploaded Report: %s (%s) as %s", item, file.get("id"), final_name)
         except Exception as e:
-            log.error('Unable to upload reports to Google Drive: %s', str(e))
+            log.error("Unable to upload reports to Google Drive: %s", str(e))
 
     def run(self, results):
         """Upload report files to external service"""

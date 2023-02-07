@@ -16,7 +16,6 @@ from wsgiref.util import FileWrapper
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
 from django.shortcuts import redirect, render
@@ -1708,8 +1707,8 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
 
-    if not os.path.normpath(dumpfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(dumpfile))})
+    # if not os.path.normpath(dumpfile).startswith(ANALYSIS_BASE_PATH):
+    #     return render(request, "error.html", {"error": "File not found".format(os.path.basename(dumpfile))})
 
     if not os.path.exists(dumpfile):
         dumpfile += ".zip"

@@ -370,7 +370,7 @@ def collect_extracted_filenames(tempdir):
     extracted_files = []
     for root, _, files in os.walk(tempdir):
         for file in files:
-            path = path_object(root, file)
+            path = path_object(os.path.join(root, file))
             if path.is_file():
                 extracted_files.append(str(path.relative_to(tempdir)))
     return extracted_files

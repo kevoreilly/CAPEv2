@@ -27,7 +27,7 @@ if processing_conf.flare_capa.enabled:
     try:
         from capa.version import __version__ as capa_version
 
-        if capa_version[0] != "4":
+        if capa_version[0] not in ("4", "5"):
             print("FLARE-CAPA missed, pip3 install git+https://github.com/mandiant/capa")
         else:
             import capa.engine
@@ -45,7 +45,10 @@ if processing_conf.flare_capa.enabled:
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
                 try:
-                    rules = capa.rules.RuleSet(capa.main.get_rules([rules_path], disable_progress=True))
+                    if capa_version[0] == "5":
+                        rules = capa.main.get_rules([rules_path])
+                    else:
+                        rules = capa.rules.RuleSet(capa.main.get_rules([rules_path], disable_progress=True))
                     HAVE_FLARE_CAPA = True
                 except InvalidRuleWithPath:
                     print("FLARE_CAPA InvalidRuleWithPath")
@@ -167,7 +170,7 @@ def render_attack(doc, result):
 
     for tactic, techniques in sorted(tactics.items()):
         inner_rows = []
-        for (technique, subtechnique, id) in sorted(techniques):
+        for technique, subtechnique, id in sorted(techniques):
             if subtechnique is None:
                 inner_rows.append("%s %s" % (technique, id))
             else:
@@ -201,7 +204,7 @@ def render_mbc(doc, result):
 
     for objective, behaviors in sorted(objectives.items()):
         inner_rows = []
-        for (behavior, method, id) in sorted(behaviors):
+        for behavior, method, id in sorted(behaviors):
             if method is None:
                 inner_rows.append("%s [%s]" % (behavior, id))
             else:

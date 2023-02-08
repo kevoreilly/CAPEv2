@@ -23,7 +23,7 @@
             </tr>
         {% endif %}
         <tr>
-            <th style="border-top: 0; width: 15%;">Filename</th>
+            <th style="border-top: 0; width: 15%;">File Name</th>
             <td>
                 {% for name in file.name|str2list %}
                 <div style="border-top: 0; word-wrap: break-word;"><b>{{name|safe}}</b></div>
@@ -347,6 +347,12 @@
                 <th></th>
                 <td>{% include "analysis/generic/_virustotal.html" %}</td>
             </tr>
+        {% endif %}<br>
+        {% if file.misp.event_link %}
+        <tr>
+            <th></th>
+            <td>{% include "analysis/generic/_misp.html" %}</td>
+        </tr>
         {% endif %}
         {% if file.strings %}
             <tr>

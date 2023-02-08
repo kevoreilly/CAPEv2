@@ -36,7 +36,12 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.integrations.whoisxmlapi import whoisxmlapi_lookup
+
+HAVE_WHOISXMLAPI = False
+with suppress(ImportError):
+    from lib.cuckoo.common.integrations.whoisxmlapi import whoisxmlapi_lookup
+    HAVE_WHOISXMLAPI = True
+
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 
 try:
@@ -272,8 +277,8 @@ class Pcap:
             inaddrarpa = ""
             hostname = ""
 
-            if proc_cfg.network.whoisxmlapi_query:
-                result = whoisxmlapi_lookup(ip, proc_cfg.network.whois_apikey)
+            if HAVE_WHOISXMLAPI:
+                result = whoisxmlapi_lookup(ip)
                 if result:
                     whois_hosts.append(result)
 

@@ -8,15 +8,11 @@ def getkey(mapping, value):
     if isinstance(mapping, dict):
         return mapping.get(value, "")
 
-#Added: Added function to get type of variable
+
 @register.filter(name="gettype")
 def gettype(value):
     return str(type(value))
 
-#Added: Added function to split list
-@register.filter(name="split")
-def split(value, key):
-    return value.split(key)
 
 @register.filter(name="str2list")
 def str2list(value):

@@ -42,6 +42,11 @@ try:
 except ImportError:
     HAVE_PYDEEP = False
 
+try:
+    from lib.cuckoo.common.integrations.misp import MISP_HASH_LOOKUP, misp_hash_lookup
+except Exception:
+    pass
+
 processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
@@ -205,6 +210,10 @@ class CAPE(Processing):
 
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name
+
+            if MISP_HASH_LOOKUP:
+                misp_hash_lookup(file_info["sha256"], str(self.task["id"]), file_info)
+
             self.results["target"] = {
                 "category": category,
                 "file": file_info,
@@ -357,7 +366,7 @@ class CAPE(Processing):
                     "metadata": entry.get("metadata", {}),
                 }
 
-        # Finally static processing of submitted file
+        #  Static processing of submitted file
         if self.task["category"] in ("file", "static"):
             self.process_file(
                 self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated

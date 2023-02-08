@@ -31,22 +31,22 @@ def temppath():
     return tmppath
 
 
-def open_exclusive(path, mode="xb", bufsize=-1):
+def open_exclusive(path, mode="xb"):
     """Open a file with O_EXCL, failing if it already exists
     [In Python 3, use open with x]"""
     fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
     try:
-        return os.fdopen(fd, mode, bufsize)
+        return os.fdopen(fd, mode)
     except OSError as e:
         log.error(e, "You might need to add whitelist folder in resultserver.py")
         os.close(fd)
         raise
 
 
-def open_inclusive(path, mode="ab", bufsize=-1):
+def open_inclusive(path, mode="ab"):
     fd = os.open(path, os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o644)
     try:
-        return os.fdopen(fd, mode, bufsize)
+        return os.fdopen(fd, mode)
     except OSError as e:
         log.error(e, "You might need to add whitelist folder in resultserver.py")
         os.close(fd)

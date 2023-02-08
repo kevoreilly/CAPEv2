@@ -6,6 +6,7 @@ import logging
 import os
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists, path_is_file
 
 log = logging.getLogger("mitre")
 
@@ -110,7 +111,7 @@ def mitre_load(enabled: bool = False):
         import yaml
 
         def _read_from_disk(self, path):
-            if os.path.exists(path) and os.path.isfile(path):
+            if path_exists(path) and path_is_file(path):
                 try:
                     with open(path) as f:
                         if path.endswith(".json"):

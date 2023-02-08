@@ -21,7 +21,6 @@ from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
-from pathlib import Path
 from urllib.parse import urlunparse
 
 import dns.resolver
@@ -34,7 +33,7 @@ from lib.cuckoo.common.dns import resolve
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.irc import ircMessage
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
 
@@ -46,17 +45,11 @@ except ImportError:
     import re
 
 
-# This is a weird import. Sometime there is GeoIP.error
-try:
-    try:
-        import GeoIP
+HAVE_GEOIP = False
+with suppress(ImportError):
+    import maxminddb
 
-        IS_GEOIP = True
-        gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-    except (ImportError, GeoIP.error):
-        IS_GEOIP = False
-except NameError:
-    print("Can't import GeoIP")
+    HAVE_GEOIP = True
 
 try:
     import dpkt
@@ -101,7 +94,7 @@ logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 comment_re = re.compile(r"\s*#.*")
 if enabled_passlist and passlist_file:
-    f = Path(os.path.join(CUCKOO_ROOT, passlist_file)).read_text()
+    f = path_read_file(os.path.join(CUCKOO_ROOT, passlist_file), mode="text")
     for domain in f.splitlines():
         domain = comment_re.sub("", domain).strip()
         if domain:
@@ -109,11 +102,18 @@ if enabled_passlist and passlist_file:
 
 ip_passlist = set()
 if enabled_ip_passlist and ip_passlist_file:
-    f = Path(os.path.join(CUCKOO_ROOT, ip_passlist_file)).read_text()
+    f = path_read_file(os.path.join(CUCKOO_ROOT, ip_passlist_file), mode="text")
     for ip in f.splitlines():
         ip = comment_re.sub("", ip).strip()
         if ip:
             ip_passlist.add(ip)
+
+if HAVE_GEOIP:
+    maxmind_db_path = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
+    if proc_cfg.network.country_lookup and path_exists(maxmind_db_path):
+        maxminddb_client = maxminddb.open_database(maxmind_db_path)
+    else:
+        HAVE_GEOIP = False
 
 
 class Pcap:
@@ -234,16 +234,12 @@ class Pcap:
                     return True
 
     def _get_cn(self, ip):
-        cn = "unknown"
-        log = logging.getLogger("Processing.Pcap")
-        if IS_GEOIP:
+        if HAVE_GEOIP:
             try:
-                temp_cn = gi.country_name_by_addr(ip)
-                if temp_cn:
-                    cn = temp_cn
+                return maxminddb_client.get(ip).get("country", {}).get("names", {}).get("en", "unknown")
             except Exception:
-                log.error("Unable to GEOIP resolve %s", ip)
-        return cn
+                log.error("Unable to resolve GEOIP for %s", ip)
+        return "unknown"
 
     def _add_hosts(self, connection):
         """Add IPs to unique list.
@@ -952,7 +948,7 @@ class Pcap2:
                         req_sha256 = sha256(sent.body).hexdigest()
 
                         req_path = os.path.join(self.network_path, req_sha1)
-                        _ = Path(req_path).write_bytes(sent.body)
+                        _ = path_write_file(req_path, sent.body)
 
                         # It's not perfect yet, but it'll have to do.
                         tmp_dict["req"] = {
@@ -967,7 +963,7 @@ class Pcap2:
                         resp_sha1 = sha1(recv.body).hexdigest()
                         resp_sha256 = sha256(recv.body).hexdigest()
                         resp_path = os.path.join(self.network_path, resp_sha256)
-                        _ = Path(resp_path).write_bytes(recv.body)
+                        _ = path_write_file(resp_path, recv.body)
                         resp_preview = []
                         try:
                             c = 0

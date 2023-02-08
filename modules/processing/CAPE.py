@@ -43,11 +43,17 @@ except ImportError:
     HAVE_PYDEEP = False
 
 processing_conf = Config("processing")
+externalservices_conf = Config("externalservices")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
+
+MISP_HASH_LOOKUP = False
+if externalservices_conf.misp.enabled:
+    with suppress(Exception):
+        from lib.cuckoo.common.integrations.misp import MISP_HASH_LOOKUP, misp_hash_lookup
 
 ssdeep_threshold = 95
 
@@ -205,6 +211,10 @@ class CAPE(Processing):
 
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name
+
+            if MISP_HASH_LOOKUP:
+                misp_hash_lookup(file_info["sha256"], str(self.task["id"]), file_info)
+
             self.results["target"] = {
                 "category": category,
                 "file": file_info,
@@ -357,7 +367,7 @@ class CAPE(Processing):
                     "metadata": entry.get("metadata", {}),
                 }
 
-        # Finally static processing of submitted file
+        #  Static processing of submitted file
         if self.task["category"] in ("file", "static"):
             self.process_file(
                 self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated

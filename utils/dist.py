@@ -1010,9 +1010,7 @@ class StatusThread(threading.Thread):
         SERVER_TAGS[node_name] = list(ta)
 
     def run(self):
-        global main_db
-        global retrieve
-        global STATUSES
+        global main_db, retrieve, STATUSES
         MINIMUMQUEUE = {}
 
         # handle another user case,

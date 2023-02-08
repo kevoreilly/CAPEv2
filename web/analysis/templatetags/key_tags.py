@@ -28,6 +28,11 @@ def findkey(value, key):
             if item is not None:
                 return item
 
+@register.filter(name="gettype")
+def gettype(value):
+    return str(type(value))
+
+
 @register.filter(name="str2list")
 def str2list(value):
     if isinstance(value, str):

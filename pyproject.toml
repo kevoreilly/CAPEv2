@@ -12,7 +12,7 @@ gevent = "22.10.2"
 greenlet = "2.0.1"
 Pebble = "4.6.3"
 # pymisp = "2.4.144"
-cryptography = "39.0.0"
+cryptography = "39.0.1"
 requests = {version = "2.28.0", extras = ["security", "socks"]}
 pyOpenSSL = "23.0.0"
 pefile = "*"

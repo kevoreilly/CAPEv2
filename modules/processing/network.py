@@ -47,6 +47,7 @@ except ImportError:
 HAVE_GEOIP = False
 with suppress(ImportError):
     import maxminddb
+
     HAVE_GEOIP = True
 
 try:
@@ -112,6 +113,7 @@ if HAVE_GEOIP:
         maxminddb_client = maxminddb.open_database(maxmind_db_path)
     else:
         HAVE_GEOIP = False
+
 
 class Pcap:
     """Reads network data from PCAP file."""

@@ -9,6 +9,11 @@ def getkey(mapping, value):
         return mapping.get(value, "")
 
 
+@register.filter(name="gettype")
+def gettype(value):
+    return str(type(value))
+
+
 @register.filter(name="str2list")
 def str2list(value):
     if isinstance(value, str):

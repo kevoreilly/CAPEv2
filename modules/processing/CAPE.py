@@ -298,7 +298,7 @@ class CAPE(Processing):
 
             if cape_name and cape_name not in executed_config_parsers[tmp_path]:
                 tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
-                self.update_cape_configs(cape_name, tmp_config, tmp_data)
+                self.update_cape_configs(cape_name, tmp_config, file_info)
                 executed_config_parsers[tmp_path].add(cape_name)
 
         if type_string:
@@ -311,7 +311,7 @@ class CAPE(Processing):
                 if tmp_config:
                     cape_names.add(cape_name)
                     log.info("CAPE: config returned for: %s", cape_name)
-                    self.update_cape_configs(cape_name, tmp_config, tmp_data)
+                    self.update_cape_configs(cape_name, tmp_config, file_info)
 
         self.add_family_detections(file_info, cape_names)
 

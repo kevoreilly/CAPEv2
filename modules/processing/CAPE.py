@@ -394,11 +394,13 @@ class CAPE(Processing):
         if not config:
             return
 
-        # look for an existing config matching cape_name; merge them if found
+        # look for an existing config matching this cape_name; merge them if found
         for existing_config in self.cape["configs"]:
             if cape_name in existing_config:
+                log.warning("CAPE: data loss may occur, existing config found for: %s", cape_name)
                 existing_config[cape_name].update(config[cape_name])
                 return
 
-        # first time this cape_name config was seen
+        # first time a config for this cape_name was seen
+        log.info("CAPE: new config found for: %s", cape_name)
         self.cape["configs"].append(config)

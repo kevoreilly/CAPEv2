@@ -38,6 +38,7 @@ class TestConfigUpdates:
         assert cape_proc_module.cape["configs"] == expected_cfgs
 
     def test_update_same_family_overwrites(self):
+        # see https://github.com/kevoreilly/CAPEv2/pull/1357
         cape_proc_module = CAPE()
         cfg1 = {"Family": {"SomeKey": "SomeValue"}}
         cfg2 = {"Family": {"SomeKey": "DifferentValue"}}

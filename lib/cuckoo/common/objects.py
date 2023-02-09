@@ -535,6 +535,19 @@ class File:
         # Close PE file and return RichPE hash digest
         return md5.hexdigest()
 
+    def get_all_hashe(self):
+        return {
+            "crc32": self.get_crc32(),
+            "md5": self.get_md5(),
+            "sha1": self.get_sha1(),
+            "sha256": self.get_sha256(),
+            "sha512": self.get_sha512(),
+            "rh_hash": self.get_rh_hash(),
+            "ssdeep": self.get_ssdeep(),
+            "tlsh": self.get_tlsh(),
+            "sha3_384": self.get_sha3_384(),
+        }
+
     def get_all(self):
         """Get all information available.
         @return: information dict.

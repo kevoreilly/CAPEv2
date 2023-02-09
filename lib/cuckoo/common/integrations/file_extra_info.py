@@ -458,7 +458,7 @@ def generic_file_extractors(
             continue
         if not func_result:
             continue
-        extraction_result = func_result["result"]
+        extraction_result = func_result.get("result")
         if extraction_result is None:
             continue
         tempdir = extraction_result.get("tempdir")
@@ -864,7 +864,10 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
 @time_tracker
 def office_one(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnType:
 
-    if not HAVE_ONE or open(file, "rb").read(16) != b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3":
+    if not HAVE_ONE or open(file, "rb").read(16) in (
+        b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3",
+        b"\xA1\x2F\xFF\x43\xD9\xEF\x76\x4C\x9E\xE2\x10\xEA\x57\x22\x76\x5F"
+    ):
         return
 
     with extractor_ctx(file, "OfficeOne", prefix="office_one") as ctx:

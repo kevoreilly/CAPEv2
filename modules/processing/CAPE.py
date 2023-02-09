@@ -298,7 +298,7 @@ class CAPE(Processing):
 
             if cape_name and cape_name not in executed_config_parsers[tmp_path]:
                 tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
-                self.update_cape_configs(tmp_config)
+                self.update_cape_configs(cape_name, tmp_config)
                 executed_config_parsers[tmp_path].add(cape_name)
 
         if type_string:
@@ -311,7 +311,7 @@ class CAPE(Processing):
                 if tmp_config:
                     cape_names.add(cape_name)
                     log.info("CAPE: config returned for: %s", cape_name)
-                    self.update_cape_configs(tmp_config)
+                    self.update_cape_configs(cape_name, tmp_config)
 
         self.add_family_detections(file_info, cape_names)
 
@@ -389,23 +389,16 @@ class CAPE(Processing):
                             self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
         return self.cape
 
-    def update_cape_configs(self, config):
+    def update_cape_configs(self, cape_name, config):
         """Add the given config to self.cape["configs"]."""
         if not config:
             return
 
-        updated = False
+        # look for an existing config matching cape_name; merge them if found
+        for existing_config in self.cape["configs"]:
+            if cape_name in existing_config:
+                existing_config[cape_name].update(config[cape_name])
+                return
 
-        for name, data in config.items():
-            break
-
-        # Some families may have multiple configs. Squash them all together.
-        if name not in self.cape["configs"]:
-            for current in self.cape["configs"]:
-                if name == list(current.keys())[0]:
-                    current[name].update(data)
-                    updated = True
-                    break
-
-        if updated is False:
-            self.cape["configs"].append(config)
+        # first time this cape_name config was seen
+        self.cape["configs"].append(config)

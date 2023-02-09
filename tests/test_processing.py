@@ -7,19 +7,19 @@ class TestConfigUpdates:
     def test_update_no_config(self):
         cape_proc_module = CAPE()
         name, config = "Family", None
-        cape_proc_module.update_cape_configs(config)
+        cape_proc_module.update_cape_configs("Family", config)
         assert cape_proc_module.cape["configs"] == []
 
     def test_update_empty_config(self):
         cape_proc_module = CAPE()
         name, config = "Family", {}
-        cape_proc_module.update_cape_configs(config)
+        cape_proc_module.update_cape_configs("Family", config)
         assert cape_proc_module.cape["configs"] == []
 
     def test_update_single_config(self):
         cape_proc_module = CAPE()
         cfg = {"Family": {"SomeKey": "SomeValue"}}
-        cape_proc_module.update_cape_configs(cfg)
+        cape_proc_module.update_cape_configs("Family", cfg)
         expected_cfgs = [cfg]
         assert cape_proc_module.cape["configs"] == expected_cfgs
 
@@ -27,8 +27,8 @@ class TestConfigUpdates:
         cape_proc_module = CAPE()
         cfg1 = {"Family": {"SomeKey": "SomeValue"}}
         cfg2 = {"Family": {"AnotherKey": "AnotherValue"}}
-        cape_proc_module.update_cape_configs(cfg1)
-        cape_proc_module.update_cape_configs(cfg2)
+        cape_proc_module.update_cape_configs("Family", cfg1)
+        cape_proc_module.update_cape_configs("Family", cfg2)
         expected_cfgs = [{"Family": {"AnotherKey": "AnotherValue", "SomeKey": "SomeValue"}}]
         assert cape_proc_module.cape["configs"] == expected_cfgs
 
@@ -36,16 +36,16 @@ class TestConfigUpdates:
         cape_proc_module = CAPE()
         cfg1 = {"Family1": {"SomeKey": "SomeValue"}}
         cfg2 = {"Family2": {"SomeKey": "SomeValue"}}
-        cape_proc_module.update_cape_configs(cfg1)
-        cape_proc_module.update_cape_configs(cfg2)
+        cape_proc_module.update_cape_configs("Family", cfg1)
+        cape_proc_module.update_cape_configs("Family", cfg2)
         expected_cfgs = [{"Family1": {"SomeKey": "SomeValue"}}, {"Family2": {"SomeKey": "SomeValue"}}]
         assert cape_proc_module.cape["configs"] == expected_cfgs
 
-    def test_update_same_family(self):
+    def test_update_same_family_overwrites(self):
         cape_proc_module = CAPE()
         cfg1 = {"Family": {"SomeKey": "SomeValue"}}
         cfg2 = {"Family": {"SomeKey": "DifferentValue"}}
-        cape_proc_module.update_cape_configs(cfg1)
-        cape_proc_module.update_cape_configs(cfg2)
-        expected_cfg = [{"Family": {"SomeKey": ["SomeValue", "DifferentValue"]}}]
+        cape_proc_module.update_cape_configs("Family", cfg1)
+        cape_proc_module.update_cape_configs("Family", cfg2)
+        expected_cfg = [{"Family": {"SomeKey": "DifferentValue"}}]
         assert cape_proc_module.cape["configs"] == expected_cfg

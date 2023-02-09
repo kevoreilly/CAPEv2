@@ -298,7 +298,7 @@ class CAPE(Processing):
 
             if cape_name and cape_name not in executed_config_parsers[tmp_path]:
                 tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
-                self.update_cape_configs(cape_name, tmp_config)
+                self.update_cape_configs(cape_name, tmp_config, file_info)
                 executed_config_parsers[tmp_path].add(cape_name)
 
         if type_string:
@@ -311,7 +311,7 @@ class CAPE(Processing):
                 if tmp_config:
                     cape_names.add(cape_name)
                     log.info("CAPE: config returned for: %s", cape_name)
-                    self.update_cape_configs(cape_name, tmp_config)
+                    self.update_cape_configs(cape_name, tmp_config, file_info)
 
         self.add_family_detections(file_info, cape_names)
 
@@ -389,7 +389,7 @@ class CAPE(Processing):
                             self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
         return self.cape
 
-    def update_cape_configs(self, cape_name, config):
+    def update_cape_configs(self, cape_name, config, file_obj):
         """Add the given config to self.cape["configs"]."""
         if not config:
             return
@@ -403,4 +403,8 @@ class CAPE(Processing):
 
         # first time a config for this cape_name was seen
         log.info("CAPE: new config found for: %s", cape_name)
+        associated_config_hashes = {}
+        for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384"):
+            associated_config_hashes.setdefault(hashtype, file_obj.get(hashtype, ""))
+        config["associated_config_hashes"] = associated_config_hashes
         self.cape["configs"].append(config)

@@ -62,7 +62,7 @@ class TestConfigUpdates:
             f.write(b"fake file for configs")
             file_obj = File(f.name).get_all_hashe()
             cfg = {"Family": {"SomeKey": "SomeValue"}}
-            cape_proc_module.update_cape_configs("Family", cfg, file_obj.__dict__)
+            cape_proc_module.update_cape_configs("Family", cfg, file_obj)
         actual_cfg = cape_proc_module.cape["configs"]
         assert "Family" in actual_cfg[0]
         assert "associated_config_hashes" in actual_cfg[0]

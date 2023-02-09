@@ -40,3 +40,12 @@ class TestConfigUpdates:
         cape_proc_module.update_cape_configs(cfg2)
         expected_cfgs = [{"Family1": {"SomeKey": "SomeValue"}}, {"Family2": {"SomeKey": "SomeValue"}}]
         assert cape_proc_module.cape["configs"] == expected_cfgs
+
+    def test_update_same_family(self):
+        cape_proc_module = CAPE()
+        cfg1 = {"Family": {"SomeKey": "SomeValue"}}
+        cfg2 = {"Family": {"SomeKey": "DifferentValue"}}
+        cape_proc_module.update_cape_configs(cfg1)
+        cape_proc_module.update_cape_configs(cfg2)
+        expected_cfg = [{"Family": {"SomeKey": ["SomeValue", "DifferentValue"]}}]
+        assert cape_proc_module.cape["configs"] == expected_cfg

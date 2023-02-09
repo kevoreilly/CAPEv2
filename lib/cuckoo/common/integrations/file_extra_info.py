@@ -552,6 +552,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
         return
 
     binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
+    binary = os.path.join(CUCKOO_ROOT, binary)
     if not binary:
         log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
         return

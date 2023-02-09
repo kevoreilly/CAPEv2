@@ -347,6 +347,16 @@ def index(request, task_id=None, resubmit_hash=None):
 
         if task_category == "resubmit":
             for content, path, sha256, _ in list_of_tasks:
+                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
+                    pre_script = request.FILES["pre_script"]
+                    details["pre_script_name"] = request.FILES["pre_script"].name
+                    details["pre_script_content"] = pre_script.read()
+
+                if web_conf.during_script.enabled and "during_script" in request.FILES:
+                    during_script = request.FILES["during_script"]
+                    details["during_script_name"] = request.FILES["during_script"].name
+                    details["during_script_content"] = during_script.read()
+                
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)

@@ -403,8 +403,7 @@ class CAPE(Processing):
 
         # first time a config for this cape_name was seen
         log.info("CAPE: new config found for: %s", cape_name)
-        associated_config_hashes = {}
-        for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384"):
-            associated_config_hashes.setdefault(hashtype, file_obj.get(hashtype, ""))
-        config["associated_config_hashes"] = associated_config_hashes
+        config["associated_config_hashes"] = {
+            hashtype: file_obj.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")
+        }
         self.cape["configs"].append(config)

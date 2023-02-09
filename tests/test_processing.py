@@ -60,7 +60,7 @@ class TestConfigUpdates:
         cape_proc_module = CAPE()
         with NamedTemporaryFile(mode="wb") as f:
             f.write(b"fake file for configs")
-            file_obj = File(f.name)
+            file_obj = File(f.name).calc_hashes()
             cfg = {"Family": {"SomeKey": "SomeValue"}}
             cape_proc_module.update_cape_configs("Family", cfg, file_obj)
         actual_cfg = cape_proc_module.cape["configs"]

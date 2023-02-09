@@ -635,7 +635,7 @@ def load_files(request, task_id, category):
         if category == "debugger":
             ajax_response["debugger_logs"] = debugger_logs
         elif category == "network":
-            ajax_response["domainlookups"] = {(i["domain"], i["ip"]) for i in ajax_response.get("network", {}).get("domains", {})}
+            ajax_response["domainlookups"] = {i["domain"]: i["ip"] for i in ajax_response.get("network", {}).get("domains", {})}
             ajax_response["suricata"] = data.get("suricata", {})
             ajax_response["cif"] = data.get("cif", [])
             tls_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "tlsdump", "tlsdump.log")

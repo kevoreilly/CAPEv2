@@ -101,7 +101,6 @@ cat << EndOfHelp
         Systemd - Install systemd config for cape, we suggest to use systemd
         Nginx <domain.com> - Install NGINX with realip plugin and other goodies, pass your domain as argument
         LetsEncrypt <domain.com> - Install LetsEncrypt for your site, pass your domain as argument
-        Supervisor - Install supervisor config for CAPE # depricated
         Suricata - Install latest suricata with performance boost
         PostgreSQL - Install latest PostgresSQL
         Yara - Install latest yara
@@ -582,15 +581,6 @@ function install_logrotate() {
 #    compress
 #    create
 #    maxsize 10G
-#}
-
-#/var/log/supervisor/*.log {
-#    daily
-#    missingok
-#    rotate 7
-#    compress
-#    create
-#    maxsize 50M
 #}
 EOF
     fi
@@ -1174,126 +1164,6 @@ function install_systemd() {
     systemctl restart cape cape-rooter cape-processor "$cape_web_enable_string" suricata
 }
 
-function supervisor() {
-    pip3 install supervisor -U
-    #### Cuckoo Start at boot
-
-    if [ ! -d /etc/supervisor/conf.d ]; then
-	mkdir -p /etc/supervisor/conf.d
-    fi
-
-    if [ ! -d /var/log/supervisor ]; then
-	mkdir -p /var/log/supervisor
-    fi
-
-    if [ ! -f /etc/supervisor/supervisord.conf ]; then
-	echo_supervisord_conf > /etc/supervisor/supervisord.conf
-    fi
-
-    if [ ! -f /lib/systemd/system/supervisor.service ]; then
-        cat >> /lib/systemd/system/supervisor.service <<EOF
-[Unit]
-Description=Supervisor process control system for UNIX
-Documentation=http://supervisord.org
-After=network.target
-
-[Service]
-ExecStart=/usr/local/bin/supervisord -n -c /etc/supervisor/supervisord.conf
-ExecStop=/usr/local/bin/supervisorctl $OPTIONS shutdown
-ExecReload=/usr/local/bin/supervisorctl -c /etc/supervisor/supervisord.conf $OPTIONS reload
-KillMode=process
-Restart=on-failure
-RestartSec=50s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    fi
-
-    cat >> /etc/supervisor/conf.d/cape.conf <<EOF
-[program:cape]
-command=python3 cuckoo.py
-directory=/opt/CAPEv2/
-user=${USER}
-priority=200
-autostart=true
-autorestart=true
-stopasgroup=true
-stderr_logfile=/var/log/supervisor/${USER}.err.log
-stdout_logfile=/var/log/supervisor/${USER}.out.log
-
-[program:web]
-command=python3 manage.py runserver 0.0.0.0:8000 --insecure
-directory=/opt/CAPEv2/web
-user=${USER}
-priority=500
-autostart=true
-autorestart=true
-stopasgroup=true
-stderr_logfile=/var/log/supervisor/web.err.log
-stdout_logfile=/var/log/supervisor/web.out.log
-
-[program:process]
-command=python3 process.py -p7 auto
-user=${USER}
-priority=300
-directory=/opt/CAPEv2/utils
-autostart=true
-autorestart=true
-stopasgroup=true
-stderr_logfile=/var/log/supervisor/process.err.log
-stdout_logfile=/var/log/supervisor/process.out.log
-
-[program:rooter]
-command=python3 rooter.py -g ${USER}
-directory=/opt/CAPEv2/utils
-user=root
-startsecs=10
-priority = 100
-autostart=true
-autorestart=true
-stopasgroup=true
-stderr_logfile=/var/log/supervisor/router.err.log
-stdout_logfile=/var/log/supervisor/router.out.log
-
-[group:CAPE]
-programs = rooter,web,cape,process
-
-[program:suricata]
-command=bash -c "mkdir /var/run/suricata; chown ${USER}:${USER} /var/run/suricata; LD_LIBRARY_PATH=/usr/local/lib /usr/bin/suricata -c /etc/suricata/suricata.yaml --unix-socket -k none --user ${USER} --group ${USER}"
-user=root
-autostart=true
-autorestart=true
-stopasgroup=true
-stderr_logfile=/var/log/supervisor/suricata.err.log
-stdout_logfile=/var/log/supervisor/suricata.out.log
-
-[program:socks5man]
-command=/usr/local/bin/socks5man verify --repeated
-autostart=false
-user=${USER}
-autorestart=true
-stopasgroup=true
-stderr_logfile=/var/log/supervisor/socks5man.err.log
-stdout_logfile=/var/log/supervisor/socks5man.out.log
-EOF
-
-    # fix for too many open files
-    python3 -c "pa = '/etc/supervisor/supervisord.conf';q=open(pa, 'r').read().replace('[supervisord]\nlogfile=', '[supervisord]\nminfds=1048576;\nlogfile=');open(pa, 'w').write(q);"
-
-    # include conf.d
-    python3 -c "pa = '/etc/supervisor/supervisord.conf';q=open(pa, 'r').read().replace(';[include]\n;files = relative/directory/*.ini', '[include]\nfiles = conf.d/cape.conf');open(pa, 'w').write(q);"
-
-    sudo systemctl enable supervisor
-    sudo systemctl start supervisor
-
-    #supervisord -c /etc/supervisor/supervisord.conf
-    supervisorctl -c /etc/supervisor/supervisord.conf reload
-
-    supervisorctl reread
-    supervisorctl update
-    # msoffice decrypt encrypted files
-}
 
 function install_prometheus_grafana() {
 
@@ -1477,8 +1347,6 @@ case "$COMMAND" in
     ;;
 'systemd')
     install_systemd;;
-'supervisor')
-    supervisor;;
 'suricata')
     install_suricata;;
 'yara')

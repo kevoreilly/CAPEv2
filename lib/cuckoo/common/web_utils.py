@@ -670,7 +670,7 @@ def download_file(**kwargs):
         return "error", {"error": "Linux binaries analysis isn't enabled"}
 
     if machine.lower() == "all":
-        kwargs["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
+        kwargs["task_machines"] = [vm.label for vm in db.list_machines(platform=platform)]
     elif machine:
         machine_details = db.view_machine(machine)
         if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:

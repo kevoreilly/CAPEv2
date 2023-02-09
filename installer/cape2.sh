@@ -753,12 +753,12 @@ function install_mongo(){
 
 		sudo curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
 		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
-    
+
 		apt update 2>/dev/null
 		apt install libpcre3-dev numactl -y
 		apt install -y mongodb-org
 		pip3 install pymongo -U
-		
+
 		apt install -y ntp
 		systemctl start ntp.service && sudo systemctl enable ntp.service
 
@@ -816,9 +816,9 @@ EOF
 }
 
 function install_elastic() {
-    
+
     sudo curl -fsSL "https://artifacts.elastic.co/GPG-KEY-elasticsearch" | sudo gpg --dearmor -o /etc/apt/keyrings/elasticsearch-keyring.gpg --yes
-    
+
     # Elasticsearch 7.x
     echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/7.x/apt stable main" > /etc/apt/sources.list.d/elastic-7.x.list
 
@@ -928,7 +928,7 @@ function dependencies() {
     wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/tor-archive-keyring.gpg >/dev/null
     echo "deb     [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
     echo "deb-src [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
-    
+
 
     sudo apt update 2>/dev/null
     apt install tor deb.torproject.org-keyring libzstd1 -y
@@ -1131,27 +1131,28 @@ function install_CAPE() {
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
     cd CAPEv2 || return
-    pip3 install poetry
-    pip3 install crudini
+    pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
-    sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" /opt/CAPEv2/conf/cuckoo.conf
-    sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" /opt/CAPEv2/conf/routing.conf
-    #sed -i "/memory_dump = off/cmemory_dump = on" /opt/CAPEv2/conf/cuckoo.conf
-    #sed -i "/machinery =/cmachinery = kvm" /opt/CAPEv2/conf/cuckoo.conf
-    sed -i "/interface =/cinterface = ${NETWORK_IFACE}" /opt/CAPEv2/conf/auxiliary.conf
+    mkdir -p custom/conf
+    cp -r "conf/*.conf" custom/conf
+    sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" custom/conf/cuckoo.conf
+    sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf
+    #sed -i "/memory_dump = off/cmemory_dump = on" custom/conf/cuckoo.conf
+    #sed -i "/machinery =/cmachinery = kvm" custom/conf/cuckoo.conf
+    sed -i "/interface =/cinterface = ${NETWORK_IFACE}" custom/conf/auxiliary.conf
 
 	# default is enabled, so we only need to disable it
 	if [ "$mongo_enable" -lt 1 ]; then
-		crudini --set /opt/CAPEv2/conf/reporting.conf mongodb enabled no
+		crudini --set custom/conf/reporting.conf mongodb enabled no
 	fi
 
 	if [ "$librenms_enable" -ge 1 ]; then
-		crudini --set /opt/CAPEv2/conf/reporting.conf litereport enabled yes
-		crudini --set /opt/CAPEv2/conf/reporting.conf runstatistics enabled yes
+		crudini --set custom/confreporting.conf litereport enabled yes
+		crudini --set custom/conf/reporting.conf runstatistics enabled yes
 	fi
 
     python3 utils/community.py -waf -cr

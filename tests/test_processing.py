@@ -1,19 +1,15 @@
-import pytest
-
 from modules.processing.CAPE import CAPE
 
 
 class TestConfigUpdates:
     def test_update_no_config(self):
         cape_proc_module = CAPE()
-        name, config = "Family", None
-        cape_proc_module.update_cape_configs("Family", config)
+        cape_proc_module.update_cape_configs("Family", None)
         assert cape_proc_module.cape["configs"] == []
 
     def test_update_empty_config(self):
         cape_proc_module = CAPE()
-        name, config = "Family", {}
-        cape_proc_module.update_cape_configs("Family", config)
+        cape_proc_module.update_cape_configs("Family", {})
         assert cape_proc_module.cape["configs"] == []
 
     def test_update_single_config(self):

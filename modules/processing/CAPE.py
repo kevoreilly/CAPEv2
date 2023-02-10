@@ -85,7 +85,6 @@ class CAPE(Processing):
     """CAPE output file processing."""
 
     key = "CAPE"
-    cape = {"payloads": [], "configs": []}
 
     def add_family_detections(self, file_info, cape_names):
         for cape_name in cape_names:
@@ -342,12 +341,14 @@ class CAPE(Processing):
                 self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
+    def _set_dict_keys(self):
+        self.cape = {"payloads": [], "configs": []}
+
     def run(self):
         """Run analysis.
         @return: list of CAPE output files with related information.
         """
-        # Not sure if we need to reset it here but resetting to ensure that we cleanup it
-        self.cape = {"payloads": [], "configs": []}
+        self._set_dict_keys()
         meta = {}
         # Required to control files extracted by selfextract.conf as we store them in dropped
         duplicated: DuplicatesType = collections.defaultdict(set)

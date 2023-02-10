@@ -87,6 +87,7 @@ class TestAnalysisConfigLinks:
     @pytest.mark.parametrize("category", ["static", "file"])
     def test_analysis_linkability(self, category):
         cape_proc_module = CAPE()
+        cape_proc_module._set_dict_keys()
         cape_proc_module.results = {"target": {"category": category}}
         cape_proc_module.results["target"]["file"] = {
             "md5": "fake-md5",

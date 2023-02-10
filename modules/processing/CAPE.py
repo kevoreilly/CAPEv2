@@ -313,6 +313,7 @@ class CAPE(Processing):
                     log.info("CAPE: config returned for: %s", cape_name)
                     self.update_cape_configs(cape_name, tmp_config, file_info)
 
+        self.link_configs_to_analysis()
         self.add_family_detections(file_info, cape_names)
 
         # Remove duplicate payloads from web ui
@@ -403,7 +404,23 @@ class CAPE(Processing):
 
         # first time a config for this cape_name was seen
         log.info("CAPE: new config found for: %s", cape_name)
+        # link the config to the hashes it was generated from
         config["associated_config_hashes"] = {
             hashtype: file_obj.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")
         }
         self.cape["configs"].append(config)
+
+    def link_configs_to_analysis(self):
+        """Embed associated_analysis_hashes in each config.
+
+        This links the configs to the analysis hashes that generated it.
+        """
+        if self.results["target"]["category"] not in ("static", "file"):
+            return
+
+        target_file = self.results["target"]["file"]
+        associated_analysis_hashes = {
+            hashtype: target_file.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")
+        }
+        for config in self.cape["configs"]:
+            config["associated_analysis_hashes"] = associated_analysis_hashes

@@ -1,6 +1,8 @@
 from tempfile import NamedTemporaryFile
 from unittest.mock import ANY, MagicMock
 
+import pytest
+
 from lib.cuckoo.common.objects import File
 from modules.processing.CAPE import CAPE
 
@@ -72,3 +74,36 @@ class TestConfigUpdates:
         assert hashes["sha256"].startswith("e3b")
         assert hashes["sha512"].startswith("cf8")
         assert hashes["sha3_384"].startswith("0c6")
+
+
+class TestAnalysisConfigLinks:
+    @pytest.mark.parametrize("category", ["static", "file"])
+    def test_analysis_linkability(self, category):
+        cape_proc_module = CAPE()
+        cape_proc_module.results = {"target": {"category": category}}
+        cape_proc_module.results["target"]["file"] = {
+            "md5": "fake-md5",
+            "sha1": "fake-sha1",
+            "sha256": "fake-sha256",
+            "sha512": "fake-sha512",
+            "sha3_384": "fake-sha3_384",
+        }
+        cfg = {"Family": {"SomeKey": "DifferentValue"}}
+        cape_proc_module.cape["configs"] = [cfg]
+        cape_proc_module.link_configs_to_analysis()
+        assert "associated_analysis_hashes" in cfg
+        hashes = cfg["associated_analysis_hashes"]
+        assert hashes["md5"] == "fake-md5"
+        assert hashes["sha1"] == "fake-sha1"
+        assert hashes["sha256"] == "fake-sha256"
+        assert hashes["sha512"] == "fake-sha512"
+        assert hashes["sha3_384"] == "fake-sha3_384"
+
+    @pytest.mark.parametrize("category", ["resubmit", "sample", "quarantine", "pcap", "url", "dlnexec", "vtdl"])
+    def test_static_links(self, category):
+        cape_proc_module = CAPE()
+        cape_proc_module.results = {"target": {"category": category}}
+        cfg = {"Family": {"SomeKey": "DifferentValue"}}
+        cape_proc_module.cape["configs"] = [cfg]
+        cape_proc_module.link_configs_to_analysis()
+        assert "associated_analysis_hashes" not in cfg

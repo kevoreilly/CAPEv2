@@ -84,6 +84,9 @@ unpack_map = {
 class CAPE(Processing):
     """CAPE output file processing."""
 
+    key = "CAPE"
+    cape = {"payloads": [], "configs": []}
+
     def add_family_detections(self, file_info, cape_names):
         for cape_name in cape_names:
             if cape_name != "UPX" and cape_name:
@@ -343,9 +346,9 @@ class CAPE(Processing):
         """Run analysis.
         @return: list of CAPE output files with related information.
         """
-        meta = {}
-        self.key = "CAPE"
+        # Not sure if we need to reset it here but resetting to ensure that we cleanup it
         self.cape = {"payloads": [], "configs": []}
+        meta = {}
         # Required to control files extracted by selfextract.conf as we store them in dropped
         duplicated: DuplicatesType = collections.defaultdict(set)
         if path_exists(self.files_metadata):
@@ -412,7 +415,7 @@ class CAPE(Processing):
 
         This links the configs to the analysis hashes that generated it.
         """
-        if self.results["target"]["category"] not in ("static", "file"):
+        if self.results.get("target", {}).get("category", "") not in ("static", "file"):
             return
 
         target_file = self.results["target"]["file"]

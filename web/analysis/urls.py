@@ -17,6 +17,7 @@ urlpatterns = [
     re_path(r"^antivirus/(?P<task_id>\d+)/$", views.antivirus, name="antivirus"),
     re_path(r"^shrike/(?P<task_id>\d+)/$", views.shrike, name="shrike"),
     re_path(r"^remove/(?P<task_id>\d+)/$", views.remove, name="remove"),
+    re_path(r"^signature-calls/(?P<task_id>\d+)/$", views.signature_calls, name="signature-calls"),
     re_path(r"^chunk/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<pagenum>\d+)/$", views.chunk, name="chunk"),
     re_path(
         r"^filtered/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<category>\w+)/(?P<apilist>[!]?[A-Za-z_0-9,%]*)/(?P<caller>\w+)/(?P<tid>\w+)/$",

@@ -71,6 +71,28 @@
                     </tbody>
                 </table>
             {% endif %}
+            {% if signature.calls %}
+                <div id="signature-calls_{{signature.name}}"></div>
+                {% with data_id="signature-calls-data_"|add:signature.name %}
+                    {{ signature.calls | json_script:data_id }}
+                    <script type="text/javascript">
+                        $("#signature_{{signature.name}}").on("show.bs.collapse", function() {
+                            $.ajax(
+                                "{% url "signature-calls" task_id=analysis.info.id %}",
+                                {
+                                    contentType: "application/json",
+                                    data: document.getElementById("{{data_id}}").textContent,
+                                    dataType: "html",
+                                    method: "POST",
+                                    success: function(responseText) {
+                                        $("#signature-calls_{{signature.name}}").html(responseText);
+                                    }
+                                }
+                            );
+                        });
+                    </script>
+                {% endwith %}
+            {% endif %}
             </div>
         {% endfor %}
     {% else %}

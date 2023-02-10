@@ -228,7 +228,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
         url = VIRUSTOTAL_URL_URL.format(id=target)
 
     try:
-        r = requests.get(url, headers=headers, verify=True, timeout=timeout)
+        r = requests.get(url, headers=headers, verify=False, timeout=timeout)
         if not r.ok:
             return {"error": True, "msg": f"Unable to complete connection to VirusTotal. Status code: {r.status_code}"}
         vt_response = r.json()
@@ -242,7 +242,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
             "sha1": vt_response.get("data", {}).get("attributes", {}).get("sha1"),
             "sha256": vt_response.get("data", {}).get("attributes", {}).get("sha256"),
             "tlsh": vt_response.get("data", {}).get("attributes", {}).get("tlsh"),
-            "positive": vt_response.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious"),
+            "positives": vt_response.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious"),
             "total": len(engines.keys()),
             "permalink": vt_response.get("data", {}).get("links", {}).get("self"),
         }

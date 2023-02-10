@@ -9,3 +9,49 @@ rule IcedID
     condition:
         any of them
 }
+
+rule IcedIDPackerA
+{
+    meta:
+        author = "kevoreilly"
+        description = "IcedID export selection"
+        cape_options = "export=$export"
+        hash = "fbad60002286599ca06d0ecb3624740efbf13ee5fda545341b3e0bf4d5348cfe"
+    strings:
+        $init = "init"
+        $export = {48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 81 EC [2] 00 00 41 8B E9 49 8B F0 48 8B FA 48 8B D9}
+        $alloc = {8B 50 50 33 C9 44 8D 49 40 41 B8 00 30 00 00 FF 15 [4] 48 89 44 24 28 [0-3] 48 89 84 24 ?? 00 00 00 E9}
+    condition:
+        uint16(0) == 0x5A4D and all of them
+}
+
+rule IcedIDPackerB
+{
+    meta:
+        author = "kevoreilly"
+        description = "IcedID export selection"
+        cape_options = "export=$export"
+        hash = "6517ef2c579002ec62ddeb01a3175917c75d79ceca355c415a4462922c715cb6"
+    strings:
+        $init = "init"
+        $export = {44 89 4C 24 20 4C 89 44 24 18 48 89 4C 24 08 41 55 41 56 41 57 48 81 EC ?? 00 00 00 B9 [2] 00 00 4C 8B EA E8}
+        $loop = {8B C2 48 8D 49 01 83 E0 07 FF C2 0F B6 44 30 ?? 30 41 FF 3B D5 72}
+        //$load = {41 FF D7 33 D2 41 B8 00 80 00 00 49 8B CF FF 54}
+    condition:
+        uint16(0) == 0x5A4D and all of them
+}
+
+rule IcedIDPackerC
+{
+    meta:
+        author = "kevoreilly"
+        description = "IcedID export selection"
+        cape_options = "export=$export-19"
+        hash = "c06805b6efd482c1a671ec60c1469e47772c8937ec0496f74e987276fa9020a5"
+    strings:
+        $init = "init"
+        $export = {48 89 84 24 ?? 00 00 00 48 8B 44 24 ?? 8B 40 04 EB 00}
+        $alloc = {41 B8 00 10 00 00 8B D0 33 C9 66 3B FF 0F 84 ?? FF FF FF}
+    condition:
+        uint16(0) == 0x5A4D and all of them
+}

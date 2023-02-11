@@ -1141,7 +1141,7 @@ function install_CAPE() {
 	fi
 
 	if [ "$librenms_enable" -ge 1 ]; then
-		crudini --set custom/confreporting.conf litereport enabled yes
+		crudini --set custom/conf/reporting.conf litereport enabled yes
 		crudini --set custom/conf/reporting.conf runstatistics enabled yes
 	fi
 

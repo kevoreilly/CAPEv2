@@ -109,7 +109,6 @@ class TestAnalysisManager:
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
 
         assert analysis_man.cfg.cuckoo == {
-            "apicall_details": False,
             "categories": "static, pcap, url, file",
             "freespace": 50000,
             "delete_original": False,

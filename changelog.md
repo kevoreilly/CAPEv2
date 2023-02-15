@@ -1,3 +1,10 @@
+### [16.2.2023]
+* Scheduler update:
+    * A machine may be configured with `reserved = yes` in `<machinery>.conf`. For such machines, the scheduler will
+      not use it for tasks unless the user specifically requests it by its label.
+* Database update:
+    * The 'name' of all machines defined in `<machinery>.conf` must be unique. The same goes for their 'label' fields.
+
 ### [4.2.2023]
 * Monitor updates:
     * Extend svchost hookset to Winmgmt (netsvcs) service

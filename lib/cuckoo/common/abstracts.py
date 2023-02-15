@@ -149,6 +149,7 @@ class Machinery:
                 machine.tags = machine_opts.get("tags")
                 machine.ip = machine_opts["ip"]
                 machine.arch = machine_opts["arch"]
+                machine.reserved = machine_opts.get("reserved", False)
 
                 # If configured, use specific network interface for this
                 # machine, else use the default value.
@@ -161,26 +162,15 @@ class Machinery:
                 # empty and use default behaviour.
                 machine.snapshot = machine_opts.get("snapshot")
 
-                if machine.get("resultserver_ip"):
-                    ip = machine["resultserver_ip"]
-                else:
-                    ip = cfg.resultserver.ip
-
-                if machine.get("resultserver_port"):
-                    port = machine["resultserver_port"]
-                else:
+                machine.resultserver_ip = machine_opts.get("resultserver_ip", cfg.resultserver.ip)
+                machine.resultserver_port = machine_opts.get("resultserver_port")
+                if machine.resultserver_port is None:
                     # The ResultServer port might have been dynamically changed,
                     # get it from the ResultServer singleton. Also avoid import
                     # recursion issues by importing ResultServer here.
                     from lib.cuckoo.core.resultserver import ResultServer
 
-                    port = ResultServer().port
-
-                ip = machine_opts.get("resultserver_ip", ip)
-                port = machine_opts.get("resultserver_port", port)
-
-                machine.resultserver_ip = ip
-                machine.resultserver_port = port
+                    machine.resultserver_port = ResultServer().port
 
                 # Strip parameters.
                 for key, value in machine.items():
@@ -196,8 +186,9 @@ class Machinery:
                     tags=machine.tags,
                     interface=machine.interface,
                     snapshot=machine.snapshot,
-                    resultserver_ip=ip,
-                    resultserver_port=port,
+                    resultserver_ip=machine.resultserver_ip,
+                    resultserver_port=machine.resultserver_port,
+                    reserved=machine.reserved,
                 )
             except (AttributeError, CuckooOperationalError) as e:
                 log.warning("Configuration details about machine %s are missing: %s", machine_id.strip(), e)
@@ -237,9 +228,9 @@ class Machinery:
         """List virtual machines.
         @return: virtual machines list
         """
-        return self.db.list_machines()
+        return self.db.list_machines(include_reserved=True)
 
-    def availables(self, machine_id=None, platform=None, tags=None, arch=None):
+    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False):
         """How many (relevant) machines are free.
         @param machine_id: machine ID.
         @param platform: machine platform.
@@ -247,7 +238,9 @@ class Machinery:
         @param arch: machine arch
         @return: free machines count.
         """
-        return self.db.count_machines_available(machine_id=machine_id, platform=platform, tags=tags, arch=arch)
+        return self.db.count_machines_available(
+            label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved
+        )
 
     def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
         """Acquire a machine to start analysis.

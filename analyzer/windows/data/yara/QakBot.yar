@@ -21,7 +21,7 @@ rule QakBotLoader
         cape_options = "export=$export"
     strings:
         $export = {55 8B EC 83 EC 50 (3A|66 3B) ?? 74}
-        $wind = {66 3B ?? 74 [10-14] BB [2] 00 00 53 E8 [5-6] FF 74}
+        $wind = {66 3B ?? 74 [1-14] BB 69 04 00 00 53 E8 [5-7] 74}
     condition:
         uint16(0) == 0x5A4D and all of them
 }

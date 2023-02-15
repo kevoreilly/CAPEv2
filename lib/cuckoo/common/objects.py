@@ -121,6 +121,15 @@ yara_error = {
     "49": "ERROR_REGULAR_EXPRESSION_TOO_COMPLEX",
 }
 
+type_list = [
+    "RAR self-extracting archive",
+    "Nullsoft Installer self-extracting archive",
+    "7-zip Installer data",
+    "Inno Setup",
+    "MSI Installer",
+    "Microsoft Cabinet",  # ToDo add die support here
+]
+
 
 class Dictionary(dict):
     """Cuckoo custom dict."""
@@ -534,6 +543,11 @@ class File:
 
         # Close PE file and return RichPE hash digest
         return md5.hexdigest()
+
+    def is_sfx(self):
+        filetype = self.get_content_type()
+        return any([ftype in filetype for ftype in type_list])
+
 
     def get_all_hashe(self):
         return {

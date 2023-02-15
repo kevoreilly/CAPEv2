@@ -113,10 +113,8 @@ of the network interfaces that we use with ``iproute2``. This is trivial but
 necessary.
 
 As an example we'll be configuring :ref:`routing_internet` (aka the
-``dirty line``) for which we'll be using the ``eth0`` network interface -
-reverting to Ubuntu 14.04 and older terminology here for a second (Ubuntu
-16.04 uses network interface names based on the hardware manufacturer, as you
-will likely have seen happen on BSD-based systems since forever).
+``dirty line``) for which we'll be using as example ``eth0`` network interface.
+You need to replace ``eth0`` with your server main network interface.
 
 To configure ``iproute2`` with ``eth0`` we're going to open the
 ``/etc/iproute2/rt_tables`` file which will look roughly as follows::

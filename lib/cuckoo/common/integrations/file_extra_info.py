@@ -622,7 +622,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
 
 
 @time_tracker
-def msi_extract(file: str, *, filetype: str, **_) -> ExtractorReturnType:
+def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
     """Work on MSI Installers"""
 
     if "MSI Installer" not in filetype:
@@ -636,11 +636,14 @@ def msi_extract(file: str, *, filetype: str, **_) -> ExtractorReturnType:
 
     with extractor_ctx(file, "MsiExtract", prefix="msidump_") as ctx:
         tempdir = ctx["tempdir"]
-        output = subprocess.check_output(
-            [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
-            universal_newlines=True,
-            stderr=subprocess.PIPE,
-        )
+        output = False
+        if not kwargs.get("test"):
+            # msiextract in different way that 7z, we need to add subfolder support
+            output = subprocess.check_output(
+                [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
         if output:
             extracted_files = [
                 extracted_file

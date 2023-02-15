@@ -643,7 +643,7 @@ def msi_extract(file: str, *, filetype: str, **_) -> ExtractorReturnType:
         )
         if output:
             extracted_files = [
-                extracted_file for extracted_file in list(filter(None, output.split("\n"))) if path_is_file(tempdir, extracted_file)
+                extracted_file for extracted_file in list(filter(None, output.split("\n"))) if path_is_file(os.path.join(tempdir, extracted_file))
             ]
         else:
             output = subprocess.check_output(

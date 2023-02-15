@@ -548,7 +548,6 @@ class File:
         filetype = self.get_content_type()
         return any([ftype in filetype for ftype in type_list])
 
-
     def get_all_hashe(self):
         return {
             "crc32": self.get_crc32(),

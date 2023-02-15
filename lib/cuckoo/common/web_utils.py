@@ -831,7 +831,7 @@ def validate_task(tid, status=TASK_REPORTED):
         return {"error": True, "error_value": "Task does not exist"}
 
     if task.status == TASK_RECOVERED and task.custom:
-        m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+        m = re.match(r"^Recovery_(?P<taskid>\d+)$", task.custom)
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)

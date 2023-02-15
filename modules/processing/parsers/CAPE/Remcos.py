@@ -142,7 +142,7 @@ def check_version(filedata):
 
     # find and extract version string e.g. "2.0.5 Pro", "1.7 Free" or "1.7 Light"
     for s in slist:
-        if bool(re.search("^\d+\.\d+\.\d+\s+\w+$", s)):
+        if bool(re.search(r"^\d+\.\d+\.\d+\s+\w+$", s)):
             return s
     return ""
 

@@ -121,7 +121,7 @@ def _alphabet_heuristics(alphabets):
     finalists = set()
 
     for alpha in alphabets:
-        num_whitespace = len(re.split(b"\s+", alpha))
+        num_whitespace = len(re.split(rb"\s+", alpha))
         if num_whitespace > 3:
             # I've observed alphabets usually have num_whitespace == 2
             continue
@@ -156,7 +156,7 @@ def get_possible_alphabet(data):
     :rtype: <class 'itertools.permutations'> or None
     """
 
-    alphabets_regex = b"[\w\s!\\\"\#\$%\&'\(\)\*\+,\-\./:;<=>\?@\[\]\^_`\{\}\~\|]{86}\x00"
+    alphabets_regex = rb"[\w\s!\\\"\#\$%\&'\(\)\*\+,\-\./:;<=>\?@\[\]\^_`\{\}\~\|]{86}\x00"
     alphabets_regexc = re.compile(alphabets_regex)
 
     # Alphabets are known to exist in the .rdata section, so just search there

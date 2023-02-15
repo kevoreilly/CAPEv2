@@ -628,12 +628,8 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
     if "MSI Installer" not in filetype:
         return
 
-    if not path_exists(selfextract_conf.msi_extract.binary):
-        log.error("Missed dependency: sudo apt install msitools")
-        return
-
     extracted_files = []
-
+    # sudo apt install msitools or 7z
     with extractor_ctx(file, "MsiExtract", prefix="msidump_") as ctx:
         tempdir = ctx["tempdir"]
         output = False

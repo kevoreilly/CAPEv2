@@ -649,7 +649,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
         else:
             output = subprocess.check_output(
                 [
-                    "/usr/bin/7z",
+                    "7z",
                     "e",
                     f"-o{tempdir}",
                     "-y",
@@ -657,9 +657,8 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
                     "Binary.*",
                 ],
                 universal_newlines=True,
-                # stderr=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
-            print(output)
             for root, _, filenames in os.walk(tempdir):
                 for filename in filenames:
                     os.rename(os.path.join(root, filename), os.path.join(root, filename.split("Binary.")[-1]))

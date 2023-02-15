@@ -398,7 +398,6 @@ def decrypt_memory(file):
 
 def main():
     print("Author: @Soolidsnake")
-    )
     parser = OptionParser()
 
     parser.add_option("-f", "--file", dest="filename", help="file", metavar="file")

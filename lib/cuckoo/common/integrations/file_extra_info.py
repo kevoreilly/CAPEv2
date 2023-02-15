@@ -633,7 +633,6 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
     with extractor_ctx(file, "MsiExtract", prefix="msidump_") as ctx:
         tempdir = ctx["tempdir"]
         output = False
-        """
         if not kwargs.get("test"):
             # msiextract in different way that 7z, we need to add subfolder support
             output = subprocess.check_output(
@@ -648,8 +647,6 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
                 if path_is_file(os.path.join(tempdir, extracted_file))
             ]
         else:
-        """
-        if True:
             output = subprocess.check_output(
                 [
                     "/usr/bin/7z",

@@ -20,7 +20,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Checkout tools repo
+      - name: Checkout test files repo
         uses: actions/checkout@v3
         with:
           repository: CAPESandbox/CAPE-TestFiles

@@ -11,12 +11,12 @@ from lib.cuckoo.common.integrations import file_extra_info
 class TestFileExtraInfo():
 
     def test_generic_file_extractors(self):
-        results = {"test": True}
+        results = {}
         data_dictionary = {"type": "MSI Installer"}
         options_dict = {}
         tmpdir = tempfile.mkdtemp()
         duplicated = {"sha256": set()}
-        file_extra_info.generic_file_extractors("tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi", tmpdir, data_dictionary, options_dict, results, duplicated)
+        file_extra_info.generic_file_extractors("tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi", tmpdir, data_dictionary, options_dict, results, duplicated, tests=True)
         assert data_dictionary["extracted_files_tool"] == "MsiExtract"
         assert len(data_dictionary["extracted_files"]) == 20
 

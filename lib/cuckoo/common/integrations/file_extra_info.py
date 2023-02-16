@@ -396,6 +396,7 @@ def generic_file_extractors(
     options: dict,
     results: dict,
     duplicated: DuplicatesType,
+    tests: False,
 ):
     """
     file - path to binary
@@ -418,6 +419,7 @@ def generic_file_extractors(
         "filetype": data_dictionary["type"],
         "data_dictionary": data_dictionary,
         "options": options,
+        "tests": tests,
     }
 
     futures = {}

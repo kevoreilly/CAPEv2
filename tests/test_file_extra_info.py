@@ -100,7 +100,7 @@ class TestFileExtraInfo():
             **{"test": True, "options": {}}
         )
         assert len(extracted_files["result"]["extracted_files"]) == 6
-        assert sorted(extracted_files["result"]["extracted_files"]) == sorted(['自述.txt', 'Lisezmoi.txt', 'Readme.txt', 'Re-LoaderByR@1n.exe', 'SetupComplete.cmd', 'Leggimi.txt'])
+        assert sorted(extracted_files["result"]["extracted_files"]) == ['自述.txt', 'Lisezmoi.txt', 'Readme.txt', 'Re-LoaderByR@1n.exe', 'SetupComplete.cmd', 'Leggimi.txt']
 
     def test_RarSFX_extract(self):
         extracted_files = file_extra_info.RarSFX_extract(
@@ -109,7 +109,7 @@ class TestFileExtraInfo():
             options = {},
         )
         assert len(extracted_files["result"]["extracted_files"]) == 3
-        assert extracted_files["result"]["extracted_files"] == ['x64.xr', 'mLib.cs', 'Manag.exe']
+        assert sorted(extracted_files["result"]["extracted_files"]) == ['mLib.cs', 'Manag.exe', 'x64.xr']
 
     def test_office_one_extract(self):
         extracted_files = file_extra_info.office_one(

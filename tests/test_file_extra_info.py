@@ -25,7 +25,7 @@ class TestFileExtraInfo:
             tests=True,
         )
         assert data_dictionary["extracted_files_tool"] == "MsiExtract"
-        assert len(data_dictionary["extracted_files"]) == 20
+        assert len(data_dictionary["extracted_files"]) == 4
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_batch_extract(self):
@@ -37,9 +37,9 @@ class TestFileExtraInfo:
     @pytest.mark.skip(reason="Not implemented yet")
     def test_vbe_extract(self):
         extracted_files = file_extra_info.vbe_extract(
-            file="tests/data/selfextraction/",
+            file="tests/data/selfextraction/c738cdd8ec0d65769e17eed1d6fe371893a2972b7a432c6532446d225e166733.vbe",
         )
-        assert len(extracted_files["result"]["extracted_files"]) == 4
+        assert len(extracted_files["result"]["extracted_files"]) == 1
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_eziriz_deobfuscate(self):

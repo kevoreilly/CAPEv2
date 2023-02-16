@@ -19,7 +19,12 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - run: git checkout HEAD^
+
+      - name: Checkout tools repo
+        uses: actions/checkout@v3
+        with:
+          repository: CAPESandbox/CAPE-TestFiles
+          path: tests/data/
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4

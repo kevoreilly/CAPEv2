@@ -8,15 +8,22 @@ import pytest
 from lib.cuckoo.common.integrations import file_extra_info
 
 
-class TestFileExtraInfo():
-
+class TestFileExtraInfo:
     def test_generic_file_extractors(self):
         results = {}
         data_dictionary = {"type": "MSI Installer"}
         options_dict = {}
         tmpdir = tempfile.mkdtemp()
         duplicated = {"sha256": set()}
-        file_extra_info.generic_file_extractors("tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi", tmpdir, data_dictionary, options_dict, results, duplicated, tests=True)
+        file_extra_info.generic_file_extractors(
+            "tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
+            tmpdir,
+            data_dictionary,
+            options_dict,
+            results,
+            duplicated,
+            tests=True,
+        )
         assert data_dictionary["extracted_files_tool"] == "MsiExtract"
         assert len(data_dictionary["extracted_files"]) == 20
 
@@ -45,9 +52,7 @@ class TestFileExtraInfo():
     @pytest.mark.skip(reason="Not implemented yet")
     def test_de4dot_deobfuscate(self):
         extracted_files = file_extra_info.de4dot_deobfuscate(
-            file="tests/data/selfextraction/",
-            filetype="Mono",
-            **{"test": True, "options": {}}
+            file="tests/data/selfextraction/", filetype="Mono", **{"test": True, "options": {}}
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
@@ -62,10 +67,10 @@ class TestFileExtraInfo():
     def test_Inno_extract(self):
         extracted_files = file_extra_info.Inno_extract(
             file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
-            data_dictionary={"die": ["Inno Setup"]}
+            data_dictionary={"die": ["Inno Setup"]},
         )
         assert len(extracted_files["result"]["extracted_files"]) == 1
-        assert extracted_files["result"]["extracted_files"] == ['app/vcfconv.exe']
+        assert extracted_files["result"]["extracted_files"] == ["app/vcfconv.exe"]
 
     @pytest.mark.skip(reason="Not implemented yet - need to include community repo")
     def test_kixtart_extract(self):
@@ -81,7 +86,7 @@ class TestFileExtraInfo():
             data_dictionary={"yara": [{"name": "AutoIT_Compiled"}]},
             **{"test": True, "options": {}}
         )
-        assert len(extracted_files["result"]["extracted_files"]) ==  4
+        assert len(extracted_files["result"]["extracted_files"]) == 4
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_UPX_unpack(self):
@@ -100,20 +105,34 @@ class TestFileExtraInfo():
             **{"test": True, "options": {}}
         )
         assert len(extracted_files["result"]["extracted_files"]) == 6
-        assert sorted(extracted_files["result"]["extracted_files"]) == ['自述.txt', 'Lisezmoi.txt', 'Readme.txt', 'Re-LoaderByR@1n.exe', 'SetupComplete.cmd', 'Leggimi.txt']
+        assert sorted(extracted_files["result"]["extracted_files"]) == [
+            "Leggimi.txt",
+            "Lisezmoi.txt",
+            "Re-LoaderByR@1n.exe",
+            "Readme.txt",
+            "SetupComplete.cmd",
+            "自述.txt",
+        ]
 
     def test_RarSFX_extract(self):
         extracted_files = file_extra_info.RarSFX_extract(
             file="tests/data/selfextraction/9e69c36d967afbb1a948a022fcfb1a6384b35b233a47e7d859145db19018d21e.sfx",
             data_dictionary={"type": "RAR self-extracting archive"},
-            options = {},
+            options={},
         )
         assert len(extracted_files["result"]["extracted_files"]) == 3
-        assert sorted(extracted_files["result"]["extracted_files"]) == ['mLib.cs', 'Manag.exe', 'x64.xr']
+        assert sorted(extracted_files["result"]["extracted_files"]) == ["Manag.exe", "mLib.cs", "x64.xr"]
 
     def test_office_one_extract(self):
         extracted_files = file_extra_info.office_one(
             file="tests/data/selfextraction/12c4d9eddce807d10e3578fcf2918366def586ec374a35957880a65dbd467efc.one",
         )
         assert len(extracted_files["result"]["extracted_files"]) == 6
-        assert extracted_files["result"]["extracted_files"] == ['_4.extracted', '_1.extracted', '_2.extracted', '_0.extracted', '_3.extracted', '_5.extracted']
+        assert extracted_files["result"]["extracted_files"] == [
+            "_4.extracted",
+            "_1.extracted",
+            "_2.extracted",
+            "_0.extracted",
+            "_3.extracted",
+            "_5.extracted",
+        ]

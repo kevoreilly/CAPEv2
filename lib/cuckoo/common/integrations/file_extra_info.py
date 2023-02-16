@@ -864,7 +864,7 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
 
 
 @time_tracker
-def office_one(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnType:
+def office_one(file, **_) -> ExtractorReturnType:
 
     if not HAVE_ONE or open(file, "rb").read(16) not in (
         b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3",

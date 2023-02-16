@@ -5,21 +5,6 @@ import pytest
 
 from lib.cuckoo.common.integrations import file_extra_info
 
-"""
-We need to cover all fileformarts so we need to find few files
-
-0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi
-9e69c36d967afbb1a948a022fcfb1a6384b35b233a47e7d859145db19018d21e.sfx
-1b0c4149df7892b2497c955dc393ed49e458062324a81288589b15492ce8b50b.upx
-ab77ea6ad4b6766e0db88d4f49c2c0075ba18b3573d7c6d07ee878bd6e71c388.7z
-2f89716421e188bfa5a0ecaf1774da429ebe8ea26ff30ab7dca309627db43825.7z
-da84979c7d5ada9fc590def8f40ba0172fb1ade21f144a26dbdfaa2198fa9e67.nsis
-5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno
-f0f451e9dc3054a32d195c88a2d98f88dc900d333de0fcdd2ea400e67519d280.7z
-60b17976fd8d49c052f9d5254b0c9ff2738868942f17f6e6f03dda5e7c592eb3.cab
-
-"""
-
 
 class TestFileExtraInfo():
     @pytest.mark.skip(reason="Not implemented yet")
@@ -73,14 +58,12 @@ class TestFileExtraInfo():
         assert len(extracted_files["result"]["extracted_files"]) == 1
         assert extracted_files["result"]["extracted_files"] == ['app/vcfconv.exe']
 
-    @pytest.mark.skip(reason="Not implemented yet")
+    @pytest.mark.skip(reason="Not implemented yet - need to include community repo")
     def test_kixtart_extract(self):
         extracted_files = file_extra_info.kixtart_extract(
-            file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
-            filetype="MSI Installer",
-            **{"test": True, "options": {}}
+            file="tests/data/selfextraction/d0d415dbe02e893fb1b2d6112c0f38d8ce65ab3268c896bfc64ba06096d4d09a.kix",
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 4
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_UnAutoIt_extract(self):
@@ -89,7 +72,7 @@ class TestFileExtraInfo():
             data_dictionary={"yara": [{"name": "AutoIT_Compiled"}]},
             **{"test": True, "options": {}}
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) ==  4
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_UPX_unpack(self):
@@ -100,14 +83,15 @@ class TestFileExtraInfo():
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
-    @pytest.mark.skip(reason="Not implemented yet")
     def test_SevenZip_unpack(self):
         extracted_files = file_extra_info.SevenZip_unpack(
             file="tests/data/selfextraction/ab77ea6ad4b6766e0db88d4f49c2c0075ba18b3573d7c6d07ee878bd6e71c388.7z",
             data_dictionary={"die": ["7-zip Installer data"]},
+            filetype="",
             **{"test": True, "options": {}}
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 6
+        assert extracted_files["result"]["extracted_files"] == ['自述.txt', 'Lisezmoi.txt', 'Readme.txt', 'Re-LoaderByR@1n.exe', 'SetupComplete.cmd', 'Leggimi.txt']
 
     def test_RarSFX_extract(self):
         extracted_files = file_extra_info.RarSFX_extract(
@@ -118,11 +102,9 @@ class TestFileExtraInfo():
         assert len(extracted_files["result"]["extracted_files"]) == 3
         assert extracted_files["result"]["extracted_files"] == ['x64.xr', 'mLib.cs', 'Manag.exe']
 
-    @pytest.mark.skip(reason="Not implemented yet")
     def test_office_one_extract(self):
-        extracted_files = file_extra_info.msi_extract(
-            file="tests/data/selfextraction/60b17976fd8d49c052f9d5254b0c9ff2738868942f17f6e6f03dda5e7c592eb3.cab",
-            filetype="MSI Installer",
-            **{"test": True, "options": {}}
+        extracted_files = file_extra_info.office_one(
+            file="tests/data/selfextraction/12c4d9eddce807d10e3578fcf2918366def586ec374a35957880a65dbd467efc.one",
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 6
+        assert extracted_files["result"]["extracted_files"] == ['_4.extracted', '_1.extracted', '_2.extracted', '_0.extracted', '_3.extracted', '_5.extracted']

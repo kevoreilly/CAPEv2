@@ -34,7 +34,6 @@ class TestFileExtraInfo:
         )
         assert len(extracted_files["result"]["extracted_files"]) == 4
 
-    @pytest.mark.skip(reason="Not implemented yet")
     def test_vbe_extract(self):
         extracted_files = file_extra_info.vbe_extract(
             file="tests/data/selfextraction/c738cdd8ec0d65769e17eed1d6fe371893a2972b7a432c6532446d225e166733.vbe",
@@ -88,14 +87,15 @@ class TestFileExtraInfo:
         )
         assert len(extracted_files["result"]["extracted_files"]) == 4
 
-    @pytest.mark.skip(reason="Not implemented yet")
     def test_UPX_unpack(self):
         extracted_files = file_extra_info.UPX_unpack(
-            file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
-            data_dictionary={"yara": [{"name": "UPX"}]},
+            file="tests/data/selfextraction/1b0c4149df7892b2497c955dc393ed49e458062324a81288589b15492ce8b50b.upx",
+            filetype="UPX compressed",
+            data_dictionary={},
             **{"test": True, "options": {}}
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 1
+        assert extracted_files["result"]["extracted_files"] == ['1b0c4149df7892b2497c955dc393ed49e458062324a81288589b15492ce8b50b.upx_unpacked']
 
     def test_SevenZip_unpack(self):
         extracted_files = file_extra_info.SevenZip_unpack(

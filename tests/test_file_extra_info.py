@@ -11,7 +11,7 @@ from lib.cuckoo.common.integrations import file_extra_info
 class TestFileExtraInfo():
 
     def test_generic_file_extractors(self):
-        results = {}
+        results = {"test": True}
         data_dictionary = {"type": "MSI Installer"}
         options_dict = {}
         tmpdir = tempfile.mkdtemp()

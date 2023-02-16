@@ -1,34 +1,43 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+import tempfile
+
 import pytest
 
 from lib.cuckoo.common.integrations import file_extra_info
 
 
 class TestFileExtraInfo():
+
+    def test_generic_file_extractors(self):
+        results = {}
+        data_dictionary = {"type": "MSI Installer"}
+        options_dict = {}
+        tmpdir = tempfile.mkdtemp()
+        duplicated = {"sha256": set()}
+        file_extra_info.generic_file_extractors("tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi", tmpdir, data_dictionary, options_dict, results, duplicated)
+        assert data_dictionary["extracted_files_tool"] == "MsiExtract"
+        assert len(data_dictionary["extracted_files"]) == 20
+
     @pytest.mark.skip(reason="Not implemented yet")
     def test_batch_extract(self):
-        extracted_files = file_extra_info.msi_extract(
-            file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
-            filetype="MSI Installer",
-            **{"test": True, "options": {}}
+        extracted_files = file_extra_info.batch_extract(
+            file="tests/data/selfextraction/",
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 4
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_vbe_extract(self):
-        extracted_files = file_extra_info.msi_extract(
-            file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
-            filetype="MSI Installer",
-            **{"test": True, "options": {}}
+        extracted_files = file_extra_info.vbe_extract(
+            file="tests/data/selfextraction/",
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 4
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_eziriz_deobfuscate(self):
         extracted_files = file_extra_info.eziriz_deobfuscate(
-            file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
+            file="tests/data/selfextraction/",
             data_dictionary={"die": ["Eziriz .NET Reactor"]} ** {"test": True, "options": {}},
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
@@ -36,7 +45,7 @@ class TestFileExtraInfo():
     @pytest.mark.skip(reason="Not implemented yet")
     def test_de4dot_deobfuscate(self):
         extracted_files = file_extra_info.de4dot_deobfuscate(
-            file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
+            file="tests/data/selfextraction/",
             filetype="Mono",
             **{"test": True, "options": {}}
         )
@@ -91,7 +100,7 @@ class TestFileExtraInfo():
             **{"test": True, "options": {}}
         )
         assert len(extracted_files["result"]["extracted_files"]) == 6
-        assert extracted_files["result"]["extracted_files"] == ['自述.txt', 'Lisezmoi.txt', 'Readme.txt', 'Re-LoaderByR@1n.exe', 'SetupComplete.cmd', 'Leggimi.txt']
+        assert sorted(extracted_files["result"]["extracted_files"]) == sorted(['自述.txt', 'Lisezmoi.txt', 'Readme.txt', 'Re-LoaderByR@1n.exe', 'SetupComplete.cmd', 'Leggimi.txt'])
 
     def test_RarSFX_extract(self):
         extracted_files = file_extra_info.RarSFX_extract(

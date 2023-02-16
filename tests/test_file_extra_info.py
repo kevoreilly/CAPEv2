@@ -95,7 +95,9 @@ class TestFileExtraInfo:
             **{"test": True, "options": {}}
         )
         assert len(extracted_files["result"]["extracted_files"]) == 1
-        assert extracted_files["result"]["extracted_files"] == ['1b0c4149df7892b2497c955dc393ed49e458062324a81288589b15492ce8b50b.upx_unpacked']
+        assert extracted_files["result"]["extracted_files"] == [
+            "1b0c4149df7892b2497c955dc393ed49e458062324a81288589b15492ce8b50b.upx_unpacked"
+        ]
 
     def test_SevenZip_unpack(self):
         extracted_files = file_extra_info.SevenZip_unpack(

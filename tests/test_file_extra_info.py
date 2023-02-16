@@ -86,7 +86,7 @@ class TestFileExtraInfo():
     def test_UnAutoIt_extract(self):
         extracted_files = file_extra_info.kixtart_extract(
             file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
-            filetype="MSI Installer",
+            data_dictionary={"yara": [{"name": "AutoIT_Compiled"}]},
             **{"test": True, "options": {}}
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
@@ -95,7 +95,7 @@ class TestFileExtraInfo():
     def test_UPX_unpack(self):
         extracted_files = file_extra_info.UPX_unpack(
             file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
-            filetype="MSI Installer",
+            data_dictionary={"yara": [{"name": "UPX"}]},
             **{"test": True, "options": {}}
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
@@ -104,7 +104,7 @@ class TestFileExtraInfo():
     def test_SevenZip_unpack(self):
         extracted_files = file_extra_info.SevenZip_unpack(
             file="tests/data/selfextraction/ab77ea6ad4b6766e0db88d4f49c2c0075ba18b3573d7c6d07ee878bd6e71c388.7z",
-            filetype="MSI Installer",
+            data_dictionary={"die": ["7-zip Installer data"]},
             **{"test": True, "options": {}}
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")

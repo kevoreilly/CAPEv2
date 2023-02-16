@@ -1,3 +1,6 @@
+### [16.2.2023]
+* Monitor update: Hooking engine stability fix for detonation issues (e.g. Word)
+
 ### [4.2.2023]
 * Monitor updates:
     * Extend svchost hookset to Winmgmt (netsvcs) service

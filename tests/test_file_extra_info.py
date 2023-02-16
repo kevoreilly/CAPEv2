@@ -128,11 +128,11 @@ class TestFileExtraInfo:
             file="tests/data/selfextraction/12c4d9eddce807d10e3578fcf2918366def586ec374a35957880a65dbd467efc.one",
         )
         assert len(extracted_files["result"]["extracted_files"]) == 6
-        assert extracted_files["result"]["extracted_files"] == [
-            "_4.extracted",
+        assert sorted(extracted_files["result"]["extracted_files"]) == [
+            "_0.extracted",
             "_1.extracted",
             "_2.extracted",
-            "_0.extracted",
             "_3.extracted",
+            "_4.extracted",
             "_5.extracted",
         ]

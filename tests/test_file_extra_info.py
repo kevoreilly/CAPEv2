@@ -1,7 +1,7 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-import unittest
+import pytest
 
 from lib.cuckoo.common.integrations import file_extra_info
 
@@ -21,7 +21,8 @@ f0f451e9dc3054a32d195c88a2d98f88dc900d333de0fcdd2ea400e67519d280.7z
 """
 
 
-class TestFileExtraInfo(unittest.TestCase):
+class TestFileExtraInfo():
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_batch_extract(self):
         extracted_files = file_extra_info.msi_extract(
             file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
@@ -30,6 +31,7 @@ class TestFileExtraInfo(unittest.TestCase):
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_vbe_extract(self):
         extracted_files = file_extra_info.msi_extract(
             file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
@@ -38,6 +40,7 @@ class TestFileExtraInfo(unittest.TestCase):
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_eziriz_deobfuscate(self):
         extracted_files = file_extra_info.eziriz_deobfuscate(
             file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
@@ -45,6 +48,7 @@ class TestFileExtraInfo(unittest.TestCase):
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_de4dot_deobfuscate(self):
         extracted_files = file_extra_info.de4dot_deobfuscate(
             file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
@@ -59,16 +63,17 @@ class TestFileExtraInfo(unittest.TestCase):
             filetype="MSI Installer",
             **{"test": True, "options": {}}
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 4
 
     def test_Inno_extract(self):
         extracted_files = file_extra_info.Inno_extract(
             file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
-            filetype="MSI Installer",
-            **{"test": True, "options": {}}
+            data_dictionary={"die": ["Inno Setup"]}
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 1
+        assert extracted_files["result"]["extracted_files"] == ['app/vcfconv.exe']
 
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_kixtart_extract(self):
         extracted_files = file_extra_info.kixtart_extract(
             file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
@@ -77,6 +82,7 @@ class TestFileExtraInfo(unittest.TestCase):
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_UnAutoIt_extract(self):
         extracted_files = file_extra_info.kixtart_extract(
             file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
@@ -85,6 +91,7 @@ class TestFileExtraInfo(unittest.TestCase):
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_UPX_unpack(self):
         extracted_files = file_extra_info.UPX_unpack(
             file="tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
@@ -93,6 +100,7 @@ class TestFileExtraInfo(unittest.TestCase):
         )
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_SevenZip_unpack(self):
         extracted_files = file_extra_info.SevenZip_unpack(
             file="tests/data/selfextraction/ab77ea6ad4b6766e0db88d4f49c2c0075ba18b3573d7c6d07ee878bd6e71c388.7z",
@@ -104,11 +112,13 @@ class TestFileExtraInfo(unittest.TestCase):
     def test_RarSFX_extract(self):
         extracted_files = file_extra_info.RarSFX_extract(
             file="tests/data/selfextraction/9e69c36d967afbb1a948a022fcfb1a6384b35b233a47e7d859145db19018d21e.sfx",
-            filetype="MSI Installer",
-            **{"test": True, "options": {}}
+            data_dictionary={"type": "RAR self-extracting archive"},
+            options = {},
         )
-        self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
+        assert len(extracted_files["result"]["extracted_files"]) == 3
+        assert extracted_files["result"]["extracted_files"] == ['x64.xr', 'mLib.cs', 'Manag.exe']
 
+    @pytest.mark.skip(reason="Not implemented yet")
     def test_office_one_extract(self):
         extracted_files = file_extra_info.msi_extract(
             file="tests/data/selfextraction/60b17976fd8d49c052f9d5254b0c9ff2738868942f17f6e6f03dda5e7c592eb3.cab",

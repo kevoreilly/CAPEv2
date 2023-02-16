@@ -25,8 +25,11 @@ class Permissions(Auxiliary):
     def start(self):
         if not self.enabled:
             return False
-        # Put locations here that you want to protect, such as the analyzer path or the Python path
-        locations = [Path.cwd(), "C:\\tmp*"]
+
+        # TODO: Put locations here that you want to protect. Do NOT put Path.cwd() or "C:\\tmp*" in the locations list,
+        # as this will crash CAPE. Type to cherry-pick directories that are important to your analysis.
+        locations = []
+
         log.debug("Adjusting permissions for %s", locations)
         for location in locations:
 

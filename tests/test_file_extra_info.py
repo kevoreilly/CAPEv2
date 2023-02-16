@@ -55,7 +55,7 @@ class TestFileExtraInfo():
         extracted_files = file_extra_info.msi_extract(
             file="tests/data/selfextraction/0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi",
             filetype="MSI Installer",
-            **{"test": True, "options": {}}
+            **{"tests": True, "options": {}}
         )
         assert len(extracted_files["result"]["extracted_files"]) == 4
 

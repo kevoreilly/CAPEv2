@@ -635,7 +635,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
     with extractor_ctx(file, "MsiExtract", prefix="msidump_") as ctx:
         tempdir = ctx["tempdir"]
         output = False
-        if not kwargs.get("test"):
+        if not kwargs.get("tests"):
             # msiextract in different way that 7z, we need to add subfolder support
             output = subprocess.check_output(
                 [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],

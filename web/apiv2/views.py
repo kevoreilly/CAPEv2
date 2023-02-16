@@ -879,7 +879,7 @@ def tasks_view(request, task_id):
         entry["sample"] = sample.to_dict()
 
     if task.status == TASK_RECOVERED and task.custom:
-        m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+        m = re.match(r"^Recovery_(?P<taskid>\d+)$", task.custom)
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)

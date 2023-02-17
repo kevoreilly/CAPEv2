@@ -41,8 +41,8 @@ class TestFileExtraInfo:
             results,
             duplicated,
         )
-        assert len(data_dictionary["result"]["extracted_files"]) == 1
-        assert data_dictionary["result"]["extracted_files"] == ["app/vcfconv.exe"]
+        assert data_dictionary["extracted_files_tool"] == "InnoExtract"
+        assert len(data_dictionary["extracted_files"]) == 1
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_batch_extract(self):

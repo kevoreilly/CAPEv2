@@ -225,6 +225,8 @@ class CAPE(Processing):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
                 file_info["guest_paths"] = list({path.get("filepath") for path in metadata.get(file_path, [])})
+                if not file_info["guest_paths"] and category == "dropped" and "CAPE" not in metadata.get("filepath", ""):
+                    file_info["guest_paths"] = [metadata.get("filepath", "")]               
                 file_info["name"] = list(
                     {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
                 ) or [metadata.get("filepath").rsplit("\\", 1)[-1]]

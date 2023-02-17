@@ -41,7 +41,7 @@ def dir_setup():
 
 
 class TestCreateFolders:
-    def setup(self):
+    def setup_method(self):
         self.tmp_dir = tempfile.gettempdir()
 
     def test_root_folder(self):

@@ -831,7 +831,7 @@ def validate_task(tid, status=TASK_REPORTED):
         return {"error": True, "error_value": "Task does not exist"}
 
     if task.status == TASK_RECOVERED and task.custom:
-        m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+        m = re.match(r"^Recovery_(?P<taskid>\d+)$", task.custom)
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)
@@ -1257,7 +1257,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         size = sample.size
         data = False
         if size > web_cfg.general.max_sample_size:
-            if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]):
+            if not (web_cfg.general.allow_ignore_size and "bypass_size_check" in details["options"]):
                 first_chunk = sample.chunks().__next__()
                 if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
                     trimmed_size = trim_sample(sample.chunks().__next__())

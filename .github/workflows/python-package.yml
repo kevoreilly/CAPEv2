@@ -17,6 +17,14 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Checkout test files repo
+        uses: actions/checkout@v3
+        with:
+          repository: CAPESandbox/CAPE-TestFiles
+          path: tests/data/
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
@@ -25,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt update && sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt-dev
+          sudo apt update && sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt-dev p7zip-full innoextract unrar upx
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
@@ -54,7 +62,7 @@ jobs:
           poetry run pflake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Run unit tests
-        run: poetry run pytest --import-mode=append
+        run: poetry run pytest -s --import-mode=append
 
       - name: Install dependencies
         run: poetry run pip install ruff

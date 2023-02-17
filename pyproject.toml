@@ -39,7 +39,7 @@ pyzipper = "0.3.5"
 flare-capa = "5.0.0"
 Cython = "0.29.24"
 # pyre2 = "0.3.6" Dead for python3.11
-Django = "4.0.9"
+Django = "4.1.7"
 SQLAlchemy = "1.4.22"
 SQLAlchemy-Utils = "0.37.8"
 Jinja2 = "^3.1.2"
@@ -77,7 +77,7 @@ django-allauth = "0.50.0"  # https://django-allauth.readthedocs.io/en/latest/con
 # httpreplay = {git = "https://github.com/CAPESandbox/httpreplay.git", rev = "0d5a5b3144ab15f93189b83ca8188afde43db134"}
 # bingraph = {git = "https://github.com/CAPESandbox/binGraph.git", rev = "552d1210ac6770f8b202d0d1fc4610cc14d878ec"}
 psycopg2 = "^2.9.3"
-Werkzeug = "2.2.2"
+Werkzeug = "2.2.3"
 
 # guac-session
 pyguacamole = "^0.11"

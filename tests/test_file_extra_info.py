@@ -29,7 +29,7 @@ class TestFileExtraInfo:
 
     def test_generic_file_extractors_no_tests(self):
         results = {}
-        data_dictionary = {"die": ["Inno Setup"]}
+        data_dictionary = {"die": ["Inno Setup"], "type": ""}
         options_dict = {}
         tmpdir = tempfile.mkdtemp()
         duplicated = {"sha256": set()}

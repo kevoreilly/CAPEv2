@@ -27,6 +27,23 @@ class TestFileExtraInfo:
         assert data_dictionary["extracted_files_tool"] == "MsiExtract"
         assert len(data_dictionary["extracted_files"]) == 4
 
+    def test_generic_file_extractors_no_tests(self):
+        results = {}
+        data_dictionary = {"die": ["Inno Setup"]}
+        options_dict = {}
+        tmpdir = tempfile.mkdtemp()
+        duplicated = {"sha256": set()}
+        file_extra_info.generic_file_extractors(
+            "tests/data/selfextraction/5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno",
+            tmpdir,
+            data_dictionary,
+            options_dict,
+            results,
+            duplicated,
+        )
+        assert len(data_dictionary["result"]["extracted_files"]) == 1
+        assert data_dictionary["result"]["extracted_files"] == ["app/vcfconv.exe"]
+
     @pytest.mark.skip(reason="Not implemented yet")
     def test_batch_extract(self):
         extracted_files = file_extra_info.batch_extract(

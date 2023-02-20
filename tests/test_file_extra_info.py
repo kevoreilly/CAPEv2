@@ -114,7 +114,7 @@ class TestFileExtraInfo:
         assert len(extracted_files["result"]["extracted_files"]) == 1
         assert extracted_files["result"]["extracted_files"] == [
             "1b0c4149df7892b2497c955dc393ed49e458062324a81288589b15492ce8b50b.upx_unpacked"
-
+        ]
     def test_SevenZip_unpack(self):
         extracted_files = file_extra_info.SevenZip_unpack(
             file="tests/data/selfextraction/ab77ea6ad4b6766e0db88d4f49c2c0075ba18b3573d7c6d07ee878bd6e71c388.7z",

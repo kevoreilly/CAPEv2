@@ -439,7 +439,7 @@ def generic_file_extractors(
             office_one,
         ):
             funcname = extraction_func.__name__
-            if not getattr(selfextract_conf, funcname).get("enabled", False):
+            if not getattr(selfextract_conf, funcname, {}).get("enabled", False):
                 continue
 
             func_timeout = int(getattr(selfextract_conf, funcname).get("timeout", 60))

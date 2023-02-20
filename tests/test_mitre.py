@@ -8,22 +8,23 @@ from utils.community import install
 
 def test_mitre_attck():
     mitre, _, pyattck_version = mitre_load(True)
-    if pyattck_version != (7, 0, 0):
-        assert mitre
+    assert mitre
 
-        data = {
-            "ttps": [
-                {"ttp": "T1486", "signature": "cape_detected_threat"},
-                {"ttp": "T1486", "signature": "cape_extracted_content"},
-            ]
-        }
+    data = {
+        "ttps": [
+            {"ttp": "T1486", "signature": "cape_detected_threat"},
+            {"ttp": "T1486", "signature": "cape_extracted_content"},
+        ]
+    }
 
-        # Download mitre jsons here
-        install(["mitre"], True, True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
-        attck = mitre_generate_attck(data, mitre)
-        assert "Impact" in attck
-        assert len(attck["Impact"]) == 1
-        assert sorted(attck["Impact"][0]["signature"]) == ["cape_detected_threat", "cape_extracted_content"]
+    # Download mitre jsons here
+    install(["mitre"], True, True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
+    attck = mitre_generate_attck(data, mitre)
+    assert "Impact" in attck
+    assert len(attck["Impact"]) == 1
+    assert sorted(attck["Impact"][0]["signature"]) == ["cape_detected_threat", "cape_extracted_content"]
+    assert not attck["Impact"][0]["t_id"].startswith("attack-pattern")
+    assert attck["Impact"][0]["t_id"] == "T1486"
 
 
 if __name__ == "__main__":

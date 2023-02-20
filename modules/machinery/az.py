@@ -443,7 +443,7 @@ class Azure(Machinery):
         else:
             self.delete_machine(label)
 
-    def availables(self, machine_id=None, platform=None, tags=None, arch=None):
+    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False):
         """
         Overloading abstracts.py:availables() to utilize the auto-scale option.
         """
@@ -457,7 +457,9 @@ class Azure(Machinery):
                     log.debug("Machinery is not ready yet...")
                     return 0
 
-        return super(Azure, self).availables(machine_id=machine_id, platform=platform, tags=tags, arch=arch)
+        return super(Azure, self).availables(
+            label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved
+        )
 
     def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
         """

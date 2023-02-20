@@ -1,3 +1,11 @@
+
+### [TBA]
+* Scheduler update:
+    * A machine may be configured with `reserved = yes` in `<machinery>.conf`. For such machines, the scheduler will
+      not use it for tasks unless the user specifically requests it by its label.
+* Database update:
+    * The 'name' of all machines defined in `<machinery>.conf` must be unique. The same goes for their 'label' fields.
+
 ### [16.2.2023]
 * Monitor update: Hooking engine stability fix for detonation issues (e.g. Word)
 

@@ -194,7 +194,7 @@ class AnalysisManager(threading.Thread):
             # In some cases it's possible that we enter this loop without
             # having any available machines. We should make sure this is not
             # such case, or the analysis task will fail completely.
-            if not machinery.availables(machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs):
+            if not machinery.availables(label=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs):
                 machine_lock.release()
                 log.debug(
                     "Task #%s: no machine available yet for machine '%s', platform '%s' or tags '%s'.",
@@ -841,7 +841,7 @@ class Scheduler:
             # If no machines are available, it's pointless to fetch for pending tasks. Loop over.
             # But if we analyze pcaps/static only it's fine
             # ToDo verify that it works with static and file/url
-            if self.categories_need_VM and not machinery.availables():
+            if self.categories_need_VM and not machinery.availables(include_reserved=True):
                 continue
             # Exits if max_analysis_count is defined in the configuration
             # file and has been reached.

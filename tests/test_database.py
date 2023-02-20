@@ -7,9 +7,12 @@ import os
 import shutil
 from tempfile import NamedTemporaryFile
 
+import pytest
+from sqlalchemy import delete
+
 from lib.cuckoo.common.path_utils import path_cwd, path_delete, path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
-from lib.cuckoo.core.database import Database, Tag, Task
+from lib.cuckoo.core.database import Database, Machine, Tag, Task
 
 
 class TestDatabaseEngine:
@@ -27,6 +30,9 @@ class TestDatabaseEngine:
         self.d = Database(dsn="sqlite://")
         # self.d.connect(dsn=self.URI)
         self.session = self.d.Session()
+        stmt = delete(Machine)
+        self.session.execute(stmt)
+        self.session.commit()
         self.binary_storage = os.path.join(path_cwd(), "storage/binaries")
         path_mkdir(self.binary_storage)
 
@@ -144,7 +150,7 @@ class TestDatabaseEngine:
     def test_add_machine(self):
         self.d.add_machine(
             name="name1",
-            label="label",
+            label="label1",
             ip="1.2.3.4",
             platform="windows",
             tags="tag1 tag2",
@@ -153,10 +159,11 @@ class TestDatabaseEngine:
             resultserver_ip="5.6.7.8",
             resultserver_port=2043,
             arch="x64",
+            reserved=False,
         )
         self.d.add_machine(
             name="name2",
-            label="label",
+            label="label2",
             ip="1.2.3.4",
             platform="windows",
             tags="tag1 tag2",
@@ -165,6 +172,7 @@ class TestDatabaseEngine:
             resultserver_ip="5.6.7.8",
             resultserver_port=2043,
             arch="x64",
+            reserved=True,
         )
         m1 = self.d.view_machine("name1")
         m2 = self.d.view_machine("name2")
@@ -176,7 +184,7 @@ class TestDatabaseEngine:
             "resultserver_ip": "5.6.7.8",
             "ip": "1.2.3.4",
             "tags": ["tag1tag2"],
-            "label": "label",
+            "label": "label1",
             "locked_changed_on": None,
             "platform": "windows",
             "snapshot": "snap0",
@@ -185,13 +193,14 @@ class TestDatabaseEngine:
             "id": 1,
             "resultserver_port": "2043",
             "arch": "x64",
+            "reserved": False,
         }
 
         assert m2.to_dict() == {
             "id": 2,
             "interface": "int0",
             "ip": "1.2.3.4",
-            "label": "label",
+            "label": "label2",
             "locked": False,
             "locked_changed_on": None,
             "name": "name2",
@@ -203,9 +212,23 @@ class TestDatabaseEngine:
             "status_changed_on": None,
             "tags": ["tag1tag2"],
             "arch": "x64",
+            "reserved": True,
         }
 
-    def test_is_serviceable(self):
+    @pytest.mark.parametrize(
+        "reserved,requested_platform,requested_machine,is_serviceable",
+        (
+            (False, "windows", None, True),
+            (False, "linux", None, False),
+            (False, "windows", "label", True),
+            (False, "linux", "label", False),
+            (True, "windows", None, False),
+            (True, "linux", None, False),
+            (True, "windows", "label", True),
+            (True, "linux", "label", False),
+        ),
+    )
+    def test_serviceability(self, reserved, requested_platform, requested_machine, is_serviceable):
         self.d.add_machine(
             name="win10-x64-1",
             label="label",
@@ -217,28 +240,11 @@ class TestDatabaseEngine:
             resultserver_ip="5.6.7.8",
             resultserver_port=2043,
             arch="x64",
+            reserved=reserved,
         )
         task = Task()
-        task.platform = "windows"
+        task.platform = requested_platform
+        task.machine = requested_machine
         task.tags = [Tag("tag1")]
         # tasks matching the available machines are serviceable
-        assert self.d.is_serviceable(task)
-
-    def test_is_not_serviceable(self):
-        self.d.add_machine(
-            name="win10-x64-1",
-            label="label",
-            ip="1.2.3.4",
-            platform="windows",
-            tags="tag1",
-            interface="int0",
-            snapshot="snap0",
-            resultserver_ip="5.6.7.8",
-            resultserver_port=2043,
-            arch="x64",
-        )
-        task = Task()
-        task.platform = "linux"
-        task.tags = [Tag("tag1")]
-        # tasks not matching the available machines aren't serviceable
-        assert not self.d.is_serviceable(task)
+        assert self.d.is_serviceable(task) is is_serviceable

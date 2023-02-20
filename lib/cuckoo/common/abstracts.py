@@ -232,7 +232,7 @@ class Machinery:
 
     def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False):
         """How many (relevant) machines are free.
-        @param machine_id: machine ID.
+        @param label: machine ID.
         @param platform: machine platform.
         @param tags: machine tags
         @param arch: machine arch

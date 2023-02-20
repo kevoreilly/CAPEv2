@@ -1122,7 +1122,7 @@ class Database(object, metaclass=Singleton):
     @classlock
     def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False):
         """How many (relevant) virtual machines are ready for analysis.
-        @param machine_id: machine ID.
+        @param label: machine ID.
         @param platform: machine platform.
         @param tags: machine tags
         @param arch: machine arch

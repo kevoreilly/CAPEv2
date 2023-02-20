@@ -24,6 +24,7 @@ if repconf.mongodb.enabled:
         username=repconf.mongodb.get("username"),
         password=repconf.mongodb.get("password"),
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
+        tlsCAFile=repconf.mongodb.get("tlscafile", None),
     )[repconf.mongodb.db]
     FULL_DB = True
 

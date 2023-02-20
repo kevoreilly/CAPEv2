@@ -396,7 +396,7 @@ def generic_file_extractors(
     options: dict,
     results: dict,
     duplicated: DuplicatesType,
-    tests: False,
+    tests: bool = False,
 ):
     """
     file - path to binary

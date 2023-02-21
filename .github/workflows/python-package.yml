@@ -1,5 +1,8 @@
 name: Python package
 
+env:
+  COLUMNS: 120
+
 on:
   push:
     branches: [ master ]

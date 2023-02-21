@@ -789,18 +789,19 @@ django = "*"
 
 [[package]]
 name = "djangorestframework"
-version = "3.12.4"
+version = "3.14.0"
 description = "Web APIs for Django, made easy."
 category = "main"
 optional = false
-python-versions = ">=3.5"
+python-versions = ">=3.6"
 files = [
-    {file = "djangorestframework-3.12.4-py3-none-any.whl", hash = "sha256:6d1d59f623a5ad0509fe0d6bfe93cbdfe17b8116ebc8eda86d45f6e16e819aaf"},
-    {file = "djangorestframework-3.12.4.tar.gz", hash = "sha256:f747949a8ddac876e879190df194b925c177cdeb725a099db1460872f7c0a7f2"},
+    {file = "djangorestframework-3.14.0-py3-none-any.whl", hash = "sha256:eb63f58c9f218e1a7d064d17a70751f528ed4e1d35547fdade9aaf4cd103fd08"},
+    {file = "djangorestframework-3.14.0.tar.gz", hash = "sha256:579a333e6256b09489cbe0a067e66abe55c6595d8926be6b99423786334350c8"},
 ]
 
 [package.dependencies]
-django = ">=2.2"
+django = ">=3.0"
+pytz = "*"
 
 [[package]]
 name = "dncil"
@@ -4066,4 +4067,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "11e1762cdeec0dbe9fe9703e4e43b4a55c2bb03f3924532067568774f28cf321"
+content-hash = "d9d0eb154e534bbcbc113f073bcc4955001b1f9d403823ad4a62c95e64e16fb5"

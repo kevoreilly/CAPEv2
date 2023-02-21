@@ -472,6 +472,7 @@ class Task(Base):
     shrike_msg = Column(String(4096), nullable=True)
     shrike_sid = Column(Integer(), nullable=True)
 
+    # To be removed - Deprecate soon, not used anymore
     parent_id = Column(Integer(), nullable=True)
     tlp = Column(String(255), nullable=True)
 
@@ -2031,25 +2032,6 @@ class Database(object, metaclass=Singleton):
             session.close()
 
         return uniq
-
-    @classlock
-    def list_parents(self, parent_id):
-        """
-        Retrieve tasks created by ID
-        @param parent_id: filter tasks created by parent ID
-        """
-        session = self.Session()
-        try:
-            tasks = session.query(Task).filter(Task.parent_id == parent_id).all()
-            if tasks:
-                return [[task.id, task.package] for task in tasks]
-            else:
-                return []
-        except SQLAlchemyError as e:
-            log.debug("Database error listing tasks: %s", e)
-            return []
-        finally:
-            session.close()
 
     @classlock
     def list_sample_parent(self, sample_id=False, task_id=False):

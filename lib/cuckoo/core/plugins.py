@@ -709,14 +709,7 @@ class RunReporting:
         try:
             log.debug('Executing reporting module "%s"', current.__class__.__name__)
             pretime = timeit.default_timer()
-
-            if module_name == "submitCAPE" and self.reprocess:
-                tasks = db.list_parents(self.task["id"])
-                if tasks:
-                    self.results["CAPE_children"] = tasks
-                return
-            else:
-                current.run(self.results)
+            current.run(self.results)
             timediff = timeit.default_timer() - pretime
             self.results["statistics"]["reporting"].append(
                 {

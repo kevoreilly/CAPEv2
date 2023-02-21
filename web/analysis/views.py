@@ -1385,9 +1385,6 @@ def report(request, task_id):
             with suppress(Exception):
                 report["behavior"]["summary"] = json.loads(zlib.decompress(report["behavior"]["summary"]))
     children = 0
-    if "CAPE_children" in report:
-        children = report["CAPE_children"]
-
     report["CAPE"] = 0
     report["dropped"] = 0
     report["procdump"] = 0

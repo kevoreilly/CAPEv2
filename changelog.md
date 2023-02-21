@@ -1,5 +1,7 @@
 ### [24.2.2023] CAPE 2.4: 🌻 Edition
 * New Unpacker option: `unpacker=2`
+* Deprecated:
+    * submitCAPE.py - no more additional jobs
 * Staging branch:
     * We want to have CAPE stable. So new features will go to staging branch for 1-2 weeks before merged to master.
     * If you want to help us to spot any possible issue use that branch on your dev side.

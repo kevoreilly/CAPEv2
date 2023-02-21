@@ -6,7 +6,7 @@
 LIB_VERSION=9.0.0
 cd /tmp || return
 
-if [ ! -f v${LIB_VERSION}.zip ]
+if [ ! -f v${LIB_VERSION}.zip ]; then
     wget "https://github.com/libvirt/libvirt-python/archive/v${LIB_VERSION}.zip"
     unzip "v${LIB_VERSION}"
 fi

@@ -17,20 +17,20 @@ def mitre_generate_attck(results, mitre):
     for ttp in results["ttps"]:
         ttp_dict.setdefault(ttp["ttp"], set()).add(ttp["signature"])
     try:
-        for technique in sorted(mitre.enterprise.techniques, key=lambda x: x.technique_id):
+        for technique in mitre.enterprise.techniques:
             if technique.technique_id not in list(ttp_dict.keys()):
                 continue
             for tactic in technique.tactics:
                 attck.setdefault(tactic.name, []).append(
                     {
-                        "t_id": technique.id,
+                        "t_id": technique.technique_id,
                         "ttp_name": technique.name,
                         "description": technique.description,
                         "signature": list(ttp_dict[technique.technique_id]),
                     }
                 )
     except FileNotFoundError:
-        print("MITRE Att&ck data missed, execute: 'python3 utils/community.py -waf'")
+        print("MITRE Att&ck data missed, execute: 'python3 utils/community.py -waf --mitre'")
     except Exception as e:
         # simplejson.errors.JSONDecodeError
         log.error(("Mitre", e))

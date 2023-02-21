@@ -7,7 +7,7 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-future = "0.18.3"
+alembic = "1.9.4"
 gevent = "22.10.2"
 greenlet = "2.0.1"
 Pebble = "4.6.3"

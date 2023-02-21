@@ -594,7 +594,7 @@ class Database(object, metaclass=Singleton):
                 print(
                     f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                 )
-                print(red("cd utils/db_migration/ && alembic upgrade head"))
+                print(red("cd utils/db_migration/ && poetry run alembic upgrade head"))
                 sys.exit()
 
     def __del__(self):

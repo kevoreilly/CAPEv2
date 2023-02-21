@@ -5,7 +5,7 @@ import struct
 
 import pefile
 import regex as re
-from Crypto.Cipher import AES
+from Cryptodome.Cipher import AES
 
 DESCRIPTION = "NightHawk C2 DLL configuration parser."
 AUTHOR = "Nikhil Ashok Hegde <@ka1do9>"

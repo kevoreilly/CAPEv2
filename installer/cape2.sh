@@ -1298,7 +1298,6 @@ fi
 case "$COMMAND" in
 'base')
     dependencies
-    install_volatility3
     install_mongo
     install_suricata
     install_yara

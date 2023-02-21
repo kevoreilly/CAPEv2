@@ -1121,14 +1121,14 @@ function install_CAPE() {
     mkdir -p "/opt/CAPEv2/custom/conf"
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
-    cd CAPEv2 || return
+    cd "/opt/CAPEv2/" || return
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
-    cp -r "conf/*.conf" "custom/conf"
+    cp -r conf/*.conf "custom/conf"
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" custom/conf/cuckoo.conf
     sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf
     #sed -i "/memory_dump = off/cmemory_dump = on" custom/conf/cuckoo.conf

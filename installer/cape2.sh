@@ -1118,6 +1118,7 @@ function install_CAPE() {
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
+    mkdir -p custom/conf
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
     cd CAPEv2 || return
@@ -1127,7 +1128,6 @@ function install_CAPE() {
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
-    mkdir -p custom/conf
     cp -r "conf/*.conf" custom/conf
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" custom/conf/cuckoo.conf
     sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf

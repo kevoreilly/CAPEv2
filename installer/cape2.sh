@@ -1128,7 +1128,7 @@ function install_CAPE() {
 
     cp -r conf/*.conf "custom/conf"
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" custom/conf/cuckoo.conf
-    sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf
+    # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf
     #sed -i "/memory_dump = off/cmemory_dump = on" custom/conf/cuckoo.conf
     #sed -i "/machinery =/cmachinery = kvm" custom/conf/cuckoo.conf
     sed -i "/interface =/cinterface = ${NETWORK_IFACE}" custom/conf/auxiliary.conf

@@ -181,25 +181,22 @@ files.
 
 Note about VMs tags in hypervisor conf as kvm.conf::
 
-* If you have **x64** and **x86** VMs:
-* **x64** VMs should have both **x64** and **x86** tags. Otherwise only **x64** tag
-* **x86** VMs should have only **x86** tag.
+* If you have ``x64`` and ``x86`` VMs:
+* ``x64`` VMs should have both ``x64`` and ``x86`` tags. Otherwise only ``x64`` tag
+* ``x86`` VMs should have only ``x86`` tag.
 * You can use any other tags, just to work properly you need those two.
 * Probably will be improved in future for better solution
 
 conf/cuckoo.conf
 ^^^^^^^^^^^^^^^^
 
-Update ``process_results`` to ``off`` as we will be running our results
-processing script (for performance reasons).
-
-Update ``tmppath`` to something that holds enough storage to store a few
+Optional: Update ``tmppath`` to something that holds enough storage to store a few
 hundred binaries. On some servers or setups ``/tmp`` may have a limited amount
 of space and thus this wouldn't suffice.
 
-Update ``connection`` to use something that is *not* sqlite3. Preferably PostgreSQL or
-MySQL. SQLite3 doesn't support multi-threaded applications that well and this
-will give errors at random if used.
+Update ``connection`` to use something that is *not* sqlite3. Preferably PostgreSQL.
+SQLite3 doesn't support multi-threaded applications that well and this
+will give errors at random if used. Neither support database schema upgrade.
 
 conf/processing.conf
 ^^^^^^^^^^^^^^^^^^^^
@@ -279,42 +276,7 @@ Installation of "uwsgi"::
     # apt-get install uwsgi uwsgi-plugin-python3 nginx
 
 
-It's better if you run "web" and "dist.py" as uwsgi application
-
-uwsgi config for dist.py - Found at ``/opt/CAPE/uwsgi/capedist.ini``::
-
-        [uwsgi]
-        ; you might need to adjust plugin-dir path for your system
-        ; plugins-dir = /usr/lib/uwsgi/plugins
-        plugins = python38
-        callable = app
-        ; For venvs see - https://uwsgi-docs.readthedocs.io/en/latest/Python.html#virtualenv-support
-        ; virtualenv = path_to_venv
-        ;change this patch if is different
-        chdir = /opt/CAPEv2/utils
-        master = true
-        mount = /=dist.py
-        threads = 5
-        workers = 1
-        manage-script-name = true
-        ; if you will use with nginx, comment next line
-        socket = 0.0.0.0:9003
-        safe-pidfile = /tmp/dist.pid
-        protocol=http
-        enable-threads = true
-        lazy = true
-        lazy-apps = True
-        timeout = 600
-        chmod-socket = 664
-        chown-socket = cape:cape
-        gui = cape
-        uid = cape
-        harakiri = 30
-        hunder-lock = True
-        stats = 127.0.0.1:9191
-
-
-To run your api with config just execute as::
+It's better if you run "web" and "dist.py" as uwsgi application. To run your api with config just execute as::
 
     # WEBGUI is started by systemd as cape-web.service
     $ uwsgi --ini /opt/CAPEv2/uwsgi/capedist.ini

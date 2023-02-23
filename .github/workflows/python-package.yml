@@ -108,6 +108,7 @@ jobs:
       - name: Format with black
         run: poetry run black .
 
+      # to be replaced with ruff
       - name: Format imports with isort
         run: poetry run isort .
 

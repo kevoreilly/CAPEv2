@@ -12,14 +12,14 @@ Dependencies
 The distributed script uses a few Python libraries which can be installed
 through the following command (on Debian/Ubuntu)::
 
-    $ sudo pip3 install flask flask-restful flask-sqlalchemy requests
+    $ poetry run pip install flask flask-restful flask-sqlalchemy requests
 
 Starting the Distributed REST API
 =================================
 
 The Distributed REST API requires a few commandline options in order to run::
 
-    $ cd /opt/CAPEv2/web && python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
+    $ cd /opt/CAPEv2/web && poetry run python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
 
 RESTful resources
@@ -75,7 +75,7 @@ POST /node
 ----------
 
 Register a new CAPE node by providing the name and the URL. Optionally the apikey if auth is enabled,
-You might need to enable ``list_exitnodes`` and ``machinelist`` in ``conf/api.conf``
+You might need to enable ``list_exitnodes`` and ``machinelist`` in ``custom/conf/api.conf``
 if your Node API is behing htaccess authentication::
 
     $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/ -F apikey=apikey
@@ -187,7 +187,7 @@ Note about VMs tags in hypervisor conf as kvm.conf::
 * You can use any other tags, just to work properly you need those two.
 * Probably will be improved in future for better solution
 
-conf/cuckoo.conf
+custom/conf/cuckoo.conf
 ^^^^^^^^^^^^^^^^
 
 Optional: Update ``tmppath`` to something that holds enough storage to store a few
@@ -198,17 +198,20 @@ Update ``connection`` to use something that is *not* sqlite3. Preferably Postgre
 SQLite3 doesn't support multi-threaded applications that well and this
 will give errors at random if used. Neither support database schema upgrade.
 
-conf/processing.conf
+custom/conf/processing.conf
 ^^^^^^^^^^^^^^^^^^^^
 
 You may want to disable some processing modules, such as ``virustotal``.
 
-conf/reporting.conf
+custom/conf/reporting.conf
 ^^^^^^^^^^^^^^^^^^^
 
 Depending on which report(s) are required for integration with your system it
 might make sense to only make those report(s) that you're going to use. Thus
 disable the other ones.
+
+custom/conf/distributed.conf
+^^^^^^^^^^^^^^^^^^^
 
 Check also "[distributed]" section, where you can set the database, path for samples,
 and a few more values.
@@ -254,7 +257,7 @@ way to do that is to disable the node, so no more tasks get submitted to it::
    $ ./dist.py --node NAME --disable
 
 Wait for all running VMs to finish their tasks, and then restart the workers ``./cuckoo.py``, this will
-re-insert the previously deleted VMs into the Database from ``conf/virtualbox.conf``.
+re-insert the previously deleted VMs into the Database from ``custom/conf/virtualbox.conf``.
 
 Update the VM list on the master::
 
@@ -273,7 +276,7 @@ The number of retrieved threads can be configured in reporting.conf
 Installation of "uwsgi"::
 
     # nginx is optional
-    # apt-get install uwsgi uwsgi-plugin-python3 nginx
+    # apt install uwsgi uwsgi-plugin-python3 nginx
 
 
 It's better if you run "web" and "dist.py" as uwsgi application. To run your api with config just execute as::
@@ -521,7 +524,7 @@ CAPE worker(s) (NFS calls it servers)::
 
 On CAPE main server run:
     Run `mount -a` to mount all NFS
-    Edit `conf/reporting.conf` -> distributed -> nfs=yes
+    Edit `custom/conf/reporting.conf` -> distributed -> nfs=yes
 
 Online:
 

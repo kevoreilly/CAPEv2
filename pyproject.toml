@@ -104,6 +104,10 @@ httpretty = "^1.1.4"
 func-timeout = "^4.3.5"
 pre-commit = "^2.19.0"
 
+[tool.ruff]
+select = ["E", "F"]
+ignore = ["E402","E501"]
+
 [tool.black]
 line-length = 132
 include = "\\.py(_disabled)?$"

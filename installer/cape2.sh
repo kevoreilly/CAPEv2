@@ -603,7 +603,10 @@ function redsocks2() {
 
 function distributed() {
     sudo apt install uwsgi uwsgi-plugin-python3 nginx -y 2>/dev/null
-     sudo -u ${USER} bash -c 'poetry run pip install flask flask-restful flask-sqlalchemy requests'
+    sudo -u ${USER} bash -c 'poetry run pip install flask flask-restful flask-sqlalchemy requests'
+
+    sudo cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
+    sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
 
     sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}dist\"";
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER}dist to ${USER};\""

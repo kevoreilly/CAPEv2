@@ -217,6 +217,11 @@ Check also "[distributed]" section, where you can set the database, path for sam
 and a few more values.
 *Do not* use sqlite3! Use PostgreSQL database for performance and thread safe.
 
+Update ``db`` to use something that is *not* sqlite3. Preferably PostgreSQL.
+SQLite3 doesn't support multi-threaded applications that well and this
+will give errors at random if used. Neither support database schema upgrade.
+
+
 Register CAPE nodes
 ---------------------
 
@@ -245,27 +250,27 @@ having to restart the ``./cuckoo.py`` daemon.
 
 First, get a list of available VMs that are running on the worker::
 
-   $ ./dist.py --node NAME
+   $ poetry run python dist.py --node NAME
 
 Secondly, you can remove VMs from being used by CAPE with::
 
-   $ ./dist.py --node NAME --delete-vm VM_NAME
+   $ poetry run python dist.py --node NAME --delete-vm VM_NAME
 
 When you are done editing your VMs you need to add them back to be used by ``cuckoo``. The easiest
 way to do that is to disable the node, so no more tasks get submitted to it::
 
-   $ ./dist.py --node NAME --disable
+   $ poetry run python dist.py --node NAME --disable
 
 Wait for all running VMs to finish their tasks, and then restart the workers ``./cuckoo.py``, this will
 re-insert the previously deleted VMs into the Database from ``custom/conf/virtualbox.conf``.
 
 Update the VM list on the master::
 
-   $ ./dist.py --node NAME
+   $ poetry run python dist.py --node NAME
 
 And enable the worker again::
 
-   $ ./dist.py --node NAME --enable
+   $ poetry run python dist.py --node NAME --enable
 
 
 Good practice for production

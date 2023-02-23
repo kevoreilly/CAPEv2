@@ -6,6 +6,7 @@
     * We want to have CAPE stable. So new features will go to staging branch for 1-2 weeks before merged to master.
     * If you want to help us to spot any possible issue use that branch on your dev side.
 * We need help to add as much tests as possible to cover all possible cases to prevent broken code.
+* Stop using `conf/` folder. All config should be in `custom/conf/`. This will simplify your life on CAPE updates when new entry added to base templates. [Details](https://github.com/kevoreilly/CAPEv2/blob/master/conf/readme.md)
 
 ### [20.2.2023]
 * Scheduler update:

@@ -14,22 +14,6 @@
     {% endif %}
 
     <div class="row">
-    {% if children|length > 0 %}
-    <div class="col-lg-1" style="padding-right: 0px;">
-        <div class="panel panel-primary" style="height: 114px;">
-            <div class="panel-heading">
-                <h4 class="panel-title" style="text-align: center;">Auto Tasks</h4>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                    {% for child in children %}
-                        <h4 style="text-align:center; font-size: 100%;font-weight-bold" ;><a href="/submit/status/{{ child.0 }}/">#{{ child.0 }}: {{ child.1 }}</a></h4>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
     {% if analysis.detections and children|length > 0 %}
         <div class="col-lg-11">
     {% elif analysis.detections or children|length > 0 %}

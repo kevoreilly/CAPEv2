@@ -275,7 +275,7 @@ class BsonStore(ProtocolHandler):
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
         log failures."""
-        log.debug("Task #%s is sending a BSON stream. For pid %d", self.task_id, self.version)
+        log.debug("Task #%s is sending a BSON stream for pid %d", self.task_id, self.version)
         if self.fd:
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)

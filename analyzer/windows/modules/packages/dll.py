@@ -58,9 +58,9 @@ class Dll(Package):
         run_multiple_functions = False
 
         if function:
-            # If user has requested we use functions (by name or by ordinal number), separated by commas
-            if enable_multi and "," in function:
-                function = function.split(",")
+            # If user has requested we use functions (by name or by ordinal number), separated by pipes
+            if enable_multi and ":" in function:
+                function = function.split(":")
                 run_multiple_functions = True
 
             # If user has requested we use an ordinal range, separated by a hyphen or by ..
@@ -68,7 +68,7 @@ class Dll(Package):
                 run_ordinal_range = True
 
             # If the user has not enabled multi, but requested multiple functions, log it and default to #1
-            elif not enable_multi and ("," in function or "-" in function or ".." in function):
+            elif not enable_multi and (":" in function or "-" in function or ".." in function):
                 log.warning("You need to enable the `enable_multi` option if you want to run multiple functions.")
                 # Setting function to the first ordinal number since the user does not want use to run multiple functions.
                 function = "#1"

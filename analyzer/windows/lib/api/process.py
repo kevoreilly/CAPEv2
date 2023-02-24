@@ -571,7 +571,6 @@ class Process:
                 config.write(f"referrer={get_referrer_url(interest)}\n")
 
             server_options = [
-                "disable_cape",
                 "dll",
                 "dll_64",
                 "loader",

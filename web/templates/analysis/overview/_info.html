@@ -2,41 +2,12 @@
 
     {% if analysis.detections %}
         <p  style="text-align:center; font-size: 18px;font-weight-bold";>Detection(s):
-        <!--ToDo remove soon-->
-        {% if analysis.detections|is_string %}
-            <a href="/analysis/search/detections:{{analysis.detections}}" data-toggle="tooltip" data-placement="top"><span class="badge badge-danger">{{analysis.detections}}</span></a>
-        {% else %}
-            {% for block  in analysis.detections %}
-                <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge badge-danger"  title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}&#013;{% endif %}{% endfor %}{% endfor %}">{{block.family}}</span></a>
-            {% endfor %}
-            </p>
-        {% endif %}
+        {% for block  in analysis.detections %}
+            <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge badge-danger"  title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}&#013;{% endif %}{% endfor %}{% endfor %}">{{block.family}}</span></a>
+        {% endfor %}
+        </p>
     {% endif %}
 
-    <div class="row">
-    {% if children|length > 0 %}
-    <div class="col-lg-1" style="padding-right: 0px;">
-        <div class="panel panel-primary" style="height: 114px;">
-            <div class="panel-heading">
-                <h4 class="panel-title" style="text-align: center;">Auto Tasks</h4>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                    {% for child in children %}
-                        <h4 style="text-align:center; font-size: 100%;font-weight-bold" ;><a href="/submit/status/{{ child.0 }}/">#{{ child.0 }}: {{ child.1 }}</a></h4>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    {% if analysis.detections and children|length > 0 %}
-        <div class="col-lg-11">
-    {% elif analysis.detections or children|length > 0 %}
-        <div class="col-lg-12">
-    {% else %}
-        <div class="col-lg-12">
-    {% endif %}
     <div class="panel panel-primary">
         <div class="panel-heading">
             <h4 class="panel-title">Analysis</h4>

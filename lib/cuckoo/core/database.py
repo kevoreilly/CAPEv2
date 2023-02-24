@@ -114,7 +114,7 @@ if repconf.elasticsearchdb.enabled:
 
     es = elastic_handler
 
-SCHEMA_VERSION = "02af0b0ec686"
+SCHEMA_VERSION = "d6aa5d949b70"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -194,8 +194,8 @@ class Machine(Base):
     __tablename__ = "machines"
 
     id = Column(Integer(), primary_key=True)
-    name = Column(String(255), nullable=False)
-    label = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False, unique=True)
+    label = Column(String(255), nullable=False, unique=True)
     arch = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     platform = Column(String(255), nullable=False)
@@ -208,6 +208,7 @@ class Machine(Base):
     status_changed_on = Column(DateTime(timezone=False), nullable=True)
     resultserver_ip = Column(String(255), nullable=False)
     resultserver_port = Column(String(255), nullable=False)
+    reserved = Column(Boolean(), nullable=False, default=False)
 
     def __repr__(self):
         return f"<Machine('{self.id}','{self.name}')>"
@@ -234,7 +235,7 @@ class Machine(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, name, label, arch, ip, platform, interface, snapshot, resultserver_ip, resultserver_port):
+    def __init__(self, name, label, arch, ip, platform, interface, snapshot, resultserver_ip, resultserver_port, reserved):
         self.name = name
         self.label = label
         self.arch = arch
@@ -244,6 +245,7 @@ class Machine(Base):
         self.snapshot = snapshot
         self.resultserver_ip = resultserver_ip
         self.resultserver_port = resultserver_port
+        self.reserved = reserved
 
 
 class Tag(Base):
@@ -470,6 +472,7 @@ class Task(Base):
     shrike_msg = Column(String(4096), nullable=True)
     shrike_sid = Column(Integer(), nullable=True)
 
+    # To be removed - Deprecate soon, not used anymore
     parent_id = Column(Integer(), nullable=True)
     tlp = Column(String(255), nullable=True)
 
@@ -591,7 +594,7 @@ class Database(object, metaclass=Singleton):
                 print(
                     f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                 )
-                print(red("cd utils/db_migration/ && alembic upgrade head"))
+                print(red("cd utils/db_migration/ && poetry run alembic upgrade head"))
                 sys.exit()
 
     def __del__(self):
@@ -677,7 +680,7 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def add_machine(self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port):
+    def add_machine(self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port, reserved):
         """Add a guest machine.
         @param name: machine id
         @param label: machine label
@@ -689,6 +692,7 @@ class Database(object, metaclass=Singleton):
         @param snapshot: snapshot name to use instead of the current one, if configured
         @param resultserver_ip: IP address of the Result Server
         @param resultserver_port: port of the Result Server
+        @param reserved: True if the machine can only be used when specifically requested
         """
         session = self.Session()
         machine = Machine(
@@ -701,6 +705,7 @@ class Database(object, metaclass=Singleton):
             snapshot=snapshot,
             resultserver_ip=resultserver_ip,
             resultserver_port=resultserver_port,
+            reserved=reserved,
         )
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
@@ -983,7 +988,7 @@ class Database(object, metaclass=Singleton):
         return machines
 
     @classlock
-    def list_machines(self, locked=None, label=None, name=None, platform=None, tags=[], arch=None):
+    def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None, include_reserved=False):
         """Lists virtual machines.
         @return: list of virtual machines
         """
@@ -998,10 +1003,10 @@ class Database(object, metaclass=Singleton):
             machines = session.query(Machine).options(joinedload("tags"))
             if locked is not None and isinstance(locked, bool):
                 machines = machines.filter_by(locked=locked)
-            if name:
-                machines = machines.filter_by(name=name)
             if label:
                 machines = machines.filter_by(label=label)
+            elif not include_reserved:
+                machines = machines.filter_by(reserved=False)
             if platform:
                 machines = machines.filter_by(platform=platform)
             machines = self.filter_machines_by_arch(machines, arch)
@@ -1042,6 +1047,8 @@ class Database(object, metaclass=Singleton):
             machines = session.query(Machine)
             if label:
                 machines = machines.filter_by(label=label)
+            else:
+                machines = machines.filter_by(reserved=False)
             if platform:
                 machines = machines.filter_by(platform=platform)
             machines = self.filter_machines_by_arch(machines, arch)
@@ -1114,19 +1121,22 @@ class Database(object, metaclass=Singleton):
         return machine
 
     @classlock
-    def count_machines_available(self, machine_id=None, platform=None, tags=None, arch=None):
+    def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False):
         """How many (relevant) virtual machines are ready for analysis.
-        @param machine_id: machine ID.
+        @param label: machine ID.
         @param platform: machine platform.
         @param tags: machine tags
         @param arch: machine arch
+        @param include_reserved: include 'reserved' machines in the result, regardless of whether or not a 'label' was provided.
         @return: free virtual machines count
         """
         session = self.Session()
         try:
             machines = session.query(Machine).filter_by(locked=False)
-            if machine_id:
-                machines = machines.filter_by(label=machine_id)
+            if label:
+                machines = machines.filter_by(label=label)
+            elif not include_reserved:
+                machines = machines.filter_by(reserved=False)
             if platform:
                 machines = machines.filter_by(platform=platform)
             machines = self.filter_machines_by_arch(machines, arch)
@@ -2022,25 +2032,6 @@ class Database(object, metaclass=Singleton):
             session.close()
 
         return uniq
-
-    @classlock
-    def list_parents(self, parent_id):
-        """
-        Retrieve tasks created by ID
-        @param parent_id: filter tasks created by parent ID
-        """
-        session = self.Session()
-        try:
-            tasks = session.query(Task).filter(Task.parent_id == parent_id).all()
-            if tasks:
-                return [[task.id, task.package] for task in tasks]
-            else:
-                return []
-        except SQLAlchemyError as e:
-            log.debug("Database error listing tasks: %s", e)
-            return []
-        finally:
-            session.close()
 
     @classlock
     def list_sample_parent(self, sample_id=False, task_id=False):

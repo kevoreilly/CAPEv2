@@ -369,7 +369,7 @@ $(document).ready( function() {
                                                 </tr>
                                                 <tr>
                                                     <td><code>function</code></td>
-                                                    <td>When using the dll package, set the name of the exported function to execute</td>
+                                                    <td>When using the dll package, set the name of the exported function/ordinal to execute. Can be multiple function/ordinals splited by colon. Ex: function=func1:func2</td>
                                                 </tr>
                                                 <tr>
                                                     <td><code>dllloader</code></td>
@@ -515,6 +515,10 @@ $(document).ready( function() {
                                                     <td><code>ignore_size_check</code></td>
                                                     <td>Allow ignore file size, must be enabled in conf/web.conf</td>
                                                 </tr>
+                                                <tr>
+                                                    <td><code>unpacker</code></td>
+                                                    <td>Ex: unpacker=2 - Add description here</td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -617,7 +621,7 @@ $(document).ready( function() {
                             </div>
                             <div class="form-check">
                                 <label>
-                                    <input type="checkbox" name="disable_cape" /> Disable automatic job submission </small></span>
+                                    <input type="checkbox" name="unpacker" /> 'Active' unpacking <span class="text-muted"><small>(uses debugger breakpoints - Beta) </small></span>
                                 </label>
                             </div>
                             <div class="form-check">

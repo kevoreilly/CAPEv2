@@ -435,7 +435,7 @@ class Retriever(threading.Thread):
         for thr in self.threads:
             try:
                 thr.join(timeout=0.0)
-                log.info(f"Thread: {thr.getName()} - Alive: {thr.is_alive()}")
+                log.info(f"Thread: {thr.get_name()} - Alive: {thr.is_alive()}")
             except Exception as e:
                 log.exception(e)
             time.sleep(60)
@@ -534,7 +534,7 @@ class Retriever(threading.Thread):
         last_checks = {}
         # to not exit till cleaner works
         db = session()
-        while not self.stop_dist.isSet():
+        while not self.stop_dist.is_set():
             # .with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.last_check)
             for node in db.query(Node).filter_by(enabled=True).all():
                 self.status_count.setdefault(node.name, 0)
@@ -591,7 +591,7 @@ class Retriever(threading.Thread):
     def fetch_latest_reports_nfs(self):
         db = session()
         # to not exit till cleaner works
-        while not self.stop_dist.isSet():
+        while not self.stop_dist.is_set():
             task, node_id = self.fetcher_queue.get()
 
             self.current_queue.setdefault(node_id, []).append(task["id"])
@@ -676,7 +676,7 @@ class Retriever(threading.Thread):
     def fetch_latest_reports(self):
         db = session()
         # to not exit till cleaner works
-        while not self.stop_dist.isSet():
+        while not self.stop_dist.is_set():
             task, node_id = self.fetcher_queue.get()
 
             self.current_queue.setdefault(node_id, []).append(task["id"])

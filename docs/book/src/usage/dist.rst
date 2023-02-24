@@ -12,14 +12,14 @@ Dependencies
 The distributed script uses a few Python libraries which can be installed
 through the following command (on Debian/Ubuntu)::
 
-    $ sudo pip3 install flask flask-restful flask-sqlalchemy requests
+    $ poetry run pip install flask flask-restful flask-sqlalchemy requests
 
 Starting the Distributed REST API
 =================================
 
 The Distributed REST API requires a few commandline options in order to run::
 
-    $ cd /opt/CAPEv2/web && python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
+    $ cd /opt/CAPEv2/web && poetry run python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
 
 RESTful resources
@@ -75,7 +75,7 @@ POST /node
 ----------
 
 Register a new CAPE node by providing the name and the URL. Optionally the apikey if auth is enabled,
-You might need to enable ``list_exitnodes`` and ``machinelist`` in ``conf/api.conf``
+You might need to enable ``list_exitnodes`` and ``machinelist`` in ``custom/conf/api.conf``
 if your Node API is behing htaccess authentication::
 
     $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/ -F apikey=apikey
@@ -181,41 +181,46 @@ files.
 
 Note about VMs tags in hypervisor conf as kvm.conf::
 
-* If you have **x64** and **x86** VMs:
-* **x64** VMs should have both **x64** and **x86** tags. Otherwise only **x64** tag
-* **x86** VMs should have only **x86** tag.
+* If you have ``x64`` and ``x86`` VMs:
+* ``x64`` VMs should have both ``x64`` and ``x86`` tags. Otherwise only ``x64`` tag
+* ``x86`` VMs should have only ``x86`` tag.
 * You can use any other tags, just to work properly you need those two.
 * Probably will be improved in future for better solution
 
-conf/cuckoo.conf
+custom/conf/cuckoo.conf
 ^^^^^^^^^^^^^^^^
 
-Update ``process_results`` to ``off`` as we will be running our results
-processing script (for performance reasons).
-
-Update ``tmppath`` to something that holds enough storage to store a few
+Optional: Update ``tmppath`` to something that holds enough storage to store a few
 hundred binaries. On some servers or setups ``/tmp`` may have a limited amount
 of space and thus this wouldn't suffice.
 
-Update ``connection`` to use something that is *not* sqlite3. Preferably PostgreSQL or
-MySQL. SQLite3 doesn't support multi-threaded applications that well and this
-will give errors at random if used.
+Update ``connection`` to use something that is *not* sqlite3. Preferably PostgreSQL.
+SQLite3 doesn't support multi-threaded applications that well and this
+will give errors at random if used. Neither support database schema upgrade.
 
-conf/processing.conf
+custom/conf/processing.conf
 ^^^^^^^^^^^^^^^^^^^^
 
 You may want to disable some processing modules, such as ``virustotal``.
 
-conf/reporting.conf
+custom/conf/reporting.conf
 ^^^^^^^^^^^^^^^^^^^
 
 Depending on which report(s) are required for integration with your system it
 might make sense to only make those report(s) that you're going to use. Thus
 disable the other ones.
 
+custom/conf/distributed.conf
+^^^^^^^^^^^^^^^^^^^
+
 Check also "[distributed]" section, where you can set the database, path for samples,
 and a few more values.
 *Do not* use sqlite3! Use PostgreSQL database for performance and thread safe.
+
+Update ``db`` to use something that is *not* sqlite3. Preferably PostgreSQL.
+SQLite3 doesn't support multi-threaded applications that well and this
+will give errors at random if used. Neither support database schema upgrade.
+
 
 Register CAPE nodes
 ---------------------
@@ -245,27 +250,27 @@ having to restart the ``./cuckoo.py`` daemon.
 
 First, get a list of available VMs that are running on the worker::
 
-   $ ./dist.py --node NAME
+   $ poetry run python dist.py --node NAME
 
 Secondly, you can remove VMs from being used by CAPE with::
 
-   $ ./dist.py --node NAME --delete-vm VM_NAME
+   $ poetry run python dist.py --node NAME --delete-vm VM_NAME
 
 When you are done editing your VMs you need to add them back to be used by ``cuckoo``. The easiest
 way to do that is to disable the node, so no more tasks get submitted to it::
 
-   $ ./dist.py --node NAME --disable
+   $ poetry run python dist.py --node NAME --disable
 
 Wait for all running VMs to finish their tasks, and then restart the workers ``./cuckoo.py``, this will
-re-insert the previously deleted VMs into the Database from ``conf/virtualbox.conf``.
+re-insert the previously deleted VMs into the Database from ``custom/conf/virtualbox.conf``.
 
 Update the VM list on the master::
 
-   $ ./dist.py --node NAME
+   $ poetry run python dist.py --node NAME
 
 And enable the worker again::
 
-   $ ./dist.py --node NAME --enable
+   $ poetry run python dist.py --node NAME --enable
 
 
 Good practice for production
@@ -276,45 +281,10 @@ The number of retrieved threads can be configured in reporting.conf
 Installation of "uwsgi"::
 
     # nginx is optional
-    # apt-get install uwsgi uwsgi-plugin-python3 nginx
+    # apt install uwsgi uwsgi-plugin-python3 nginx
 
 
-It's better if you run "web" and "dist.py" as uwsgi application
-
-uwsgi config for dist.py - Found at ``/opt/CAPE/uwsgi/capedist.ini``::
-
-        [uwsgi]
-        ; you might need to adjust plugin-dir path for your system
-        ; plugins-dir = /usr/lib/uwsgi/plugins
-        plugins = python38
-        callable = app
-        ; For venvs see - https://uwsgi-docs.readthedocs.io/en/latest/Python.html#virtualenv-support
-        ; virtualenv = path_to_venv
-        ;change this patch if is different
-        chdir = /opt/CAPEv2/utils
-        master = true
-        mount = /=dist.py
-        threads = 5
-        workers = 1
-        manage-script-name = true
-        ; if you will use with nginx, comment next line
-        socket = 0.0.0.0:9003
-        safe-pidfile = /tmp/dist.pid
-        protocol=http
-        enable-threads = true
-        lazy = true
-        lazy-apps = True
-        timeout = 600
-        chmod-socket = 664
-        chown-socket = cape:cape
-        gui = cape
-        uid = cape
-        harakiri = 30
-        hunder-lock = True
-        stats = 127.0.0.1:9191
-
-
-To run your api with config just execute as::
+It's better if you run "web" and "dist.py" as uwsgi application. To run your api with config just execute as::
 
     # WEBGUI is started by systemd as cape-web.service
     $ uwsgi --ini /opt/CAPEv2/uwsgi/capedist.ini
@@ -559,7 +529,7 @@ CAPE worker(s) (NFS calls it servers)::
 
 On CAPE main server run:
     Run `mount -a` to mount all NFS
-    Edit `conf/reporting.conf` -> distributed -> nfs=yes
+    Edit `custom/conf/reporting.conf` -> distributed -> nfs=yes
 
 Online:
 

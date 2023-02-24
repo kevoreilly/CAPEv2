@@ -1384,10 +1384,6 @@ def report(request, task_id):
         if report.get("behavior", {}).get("summary", {}):
             with suppress(Exception):
                 report["behavior"]["summary"] = json.loads(zlib.decompress(report["behavior"]["summary"]))
-    children = 0
-    if "CAPE_children" in report:
-        children = report["CAPE_children"]
-
     report["CAPE"] = 0
     report["dropped"] = 0
     report["procdump"] = 0
@@ -1548,7 +1544,6 @@ def report(request, task_id):
             "tab_name": "static",
             "source_url": report["info"].get("source_url", ""),
             # till here
-            "children": children,
             "domainlookups": domainlookups,
             "iplookups": iplookups,
             "settings": settings,

@@ -205,7 +205,7 @@ class TestAnalysisManager:
 
     def test_acquire_machine(self, setup_machinery, setup_machine_lock):
         class mock_machinery:
-            def availables(self, machine_id, platform, tags, arch):
+            def availables(self, label, platform, tags, arch):
                 return True
 
             def acquire(self, machine_id, platform, tags, arch):

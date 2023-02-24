@@ -197,7 +197,7 @@ class RunProcessing:
         """@param task: task dictionary of the analysis to process."""
         self.task = task
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
-        self.cfg = Config("processing")
+        self.cfg = processing_cfg
         self.cuckoo_cfg = Config()
         self.results = results
 
@@ -318,7 +318,7 @@ class RunSignatures:
         self.task = task
         self.results = results
         self.ttps = []
-        self.cfg_processing = Config("processing")
+        self.cfg_processing = processing_cfg
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
 
         # Gather all enabled & up-to-date Signatures.
@@ -667,7 +667,7 @@ class RunReporting:
 
         self.results = results
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
-        self.cfg = Config("reporting")
+        self.cfg = reporting_cfg
         self.reprocess = reprocess
 
     def process(self, module):
@@ -709,14 +709,7 @@ class RunReporting:
         try:
             log.debug('Executing reporting module "%s"', current.__class__.__name__)
             pretime = timeit.default_timer()
-
-            if module_name == "submitCAPE" and self.reprocess:
-                tasks = db.list_parents(self.task["id"])
-                if tasks:
-                    self.results["CAPE_children"] = tasks
-                return
-            else:
-                current.run(self.results)
+            current.run(self.results)
             timediff = timeit.default_timer() - pretime
             self.results["statistics"]["reporting"].append(
                 {

@@ -58,7 +58,7 @@ class Dll(Package):
         run_multiple_functions = False
 
         if function:
-            # If user has requested we use functions (by name or by ordinal number), separated by pipes
+            # If user has requested we use functions (by name or by ordinal number), separated by colon
             if enable_multi and ":" in function:
                 function = function.split(":")
                 run_multiple_functions = True

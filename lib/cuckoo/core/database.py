@@ -114,7 +114,7 @@ if repconf.elasticsearchdb.enabled:
 
     es = elastic_handler
 
-SCHEMA_VERSION = "d6aa5d949b70"
+SCHEMA_VERSION = "a8441ab0fd0f"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -413,7 +413,7 @@ class Task(Base):
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
     tags = relationship("Tag", secondary=tasks_tags, backref="tasks", lazy="subquery")
-    options = Column(String(1024), nullable=True)
+    options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
     enforce_timeout = Column(Boolean, nullable=False, default=False)

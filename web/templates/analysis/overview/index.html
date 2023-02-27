@@ -4,26 +4,28 @@
 {% if analysis.malware_conf %}
     {% for config_block in analysis.malware_conf %}
         {% for family, config in config_block.items %}
-        <div class="card-header">
-            <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span> {{family}} Config</span></a>
-            {% if analysis.info.has_cents_rules %}
-            <a class="btn btn-secondary btn-sm" href="{% url "filereport" analysis.info.id "cents" %}"><span class="fas fa-download"></span> CENTS ruleset</a>
+            {% if family not in "associated_config_hashes,associated_analysis_hashes" %}
+            <div class="card-header">
+                <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span> {{family}} Config</span></a>
+                {% if analysis.info.has_cents_rules %}
+                    <a class="btn btn-secondary btn-sm" href="{% url "filereport" analysis.info.id "cents" %}"><span class="fas fa-download"></span> CENTS ruleset</a>
+                {% endif %}
+            </div>
+            <div id="{{family}}_config" class="collapse show">
+                <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                    <tr>
+                        <th style="border-top: 0; width: 15%;">Type</th>
+                        <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
+                    </tr>
+                    {% for key, value in config.items %}
+                    <tr>
+                        <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
+                        <td style="border-top: 0; word-wrap: break-word;">{% malware_config value %}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
             {% endif %}
-        </div>
-        <div id="{{family}}_config" class="collapse show">
-            <table class="table table-striped table-bordered" style="table-layout: fixed;">
-                <tr>
-                    <th style="border-top: 0; width: 15%;">Type</th>
-                    <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
-                </tr>
-                {% for key, value in config.items %}
-                <tr>
-                    <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
-                    <td style="border-top: 0; word-wrap: break-word;">{% malware_config value %}</td>
-                </tr>
-                {% endfor %}
-            </table>
-        </div>
         {% endfor %}
     {% endfor %}
 <hr />

@@ -244,9 +244,6 @@ def index(request, task_id=None, resubmit_hash=None):
         elif "sample" in request.FILES:
             task_category = "sample"
             samples = request.FILES.getlist("sample")
-        elif "quarantine" in request.FILES:
-            task_category = "quarantine"
-            samples = request.FILES.getlist("quarantine")
         elif "static" in request.FILES:
             task_category = "static"
             samples = request.FILES.getlist("static")
@@ -282,7 +279,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 elif task_category == "url":
                     list_of_tasks.append(("", url, "", None))
 
-        elif task_category in ("sample", "quarantine", "static", "pcap"):
+        elif task_category in ("sample", "static", "pcap"):
             list_of_tasks, details = process_new_task_files(request, samples, details, opt_filename, unique)
 
         elif task_category == "resubmit":
@@ -342,7 +339,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 list_of_tasks.append((content, path, hash, None))
 
         # Hack for resubmit first find all files and then put task as proper category
-        if job_category and job_category in ("resubmit", "sample", "quarantine", "static", "pcap", "dlnexec", "vtdl"):
+        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl"):
             task_category = job_category
 
         if task_category == "resubmit":
@@ -397,26 +394,6 @@ def index(request, task_id=None, resubmit_hash=None):
                         for record in records:
                             if record.get("target").get("file", {}).get("sha256"):
                                 existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
-                    details["task_ids"] = task_ids_tmp
-
-        elif task_category == "quarantine":
-            for content, tmp_path, sha256, _ in list_of_tasks:
-                path = unquarantine(tmp_path)
-                try:
-                    path_delete(tmp_path)
-                except Exception as e:
-                    print(e)
-
-                if not path:
-                    details["errors"].append({os.path.basename(path): "You uploaded an unsupported quarantine file."})
-                    continue
-
-                details["path"] = path
-                details["content"] = content
-                status, task_ids_tmp = download_file(**details)
-                if status == "error":
-                    details["errors"].append({os.path.basename(path): task_ids_tmp})
-                else:
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "static":

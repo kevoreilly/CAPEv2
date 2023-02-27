@@ -28,7 +28,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (
     convert_to_printable,
@@ -245,7 +244,6 @@ def tasks_create_file(request):
             return Response(resp)
         resp["error"] = False
         # Parse potential POST options (see submission/views.py)
-        quarantine = request.data.get("quarantine", "")
         pcap = request.data.get("pcap", "")
 
         (
@@ -340,18 +338,6 @@ def tasks_create_file(request):
                 task_id = db.add_static(file_path=tmp_path, priority=priority, user_id=request.user.id or 0)
                 details["task_ids"].append(task_id)
                 continue
-            if quarantine:
-                path = unquarantine(tmp_path)
-                try:
-                    path_delete(tmp_path)
-                    tmp_path = path
-                except Exception as e:
-                    print(e, "removing quarantine")
-
-                if not path:
-                    details["error"].append({os.path.basename(tmp_path): "You uploaded an unsupported quarantine file."})
-                    continue
-
             if tmp_path:
                 details["path"] = tmp_path
                 details["content"] = content

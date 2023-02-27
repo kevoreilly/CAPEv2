@@ -52,7 +52,7 @@ maxminddb = "2.2.0"
 Pillow = ">=8.2.0"
 python-whois = "0.7.3"
 bs4 = "0.0.1"
-pydeep = "0.4"
+pydeep2 = "0.5.1"
 django-recaptcha = "3.0.0"  # https://pypi.org/project/django-recaptcha/
 django-crispy-forms = "1.14.0"
 django-settings-export = "1.2.1"

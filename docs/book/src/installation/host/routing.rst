@@ -115,6 +115,9 @@ necessary.
 As an example we'll be configuring :ref:`routing_internet` (aka the
 ``dirty line``) for which we'll be using as example ``eth0`` network interface.
 You need to replace ``eth0`` with your server main network interface.
+To get your default network interface you can run::
+
+    * ``ip route | grep '^default'|awk '{print $5}'``
 
 To configure ``iproute2`` with ``eth0`` we're going to open the
 ``/etc/iproute2/rt_tables`` file which will look roughly as follows::

@@ -5,14 +5,14 @@
 """2_4_0_change_options_to_text
 
 Revision ID: a8441ab0fd0f
-Revises: 02af0b0ec686
+Revises: d6aa5d949b70
 Create Date: 2023-02-24 16:59:10.667367
 
 """
 
 # revision identifiers, used by Alembic.
 revision = 'a8441ab0fd0f'
-down_revision = '02af0b0ec686'
+down_revision = 'd6aa5d949b70'
 
 from alembic import op
 import sqlalchemy as sa

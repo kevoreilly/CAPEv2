@@ -245,7 +245,7 @@ def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) ->
                 )
                 append_file = False
         if not file_info.get("pe") or not cape_file.get("pe"):
-            continue
+            return append_file
         if file_info["pe"].get("entrypoint") and file_info["pe"].get("ep_bytes") and cape_file["pe"].get("entrypoint"):
             if (
                 file_info["pe"]["entrypoint"] == cape_file["pe"]["entrypoint"]
@@ -254,7 +254,6 @@ def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) ->
             ):
                 log.debug("CAPE duplicate output file skipped: matching entrypoint")
                 append_file = False
-
 
     return append_file
 

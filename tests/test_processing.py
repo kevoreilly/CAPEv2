@@ -107,7 +107,7 @@ class TestAnalysisConfigLinks:
         assert hashes["sha512"] == "fake-sha512"
         assert hashes["sha3_384"] == "fake-sha3_384"
 
-    @pytest.mark.parametrize("category", ["resubmit", "sample", "quarantine", "pcap", "url", "dlnexec", "vtdl"])
+    @pytest.mark.parametrize("category", ["resubmit", "sample", "pcap", "url", "dlnexec", "vtdl"])
     def test_static_links(self, category):
         cape_proc_module = CAPE()
         cape_proc_module._set_dict_keys()

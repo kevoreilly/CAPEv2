@@ -1,3 +1,7 @@
+### [TBD]
+* Msix/MsixBundle package works only on Windows >= 10
+* Quarantine is integrated into normal file submission so you don't need to know if file is normal or quarantined.
+
 ### [24.2.2023] CAPE 2.4: 🌻 Edition
 * New Unpacker option: `unpacker=2`
 * Deprecated:

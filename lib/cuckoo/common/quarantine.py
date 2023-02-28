@@ -452,7 +452,7 @@ def mse_ksa():
         0x82,
         0x53,
     ]
-    sbox = range(256)
+    sbox = list(range(256))
     j = 0
     for i in range(256):
         j = (j + sbox[i] + key[i]) % 256
@@ -503,7 +503,9 @@ def mse_unquarantine(f):
     # of files, match them up by name, and then associate that data here
     # for the final submission
 
-    return store_temp_file(outdata[headerlen:], "MSEDequarantineFile")
+    sha256 = hashlib.sha256(outdata[headerlen:]).hexdigest()
+
+    return store_temp_file(outdata[headerlen:], sha256[:23])
 
 
 # Never before published; reversed & developed by Optiv, Inc.
@@ -743,7 +745,7 @@ def unquarantine(f):
         except Exception as e:
             print(e)
 
-    for func in (kav_unquarantine, trend_unquarantine, sep_unquarantine, mse_unquarantine, xorff_unquarantine):
+    for func in (mse_unquarantine, kav_unquarantine, trend_unquarantine, sep_unquarantine):
         with contextlib.suppress(Exception):
             quarfile = func(f)
             if quarfile:

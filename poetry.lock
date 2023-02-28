@@ -1683,19 +1683,19 @@ files = [
 
 [[package]]
 name = "msoffcrypto-tool"
-version = "5.0.0"
+version = "5.0.1"
 description = "Python tool and library for decrypting MS Office files with passwords or other keys"
 category = "main"
 optional = false
-python-versions = ">=3.6,<4.0"
+python-versions = ">=3.7,<4.0"
 files = [
-    {file = "msoffcrypto-tool-5.0.0.tar.gz", hash = "sha256:34cbdb3efe62d9ca08aa59aadb1dc7d46a8ec2fb4befb89807f2d3c00b9c3ede"},
-    {file = "msoffcrypto_tool-5.0.0-py3-none-any.whl", hash = "sha256:4fe95a7a4525d6261ff7373a2027b97308ec2302a40a6718b34dffbc738c00c9"},
+    {file = "msoffcrypto_tool-5.0.1-py3-none-any.whl", hash = "sha256:2b489c8a2b13bec07b94c8f5ce9054111dec3223ff8bedfd486cae3c299be54b"},
+    {file = "msoffcrypto_tool-5.0.1.tar.gz", hash = "sha256:9efd0ef5cc3e086e2d175e7a5d7b2b8cb59836c896b8a486d362bbca166db645"},
 ]
 
 [package.dependencies]
-cryptography = ">=2.3"
-olefile = ">=0.45"
+cryptography = ">=35.0"
+olefile = ">=0.46"
 
 [[package]]
 name = "mypy-extensions"
@@ -3240,13 +3240,13 @@ testing-integration = ["build[virtualenv]", "filelock (>=3.4.0)", "jaraco.envs (
 
 [[package]]
 name = "sflock2"
-version = "0.3.44"
+version = "0.3.45"
 description = "Sample staging and detonation utility"
 category = "main"
 optional = false
 python-versions = "*"
 files = [
-    {file = "SFlock2-0.3.44.tar.gz", hash = "sha256:896bf61ecb8898222e0dc16f2bd237d2ea6c50f1f68d4dbf19c020b4b6ceb516"},
+    {file = "SFlock2-0.3.45.tar.gz", hash = "sha256:03bf6742c3d03c1087991ae71a5e9372b727574b970abffe89900456f323d108"},
 ]
 
 [package.dependencies]
@@ -4070,4 +4070,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "150e9f4c9d57d3d25a659ce5c11928c2fbf516a71c84309dfcf12076d78afb9c"
+content-hash = "da44becbfb722e6337ef29a8014944fcd2dd3525c46e834b773214c9a657f747"

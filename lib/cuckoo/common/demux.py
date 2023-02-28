@@ -44,6 +44,8 @@ demux_extensions_list = {
     b".jar",
     b".pdf",
     b".msi",
+    b".msix",
+    b".msixbundle",
     b".bin",
     b".scr",
     b".zip",

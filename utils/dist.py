@@ -435,7 +435,7 @@ class Retriever(threading.Thread):
         for thr in self.threads:
             try:
                 thr.join(timeout=0.0)
-                log.info(f"Thread: {thr.get_name()} - Alive: {thr.is_alive()}")
+                log.info(f"Thread: {thr.name} - Alive: {thr.is_alive()}")
             except Exception as e:
                 log.exception(e)
             time.sleep(60)

@@ -58,7 +58,8 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 
 HAVE_GCP = False
 if dist_conf.GCP.enabled:
-    from lib.cuckoo.common.gcp import HAVE_GCP, GCP
+    from lib.cuckoo.common.gcp import GCP, HAVE_GCP
+
     cloud = GCP()
 
 # we need original db to reserve ID in db,

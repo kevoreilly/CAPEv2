@@ -1020,7 +1020,9 @@ class StatusThread(threading.Thread):
         db = session()
         master_storage_only = False
         if not dist_conf.distributed.master_storage_only:
-            master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=main_server_name).first()
+            master = (
+                db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=main_server_name).first()
+            )
             if master is None:
                 master_storage_only = True
             elif db.query(Machine).filter_by(node_id=master.id).count() == 0:
@@ -1124,7 +1126,8 @@ class StatusThread(threading.Thread):
                             continue
 
                     elif (
-                        statuses.get(main_server_name, {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get(main_server_name, 0)
+                        statuses.get(main_server_name, {}).get("tasks", {}).get("pending", 0)
+                        > MINIMUMQUEUE.get(main_server_name, 0)
                         and status["tasks"]["pending"] < MINIMUMQUEUE[node.name]
                     ):
                         res = self.submit_tasks(node.name, pend_tasks_num, db=db)

@@ -5,8 +5,8 @@ import time
 from lib.cuckoo.common.config import Config
 
 try:
-    from google.cloud import compute_v1
     from google.api_core.exceptions import Forbidden
+    from google.cloud import compute_v1
 
     HAVE_GCP = True
 except ImportError:

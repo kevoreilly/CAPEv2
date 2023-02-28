@@ -58,7 +58,8 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 
 HAVE_GCP = False
 if dist_conf.GCP.enabled:
-    from lib.cuckoo.common.gcp import HAVE_GCP, autodiscovery
+    from lib.cuckoo.common.gcp import HAVE_GCP, GCP
+    cloud = GCP()
 
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
@@ -385,7 +386,7 @@ class Retriever(threading.Thread):
 
         if dist_conf.GCP.enabled and HAVE_GCP:
             # autodiscovery is generic name so in case if we have AWS or Azure it should implement the logic inside
-            thread = threading.Thread(target=autodiscovery, name="autodiscovery", args=())
+            thread = threading.Thread(target=cloud.autodiscovery, name="autodiscovery", args=())
             thread.daemon = True
             thread.start()
             self.threads.append(thread)

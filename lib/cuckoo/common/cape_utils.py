@@ -238,13 +238,14 @@ def convert(data):
 def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) -> bool:
     if file_info.get("pe") and cape_file.get("pe"):
         if HAVE_PYDEEP:
-            ssdeep_grade = pydeep.compare(file_info["pe"]["ssdeep"].encode(), cape_file["pe"]["ssdeep"].encode())
+            ssdeep_grade = pydeep.compare(file_info["ssdeep"], cape_file["ssdeep"])
             if ssdeep_grade >= ssdeep_threshold:
                 log.debug(
-                    "CAPE duplicate output file skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold
+                    "Duplicate payload skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold
                 )
                 append_file = False
-
+        if not file_info.get("pe") or not cape_file.get("pe"):
+            continue
         if file_info["pe"].get("entrypoint") and file_info["pe"].get("ep_bytes") and cape_file["pe"].get("entrypoint"):
             if (
                 file_info["pe"]["entrypoint"] == cape_file["pe"]["entrypoint"]
@@ -253,6 +254,7 @@ def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) ->
             ):
                 log.debug("CAPE duplicate output file skipped: matching entrypoint")
                 append_file = False
+
 
     return append_file
 

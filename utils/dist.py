@@ -54,6 +54,7 @@ from lib.cuckoo.core.database import (
 from lib.cuckoo.core.database import Task as MD_Task
 
 dist_conf = Config("distributed")
+main_server_name = dist_conf.distributed.get("main_server_name", "master")
 
 HAVE_GCP = False
 if dist_conf.GCP.enabled:
@@ -219,7 +220,7 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
 def _delete_many(node, ids, nodes, db):
 
-    if nodes[node].name == "master":
+    if nodes[node].name == main_server_name:
         return
     try:
         url = os.path.join(nodes[node].url, "tasks", "delete_many/")
@@ -247,7 +248,7 @@ def node_submit_task(task_id, node_id):
     task = db.query(Task).filter_by(id=task_id).first()
     check = False
     try:
-        if node.name == "master":
+        if node.name == main_server_name:
             return
 
         # Remove the earlier appended comma
@@ -829,7 +830,7 @@ class StatusThread(threading.Thread):
                 db.commit()
                 main_db.set_status(task.main_task_id, TASK_PENDING)
 
-        if node.name != "master":
+        if node.name != main_server_name:
             # don"t do nothing if nothing in pending
             # Get tasks from main_db submitted through web interface
             main_db_tasks = main_db.list_tasks(
@@ -876,7 +877,7 @@ class StatusThread(threading.Thread):
                     if tasks:
                         for task in tasks:
                             # log.info("Deleting incorrectly uploaded file from dist db, main_task_id: {}".format(t.id))
-                            if node.name == "master":
+                            if node.name == main_server_name:
                                 main_db.set_status(t.id, TASK_RUNNING)
                             else:
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
@@ -938,7 +939,7 @@ class StatusThread(threading.Thread):
                         # Submit appropriate tasks to node
                         submitted = node_submit_task(task.id, node.id)
                         if submitted:
-                            if node.name == "master":
+                            if node.name == main_server_name:
                                 main_db.set_status(t.id, TASK_RUNNING)
                             else:
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
@@ -981,7 +982,7 @@ class StatusThread(threading.Thread):
                 for task in to_upload:
                     submitted = node_submit_task(task.id, node.id)
                     if submitted:
-                        if node.name == "master":
+                        if node.name == main_server_name:
                             main_db.set_status(task.main_task_id, TASK_RUNNING)
                         else:
                             main_db.set_status(task.main_task_id, TASK_DISTRIBUTED)
@@ -1019,7 +1020,7 @@ class StatusThread(threading.Thread):
         db = session()
         master_storage_only = False
         if not dist_conf.distributed.master_storage_only:
-            master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name="master").first()
+            master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=main_server_name).first()
             if master is None:
                 master_storage_only = True
             elif db.query(Machine).filter_by(node_id=master.id).count() == 0:
@@ -1123,7 +1124,7 @@ class StatusThread(threading.Thread):
                             continue
 
                     elif (
-                        statuses.get("master", {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0)
+                        statuses.get(main_server_name, {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get(main_server_name, 0)
                         and status["tasks"]["pending"] < MINIMUMQUEUE[node.name]
                     ):
                         res = self.submit_tasks(node.name, pend_tasks_num, db=db)

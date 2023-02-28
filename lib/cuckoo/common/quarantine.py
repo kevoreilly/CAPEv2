@@ -29,8 +29,8 @@ def bytearray_xor(data, key):
 
 def read_trend_tag(data, offset):
     """@return a code byte and data tuple"""
-    code, length = struct.unpack("<BH", data[offset: offset + 3])
-    return code, bytes(data[offset + 3: offset + 3 + length])
+    code, length = struct.unpack("<BH", data[offset : offset + 3])
+    return code, bytes(data[offset + 3 : offset + 3 + length])
 
 
 log = logging.getLogger(__name__)
@@ -98,24 +98,24 @@ log = logging.getLogger(__name__)
 
 def read_sep_tag(data, offset):
     """@return a code byte, metalength, metaval, and extra data tuple"""
-    code = struct.unpack("B", data[offset: offset + 1])[0]
+    code = struct.unpack("B", data[offset : offset + 1])[0]
     codeval = 0
     retdata = ""
     length = 0
 
     if code in {1, 10}:
         length = 2
-        codeval = struct.unpack("B", data[offset + 1: offset + 2])[0]
+        codeval = struct.unpack("B", data[offset + 1 : offset + 2])[0]
     elif code in {3, 6}:
         length = 5
-        codeval = struct.unpack("<I", data[offset + 1: offset + 5])[0]
+        codeval = struct.unpack("<I", data[offset + 1 : offset + 5])[0]
     elif code == 4:
         length = 9
-        codeval = struct.unpack("<Q", data[offset + 1: offset + 9])[0]
+        codeval = struct.unpack("<Q", data[offset + 1 : offset + 9])[0]
     else:
         length = 5
-        codeval = struct.unpack("<I", data[offset + 1: offset + 5])[0]
-        retdata = bytes(data[offset + 5: offset + 5 + codeval])
+        codeval = struct.unpack("<I", data[offset + 1 : offset + 5])[0]
+        retdata = bytes(data[offset + 5 : offset + 5 + codeval])
     return code, length, codeval, retdata
 
 
@@ -155,25 +155,25 @@ def sep_unquarantine(f):
                 for i in range(len(tagdata)):
                     data[offset + 5 + i] ^= 0xFF
                 if has_header:
-                    headerlen = 12 + struct.unpack_from("<I", data[offset + 5 + 8: offset + 5 + 12])[0] + 28
-                    binsize = struct.unpack_from("<I", data[offset + 5 + headerlen - 12: offset + 5 + headerlen - 8])[0]
+                    headerlen = 12 + struct.unpack_from("<I", data[offset + 5 + 8 : offset + 5 + 12])[0] + 28
+                    binsize = struct.unpack_from("<I", data[offset + 5 + headerlen - 12 : offset + 5 + headerlen - 8])[0]
                     collectedsize += len(tagdata) - headerlen
                     binlen = min(binsize, collectedsize)
-                    bindata += data[offset + 5 + headerlen: offset + 5 + headerlen + binlen]
+                    bindata += data[offset + 5 + headerlen : offset + 5 + headerlen + binlen]
                     has_header = False
                 else:
                     binlen = len(tagdata)
                     collectedsize += binlen
                     if collectedsize > binsize:
                         binlen -= collectedsize - binsize
-                    bindata += data[offset + 5: offset + 5 + binlen]
+                    bindata += data[offset + 5 : offset + 5 + binlen]
             elif decode_next_container:
                 extralen = 0
                 decode_next_container = False
             elif codeval in (0x10, 0x8):
                 if codeval == 0x8:
                     xor_next_container = True
-                    lastlen = struct.unpack_from("<Q", data[offset + 5: offset + 5 + 8])[0]
+                    lastlen = struct.unpack_from("<Q", data[offset + 5 : offset + 5 + 8])[0]
                 else:
                     xor_next_container = False
                 decode_next_container = True
@@ -492,7 +492,7 @@ def mse_unquarantine(f):
 
     headerlen = 0x28 + struct.unpack("<I", outdata[8:12])[0]
 
-    origlen = struct.unpack("<I", outdata[headerlen - 12: headerlen - 8])[0]
+    origlen = struct.unpack("<I", outdata[headerlen - 12 : headerlen - 8])[0]
 
     if origlen + headerlen != fsize:
         return None
@@ -574,25 +574,25 @@ def kav_unquarantine(file):
     key = [0xE2, 0x45, 0x48, 0xEC, 0x69, 0x0E, 0x5C, 0xAC]
 
     curoffset = metaoffset
-    length = struct.unpack("<I", data[curoffset: curoffset + 4])[0]
+    length = struct.unpack("<I", data[curoffset : curoffset + 4])[0]
     while length:
         for i in range(length):
             data[curoffset + 4 + i] ^= key[i % len(key)]
-        idlen = struct.unpack("<I", data[curoffset + 4: curoffset + 8])[0]
-        idname = str(data[curoffset + 8: curoffset + 8 + idlen]).rstrip("\0")
+        idlen = struct.unpack("<I", data[curoffset + 4 : curoffset + 8])[0]
+        idname = str(data[curoffset + 8 : curoffset + 8 + idlen]).rstrip("\0")
         if idname == "cNP_QB_FULLNAME":
             origname = (
-                str(data[curoffset + 8 + idlen: curoffset + 4 + length]).encode("utf-16").decode(errors="ignore").rstrip("\0")
+                str(data[curoffset + 8 + idlen : curoffset + 4 + length]).encode("utf-16").decode(errors="ignore").rstrip("\0")
             )
         curoffset += 4 + length
         if curoffset >= metaoffset + metalen:
             break
-        length = struct.unpack("<I", data[curoffset: curoffset + 4])[0]
+        length = struct.unpack("<I", data[curoffset : curoffset + 4])[0]
 
     for i in range(origlen):
         data[headerlen + i] ^= key[i % len(key)]
 
-    return store_temp_file(data[headerlen: headerlen + origlen], origname)
+    return store_temp_file(data[headerlen : headerlen + origlen], origname)
 
 
 # Never before published; reversed & developed by Optiv, Inc.

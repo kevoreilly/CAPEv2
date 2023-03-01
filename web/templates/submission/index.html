@@ -71,7 +71,6 @@ $(document).ready( function() {
                         {% if config.vt %}
                             <li class="nav-item"><a class="nav-link" href="#vtdl" data-toggle="tab"><span class="fa fa-download"></span>VirusTotal</a></li>
                         {% endif %}
-                        <li class="nav-item"><a class="nav-link" href="#quarantine" data-toggle="tab"><span class="fa fa-fire"></span> Quarantine File</a></li>
                         {% if config.url_analysis %}
                             <li class="nav-item"><a class="nav-link" href="#url" data-toggle="tab"><span class="fa fa-globe"></span> URL</a></li>
                         {% endif %}
@@ -108,14 +107,6 @@ $(document).ready( function() {
                             </div>
                         </div>
                         {% endif %}
-                        <div class="tab-pane fade show" id="quarantine">
-                            <div class="input-group">
-                                    <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="quarantine" multiple="multiple">
-                                </span>
-                            </div>
-                        </div>
                         <div class="tab-pane fade show" id="url">
                             <div class="input-group col-md-12">
                                 <label class="sr-only" form="form_url">URL</label>
@@ -179,7 +170,6 @@ $(document).ready( function() {
                                         <select class="form-control" id="form_package" name="job_category">
                                             <option value="hash" checked>Resubmit</option>
                                             <option value="sample">Files</option>
-                                            <option value="quarantine">Quarantine</option>
                                             <option value="static">Static analysis</option>
                                             <option value="pcap">Pcap</option>
                                             <option value="dlnexec">Download and Execute</option>
@@ -621,7 +611,7 @@ $(document).ready( function() {
                             </div>
                             <div class="form-check">
                                 <label>
-                                    <input type="checkbox" name="unpacker" /> 'Active' unpacking <span class="text-muted"><small>(uses debugger breakpoints - Beta) </small></span>
+                                    <input type="checkbox" name="unpacker" /> 'Active' unpacking <span class="text-muted"><small>(uses debugger breakpoints) </small></span>
                                 </label>
                             </div>
                             <div class="form-check">

@@ -878,7 +878,7 @@ class PortableExecutable:
         """
 
         try:
-            return f"0x{pe.OPTIONAL_HEADER.ImageBase + pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}"
+            return f"0x{pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}"
         except Exception:
             return None
 

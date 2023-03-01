@@ -12,6 +12,7 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
+from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.utils import get_options, sanitize_filename, trim_sample
 
 sf_version = ""
@@ -44,6 +45,8 @@ demux_extensions_list = {
     b".jar",
     b".pdf",
     b".msi",
+    b".msix",
+    b".msixbundle",
     b".bin",
     b".scr",
     b".zip",
@@ -216,6 +219,11 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # if a package was specified, then don't do anything special
     if package:
         return [filename]
+
+    # handle quarantine files
+    tmp_path = unquarantine(filename)
+    if tmp_path:
+        filename = tmp_path
 
     # to handle when side file for exec is required
     if "file=" in options:

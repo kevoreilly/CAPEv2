@@ -14,6 +14,7 @@ NETWORK_IFACE=virbr1
 # for tor
 IFACE_IP="192.168.1.1"
 # DB password
+INTERNET_IFACE=$(ip route | grep '^default'|awk '{print $5}')
 PASSWD="SuperPuperSecret"
 DIST_MASTER_IP=X.X.X.X
 USER="cape"
@@ -1154,6 +1155,9 @@ function install_CAPE() {
 	fi
 
     python3 utils/community.py -waf -cr
+
+    # Configure direct internet connection
+    sudo echo "400 ${INTERNET_IFACE}" >> /etc/iproute2/rt_tables
 }
 
 function install_systemd() {

@@ -19,6 +19,14 @@ try:
 except ImportError:
     HAVE_YARA = False
 
+try:
+    import pydeep
+
+    ssdeep_threshold = 95
+    HAVE_PYDEEP = True
+except ImportError:
+    HAVE_PYDEEP = False
+
 
 cape_malware_parsers = {}
 
@@ -226,6 +234,27 @@ def convert(data):
         return type(data)(list(map(convert, data)))
     return data
 
+
+def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) -> bool:
+    if HAVE_PYDEEP:
+        ssdeep_grade = pydeep.compare(file_info["ssdeep"], cape_file["ssdeep"])
+        if ssdeep_grade >= ssdeep_threshold:
+            log.debug(
+                "Duplicate payload skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold
+            )
+            append_file = False
+    if not file_info.get("pe") or not cape_file.get("pe"):
+        return append_file
+    if file_info["pe"].get("entrypoint") and file_info["pe"].get("ep_bytes") and cape_file["pe"].get("entrypoint"):
+        if (
+            file_info["pe"]["entrypoint"] == cape_file["pe"]["entrypoint"]
+            and file_info["cape_type_code"] == cape_file["cape_type_code"]
+            and file_info["pe"]["ep_bytes"] == cape_file["pe"]["ep_bytes"]
+        ):
+            log.debug("CAPE duplicate output file skipped: matching entrypoint")
+            append_file = False
+
+    return append_file
 
 def static_config_parsers(cape_name, file_path, file_data):
     """Process CAPE Yara hits"""

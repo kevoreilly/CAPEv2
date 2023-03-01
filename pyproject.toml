@@ -29,7 +29,7 @@ orjson = "3.8.5"
 # pyinstaller = "4.4"
 # maec = "4.1.0.17"
 regex = "2021.7.6"
-SFlock2 = {version = "0.3.44", extras = ["shellcode"]}
+SFlock2 = {version = "0.3.46", extras = ["shellcode"]}
 pyattck = "7.0.0"
 # distorm3 = "3.5.2"
 # openpyxl = "3.0.7"
@@ -52,7 +52,7 @@ maxminddb = "2.2.0"
 Pillow = ">=8.2.0"
 python-whois = "0.7.3"
 bs4 = "0.0.1"
-pydeep = "0.4"
+pydeep2 = "0.5.1"
 django-recaptcha = "3.0.0"  # https://pypi.org/project/django-recaptcha/
 django-crispy-forms = "1.14.0"
 django-settings-export = "1.2.1"

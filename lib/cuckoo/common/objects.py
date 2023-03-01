@@ -319,7 +319,7 @@ class File:
             return None
 
         try:
-            return pydeep.hash_file(self.file_path).decode()
+            return pydeep.hash_file(self.file_path)
         except Exception:
             return None
 
@@ -389,8 +389,8 @@ class File:
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")
             except Exception as e:
                 log.error(e, exc_info=True)
-            if not self.file_type:
-                self.file_type = self.get_content_type()
+        if not self.file_type:
+            self.file_type = self.get_content_type()
 
         return self.file_type
 
@@ -578,7 +578,7 @@ class File:
             "sha512": self.get_sha512(),
             "rh_hash": self.get_rh_hash(),
             "ssdeep": self.get_ssdeep(),
-            "type": self.get_content_type(),
+            "type": self.get_type(),
             "yara": self.get_yara(),
             "cape_yara": self.get_yara(category="CAPE"),
             "clamav": self.get_clamav(),

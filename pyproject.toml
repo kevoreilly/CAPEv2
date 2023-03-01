@@ -29,7 +29,7 @@ orjson = "3.8.5"
 # pyinstaller = "4.4"
 # maec = "4.1.0.17"
 regex = "2021.7.6"
-SFlock2 = {version = "0.3.45", extras = ["shellcode"]}
+SFlock2 = {version = "0.3.46", extras = ["shellcode"]}
 pyattck = "7.0.0"
 # distorm3 = "3.5.2"
 # openpyxl = "3.0.7"

@@ -3240,13 +3240,13 @@ testing-integration = ["build[virtualenv]", "filelock (>=3.4.0)", "jaraco.envs (
 
 [[package]]
 name = "sflock2"
-version = "0.3.45"
+version = "0.3.46"
 description = "Sample staging and detonation utility"
 category = "main"
 optional = false
 python-versions = "*"
 files = [
-    {file = "SFlock2-0.3.45.tar.gz", hash = "sha256:03bf6742c3d03c1087991ae71a5e9372b727574b970abffe89900456f323d108"},
+    {file = "SFlock2-0.3.46.tar.gz", hash = "sha256:c05815c7ed59d04fb071784d85b0e78ea018c0352de39146cede9a3c1f5903ab"},
 ]
 
 [package.dependencies]
@@ -3738,14 +3738,14 @@ test = ["Cython (>=0.29.32,<0.30.0)", "aiohttp", "flake8 (>=3.9.2,<3.10.0)", "my
 
 [[package]]
 name = "virtualenv"
-version = "20.19.0"
+version = "20.20.0"
 description = "Virtual Python Environment builder"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "virtualenv-20.19.0-py3-none-any.whl", hash = "sha256:54eb59e7352b573aa04d53f80fc9736ed0ad5143af445a1e539aada6eb947dd1"},
-    {file = "virtualenv-20.19.0.tar.gz", hash = "sha256:37a640ba82ed40b226599c522d411e4be5edb339a0c0de030c0dc7b646d61590"},
+    {file = "virtualenv-20.20.0-py3-none-any.whl", hash = "sha256:3c22fa5a7c7aa106ced59934d2c20a2ecb7f49b4130b8bf444178a16b880fa45"},
+    {file = "virtualenv-20.20.0.tar.gz", hash = "sha256:a8a4b8ca1e28f864b7514a253f98c1d62b64e31e77325ba279248c65fb4fcef4"},
 ]
 
 [package.dependencies]
@@ -4070,4 +4070,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "da44becbfb722e6337ef29a8014944fcd2dd3525c46e834b773214c9a657f747"
+content-hash = "8efd12ef3e5dcc8067707c789df0d35e24b3e27b0fd317a32cdd543a98918bf8"

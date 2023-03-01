@@ -30,7 +30,7 @@ if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 # You must run x86 version not x64
-if sys.maxsize > 2**32:
+if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
 AGENT_VERSION = "0.11"

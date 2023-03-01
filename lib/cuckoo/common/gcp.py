@@ -5,6 +5,7 @@ import time
 from lib.cuckoo.common.config import Config
 
 try:
+    from google.api_core.exceptions import Forbidden
     from google.cloud import compute_v1
 
     HAVE_GCP = True
@@ -47,19 +48,13 @@ class GCP(object):
     def list_instances(self) -> dict:
         """Auto discovery of new servers"""
         servers = {}
-        if HAVE_GCP:
-            instance_client = compute_v1.InstancesClient()
-            for zone in self.zones:
-                instance_list = instance_client.list(project=self.project_id, zone=zone)
-                for instance in instance_list.items:
-                    ips = [access.nat_i_p for net_iface in instance.network_interfaces for access in net_iface.access_configs]
-                    servers.setdefault(instance.name, ips)
-
-        elif self.dist_cfg.GCP.token:
+        if self.dist_cfg.GCP.token:
             for zone in self.zones:
                 try:
                     r = requests.get(f"{self.GCP_BASE_URL}projects/{self.project_id}/zones/{zone}/instances", headers=self.headers)
                     for instance in r.json().get("items", []):
+                        if not instance["name"].startswith(self.dist_cfg.GCP.instance_name):
+                            continue
                         ips = [
                             access["natIP"]
                             for net_iface in instance.get("networkInterfaces", [])
@@ -68,6 +63,21 @@ class GCP(object):
                         servers.setdefault(instance["name"], ips)
                 except Exception as e:
                     log.error(e, exc_info=True)
+        elif HAVE_GCP:
+            try:
+                instance_client = compute_v1.InstancesClient()
+            except Forbidden:
+                log.error("You don't have enough priviledges to list instances")
+                return servers
+
+            for zone in self.zones:
+                if not instance.name.startswith(self.dist_cfg.GCP.instance_name):
+                    continue
+                instance_list = instance_client.list(project=self.project_id, zone=zone)
+                for instance in instance_list.items:
+                    ips = [access.nat_i_p for net_iface in instance.network_interfaces for access in net_iface.access_configs]
+                    servers.setdefault(instance.name, ips)
+
         else:
             log.error("Install google-cloud-compute client or provide GCP token in config.")
 

@@ -23,6 +23,7 @@ Please answer the following questions for yourself before submitting an issue.
 - [ ] I checked to make sure that this issue has not already been filed
 - [ ] I'm reporting the issue to the correct repository (for multi-repository projects)
 - [ ] I have read and checked all configs (with all optional parts)
+- [ ] I'm aware that configs now are in `custom/conf/`
 
 
 # Expected Behavior

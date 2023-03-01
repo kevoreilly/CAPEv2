@@ -10,6 +10,7 @@ class PDF(Package):
 
     PATHS = [
         ("ProgramFiles", "Adobe", "*a*", "Reader", "AcroRd32.exe"),
+        ("ProgramFiles", "Adobe", "Acrobat DC", "Acrobat", "Acrobat.exe"),
     ]
 
     def __init__(self, options=None, config=None):

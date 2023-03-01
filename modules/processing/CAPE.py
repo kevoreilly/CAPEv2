@@ -21,7 +21,7 @@ from contextlib import suppress
 from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import cape_name_from_yara, pe_map, static_config_parsers, is_duplicated_binary
+from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File

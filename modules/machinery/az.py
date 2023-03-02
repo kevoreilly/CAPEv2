@@ -568,6 +568,7 @@ class Azure(Machinery):
                     snapshot=vmss_vm.storage_profile.image_reference.id,
                     resultserver_ip=self.options.az.resultserver_ip,
                     resultserver_port=self.options.az.resultserver_port,
+                    reserved=False,
                 )
                 # When we aren't initializing the system, the machine will immediately become available in DB
                 # When we are initializing, we're going to wait for the machine to be have the Cuckoo agent all set up

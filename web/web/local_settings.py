@@ -4,7 +4,6 @@
 
 LOCAL_SETTINGS = True
 from .settings import *  # noqa: F403
-from lib.cuckoo.common.config import Config
 
 # If you want to customize your cuckoo path set it here.
 # CUCKOO_PATH = "/where/cuckoo/is/placed/"
@@ -22,12 +21,6 @@ ADMINS = (
 )
 
 MANAGERS = ADMINS
-
-# For requests that include the Origin header, Django’s CSRF protection 
-# requires that header match the origin present in the Host header.
-hostname = Config("web").general.hostname
-CSRF_TRUSTED_ORIGINS = [hostname]
-CSRF_COOKIE_SECURE = "True"
 
 # Allow verbose debug error message in case of application fault.
 # It's strongly suggested to set it to False if you are serving the

@@ -4,12 +4,15 @@
 
 import tempfile
 
-import pytest_asyncio
+import pytest
+
+from lib.cuckoo.common.quarantine import mbam_unquarantine, mse_unquarantine, unquarantine
+
 # from tcr_misc import get_sample
 
 
 """
-@pytest_asyncio.fixture
+@pytest.fixture
 def grab_sample():
     def _grab_sample(sample_hash):
         sample_location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
@@ -19,14 +22,14 @@ def grab_sample():
     return _grab_sample
 """
 
-@pytest_asyncio.fixture
+
+@pytest.fixture
 def empty_file():
     empty_file = tempfile.NamedTemporaryFile(suffix=".but")
     yield empty_file
     empty_file.close()
 
 
-@pytest_asyncio.fixture
 class TestUnquarantine:
     # disabled for test
     """

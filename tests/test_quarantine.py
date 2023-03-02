@@ -5,9 +5,11 @@
 import tempfile
 
 import pytest
+
+from lib.cuckoo.common.quarantine import mbam_unquarantine, mse_unquarantine, unquarantine
+
 # from tcr_misc import get_sample
 
-from lib.cuckoo.common.quarantine import unquarantine, mse_unquarantine, mbam_unquarantine
 
 """
 @pytest.fixture
@@ -19,6 +21,7 @@ def grab_sample():
 
     return _grab_sample
 """
+
 
 @pytest.fixture
 def empty_file():
@@ -66,11 +69,20 @@ class TestUnquarantine:
     """
 
     def test_mbam(self):
-        assert mbam_unquarantine("tests/data/quarantine/d0f51ff313ede61e1c4d7d57b644507a4bd46455e3e617e66c922c8c0c07024b.mbam").rsplit(b"/", 1)[-1] == b"MBAMDequarantineFile"
+        assert (
+            mbam_unquarantine("tests/data/quarantine/d0f51ff313ede61e1c4d7d57b644507a4bd46455e3e617e66c922c8c0c07024b.mbam").rsplit(
+                b"/", 1
+            )[-1]
+            == b"MBAMDequarantineFile"
+        )
 
     def test_mse(self):
-        assert mse_unquarantine("tests/data/quarantine/70dbb01654db5a1518091377f27f9a382657c5e32ecdec5074680215dc3a7f65.mse").rsplit(b"/", 1)[-1] == b"d8e43dfb7662e0eeb26821f"
-
+        assert (
+            mse_unquarantine("tests/data/quarantine/70dbb01654db5a1518091377f27f9a382657c5e32ecdec5074680215dc3a7f65.mse").rsplit(
+                b"/", 1
+            )[-1]
+            == b"d8e43dfb7662e0eeb26821f"
+        )
 
     """
     def test_sep(self, grab_sample):

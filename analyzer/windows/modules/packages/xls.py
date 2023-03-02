@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import os
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
@@ -22,6 +23,8 @@ class XLS(Package):
     ]
 
     def start(self, path):
-        path = check_file_extension(path, ".xls")
+        # Handle .xlsx bug
+        if os.path.splitext(path)[-1].lower() != ".xlsx":
+            path = check_file_extension(path, ".xls")
         excel = self.get_path_glob("Microsoft Office Excel")
         return self.execute(excel, f'"{path}" /dde', path)

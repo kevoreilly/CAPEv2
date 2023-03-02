@@ -22,7 +22,7 @@ class XLS(Package):
     ]
 
     def start(self, path):
-        if not path.endswith((".xls, xlsx")):
+        if not path.endswith((".xls", ".xlsx")):
             path = check_file_extension(path, ".xls")
         excel = self.get_path_glob("Microsoft Office Excel")
         return self.execute(excel, f'"{path}" /dde', path)

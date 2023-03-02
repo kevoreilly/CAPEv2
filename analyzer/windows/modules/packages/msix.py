@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import subprocess
+
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
@@ -24,7 +25,6 @@ class Msix(Package):
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")
         path = check_file_extension(path, ".msix")
-
 
         ps_version = "5"
         try:

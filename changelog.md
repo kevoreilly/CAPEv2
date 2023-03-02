@@ -1,4 +1,4 @@
-### [TBD]
+### [1.03.2023]
 * Msix/MsixBundle package works only on Windows >= 10
 * Quarantine is integrated into normal file submission so you don't need to know if file is normal or quarantined.
 

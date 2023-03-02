@@ -239,9 +239,7 @@ def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) ->
     if HAVE_PYDEEP:
         ssdeep_grade = pydeep.compare(file_info["ssdeep"], cape_file["ssdeep"])
         if ssdeep_grade >= ssdeep_threshold:
-            log.debug(
-                "Duplicate payload skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold
-            )
+            log.debug("Duplicate payload skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold)
             append_file = False
     if not file_info.get("pe") or not cape_file.get("pe"):
         return append_file
@@ -255,6 +253,7 @@ def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) ->
             append_file = False
 
     return append_file
+
 
 def static_config_parsers(cape_name, file_path, file_data):
     """Process CAPE Yara hits"""

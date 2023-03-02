@@ -8,7 +8,6 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta
-from pathlib import Path
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
@@ -22,7 +21,7 @@ from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_delete
 from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
 
 try:
@@ -53,6 +52,7 @@ except ImportError:
 
 sandbox_packages = (
     "access",
+    "archive",
     "nsis",
     "cpl",
     "reg",
@@ -70,6 +70,7 @@ sandbox_packages = (
     "swf",
     "python",
     "msi",
+    "msix",
     "ps1",
     "msg",
     "eml",
@@ -535,7 +536,7 @@ class Database(object, metaclass=Singleton):
         @param schema_check: disable or enable the db schema version check
         """
         self._lock = SuperLock()
-        self.cfg = Config()
+        self.cfg = conf
 
         if dsn:
             self._connect_database(dsn)
@@ -812,15 +813,27 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
 
+    def _package_vm_requires_check(self, package: str) -> list:
+        """
+        We allow to users use their custom tags to tag properly any VM that can run this package
+        """
+        return [vm_tag.strip() for vm_tag in web_conf.packages.get(package).split(",")] if web_conf.packages.get(package) else []
+
+    def _task_arch_tags_helper(self, task: Task):
+        # Are there available machines that match up with a task?
+        task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
+        task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
+
+        return task_archs, task_tags
+
     @classlock
     def is_relevant_machine_available(self, task: Task) -> bool:
         """Checks if a machine that is relevant to the given task is available
         @return: boolean indicating if a relevant machine is available
         """
-        # Are there available machines that match up with a task?
-        task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
-        task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
-        vms = self.list_machines(locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs)
+        task_archs, task_tags = self._task_arch_tags_helper(task)
+        os_version = self._package_vm_requires_check(task.package)
+        vms = self.list_machines(locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version)
         if len(vms) > 0:
             # There are? Awesome!
             self.set_status(task_id=task.id, status=TASK_RUNNING)
@@ -837,9 +850,9 @@ class Database(object, metaclass=Singleton):
 
         @return: boolean indicating if any machine could service the task in the future
         """
-        task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
-        task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
-        vms = self.list_machines(label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs)
+        task_archs, task_tags = self._task_arch_tags_helper(task)
+        os_version = self._package_vm_requires_check(task.package)
+        vms = self.list_machines(label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version)
         if len(vms) > 0:
             return True
         return False
@@ -988,7 +1001,7 @@ class Database(object, metaclass=Singleton):
         return machines
 
     @classlock
-    def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None, include_reserved=False):
+    def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None, include_reserved=False, os_version=[]):
         """Lists virtual machines.
         @return: list of virtual machines
         """
@@ -1010,7 +1023,11 @@ class Database(object, metaclass=Singleton):
             if platform:
                 machines = machines.filter_by(platform=platform)
             machines = self.filter_machines_by_arch(machines, arch)
+            if os_version:
+                machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
+            # We can't check os version in tags due to that all tags should be satisfied
             if tags:
+                # machines = machines.filter(Machine.tags.all(Tag.name.in_(tags)))
                 for tag in tags:
                     machines = machines.filter(Machine.tags.any(name=tag))
             return machines.all()
@@ -1021,12 +1038,13 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def lock_machine(self, label=None, platform=None, tags=None, arch=None):
+    def lock_machine(self, label=None, platform=None, tags=None, arch=None, os_version=[]):
         """Places a lock on a free virtual machine.
         @param label: optional virtual machine label
         @param platform: optional virtual machine platform
         @param tags: optional tags required (list)
         @param arch: optional virtual machine arch
+        @os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
         @return: locked machine
         """
         session = self.Session()
@@ -1053,9 +1071,11 @@ class Database(object, metaclass=Singleton):
                 machines = machines.filter_by(platform=platform)
             machines = self.filter_machines_by_arch(machines, arch)
             if tags:
+                # machines = machines.filter(Machine.tags.all(Tag.name.in_(tags)))
                 for tag in tags:
                     machines = machines.filter(Machine.tags.any(name=tag))
-
+            if os_version:
+                machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
             # Check if there are any machines that satisfy the
             # selection requirements.
             if not machines.count():
@@ -1121,7 +1141,7 @@ class Database(object, metaclass=Singleton):
         return machine
 
     @classlock
-    def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False):
+    def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
         """How many (relevant) virtual machines are ready for analysis.
         @param label: machine ID.
         @param platform: machine platform.
@@ -1141,8 +1161,11 @@ class Database(object, metaclass=Singleton):
                 machines = machines.filter_by(platform=platform)
             machines = self.filter_machines_by_arch(machines, arch)
             if tags:
+                # machines = machines.filter(Machine.tags.all(Tag.name.in_(tags)))
                 for tag in tags:
                     machines = machines.filter(Machine.tags.any(name=tag))
+            if os_version:
+                machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
             return machines.count()
         except SQLAlchemyError as e:
             log.debug("Database error counting machines: %s", e)
@@ -1548,6 +1571,26 @@ class Database(object, metaclass=Singleton):
             username=username,
         )
 
+    def _identify_aux_func(self, file: str, package: str) -> str:
+        # before demux we need to check as msix has zip mime and we don't want it to be extracted:
+        tmp_package = False
+        if not package:
+            f = SflockFile.from_path(file)
+            try:
+                tmp_package = sflock_identify(f, check_shellcode=True)
+            except Exception as e:
+                log.error(f"Failed to sflock_ident due to {e}")
+                tmp_package = "generic"
+
+        if tmp_package and tmp_package in sandbox_packages:
+            # This probably should be way much bigger list of formats
+            if tmp_package == "iso":
+                package = "archive"
+            else:
+                package = tmp_package
+
+        return package, tmp_package
+
     def demux_sample_and_add_to_db(
         self,
         file_path,
@@ -1589,6 +1632,10 @@ class Database(object, metaclass=Singleton):
         # force auto package for linux files
         if platform == "linux":
             package = ""
+
+        # Checking original file as some filetypes doesn't require demux
+        package, _ = self._identify_aux_func(file_path, package)
+
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
@@ -1597,7 +1644,7 @@ class Database(object, metaclass=Singleton):
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
-                Path(file_path.decode()).unlink()
+                path_delete(file_path.decode())
 
         # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
         opts = get_options(options)
@@ -1628,17 +1675,9 @@ class Database(object, metaclass=Singleton):
 
             if not config and not only_extraction:
                 if not package:
-                    f = SflockFile.from_path(file)
+                    package, tmp_package = self._identify_aux_func(file_path, package)
 
-                    try:
-                        tmp_package = sflock_identify(f, check_shellcode=True)
-                    except Exception as e:
-                        log.error(f"Failed to sflock_ident due to {e}")
-                        tmp_package = "generic"
-
-                    if tmp_package and tmp_package in sandbox_packages:
-                        package = tmp_package
-                    else:
+                    if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
                     del f
                     if package == "dll" and "function" not in options:
@@ -1779,7 +1818,7 @@ class Database(object, metaclass=Singleton):
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
-                Path(file_path).unlink()
+                path_delete(file_path)
 
         task_ids = []
         # create tasks for each file in the archive

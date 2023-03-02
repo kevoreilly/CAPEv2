@@ -230,7 +230,7 @@ class Machinery:
         """
         return self.db.list_machines(include_reserved=True)
 
-    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False):
+    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
         """How many (relevant) machines are free.
         @param label: machine ID.
         @param platform: machine platform.
@@ -239,10 +239,10 @@ class Machinery:
         @return: free machines count.
         """
         return self.db.count_machines_available(
-            label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved
+            label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
+    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[]):
         """Acquire a machine to start analysis.
         @param machine_id: machine ID.
         @param platform: machine platform.
@@ -253,8 +253,8 @@ class Machinery:
         if machine_id:
             return self.db.lock_machine(label=machine_id)
         elif platform:
-            return self.db.lock_machine(platform=platform, tags=tags, arch=arch)
-        return self.db.lock_machine(tags=tags, arch=arch)
+            return self.db.lock_machine(platform=platform, tags=tags, arch=arch, os_version=os_version)
+        return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version)
 
     def release(self, label=None):
         """Release a machine.

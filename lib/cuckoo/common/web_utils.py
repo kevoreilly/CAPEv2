@@ -30,6 +30,7 @@ from lib.cuckoo.common.utils import (
     trim_sample,
     validate_referrer,
     validate_ttp,
+    get_platform,
 )
 from lib.cuckoo.core.database import (
     ALL_DB_STATUSES,

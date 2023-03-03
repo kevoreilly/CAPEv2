@@ -97,6 +97,9 @@ pre-commit = "^2.19.0"
 [tool.ruff]
 select = ["E", "F"]
 ignore = ["E402","E501"]
+exclude = [
+    "./analyzer/linux/dbus_next",
+]
 
 [tool.black]
 line-length = 132

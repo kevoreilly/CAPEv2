@@ -161,7 +161,7 @@ class Archive(Package):
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
     def start(self, path):
-        # TODO: This does not work... WHY?!
+        # This Works but standalone 7za and 7zr is cutted version so better install it inside of the VM
         # Is 7z in analyzer/windows/bin?
         # seven_zip_path = os.path.join(os.getcwd(), "bin", "7z.exe")
         # if not os.path.exists(seven_zip_path):
@@ -169,9 +169,7 @@ class Archive(Package):
         seven_zip_path = self.get_path_app_in_path("7z.exe")
 
         password = self.options.get("password", "")
-
         archive_name = path.split("\\")[-1].split(".")[0]
-
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
         # actors are using LNK files that use relative directory traversal at arbitrary depth.
         # They expect to find the root of the drive.

@@ -78,7 +78,6 @@ def decode_chr(m: re.Match) -> str:
 
 @quote
 def decode_base64(m: re.Match) -> str:
-    print(type(m))
     s = m.group(1)
     if (len(s) % 4 != 0 and not s.endswith("=")) or ("=" in s.rstrip("=")):
         return s

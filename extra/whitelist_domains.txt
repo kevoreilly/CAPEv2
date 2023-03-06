@@ -214,6 +214,9 @@ ardownload3\.adobe\.com
 armmf\.adobe\.com
 acroipm.adobe.com
 
+# Akamai
+.*\.akamai.net$
+
 # firefox
 firefox\.settings\.services\.mozilla\.com
 location\.services\.mozilla\.com

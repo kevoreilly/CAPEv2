@@ -214,6 +214,7 @@ class TestAnalysisManager:
                     label = "mock_label"
                     platform = "mock_platform"
                     arch = "x64"
+
                 return mock_acquire()
 
         class mock_machine:
@@ -363,7 +364,7 @@ class TestAnalysisManager:
             "file_pickup": False,
             "filecollector": True,
             "permissions": False,
-            "screenshots_linux": False,
+            "screenshots_linux": True,
             "screenshots_windows": True,
             "tlsdump": True,
             "usage": False,

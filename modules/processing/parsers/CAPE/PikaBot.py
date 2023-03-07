@@ -1,13 +1,16 @@
 # https://research.openanalysis.net/pikabot/yara/config/loader/2023/02/26/pikabot.html
 
-import sys
 import base64
 import re
-import pefile
+import sys
 from contextlib import suppress
+
+import pefile
+
 
 class PikaException(Exception):
     pass
+
 
 def xor(data, key):
     out = []
@@ -22,17 +25,19 @@ def wide_finder(data):
         if not chr(data[i]).isascii():
             str_end = i
             break
-        if data[i+1] != 0:
+        if data[i + 1] != 0:
             str_end = i
             break
     return data[:str_end]
 
+
 def get_url(ps_string):
     out = None
-    m = re.search(r'http[^ ]*', ps_string)
+    m = re.search(r"http[^ ]*", ps_string)
     if m:
         out = m.group()
     return out
+
 
 def extract_config(filebuf):
     pe = None
@@ -44,18 +49,18 @@ def extract_config(filebuf):
 
     section_data = None
     for s in pe.sections:
-        if s.Name.startswith(b'.rdata'):
+        if s.Name.startswith(b".rdata"):
             section_data = s.get_data()
             break
 
     if not section_data:
         return
 
-    big_null = section_data.find(b'\x00' * 30)
+    big_null = section_data.find(b"\x00" * 30)
     section_data = section_data[:big_null]
     out = None
 
-    for i in range(1,0xff):
+    for i in range(1, 0xFF):
         egg = bytes([i]) * 16
         if egg in section_data:
             test_out = xor(section_data, i)
@@ -65,13 +70,14 @@ def extract_config(filebuf):
             except:
                 continue
             if "http".encode("utf-16le") in test_out_ptxt:
-                out = wide_finder(test_out_ptxt).decode('utf-16le')
+                out = wide_finder(test_out_ptxt).decode("utf-16le")
 
     if not out:
         return
 
     url = get_url(out)
     return {"C2": [url], "PowerShell": out}
+
 
 if __name__ == "__main__":
     print(extract_config(sys.argv[1]))

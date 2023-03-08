@@ -13,7 +13,7 @@ from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.utils import get_options, sanitize_filename, trim_sample, get_platform
+from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename, trim_sample
 
 sf_version = ""
 try:

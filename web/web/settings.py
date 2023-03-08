@@ -35,7 +35,7 @@ web_cfg = Config("web")
 api_cfg = Config("api")
 
 # CSRF TRUSTED ORIGINS
-# For requests that include the Origin header, Django’s CSRF protection 
+# For requests that include the Origin header, Django’s CSRF protection
 # requires that header match the origin present in the Host header.
 CSRF_TRUSTED_ORIGINS = [web_cfg.general.hostname]
 CSRF_COOKIE_SECURE = "True"

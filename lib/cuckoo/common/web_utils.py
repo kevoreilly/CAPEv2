@@ -24,13 +24,13 @@ from lib.cuckoo.common.utils import (
     generate_fake_name,
     get_ip_address,
     get_options,
+    get_platform,
     get_user_filename,
     sanitize_filename,
     store_temp_file,
     trim_sample,
     validate_referrer,
     validate_ttp,
-    get_platform,
 )
 from lib.cuckoo.core.database import (
     ALL_DB_STATUSES,

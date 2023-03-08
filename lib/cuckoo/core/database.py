@@ -21,7 +21,7 @@ from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
-from lib.cuckoo.common.path_utils import path_exists, path_delete
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
 
 try:
@@ -833,7 +833,9 @@ class Database(object, metaclass=Singleton):
         """
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
-        vms = self.list_machines(locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version)
+        vms = self.list_machines(
+            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version
+        )
         if len(vms) > 0:
             # There are? Awesome!
             self.set_status(task_id=task.id, status=TASK_RUNNING)

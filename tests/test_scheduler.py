@@ -214,6 +214,7 @@ class TestAnalysisManager:
                     label = "mock_label"
                     platform = "mock_platform"
                     arch = "x64"
+
                 return mock_acquire()
 
         class mock_machine:

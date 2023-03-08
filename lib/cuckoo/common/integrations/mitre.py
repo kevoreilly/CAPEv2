@@ -6,7 +6,6 @@ import logging
 import os
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists, path_is_file
 
 log = logging.getLogger("mitre")
 

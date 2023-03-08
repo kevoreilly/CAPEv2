@@ -3,6 +3,7 @@
 import base64
 import re
 import sys
+from contextlib import suppress
 
 import pefile
 
@@ -43,7 +44,7 @@ def extract_config(filebuf):
     with suppress(Exception):
         pe = pefile.PE(data=filebuf, fast_load=False)
 
-    if pe is None:
+    if not pe:
         return
 
     section_data = None

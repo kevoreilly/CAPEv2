@@ -279,7 +279,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
                     trimmed_size = trim_sample(file_chunk)
                     if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
-                        data = File(filename).get_chunks(trimmed_size).__next__()
+                        data = File(filename).get_chunks(int(trimmed_size / 1024)).__next__()
                         _ = path_write_file(filename, data)
                         retlist.append(filename)
 

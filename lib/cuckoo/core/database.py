@@ -1586,6 +1586,8 @@ class Database(object, metaclass=Singleton):
             # This probably should be way much bigger list of formats
             if tmp_package == "iso":
                 package = "archive"
+            elif tmp_package in ("zip", "rar"):
+                package = ""
             else:
                 package = tmp_package
 
@@ -1675,11 +1677,11 @@ class Database(object, metaclass=Singleton):
 
             if not config and not only_extraction:
                 if not package:
-                    package, tmp_package = self._identify_aux_func(file_path, package)
+                    package, tmp_package = self._identify_aux_func(file, "")
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
-                    del f
+
                     if package == "dll" and "function" not in options:
                         dll_export = PortableExecutable(file).choose_dll_export()
                         if dll_export == "DllRegisterServer":

@@ -161,6 +161,7 @@ anon_not_viewable_func_list = (
     "statistics_data",
 )
 
+
 # Conditional decorator for web authentication
 class conditional_login_required:
     def __init__(self, dec, condition):
@@ -606,7 +607,6 @@ def load_files(request, task_id, category):
                 sha256_blocks = data.get(category, [])
 
         if (enabledconf["vba2graph"] or enabledconf["bingraph"]) and sha256_blocks:
-
             for block in sha256_blocks or []:
                 if not block.get("sha256"):
                     continue
@@ -1564,22 +1564,25 @@ def report(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def file_nl(request, category, task_id, dlfile):
-    file_name = dlfile
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
     path = False
     if category == "screenshot":
-        file_name += ".jpg"
-        path = os.path.join(base_path, "shots", file_name)
-        cd = "image/jpeg"
+        for ext, cd in ((".jpg", "image/jpeg"), (".png", "image/png")):
+            file_name = dlfile + ext
+            path = os.path.join(base_path, "shots", file_name)
+            if path_exists(path):
+                break
+        else:
+            return render(request, "error.html", {"error": f"Could not find screenshot {dlfile}"})
 
     elif category == "bingraph":
-        path = os.path.join(base_path, "bingraph", file_name + "-ent.svg")
-        file_name += "-ent.svg"
+        file_name = dlfile + "-ent.svg"
+        path = os.path.join(base_path, "bingraph", file_name)
         cd = "image/svg+xml"
 
     elif category == "vba2graph":
-        path = os.path.join(base_path, "vba2graph", f"{file_name}.svg")
-        file_name = f"{file_name}.svg"
+        file_name = f"{dlfile}.svg"
+        path = os.path.join(base_path, "vba2graph", file_name)
         cd = "image/svg+xml"
 
     else:
@@ -1835,7 +1838,6 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def filereport(request, task_id, category):
-
     # check if allowed to download to all + if no if user has permissions
     if not settings.ALLOW_DL_REPORTS_TO_ALL and (
         request.user.is_anonymous
@@ -1901,7 +1903,6 @@ def full_memory_dump_file(request, analysis_number):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_strings(request, analysis_number):
-
     filename = None
     for name in ("memory.dmp.strings", "memory.dmp.strings.zip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), name)

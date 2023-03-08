@@ -30,7 +30,7 @@ orjson = "3.8.5"
 # maec = "4.1.0.17"
 regex = "2021.7.6"
 SFlock2 = {version = "0.3.48", extras = ["shellcode"]}
-pyattck = "7.0.0"
+pyattck = "7.1.1"
 # distorm3 = "3.5.2"
 # openpyxl = "3.0.7"
 # volatility3 = "2.0.0"

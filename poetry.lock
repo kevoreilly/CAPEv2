@@ -2035,14 +2035,14 @@ tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "pa
 
 [[package]]
 name = "platformdirs"
-version = "3.0.0"
+version = "3.1.0"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "platformdirs-3.0.0-py3-none-any.whl", hash = "sha256:b1d5eb14f221506f50d6604a561f4c5786d9e80355219694a1b244bcd96f4567"},
-    {file = "platformdirs-3.0.0.tar.gz", hash = "sha256:8a1228abb1ef82d788f74139988b137e78692984ec7b08eaa6c65f1723af28f9"},
+    {file = "platformdirs-3.1.0-py3-none-any.whl", hash = "sha256:13b08a53ed71021350c9e300d4ea8668438fb0046ab3937ac9a29913a1a1350a"},
+    {file = "platformdirs-3.1.0.tar.gz", hash = "sha256:accc3665857288317f32c7bebb5a8e482ba717b474f3fc1d18ca7f9214be0cef"},
 ]
 
 [package.extras]
@@ -2177,14 +2177,14 @@ pyasn1 = ">=0.4.6,<0.5.0"
 
 [[package]]
 name = "pyattck"
-version = "7.0.0"
+version = "7.1.1"
 description = "A Python package to interact with the Mitre ATT&CK Frameworks"
 category = "main"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "pyattck-7.0.0-py3-none-any.whl", hash = "sha256:001f741529b032c7adfb3f98fa0115b9de983528ebadd50f441168c3d75bc632"},
-    {file = "pyattck-7.0.0.tar.gz", hash = "sha256:a30cc9621b4450f717817d3087a3ef3fbc05a068d95ee98293fe0128396636f2"},
+    {file = "pyattck-7.1.1-py3-none-any.whl", hash = "sha256:53b56000e7bdc79d02e248ef90b00a85ac9dcdde25e62bef2d727713e0e0b3e8"},
+    {file = "pyattck-7.1.1.tar.gz", hash = "sha256:3be874aef04f83ff3fe733cbbe32bd77ba4930c41d50a351dff403898595082b"},
 ]
 
 [package.dependencies]
@@ -3223,14 +3223,14 @@ test = ["pytest"]
 
 [[package]]
 name = "setuptools"
-version = "67.4.0"
+version = "67.5.1"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "setuptools-67.4.0-py3-none-any.whl", hash = "sha256:f106dee1b506dee5102cc3f3e9e68137bbad6d47b616be7991714b0c62204251"},
-    {file = "setuptools-67.4.0.tar.gz", hash = "sha256:e5fd0a713141a4a105412233c63dc4e17ba0090c8e8334594ac790ec97792330"},
+    {file = "setuptools-67.5.1-py3-none-any.whl", hash = "sha256:1c39d42bda4cb89f7fdcad52b6762e3c309ec8f8715b27c684176b7d71283242"},
+    {file = "setuptools-67.5.1.tar.gz", hash = "sha256:15136a251127da2d2e77ac7a1bc231eb504654f7e3346d93613a13f2e2787535"},
 ]
 
 [package.extras]
@@ -4070,4 +4070,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "5332384f781f3b2e563983d7be0235207169ac73fdafe2212f43f0e39ddc5aae"
+content-hash = "50d905c0a9e647f6a1ad67579e28579eb5d216d55b6bb62eceecdd0701eb5171"

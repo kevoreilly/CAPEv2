@@ -3,7 +3,6 @@
 import base64
 import re
 import sys
-from contextlib import suppress
 
 import pefile
 

@@ -1,4 +1,4 @@
-### [TBA]
+### [8.3.2023]
 * Virtual machine tags: For Windows only. Please set windows version in tag, any of: winxp, win7, win8, win10, win11.
     * This is required for proper detonation for packages like MsiX.
 * New feature. In `web.conf` there is section `[packages]`:

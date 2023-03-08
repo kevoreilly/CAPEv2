@@ -31,10 +31,8 @@ except Exception as e:
     log.error(e)
 
 try:
-    from dbus_next import RequestNameReply
+    from dbus_next import DBusError, RequestNameReply, Variant
     from dbus_next.aio import MessageBus
-    from dbus_next.errors import DBusError
-    from dbus_next.signature import Variant
 except ImportError as err:
     log.error(err)
     HAVE_DBUS_NEXT = False

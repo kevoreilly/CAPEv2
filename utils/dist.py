@@ -978,7 +978,7 @@ class StatusThread(threading.Thread):
                 if not to_upload:
                     db.commit()
                     log.info("nothing to upload? How? o_O")
-                    return True
+                    return False
                 # Submit appropriate tasks to node
                 log.debug("going to upload {} tasks to node {}".format(pend_tasks_num, node.name))
                 for task in to_upload:
@@ -1092,10 +1092,10 @@ class StatusThread(threading.Thread):
                             force_push_push=True,
                             db=db,
                         )
+                        # We return False if nothing uploaded to cicle the nodes in case we have tags related tasks
                         if not res:
                             continue
                         # Balance the tasks, works fine if no tags are set
-
                         node_name = min(
                             STATUSES,
                             key=lambda k: STATUSES[k]["tasks"]["completed"]
@@ -1109,7 +1109,6 @@ class StatusThread(threading.Thread):
                                 .filter_by(name=node_name)
                                 .first()
                             )
-
                         pend_tasks_num = MINIMUMQUEUE[node.name] - (
                             STATUSES[node.name]["tasks"]["pending"] + STATUSES[node.name]["tasks"]["running"]
                         )

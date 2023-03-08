@@ -44,7 +44,7 @@ def extract_config(filebuf):
     with suppress(Exception):
         pe = pefile.PE(data=filebuf, fast_load=False)
 
-    if pe is None:
+    if not pe:
         return
 
     section_data = None
@@ -67,7 +67,7 @@ def extract_config(filebuf):
             # This might break if the extra crud on the end of the blob is not b64 friendly
             try:
                 test_out_ptxt = base64.b64decode(test_out)
-            except:
+            except Exception:
                 continue
             if "http".encode("utf-16le") in test_out_ptxt:
                 out = wide_finder(test_out_ptxt).decode("utf-16le")

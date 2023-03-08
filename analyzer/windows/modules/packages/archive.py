@@ -44,6 +44,7 @@ class Archive(Package):
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
         ("SystemRoot", "system32", "xpsrchvw.exe"),
         ("ProgramFiles", "7-Zip", "7z.exe"),
+        ("ProgramFiles", "WinRAR", "WinRAR.exe"),
     ]
 
     def extract_archive(self, seven_zip_path, archive_path, extract_path, password="infected"):
@@ -160,16 +161,26 @@ class Archive(Package):
             file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
+    def winrar_extractor(self, winrar_binary, extract_path, archive_path):
+        log.debug([winrar_binary, "x", archive_path, extract_path])
+        p = subprocess.run(
+            [winrar_binary, "x", archive_path, extract_path],
+            stdin=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        # stdoutput, stderr = p.stdout, p.stderr
+        log.debug(p.stdout + p.stderr)
+
+        return os.listdir(extract_path)
+
     def start(self, path):
-        # TODO: This does not work... WHY?!
-        # Is 7z in analyzer/windows/bin?
+        # 7za and 7r is limited so better install it inside of the vm
         # seven_zip_path = os.path.join(os.getcwd(), "bin", "7z.exe")
         # if not os.path.exists(seven_zip_path):
         # Let's hope it's in the VM image
         seven_zip_path = self.get_path_app_in_path("7z.exe")
-
         password = self.options.get("password", "")
-
         archive_name = path.split("\\")[-1].split(".")[0]
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
@@ -184,11 +195,19 @@ class Archive(Package):
         os.makedirs(root, exist_ok=True)
 
         file_names = self.get_file_names(seven_zip_path, path)
-        if not len(file_names):
+        if len(file_names):
+            self.extract_archive(seven_zip_path, path, root, password)
+
+        # Try extract with winrar, in some cases 7z-full fails with .Iso
+        if not file_names:
+            winrar_path = self.get_path_app_in_path("WinRAR.exe")
+            if os.path.exists(winrar_path):
+                file_names = self.winrar_extractor(winrar_path, root, path)
+
+        if not file_names:
             raise CuckooPackageError("Empty archive")
 
         log.debug(file_names)
-        self.extract_archive(seven_zip_path, path, root, password)
 
         # Handle special characters that 7ZIP cannot
         # We have the file names according to 7ZIP output (file_names)

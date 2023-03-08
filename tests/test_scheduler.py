@@ -205,16 +205,15 @@ class TestAnalysisManager:
 
     def test_acquire_machine(self, setup_machinery, setup_machine_lock):
         class mock_machinery:
-            def availables(self, label, platform, tags, arch):
+            def availables(self, label, platform, tags, arch, os_version):
                 return True
 
-            def acquire(self, machine_id, platform, tags, arch):
+            def acquire(self, machine_id, platform, tags, arch, os_version):
                 class mock_acquire:
                     name = "mock_mach"
                     label = "mock_label"
                     platform = "mock_platform"
                     arch = "x64"
-
                 return mock_acquire()
 
         class mock_machine:
@@ -222,6 +221,9 @@ class TestAnalysisManager:
 
         class mock_plat:
             platform = "plat"
+
+        class mock_package:
+            package = "foo"
 
         class mock_tags:
             class mock_tag:
@@ -243,6 +245,7 @@ class TestAnalysisManager:
         mock_task_machine.platform = mock_plat()
         mock_task_machine.tags = mock_tags()
         mock_task_machine.arch = mock_arch()
+        mock_task_machine.package = mock_package()
 
         analysis_man = AnalysisManager(task=mock_task_machine, error_queue=queue.Queue())
         analysis_man.acquire_machine()

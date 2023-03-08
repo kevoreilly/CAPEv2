@@ -1,3 +1,11 @@
+### [8.3.2023]
+* Virtual machine tags: For Windows only. Please set windows version in tag, any of: winxp, win7, win8, win10, win11.
+    * This is required for proper detonation for packages like MsiX.
+* New feature. In `web.conf` there is section `[packages]`:
+    * It allows to create new packages and push them to correct VMs.
+    * Or in case you want to detonate some of the packages only on specific VMs you can specify it there like: `package:vm_tag1,vm_tagX`
+* MsiX file proper recognization requires upgrade to `sflock2==0.3.48`, otherwise it will push it as zip or extract and add each file as separated job.
+
 ### [1.03.2023]
 * Msix/MsixBundle package works only on Windows >= 10
 * Quarantine is integrated into normal file submission so you don't need to know if file is normal or quarantined.

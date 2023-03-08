@@ -9,7 +9,7 @@ installed.
 
 There is a `Python command-line utility`_ available that can automate this process for you.
 
-.. _Python command-line utility: https://github.com/kevoreilly/CAPEv2/blob/master/utils/clone-machines.py
+.. _Python command-line utility: https://github.com/CAPESandbox/community/blob/master/utils/clone-machines.py
 
 The new virtual machine will also contain all of the settings of the original one,
 which is not good. Now you need to proceed by repeating the steps explained in

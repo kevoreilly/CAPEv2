@@ -161,7 +161,7 @@ class Archive(Package):
             file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
-    def winrar_extractor(winrar_binary, extract_path, archive_path):
+    def winrar_extractor(self, winrar_binary, extract_path, archive_path):
         log.debug([winrar_binary, "x", archive_path, extract_path])
         p = subprocess.run(
             [winrar_binary, "x", archive_path, extract_path],

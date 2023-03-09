@@ -739,7 +739,10 @@ function install_yara() {
     sed -i "191 i \ \ \ \ # Needed to build tlsh'\n    module.define_macros.extend([('BUCKETS_128', 1), ('CHECKSUM_1B', 1)])\n    # Needed to build authenticode parser\n    module.libraries.append('ssl')" setup.py
     python3 setup.py build --enable-cuckoo --enable-magic --enable-profiling
     cd ..
+    # for root
     pip3 install ./yara-python
+    # for CAPE user
+    sudo -u $USER -H sh -c "poetry run pip install ./yara-python"
 }
 
 function install_mongo(){

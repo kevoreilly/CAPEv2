@@ -28,6 +28,7 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
+    trim_ole_doc,
     trim_sample,
     validate_referrer,
     validate_ttp,
@@ -1249,16 +1250,18 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         size = sample.size
         data = False
         if size > web_cfg.general.max_sample_size:
-            if not (web_cfg.general.allow_ignore_size and "bypass_size_check" in details["options"]):
-                first_chunk = sample.chunks().__next__()
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
+            if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]):
+                if web_cfg.general.enable_trim:
                     trimmed_size = trim_sample(sample.chunks().__next__())
                     if trimmed_size:
                         size = trimmed_size
-                        data = sample.chunks(size).__next__()
-                else:
-                    # we need to rebuild original file
-                    data = first_chunk + sample.read()
+                    else:
+                        sample.seek(0)
+                        trimmed_size = trim_ole_doc(sample.read(size))
+                        if trimmed_size:
+                            size = trimmed_size
+                sample.seek(0)
+                data = sample.read(size)
                 if size > web_cfg.general.max_sample_size:
                     details["errors"].append(
                         {

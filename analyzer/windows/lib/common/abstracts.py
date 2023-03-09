@@ -85,7 +85,7 @@ class Package:
         """
         for path in self.enum_paths():
             for path in glob.iglob(path):
-                if os.path.isfile(path):
+                if os.path.isfile(path) and (not application or application.lower() in path.lower()):
                     return path
 
         raise CuckooPackageError(f"Unable to find any {application} executable")

@@ -742,7 +742,9 @@ function install_yara() {
     # for root
     pip3 install ./yara-python
     # for CAPE user
+    cd /opt/CAPEv2
     sudo -u $USER -H sh -c "poetry run pip install ./yara-python"
+    cd -
 }
 
 function install_mongo(){
@@ -1315,8 +1317,8 @@ case "$COMMAND" in
     dependencies
     install_mongo
     install_suricata
-    install_yara
     install_CAPE
+    install_yara
     install_systemd
     install_jemalloc
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
@@ -1338,8 +1340,8 @@ case "$COMMAND" in
     install_volatility3
     install_mongo
     install_suricata
-    install_yara
     install_CAPE
+    install_yara
     install_systemd
     install_jemalloc
     install_logrotate

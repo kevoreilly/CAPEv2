@@ -1,20 +1,20 @@
-from .constants import PropertyAccess
-from .signature import SignatureTree, SignatureBodyMismatchError, Variant
-from . import introspection as intr
-from .errors import SignalDisabledError
-from ._private.util import signature_contains_type, replace_fds_with_idx, replace_idx_with_fds, parse_annotation
-
-from functools import wraps
-import inspect
-from typing import no_type_check_decorator, Dict, List, Any
-import copy
 import asyncio
+import copy
+import inspect
+from functools import wraps
+from typing import Any, Dict, List, no_type_check_decorator
+
+from . import introspection as intr
+from ._private.util import parse_annotation, replace_fds_with_idx, replace_idx_with_fds, signature_contains_type
+from .constants import PropertyAccess
+from .errors import SignalDisabledError
+from .signature import SignatureBodyMismatchError, SignatureTree, Variant
 
 
 class _Method:
     def __init__(self, fn, name, disabled=False):
-        in_signature = ''
-        out_signature = ''
+        in_signature = ""
+        out_signature = ""
 
         inspection = inspect.signature(fn)
 
@@ -25,8 +25,7 @@ class _Method:
                 continue
             annotation = parse_annotation(param.annotation)
             if not annotation:
-                raise ValueError(
-                    'method parameters must specify the dbus type string as an annotation')
+                raise ValueError("method parameters must specify the dbus type string as an annotation")
             in_args.append(intr.Arg(annotation, intr.ArgDirection.IN, param.name))
             in_signature += annotation
 
@@ -80,9 +79,9 @@ def method(name: str = None, disabled: bool = False):
             return [val1, val2]
     """
     if name is not None and type(name) is not str:
-        raise TypeError('name must be a string')
+        raise TypeError("name must be a string")
     if type(disabled) is not bool:
-        raise TypeError('disabled must be a bool')
+        raise TypeError("disabled must be a bool")
 
     @no_type_check_decorator
     def decorator(fn):
@@ -91,7 +90,7 @@ def method(name: str = None, disabled: bool = False):
             fn(*args, **kwargs)
 
         fn_name = name if name else fn.__name__
-        wrapped.__dict__['__DBUS_METHOD'] = _Method(fn, fn_name, disabled=disabled)
+        wrapped.__dict__["__DBUS_METHOD"] = _Method(fn, fn_name, disabled=disabled)
 
         return wrapped
 
@@ -103,7 +102,7 @@ class _Signal:
         inspection = inspect.signature(fn)
 
         args = []
-        signature = ''
+        signature = ""
         signature_tree = None
 
         return_annotation = parse_annotation(inspection.return_annotation)
@@ -114,8 +113,8 @@ class _Signal:
             for type_ in signature_tree.types:
                 args.append(intr.Arg(type_, intr.ArgDirection.OUT))
         else:
-            signature = ''
-            signature_tree = SignatureTree._get('')
+            signature = ""
+            signature_tree = SignatureTree._get("")
 
         self.signature = signature
         self.signature_tree = signature_tree
@@ -155,9 +154,9 @@ def signal(name: str = None, disabled: bool = False):
             return [val1, val2]
     """
     if name is not None and type(name) is not str:
-        raise TypeError('name must be a string')
+        raise TypeError("name must be a string")
     if type(disabled) is not bool:
-        raise TypeError('disabled must be a bool')
+        raise TypeError("disabled must be a bool")
 
     @no_type_check_decorator
     def decorator(fn):
@@ -167,12 +166,12 @@ def signal(name: str = None, disabled: bool = False):
         @wraps(fn)
         def wrapped(self, *args, **kwargs):
             if signal.disabled:
-                raise SignalDisabledError('Tried to call a disabled signal')
+                raise SignalDisabledError("Tried to call a disabled signal")
             result = fn(self, *args, **kwargs)
             ServiceInterface._handle_signal(self, signal, result)
             return result
 
-        wrapped.__dict__['__DBUS_SIGNAL'] = signal
+        wrapped.__dict__["__DBUS_SIGNAL"] = signal
 
         return wrapped
 
@@ -181,28 +180,28 @@ def signal(name: str = None, disabled: bool = False):
 
 class _Property(property):
     def set_options(self, options):
-        self.options = getattr(self, 'options', {})
+        self.options = getattr(self, "options", {})
         for k, v in options.items():
             self.options[k] = v
 
-        if 'name' in options and options['name'] is not None:
-            self.name = options['name']
+        if "name" in options and options["name"] is not None:
+            self.name = options["name"]
         else:
             self.name = self.prop_getter.__name__
 
-        if 'access' in options:
-            self.access = PropertyAccess(options['access'])
+        if "access" in options:
+            self.access = PropertyAccess(options["access"])
         else:
             self.access = PropertyAccess.READWRITE
 
-        if 'disabled' in options:
-            self.disabled = options['disabled']
+        if "disabled" in options:
+            self.disabled = options["disabled"]
         else:
             self.disabled = False
 
         self.introspection = intr.Property(self.name, self.signature, self.access)
 
-        self.__dict__['__DBUS_PROPERTY'] = True
+        self.__dict__["__DBUS_PROPERTY"] = True
 
     def __init__(self, fn, *args, **kwargs):
         self.prop_getter = fn
@@ -215,21 +214,20 @@ class _Property(property):
         return_annotation = parse_annotation(inspection.return_annotation)
 
         if not return_annotation:
-            raise ValueError(
-                'the property must specify the dbus type string as a return annotation string')
+            raise ValueError("the property must specify the dbus type string as a return annotation string")
 
         self.signature = return_annotation
         tree = SignatureTree._get(return_annotation)
 
         if len(tree.types) != 1:
-            raise ValueError('the property signature must be a single complete type')
+            raise ValueError("the property signature must be a single complete type")
 
         self.type = tree.types[0]
 
-        if 'options' in kwargs:
-            options = kwargs['options']
+        if "options" in kwargs:
+            options = kwargs["options"]
             self.set_options(options)
-            del kwargs['options']
+            del kwargs["options"]
 
         super().__init__(fn, *args, **kwargs)
 
@@ -243,9 +241,7 @@ class _Property(property):
         return result
 
 
-def dbus_property(access: PropertyAccess = PropertyAccess.READWRITE,
-                  name: str = None,
-                  disabled: bool = False):
+def dbus_property(access: PropertyAccess = PropertyAccess.READWRITE, name: str = None, disabled: bool = False):
     """A decorator to mark a class method of a :class:`ServiceInterface` to be a DBus property.
 
     The class method must be a Python getter method with a return annotation
@@ -284,15 +280,15 @@ def dbus_property(access: PropertyAccess = PropertyAccess.READWRITE,
             self._string_prop = val
     """
     if type(access) is not PropertyAccess:
-        raise TypeError('access must be a PropertyAccess class')
+        raise TypeError("access must be a PropertyAccess class")
     if name is not None and type(name) is not str:
-        raise TypeError('name must be a string')
+        raise TypeError("name must be a string")
     if type(disabled) is not bool:
-        raise TypeError('disabled must be a bool')
+        raise TypeError("disabled must be a bool")
 
     @no_type_check_decorator
     def decorator(fn):
-        options = {'name': name, 'access': access, 'disabled': disabled}
+        options = {"name": name, "access": access, "disabled": disabled}
         return _Property(fn, options=options)
 
     return decorator
@@ -314,6 +310,7 @@ class ServiceInterface:
         valid interface name.
     :vartype name: str
     """
+
     def __init__(self, name: str):
         # TODO cannot be overridden by a dbus member
         self.name = name
@@ -323,7 +320,7 @@ class ServiceInterface:
         self.__buses = set()
 
         for name, member in inspect.getmembers(type(self)):
-            member_dict = getattr(member, '__dict__', {})
+            member_dict = getattr(member, "__dict__", {})
             if type(member) is _Property:
                 # XXX The getter and the setter may show up as different
                 # members if they have different names. But if they have the
@@ -338,12 +335,12 @@ class ServiceInterface:
 
                 if not found:
                     self.__properties.append(member)
-            elif '__DBUS_METHOD' in member_dict:
-                method = member_dict['__DBUS_METHOD']
+            elif "__DBUS_METHOD" in member_dict:
+                method = member_dict["__DBUS_METHOD"]
                 assert type(method) is _Method
                 self.__methods.append(method)
-            elif '__DBUS_SIGNAL' in member_dict:
-                signal = member_dict['__DBUS_SIGNAL']
+            elif "__DBUS_SIGNAL" in member_dict:
+                signal = member_dict["__DBUS_SIGNAL"]
                 assert type(signal) is _Signal
                 self.__signals.append(signal)
 
@@ -352,9 +349,7 @@ class ServiceInterface:
             if prop.access.writable() and prop.prop_setter is None:
                 raise ValueError(f'property "{prop.name}" is writable but does not have a setter')
 
-    def emit_properties_changed(self,
-                                changed_properties: Dict[str, Any],
-                                invalidated_properties: List[str] = []):
+    def emit_properties_changed(self, changed_properties: Dict[str, Any], invalidated_properties: List[str] = []):
         """Emit the ``org.freedesktop.DBus.Properties.PropertiesChanged`` signal.
 
         This signal is intended to be used to alert clients when a property of
@@ -374,8 +369,7 @@ class ServiceInterface:
 
         body = [self.name, variant_dict, invalidated_properties]
         for bus in ServiceInterface._get_buses(self):
-            bus._interface_signal_notify(self, 'org.freedesktop.DBus.Properties',
-                                         'PropertiesChanged', 'sa{sv}as', body)
+            bus._interface_signal_notify(self, "org.freedesktop.DBus.Properties", "PropertiesChanged", "sa{sv}as", body)
 
     def introspect(self) -> intr.Interface:
         """Get introspection information for this interface.
@@ -386,22 +380,12 @@ class ServiceInterface:
         :rtype: :class:`dbus_next.introspection.Interface`
         """
         # TODO cannot be overridden by a dbus member
-        return intr.Interface(self.name,
-                              methods=[
-                                  method.introspection
-                                  for method in ServiceInterface._get_methods(self)
-                                  if not method.disabled
-                              ],
-                              signals=[
-                                  signal.introspection
-                                  for signal in ServiceInterface._get_signals(self)
-                                  if not signal.disabled
-                              ],
-                              properties=[
-                                  prop.introspection
-                                  for prop in ServiceInterface._get_properties(self)
-                                  if not prop.disabled
-                              ])
+        return intr.Interface(
+            self.name,
+            methods=[method.introspection for method in ServiceInterface._get_methods(self) if not method.disabled],
+            signals=[signal.introspection for signal in ServiceInterface._get_signals(self) if not signal.disabled],
+            properties=[prop.introspection for prop in ServiceInterface._get_properties(self) if not prop.disabled],
+        )
 
     @staticmethod
     def _get_properties(interface):
@@ -429,7 +413,7 @@ class ServiceInterface:
 
     @staticmethod
     def _msg_body_to_args(msg):
-        if signature_contains_type(msg.signature_tree, msg.body, 'h'):
+        if signature_contains_type(msg.signature_tree, msg.body, "h"):
             # XXX: This deep copy could be expensive if messages are very
             # large. We could optimize this by only copying what we change
             # here.
@@ -439,9 +423,9 @@ class ServiceInterface:
 
     @staticmethod
     def _fn_result_to_body(result, signature_tree):
-        '''The high level interfaces may return single values which may be
+        """The high level interfaces may return single values which may be
         wrapped in a list to be a message body. Also they may return fds
-        directly for type 'h' which need to be put into an external list.'''
+        directly for type 'h' which need to be put into an external list."""
         out_len = len(signature_tree.types)
         if result is None:
             result = []
@@ -450,8 +434,7 @@ class ServiceInterface:
                 result = [result]
             else:
                 if type(result) is not list:
-                    raise SignatureBodyMismatchError(
-                        'Expected signal to return a list of arguments')
+                    raise SignatureBodyMismatchError("Expected signal to return a list of arguments")
 
         if out_len != len(result):
             raise SignatureBodyMismatchError(
@@ -464,8 +447,7 @@ class ServiceInterface:
     def _handle_signal(interface, signal, result):
         body, fds = ServiceInterface._fn_result_to_body(result, signal.signature_tree)
         for bus in ServiceInterface._get_buses(interface):
-            bus._interface_signal_notify(interface, interface.name, signal.name, signal.signature,
-                                         body, fds)
+            bus._interface_signal_notify(interface, interface.name, signal.name, signal.signature, body, fds)
 
     @staticmethod
     def _get_property_value(interface, prop, callback):

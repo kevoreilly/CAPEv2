@@ -1,21 +1,20 @@
+import inspect
+import logging
+import socket
+import traceback
+import xml.etree.ElementTree as ET
+from typing import Callable, Optional, Type, Union
+
+from . import introspection as intr
 from ._private.address import get_bus_address, parse_address
 from ._private.util import replace_fds_with_idx, replace_idx_with_fds
-from .message import Message
-from .constants import BusType, MessageFlag, MessageType, ErrorType, NameFlag, RequestNameReply, ReleaseNameReply
-from .service import ServiceInterface
-from .validators import assert_object_path_valid, assert_bus_name_valid
+from .constants import BusType, ErrorType, MessageFlag, MessageType, NameFlag, ReleaseNameReply, RequestNameReply
 from .errors import DBusError, InvalidAddressError
-from .signature import Variant
+from .message import Message
 from .proxy_object import BaseProxyObject
-from . import introspection as intr
-
-import inspect
-import socket
-import logging
-import xml.etree.ElementTree as ET
-import traceback
-
-from typing import Type, Callable, Optional, Union
+from .service import ServiceInterface
+from .signature import Variant
+from .validators import assert_bus_name_valid, assert_object_path_valid
 
 
 class BaseMessageBus:
@@ -47,10 +46,13 @@ class BaseMessageBus:
         and receive messages.
     :vartype connected: bool
     """
-    def __init__(self,
-                 bus_address: Optional[str] = None,
-                 bus_type: BusType = BusType.SESSION,
-                 ProxyObject: Optional[Type[BaseProxyObject]] = None):
+
+    def __init__(
+        self,
+        bus_address: Optional[str] = None,
+        bus_type: BusType = BusType.SESSION,
+        ProxyObject: Optional[Type[BaseProxyObject]] = None,
+    ):
         self.unique_name = None
         self._disconnected = False
 
@@ -68,11 +70,12 @@ class BaseMessageBus:
         self._name_owners = {}
         # used for the high level service
         self._path_exports = {}
-        self._bus_address = parse_address(bus_address) if bus_address else parse_address(
-            get_bus_address(bus_type))
+        self._bus_address = parse_address(bus_address) if bus_address else parse_address(get_bus_address(bus_type))
         # the bus implementations need this rule for the high level client to
         # work correctly.
-        self._name_owner_match_rule = "sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',path='/org/freedesktop/DBus',member='NameOwnerChanged'"
+        self._name_owner_match_rule = (
+            "sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',path='/org/freedesktop/DBus',member='NameOwnerChanged'"
+        )
         # _match_rules: the keys are match rules and the values are ref counts
         # (used for the high level client only)
         self._match_rules = {}
@@ -106,7 +109,7 @@ class BaseMessageBus:
         """
         assert_object_path_valid(path)
         if not isinstance(interface, ServiceInterface):
-            raise TypeError('interface must be a ServiceInterface')
+            raise TypeError("interface must be a ServiceInterface")
 
         if path not in self._path_exports:
             self._path_exports[path] = []
@@ -137,7 +140,7 @@ class BaseMessageBus:
         """
         assert_object_path_valid(path)
         if type(interface) not in [str, type(None)] and not isinstance(interface, ServiceInterface):
-            raise TypeError('interface must be a ServiceInterface or interface name')
+            raise TypeError("interface must be a ServiceInterface or interface name")
 
         if path not in self._path_exports:
             return
@@ -168,8 +171,7 @@ class BaseMessageBus:
                     break
         self._emit_interface_removed(path, removed_interfaces)
 
-    def introspect(self, bus_name: str, path: str,
-                   callback: Callable[[Optional[intr.Node], Optional[Exception]], None]):
+    def introspect(self, bus_name: str, path: str, callback: Callable[[Optional[intr.Node], Optional[Exception]], None]):
         """Get introspection data for the node at the given path from the given
         bus name.
 
@@ -192,7 +194,7 @@ class BaseMessageBus:
 
         def reply_notify(reply, err):
             try:
-                BaseMessageBus._check_method_return(reply, err, 's')
+                BaseMessageBus._check_method_return(reply, err, "s")
                 result = intr.Node.parse(reply.body[0])
             except Exception as e:
                 callback(None, e)
@@ -201,10 +203,9 @@ class BaseMessageBus:
             callback(result, None)
 
         self._call(
-            Message(destination=bus_name,
-                    path=path,
-                    interface='org.freedesktop.DBus.Introspectable',
-                    member='Introspect'), reply_notify)
+            Message(destination=bus_name, path=path, interface="org.freedesktop.DBus.Introspectable", member="Introspect"),
+            reply_notify,
+        )
 
     def _emit_interface_added(self, path, interface):
         """Emit the ``org.freedesktop.DBus.ObjectManager.InterfacesAdded`` signal.
@@ -227,19 +228,23 @@ class BaseMessageBus:
                     raise e
                 except Exception:
                     logging.error(
-                        'An exception ocurred when emitting ObjectManager.InterfacesAdded for %s. '
-                        'Some properties will not be included in the signal.',
+                        "An exception ocurred when emitting ObjectManager.InterfacesAdded for %s. "
+                        "Some properties will not be included in the signal.",
                         interface.name,
-                        exc_info=True)
+                        exc_info=True,
+                    )
 
             body = {interface.name: result}
 
             self.send(
-                Message.new_signal(path=path,
-                                   interface='org.freedesktop.DBus.ObjectManager',
-                                   member='InterfacesAdded',
-                                   signature='oa{sa{sv}}',
-                                   body=[path, body]))
+                Message.new_signal(
+                    path=path,
+                    interface="org.freedesktop.DBus.ObjectManager",
+                    member="InterfacesAdded",
+                    signature="oa{sa{sv}}",
+                    body=[path, body],
+                )
+            )
 
         ServiceInterface._get_all_property_values(interface, get_properties_callback)
 
@@ -258,17 +263,21 @@ class BaseMessageBus:
             return
 
         self.send(
-            Message.new_signal(path=path,
-                               interface='org.freedesktop.DBus.ObjectManager',
-                               member='InterfacesRemoved',
-                               signature='oas',
-                               body=[path, removed_interfaces]))
+            Message.new_signal(
+                path=path,
+                interface="org.freedesktop.DBus.ObjectManager",
+                member="InterfacesRemoved",
+                signature="oas",
+                body=[path, removed_interfaces],
+            )
+        )
 
-    def request_name(self,
-                     name: str,
-                     flags: NameFlag = NameFlag.NONE,
-                     callback: Optional[Callable[[Optional[RequestNameReply], Optional[Exception]],
-                                                 None]] = None):
+    def request_name(
+        self,
+        name: str,
+        flags: NameFlag = NameFlag.NONE,
+        callback: Optional[Callable[[Optional[RequestNameReply], Optional[Exception]], None]] = None,
+    ):
         """Request that this message bus owns the given name.
 
         :param name: The name to request.
@@ -289,7 +298,7 @@ class BaseMessageBus:
 
         def reply_notify(reply, err):
             try:
-                BaseMessageBus._check_method_return(reply, err, 'u')
+                BaseMessageBus._check_method_return(reply, err, "u")
                 result = RequestNameReply(reply.body[0])
             except Exception as e:
                 callback(None, e)
@@ -301,17 +310,18 @@ class BaseMessageBus:
             flags = NameFlag(flags)
 
         self._call(
-            Message(destination='org.freedesktop.DBus',
-                    path='/org/freedesktop/DBus',
-                    interface='org.freedesktop.DBus',
-                    member='RequestName',
-                    signature='su',
-                    body=[name, flags]), reply_notify if callback else None)
+            Message(
+                destination="org.freedesktop.DBus",
+                path="/org/freedesktop/DBus",
+                interface="org.freedesktop.DBus",
+                member="RequestName",
+                signature="su",
+                body=[name, flags],
+            ),
+            reply_notify if callback else None,
+        )
 
-    def release_name(self,
-                     name: str,
-                     callback: Optional[Callable[[Optional[ReleaseNameReply], Optional[Exception]],
-                                                 None]] = None):
+    def release_name(self, name: str, callback: Optional[Callable[[Optional[ReleaseNameReply], Optional[Exception]], None]] = None):
         """Request that this message bus release the given name.
 
         :param name: The name to release.
@@ -331,7 +341,7 @@ class BaseMessageBus:
 
         def reply_notify(reply, err):
             try:
-                BaseMessageBus._check_method_return(reply, err, 'u')
+                BaseMessageBus._check_method_return(reply, err, "u")
                 result = ReleaseNameReply(reply.body[0])
             except Exception as e:
                 callback(None, e)
@@ -340,15 +350,18 @@ class BaseMessageBus:
             callback(result, None)
 
         self._call(
-            Message(destination='org.freedesktop.DBus',
-                    path='/org/freedesktop/DBus',
-                    interface='org.freedesktop.DBus',
-                    member='ReleaseName',
-                    signature='s',
-                    body=[name]), reply_notify if callback else None)
+            Message(
+                destination="org.freedesktop.DBus",
+                path="/org/freedesktop/DBus",
+                interface="org.freedesktop.DBus",
+                member="ReleaseName",
+                signature="s",
+                body=[name],
+            ),
+            reply_notify if callback else None,
+        )
 
-    def get_proxy_object(self, bus_name: str, path: str,
-                         introspection: Union[intr.Node, str, ET.Element]) -> BaseProxyObject:
+    def get_proxy_object(self, bus_name: str, path: str, introspection: Union[intr.Node, str, ET.Element]) -> BaseProxyObject:
         """Get a proxy object for the path exported on the bus that owns the
         name. The object is expected to export the interfaces and nodes
         specified in the introspection data.
@@ -372,7 +385,7 @@ class BaseMessageBus:
             - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the introspection data for the node is not valid.
         """
         if self._ProxyObject is None:
-            raise Exception('the message bus implementation did not provide a proxy object class')
+            raise Exception("the message bus implementation did not provide a proxy object class")
 
         self._init_high_level_client()
 
@@ -387,7 +400,7 @@ class BaseMessageBus:
         try:
             self._sock.shutdown(socket.SHUT_RDWR)
         except Exception:
-            logging.warning('could not shut down socket', exc_info=True)
+            logging.warning("could not shut down socket", exc_info=True)
 
     def next_serial(self) -> int:
         """Get the next serial for this bus. This can be used as the ``serial``
@@ -413,7 +426,7 @@ class BaseMessageBus:
             connection received.
         :type handler: :class:`Callable` or None
         """
-        error_text = 'a message handler must be callable with a single parameter'
+        error_text = "a message handler must be callable with a single parameter"
         if not callable(handler):
             raise TypeError(error_text)
 
@@ -445,8 +458,8 @@ class BaseMessageBus:
         raise NotImplementedError('the "send" method must be implemented in the inheriting class')
 
     def _finalize(self, err):
-        '''should be called after the socket disconnects with the disconnection
-        error to clean up resources and put the bus in a disconnected state'''
+        """should be called after the socket disconnects with the disconnection
+        error to clean up resources and put the bus in a disconnected state"""
         if self._disconnected:
             return
 
@@ -456,7 +469,7 @@ class BaseMessageBus:
             try:
                 handler(None, err)
             except Exception:
-                logging.warning('a message handler threw an exception on shutdown', exc_info=True)
+                logging.warning("a message handler threw an exception on shutdown", exc_info=True)
 
         self._method_return_handlers.clear()
 
@@ -473,13 +486,7 @@ class BaseMessageBus:
 
         return False
 
-    def _interface_signal_notify(self,
-                                 interface,
-                                 interface_name,
-                                 member,
-                                 signature,
-                                 body,
-                                 unix_fds=[]):
+    def _interface_signal_notify(self, interface, interface_name, member, signature, body, unix_fds=[]):
         path = None
         for p, ifaces in self._path_exports.items():
             for i in ifaces:
@@ -487,15 +494,13 @@ class BaseMessageBus:
                     path = p
 
         if path is None:
-            raise Exception('Could not find interface on bus (this is a bug in dbus-next)')
+            raise Exception("Could not find interface on bus (this is a bug in dbus-next)")
 
         self.send(
-            Message.new_signal(path=path,
-                               interface=interface_name,
-                               member=member,
-                               signature=signature,
-                               body=body,
-                               unix_fds=unix_fds))
+            Message.new_signal(
+                path=path, interface=interface_name, member=member, signature=signature, body=body, unix_fds=unix_fds
+            )
+        )
 
     def _introspect_export_path(self, path):
         assert_object_path_valid(path)
@@ -515,8 +520,8 @@ class BaseMessageBus:
             except IndexError:
                 continue
 
-            child_path = child_path.lstrip('/')
-            child_name = child_path.split('/', maxsplit=1)[0]
+            child_path = child_path.lstrip("/")
+            child_name = child_path.split("/", maxsplit=1)[0]
 
             children.add(child_name)
 
@@ -529,20 +534,20 @@ class BaseMessageBus:
 
         for transport, options in self._bus_address:
             filename = None
-            ip_addr = ''
+            ip_addr = ""
             ip_port = 0
 
-            if transport == 'unix':
+            if transport == "unix":
                 self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                self._stream = self._sock.makefile('rwb')
+                self._stream = self._sock.makefile("rwb")
                 self._fd = self._sock.fileno()
 
-                if 'path' in options:
-                    filename = options['path']
-                elif 'abstract' in options:
+                if "path" in options:
+                    filename = options["path"]
+                elif "abstract" in options:
                     filename = f'\0{options["abstract"]}'
                 else:
-                    raise InvalidAddressError('got unix transport with unknown path specifier')
+                    raise InvalidAddressError("got unix transport with unknown path specifier")
 
                 try:
                     self._sock.connect(filename)
@@ -551,15 +556,15 @@ class BaseMessageBus:
                 except Exception as e:
                     err = e
 
-            elif transport == 'tcp':
+            elif transport == "tcp":
                 self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self._stream = self._sock.makefile('rwb')
+                self._stream = self._sock.makefile("rwb")
                 self._fd = self._sock.fileno()
 
-                if 'host' in options:
-                    ip_addr = options['host']
-                if 'port' in options:
-                    ip_port = int(options['port'])
+                if "host" in options:
+                    ip_addr = options["host"]
+                if "port" in options:
+                    ip_port = int(options["port"])
 
                 try:
                     self._sock.connect((ip_addr, ip_port))
@@ -569,7 +574,7 @@ class BaseMessageBus:
                     err = e
 
             else:
-                raise InvalidAddressError(f'got unknown address transport: {transport}')
+                raise InvalidAddressError(f"got unknown address transport: {transport}")
 
         if err:
             raise err
@@ -596,7 +601,7 @@ class BaseMessageBus:
     def _check_callback_type(callback):
         """Raise a TypeError if the user gives an invalid callback as a parameter"""
 
-        text = 'a callback must be callable with two parameters'
+        text = "a callback must be callable with two parameters"
 
         if not callable(callback):
             raise TypeError(text)
@@ -614,14 +619,13 @@ class BaseMessageBus:
         elif msg.message_type == MessageType.ERROR:
             raise DBusError._from_message(msg)
         else:
-            raise DBusError(ErrorType.INTERNAL_ERROR, 'invalid message type for method call', msg)
+            raise DBusError(ErrorType.INTERNAL_ERROR, "invalid message type for method call", msg)
 
     def _on_message(self, msg):
         try:
             self._process_message(msg)
         except Exception as e:
-            logging.error(
-                f'got unexpected error processing a message: {e}.\n{traceback.format_exc()}')
+            logging.error(f"got unexpected error processing a message: {e}.\n{traceback.format_exc()}")
 
     def _send_reply(self, msg):
         bus = self
@@ -647,9 +651,11 @@ class BaseMessageBus:
                 if issubclass(exc_type, Exception):
                     self(
                         Message.new_error(
-                            msg, ErrorType.SERVICE_ERROR,
-                            f'The service interface raised an error: {exc_value}.\n{traceback.format_tb(tb)}'
-                        ))
+                            msg,
+                            ErrorType.SERVICE_ERROR,
+                            f"The service interface raised an error: {exc_value}.\n{traceback.format_tb(tb)}",
+                        )
+                    )
                     return True
 
             def __exit__(self, exc_type, exc_value, tb):
@@ -677,24 +683,25 @@ class BaseMessageBus:
                     handled = True
                     break
                 else:
-                    logging.error(
-                        f'A message handler raised an exception: {e}.\n{traceback.format_exc()}')
+                    logging.error(f"A message handler raised an exception: {e}.\n{traceback.format_exc()}")
             except Exception as e:
-                logging.error(
-                    f'A message handler raised an exception: {e}.\n{traceback.format_exc()}')
+                logging.error(f"A message handler raised an exception: {e}.\n{traceback.format_exc()}")
                 if msg.message_type == MessageType.METHOD_CALL:
                     self.send(
                         Message.new_error(
-                            msg, ErrorType.INTERNAL_ERROR,
-                            f'An internal error occurred: {e}.\n{traceback.format_exc()}'))
+                            msg, ErrorType.INTERNAL_ERROR, f"An internal error occurred: {e}.\n{traceback.format_exc()}"
+                        )
+                    )
                     handled = True
                     break
 
         if msg.message_type == MessageType.SIGNAL:
-            if msg._matches(sender='org.freedesktop.DBus',
-                            path='/org/freedesktop/DBus',
-                            interface='org.freedesktop.DBus',
-                            member='NameOwnerChanged'):
+            if msg._matches(
+                sender="org.freedesktop.DBus",
+                path="/org/freedesktop/DBus",
+                interface="org.freedesktop.DBus",
+                member="NameOwnerChanged",
+            ):
                 [name, old_owner, new_owner] = msg.body
                 if new_owner:
                     self._name_owners[name] = new_owner
@@ -713,9 +720,11 @@ class BaseMessageBus:
                     else:
                         send_reply(
                             Message.new_error(
-                                msg, ErrorType.UNKNOWN_METHOD,
-                                f'{msg.interface}.{msg.member} with signature "{msg.signature}" could not be found'
-                            ))
+                                msg,
+                                ErrorType.UNKNOWN_METHOD,
+                                f'{msg.interface}.{msg.member} with signature "{msg.signature}" could not be found',
+                            )
+                        )
 
         else:
             # An ERROR or a METHOD_RETURN
@@ -729,8 +738,7 @@ class BaseMessageBus:
         def handler(msg, send_reply):
             args = ServiceInterface._msg_body_to_args(msg)
             result = method.fn(interface, *args)
-            body, fds = ServiceInterface._fn_result_to_body(
-                result, signature_tree=method.out_signature_tree)
+            body, fds = ServiceInterface._fn_result_to_body(result, signature_tree=method.out_signature_tree)
             send_reply(Message.new_method_return(msg, method.out_signature, body, fds))
 
         return handler
@@ -738,21 +746,18 @@ class BaseMessageBus:
     def _find_message_handler(self, msg):
         handler = None
 
-        if msg._matches(interface='org.freedesktop.DBus.Introspectable',
-                        member='Introspect',
-                        signature=''):
+        if msg._matches(interface="org.freedesktop.DBus.Introspectable", member="Introspect", signature=""):
             handler = self._default_introspect_handler
 
-        elif msg._matches(interface='org.freedesktop.DBus.Properties'):
+        elif msg._matches(interface="org.freedesktop.DBus.Properties"):
             handler = self._default_properties_handler
 
-        elif msg._matches(interface='org.freedesktop.DBus.Peer'):
-            if msg._matches(member='Ping', signature=''):
+        elif msg._matches(interface="org.freedesktop.DBus.Peer"):
+            if msg._matches(member="Ping", signature=""):
                 handler = self._default_ping_handler
-            elif msg._matches(member='GetMachineId', signature=''):
+            elif msg._matches(member="GetMachineId", signature=""):
                 handler = self._default_get_machine_id_handler
-        elif msg._matches(interface='org.freedesktop.DBus.ObjectManager',
-                          member='GetManagedObjects'):
+        elif msg._matches(interface="org.freedesktop.DBus.ObjectManager", member="GetManagedObjects"):
             handler = self._default_get_managed_objects_handler
 
         else:
@@ -760,9 +765,7 @@ class BaseMessageBus:
                 for method in ServiceInterface._get_methods(interface):
                     if method.disabled:
                         continue
-                    if msg._matches(interface=interface.name,
-                                    member=method.name,
-                                    signature=method.in_signature):
+                    if msg._matches(interface=interface.name, member=method.name, signature=method.in_signature):
                         handler = self._make_method_handler(interface, method)
                         break
                 if handler:
@@ -772,14 +775,14 @@ class BaseMessageBus:
 
     def _default_introspect_handler(self, msg, send_reply):
         introspection = self._introspect_export_path(msg.path).tostring()
-        send_reply(Message.new_method_return(msg, 's', [introspection]))
+        send_reply(Message.new_method_return(msg, "s", [introspection]))
 
     def _default_ping_handler(self, msg, send_reply):
         send_reply(Message.new_method_return(msg))
 
     def _default_get_machine_id_handler(self, msg, send_reply):
         if self._machine_id:
-            send_reply(Message.new_method_return(msg, 's', self._machine_id))
+            send_reply(Message.new_method_return(msg, "s", self._machine_id))
             return
 
         def reply_handler(reply, err):
@@ -789,21 +792,25 @@ class BaseMessageBus:
 
             if reply.message_type == MessageType.METHOD_RETURN:
                 self._machine_id = reply.body[0]
-                send_reply(Message.new_method_return(msg, 's', [self._machine_id]))
+                send_reply(Message.new_method_return(msg, "s", [self._machine_id]))
             elif reply.message_type == MessageType.ERROR:
                 send_reply(Message.new_error(msg, reply.error_name, reply.body))
             else:
-                send_reply(Message.new_error(msg, ErrorType.FAILED, 'could not get machine_id'))
+                send_reply(Message.new_error(msg, ErrorType.FAILED, "could not get machine_id"))
 
         self._call(
-            Message(destination='org.freedesktop.DBus',
-                    path='/org/freedesktop/DBus',
-                    interface='org.freedesktop.DBus.Peer',
-                    member='GetMachineId'), reply_handler)
+            Message(
+                destination="org.freedesktop.DBus",
+                path="/org/freedesktop/DBus",
+                interface="org.freedesktop.DBus.Peer",
+                member="GetMachineId",
+            ),
+            reply_handler,
+        )
 
     def _default_get_managed_objects_handler(self, msg, send_reply):
         result = {}
-        result_signature = 'a{oa{sa{sv}}}'
+        result_signature = "a{oa{sa{sv}}}"
         error_handled = False
 
         def is_result_complete():
@@ -816,10 +823,7 @@ class BaseMessageBus:
 
             return True
 
-        nodes = [
-            node for node in self._path_exports
-            if msg.path == '/' or node.startswith(msg.path + '/')
-        ]
+        nodes = [node for node in self._path_exports if msg.path == "/" or node.startswith(msg.path + "/")]
 
         # first build up the result object to know when it's complete
         for node in nodes:
@@ -846,22 +850,20 @@ class BaseMessageBus:
 
         for node in nodes:
             for interface in self._path_exports[node]:
-                ServiceInterface._get_all_property_values(interface, get_all_properties_callback,
-                                                          node)
+                ServiceInterface._get_all_property_values(interface, get_all_properties_callback, node)
 
     def _default_properties_handler(self, msg, send_reply):
-        methods = {'Get': 'ss', 'Set': 'ssv', 'GetAll': 's'}
+        methods = {"Get": "ss", "Set": "ssv", "GetAll": "s"}
         if msg.member not in methods or methods[msg.member] != msg.signature:
             raise DBusError(
                 ErrorType.UNKNOWN_METHOD,
-                f'properties interface doesn\'t have method "{msg.member}" with signature "{msg.signature}"'
+                f'properties interface doesn\'t have method "{msg.member}" with signature "{msg.signature}"',
             )
 
         interface_name = msg.body[0]
-        if interface_name == '':
+        if interface_name == "":
             raise DBusError(
-                ErrorType.NOT_SUPPORTED,
-                'getting and setting properties with an empty interface string is not supported yet'
+                ErrorType.NOT_SUPPORTED, "getting and setting properties with an empty interface string is not supported yet"
             )
 
         elif msg.path not in self._path_exports:
@@ -870,40 +872,37 @@ class BaseMessageBus:
         match = [iface for iface in self._path_exports[msg.path] if iface.name == interface_name]
         if not match:
             if interface_name in [
-                    'org.freedesktop.DBus.Properties', 'org.freedesktop.DBus.Introspectable',
-                    'org.freedesktop.DBus.Peer', 'org.freedesktop.DBus.ObjectManager'
+                "org.freedesktop.DBus.Properties",
+                "org.freedesktop.DBus.Introspectable",
+                "org.freedesktop.DBus.Peer",
+                "org.freedesktop.DBus.ObjectManager",
             ]:
                 # the standard interfaces do not have properties
-                if msg.member == 'Get' or msg.member == 'Set':
+                if msg.member == "Get" or msg.member == "Set":
                     prop_name = msg.body[1]
                     raise DBusError(
-                        ErrorType.UNKNOWN_PROPERTY,
-                        f'interface "{interface_name}" does not have property "{prop_name}"')
-                elif msg.member == 'GetAll':
-                    send_reply(Message.new_method_return(msg, 'a{sv}', [{}]))
+                        ErrorType.UNKNOWN_PROPERTY, f'interface "{interface_name}" does not have property "{prop_name}"'
+                    )
+                elif msg.member == "GetAll":
+                    send_reply(Message.new_method_return(msg, "a{sv}", [{}]))
                     return
                 else:
                     assert False
-            raise DBusError(
-                ErrorType.UNKNOWN_INTERFACE,
-                f'could not find an interface "{interface_name}" at path: "{msg.path}"')
+            raise DBusError(ErrorType.UNKNOWN_INTERFACE, f'could not find an interface "{interface_name}" at path: "{msg.path}"')
 
         interface = match[0]
         properties = ServiceInterface._get_properties(interface)
 
-        if msg.member == 'Get' or msg.member == 'Set':
+        if msg.member == "Get" or msg.member == "Set":
             prop_name = msg.body[1]
             match = [prop for prop in properties if prop.name == prop_name and not prop.disabled]
             if not match:
-                raise DBusError(
-                    ErrorType.UNKNOWN_PROPERTY,
-                    f'interface "{interface_name}" does not have property "{prop_name}"')
+                raise DBusError(ErrorType.UNKNOWN_PROPERTY, f'interface "{interface_name}" does not have property "{prop_name}"')
 
             prop = match[0]
-            if msg.member == 'Get':
+            if msg.member == "Get":
                 if not prop.access.readable():
-                    raise DBusError(ErrorType.UNKNOWN_PROPERTY,
-                                    'the property does not have read access')
+                    raise DBusError(ErrorType.UNKNOWN_PROPERTY, "the property does not have read access")
 
                 def get_property_callback(interface, prop, prop_value, err):
                     try:
@@ -913,22 +912,18 @@ class BaseMessageBus:
 
                         body, unix_fds = replace_fds_with_idx(prop.signature, [prop_value])
 
-                        send_reply(
-                            Message.new_method_return(msg,
-                                                      'v', [Variant(prop.signature, body[0])],
-                                                      unix_fds=unix_fds))
+                        send_reply(Message.new_method_return(msg, "v", [Variant(prop.signature, body[0])], unix_fds=unix_fds))
                     except Exception as e:
                         send_reply.send_error(e)
 
                 ServiceInterface._get_property_value(interface, prop, get_property_callback)
 
-            elif msg.member == 'Set':
+            elif msg.member == "Set":
                 if not prop.access.writable():
-                    raise DBusError(ErrorType.PROPERTY_READ_ONLY, 'the property is readonly')
+                    raise DBusError(ErrorType.PROPERTY_READ_ONLY, "the property is readonly")
                 value = msg.body[2]
                 if value.signature != prop.signature:
-                    raise DBusError(ErrorType.INVALID_SIGNATURE,
-                                    f'wrong signature for property. expected "{prop.signature}"')
+                    raise DBusError(ErrorType.INVALID_SIGNATURE, f'wrong signature for property. expected "{prop.signature}"')
                 assert prop.prop_setter
 
                 def set_property_callback(interface, prop, err):
@@ -938,17 +933,16 @@ class BaseMessageBus:
                     send_reply(Message.new_method_return(msg))
 
                 body = replace_idx_with_fds(value.signature, [value.value], msg.unix_fds)
-                ServiceInterface._set_property_value(interface, prop, body[0],
-                                                     set_property_callback)
+                ServiceInterface._set_property_value(interface, prop, body[0], set_property_callback)
 
-        elif msg.member == 'GetAll':
+        elif msg.member == "GetAll":
 
             def get_all_properties_callback(interface, values, user_data, err):
                 if err is not None:
                     send_reply.send_error(err)
                     return
-                body, unix_fds = replace_fds_with_idx('a{sv}', [values])
-                send_reply(Message.new_method_return(msg, 'a{sv}', body, unix_fds=unix_fds))
+                body, unix_fds = replace_fds_with_idx("a{sv}", [values])
+                send_reply(Message.new_method_return(msg, "a{sv}", body, unix_fds=unix_fds))
 
             ServiceInterface._get_all_property_values(interface, get_all_properties_callback)
 
@@ -956,34 +950,35 @@ class BaseMessageBus:
             assert False
 
     def _init_high_level_client(self):
-        '''The high level client is initialized when the first proxy object is
+        """The high level client is initialized when the first proxy object is
         gotten. Currently just sets up the match rules for the name owner cache
-        so signals can be routed to the right objects.'''
+        so signals can be routed to the right objects."""
         if self._high_level_client_initialized:
             return
         self._high_level_client_initialized = True
 
         def add_match_notify(msg, err):
             if err:
-                logging.error(
-                    f'add match request failed. match="{self._name_owner_match_rule}", {err}')
+                logging.error(f'add match request failed. match="{self._name_owner_match_rule}", {err}')
             if msg.message_type == MessageType.ERROR:
-                logging.error(
-                    f'add match request failed. match="{self._name_owner_match_rule}", {msg.body[0]}'
-                )
+                logging.error(f'add match request failed. match="{self._name_owner_match_rule}", {msg.body[0]}')
 
         self._call(
-            Message(destination='org.freedesktop.DBus',
-                    interface='org.freedesktop.DBus',
-                    path='/org/freedesktop/DBus',
-                    member='AddMatch',
-                    signature='s',
-                    body=[self._name_owner_match_rule]), add_match_notify)
+            Message(
+                destination="org.freedesktop.DBus",
+                interface="org.freedesktop.DBus",
+                path="/org/freedesktop/DBus",
+                member="AddMatch",
+                signature="s",
+                body=[self._name_owner_match_rule],
+            ),
+            add_match_notify,
+        )
 
     def _add_match_rule(self, match_rule):
-        '''Add a match rule. Match rules added by this function are refcounted
+        """Add a match rule. Match rules added by this function are refcounted
         and must be removed by _remove_match_rule(). This is for use in the
-        high level client only.'''
+        high level client only."""
         if match_rule == self._name_owner_match_rule:
             return
 
@@ -1000,16 +995,20 @@ class BaseMessageBus:
                 logging.error(f'add match request failed. match="{match_rule}", {msg.body[0]}')
 
         self._call(
-            Message(destination='org.freedesktop.DBus',
-                    interface='org.freedesktop.DBus',
-                    path='/org/freedesktop/DBus',
-                    member='AddMatch',
-                    signature='s',
-                    body=[match_rule]), add_match_notify)
+            Message(
+                destination="org.freedesktop.DBus",
+                interface="org.freedesktop.DBus",
+                path="/org/freedesktop/DBus",
+                member="AddMatch",
+                signature="s",
+                body=[match_rule],
+            ),
+            add_match_notify,
+        )
 
     def _remove_match_rule(self, match_rule):
-        '''Remove a match rule added with _add_match_rule(). This is for use in
-        the high level client only.'''
+        """Remove a match rule added with _add_match_rule(). This is for use in
+        the high level client only."""
         if match_rule == self._name_owner_match_rule:
             return
 
@@ -1030,9 +1029,13 @@ class BaseMessageBus:
                 logging.error(f'remove match request failed. match="{match_rule}", {msg.body[0]}')
 
         self._call(
-            Message(destination='org.freedesktop.DBus',
-                    interface='org.freedesktop.DBus',
-                    path='/org/freedesktop/DBus',
-                    member='RemoveMatch',
-                    signature='s',
-                    body=[match_rule]), remove_match_notify)
+            Message(
+                destination="org.freedesktop.DBus",
+                interface="org.freedesktop.DBus",
+                path="/org/freedesktop/DBus",
+                member="RemoveMatch",
+                signature="s",
+                body=[match_rule],
+            ),
+            remove_match_notify,
+        )

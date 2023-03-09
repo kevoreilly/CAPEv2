@@ -4,8 +4,8 @@
 
 import logging
 import os
-from contextlib import suppress
 import re
+from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File

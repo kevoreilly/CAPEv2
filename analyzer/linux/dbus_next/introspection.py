@@ -1,11 +1,10 @@
-from .constants import PropertyAccess, ArgDirection
-from .signature import SignatureTree, SignatureType
-from .validators import assert_member_name_valid, assert_interface_name_valid
-from .errors import InvalidIntrospectionError
-
+import xml.etree.ElementTree as ET
 from typing import List, Union
 
-import xml.etree.ElementTree as ET
+from .constants import ArgDirection, PropertyAccess
+from .errors import InvalidIntrospectionError
+from .signature import SignatureTree, SignatureType
+from .validators import assert_interface_name_valid, assert_member_name_valid
 
 # https://dbus.freedesktop.org/doc/dbus-specification.html#introspection-format
 # TODO annotations
@@ -28,10 +27,8 @@ class Arg:
         - :class:`InvalidSignatureError <dbus_next.InvalidSignatureError>` - If the signature is not valid.
         - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the signature is not a single complete type.
     """
-    def __init__(self,
-                 signature: Union[SignatureType, str],
-                 direction: List[ArgDirection] = None,
-                 name: str = None):
+
+    def __init__(self, signature: Union[SignatureType, str], direction: List[ArgDirection] = None, name: str = None):
         if name is not None:
             assert_member_name_valid(name)
 
@@ -42,8 +39,7 @@ class Arg:
         else:
             tree = SignatureTree._get(signature)
             if len(tree.types) != 1:
-                raise InvalidIntrospectionError(
-                    f'an argument must have a single complete type. (has {len(tree.types)} types)')
+                raise InvalidIntrospectionError(f"an argument must have a single complete type. (has {len(tree.types)} types)")
             type_ = tree.types[0]
 
         self.type = type_
@@ -51,7 +47,7 @@ class Arg:
         self.name = name
         self.direction = direction
 
-    def from_xml(element: ET.Element, direction: ArgDirection) -> 'Arg':
+    def from_xml(element: ET.Element, direction: ArgDirection) -> "Arg":
         """Convert a :class:`xml.etree.ElementTree.Element` into a
         :class:`Arg`.
 
@@ -65,8 +61,8 @@ class Arg:
         :raises:
             - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the XML tree is not valid introspection data.
         """
-        name = element.attrib.get('name')
-        signature = element.attrib.get('type')
+        name = element.attrib.get("name")
+        signature = element.attrib.get("type")
 
         if not signature:
             raise InvalidIntrospectionError('a method argument must have a "type" attribute')
@@ -74,15 +70,14 @@ class Arg:
         return Arg(signature, direction, name)
 
     def to_xml(self) -> ET.Element:
-        """Convert this :class:`Arg` into an :class:`xml.etree.ElementTree.Element`.
-        """
-        element = ET.Element('arg')
+        """Convert this :class:`Arg` into an :class:`xml.etree.ElementTree.Element`."""
+        element = ET.Element("arg")
         if self.name:
-            element.set('name', self.name)
+            element.set("name", self.name)
 
         if self.direction:
-            element.set('direction', self.direction.value)
-        element.set('type', self.signature)
+            element.set("direction", self.direction.value)
+        element.set("type", self.signature)
 
         return element
 
@@ -100,13 +95,14 @@ class Signal:
     :raises:
         - :class:`InvalidMemberNameError <dbus_next.InvalidMemberNameError>` - If the name of the signal is not a valid member name.
     """
+
     def __init__(self, name: str, args: List[Arg] = None):
         if name is not None:
             assert_member_name_valid(name)
 
         self.name = name
         self.args = args or []
-        self.signature = ''.join(arg.signature for arg in self.args)
+        self.signature = "".join(arg.signature for arg in self.args)
 
     def from_xml(element):
         """Convert an :class:`xml.etree.ElementTree.Element` to a :class:`Signal`.
@@ -121,13 +117,13 @@ class Signal:
         :raises:
             - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the XML tree is not valid introspection data.
         """
-        name = element.attrib.get('name')
+        name = element.attrib.get("name")
         if not name:
             raise InvalidIntrospectionError('signals must have a "name" attribute')
 
         args = []
         for child in element:
-            if child.tag == 'arg':
+            if child.tag == "arg":
                 args.append(Arg.from_xml(child, ArgDirection.OUT))
 
         signal = Signal(name, args)
@@ -135,10 +131,9 @@ class Signal:
         return signal
 
     def to_xml(self) -> ET.Element:
-        """Convert this :class:`Signal` into an :class:`xml.etree.ElementTree.Element`.
-        """
-        element = ET.Element('signal')
-        element.set('name', self.name)
+        """Convert this :class:`Signal` into an :class:`xml.etree.ElementTree.Element`."""
+        element = ET.Element("signal")
+        element.set("name", self.name)
 
         for arg in self.args:
             element.append(arg.to_xml())
@@ -163,16 +158,17 @@ class Method:
     :raises:
         - :class:`InvalidMemberNameError <dbus_next.InvalidMemberNameError>` - If the name of this method is not valid.
     """
+
     def __init__(self, name: str, in_args: List[Arg] = [], out_args: List[Arg] = []):
         assert_member_name_valid(name)
 
         self.name = name
         self.in_args = in_args
         self.out_args = out_args
-        self.in_signature = ''.join(arg.signature for arg in in_args)
-        self.out_signature = ''.join(arg.signature for arg in out_args)
+        self.in_signature = "".join(arg.signature for arg in in_args)
+        self.out_signature = "".join(arg.signature for arg in out_args)
 
-    def from_xml(element: ET.Element) -> 'Method':
+    def from_xml(element: ET.Element) -> "Method":
         """Convert an :class:`xml.etree.ElementTree.Element` to a :class:`Method`.
 
         The element must be valid DBus introspection XML for a ``method``.
@@ -185,7 +181,7 @@ class Method:
         :raises:
             - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the XML tree is not valid introspection data.
         """
-        name = element.attrib.get('name')
+        name = element.attrib.get("name")
         if not name:
             raise InvalidIntrospectionError('interfaces must have a "name" attribute')
 
@@ -193,8 +189,8 @@ class Method:
         out_args = []
 
         for child in element:
-            if child.tag == 'arg':
-                direction = ArgDirection(child.attrib.get('direction', 'in'))
+            if child.tag == "arg":
+                direction = ArgDirection(child.attrib.get("direction", "in"))
                 arg = Arg.from_xml(child, direction)
                 if direction == ArgDirection.IN:
                     in_args.append(arg)
@@ -204,10 +200,9 @@ class Method:
         return Method(name, in_args, out_args)
 
     def to_xml(self) -> ET.Element:
-        """Convert this :class:`Method` into an :class:`xml.etree.ElementTree.Element`.
-        """
-        element = ET.Element('method')
-        element.set('name', self.name)
+        """Convert this :class:`Method` into an :class:`xml.etree.ElementTree.Element`."""
+        element = ET.Element("method")
+        element.set("name", self.name)
 
         for arg in self.in_args:
             element.append(arg.to_xml())
@@ -235,16 +230,13 @@ class Property:
         - :class `InvalidSignatureError <dbus_next.InvalidSignatureError>` - If the given signature is not valid.
         - :class: `InvalidMemberNameError <dbus_next.InvalidMemberNameError>` - If the member name is not valid.
     """
-    def __init__(self,
-                 name: str,
-                 signature: str,
-                 access: PropertyAccess = PropertyAccess.READWRITE):
+
+    def __init__(self, name: str, signature: str, access: PropertyAccess = PropertyAccess.READWRITE):
         assert_member_name_valid(name)
 
         tree = SignatureTree._get(signature)
         if len(tree.types) != 1:
-            raise InvalidIntrospectionError(
-                f'properties must have a single complete type. (has {len(tree.types)} types)')
+            raise InvalidIntrospectionError(f"properties must have a single complete type. (has {len(tree.types)} types)")
 
         self.name = name
         self.signature = signature
@@ -262,9 +254,9 @@ class Property:
         :raises:
             - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the XML tree is not valid introspection data.
         """
-        name = element.attrib.get('name')
-        signature = element.attrib.get('type')
-        access = PropertyAccess(element.attrib.get('access', 'readwrite'))
+        name = element.attrib.get("name")
+        signature = element.attrib.get("type")
+        access = PropertyAccess(element.attrib.get("access", "readwrite"))
 
         if not name:
             raise InvalidIntrospectionError('properties must have a "name" attribute')
@@ -274,12 +266,11 @@ class Property:
         return Property(name, signature, access)
 
     def to_xml(self) -> ET.Element:
-        """Convert this :class:`Property` into an :class:`xml.etree.ElementTree.Element`.
-        """
-        element = ET.Element('property')
-        element.set('name', self.name)
-        element.set('type', self.signature)
-        element.set('access', self.access.value)
+        """Convert this :class:`Property` into an :class:`xml.etree.ElementTree.Element`."""
+        element = ET.Element("property")
+        element.set("name", self.name)
+        element.set("type", self.signature)
+        element.set("access", self.access.value)
         return element
 
 
@@ -301,11 +292,8 @@ class Interface:
     :raises:
         - :class:`InvalidInterfaceNameError <dbus_next.InvalidInterfaceNameError>` - If the name is not a valid interface name.
     """
-    def __init__(self,
-                 name: str,
-                 methods: List[Method] = None,
-                 signals: List[Signal] = None,
-                 properties: List[Property] = None):
+
+    def __init__(self, name: str, methods: List[Method] = None, signals: List[Signal] = None, properties: List[Property] = None):
         assert_interface_name_valid(name)
 
         self.name = name
@@ -314,7 +302,7 @@ class Interface:
         self.properties = properties if properties is not None else []
 
     @staticmethod
-    def from_xml(element: ET.Element) -> 'Interface':
+    def from_xml(element: ET.Element) -> "Interface":
         """Convert a :class:`xml.etree.ElementTree.Element` into a
         :class:`Interface`.
 
@@ -326,27 +314,26 @@ class Interface:
         :raises:
             - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the XML tree is not valid introspection data.
         """
-        name = element.attrib.get('name')
+        name = element.attrib.get("name")
         if not name:
             raise InvalidIntrospectionError('interfaces must have a "name" attribute')
 
         interface = Interface(name)
 
         for child in element:
-            if child.tag == 'method':
+            if child.tag == "method":
                 interface.methods.append(Method.from_xml(child))
-            elif child.tag == 'signal':
+            elif child.tag == "signal":
                 interface.signals.append(Signal.from_xml(child))
-            elif child.tag == 'property':
+            elif child.tag == "property":
                 interface.properties.append(Property.from_xml(child))
 
         return interface
 
     def to_xml(self) -> ET.Element:
-        """Convert this :class:`Interface` into an :class:`xml.etree.ElementTree.Element`.
-        """
-        element = ET.Element('interface')
-        element.set('name', self.name)
+        """Convert this :class:`Interface` into an :class:`xml.etree.ElementTree.Element`."""
+        element = ET.Element("interface")
+        element.set("name", self.name)
 
         for method in self.methods:
             element.append(method.to_xml())
@@ -384,6 +371,7 @@ class Node:
     :raises:
         - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the name is not a valid node name.
     """
+
     def __init__(self, name: str = None, interfaces: List[Interface] = None, is_root: bool = True):
         if not is_root and not name:
             raise InvalidIntrospectionError('child nodes must have a "name" attribute')
@@ -407,18 +395,18 @@ class Node:
         :raises:
             - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the XML tree is not valid introspection data.
         """
-        node = Node(element.attrib.get('name'), is_root=is_root)
+        node = Node(element.attrib.get("name"), is_root=is_root)
 
         for child in element:
-            if child.tag == 'interface':
+            if child.tag == "interface":
                 node.interfaces.append(Interface.from_xml(child))
-            elif child.tag == 'node':
+            elif child.tag == "node":
                 node.nodes.append(Node.from_xml(child))
 
         return node
 
     @staticmethod
-    def parse(data: str) -> 'Node':
+    def parse(data: str) -> "Node":
         """Parse XML data as a string into a :class:`Node`.
 
         The string must be valid DBus introspection XML.
@@ -430,19 +418,17 @@ class Node:
             - :class:`InvalidIntrospectionError <dbus_next.InvalidIntrospectionError>` - If the string is not valid introspection data.
         """
         element = ET.fromstring(data)
-        if element.tag != 'node':
-            raise InvalidIntrospectionError(
-                'introspection data must have a "node" for the root element')
+        if element.tag != "node":
+            raise InvalidIntrospectionError('introspection data must have a "node" for the root element')
 
         return Node.from_xml(element, is_root=True)
 
     def to_xml(self) -> ET.Element:
-        """Convert this :class:`Node` into an :class:`xml.etree.ElementTree.Element`.
-        """
-        element = ET.Element('node')
+        """Convert this :class:`Node` into an :class:`xml.etree.ElementTree.Element`."""
+        element = ET.Element("node")
 
         if self.name:
-            element.set('name', self.name)
+            element.set("name", self.name)
 
         for interface in self.interfaces:
             element.append(interface.to_xml())
@@ -452,8 +438,7 @@ class Node:
         return element
 
     def tostring(self) -> str:
-        """Convert this :class:`Node` into a DBus introspection XML string.
-        """
+        """Convert this :class:`Node` into a DBus introspection XML string."""
         header = '<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"\n"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">\n'
 
         def indent(elem, level=0):
@@ -473,10 +458,10 @@ class Node:
 
         xml = self.to_xml()
         indent(xml)
-        return header + ET.tostring(xml, encoding='unicode').rstrip()
+        return header + ET.tostring(xml, encoding="unicode").rstrip()
 
     @staticmethod
-    def default(name: str = None) -> 'Node':
+    def default(name: str = None) -> "Node":
         """Create a :class:`Node` with the default interfaces supported by this library.
 
         The default interfaces include:
@@ -486,67 +471,75 @@ class Node:
         * ``org.freedesktop.DBus.Properties``
         * ``org.freedesktop.DBus.ObjectManager``
         """
-        return Node(name,
-                    is_root=True,
-                    interfaces=[
-                        Interface('org.freedesktop.DBus.Introspectable',
-                                  methods=[
-                                      Method('Introspect',
-                                             out_args=[Arg('s', ArgDirection.OUT, 'data')])
-                                  ]),
-                        Interface('org.freedesktop.DBus.Peer',
-                                  methods=[
-                                      Method('GetMachineId',
-                                             out_args=[Arg('s', ArgDirection.OUT, 'machine_uuid')]),
-                                      Method('Ping')
-                                  ]),
-                        Interface('org.freedesktop.DBus.Properties',
-                                  methods=[
-                                      Method('Get',
-                                             in_args=[
-                                                 Arg('s', ArgDirection.IN, 'interface_name'),
-                                                 Arg('s', ArgDirection.IN, 'property_name')
-                                             ],
-                                             out_args=[Arg('v', ArgDirection.OUT, 'value')]),
-                                      Method('Set',
-                                             in_args=[
-                                                 Arg('s', ArgDirection.IN, 'interface_name'),
-                                                 Arg('s', ArgDirection.IN, 'property_name'),
-                                                 Arg('v', ArgDirection.IN, 'value')
-                                             ]),
-                                      Method('GetAll',
-                                             in_args=[Arg('s', ArgDirection.IN, 'interface_name')],
-                                             out_args=[Arg('a{sv}', ArgDirection.OUT, 'props')])
-                                  ],
-                                  signals=[
-                                      Signal('PropertiesChanged',
-                                             args=[
-                                                 Arg('s', ArgDirection.OUT, 'interface_name'),
-                                                 Arg('a{sv}', ArgDirection.OUT,
-                                                     'changed_properties'),
-                                                 Arg('as', ArgDirection.OUT,
-                                                     'invalidated_properties')
-                                             ])
-                                  ]),
-                        Interface('org.freedesktop.DBus.ObjectManager',
-                                  methods=[
-                                      Method('GetManagedObjects',
-                                             out_args=[
-                                                 Arg('a{oa{sa{sv}}}', ArgDirection.OUT,
-                                                     'objpath_interfaces_and_properties')
-                                             ]),
-                                  ],
-                                  signals=[
-                                      Signal('InterfacesAdded',
-                                             args=[
-                                                 Arg('o', ArgDirection.OUT, 'object_path'),
-                                                 Arg('a{sa{sv}}', ArgDirection.OUT,
-                                                     'interfaces_and_properties'),
-                                             ]),
-                                      Signal('InterfacesRemoved',
-                                             args=[
-                                                 Arg('o', ArgDirection.OUT, 'object_path'),
-                                                 Arg('as', ArgDirection.OUT, 'interfaces'),
-                                             ])
-                                  ]),
-                    ])
+        return Node(
+            name,
+            is_root=True,
+            interfaces=[
+                Interface(
+                    "org.freedesktop.DBus.Introspectable",
+                    methods=[Method("Introspect", out_args=[Arg("s", ArgDirection.OUT, "data")])],
+                ),
+                Interface(
+                    "org.freedesktop.DBus.Peer",
+                    methods=[Method("GetMachineId", out_args=[Arg("s", ArgDirection.OUT, "machine_uuid")]), Method("Ping")],
+                ),
+                Interface(
+                    "org.freedesktop.DBus.Properties",
+                    methods=[
+                        Method(
+                            "Get",
+                            in_args=[Arg("s", ArgDirection.IN, "interface_name"), Arg("s", ArgDirection.IN, "property_name")],
+                            out_args=[Arg("v", ArgDirection.OUT, "value")],
+                        ),
+                        Method(
+                            "Set",
+                            in_args=[
+                                Arg("s", ArgDirection.IN, "interface_name"),
+                                Arg("s", ArgDirection.IN, "property_name"),
+                                Arg("v", ArgDirection.IN, "value"),
+                            ],
+                        ),
+                        Method(
+                            "GetAll",
+                            in_args=[Arg("s", ArgDirection.IN, "interface_name")],
+                            out_args=[Arg("a{sv}", ArgDirection.OUT, "props")],
+                        ),
+                    ],
+                    signals=[
+                        Signal(
+                            "PropertiesChanged",
+                            args=[
+                                Arg("s", ArgDirection.OUT, "interface_name"),
+                                Arg("a{sv}", ArgDirection.OUT, "changed_properties"),
+                                Arg("as", ArgDirection.OUT, "invalidated_properties"),
+                            ],
+                        )
+                    ],
+                ),
+                Interface(
+                    "org.freedesktop.DBus.ObjectManager",
+                    methods=[
+                        Method(
+                            "GetManagedObjects",
+                            out_args=[Arg("a{oa{sa{sv}}}", ArgDirection.OUT, "objpath_interfaces_and_properties")],
+                        ),
+                    ],
+                    signals=[
+                        Signal(
+                            "InterfacesAdded",
+                            args=[
+                                Arg("o", ArgDirection.OUT, "object_path"),
+                                Arg("a{sa{sv}}", ArgDirection.OUT, "interfaces_and_properties"),
+                            ],
+                        ),
+                        Signal(
+                            "InterfacesRemoved",
+                            args=[
+                                Arg("o", ArgDirection.OUT, "object_path"),
+                                Arg("as", ArgDirection.OUT, "interfaces"),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )

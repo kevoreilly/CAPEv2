@@ -32,27 +32,27 @@ class SignalDisabledError(Exception):
 
 class InvalidBusNameError(TypeError):
     def __init__(self, name):
-        super().__init__(f'invalid bus name: {name}')
+        super().__init__(f"invalid bus name: {name}")
 
 
 class InvalidObjectPathError(TypeError):
     def __init__(self, path):
-        super().__init__(f'invalid object path: {path}')
+        super().__init__(f"invalid object path: {path}")
 
 
 class InvalidInterfaceNameError(TypeError):
     def __init__(self, name):
-        super().__init__(f'invalid interface name: {name}')
+        super().__init__(f"invalid interface name: {name}")
 
 
 class InvalidMemberNameError(TypeError):
     def __init__(self, member):
-        super().__init__(f'invalid member name: {member}')
+        super().__init__(f"invalid member name: {member}")
 
 
+from .constants import ErrorType, MessageType
 from .message import Message
 from .validators import assert_interface_name_valid
-from .constants import ErrorType, MessageType
 
 
 class DBusError(Exception):
@@ -64,7 +64,7 @@ class DBusError(Exception):
 
         assert_interface_name_valid(type_)
         if reply is not None and type(reply) is not Message:
-            raise TypeError('reply must be of type Message')
+            raise TypeError("reply must be of type Message")
 
         self.type = type_
         self.text = text

@@ -2,8 +2,8 @@ from enum import Enum
 
 PROTOCOL_VERSION = 1
 
-LITTLE_ENDIAN = ord('l')
-BIG_ENDIAN = ord('B')
+LITTLE_ENDIAN = ord("l")
+BIG_ENDIAN = ord("B")
 
 
 class HeaderField(Enum):

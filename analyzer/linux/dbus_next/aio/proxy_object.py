@@ -1,14 +1,14 @@
-from ..proxy_object import BaseProxyObject, BaseProxyInterface
-from ..message_bus import BaseMessageBus
-from ..message import Message, MessageFlag
-from ..signature import Variant
-from ..errors import DBusError
-from ..constants import ErrorType
-from .._private.util import replace_idx_with_fds, replace_fds_with_idx
-from .. import introspection as intr
 import xml.etree.ElementTree as ET
+from typing import List, Union
 
-from typing import Union, List
+from .. import introspection as intr
+from .._private.util import replace_fds_with_idx, replace_idx_with_fds
+from ..constants import ErrorType
+from ..errors import DBusError
+from ..message import Message, MessageFlag
+from ..message_bus import BaseMessageBus
+from ..proxy_object import BaseProxyInterface, BaseProxyObject
+from ..signature import Variant
 
 
 class ProxyInterface(BaseProxyInterface):
@@ -72,19 +72,23 @@ class ProxyInterface(BaseProxyInterface):
     If the service returns an error for a DBus call, a :class:`DBusError
     <dbus_next.DBusError>` will be raised with information about the error.
     """
+
     def _add_method(self, intr_method):
         async def method_fn(*args, flags=MessageFlag.NONE):
             input_body, unix_fds = replace_fds_with_idx(intr_method.in_signature, list(args))
 
             msg = await self.bus.call(
-                Message(destination=self.bus_name,
-                        path=self.path,
-                        interface=self.introspection.name,
-                        member=intr_method.name,
-                        signature=intr_method.in_signature,
-                        body=input_body,
-                        flags=flags,
-                        unix_fds=unix_fds))
+                Message(
+                    destination=self.bus_name,
+                    path=self.path,
+                    interface=self.introspection.name,
+                    member=intr_method.name,
+                    signature=intr_method.in_signature,
+                    body=input_body,
+                    flags=flags,
+                    unix_fds=unix_fds,
+                )
+            )
 
             if flags & MessageFlag.NO_REPLY_EXPECTED:
                 return None
@@ -102,48 +106,51 @@ class ProxyInterface(BaseProxyInterface):
             else:
                 return body
 
-        method_name = f'call_{BaseProxyInterface._to_snake_case(intr_method.name)}'
+        method_name = f"call_{BaseProxyInterface._to_snake_case(intr_method.name)}"
         setattr(self, method_name, method_fn)
 
     def _add_property(self, intr_property):
         async def property_getter():
             msg = await self.bus.call(
-                Message(destination=self.bus_name,
-                        path=self.path,
-                        interface='org.freedesktop.DBus.Properties',
-                        member='Get',
-                        signature='ss',
-                        body=[self.introspection.name, intr_property.name]))
+                Message(
+                    destination=self.bus_name,
+                    path=self.path,
+                    interface="org.freedesktop.DBus.Properties",
+                    member="Get",
+                    signature="ss",
+                    body=[self.introspection.name, intr_property.name],
+                )
+            )
 
-            BaseProxyInterface._check_method_return(msg, 'v')
+            BaseProxyInterface._check_method_return(msg, "v")
             variant = msg.body[0]
             if variant.signature != intr_property.signature:
-                raise DBusError(ErrorType.CLIENT_ERROR,
-                                f'property returned unexpected signature "{variant.signature}"',
-                                msg)
+                raise DBusError(ErrorType.CLIENT_ERROR, f'property returned unexpected signature "{variant.signature}"', msg)
 
-            return replace_idx_with_fds('v', msg.body, msg.unix_fds)[0].value
+            return replace_idx_with_fds("v", msg.body, msg.unix_fds)[0].value
 
         async def property_setter(val):
             variant = Variant(intr_property.signature, val)
 
-            body, unix_fds = replace_fds_with_idx(
-                'ssv', [self.introspection.name, intr_property.name, variant])
+            body, unix_fds = replace_fds_with_idx("ssv", [self.introspection.name, intr_property.name, variant])
 
             msg = await self.bus.call(
-                Message(destination=self.bus_name,
-                        path=self.path,
-                        interface='org.freedesktop.DBus.Properties',
-                        member='Set',
-                        signature='ssv',
-                        body=body,
-                        unix_fds=unix_fds))
+                Message(
+                    destination=self.bus_name,
+                    path=self.path,
+                    interface="org.freedesktop.DBus.Properties",
+                    member="Set",
+                    signature="ssv",
+                    body=body,
+                    unix_fds=unix_fds,
+                )
+            )
 
             BaseProxyInterface._check_method_return(msg)
 
         snake_case = BaseProxyInterface._to_snake_case(intr_property.name)
-        setattr(self, f'get_{snake_case}', property_getter)
-        setattr(self, f'set_{snake_case}', property_setter)
+        setattr(self, f"get_{snake_case}", property_getter)
+        setattr(self, f"set_{snake_case}", property_setter)
 
 
 class ProxyObject(BaseProxyObject):
@@ -151,12 +158,12 @@ class ProxyObject(BaseProxyObject):
 
     For more information, see the :class:`BaseProxyObject <dbus_next.proxy_object.BaseProxyObject>`.
     """
-    def __init__(self, bus_name: str, path: str, introspection: Union[intr.Node, str, ET.Element],
-                 bus: BaseMessageBus):
+
+    def __init__(self, bus_name: str, path: str, introspection: Union[intr.Node, str, ET.Element], bus: BaseMessageBus):
         super().__init__(bus_name, path, introspection, bus, ProxyInterface)
 
     def get_interface(self, name: str) -> ProxyInterface:
         return super().get_interface(name)
 
-    def get_children(self) -> List['ProxyObject']:
+    def get_children(self) -> List["ProxyObject"]:
         return super().get_children()

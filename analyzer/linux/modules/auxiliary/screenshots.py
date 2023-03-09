@@ -7,7 +7,7 @@ import logging
 import threading
 from threading import Thread
 
-from lib.api.screenshot import HAVE_PIL, HAVE_DBUS_NEXT
+from lib.api.screenshot import HAVE_DBUS_NEXT, HAVE_PIL
 
 if HAVE_PIL and HAVE_DBUS_NEXT:
     from PIL import Image

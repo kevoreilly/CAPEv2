@@ -1,5 +1,6 @@
-from ..signature import SignatureTree
 from struct import pack
+
+from ..signature import SignatureTree
 
 
 class Marshaller:
@@ -10,23 +11,23 @@ class Marshaller:
         self.body = body
 
         self.writers = {
-            'y': self.write_byte,
-            'b': self.write_boolean,
-            'n': self.write_int16,
-            'q': self.write_uint16,
-            'i': self.write_int32,
-            'u': self.write_uint32,
-            'x': self.write_int64,
-            't': self.write_uint64,
-            'd': self.write_double,
-            'h': self.write_uint32,
-            'o': self.write_string,
-            's': self.write_string,
-            'g': self.write_signature,
-            'a': self.write_array,
-            '(': self.write_struct,
-            '{': self.write_dict_entry,
-            'v': self.write_variant
+            "y": self.write_byte,
+            "b": self.write_boolean,
+            "n": self.write_int16,
+            "q": self.write_uint16,
+            "i": self.write_int32,
+            "u": self.write_uint32,
+            "x": self.write_int64,
+            "t": self.write_uint64,
+            "d": self.write_double,
+            "h": self.write_uint32,
+            "o": self.write_string,
+            "s": self.write_string,
+            "g": self.write_signature,
+            "a": self.write_array,
+            "(": self.write_struct,
+            "{": self.write_dict_entry,
+            "v": self.write_variant,
         }
 
     def align(self, n):
@@ -48,37 +49,37 @@ class Marshaller:
 
     def write_int16(self, int16, _=None):
         written = self.align(2)
-        self.buffer.extend(pack('<h', int16))
+        self.buffer.extend(pack("<h", int16))
         return written + 2
 
     def write_uint16(self, uint16, _=None):
         written = self.align(2)
-        self.buffer.extend(pack('<H', uint16))
+        self.buffer.extend(pack("<H", uint16))
         return written + 2
 
     def write_int32(self, int32, _):
         written = self.align(4)
-        self.buffer.extend(pack('<i', int32))
+        self.buffer.extend(pack("<i", int32))
         return written + 4
 
     def write_uint32(self, uint32, _=None):
         written = self.align(4)
-        self.buffer.extend(pack('<I', uint32))
+        self.buffer.extend(pack("<I", uint32))
         return written + 4
 
     def write_int64(self, int64, _=None):
         written = self.align(8)
-        self.buffer.extend(pack('<q', int64))
+        self.buffer.extend(pack("<q", int64))
         return written + 8
 
     def write_uint64(self, uint64, _=None):
         written = self.align(8)
-        self.buffer.extend(pack('<Q', uint64))
+        self.buffer.extend(pack("<Q", uint64))
         return written + 8
 
     def write_double(self, double, _=None):
         written = self.align(8)
-        self.buffer.extend(pack('<d', double))
+        self.buffer.extend(pack("<d", double))
         return written + 8
 
     def write_signature(self, signature, _=None):
@@ -112,22 +113,22 @@ class Marshaller:
         written += self.write_uint32(0)
         child_type = type_.children[0]
 
-        if child_type.token in 'xtd{(':
+        if child_type.token in "xtd{(":
             # the first alignment is not included in array size
             written += self.align(8)
 
         array_len = 0
-        if child_type.token == '{':
+        if child_type.token == "{":
             for key, value in array.items():
                 array_len += self.write_dict_entry([key, value], child_type)
-        elif child_type.token == 'y':
+        elif child_type.token == "y":
             array_len = len(array)
             self.buffer.extend(array)
         else:
             for value in array:
                 array_len += self.write_single(child_type, value)
 
-        array_len_packed = pack('<I', array_len)
+        array_len_packed = pack("<I", array_len)
         for i in range(offset, offset + 4):
             self.buffer[i] = array_len_packed[i - offset]
 

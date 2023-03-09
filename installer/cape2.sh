@@ -741,10 +741,6 @@ function install_yara() {
     cd ..
     # for root
     pip3 install ./yara-python
-    # for CAPE user you need to:
-    # cd /opt/CAPEv2 && poetry shell
-    # poetry run pip install /tmp/yara-python
-    # cd -
 }
 
 function install_mongo(){

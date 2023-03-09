@@ -319,7 +319,7 @@ class File:
             return None
 
         try:
-            return pydeep.hash_file(self.file_path)
+            return pydeep.hash_file(self.file_path).decode()
         except Exception:
             return None
 

@@ -1,3 +1,8 @@
+### [9.3.2023]
+* Monitor updates:
+    * Remove cryptsp 'double' hooks in Office processes due to detonation failures (e.g. Word 2016)
+    * Prevent following child processes of WerSvc (to prevent werfault.exe producing mini dumps that are detected by yara due to in-memory monitor sigs)
+
 ### [8.3.2023]
 * Virtual machine tags: For Windows only. Please set windows version in tag, any of: winxp, win7, win8, win10, win11.
     * This is required for proper detonation for packages like MsiX.

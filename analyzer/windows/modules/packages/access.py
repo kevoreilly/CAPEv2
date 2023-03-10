@@ -23,6 +23,6 @@ class ACCESS(Package):
     ]
 
     def start(self, path):
-        access = self.get_path_glob("Microsoft Office Access")
+        access = self.get_path_glob("MSACCESS.EXE")
         path = check_file_extension(path, ".accdr")
         return self.execute(access, f'"{path}"', path)

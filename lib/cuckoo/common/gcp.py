@@ -79,7 +79,7 @@ class GCP(object):
                     # Public IP
                     # ips = [access.nat_i_p for net_iface in instance.network_interfaces for access in net_iface.access_configs]
                     # Private IP
-                    ips = [access.network_i_p for net_iface in instance.network_interfaces for access in net_iface]
+                    ips = [net_iface.network_i_p for net_iface in instance.network_interfaces]
                     servers.setdefault(instance.name, ips)
 
         else:

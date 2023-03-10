@@ -1211,6 +1211,9 @@ class NodeRootApi(NodeBaseApi):
             node.exitnodes.append(exitnode)
             db.add(exitnode)
 
+        if args.get("enabled"):
+            node.enabled = bool(args["enabled"])
+
         db.add(node)
         db.commit()
         db.close()
@@ -1218,7 +1221,8 @@ class NodeRootApi(NodeBaseApi):
         if NFS_FETCH:
             # Add entry to /etc/fstab, create folder and mount server
             hostname = urlparse(args["url"]).netloc.split(":")[0]
-            send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[hostname, args["name"]])
+            if hostname != main_server_name:
+                send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[hostname, args["name"]])
 
         return dict(name=args["name"], machines=machines, exitnodes=exitnodes)
 

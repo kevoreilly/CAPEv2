@@ -9,11 +9,10 @@ from typing import List
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename, trim_sample
+from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename, trim_ole_doc, trim_sample
 
 sf_version = ""
 try:
@@ -208,6 +207,31 @@ def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     return list(filter(None, retlist))
 
 
+def trim_pe_file(filename: bytes, options: str) -> bool:
+    """
+    Trim PE file
+    """
+    file_head = File(filename).get_chunks(64).__next__()
+    trimmed_size = trim_sample(file_head)
+    if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
+        with open(filename, "rb") as hfile:
+            data = hfile.read(trimmed_size)
+        _ = path_write_file(filename.decode(), data)
+        return True
+
+
+def trim_ole_file(filename: bytes, options: str) -> bool:
+    """
+    Trim OLE Doc file
+    """
+    trimmed_size = trim_ole_doc(filename)
+    if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
+        with open(filename, "rb") as hfile:
+            data = hfile.read(trimmed_size)
+        _ = path_write_file(filename.decode(), data)
+        return True
+
+
 def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True) -> List[bytes]:
     """
     If file is a ZIP, extract its included files and return their file paths
@@ -217,9 +241,22 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # TODO: Remove after checking all uses of demux_sample use bytes ~TheMythologist
     if isinstance(filename, str) and use_sflock:
         filename = filename.encode()
+
     # if a package was specified, then don't do anything special
     if package:
-        return [filename]
+        retlist = [filename]
+        if File(filename).get_size() > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+        ):
+            if web_cfg.general.enable_trim:
+                if "doc" in package:
+                    if not trim_ole_file(filename, options):
+                        retlist.remove(filename)
+                else:
+                    if not trim_pe_file(filename, options):
+                        retlist.remove(filename)
+
+        return retlist
 
     # handle quarantine files
     tmp_path = unquarantine(filename)
@@ -232,7 +269,6 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
 
     # don't try to extract from office docs
     magic = File(filename).get_type()
-
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:
         pass
@@ -253,7 +289,14 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         or "MS-DOS executable" in magic
         or any(x in magic for x in VALID_LINUX_TYPES)
     ):
-        return [filename]
+        retlist = [filename]
+        if File(filename).get_size() > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+        ):
+            if web_cfg.general.enable_trim:
+                if not trim_pe_file(filename, options):
+                    retlist.remove(filename)
+        return retlist
 
     # all in one unarchiver
     retlist = demux_sflock(filename, options) if HAS_SFLOCK and use_sflock else []
@@ -263,7 +306,6 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         retlist.append(filename)
     else:
         for filename in retlist.copy():
-
             # verify not Windows binaries here:
             magic_type = File(filename).get_type()
             platform = get_platform(magic_type)
@@ -272,15 +314,11 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 continue
 
             if File(filename).get_size() > web_cfg.general.max_sample_size and not (
-                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+                    web_cfg.general.allow_ignore_size and "ignore_size_check" in options
             ):
-                file_chunk = File(filename).get_chunks(64).__next__()
-                retlist.remove(filename)
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
-                    trimmed_size = trim_sample(file_chunk)
-                    if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
-                        data = File(filename).get_chunks(trimmed_size).__next__()
-                        _ = path_write_file(filename, data)
-                        retlist.append(filename)
+                if web_cfg.general.enable_trim:
+                    if not trim_pe_file(filename, options):
+                        if not trim_ole_file(filename, options):
+                            retlist.remove(filename)
 
     return retlist[:10]

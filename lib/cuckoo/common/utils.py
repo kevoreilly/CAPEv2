@@ -8,6 +8,7 @@ import fcntl
 import inspect
 import logging
 import multiprocessing
+import olefile
 import os
 import random
 import shutil
@@ -20,6 +21,7 @@ import threading
 import time
 import xmlrpc.client
 import zipfile
+from contextlib import suppress
 from datetime import datetime
 from io import BytesIO
 from typing import Tuple, Union
@@ -887,9 +889,26 @@ def validate_ttp(ttp: str) -> bool:
 
 
 def trim_sample(first_chunk):
-    try:
+    with suppress(Exception):
         overlay_data_offset = PortableExecutable(data=first_chunk).get_overlay_raw()
         if overlay_data_offset is not None:
             return overlay_data_offset
-    except Exception as e:
-        log.info(e)
+
+
+def trim_ole_doc(file_path: bytes) -> int:
+    with suppress(Exception):
+        ole = olefile.OleFileIO(file_path)
+        if ole.header_signature != b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+            return
+
+        num_sectors_per_fat_sector = ole.sector_size / 4
+        num_sectors_in_fat = num_sectors_per_fat_sector * ole.num_fat_sectors
+        max_filesize_fat = (num_sectors_in_fat + 1) * ole.sector_size
+        if ole._filesize > max_filesize_fat:
+            last_used_sector = len(ole.fat) - 1
+            for i in range(len(ole.fat) - 1, 0, -1):
+                last_used_sector = i
+                if ole.fat[i] != olefile.FREESECT:
+                    break
+
+            return ole.sectorsize * (last_used_sector + 2)

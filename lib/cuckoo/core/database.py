@@ -1573,7 +1573,7 @@ class Database(object, metaclass=Singleton):
             username=username,
         )
 
-    def _identify_aux_func(self, file: str, package: str) -> str:
+    def _identify_aux_func(self, file: bytes, package: str) -> str:
         # before demux we need to check as msix has zip mime and we don't want it to be extracted:
         tmp_package = False
         if not package:
@@ -1637,6 +1637,9 @@ class Database(object, metaclass=Singleton):
         if platform == "linux":
             package = ""
 
+        if not isinstance(file_path, bytes):
+            file_path = file_path.encode()
+
         if not package:
             # Checking original file as some filetypes doesn't require demux
             package, _ = self._identify_aux_func(file_path, package)
@@ -1644,8 +1647,6 @@ class Database(object, metaclass=Singleton):
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
-        if not isinstance(file_path, bytes):
-            file_path = file_path.encode()
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:

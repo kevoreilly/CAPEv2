@@ -1,3 +1,6 @@
+### [10.3.2023]
+* Monitor fix: Prevent unpacker initialisation from adding imagebase to tracked regions, allow yara scans on caller
+
 ### [9.3.2023]
 * Monitor updates:
     * Remove cryptsp 'double' hooks in Office processes due to detonation failures (e.g. Word 2016)

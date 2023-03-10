@@ -470,7 +470,9 @@ class Azure(Machinery):
         @param arch: the architecture of the operating system
         @return: dict representing machine object from DB
         """
-        base_class_return_value = super(Azure, self).acquire(machine_id=machine_id, platform=platform, tags=tags, arch=arch, os_version=os_version)
+        base_class_return_value = super(Azure, self).acquire(
+            machine_id=machine_id, platform=platform, tags=tags, arch=arch, os_version=os_version
+        )
         if base_class_return_value and base_class_return_value.name:
             vmss_name, _ = base_class_return_value.name.split("_")
 

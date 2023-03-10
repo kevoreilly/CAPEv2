@@ -103,7 +103,8 @@ class GCP(object):
                             continue
                         try:
                             r = requests.post(
-                                "http://localhost:9003/node", data={"name": name, "url": f"http://{ip}:8000/apiv2/", "enabled": True}
+                                "http://localhost:9003/node",
+                                data={"name": name, "url": f"http://{ip}:8000/apiv2/", "enabled": True},
                             )  # -F apikey=apikey
                             if r.ok:
                                 log.info("New worker with IP: %s registered", ip)

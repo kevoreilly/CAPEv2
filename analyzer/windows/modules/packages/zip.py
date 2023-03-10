@@ -28,6 +28,10 @@ class Zip(Package):
         ("SystemRoot", "system32", "rundll32.exe"),
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
         ("SystemRoot", "system32", "xpsrchvw.exe"),
+        ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
     ]
 
     def extract_zip(self, zip_path, extract_path, password=b"infected", recursion_depth=1):
@@ -168,6 +172,14 @@ class Zip(Package):
             powershell = self.get_path_app_in_path("powershell.exe")
             args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
             return self.execute(powershell, args, file_path)
+        elif file_name.lower().endswith(".doc"):
+            # Try getting winword or wordview as a backup
+            try:
+                word = self.get_path_glob("WINWORD.EXE")
+            except CuckooPackageError:
+                word = self.get_path_glob("WORDVIEW.EXE")
+
+            return self.execute(word, f'"{file_path}" /q', file_path)
         else:
             path = check_file_extension(path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)

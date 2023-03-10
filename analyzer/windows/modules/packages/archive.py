@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
 EXE_REGEX = re.compile(
-    r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp)$", flags=re.IGNORECASE
+    r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp|\.doc)$", flags=re.IGNORECASE
 )
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
@@ -45,6 +45,10 @@ class Archive(Package):
         ("SystemRoot", "system32", "xpsrchvw.exe"),
         ("ProgramFiles", "7-Zip", "7z.exe"),
         ("ProgramFiles", "WinRAR", "WinRAR.exe"),
+        ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
     ]
 
     def extract_archive(self, seven_zip_path, archive_path, extract_path, password="infected"):
@@ -157,6 +161,14 @@ class Archive(Package):
             powershell = self.get_path_app_in_path("powershell.exe")
             args = f'-NoProfile -ExecutionPolicy bypass -File "{file_path}"'
             return self.execute(powershell, args, file_path)
+        elif file_name.lower().endswith(".doc"):
+            # Try getting winword or wordview as a backup
+            try:
+                word = self.get_path_glob("WINWORD.EXE")
+            except CuckooPackageError:
+                word = self.get_path_glob("WORDVIEW.EXE")
+
+            return self.execute(word, f'"{file_path}" /q', file_path)
         else:
             file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)

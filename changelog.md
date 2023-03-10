@@ -1,5 +1,7 @@
 ### [10.3.2023]
-* Monitor fix: Prevent unpacker initialisation from adding imagebase to tracked regions, allow yara scans on caller
+* Monitor fixes: 
+    * Prevent unpacker initialisation from adding imagebase to tracked regions, allow yara scans on caller
+    * CoGetClassObject hook: remove modification of dwClsContext parameter causing detonation failures
 
 ### [9.3.2023]
 * Monitor updates:

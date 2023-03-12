@@ -8,7 +8,6 @@ import fcntl
 import inspect
 import logging
 import multiprocessing
-import olefile
 import os
 import random
 import shutil
@@ -21,7 +20,6 @@ import threading
 import time
 import xmlrpc.client
 import zipfile
-from contextlib import suppress
 from datetime import datetime
 from io import BytesIO
 from typing import Tuple, Union
@@ -32,7 +30,6 @@ from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_is_dir, path_mkdir, path_read_file
 
 try:
@@ -886,29 +883,3 @@ def get_ip_address(ifname):
 def validate_ttp(ttp: str) -> bool:
     regex = r"^(O?[BCTFSU]\d{4}(\.\d{3})?)|(E\d{4}(\.m\d{2})?)$"
     return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))
-
-
-def trim_sample(first_chunk):
-    with suppress(Exception):
-        overlay_data_offset = PortableExecutable(data=first_chunk).get_overlay_raw()
-        if overlay_data_offset is not None:
-            return overlay_data_offset
-
-
-def trim_ole_doc(file_path: bytes) -> int:
-    with suppress(Exception):
-        ole = olefile.OleFileIO(file_path)
-        if ole.header_signature != b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
-            return
-
-        num_sectors_per_fat_sector = ole.sector_size / 4
-        num_sectors_in_fat = num_sectors_per_fat_sector * ole.num_fat_sectors
-        max_filesize_fat = (num_sectors_in_fat + 1) * ole.sector_size
-        if ole._filesize > max_filesize_fat:
-            last_used_sector = len(ole.fat) - 1
-            for i in range(len(ole.fat) - 1, 0, -1):
-                last_used_sector = i
-                if ole.fat[i] != olefile.FREESECT:
-                    break
-
-            return ole.sectorsize * (last_used_sector + 2)

@@ -234,6 +234,7 @@ def index(request, task_id=None, resubmit_hash=None):
             "options": options,
             "only_extraction": False,
             "user_id": request.user.id or 0,
+            "package": package,
         }
         task_category = False
         samples = []

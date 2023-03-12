@@ -19,7 +19,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
-from lib.cuckoo.common.trim_utils import trim_file
+from lib.cuckoo.common.trim_utils import trim_sample # trim_file
 from lib.cuckoo.common.utils import (
     bytes2str,
     generate_fake_name,
@@ -1250,10 +1250,15 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         data = False
         if size > web_cfg.general.max_sample_size:
             if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]):
-                if web_cfg.general.enable_trim:
-                    trimmed_size = trim_file(sample, chunk=sample.chunks().__next__(), return_size=True)
+                first_chunk = sample.chunks().__next__()
+                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
+                    trimmed_size = trim_sample(sample.chunks().__next__())
                     if trimmed_size:
                         size = trimmed_size
+                        data = sample.chunks(size).__next__()
+                else:
+                    # we need to rebuild original file
+                    data = first_chunk + sample.read()
                 sample.seek(0)
                 data = sample.read(size)
                 if size > web_cfg.general.max_sample_size:

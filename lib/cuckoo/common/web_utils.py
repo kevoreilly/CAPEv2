@@ -28,7 +28,7 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
-    trim_ole_doc,
+    trim_file,
     trim_sample,
     validate_referrer,
     validate_ttp,
@@ -1257,7 +1257,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
                         size = trimmed_size
                     else:
                         sample.seek(0)
-                        trimmed_size = trim_ole_doc(sample.read(size))
+                        trimmed_size = trim_file(sample.read(size))
                         if trimmed_size:
                             size = trimmed_size
                 sample.seek(0)

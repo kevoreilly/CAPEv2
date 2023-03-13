@@ -189,20 +189,21 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     @param analysis: check the main storage size
     """
     need_space, space_available = False, 0
+    # Calculate the free disk space in megabytes.
+    # Check main FS if processing
+    if processing:
+        free_space = config.cuckoo.freespace_processing
+    elif not analysis and HAVE_TMPFS and tmpfs.enabled:
+        path = tmpfs.path
+        free_space = tmpfs.freespace
+    else:
+        free_space = config.cuckoo.freespace
+
+    if path and not path_exists(path):
+        sys.exit("Restart daemon/process, happens after full cleanup")
+
     while True:
         try:
-            # Calculate the free disk space in megabytes.
-            # Check main FS if processing
-            if processing:
-                free_space = config.cuckoo.freespace_processing
-            elif not analysis and HAVE_TMPFS and tmpfs.enabled:
-                path = tmpfs.path
-                free_space = tmpfs.freespace
-            else:
-                free_space = config.cuckoo.freespace
-
-            if path and not path_exists(path):
-                sys.exit("Restart daemon/process, happens after full cleanup")
             space_available = shutil.disk_usage(path).free >> 20
             need_space = space_available < free_space
         except FileNotFoundError:

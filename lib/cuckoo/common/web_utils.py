@@ -1255,10 +1255,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
                     trimmed_size = trim_sample(sample.chunks().__next__())
                     if trimmed_size:
                         size = trimmed_size
-                        data = sample.chunks(size).__next__()
-                else:
-                    # we need to rebuild original file
-                    data = first_chunk + sample.read()
+                # move to start of sample file
                 sample.seek(0)
                 data = sample.read(size)
                 if size > web_cfg.general.max_sample_size:
@@ -1274,7 +1271,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         else:
             filename = sanitize_filename(sample.name)
 
-        # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
+        # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
         try:
             path = store_temp_file(data or sample.read(), filename)
         except OSError:
@@ -1284,7 +1281,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             continue
 
         target_file = File(path)
-        # Trimmed. We need to registger sample parent id
+        # Trimmed. We need to register sample parent id
         if size != sample.size:
             sample_parent_id = db.register_sample(target_file)
 

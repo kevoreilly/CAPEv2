@@ -1,4 +1,5 @@
 from contextlib import suppress
+from typing import Union
 
 import olefile
 
@@ -10,21 +11,25 @@ from lib.cuckoo.common.path_utils import path_write_file
 web_cfg = Config("web")
 
 
-def trim_file(filename: bytes, options: str, doc: bool = False, chunk: bytes=False, return_size:bool=False) -> bool:
+def trim_file(filename: any, doc: bool = False) -> Union[bool, int]:
     """
     Trim PE/OLE doc file
     """
     trimmed_size = False
-    if doc:
-        trimmed_size = trim_ole_doc(filename)
-    else:
-        if chunk:
-            trimmed_size = trim_sample(chunk)
+    if isinstance(filename, bytes):
+        if doc:
+            trimmed_size = trim_ole_doc(filename)
         if not trimmed_size:
             file_head = File(filename).get_chunks(64).__next__()
             trimmed_size = trim_sample(file_head)
-    if return_size:
+    else:
+        if doc:
+            filename.seek(0)
+            trimmed_size = trim_ole_doc(filename.read())
+        else:
+            trimmed_size = trim_sample(filename.chunks().__next__())
         return trimmed_size
+
     if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
         with open(filename, "rb") as hfile:
             data = hfile.read(trimmed_size)

@@ -51,8 +51,7 @@ jobs:
         run: poetry install --no-interaction --no-root
 
       - name: Install dependencies
-        run:
-          - sudo bash ./installer/cape2.sh yara
+        run: sudo bash ./installer/cape2.sh yara
 
       - name: Run unit tests
         run: poetry run pytest tests/test_yara.py -s --import-mode=append

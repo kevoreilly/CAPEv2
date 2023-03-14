@@ -1247,7 +1247,6 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
         sample_parent_id = None
         size = sample.size
-        data = False
         if size > web_cfg.general.max_sample_size:
             if web_cfg.general.enable_trim and not (
                     web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
@@ -1258,20 +1257,20 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
                 else:
                     trimmed_size = trim_file(sample, doc=True)
 
-                if trimmed_size:
-                    size = trimmed_size
-
-                if size > web_cfg.general.max_sample_size:
+                if trimmed_size and trimmed_size > web_cfg.general.max_sample_size:
                     details["errors"].append(
                         {
-                            sample.name: f"You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf. Sample size is: {size/float(1<<20):,.0f} Allowed size is:{web_cfg.general.max_sample_size/float(1<<20):,.0f} "
+                            sample.name: f"You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is:{web_cfg.general.max_sample_size / float(1 << 20):,.0f} "
                         }
                     )
                     continue
 
                 # move to start of sample file
                 sample.seek(0)
-                data = sample.read(size)
+                data = sample.read(trimmed_size)
+        else:
+            data = sample.read()
+            trimmed_size = size
 
         if opt_filename:
             filename = opt_filename
@@ -1280,34 +1279,37 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
         # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
         try:
-            path = store_temp_file(data or sample.read(), filename)
+            if trimmed_size != size:
+                sample.seek(0)
+                parent_path = store_temp_file(sample.read(), filename)
+                parent_file = File(parent_path)
+                # We need to register sample parent id
+                sample_parent_id = db.register_sample(parent_file)
+                filename = f"trimmed_{filename}"
+            path = store_temp_file(data, filename)
+            target_file = File(path)
+            sha256 = target_file.get_sha256()
         except OSError:
             details["errors"].append(
-                {filename: "Your specified temp folder in cuckoo.conf, disk is out of space. Clean some space before continue."}
+                {
+                    filename: "Your specified temp folder in cuckoo.conf, disk is out of space. Clean some space before continue."}
             )
             continue
 
-        target_file = File(path)
-        # Trimmed. We need to register sample parent id
-        if size != sample.size:
-            sample_parent_id = db.register_sample(target_file)
-
-        sha256 = target_file.get_sha256()
-
         if (
-            not request.user.is_staff
-            and (web_cfg.uniq_submission.enabled or unique)
-            and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
+                not request.user.is_staff
+                and (web_cfg.uniq_submission.enabled or unique)
+                and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
         ):
             details["errors"].append(
                 {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
             )
             continue
 
-        content = get_file_content(path)
-        list_of_files.append((content, path, sha256, sample_parent_id))
+        list_of_files.append((data, path, sha256, sample_parent_id))
 
     return list_of_files, details
+
 
 def process_new_dlnexec_task(url, route, options, custom):
     url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")

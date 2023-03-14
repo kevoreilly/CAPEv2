@@ -1,14 +1,8 @@
 name: YARA tests
 
-#on:
-#  schedule:
-#  - cron: '0 8 * * 1'
-
 on:
-  push:
-    branches: [ master, staging, yara_audit_test ]
-  pull_request:
-    branches: [ master, staging, yara_audit_test ]
+  schedule:
+  - cron: '0 8 * * 1'
 
 jobs:
   test:

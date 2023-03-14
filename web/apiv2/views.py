@@ -318,8 +318,7 @@ def tasks_create_file(request):
         opt_filename = get_user_filename(options, custom)
         list_of_tasks, details = process_new_task_files(request, files, details, opt_filename, unique)
 
-        for content, tmp_path, _, parent_sample_id in list_of_tasks:
-            details["parent_sample_id"] = parent_sample_id
+        for content, tmp_path, _ in list_of_tasks:
             if pcap:
                 if tmp_path.lower().endswith(".saz"):
                     saz = saz_to_pcap(tmp_path)

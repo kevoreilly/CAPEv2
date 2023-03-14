@@ -1,39 +1,37 @@
 from contextlib import suppress
-from typing import Union
+from pathlib import Path
 
 import olefile
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, PortableExecutable
 from lib.cuckoo.common.path_utils import path_write_file
 
 web_cfg = Config("web")
 
 
-def trim_file(filename: any, doc: bool = False) -> Union[bool, int]:
+def trimmed_path(filename: bytes) -> bytes:
+    path = Path(filename.decode())
+    return f"{path.parent}/trimmed_{path.name}".encode()
+
+
+def trim_file(filename: bytes, doc: bool = False) -> bool:
     """
     Trim PE/OLE doc file
     """
-    trimmed_size = False
-    if isinstance(filename, bytes):
-        if doc:
-            trimmed_size = trim_ole_doc(filename)
-        if not trimmed_size:
-            file_head = File(filename).get_chunks(64).__next__()
-            trimmed_size = trim_sample(file_head)
+    trimmed_size = None
+    if doc:
+        trimmed_size = trim_ole_doc(filename)
     else:
-        if doc:
-            filename.seek(0)
-            trimmed_size = trim_ole_doc(filename.read())
-        else:
-            trimmed_size = trim_sample(filename.chunks().__next__())
-        return trimmed_size
+        file_head = File(filename).get_chunks(64).__next__()
+        if HAVE_PEFILE and IsPEImage(file_head):
+            trimmed_size = trim_sample(file_head)
 
     if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
         with open(filename, "rb") as hfile:
             data = hfile.read(trimmed_size)
-        _ = path_write_file(filename.decode(), data)
+        _ = path_write_file(trimmed_path(filename).decode(), data)
         return True
 
 

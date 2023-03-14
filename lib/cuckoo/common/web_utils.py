@@ -19,7 +19,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
-from lib.cuckoo.common.trim_utils import trim_file
 from lib.cuckoo.common.utils import (
     bytes2str,
     generate_fake_name,
@@ -708,7 +707,6 @@ def download_file(**kwargs):
             username=username,
             source_url=kwargs.get("source_url", False),
             # parent_id=kwargs.get("parent_id"),
-            sample_parent_id=kwargs.get("sample_parent_id"),
         )
 
         try:
@@ -1247,30 +1245,18 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
         sample_parent_id = None
         size = sample.size
-        if size > web_cfg.general.max_sample_size:
-            if web_cfg.general.enable_trim and not (
-                    web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
-            ):
-                first_chunk = sample.chunks().__next__()
-                if HAVE_PEFILE and IsPEImage(first_chunk):
-                    trimmed_size = trim_file(sample)
-                else:
-                    trimmed_size = trim_file(sample, doc=True)
+        if size > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
+        ):
+            if not web_cfg.general.enable_trim:
+                details["errors"].append(
+                    {
+                        sample.name: f"Uploaded file exceeds the maximum allowed size in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is: {web_cfg.general.max_sample_size / float(1 << 20):,.0f}"
+                    }
+                )
+                continue
 
-                if trimmed_size and trimmed_size > web_cfg.general.max_sample_size:
-                    details["errors"].append(
-                        {
-                            sample.name: f"You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is:{web_cfg.general.max_sample_size / float(1 << 20):,.0f} "
-                        }
-                    )
-                    continue
-
-                # move to start of sample file
-                sample.seek(0)
-                data = sample.read(trimmed_size)
-        else:
-            data = sample.read()
-            trimmed_size = size
+        data = sample.read()
 
         if opt_filename:
             filename = opt_filename
@@ -1279,20 +1265,14 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
         # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
         try:
-            if trimmed_size != size:
-                # We need to register sample parent id
-                sample.seek(0)
-                parent_path = store_temp_file(sample.read(), filename)
-                parent_file = File(parent_path)
-                sample_parent_id = db.register_sample(parent_file)
-                filename = f"trimmed_{filename}"
             path = store_temp_file(data, filename)
             target_file = File(path)
             sha256 = target_file.get_sha256()
         except OSError:
             details["errors"].append(
                 {
-                    filename: "Your specified temp folder in cuckoo.conf, disk is out of space. Clean some space before continue."}
+                    filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."
+                }
             )
             continue
 
@@ -1306,7 +1286,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             )
             continue
 
-        list_of_files.append((data, path, sha256, sample_parent_id))
+        list_of_files.append((data, path, sha256))
 
     return list_of_files, details
 

@@ -13,7 +13,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename
-from lib.cuckoo.common.trim_utils import trim_file
+from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
 
 sf_version = ""
 try:
@@ -218,16 +218,17 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     if isinstance(filename, str) and use_sflock:
         filename = filename.encode()
 
-    # if a package was specified, then don't do anything special
+    # if a package was specified, trim if allowed and required
     if package:
         retlist = []
         if (
                 File(filename).get_size() <= web_cfg.general.max_sample_size
                 or (web_cfg.general.allow_ignore_size and "ignore_size_check" in options)
-                or (web_cfg.general.enable_trim and trim_file(filename, "doc" in package))
         ):
             retlist.append(filename)
-
+        else:
+            if web_cfg.general.enable_trim and (trim_file(filename) or trim_file(filename, "doc" in package)):
+                retlist.append(trimmed_path(filename))
         return retlist
 
     # handle quarantine files
@@ -265,10 +266,11 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         if (
                 File(filename).get_size() <= web_cfg.general.max_sample_size
                 or (web_cfg.general.allow_ignore_size and "ignore_size_check" in options)
-                or (web_cfg.general.enable_trim and trim_file(filename))
         ):
             retlist.append(filename)
-
+        else:
+            if web_cfg.general.enable_trim and trim_file(filename):
+                retlist.append(trimmed_path(filename))
         return retlist
 
     # all in one unarchiver
@@ -291,7 +293,6 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             ):
                 if web_cfg.general.enable_trim:
                     # maybe identify here
-                    if not trim_file(filename) and not trim_file(filename, doc=True):
-                        retlist.remove(filename)
-
+                    if trim_file(filename) or trim_file(filename, doc=True):
+                        retlist.append(trimmed_path(filename))
     return retlist[:10]

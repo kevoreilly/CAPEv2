@@ -28,12 +28,7 @@ def test_yara():
     matches = rules.match(data="asdfklahjsdflkhjsd aaaaa dfgkhjadsfgjklsdfhgk")
     assert len(matches[0].strings[0]) == 3
 
-
-def test_yara_dotnet():
-    if not HAVE_YARA:
-        return
     _ = yara.compile(source='import "dotnet" rule a { condition: false }')
-
 
 """
 def test_yara_moduels():

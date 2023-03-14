@@ -745,6 +745,10 @@ function install_yara() {
     cd ..
     # for root
     pip3 install ./yara-python
+
+    if [ -d /opt/CAPEv2 ]; then
+        cd /opt/CAPEv2
+        poetry run pip install /tmp/yara-python
 }
 
 function install_mongo(){

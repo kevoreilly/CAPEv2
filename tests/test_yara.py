@@ -8,7 +8,6 @@ except ImportError:
     HAVE_YARA = False
 
 
-@pytest.mark.xfail(reason="Will fail on all tests, but not on yara specific one")
 def test_yara():
     if not HAVE_YARA:
         return
@@ -30,14 +29,12 @@ def test_yara():
     assert len(matches[0].strings) == 3
 
 
-@pytest.mark.xfail(reason="Will fail on all tests, but not on yara specific one")
 def test_yara_dotnet():
     if not HAVE_YARA:
         return
     _ = yara.compile(source='import "dotnet" rule a { condition: false }')
 
 
-@pytest.mark.xfail(reason="Will fail on all tests, but not on yara specific one")
 def test_yara_moduels():
     if not HAVE_YARA:
         return

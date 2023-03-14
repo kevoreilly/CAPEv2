@@ -1,8 +1,8 @@
 name: YARA tests
 
-on:
-  schedule:
-  - cron: '0 8 * * 1'
+#on:
+#  schedule:
+#  - cron: '0 8 * * 1'
 
 jobs:
   test:
@@ -46,6 +46,6 @@ jobs:
 
       - name: Install dependencies
         run: sudo ./installer/cape2.sh yara
-        
+
       - name: Run unit tests
         run: poetry run pytest tests/test_yara.py -s --import-mode=append

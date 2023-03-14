@@ -26,7 +26,7 @@ def test_yara():
     )
     # print("Yara version %s" % yara.__version__)
     matches = rules.match(data="asdfklahjsdflkhjsd aaaaa dfgkhjadsfgjklsdfhgk")
-    assert len(matches[0].strings) == 3
+    assert len(matches[0].strings[0]) == 3
 
 
 def test_yara_dotnet():

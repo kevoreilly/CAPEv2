@@ -54,7 +54,8 @@ jobs:
         run: |
           sudo bash ./installer/cape2.sh yara
           cd $GITHUB_WORKSPACE
-          bash -c "poetry run ./extra/poetry_yara_installer.sh"
+          # sudo rm -r /tmp/yara-python
+          sudo bash -c "poetry run ./extra/poetry_yara_installer.sh"
 
       - name: Run unit tests
         run: poetry run pytest tests/test_yara.py -s --import-mode=append

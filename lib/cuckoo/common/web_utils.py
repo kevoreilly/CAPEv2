@@ -1280,10 +1280,10 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
         try:
             if trimmed_size != size:
+                # We need to register sample parent id
                 sample.seek(0)
                 parent_path = store_temp_file(sample.read(), filename)
                 parent_file = File(parent_path)
-                # We need to register sample parent id
                 sample_parent_id = db.register_sample(parent_file)
                 filename = f"trimmed_{filename}"
             path = store_temp_file(data, filename)

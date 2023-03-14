@@ -19,7 +19,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
-from lib.cuckoo.common.trim_utils import trim_sample # trim_file
+from lib.cuckoo.common.trim_utils import trim_file
 from lib.cuckoo.common.utils import (
     bytes2str,
     generate_fake_name,
@@ -1239,7 +1239,7 @@ def download_from_vt(vtdl, details, opt_filename, settings):
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
     for sample in samples:
-        # Error if there was only one submitted sample and it's empty.
+        # Error if there was only one submitted sample, and it's empty.
         # But if there are multiple and one was empty, just ignore it.
         if not sample.size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
@@ -1249,18 +1249,18 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         size = sample.size
         data = False
         if size > web_cfg.general.max_sample_size:
-            if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]):
+            if web_cfg.general.enable_trim and not (
+                    web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
+            ):
                 first_chunk = sample.chunks().__next__()
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
-                    trimmed_size = trim_sample(sample.chunks().__next__())
-                    if trimmed_size:
-                        size = trimmed_size
-                        data = sample.chunks(size).__next__()
+                if HAVE_PEFILE and IsPEImage(first_chunk):
+                    trimmed_size = trim_file(sample)
                 else:
-                    # we need to rebuild original file
-                    data = first_chunk + sample.read()
-                sample.seek(0)
-                data = sample.read(size)
+                    trimmed_size = trim_file(sample, doc=True)
+
+                if trimmed_size:
+                    size = trimmed_size
+
                 if size > web_cfg.general.max_sample_size:
                     details["errors"].append(
                         {
@@ -1269,12 +1269,16 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
                     )
                     continue
 
+                # move to start of sample file
+                sample.seek(0)
+                data = sample.read(size)
+
         if opt_filename:
             filename = opt_filename
         else:
             filename = sanitize_filename(sample.name)
 
-        # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
+        # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
         try:
             path = store_temp_file(data or sample.read(), filename)
         except OSError:
@@ -1284,7 +1288,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             continue
 
         target_file = File(path)
-        # Trimmed. We need to registger sample parent id
+        # Trimmed. We need to register sample parent id
         if size != sample.size:
             sample_parent_id = db.register_sample(target_file)
 
@@ -1304,7 +1308,6 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         list_of_files.append((content, path, sha256, sample_parent_id))
 
     return list_of_files, details
-
 
 def process_new_dlnexec_task(url, route, options, custom):
     url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")

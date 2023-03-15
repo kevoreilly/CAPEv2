@@ -380,15 +380,26 @@ class CAPE(Processing):
             if cape_name in existing_config:
                 log.warning("CAPE: data loss may occur, existing config found for: %s", cape_name)
                 existing_config[cape_name].update(config[cape_name])
-                return
+                config = existing_config
+                break
+        else:
+            # first time a config for this cape_name was seen
+            log.info("CAPE: new config found for: %s", cape_name)
+            self.cape["configs"].append(config)
 
-        # first time a config for this cape_name was seen
-        log.info("CAPE: new config found for: %s", cape_name)
-        # link the config to the hashes it was generated from
-        config["associated_config_hashes"] = {
-            hashtype: file_obj.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")
-        }
-        self.cape["configs"].append(config)
+        # Link the config to the hashes it was generated from.
+        # Store it in a list so that the keys of the dict are fixed and not dynamic, which, if
+        # storing the report in ElasticSearch, could otherwise create tons of keys in the index.
+        sha256 = file_obj.get("sha256", "")
+        current_hashes = config.setdefault("_associated_config_hashes", [])
+        for hashes in current_hashes:
+            if sha256 == hashes["sha256"]:
+                # We've already stored this set of hashes for the config.
+                break
+        else:
+            current_hashes.append(
+                {hashtype: file_obj.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")}
+            )
 
     def link_configs_to_analysis(self):
         """Embed associated_analysis_hashes in each config.
@@ -403,4 +414,4 @@ class CAPE(Processing):
             hashtype: target_file.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")
         }
         for config in self.cape["configs"]:
-            config["associated_analysis_hashes"] = associated_analysis_hashes
+            config["_associated_analysis_hashes"] = associated_analysis_hashes

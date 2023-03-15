@@ -288,11 +288,14 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 retlist.remove(filename)
                 continue
 
-            if File(filename).get_size() > web_cfg.general.max_sample_size and not (
-                    web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+            if (
+                    File(filename).get_size() > web_cfg.general.max_sample_size
+                    and not (web_cfg.general.allow_ignore_size and "ignore_size_check" in options)
             ):
                 if web_cfg.general.enable_trim:
                     # maybe identify here
                     if trim_file(filename) or trim_file(filename, doc=True):
                         retlist.append(trimmed_path(filename))
+                retlist.remove(filename)
+
     return retlist[:10]

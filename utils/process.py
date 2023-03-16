@@ -185,9 +185,15 @@ def init_logging(auto=False, tid=0, debug=False):
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
         else:
             if logconf.logger.process_analysis_folder:
-                fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log"))
+               path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
             else:
-                fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % str(tid)))
+                path = os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % str(tid))
+
+            # We need to delete old log, otherwise it will append to existing one
+            if path_exists(path):
+                path_delete(path)
+
+            fh = logging.handlers.WatchedFileHandler(path)
 
     except PermissionError:
         sys.exit("Probably executed with wrong user, PermissionError to create/access log")

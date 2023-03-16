@@ -52,11 +52,11 @@
                         <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
                     {% endif %}
                     <td>
-                        <a class="accordion-toggle" data-toggle="collapse" href="#info-log">Show Info Log</a>
+                        Show <a class="accordion-toggle" data-toggle="collapse" href="#info-log">Info</a>
                         {% if analysis.process_log %}
-                            </br>
-                            <a class="accordion-toggle" data-toggle="collapse" href="#process-log">Show Process Log</a>
+                            | <a class="accordion-toggle" data-toggle="collapse" href="#process-log"> Process</a>
                         {% endif %}
+                        Log
                     </td>
                     {% if analysis.debug.pre_script_log %}
                         <td><a class="accordion-toggle" data-toggle="collapse" href="#info-pre-script-log">Show Pre Script</a></td>

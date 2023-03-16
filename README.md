@@ -13,7 +13,7 @@ Although config and payload extraction was the original stated goal, it was the 
 There is a community repository of signatures containing several hundred signatures developed by the CAPE community. All new community feature should be pushed to that repo. Later it can be moved to core if devs consider that an interesting extension.
 
 ### Config parsing
-Can be done using either of CAPE's, [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/) framework. 
+Can be done using either of CAPE's, [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/) framework.
 * Special thanks to:
     * Jason Reaves (@sysopfb) for the TrickBot parser and Fabien Perigaud for the PlugX parser.
 
@@ -88,7 +88,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 1. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/) and __do read ALL__ config files inside of `conf` folder!
 2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download)
-3. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as the hypervisor.
+3. [KVM](https://github.com/kevoreilly/CAPEv2/blob/master/installer/kvm-qemu.sh) is recommended as the hypervisor.
  * Replace `<username>` with a real pattern.
  * You need to replace all `<WOOT>` inside!
  * Read it! You must understand what it does! It has configuration in header of the script.

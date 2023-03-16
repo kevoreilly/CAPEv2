@@ -185,7 +185,7 @@ def init_logging(auto=False, tid=0, debug=False):
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
         else:
             if logconf.logger.process_analysis_folder:
-               path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
             else:
                 path = os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % str(tid))
 
@@ -484,6 +484,7 @@ def main():
                     )
                 log.debug("Finished processing task")
                 set_formatter_fmt()
+
 
 if __name__ == "__main__":
     with suppress(KeyboardInterrupt):

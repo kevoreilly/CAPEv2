@@ -1,7 +1,7 @@
 ### [16.3.2023] Loggers
 * New config `conf/logging.conf`. Remember to copy it to `custom/conf/logging.conf` for moddifications.
     * Syslog handler for `cuckoo.py` and `process.py` can be on/off in config. Useful for global monitoring tools or cloud setups.
-    * Allow create logs per analysis in analysis folder. Useful for distributed setup to show on webgui if enabled.
+    * Allow to create logs per analysis in analysis folder. Useful for distributed setup to show on webgui if enabled and have logs in main server.
 
 ### [10.3.2023]
 * Monitor fixes:

@@ -454,7 +454,7 @@ def main():
                 log.debug("Processing task")
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
                     sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
-                handlers = init_logging(tid=str(num), debug=args.debug)
+                # handlers = init_logging(tid=str(num), debug=args.debug)
                 task = Database().view_task(num)
                 if args.signatures:
                     report = False
@@ -484,12 +484,6 @@ def main():
                     )
                 log.debug("Finished processing task")
                 set_formatter_fmt()
-
-                for handler in handlers:
-                    if not handler:
-                        continue
-                    log.removeHandler(handler)
-
 
 if __name__ == "__main__":
     with suppress(KeyboardInterrupt):

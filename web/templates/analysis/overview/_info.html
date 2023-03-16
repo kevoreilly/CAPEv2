@@ -26,7 +26,7 @@
                     {% if user.is_staff and analysis.distributed %}
                         <th>Distributed</th>
                     {% endif %}
-                    <th>Log</th>
+                    <th>Log(s)</th>
                     {% if analysis.debug.pre_script_log %}
                         <th>Pre Script Logs</th>
                     {% endif %}
@@ -52,7 +52,7 @@
                         <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
                     {% endif %}
                     <td>
-                        Show <a class="accordion-toggle" data-toggle="collapse" href="#info-log">Info</a>
+                        Show <a class="accordion-toggle" data-toggle="collapse" href="#info-log">Analysis</a>
                         {% if analysis.process_log %}
                             | <a class="accordion-toggle" data-toggle="collapse" href="#process-log"> Process</a>
                         {% endif %}

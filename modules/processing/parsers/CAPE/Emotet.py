@@ -761,9 +761,9 @@ def extract_config(filebuf):
                             ).export_key(format="PEM"),
                         )
 
-    if 'ECC ECK1' in conf_dict and 'EFs0TIIEJgLTuqzx+58sdg==' in conf_dict["ECC ECK1"]:
+    if "ECC ECK1" in conf_dict and "EFs0TIIEJgLTuqzx+58sdg==" in conf_dict["ECC ECK1"]:
         conf_dict.setdefault("Epoch", "4")
-    if 'ECC ECK1' in conf_dict and 'OL7a+wCWnIQszh42gCRQlg==' in conf_dict["ECC ECK1"]:
+    if "ECC ECK1" in conf_dict and "OL7a+wCWnIQszh42gCRQlg==" in conf_dict["ECC ECK1"]:
         conf_dict.setdefault("Epoch", "5")
 
     return conf_dict

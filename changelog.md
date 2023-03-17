@@ -1,3 +1,8 @@
+### [17.3.2023]
+* Monitor fixes:
+    * Unpacker: Improve ProcessTrackedRegion() to allow yara scans of mapped modules
+    * Disable sleep skips prior to thread creation (rather than after) and upon CoCreateInstance (WMI etc)
+
 ### [16.3.2023] Loggers
 * New config `conf/logging.conf`. Remember to copy it to `custom/conf/logging.conf` for moddifications.
     * Syslog handler for `cuckoo.py` and `process.py` can be on/off in config. Useful for global monitoring tools or cloud setups.

@@ -108,7 +108,7 @@ if enabled_ip_passlist and ip_passlist_file:
         if ip:
             ip_passlist.add(ip)
 
-if HAVE_GEOIP:
+if HAVE_GEOIP and proc_cfg.network.maxmind_database:
     maxmind_db_path = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
     if proc_cfg.network.country_lookup and path_exists(maxmind_db_path):
         maxminddb_client = maxminddb.open_database(maxmind_db_path)

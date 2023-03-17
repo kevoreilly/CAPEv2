@@ -38,7 +38,7 @@ tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
 linux_enabled = web_cfg.linux.get("enabled", False)
 
 demux_extensions_list = {
-    "",
+    b"",
     b".accdr",
     b".exe",
     b".dll",
@@ -110,7 +110,7 @@ whitelist_extensions = {"doc", "xls", "ppt", "pub", "jar"}
 blacklist_extensions = {"apk", "dmg"}
 
 # list of valid file types to extract - TODO: add more types
-VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut"}
+VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut", "PDF document"}
 VALID_LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
 OFFICE_TYPES = [
     "Composite Document File",

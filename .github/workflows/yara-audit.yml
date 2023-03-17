@@ -45,7 +45,11 @@ jobs:
         run: poetry install --no-interaction --no-root
 
       - name: Install dependencies
-        run: sudo ./installer/cape2.sh yara
-        
+        run: |
+          sudo bash ./installer/cape2.sh yara
+          cd $GITHUB_WORKSPACE
+          sudo rm -r /tmp/yara-python
+          bash -c "poetry run ./extra/poetry_yara_installer.sh"
+
       - name: Run unit tests
         run: poetry run pytest tests/test_yara.py -s --import-mode=append

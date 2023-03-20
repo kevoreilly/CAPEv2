@@ -774,9 +774,7 @@ class Azure(Machinery):
             single_placement_group=False,
             scale_in_policy=models.ScaleInPolicy(rules=[models.VirtualMachineScaleSetScaleInRules.newest_vm]),
             spot_restore_policy=(
-                models.SpotRestorePolicy(enabled=True, restore_timeout="PT30M")
-                if self.options.az.spot_instances
-                else None
+                models.SpotRestorePolicy(enabled=True, restore_timeout="PT30M") if self.options.az.spot_instances else None
             ),
         )
         if not self.options.az.just_start:

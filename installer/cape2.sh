@@ -1137,7 +1137,7 @@ function install_CAPE() {
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
-    sudo -u ${USER} bash -c 'poetry run extra/poetry_yara_python_installer.sh'
+    sudo -u ${USER} bash -c 'poetry run extra/poetry_yara_installer.sh'
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}

@@ -220,7 +220,7 @@ class CAPE(Processing):
                     file_info["guest_paths"] = [metadata.get("filepath", "")]
                 file_info["name"] = list(
                     {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
-                ) or [metadata.get("filepath").rsplit("\\", 1)[-1]]
+                ) or [metadata.get("filepath", "").rsplit("\\", 1)[-1]]
                 if category == "dropped":
                     with suppress(UnicodeDecodeError):
                         with open(file_info["path"], "r") as drop_open:

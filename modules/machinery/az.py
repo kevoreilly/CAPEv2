@@ -773,7 +773,9 @@ class Azure(Machinery):
             # When true this limits the scale set to a single placement group, of max size 100 virtual machines.
             single_placement_group=False,
             scale_in_policy=models.ScaleInPolicy(rules=[models.VirtualMachineScaleSetScaleInRules.newest_vm]),
-            spot_restore_policy=models.SpotRestorePolicy(enabled=True, restore_timeout="PT30M"),
+            spot_restore_policy=(
+                models.SpotRestorePolicy(enabled=True, restore_timeout="PT30M") if self.options.az.spot_instances else None
+            ),
         )
         if not self.options.az.just_start:
             async_vmss_creation = Azure._azure_api_call(

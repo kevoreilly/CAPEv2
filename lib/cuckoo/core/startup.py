@@ -44,6 +44,7 @@ except ImportError:
 log = logging.getLogger()
 
 cuckoo = Config()
+logconf = Config("logging")
 routing = Config("routing")
 repconf = Config("reporting")
 dist_conf = Config("distributed")
@@ -175,7 +176,7 @@ class ConsoleHandler(logging.StreamHandler):
 
 
 def check_linux_dist():
-    ubuntu_versions = ("18.04", "20.04", "22.04")
+    ubuntu_versions = ("20.04", "22.04")
     with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
@@ -193,8 +194,19 @@ def init_logging(level: int):
     init_logger("console", level)
     init_logger("database")
 
-    if cuckoo.log_rotation.enabled:
-        days = cuckoo.log_rotation.backup_count or 7
+    # if logconf.logger.cape_per_task_log:
+    # if logconf.logger.cape_analysis_folder:
+    #    fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "cape.log"))
+    # else:
+    #    fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
+
+    if logconf.logger.syslog_cape:
+        fh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
+        fh.setFormatter(formatter)
+        log.addHandler(fh)
+
+    if logconf.log_rotation.enabled:
+        days = logconf.log_rotation.backup_count or 7
         fh = logging.handlers.TimedRotatingFileHandler(
             os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days)
         )

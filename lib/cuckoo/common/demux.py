@@ -227,7 +227,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         ):
             retlist.append(filename)
         else:
-            if web_cfg.general.enable_trim and (trim_file(filename) or trim_file(filename, "doc" in package)):
+            if web_cfg.general.enable_trim and trim_file(filename):
                 retlist.append(trimmed_path(filename))
         return retlist
 
@@ -294,7 +294,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             ):
                 if web_cfg.general.enable_trim:
                     # maybe identify here
-                    if trim_file(filename) or trim_file(filename, doc=True):
+                    if trim_file(filename):
                         retlist.append(trimmed_path(filename))
                 retlist.remove(filename)
 

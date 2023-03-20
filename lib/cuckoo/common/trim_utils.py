@@ -4,8 +4,8 @@ from pathlib import Path
 import olefile
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, PortableExecutable
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_write_file
 
 web_cfg = Config("web")

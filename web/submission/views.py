@@ -397,9 +397,7 @@ def index(request, task_id=None, resubmit_hash=None):
 
         elif task_category == "static":
             for content, path, sha256 in list_of_tasks:
-                task_id = db.add_static(
-                    file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0
-                )
+                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id

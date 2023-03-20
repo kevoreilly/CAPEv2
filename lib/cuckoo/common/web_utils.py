@@ -1245,7 +1245,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
 
         size = sample.size
         if size > web_cfg.general.max_sample_size and not (
-                web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
         ):
             if not web_cfg.general.enable_trim:
                 details["errors"].append(
@@ -1269,16 +1269,14 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             sha256 = target_file.get_sha256()
         except OSError:
             details["errors"].append(
-                {
-                    filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."
-                }
+                {filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."}
             )
             continue
 
         if (
-                not request.user.is_staff
-                and (web_cfg.uniq_submission.enabled or unique)
-                and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
+            not request.user.is_staff
+            and (web_cfg.uniq_submission.enabled or unique)
+            and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
         ):
             details["errors"].append(
                 {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}

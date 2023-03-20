@@ -12,8 +12,8 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename
 from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
+from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename
 
 sf_version = ""
 try:
@@ -221,9 +221,8 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # if a package was specified, trim if allowed and required
     if package:
         retlist = []
-        if (
-                File(filename).get_size() <= web_cfg.general.max_sample_size
-                or (web_cfg.general.allow_ignore_size and "ignore_size_check" in options)
+        if File(filename).get_size() <= web_cfg.general.max_sample_size or (
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
             retlist.append(filename)
         else:
@@ -263,9 +262,8 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         or any(x in magic for x in VALID_LINUX_TYPES)
     ):
         retlist = []
-        if (
-                File(filename).get_size() <= web_cfg.general.max_sample_size
-                or (web_cfg.general.allow_ignore_size and "ignore_size_check" in options)
+        if File(filename).get_size() <= web_cfg.general.max_sample_size or (
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
             retlist.append(filename)
         else:
@@ -288,9 +286,8 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 retlist.remove(filename)
                 continue
 
-            if (
-                    File(filename).get_size() > web_cfg.general.max_sample_size
-                    and not (web_cfg.general.allow_ignore_size and "ignore_size_check" in options)
+            if File(filename).get_size() > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
             ):
                 if web_cfg.general.enable_trim:
                     # maybe identify here

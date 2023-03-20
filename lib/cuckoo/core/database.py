@@ -1614,7 +1614,6 @@ class Database(object, metaclass=Singleton):
         shrike_sid=None,
         shrike_refer=None,
         parent_id=None,
-        sample_parent_id=None,
         tlp=None,
         static=False,
         source_url=False,
@@ -1686,7 +1685,7 @@ class Database(object, metaclass=Singleton):
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
                     if package == "dll" and "function" not in options:
-                        dll_export = PortableExecutable(file).choose_dll_export()
+                        dll_export = PortableExecutable(file.decode()).choose_dll_export()
                         if dll_export == "DllRegisterServer":
                             package = "regsvr"
                         elif dll_export == "xlAutoOpen":

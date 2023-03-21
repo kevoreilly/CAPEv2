@@ -1684,17 +1684,18 @@ class Database(object, metaclass=Singleton):
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
-                    if package == "dll" and "function" not in options:
-                        dll_export = PortableExecutable(file.decode()).choose_dll_export()
-                        if dll_export == "DllRegisterServer":
-                            package = "regsvr"
-                        elif dll_export == "xlAutoOpen":
-                            package = "xls"
-                        elif dll_export:
-                            if options:
-                                options += f",function={dll_export}"
-                            else:
-                                options = f"function={dll_export}"
+
+                if package == "dll" and "function" not in options:
+                    dll_export = PortableExecutable(file.decode()).choose_dll_export()
+                    if dll_export == "DllRegisterServer":
+                        package = "regsvr"
+                    elif dll_export == "xlAutoOpen":
+                        package = "xls"
+                    elif dll_export:
+                        if options:
+                            options += f",function={dll_export}"
+                        else:
+                            options = f"function={dll_export}"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers

@@ -212,22 +212,6 @@ class GuestManager:
         }
         self.post("/store", files={"file": "\n".join(config)}, data=data)
 
-    def upload_support_files(self, options):
-        """Upload supporting files from zip temp directory if they exist
-        :param options: options
-        :return:
-        """
-        log.info("Task #%s: Uploading support files to guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
-        basedir = os.path.dirname(options["target"])
-
-        for dirpath, _, files in os.walk(basedir):
-            for xf in files:
-                target = os.path.join(dirpath, xf)
-                # Copy all files except for the original target
-                if not target == options["target"]:
-                    data = {"filepath": os.path.join(self.determine_temp_path(), xf)}
-                    files = {"file": (xf, open(target, "rb"))}
-                    self.post("/store", files=files, data=data)
 
     def upload_scripts(self):
         """Upload various scripts such as pre_script and during_scripts."""
@@ -322,9 +306,6 @@ class GuestManager:
                 "file": ("sample.bin", open(options["target"], "rb")),
             }
             self.post("/store", files=files, data=data)
-
-        # check for support files and upload them to guest.
-        self.upload_support_files(options)
 
         # upload additional scripts
         self.upload_scripts()

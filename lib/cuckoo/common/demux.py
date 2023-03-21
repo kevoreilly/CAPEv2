@@ -235,10 +235,6 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     if tmp_path:
         filename = tmp_path
 
-    # to handle when side file for exec is required
-    if "file=" in options:
-        return [filename]
-
     # don't try to extract from office docs
     magic = File(filename).get_type()
     # if file is an Office doc and password is supplied, try to decrypt the doc

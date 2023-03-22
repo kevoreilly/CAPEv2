@@ -9,11 +9,11 @@ from typing import List
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename, trim_sample
+from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
+from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename
 
 sf_version = ""
 try:
@@ -38,7 +38,7 @@ tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
 linux_enabled = web_cfg.linux.get("enabled", False)
 
 demux_extensions_list = {
-    "",
+    b"",
     b".accdr",
     b".exe",
     b".dll",
@@ -110,7 +110,7 @@ whitelist_extensions = {"doc", "xls", "ppt", "pub", "jar"}
 blacklist_extensions = {"apk", "dmg"}
 
 # list of valid file types to extract - TODO: add more types
-VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut"}
+VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut", "PDF document"}
 VALID_LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
 OFFICE_TYPES = [
     "Composite Document File",
@@ -217,9 +217,18 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # TODO: Remove after checking all uses of demux_sample use bytes ~TheMythologist
     if isinstance(filename, str) and use_sflock:
         filename = filename.encode()
-    # if a package was specified, then don't do anything special
+
+    # if a package was specified, trim if allowed and required
     if package:
-        return [filename]
+        retlist = []
+        if File(filename).get_size() <= web_cfg.general.max_sample_size or (
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+        ):
+            retlist.append(filename)
+        else:
+            if web_cfg.general.enable_trim and trim_file(filename):
+                retlist.append(trimmed_path(filename))
+        return retlist
 
     # handle quarantine files
     tmp_path = unquarantine(filename)
@@ -232,7 +241,6 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
 
     # don't try to extract from office docs
     magic = File(filename).get_type()
-
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:
         pass
@@ -253,17 +261,24 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         or "MS-DOS executable" in magic
         or any(x in magic for x in VALID_LINUX_TYPES)
     ):
-        return [filename]
+        retlist = []
+        if File(filename).get_size() <= web_cfg.general.max_sample_size or (
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+        ):
+            retlist.append(filename)
+        else:
+            if web_cfg.general.enable_trim and trim_file(filename):
+                retlist.append(trimmed_path(filename))
+        return retlist
 
     # all in one unarchiver
     retlist = demux_sflock(filename, options) if HAS_SFLOCK and use_sflock else []
-    # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
+    # if it isn't a ZIP or an email, or we aren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:
         retlist.append(filename)
     else:
         for filename in retlist.copy():
-
             # verify not Windows binaries here:
             magic_type = File(filename).get_type()
             platform = get_platform(magic_type)
@@ -274,13 +289,10 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             if File(filename).get_size() > web_cfg.general.max_sample_size and not (
                 web_cfg.general.allow_ignore_size and "ignore_size_check" in options
             ):
-                file_chunk = File(filename).get_chunks(64).__next__()
+                if web_cfg.general.enable_trim:
+                    # maybe identify here
+                    if trim_file(filename):
+                        retlist.append(trimmed_path(filename))
                 retlist.remove(filename)
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
-                    trimmed_size = trim_sample(file_chunk)
-                    if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
-                        data = File(filename).get_chunks(trimmed_size).__next__()
-                        _ = path_write_file(filename, data)
-                        retlist.append(filename)
 
     return retlist[:10]

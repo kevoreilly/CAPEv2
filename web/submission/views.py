@@ -234,6 +234,7 @@ def index(request, task_id=None, resubmit_hash=None):
             "options": options,
             "only_extraction": False,
             "user_id": request.user.id or 0,
+            "package": package,
         }
         task_category = False
         samples = []
@@ -274,9 +275,9 @@ def index(request, task_id=None, resubmit_hash=None):
                 if task_category == "dlnexec":
                     path, content, sha256 = process_new_dlnexec_task(url, route, options, custom)
                     if path:
-                        list_of_tasks.append((content, path, sha256, None))
+                        list_of_tasks.append((content, path, sha256))
                 elif task_category == "url":
-                    list_of_tasks.append(("", url, "", None))
+                    list_of_tasks.append(("", url, ""))
 
         elif task_category in ("sample", "static", "pcap"):
             list_of_tasks, details = process_new_task_files(request, samples, details, opt_filename, unique)
@@ -335,14 +336,14 @@ def index(request, task_id=None, resubmit_hash=None):
                 else:
                     filename = base_dir + "/" + sanitize_filename(hash)
                 path = store_temp_file(content, filename)
-                list_of_tasks.append((content, path, hash, None))
+                list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
         if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl"):
             task_category = job_category
 
         if task_category == "resubmit":
-            for content, path, sha256, _ in list_of_tasks:
+            for content, path, sha256 in list_of_tasks:
                 if web_conf.pre_script.enabled and "pre_script" in request.FILES:
                     pre_script = request.FILES["pre_script"]
                     details["pre_script_name"] = request.FILES["pre_script"].name
@@ -367,7 +368,7 @@ def index(request, task_id=None, resubmit_hash=None):
 
         elif task_category == "sample":
             details["service"] = "WebGUI"
-            for content, path, sha256, sample_parent_id in list_of_tasks:
+            for content, path, sha256 in list_of_tasks:
                 if web_conf.pre_script.enabled and "pre_script" in request.FILES:
                     pre_script = request.FILES["pre_script"]
                     details["pre_script_name"] = request.FILES["pre_script"].name
@@ -381,7 +382,6 @@ def index(request, task_id=None, resubmit_hash=None):
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
-                details["sample_parent_id"] = sample_parent_id
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
@@ -396,15 +396,14 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "static":
-            for content, path, sha256, sample_parent_id in list_of_tasks:
-                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+            for content, path, sha256 in list_of_tasks:
+                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
-                details["sample_parent_id"] = sample_parent_id
 
         elif task_category == "pcap":
-            for content, path, sha256, _ in list_of_tasks:
+            for content, path, sha256 in list_of_tasks:
                 if path.lower().endswith(b".saz"):
                     saz = saz_to_pcap(path)
                     if saz:
@@ -420,7 +419,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["task_ids"].append(task_id)
 
         elif task_category == "url":
-            for _, url, _, _ in list_of_tasks:
+            for _, url, _ in list_of_tasks:
                 if machine.lower() == "all":
                     machines = [vm.name for vm in db.list_machines(platform=platform)]
                 elif machine:
@@ -461,8 +460,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["task_ids"].append(task_id)
 
         elif task_category == "dlnexec":
-            for content, path, sha256, sample_parent_id in list_of_tasks:
-                details["sample_parent_id"] = sample_parent_id
+            for content, path, sha256 in list_of_tasks:
                 details["path"] = path
                 details["content"] = content
                 details["service"] = "DLnExec"

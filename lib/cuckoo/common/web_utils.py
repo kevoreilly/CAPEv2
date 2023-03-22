@@ -28,7 +28,6 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
-    trim_sample,
     validate_referrer,
     validate_ttp,
 )
@@ -708,7 +707,6 @@ def download_file(**kwargs):
             username=username,
             source_url=kwargs.get("source_url", False),
             # parent_id=kwargs.get("parent_id"),
-            sample_parent_id=kwargs.get("sample_parent_id"),
         )
 
         try:
@@ -1239,54 +1237,41 @@ def download_from_vt(vtdl, details, opt_filename, settings):
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
     for sample in samples:
-        # Error if there was only one submitted sample and it's empty.
+        # Error if there was only one submitted sample, and it's empty.
         # But if there are multiple and one was empty, just ignore it.
         if not sample.size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
             continue
 
-        sample_parent_id = None
         size = sample.size
-        data = False
-        if size > web_cfg.general.max_sample_size:
-            if not (web_cfg.general.allow_ignore_size and "bypass_size_check" in details["options"]):
-                first_chunk = sample.chunks().__next__()
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
-                    trimmed_size = trim_sample(sample.chunks().__next__())
-                    if trimmed_size:
-                        size = trimmed_size
-                        data = sample.chunks(size).__next__()
-                else:
-                    # we need to rebuild original file
-                    data = first_chunk + sample.read()
-                if size > web_cfg.general.max_sample_size:
-                    details["errors"].append(
-                        {
-                            sample.name: f"You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf. Sample size is: {size/float(1<<20):,.0f} Allowed size is:{web_cfg.general.max_sample_size/float(1<<20):,.0f} "
-                        }
-                    )
-                    continue
+        if size > web_cfg.general.max_sample_size and not (
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
+        ):
+            if not web_cfg.general.enable_trim:
+                details["errors"].append(
+                    {
+                        sample.name: f"Uploaded file exceeds the maximum allowed size in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is: {web_cfg.general.max_sample_size / float(1 << 20):,.0f}"
+                    }
+                )
+                continue
+
+        data = sample.read()
 
         if opt_filename:
             filename = opt_filename
         else:
             filename = sanitize_filename(sample.name)
 
-        # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
+        # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
         try:
-            path = store_temp_file(data or sample.read(), filename)
+            path = store_temp_file(data, filename)
+            target_file = File(path)
+            sha256 = target_file.get_sha256()
         except OSError:
             details["errors"].append(
-                {filename: "Your specified temp folder in cuckoo.conf, disk is out of space. Clean some space before continue."}
+                {filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."}
             )
             continue
-
-        target_file = File(path)
-        # Trimmed. We need to registger sample parent id
-        if size != sample.size:
-            sample_parent_id = db.register_sample(target_file)
-
-        sha256 = target_file.get_sha256()
 
         if (
             not request.user.is_staff
@@ -1298,8 +1283,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             )
             continue
 
-        content = get_file_content(path)
-        list_of_files.append((content, path, sha256, sample_parent_id))
+        list_of_files.append((data, path, sha256))
 
     return list_of_files, details
 

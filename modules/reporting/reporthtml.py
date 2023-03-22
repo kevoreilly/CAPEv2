@@ -37,7 +37,7 @@ class ReportHTML(Report):
             raise CuckooReportError("Failed to generate HTML report: Jinja2 Python library is not installed")
 
         shots_path = os.path.join(self.analysis_path, "shots")
-        if path_exists(shots_path):
+        if path_exists(shots_path) and self.options.screenshots:
             shots = []
             counter = 1
             for shot_name in os.listdir(shots_path):

@@ -124,7 +124,7 @@ class Suricata(Processing):
             log.warning("Unable to Run Suricata: Conf File %s does not exist", SURICATA_CONF)
             return suricata
         if not path_exists(self.pcap_path):
-            log.warning(
+            log.debug(
                 "Unable to Run Suricata: Pcap file %s does not exist. Did you run analysis with live connection?", self.pcap_path
             )
             return suricata

@@ -108,7 +108,7 @@ if enabled_ip_passlist and ip_passlist_file:
         if ip:
             ip_passlist.add(ip)
 
-if HAVE_GEOIP:
+if HAVE_GEOIP and proc_cfg.network.maxmind_database:
     maxmind_db_path = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
     if proc_cfg.network.country_lookup and path_exists(maxmind_db_path):
         maxminddb_client = maxminddb.open_database(maxmind_db_path)
@@ -657,7 +657,7 @@ class Pcap:
             return self.results
 
         if not path_exists(self.filepath):
-            log.warning('The PCAP file does not exist at path "%s". Did you run analysis with live connection?', self.filepath)
+            log.debug('The PCAP file does not exist at path "%s". Did you run analysis with live connection?', self.filepath)
             return self.results
 
         if os.path.getsize(self.filepath) == 0:

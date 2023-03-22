@@ -1263,6 +1263,11 @@ function install_guacamole() {
         cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
     fi
 
+    poetry_path=$(which poetry)
+    if ! grep -q $poetry_path /lib/systemd/system/guac-web.service ; then
+        sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
+    fi
+
     if [ ! -d "/var/www/guacrecordings" ] ; then
         sudo mkdir -p /var/www/guacrecordings && chown ${USER}:${USER} /var/www/guacrecordings
     fi

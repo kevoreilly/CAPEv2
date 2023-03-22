@@ -17,29 +17,22 @@ from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
     default_converter,
-    # get_options,
     logtime,
     pretty_print_arg,
     pretty_print_retval,
 )
 
+from lib.cuckoo.common.replace_patterns_utils import _is_mutex_ok, check_deny_pattern
+from data.safelist.replacepatterns import SANDBOX_USERNAMES, FILES_DENYLIST, NORMALIZED_PATHS, REGISTRY_TRANSLATION, FILES_ENDING_DENYLIST, SERVICES_DENYLIST, MUTEX_DENYLIST
+
+
 log = logging.getLogger(__name__)
 cfg = Config()
-
-
-def fix_key(key):
-    """Fix a registry key to have it normalized.
-    @param key: raw key
-    @returns: normalized key
-    """
-    # all normalization is done on the cuckoomon end, so this is now a no-op
-    return key
-
 
 class ParseProcessLog(list):
     """Parses process log file."""
 
-    def __init__(self, log_path, analysis_call_limit: int = 0, ram_boost: bool = False):
+    def __init__(self, log_path, options):
         """@param log_path: log file path."""
         self._log_path = log_path
         self.fd = None
@@ -62,14 +55,14 @@ class ParseProcessLog(list):
         self.api_count = 0
         self.call_id = 0
         self.conversion_cache = {}
+        self.options = options
         # Limit of API calls per process
-        self.api_limit = analysis_call_limit
-        self.ram_boost = ram_boost
+        self.api_limit = self.options.analysis_call_limit
 
         if path_exists(log_path) and os.stat(log_path).st_size > 0:
             self.parse_first_and_reset()
 
-        if self.ram_boost:
+        if self.options.ram_boost:
             self.api_call_cache = []
             self.api_pointer = 0
 
@@ -185,7 +178,7 @@ class ParseProcessLog(list):
     def __next__(self):
         """Just accessing the cache"""
 
-        if not self.ram_boost:
+        if not self.options.ram_boost:
             return self.cacheless_next()
         res = self.api_call_cache[self.api_pointer]
         if res is None:
@@ -258,7 +251,7 @@ class ParseProcessLog(list):
 
     def begin_reporting(self):
         self.reporting_mode = True
-        if self.ram_boost:
+        if self.options.ram_boost:
             idx = 0
             ent = self.api_call_cache[idx]
             while ent:
@@ -363,15 +356,11 @@ class ParseProcessLog(list):
 class Processes:
     """Processes analyzer."""
 
-    def __init__(self, logs_path, task, loop_detection: bool = False, analysis_call_limit: int = 0, ram_boost:bool = False):
+    def __init__(self, logs_path, task, options):
         """@param  logs_path: logs path."""
         self.task = task
         self._logs_path = logs_path
-        self.loop_detection = loop_detection
-        self.analysis_call_limit = analysis_call_limit
-        self.ram_boost = ram_boost
-
-        # self.options = get_options(self.task["options"])
+        self.options = options
 
     def run(self):
         """Run analysis.
@@ -392,7 +381,7 @@ class Processes:
         for file_name in os.listdir(self._logs_path):
             file_path = os.path.join(self._logs_path, file_name)
 
-            if self.loop_detection:
+            if self.options.loop_detection:
                 self.compress_log_file(file_path)
 
             if os.path.isdir(file_path):
@@ -404,7 +393,7 @@ class Processes:
                 continue
 
             # Invoke parsing of current log file (if ram_boost is enabled, otherwise parsing is done on-demand)
-            current_log = ParseProcessLog(file_path, self.analysis_call_limit, self.ram_boost)
+            current_log = ParseProcessLog(file_path, self.options)
             if current_log.process_id is None:
                 continue
 
@@ -450,7 +439,7 @@ class Summary:
 
     key = "summary"
 
-    def __init__(self):
+    def __init__(self, options):
         self.keys = []
         self.read_keys = []
         self.write_keys = []
@@ -464,6 +453,7 @@ class Summary:
         self.created_services = []
         self.executed_commands = []
         self.resolved_apis = []
+        self.options = options
 
     def get_argument(self, call, argname, strip=False):
         return next(
@@ -523,7 +513,12 @@ class Summary:
             if name and name not in self.keys:
                 self.keys.append(name)
             if name and name not in self.read_keys:
-                self.read_keys.append(name)
+                if self.options.replace_patterns:
+                    name = check_deny_pattern(name)
+                    if name:
+                        self.read_keys.append(name)
+                else:
+                    self.read_keys.append(name)
         elif call["api"] == "SHGetFileInfoW":
             filename = self.get_argument(call, "Path")
             if filename and (len(filename) < 2 or filename[1] != ":"):
@@ -564,12 +559,22 @@ class Summary:
         elif call["api"].startswith("StartService"):
             servicename = self.get_argument(call, "ServiceName", strip=True)
             if servicename and servicename not in self.started_services:
-                self.started_services.append(servicename)
+                if self.options.replace_patterns:
+                    servicename = check_deny_pattern(servicename)
+                    if servicename:
+                        self.started_services.append(servicename)
+                else:
+                    self.started_services.append(servicename)
 
         elif call["api"].startswith("CreateService"):
             servicename = self.get_argument(call, "ServiceName", strip=True)
             if servicename and servicename not in self.created_services:
-                self.created_services.append(servicename)
+                if self.options.replace_patterns:
+                    servicename = check_deny_pattern(servicename)
+                    if servicename:
+                        self.created_services.append(servicename)
+                else:
+                    self.created_services.append(servicename)
 
         elif call["api"] in ("CreateProcessInternalW", "NtCreateUserProcess", "CreateProcessWithTokenW", "CreateProcessWithLogonW"):
             cmdline = self.get_argument(call, "CommandLine", strip=True)
@@ -584,7 +589,9 @@ class Summary:
                 if base not in firstarg:
                     cmdline = f"{appname} {cmdline}"
             if cmdline and cmdline not in self.executed_commands:
-                self.executed_commands.append(cmdline)
+                if self.options.replace_patternsº
+                else:
+                    self.executed_commands.append(cmdline)
 
         elif call["api"] == "LdrGetProcedureAddress" and call["status"]:
             dllname = self.get_argument(call, "ModuleName").lower()
@@ -651,7 +658,10 @@ class Summary:
         elif call["category"] == "synchronization":
             value = self.get_argument(call, "MutexName")
             if value and value not in self.mutexes:
-                self.mutexes.append(value)
+                if self.options.replace_patterns and _is_mutex_ok(value):
+                    self.mutexes.append(value)
+                else:
+                    self.mutexes.append(value)
 
     def run(self):
         """Get registry keys, mutexes and files.
@@ -913,8 +923,7 @@ class Enhanced:
             {"event": "delete", "object": "service", "apis": ["DeleteService"], "args": [("service", "ServiceName")]},
         ]
 
-        # Not sure I really want this, way too noisy anyway and doesn't bring
-        # much value.
+        # Not sure I really want this, way too noisy anyway and doesn't bring much value.
         # if self.details:
         #    gendata += [{"event" : "get",
         #           "object" : "procedure",
@@ -1167,12 +1176,12 @@ class BehaviorAnalysis(Processing):
         """Run analysis.
         @return: results dict.
         """
-        behavior = {"processes": Processes(self.logs_path, self.task, self.options.loop_detection, self.options.analysis_call_limit, self.options.ram_boost).run()}
+        behavior = {"processes": Processes(self.logs_path, self.task, self.options).run()}
 
         instances = [
             Anomaly(),
             ProcessTree(),
-            Summary(),
+            Summary(self.options),
             Enhanced(),
             EncryptedBuffers(),
         ]

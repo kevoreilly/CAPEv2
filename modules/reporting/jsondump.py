@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.path_utils import path_write_file
 
 try:
     import orjson
@@ -42,9 +42,7 @@ class JsonDump(Report):
         try:
             path = os.path.join(self.reports_path, "report.json")
             if HAVE_ORJSON:
-                _ = Path(path).write_bytes(
-                    orjson.dumps(results, option=orjson.OPT_INDENT_2, default=self.default)
-                )  # orjson.OPT_SORT_KEYS |
+                _ = path_write_file(path, orjson.dumps(results, option=orjson.OPT_INDENT_2, default=self.default))  # orjson.OPT_SORT_KEYS |
             else:
                 with open(path, "w") as report:
                     json.dump(results, report, sort_keys=False, indent=int(indent), ensure_ascii=False)

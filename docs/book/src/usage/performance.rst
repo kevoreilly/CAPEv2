@@ -31,5 +31,5 @@ For automated environments switching off the html report will be a good choice.
 Ram-boost
 ---------
 
-Ram boost can be switched on in the configuration (in *conf/cuckoo.conf* ``ram_boost`` in ``[processing]``).
+Ram boost can be switched on in the configuration (in *conf/processing.conf* -> ``ram_boost`` in ``[behavior]``).
 This will keep the whole API list in Ram. Do that only if you have plenty of Ram (>20 GB for 8 VMs).

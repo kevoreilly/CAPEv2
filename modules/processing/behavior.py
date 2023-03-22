@@ -25,7 +25,6 @@ from lib.cuckoo.common.utils import (
 
 log = logging.getLogger(__name__)
 cfg = Config()
-cfg_process = Config("processing")
 
 
 def fix_key(key):
@@ -63,12 +62,13 @@ class ParseProcessLog(list):
         self.api_count = 0
         self.call_id = 0
         self.conversion_cache = {}
-        self.api_limit = cfg.processing.analysis_call_limit  # Limit of API calls per process
+        # Limit of API calls per process
+        self.api_limit = self.options.analysis_call_limit
 
         if path_exists(log_path) and os.stat(log_path).st_size > 0:
             self.parse_first_and_reset()
 
-        if cfg.processing.ram_boost:
+        if self.options.ram_boost:
             self.api_call_cache = []
             self.api_pointer = 0
 
@@ -184,7 +184,7 @@ class ParseProcessLog(list):
     def __next__(self):
         """Just accessing the cache"""
 
-        if not cfg.processing.ram_boost:
+        if not self.options.ram_boost:
             return self.cacheless_next()
         res = self.api_call_cache[self.api_pointer]
         if res is None:
@@ -257,7 +257,7 @@ class ParseProcessLog(list):
 
     def begin_reporting(self):
         self.reporting_mode = True
-        if cfg.processing.ram_boost:
+        if self.options.ram_boost:
             idx = 0
             ent = self.api_call_cache[idx]
             while ent:
@@ -387,8 +387,7 @@ class Processes:
         for file_name in os.listdir(self._logs_path):
             file_path = os.path.join(self._logs_path, file_name)
 
-            # Check if Loop Detection is enabled globally or locally (as an option)
-            if cfg_process.loop_detection.enabled or self.options.get("loop_detection"):
+            if self.options.get("loop_detection"):
                 self.compress_log_file(file_path)
 
             if os.path.isdir(file_path):
@@ -1172,7 +1171,7 @@ class BehaviorAnalysis(Processing):
             Enhanced(),
             EncryptedBuffers(),
         ]
-        enabled_instances = [instance for instance in instances if getattr(cfg_process.behavior, instance.key, True)]
+        enabled_instances = [instance for instance in instances if getattr(self.options, instance.key, True)]
 
         if enabled_instances:
             # Iterate calls and tell interested signatures about them

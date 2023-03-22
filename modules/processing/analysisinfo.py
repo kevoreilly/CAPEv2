@@ -9,7 +9,6 @@ from contextlib import suppress
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.path_utils import path_exists
@@ -17,7 +16,6 @@ from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
-report_cfg = Config("reporting")
 
 db = Database()
 

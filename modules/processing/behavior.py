@@ -17,7 +17,7 @@ from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
     default_converter,
-    get_options,
+    # get_options,
     logtime,
     pretty_print_arg,
     pretty_print_retval,
@@ -39,7 +39,7 @@ def fix_key(key):
 class ParseProcessLog(list):
     """Parses process log file."""
 
-    def __init__(self, log_path):
+    def __init__(self, log_path, analysis_call_limit: int = 0, ram_boost: bool = False):
         """@param log_path: log file path."""
         self._log_path = log_path
         self.fd = None
@@ -63,12 +63,13 @@ class ParseProcessLog(list):
         self.call_id = 0
         self.conversion_cache = {}
         # Limit of API calls per process
-        self.api_limit = self.options.analysis_call_limit
+        self.api_limit = analysis_call_limit
+        self.ram_boost = ram_boost
 
         if path_exists(log_path) and os.stat(log_path).st_size > 0:
             self.parse_first_and_reset()
 
-        if self.options.ram_boost:
+        if self.ram_boost:
             self.api_call_cache = []
             self.api_pointer = 0
 
@@ -184,7 +185,7 @@ class ParseProcessLog(list):
     def __next__(self):
         """Just accessing the cache"""
 
-        if not self.options.ram_boost:
+        if not self.ram_boost:
             return self.cacheless_next()
         res = self.api_call_cache[self.api_pointer]
         if res is None:
@@ -257,7 +258,7 @@ class ParseProcessLog(list):
 
     def begin_reporting(self):
         self.reporting_mode = True
-        if self.options.ram_boost:
+        if self.ram_boost:
             idx = 0
             ent = self.api_call_cache[idx]
             while ent:
@@ -366,7 +367,7 @@ class Processes:
         """@param  logs_path: logs path."""
         self.task = task
         self._logs_path = logs_path
-        self.options = get_options(self.task["options"])
+        # self.options = get_options(self.task["options"])
 
     def run(self):
         """Run analysis.
@@ -387,7 +388,7 @@ class Processes:
         for file_name in os.listdir(self._logs_path):
             file_path = os.path.join(self._logs_path, file_name)
 
-            if self.options.get("loop_detection"):
+            if self.options.loop_detection:
                 self.compress_log_file(file_path)
 
             if os.path.isdir(file_path):
@@ -399,7 +400,7 @@ class Processes:
                 continue
 
             # Invoke parsing of current log file (if ram_boost is enabled, otherwise parsing is done on-demand)
-            current_log = ParseProcessLog(file_path)
+            current_log = ParseProcessLog(file_path, self.options.analysis_call_limit, self.options.ram_boost)
             if current_log.process_id is None:
                 continue
 

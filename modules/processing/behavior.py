@@ -363,11 +363,14 @@ class ParseProcessLog(list):
 class Processes:
     """Processes analyzer."""
 
-    def __init__(self, logs_path, task, loop_detection: bool = False):
+    def __init__(self, logs_path, task, loop_detection: bool = False, analysis_call_limit: int = 0, ram_boost:bool = False):
         """@param  logs_path: logs path."""
         self.task = task
         self._logs_path = logs_path
         self.loop_detection = loop_detection
+        self.analysis_call_limit = analysis_call_limit
+        self.ram_boost = ram_boost
+
         # self.options = get_options(self.task["options"])
 
     def run(self):
@@ -401,7 +404,7 @@ class Processes:
                 continue
 
             # Invoke parsing of current log file (if ram_boost is enabled, otherwise parsing is done on-demand)
-            current_log = ParseProcessLog(file_path, self.options.analysis_call_limit, self.options.ram_boost)
+            current_log = ParseProcessLog(file_path, self.analysis_call_limit, self.ram_boost)
             if current_log.process_id is None:
                 continue
 
@@ -1164,7 +1167,7 @@ class BehaviorAnalysis(Processing):
         """Run analysis.
         @return: results dict.
         """
-        behavior = {"processes": Processes(self.logs_path, self.task, self.options.loop_detection).run()}
+        behavior = {"processes": Processes(self.logs_path, self.task, self.options.loop_detection, self.options.analysis_call_limit, self.options.ram_boost).run()}
 
         instances = [
             Anomaly(),

@@ -363,10 +363,11 @@ class ParseProcessLog(list):
 class Processes:
     """Processes analyzer."""
 
-    def __init__(self, logs_path, task):
+    def __init__(self, logs_path, task, loop_detection: bool = False):
         """@param  logs_path: logs path."""
         self.task = task
         self._logs_path = logs_path
+        self.loop_detection = loop_detection
         # self.options = get_options(self.task["options"])
 
     def run(self):
@@ -388,7 +389,7 @@ class Processes:
         for file_name in os.listdir(self._logs_path):
             file_path = os.path.join(self._logs_path, file_name)
 
-            if self.options.loop_detection:
+            if self.loop_detection:
                 self.compress_log_file(file_path)
 
             if os.path.isdir(file_path):
@@ -1163,7 +1164,7 @@ class BehaviorAnalysis(Processing):
         """Run analysis.
         @return: results dict.
         """
-        behavior = {"processes": Processes(self.logs_path, self.task).run()}
+        behavior = {"processes": Processes(self.logs_path, self.task, self.options.loop_detection).run()}
 
         instances = [
             Anomaly(),

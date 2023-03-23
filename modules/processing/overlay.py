@@ -3,13 +3,10 @@ import logging
 import os
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 
 log = logging.getLogger()
-
-processing_conf = Config("processing")
 
 
 class process_overlay_file(object):
@@ -19,7 +16,7 @@ class process_overlay_file(object):
         self.overlay_fullpath = overlay_fullpath
 
     def run(self):
-        if not processing_conf.overlay.enabled:
+        if not self.options.enabled:
             return {}
 
         if not path_exists(self.overlay_fullpath):

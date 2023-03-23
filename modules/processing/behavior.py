@@ -13,11 +13,10 @@ from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.path_utils import path_exists
-from lib.cuckoo.common.utils import (
+from lib.cuckoo.common.utils import (  # get_options,
     bytes2str,
     convert_to_printable,
     default_converter,
-    # get_options,
     logtime,
     pretty_print_arg,
     pretty_print_retval,
@@ -363,7 +362,7 @@ class ParseProcessLog(list):
 class Processes:
     """Processes analyzer."""
 
-    def __init__(self, logs_path, task, loop_detection: bool = False, analysis_call_limit: int = 0, ram_boost:bool = False):
+    def __init__(self, logs_path, task, loop_detection: bool = False, analysis_call_limit: int = 0, ram_boost: bool = False):
         """@param  logs_path: logs path."""
         self.task = task
         self._logs_path = logs_path
@@ -1167,7 +1166,11 @@ class BehaviorAnalysis(Processing):
         """Run analysis.
         @return: results dict.
         """
-        behavior = {"processes": Processes(self.logs_path, self.task, self.options.loop_detection, self.options.analysis_call_limit, self.options.ram_boost).run()}
+        behavior = {
+            "processes": Processes(
+                self.logs_path, self.task, self.options.loop_detection, self.options.analysis_call_limit, self.options.ram_boost
+            ).run()
+        }
 
         instances = [
             Anomaly(),

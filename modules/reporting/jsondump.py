@@ -42,7 +42,9 @@ class JsonDump(Report):
         try:
             path = os.path.join(self.reports_path, "report.json")
             if HAVE_ORJSON:
-                _ = path_write_file(path, orjson.dumps(results, option=orjson.OPT_INDENT_2, default=self.default))  # orjson.OPT_SORT_KEYS |
+                _ = path_write_file(
+                    path, orjson.dumps(results, option=orjson.OPT_INDENT_2, default=self.default)
+                )  # orjson.OPT_SORT_KEYS |
             else:
                 with open(path, "w") as report:
                     json.dump(results, report, sort_keys=False, indent=int(indent), ensure_ascii=False)

@@ -4,6 +4,8 @@ rule UrsnifV3
         author = "kevoreilly"
         description = "UrsnifV3 Payload"
         cape_type = "UrsnifV3 Payload"
+        packed = "75827be0c600f93d0d23d4b8239f56eb8c7dc4ab6064ad0b79e6695157816988"
+        packed = "5d6f1484f6571282790d64821429eeeadee71ba6b6d566088f58370634d2c579"
     strings:
         $crypto32_1 = {8B C3 83 EB 01 85 C0 75 0D 0F B6 16 83 C6 01 89 74 24 14 8D 58 07 8B C2 C1 E8 07 83 E0 01 03 D2 85 C0 0F 84 AB 01 00 00 8B C3 83 EB 01 85 C0 89 5C 24 20 75 13 0F B6 16 83 C6 01 BB 07 00 00 00}
         $crypto32_2 = {8B 45 ?? 0F B6 3? FF 45 [2-4] 8B C? 23 C? 40 40 D1 E? 7?}

@@ -22,7 +22,7 @@ nginx_version=1.19.6
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.4.0
+guacamole_version=1.5.0
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0
@@ -1261,6 +1261,11 @@ function install_guacamole() {
     if [ ! -f "/opt/lib/systemd/system/guac-web.service" ] ; then
         cp /opt/CAPEv2/systemd/guacd.service /lib/systemd/system/guacd.service
         cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
+    fi
+
+    poetry_path=$(which poetry)
+    if ! grep -q $poetry_path /lib/systemd/system/guac-web.service ; then
+        sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
 
     if [ ! -d "/var/www/guacrecordings" ] ; then

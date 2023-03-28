@@ -57,4 +57,4 @@ class TLSMasterSecrets(Processing):
             # Write the TLS master secrets file.
             with open(self.tlsmaster_path, "w") as f:
                 for session_id, master_secret in sorted(results.items()):
-                    f.write("RSA Session-ID:{session_id} Master-Key:{master_secret}\n")
+                    f.write(f"RSA Session-ID:{session_id} Master-Key:{master_secret}\n")

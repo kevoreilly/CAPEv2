@@ -13,7 +13,7 @@ from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.path_utils import path_exists
-from lib.cuckoo.common.utils import (
+from lib.cuckoo.common.utils import (  # get_options,
     bytes2str,
     convert_to_printable,
     default_converter,

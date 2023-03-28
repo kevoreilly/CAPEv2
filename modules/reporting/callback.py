@@ -9,6 +9,7 @@ from lib.cuckoo.core.database import TASK_COMPLETED, TASK_REPORTED, Database
 log = logging.getLogger(__name__)
 main_db = Database()
 
+
 class CALLBACKHOME(Report):
     "Notify us about analysis is done"
 

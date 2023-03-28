@@ -13,7 +13,6 @@ from collections import defaultdict
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
 from lib.cuckoo.common.utils import datetime_to_iso
-from modules.processing.behavior import fix_key
 
 try:
     import cybox
@@ -2750,14 +2749,12 @@ def intToHex(value):
 
 def regStringToHive(reg_string):
     """Maps a string representing a Registry Key from a NT* API call input to its normalized hive"""
-    normalized_key = fix_key(reg_string)
-    return normalized_key.split("\\", 1)[0]
+    return reg_string.split("\\", 1)[0]
 
 
 def regStringToKey(reg_string):
     """Maps a string representing a Registry Key from a NT* API call input to its normalized key portion"""
-    normalized_key = fix_key(reg_string)
-    return normalized_key.split("\\", 1)[1]
+    return reg_string.split("\\", 1)[1]
 
 
 class MAEC41Report(Report):

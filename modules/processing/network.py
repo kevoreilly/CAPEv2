@@ -863,7 +863,7 @@ class Pcap2:
         try:
             sorted_r = sorted(r.process(), key=lambda x: x[1])
         except TypeError as e:
-            log.warning("You running old httpreplay %s: pip3 install -U git+https://github.com/CAPESandbox/httpreplay", e)
+            log.warning("You running old httpreplay %s: poetry run pip install -U git+https://github.com/CAPESandbox/httpreplay", e)
             traceback.print_exc()
             return results
         except Exception as e:

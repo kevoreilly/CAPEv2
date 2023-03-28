@@ -33,7 +33,7 @@ class TestDatabaseEngine:
         stmt = delete(Machine)
         self.session.execute(stmt)
         self.session.commit()
-        self.binary_storage = os.path.join(path_cwd(), "storage/binaries")
+        self.binary_storage = os.path.join(path_cwd(), "storage/binaries_test")
         path_mkdir(self.binary_storage)
 
     def teardown_method(self):

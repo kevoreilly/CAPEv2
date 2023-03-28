@@ -17,7 +17,6 @@ from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
     default_converter,
-    # get_options,
     logtime,
     pretty_print_arg,
     pretty_print_retval,
@@ -1167,7 +1166,11 @@ class BehaviorAnalysis(Processing):
         """Run analysis.
         @return: results dict.
         """
-        behavior = {"processes": Processes(self.logs_path, self.task, self.options.loop_detection, self.options.analysis_call_limit, self.options.ram_boost).run()}
+        behavior = {
+            "processes": Processes(
+                self.logs_path, self.task, self.options.loop_detection, self.options.analysis_call_limit, self.options.ram_boost
+            ).run()
+        }
 
         instances = [
             Anomaly(),

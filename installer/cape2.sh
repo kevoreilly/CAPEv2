@@ -697,6 +697,7 @@ function install_suricata() {
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'file-store:\n  version: 2\n  enabled: no', b'file-store:\n  version: 2\n  enabled: yes');open(pa, 'wb').write(q);"
 
     chown ${USER}:${USER} -R /etc/suricata
+    chown ${USER}:${USER} -R /var/log/suricata
     systemctl restart suricata
 }
 

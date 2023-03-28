@@ -34,6 +34,7 @@ from lib.cuckoo.common.utils import (
     texttypes,
     wide2str,
 )
+from lib.cuckoo.common.replace_patterns_utils import _clean_path
 
 processing_conf = Config("processing")
 externalservices_conf = Config("externalservices")
@@ -122,10 +123,10 @@ class CAPE(Processing):
 
         metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
-            file_info["process_path"] = metastrings[1]
+            file_info["process_path"] = _clean_path(metastrings[1], self.options.replace_patterns)
             file_info["process_name"] = metastrings[1].rsplit("\\", 1)[-1]
         if len(metastrings) > 3:
-            file_info["module_path"] = metastrings[2]
+            file_info["module_path"] = _clean_path(metastrings[2], self.options.replace_patterns)
 
         if "pids" in metadata:
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
@@ -215,9 +216,9 @@ class CAPE(Processing):
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
-                file_info["guest_paths"] = list({path.get("filepath") for path in metadata.get(file_path, [])})
+                file_info["guest_paths"] = list({_clean_path(path.get("filepath", ""), self.options.replace_patterns) for path in metadata.get(file_path, [])})
                 if not file_info["guest_paths"] and category == "dropped" and "CAPE" not in metadata.get("filepath", ""):
-                    file_info["guest_paths"] = [metadata.get("filepath", "")]
+                    file_info["guest_paths"] = [_clean_path(metadata.get("filepath", ""), self.options.replace_patterns)]
                 file_info["name"] = list(
                     {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
                 ) or [metadata.get("filepath", "").rsplit("\\", 1)[-1]]

@@ -25,20 +25,39 @@ def _is_regkey_ok(regkey: str) -> bool:
         return False
     return True
 
-def _clean_path(string):
+def _clean_path(string: str, replace_patterns: bool = False):
+    if not replace_patterns:
+        return string
+
     for username in SANDBOX_USERNAMES:
         if username in string:
             string = string.replace(username, '<USER>')
+
+    for key in NORMALIZED_PATHS.keys():
+        if key in string:
+            string = string.replace(key, NORMALIZED_PATHS[key])
+
     return string
 
-def check_deny_pattern(pattern):
+def check_deny_pattern(container: list, pattern: str):
+    if not pattern:
+        return
     if any(deny_file in pattern for deny_file in FILES_DENYLIST):
         return
+    # import code;code.interact(local=dict(locals(), **globals()))
     if pattern.endswith(FILES_ENDING_DENYLIST):
         return
     if not _is_regkey_ok(pattern):
         return
     if pattern in SERVICES_DENYLIST:
         return
-    pattern = _clean_path(pattern)
-    return pattern
+    if not _is_mutex_ok(pattern):
+        return
+
+    pattern = _clean_path(pattern, True)
+
+    for key in REGISTRY_TRANSLATION.keys():
+        if pattern.startswith(key):
+            pattern = pattern.replace(key, REGISTRY_TRANSLATION[key])
+
+    container.append(pattern)

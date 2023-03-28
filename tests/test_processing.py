@@ -34,7 +34,7 @@ class TestConfigUpdates:
         cfg2 = {"Family": {"AnotherKey": "AnotherValue"}}
         cape_processor.update_cape_configs("Family", cfg1, MagicMock())
         cape_processor.update_cape_configs("Family", cfg2, MagicMock())
-        expected_cfgs = [{"Family": {"AnotherKey": "AnotherValue", "SomeKey": "SomeValue"}, "associated_config_hashes": ANY}]
+        expected_cfgs = [{"Family": {"AnotherKey": "AnotherValue", "SomeKey": "SomeValue"}, "_associated_config_hashes": ANY}]
         assert cape_processor.cape["configs"] == expected_cfgs
 
     def test_update_different_families(self, cape_processor):
@@ -43,8 +43,8 @@ class TestConfigUpdates:
         cape_processor.update_cape_configs("Family", cfg1, MagicMock())
         cape_processor.update_cape_configs("Family", cfg2, MagicMock())
         expected_cfgs = [
-            {"Family1": {"SomeKey": "SomeValue"}, "associated_config_hashes": ANY},
-            {"Family2": {"SomeKey": "SomeValue"}, "associated_config_hashes": ANY},
+            {"Family1": {"SomeKey": "SomeValue"}, "_associated_config_hashes": ANY},
+            {"Family2": {"SomeKey": "SomeValue"}, "_associated_config_hashes": ANY},
         ]
         assert cape_processor.cape["configs"] == expected_cfgs
 
@@ -55,7 +55,7 @@ class TestConfigUpdates:
         cape_processor.update_cape_configs("Family", cfg1, MagicMock())
         cape_processor.update_cape_configs("Family", cfg2, MagicMock())
         expected_cfg = [
-            {"Family": {"SomeKey": "DifferentValue"}, "associated_config_hashes": ANY},
+            {"Family": {"SomeKey": "DifferentValue"}, "_associated_config_hashes": ANY},
         ]
         assert cape_processor.cape["configs"] == expected_cfg
 
@@ -67,14 +67,14 @@ class TestConfigUpdates:
             cape_processor.update_cape_configs("Family", cfg, file_obj)
         actual_cfg = cape_processor.cape["configs"]
         assert "Family" in actual_cfg[0]
-        assert "associated_config_hashes" in actual_cfg[0]
-        hashes = actual_cfg[0]["associated_config_hashes"]
-        assert len(hashes) == 5
-        assert hashes["md5"].startswith("d41")
-        assert hashes["sha1"].startswith("da3")
-        assert hashes["sha256"].startswith("e3b")
-        assert hashes["sha512"].startswith("cf8")
-        assert hashes["sha3_384"].startswith("0c6")
+        assert "_associated_config_hashes" in actual_cfg[0]
+        hashes = actual_cfg[0]["_associated_config_hashes"]
+        assert len(hashes) == 1
+        assert hashes[0]["md5"].startswith("d41")
+        assert hashes[0]["sha1"].startswith("da3")
+        assert hashes[0]["sha256"].startswith("e3b")
+        assert hashes[0]["sha512"].startswith("cf8")
+        assert hashes[0]["sha3_384"].startswith("0c6")
 
 
 class TestAnalysisConfigLinks:
@@ -92,8 +92,8 @@ class TestAnalysisConfigLinks:
         cfg = {"Family": {"SomeKey": "DifferentValue"}}
         cape_processor.cape["configs"] = [cfg]
         cape_processor.link_configs_to_analysis()
-        assert "associated_analysis_hashes" in cfg
-        assert cfg["associated_analysis_hashes"] == hashes
+        assert "_associated_analysis_hashes" in cfg
+        assert cfg["_associated_analysis_hashes"] == hashes
 
     @pytest.mark.parametrize("category", ["resubmit", "sample", "pcap", "url", "dlnexec", "vtdl"])
     def test_static_links(self, category, cape_processor):
@@ -101,4 +101,4 @@ class TestAnalysisConfigLinks:
         cfg = {"Family": {"SomeKey": "DifferentValue"}}
         cape_processor.cape["configs"] = [cfg]
         cape_processor.link_configs_to_analysis()
-        assert "associated_analysis_hashes" not in cfg
+        assert "_associated_analysis_hashes" not in cfg

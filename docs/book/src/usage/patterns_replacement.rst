@@ -6,7 +6,7 @@ Pattern replacement
 
 Cleaning Operation system patterns.
 ===================================
-* Enable filtering inside ``custom/conf/processing.conf``
+* Enable filtering inside ``custom/conf/processing.conf``:
   * ``behavior`` -> ``replace_patterns``
   * ``CAPE`` -> ``replace_patterns``
 * Put your patterns inside of ``data/safelist/replacepatterns.py``

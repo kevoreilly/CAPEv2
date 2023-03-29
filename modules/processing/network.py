@@ -657,7 +657,10 @@ class Pcap:
             return self.results
 
         if not path_exists(self.filepath):
-            log.debug('The PCAP file does not exist at path "%s". Did you run analysis with live connection? Did you enable pcap in cuscom/conf/routing.conf?', self.filepath)
+            log.debug(
+                'The PCAP file does not exist at path "%s". Did you run analysis with live connection? Did you enable pcap in cuscom/conf/routing.conf?',
+                self.filepath,
+            )
             return self.results
 
         if os.path.getsize(self.filepath) == 0:

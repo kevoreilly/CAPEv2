@@ -26,6 +26,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,
@@ -34,7 +35,6 @@ from lib.cuckoo.common.utils import (
     texttypes,
     wide2str,
 )
-from lib.cuckoo.common.replace_patterns_utils import _clean_path
 
 processing_conf = Config("processing")
 externalservices_conf = Config("externalservices")
@@ -216,7 +216,9 @@ class CAPE(Processing):
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
-                file_info["guest_paths"] = list({_clean_path(path.get("filepath", ""), self.options.replace_patterns) for path in metadata.get(file_path, [])})
+                file_info["guest_paths"] = list(
+                    {_clean_path(path.get("filepath", ""), self.options.replace_patterns) for path in metadata.get(file_path, [])}
+                )
                 if not file_info["guest_paths"] and category == "dropped" and "CAPE" not in metadata.get("filepath", ""):
                     file_info["guest_paths"] = [_clean_path(metadata.get("filepath", ""), self.options.replace_patterns)]
                 file_info["name"] = list(

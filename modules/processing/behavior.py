@@ -13,6 +13,7 @@ from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.replace_patterns_utils import _clean_path, check_deny_pattern
 from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
@@ -22,11 +23,9 @@ from lib.cuckoo.common.utils import (
     pretty_print_retval,
 )
 
-from lib.cuckoo.common.replace_patterns_utils import check_deny_pattern, _clean_path
-
-
 log = logging.getLogger(__name__)
 cfg = Config()
+
 
 class ParseProcessLog(list):
     """Parses process log file."""
@@ -212,7 +211,7 @@ class ParseProcessLog(list):
         environdict = bytes2str(environdict)
         if self.options.replace_patterns:
             for key in ("UserName", "ComputerName", "TempPath", "CommandLine"):
-                environdict[key] = _clean_path(environdict[key],  self.options.replace_patterns)
+                environdict[key] = _clean_path(environdict[key], self.options.replace_patterns)
         self.environdict.update(environdict)
 
     def log_anomaly(self, subcategory, tid, funcname, msg):

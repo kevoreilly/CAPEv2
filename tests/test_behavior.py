@@ -7,6 +7,7 @@ from modules.processing.behavior import ParseProcessLog
 
 cfg = Config("processing")
 
+
 class TestParseProcessLog:
     def test_init(self):
         assert (

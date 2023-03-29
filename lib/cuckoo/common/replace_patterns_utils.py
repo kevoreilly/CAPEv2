@@ -1,5 +1,14 @@
 from data.safelist.domains import domain_passlist as DOMAINS_DENYLIST
-from data.safelist.replacepatterns import SANDBOX_USERNAMES, FILES_DENYLIST, NORMALIZED_PATHS, REGISTRY_TRANSLATION, FILES_ENDING_DENYLIST, SERVICES_DENYLIST, MUTEX_DENYLIST
+from data.safelist.replacepatterns import (
+    FILES_DENYLIST,
+    FILES_ENDING_DENYLIST,
+    MUTEX_DENYLIST,
+    NORMALIZED_PATHS,
+    REGISTRY_TRANSLATION,
+    SANDBOX_USERNAMES,
+    SERVICES_DENYLIST,
+)
+
 
 def is_uri_valid(url):
     for domain in DOMAINS_DENYLIST:
@@ -7,23 +16,28 @@ def is_uri_valid(url):
             return False
         return True
 
+
 def _is_mutex_ok(mutex_name: str) -> bool:
     if any(mutex_name.startswith(keyword) for keyword in MUTEX_DENYLIST):
         return False
     return True
 
+
 def _is_regkey_ok(regkey: str) -> bool:
     """Check if regkey can be appended."""
-    filtered_regkeys = frozenset([
-        'DisableUserModeCallbackFilter',
-        'UserDataDir',
-        'CloudManagementEnrollmentMandatory',
-    ])
+    filtered_regkeys = frozenset(
+        [
+            "DisableUserModeCallbackFilter",
+            "UserDataDir",
+            "CloudManagementEnrollmentMandatory",
+        ]
+    )
     if regkey in filtered_regkeys:
         return False
-    if '\\Control\\Nls\\' in regkey:
+    if "\\Control\\Nls\\" in regkey:
         return False
     return True
+
 
 def _clean_path(string: str, replace_patterns: bool = False):
     if not replace_patterns:
@@ -31,13 +45,14 @@ def _clean_path(string: str, replace_patterns: bool = False):
 
     for username in SANDBOX_USERNAMES:
         if username in string:
-            string = string.replace(username, '<USER>')
+            string = string.replace(username, "<USER>")
 
     for key in NORMALIZED_PATHS.keys():
         if key in string:
             string = string.replace(key, NORMALIZED_PATHS[key])
 
     return string
+
 
 def check_deny_pattern(container: list, pattern: str):
     if not pattern:

@@ -34,6 +34,7 @@ from lib.cuckoo.common.utils import (
     texttypes,
     wide2str,
 )
+from lib.cuckoo.common.replace_patterns_utils import _clean_path
 
 processing_conf = Config("processing")
 externalservices_conf = Config("externalservices")
@@ -122,10 +123,10 @@ class CAPE(Processing):
 
         metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
-            file_info["process_path"] = metastrings[1]
+            file_info["process_path"] = _clean_path(metastrings[1], self.options.replace_patterns)
             file_info["process_name"] = metastrings[1].rsplit("\\", 1)[-1]
         if len(metastrings) > 3:
-            file_info["module_path"] = metastrings[2]
+            file_info["module_path"] = _clean_path(metastrings[2], self.options.replace_patterns)
 
         if "pids" in metadata:
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
@@ -215,9 +216,9 @@ class CAPE(Processing):
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
-                file_info["guest_paths"] = list({path.get("filepath") for path in metadata.get(file_path, [])})
+                file_info["guest_paths"] = list({_clean_path(path.get("filepath", ""), self.options.replace_patterns) for path in metadata.get(file_path, [])})
                 if not file_info["guest_paths"] and category == "dropped" and "CAPE" not in metadata.get("filepath", ""):
-                    file_info["guest_paths"] = [metadata.get("filepath", "")]
+                    file_info["guest_paths"] = [_clean_path(metadata.get("filepath", ""), self.options.replace_patterns)]
                 file_info["name"] = list(
                     {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
                 ) or [metadata.get("filepath", "").rsplit("\\", 1)[-1]]
@@ -380,15 +381,26 @@ class CAPE(Processing):
             if cape_name in existing_config:
                 log.warning("CAPE: data loss may occur, existing config found for: %s", cape_name)
                 existing_config[cape_name].update(config[cape_name])
-                return
+                config = existing_config
+                break
+        else:
+            # first time a config for this cape_name was seen
+            log.info("CAPE: new config found for: %s", cape_name)
+            self.cape["configs"].append(config)
 
-        # first time a config for this cape_name was seen
-        log.info("CAPE: new config found for: %s", cape_name)
-        # link the config to the hashes it was generated from
-        config["associated_config_hashes"] = {
-            hashtype: file_obj.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")
-        }
-        self.cape["configs"].append(config)
+        # Link the config to the hashes it was generated from.
+        # Store it in a list so that the keys of the dict are fixed and not dynamic, which, if
+        # storing the report in ElasticSearch, could otherwise create tons of keys in the index.
+        sha256 = file_obj.get("sha256", "")
+        current_hashes = config.setdefault("_associated_config_hashes", [])
+        for hashes in current_hashes:
+            if sha256 == hashes["sha256"]:
+                # We've already stored this set of hashes for the config.
+                break
+        else:
+            current_hashes.append(
+                {hashtype: file_obj.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")}
+            )
 
     def link_configs_to_analysis(self):
         """Embed associated_analysis_hashes in each config.
@@ -403,4 +415,4 @@ class CAPE(Processing):
             hashtype: target_file.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")
         }
         for config in self.cape["configs"]:
-            config["associated_analysis_hashes"] = associated_analysis_hashes
+            config["_associated_analysis_hashes"] = associated_analysis_hashes

@@ -30,7 +30,6 @@ def test_yara():
 
     _ = yara.compile(source='import "dotnet" rule a { condition: false }')
 
-
 """
 def test_yara_moduels():
     if not HAVE_YARA:

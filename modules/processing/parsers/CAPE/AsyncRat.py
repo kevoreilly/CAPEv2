@@ -99,10 +99,10 @@ def extract_config(filebuf):
     data = filebuf[addr + strings_offset : addr + strings_offset + strings_size]
     data = data.split(b"\x00\x00")
     key = base64.b64decode(get_string(data, 7))
-    #log.debug("extracted key: " + str(key))
+    # log.debug("extracted key: " + str(key))
     try:
         config = {
-            #"family": "asyncrat",
+            # "family": "asyncrat",
             "C2s": decrypt_config_item_list(key, data, 2),
             "Ports": decrypt_config_item_list(key, data, 1),
             "Version": decrypt_config_item_printable(key, data, 3),

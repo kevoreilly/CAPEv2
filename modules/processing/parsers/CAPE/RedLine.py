@@ -44,24 +44,23 @@ def extract_config(filebuf):
     key = c2 = botnet = None
 
     # newer samples
-    if c2 is None:
-        with suppress(Exception):
-            key = user_strings[base_location - 1]
-            c2 = decrypt(user_strings[base_location - 3], key)
-            if "." in c2:
-                botnet = decrypt(user_strings[base_location - 2], key)
-            else:
-                c2 = decrypt(user_strings[base_location - 4], key)
-                botnet = decrypt(user_strings[base_location - 3], key)
+    with suppress(Exception):
+        key = user_strings[base_location-1]
+        c2 = decrypt(user_strings[base_location-3], key)
+        if not c2 or '.' not in c2:
+            c2 = decrypt(user_strings[base_location-4], key)
+            botnet = decrypt(user_strings[base_location-3], key)
+        else:
+            botnet = decrypt(user_strings[base_location-2], key)
 
     # older samples
-    if c2 is None:
+    if not c2 or '.' not in c2:
         with suppress(Exception):
-            key = user_strings[base_location + 3]
-            c2 = decrypt(user_strings[base_location + 1], key)
-            botnet = decrypt(user_strings[base_location + 2], key)
+            key = user_strings[base_location+3]
+            c2 = decrypt(user_strings[base_location+1], key)
+            botnet = decrypt(user_strings[base_location+2], key)
 
-    if not c2 or "." not in c2:
+    if not c2 or '.' not in c2:
         return
 
     config_dict = {"C2": c2, "Botnet": botnet, "Key": key}

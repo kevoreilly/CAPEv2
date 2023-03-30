@@ -103,8 +103,7 @@ class ProxyInterface(BaseProxyInterface):
                 return None
             elif out_len == 1:
                 return body[0]
-            else:
-                return body
+            return body
 
         method_name = f"call_{BaseProxyInterface._to_snake_case(intr_method.name)}"
         setattr(self, method_name, method_fn)

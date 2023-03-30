@@ -1,5 +1,6 @@
 import ast
 import inspect
+from contextlib import suppress
 from typing import Any, List, Union
 
 from ..signature import SignatureTree, Variant
@@ -106,14 +107,12 @@ def parse_annotation(annotation: str) -> str:
         return ""
     if type(annotation) is not str:
         raise_value_error()
-    try:
+    with suppress(SyntaxError):
         body = ast.parse(annotation).body
         if len(body) == 1 and type(body[0].value) is ast.Constant:
             if type(body[0].value.value) is not str:
                 raise_value_error()
             return body[0].value.value
-    except SyntaxError:
-        pass
 
     return annotation
 

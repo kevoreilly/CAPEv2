@@ -194,7 +194,7 @@ class Message:
             - :class:`InvalidInterfaceNameError` - If ``interface`` is not a valid interface name.
             - :class:`InvalidMemberNameError` - If ``member`` is not a valid member name.
         """
-        body = body if body else []
+        body = body or []
         return Message(
             message_type=MessageType.SIGNAL,
             interface=interface,

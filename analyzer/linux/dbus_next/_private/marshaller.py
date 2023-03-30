@@ -32,7 +32,7 @@ class Marshaller:
 
     def align(self, n):
         offset = n - len(self.buffer) % n
-        if offset == 0 or offset == n:
+        if offset in (0, n):
             return 0
         self.buffer.extend(bytes(offset))
         return offset
@@ -44,8 +44,7 @@ class Marshaller:
     def write_boolean(self, boolean, _=None):
         if boolean:
             return self.write_uint32(1)
-        else:
-            return self.write_uint32(0)
+        return self.write_uint32(0)
 
     def write_int16(self, int16, _=None):
         written = self.align(2)

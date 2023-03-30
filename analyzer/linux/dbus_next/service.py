@@ -89,7 +89,7 @@ def method(name: str = None, disabled: bool = False):
         def wrapped(*args, **kwargs):
             fn(*args, **kwargs)
 
-        fn_name = name if name else fn.__name__
+        fn_name = name or fn.__name__
         wrapped.__dict__["__DBUS_METHOD"] = _Method(fn, fn_name, disabled=disabled)
 
         return wrapped
@@ -160,7 +160,7 @@ def signal(name: str = None, disabled: bool = False):
 
     @no_type_check_decorator
     def decorator(fn):
-        fn_name = name if name else fn.__name__
+        fn_name = name or fn.__name__
         signal = _Signal(fn, fn_name, disabled)
 
         @wraps(fn)
@@ -227,7 +227,7 @@ class _Property(property):
         if "options" in kwargs:
             options = kwargs["options"]
             self.set_options(options)
-            del kwargs["options"]
+            kwargs.pop("options")
 
         super().__init__(fn, *args, **kwargs)
 
@@ -418,8 +418,7 @@ class ServiceInterface:
             # large. We could optimize this by only copying what we change
             # here.
             return replace_idx_with_fds(msg.signature_tree, copy.deepcopy(msg.body), msg.unix_fds)
-        else:
-            return msg.body
+        return msg.body
 
     @staticmethod
     def _fn_result_to_body(result, signature_tree):

@@ -67,7 +67,7 @@ def path_write_file(path: str, content, mode="bytes"):
 
 
 def path_cwd():
-    return Path().cwd()
+    return Path.cwd()
 
 
 def path_mount_point(path: str):

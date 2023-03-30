@@ -1,3 +1,9 @@
+### [30.3.2023]
+* RedLine config extraction - thanks @Gi7w0rm
+* Monitor fixes:
+    * Harden GetExportAddress() against malformed PE images
+    * Add fallback payload metadata in ProcessTrackedRegions
+
 ### [21.3.2023] Syscall Hooks
 * New feature (beta):
     * Syscall hooks on Win10+ (via InstrumentationCallback) via submission checkbox or option: syscall=1

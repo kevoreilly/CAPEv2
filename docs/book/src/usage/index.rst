@@ -8,6 +8,7 @@ This chapter explains how to use CAPE.
 .. toctree::
 
     start
+    internals
     submit
     web
     api

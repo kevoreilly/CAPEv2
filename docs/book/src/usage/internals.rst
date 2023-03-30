@@ -21,12 +21,12 @@ How CAPE processing works?
 * Check ``custom/conf/<stage name>.conf`` for all features/modules that you can enable/disable.
 * The data is moved from one stage to another. The main stages are::
     * ``processing`` - Process raw data from VM, as behavior logs, dropped files, process dumps, event logs, etc.
-        * Data is under `self.results`
+        * Data is under ``self.results``
     * ``signatures`` - Is like ``Yara`` but on steroids. It allows you to do any checks on all processed data for detection for example.
          * Community examples can be found in community repo under `signatures`_
-         * Data is under `self.results`
+         * Data is under ``self.results``
     * ``reporting`` - Once we have all data processed and signatures did their veredicts is time to generate final reports that will be consumed by end users.
-        *  Data is under `results`
+        *  Data is under ``results``
 
 
 .. _signatures: https://github.com/CAPESandbox/community/tree/master/modules/signatures

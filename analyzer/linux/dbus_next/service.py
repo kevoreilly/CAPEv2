@@ -227,7 +227,7 @@ class _Property(property):
         if "options" in kwargs:
             options = kwargs["options"]
             self.set_options(options)
-            del kwargs.pop("options")
+            kwargs.pop("options")
 
         super().__init__(fn, *args, **kwargs)
 

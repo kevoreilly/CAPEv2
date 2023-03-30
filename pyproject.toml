@@ -16,6 +16,7 @@ cryptography = "39.0.1"
 requests = {version = "2.28.0", extras = ["security", "socks"]}
 pyOpenSSL = "23.0.0"
 pefile = "*"
+dnfile="0.13.0"
 tldextract = "3.1.0"
 oletools = "0.60"
 olefile = "0.46"

@@ -42,18 +42,18 @@ def extract_config(filebuf):
 
     key = c2 = botnet = None
 
-    # older samples
-    with suppress(Exception):
-        key = user_strings[base_location+3]
-        c2 = decrypt(user_strings[base_location+1], key)
-        botnet = decrypt(user_strings[base_location+2], key)
-
     # newer samples
+    with suppress(Exception):
+        key = user_strings[base_location-1]
+        c2 = decrypt(user_strings[base_location-3], key)
+        botnet = decrypt(user_strings[base_location-2], key)
+
+    # older samples
     if c2 is None:
         with suppress(Exception):
-            key = user_strings[base_location-1]
-            c2 = decrypt(user_strings[base_location-3], key)
-            botnet = decrypt(user_strings[base_location-2], key)
+            key = user_strings[base_location+3]
+            c2 = decrypt(user_strings[base_location+1], key)
+            botnet = decrypt(user_strings[base_location+2], key)
 
     if c2 is None:
         return

@@ -60,7 +60,7 @@ def extract_config(filebuf):
             c2 = decrypt(user_strings[base_location+1], key)
             botnet = decrypt(user_strings[base_location+2], key)
 
-    if c2 is None or '.' not in c2:
+    if not c2 or '.' not in c2:
         return
 
     config_dict = {'C2': c2, 'Botnet': botnet, 'Key': key}

@@ -21,7 +21,7 @@ processing_cfg = Config("processing")
 log = logging.getLogger(__name__)
 
 
-def extract_strings(filepath: str, on_demand: bool = False):
+def extract_strings(filepath: str = False, data: bytes = False, on_demand: bool = False):
     """Extract strings from analyzed file.
     @return: list of printable strings.
     """
@@ -31,15 +31,18 @@ def extract_strings(filepath: str, on_demand: bool = False):
     nulltermonly = processing_cfg.strings.nullterminated_only
     minchars = processing_cfg.strings.minchars
 
-    p = Path(filepath)
-    if not p.exists():
-        log.error("Sample file doesn't exist: %s", filepath)
-        return
+    if filepath:
+        p = Path(filepath)
+        if not p.exists():
+            log.error("Sample file doesn't exist: %s", filepath)
+            return
+        try:
+            data = p.read_bytes()
+        except (IOError, OSError) as e:
+            log.error("Error reading file: %s", e)
+            return
 
-    try:
-        data = p.read_bytes()
-    except (IOError, OSError) as e:
-        log.error("Error reading file: %s", e)
+    if not data:
         return
 
     endlimit = b"8192" if not HAVE_RE2 else b""

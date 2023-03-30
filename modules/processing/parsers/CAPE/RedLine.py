@@ -43,10 +43,15 @@ def extract_config(filebuf):
     key = c2 = botnet = None
 
     # newer samples
-    with suppress(Exception):
-        key = user_strings[base_location-1]
-        c2 = decrypt(user_strings[base_location-3], key)
-        botnet = decrypt(user_strings[base_location-2], key)
+    if c2 is None:
+        with suppress(Exception):
+            key = user_strings[base_location-1]
+            c2 = decrypt(user_strings[base_location-3], key)
+            if '.' in c2:
+                botnet = decrypt(user_strings[base_location-2], key)
+            else:
+                c2 = decrypt(user_strings[base_location-4], key)
+                botnet = decrypt(user_strings[base_location-3], key)
 
     # older samples
     if c2 is None:
@@ -55,7 +60,7 @@ def extract_config(filebuf):
             c2 = decrypt(user_strings[base_location+1], key)
             botnet = decrypt(user_strings[base_location+2], key)
 
-    if c2 is None:
+    if c2 is None or '.' not in c2:
         return
 
     config_dict = {'C2': c2, 'Botnet': botnet, 'Key': key}

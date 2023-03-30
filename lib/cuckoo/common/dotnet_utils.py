@@ -39,7 +39,7 @@ def dotnet_user_strings(file: str = False, data: bytes = False, dn_whitelisting:
                     if not buf.endswith(b"\x00\x00\x00"):
                         buf = buf[:-1]
                     s = dnfile.stream.UserString(buf)
-                    if not any([pattern in s.value for pattern in dn_whitelisting]):
+                    if s.value and not any([pattern in s.value for pattern in dn_whitelisting]):
                         dn_strings.append(s.value)
                 except UnicodeDecodeError:
                     log.debug("Bad string:", buf.replace(b"\x00", b""))

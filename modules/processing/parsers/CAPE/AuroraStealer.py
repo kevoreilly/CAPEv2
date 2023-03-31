@@ -26,7 +26,6 @@ def extract_config(data):
     # Search for the configuration module in the binary
     config_match = re.search(rb"eyJCdWlsZElEI[^&]{0,400}", data)
     if config_match:
-        matched_string_h = config_match.group(0)
         matched_string = config_match.group(0).decode("utf-8")
         decoded_str = base64.b64decode(matched_string).decode()
         for item in decoded_str.split(","):

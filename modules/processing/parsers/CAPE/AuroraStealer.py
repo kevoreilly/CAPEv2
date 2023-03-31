@@ -1,7 +1,6 @@
 # Derived from https://github.com/RussianPanda95/Configuration_extractors/blob/main/aurora_config_extractor.py
 # A huge thank you to RussianPanda95
 
-import argparse
 import base64
 import json
 import logging

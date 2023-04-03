@@ -16,7 +16,7 @@ processing_conf = Config("processing")
 HAVE_VBA2GRAPH = False
 if processing_conf.vba2graph.enabled:
     try:
-        from lib.cuckoo.common.office.vba2graph import vba2graph_from_vba_object, vba2graph_gen
+        from lib.cuckoo.common.integrations.vba2graph import vba2graph_from_vba_object, vba2graph_gen
 
         HAVE_VBA2GRAPH = True
     except ImportError:

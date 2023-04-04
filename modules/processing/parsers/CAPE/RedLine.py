@@ -12,6 +12,7 @@ from lib.cuckoo.common.integrations.strings import extract_strings
 
 try:
     import dnfile
+
     HAVE_DNFILE = True
 except ImportError:
     HAVE_DNFILE = False
@@ -37,37 +38,47 @@ def decrypt(str_to_dec, Key):
 def extract_config(data):
     config_dict = {}
 
-    pattern = re.compile(BR"""(?x)
+    pattern = re.compile(
+        Rb"""(?x)
     \x02\x72(...)\x70\x7D...\x04
     \x02\x72(...)\x70\x7D...\x04
     \x02\x72(...)\x70\x7D...\x04
     \x02\x72(...)\x70\x7D...\x04
-    """)
+    """
+    )
 
-    pattern2 = re.compile(BR"""(?x)
+    pattern2 = re.compile(
+        Rb"""(?x)
     \x72(...)\x70\x0A
     \x72(...)\x70\x0B
     \x72(...)\x70\x0C
     \x72(...)\x70\x0D
-    """)
+    """
+    )
 
-    pattern3 = re.compile(BR"""(?x)
+    pattern3 = re.compile(
+        Rb"""(?x)
     \x02\x72(...)\x70\x7D...\x04
     \x02\x72(...)\x70\x7D...\x04
-    """)
+    """
+    )
 
-    pattern4 = re.compile(BR"""(?x)
+    pattern4 = re.compile(
+        Rb"""(?x)
     \x02\x28...\x0A
     \x02\x72(...)\x70\x7D...\x04
     \x02\x72(...)\x70\x7D...\x04
-    """)
+    """
+    )
 
-    pattern5 = re.compile(BR"""(?x)
+    pattern5 = re.compile(
+        Rb"""(?x)
     \x72(...)\x70\x80...\x04
     \x72(...)\x70\x80...\x04
     \x72(...)\x70\x80...\x04
     \x72(...)\x70\x80...\x04
-    """)
+    """
+    )
 
     patterns = [pattern, pattern2, pattern3, pattern4, pattern5]
     key = c2 = botnet = base_location = None
@@ -79,14 +90,14 @@ def extract_config(data):
                 extracted = []
                 for match in p.findall(data):
                     for item in match:
-                        user_string = dn.net.user_strings.get_us(int.from_bytes(item, 'little')).value
+                        user_string = dn.net.user_strings.get_us(int.from_bytes(item, "little")).value
                         if user_string:
                             extracted.append(user_string)
                 if extracted:
                     key = extracted[2]
                     c2 = decrypt(extracted[0], key)
                     botnet = decrypt(extracted[1], key)
-                    if "."in c2:
+                    if "." in c2:
                         break
             dn.close()
 

@@ -206,11 +206,6 @@ daphne==3.0.2 ; python_version >= "3.8" and python_version < "4.0" \
 decorator==4.4.2 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:41fa54c2a0cc4ba648be4fd43cff00aedf5b9465c9bf18d64325bc225f08f760 \
     --hash=sha256:e3a62f0520172440ca0dcc823749319382e377f37f140a0b99ef45fecb84bfe7
-defusedxml==0.7.1 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
-    --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
-django-allauth==0.50.0 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:ee3a174e249771caeb1d037e64b2704dd3c56cfec44f2058fae2214b224d35e8
 django-crispy-forms==1.14.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:35887b8851a931374dd697207a8f56c57a9c5cb9dbf0b9fa54314da5666cea5b \
     --hash=sha256:bc4d2037f6de602d39c0bc452ac3029d1f5d65e88458872cc4dbc01c3a400604
@@ -590,9 +585,6 @@ netstruct==1.1.2 ; python_version >= "3.8" and python_version < "4.0" \
 networkx==2.5.1 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:0635858ed7e989f4c574c2328380b452df892ae85084144c73d8cd819f0c4e06 \
     --hash=sha256:109cd585cac41297f71103c3c42ac6ef7379f29788eb54cb751be5a663bb235a
-oauthlib==3.2.2 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:8139f29aac13e25d502680e9e19963e83f16838d48a0d71c287fe40e7067fbca \
-    --hash=sha256:9859c40929662bec5d64f34d01c99e093149682a3f38915dc0655d5a633dd918
 olefile==0.46 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:133b031eaf8fd2c9399b78b8bc5b8fcbe4c31e85295749bb17a87cba8f3c3964
 oletools==0.60 ; python_version >= "3.8" and python_version < "4.0" \
@@ -935,9 +927,6 @@ pygments==2.14.0 ; python_version >= "3.8" and python_version < "4.0" \
 pyguacamole==0.11 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:7f8d8652ce2e86473d72a50e0c9d8a8e0c3c74e373c6b926ca4c851774cae608 \
     --hash=sha256:d6facde097a1b1a3048b20fb2ff88b024744ceb2865fb912525da7ebb7779695
-pyjwt[crypto]==2.6.0 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:69285c7e31fc44f68a1feb309e948e0df53259d579295e6cfe2b1792329f05fd \
-    --hash=sha256:d83c3d892a77bbb74d3e1a2cfa90afaadb60945205d1095d9221f04466f64c14
 pymongo==4.3.3 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:016c412118e1c23fef3a1eada4f83ae6e8844fd91986b2e066fc1b0013cdd9ae \
     --hash=sha256:01f7cbe88d22440b6594c955e37312d932fd632ffed1a86d0c361503ca82cc9d \
@@ -1074,9 +1063,6 @@ python-tlsh==4.5.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:55e3df72cabdf48bf576b4580d7fa2feba9c14aacde0a8bd7b1ef40b03cb7969
 python-whois==0.7.3 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:656a1100b8757f29daf010ec5a893a3d6349ccf097884021988c174eedea4a16
-python3-openid==3.2.0 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:33fbf6928f401e0b790151ed2b5290b02545e8775f982485205a066f874aaeaf \
-    --hash=sha256:6626f771e0417486701e0b4daff762e7212e820ca5b29fcc0d05f6f8736dfa6b
 pytz==2021.1 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:83a4a90894bf38e243cf052c8b58f381bfe9a7a483f6a9cab140bc7f702ac4da \
     --hash=sha256:eb10ce3e7736052ed3623d49975ce333bcd712c7bb19a58b9e2089d4057d0798
@@ -1185,9 +1171,6 @@ regex==2021.7.6 ; python_version >= "3.8" and python_version < "4.0" \
 requests-file==1.5.1 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:07d74208d3389d01c38ab89ef403af0cfec63957d53a0081d8eca738d0247d8e \
     --hash=sha256:dfe5dae75c12481f68ba353183c53a65e6044c923e64c24b2209f6c7570ca953
-requests-oauthlib==1.3.1 ; python_version >= "3.8" and python_version < "4.0" \
-    --hash=sha256:2577c501a2fb8d05a304c09d090d6e47c306fef15809d102b327cf8364bddab5 \
-    --hash=sha256:75beac4a47881eeb94d5ea5d6ad31ef88856affe2332b9aafb52c6452ccf0d7a
 requests==2.28.0 ; python_version >= "3.8" and python_version < "4" \
     --hash=sha256:bc7861137fbce630f17b03d3ad02ad0bf978c844f3536d0edda6499dafce2b6f \
     --hash=sha256:d568723a7ebd25875d8d1eaf5dfa068cd2fc8194b2e483d7b1f7c81918dbec6b

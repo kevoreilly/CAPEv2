@@ -4,7 +4,6 @@
 import base64
 import logging
 import re
-import struct
 from contextlib import suppress
 
 from lib.cuckoo.common.dotnet_utils import dotnet_user_strings

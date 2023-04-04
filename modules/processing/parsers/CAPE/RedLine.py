@@ -103,7 +103,7 @@ def extract_config(data):
     if not c2 or "." not in c2:
         user_strings = dotnet_user_strings(data=data)
         if not user_strings:
-            user_strings = extract_strings(data=data)
+            user_strings = extract_strings(data=data, on_demand=True)
         if not user_strings:
             return
         with suppress(Exception):

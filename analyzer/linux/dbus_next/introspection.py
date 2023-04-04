@@ -121,11 +121,7 @@ class Signal:
         if not name:
             raise InvalidIntrospectionError('signals must have a "name" attribute')
 
-        args = []
-        for child in element:
-            if child.tag == "arg":
-                args.append(Arg.from_xml(child, ArgDirection.OUT))
-
+        args = [Arg.from_xml(child, ArgDirection.OUT) for child in element if child.tag == "arg"]
         signal = Signal(name, args)
 
         return signal

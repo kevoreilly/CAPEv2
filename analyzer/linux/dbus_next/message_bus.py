@@ -139,7 +139,7 @@ class BaseMessageBus:
             - :class:`InvalidObjectPathError <dbus_next.InvalidObjectPathError>` - If the given object path is not valid.
         """
         assert_object_path_valid(path)
-        if type(interface) not in [str, type(None)] and not isinstance(interface, ServiceInterface):
+        if type(interface) not in (str, type(None)) and not isinstance(interface, ServiceInterface):
             raise TypeError("interface must be a ServiceInterface or interface name")
 
         if path not in self._path_exports:
@@ -871,14 +871,14 @@ class BaseMessageBus:
 
         match = [iface for iface in self._path_exports[msg.path] if iface.name == interface_name]
         if not match:
-            if interface_name in [
+            if interface_name in (
                 "org.freedesktop.DBus.Properties",
                 "org.freedesktop.DBus.Introspectable",
                 "org.freedesktop.DBus.Peer",
                 "org.freedesktop.DBus.ObjectManager",
-            ]:
+            ):
                 # the standard interfaces do not have properties
-                if msg.member == "Get" or msg.member == "Set":
+                if msg.member in ("Get", "Set"):
                     prop_name = msg.body[1]
                     raise DBusError(
                         ErrorType.UNKNOWN_PROPERTY, f'interface "{interface_name}" does not have property "{prop_name}"'
@@ -893,7 +893,7 @@ class BaseMessageBus:
         interface = match[0]
         properties = ServiceInterface._get_properties(interface)
 
-        if msg.member == "Get" or msg.member == "Set":
+        if msg.member in ("Get", "Set"):
             prop_name = msg.body[1]
             match = [prop for prop in properties if prop.name == prop_name and not prop.disabled]
             if not match:

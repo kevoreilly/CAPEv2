@@ -79,8 +79,7 @@ class Unmarshaller:
                     self.unix_fds.extend(list(unix_fd_list))
 
                 return msg
-            else:
-                return self.stream.read(length)
+            return self.stream.read(length)
 
         # store previously read data in a buffer so we can resume on socket
         # interruptions
@@ -131,8 +130,7 @@ class Unmarshaller:
         data = self.read_uint32()
         if data:
             return True
-        else:
-            return False
+        return False
 
     def read_int16(self, _=None):
         return self.read_ctype("h", 2)
@@ -186,12 +184,7 @@ class Unmarshaller:
 
     def read_struct(self, type_):
         self.align(8)
-
-        result = []
-        for child_type in type_.children:
-            result.append(self.read_argument(child_type))
-
-        return result
+        return [self.read_argument(child_type) for child_type in type_.children]
 
     def read_dict_entry(self, type_):
         self.align(8)

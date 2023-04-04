@@ -39,8 +39,7 @@ def parse_address(address_str):
 def get_system_bus_address():
     if "DBUS_SYSTEM_BUS_ADDRESS" in os.environ:
         return os.environ["DBUS_SYSTEM_BUS_ADDRESS"]
-    else:
-        return "unix:path=/var/run/dbus/system_bus_socket"
+    return "unix:path=/var/run/dbus/system_bus_socket"
 
 
 display_re = re.compile(r".*:([0-9]+)\.?.*")
@@ -68,7 +67,6 @@ def get_session_bus_address():
     # XXX: this will block but they're very small files and fs operations
     # should be fairly reliable. fix this by passing in an async func to read
     # the file for each io backend.
-    machine_id = None
     with open("/var/lib/dbus/machine-id") as f:
         machine_id = f.read().rstrip()
 

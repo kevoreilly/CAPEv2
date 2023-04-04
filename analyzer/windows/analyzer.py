@@ -845,7 +845,8 @@ class ProcessList:
         """Add one or more process identifiers to the process list."""
         if isinstance(pids, (tuple, list)):
             for pid in pids:
-                self.add_pid(pid)
+                if pid is not None:
+                    self.add_pid(pid)
         else:
             self.add_pid(pids)
 

@@ -8,6 +8,7 @@ This chapter explains how to use CAPE.
 .. toctree::
 
     start
+    internals
     submit
     web
     api
@@ -20,3 +21,4 @@ This chapter explains how to use CAPE.
     performance
     monitor
     interactive_desktop
+    patterns_replacement

@@ -1,3 +1,8 @@
+### [21.3.2023] Syscall Hooks
+* New feature (beta):
+    * Syscall hooks on Win10+ (via InstrumentationCallback) via submission checkbox or option: syscall=1
+* Ursnif/ISFB detection & config extraction update
+
 ### [17.3.2023]
 * Monitor fixes:
     * Unpacker: Improve ProcessTrackedRegion() to allow yara scans of mapped modules

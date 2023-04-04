@@ -657,7 +657,10 @@ class Pcap:
             return self.results
 
         if not path_exists(self.filepath):
-            log.debug('The PCAP file does not exist at path "%s". Did you run analysis with live connection?', self.filepath)
+            log.debug(
+                'The PCAP file does not exist at path "%s". Did you run analysis with live connection? Did you enable pcap in cuscom/conf/routing.conf?',
+                self.filepath,
+            )
             return self.results
 
         if os.path.getsize(self.filepath) == 0:
@@ -863,7 +866,7 @@ class Pcap2:
         try:
             sorted_r = sorted(r.process(), key=lambda x: x[1])
         except TypeError as e:
-            log.warning("You running old httpreplay %s: pip3 install -U git+https://github.com/CAPESandbox/httpreplay", e)
+            log.warning("You running old httpreplay %s: poetry run pip install -U git+https://github.com/CAPESandbox/httpreplay", e)
             traceback.print_exc()
             return results
         except Exception as e:

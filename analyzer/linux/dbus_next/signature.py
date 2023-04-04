@@ -29,8 +29,7 @@ class SignatureType:
     def __eq__(self, other):
         if type(other) is SignatureType:
             return self.signature == other.signature
-        else:
-            return super().__eq__(other)
+        return super().__eq__(other)
 
     def _collapse(self):
         if self.token not in "a({":
@@ -314,8 +313,7 @@ class SignatureTree:
     def __eq__(self, other):
         if type(other) is SignatureTree:
             return self.signature == other.signature
-        else:
-            return super().__eq__(other)
+        return super().__eq__(other)
 
     def verify(self, body: List[Any]):
         """Verifies that the give body matches this signature tree
@@ -391,8 +389,7 @@ class Variant:
     def __eq__(self, other):
         if type(other) is Variant:
             return self.signature == other.signature and self.value == other.value
-        else:
-            return super().__eq__(other)
+        return super().__eq__(other)
 
     def __repr__(self):
         return "<dbus_next.signature.Variant ('%s', %s)>" % (self.type.signature, self.value)

@@ -65,11 +65,11 @@ class PropertyAccess(Enum):
 
     def readable(self):
         """Get whether the property can be read."""
-        return self == PropertyAccess.READ or self == PropertyAccess.READWRITE
+        return self in (PropertyAccess.READ, PropertyAccess.READWRITE)
 
     def writable(self):
         """Get whether the property can be written to."""
-        return self == PropertyAccess.WRITE or self == PropertyAccess.READWRITE
+        return self in (PropertyAccess.WRITE, PropertyAccess.READWRITE)
 
 
 class ArgDirection(Enum):

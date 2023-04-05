@@ -154,7 +154,6 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
 
-file_buffersize = processing_conf.CAPE.buffer
 
 def static_file_info(
     data_dictionary: dict,
@@ -227,7 +226,7 @@ def static_file_info(
     data = path_read_file(file_path)
     
     if not file_path.startswith(exclude_startswith) and not file_path.endswith(excluded_extensions):
-        data_dictionary["data"] = is_text_file(data_dictionary, file_path, file_buffersize, data)
+        data_dictionary["data"] = is_text_file(data_dictionary, file_path, processing_conf.CAPE.buffer, data)
 
         if processing_conf.trid.enabled:
             data_dictionary["trid"] = trid_info(file_path)
@@ -360,7 +359,7 @@ def _extracted_files_metadata(
                     ),
                     file=f,
                 )
-            file_info["data"] = is_text_file(file_info, destination_folder, file_buffersize)
+            file_info["data"] = is_text_file(file_info, destination_folder, processing_conf.CAPE.buffer)
             metadata.append(file_info)
 
     return metadata

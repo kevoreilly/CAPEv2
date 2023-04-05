@@ -224,7 +224,7 @@ def static_file_info(
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
 
     data = path_read_file(file_path)
-    
+
     if not file_path.startswith(exclude_startswith) and not file_path.endswith(excluded_extensions):
         data_dictionary["data"] = is_text_file(data_dictionary, file_path, processing_conf.CAPE.buffer, data)
 

@@ -82,9 +82,8 @@ class Zip(Package):
             cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
 
-
     def start(self, path):
-        password = self.options.get("password", "")
+        password = self.options.get("password", "infected")
         appdata = self.options.get("appdata")
         root = os.environ["APPDATA"] if appdata else os.environ["TEMP"]
         file_names = []

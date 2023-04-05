@@ -101,7 +101,7 @@ class Archive(Package):
         # if not os.path.exists(seven_zip_path):
         # Let's hope it's in the VM image
         seven_zip_path = self.get_path_app_in_path("7z.exe")
-        password = self.options.get("password", "")
+        password = self.options.get("password", "infected")
         archive_name = Path(path).name
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because

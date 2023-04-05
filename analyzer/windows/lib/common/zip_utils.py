@@ -32,9 +32,11 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
         stdout=subprocess.PIPE,
     )
     stdoutput, stderr = p.stdout, p.stderr
-    log.debug(p.stdout + p.stderr)
+    log.debug(f"{p.stdout} {p.stderr}")
     if b"Wrong password" in stderr:
-        shutil.rmtree(extract_path, ignore_errors=True)
+        if not Path(extract_path).match("local\\temp"):
+            shutil.rmtree(extract_path, ignore_errors=True)
+        log.debug([seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path])
         p = subprocess.run(
             [seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path],
             stdin=subprocess.DEVNULL,
@@ -42,11 +44,11 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
             stdout=subprocess.PIPE,
         )
         stdoutput, stderr = p.stdout, p.stderr
-        log.debug(p.stdout + p.stderr)
+        log.debug(f"{p.stdout} {p.stderr}")
         if b"Wrong password" in stderr:
-            raise
+            raise Exception("Wrong password provided")
     elif b"Can not open the file as archive" in stdoutput:
-        raise TypeError
+        raise TypeError("Unable to open the file as archive")
 
 
 def get_file_names(seven_zip_path, archive_path):

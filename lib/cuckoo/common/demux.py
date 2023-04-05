@@ -38,7 +38,6 @@ tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
 linux_enabled = web_cfg.linux.get("enabled", False)
 
 demux_extensions_list = {
-    b"",
     b".accdr",
     b".exe",
     b".dll",
@@ -164,7 +163,7 @@ def _sf_chlildren(child: sfFile) -> bytes:
     path_to_extract = ""
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
-    if ext in demux_extensions_list or is_valid_type(child.magic):
+    if ext in demux_extensions_list or is_valid_type(child.magic) or (not ext and is_valid_type(child.magic)):
         target_path = os.path.join(tmp_path, "cuckoo-sflock")
         if not path_exists(target_path):
             path_mkdir(target_path)

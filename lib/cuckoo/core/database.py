@@ -1725,6 +1725,7 @@ class Database(object, metaclass=Singleton):
                     user_id=user_id,
                     username=username,
                 )
+                package = None
             if task_id:
                 task_ids.append(task_id)
 

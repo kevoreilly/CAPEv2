@@ -2505,6 +2505,9 @@ class Database(object, metaclass=Singleton):
 
                 sample_hash = db_sample.sha256
 
+        if not sample_hash:
+            return []
+
         query_filter = sizes.get(len(sample_hash), "")
         sample = []
         # check storage/binaries

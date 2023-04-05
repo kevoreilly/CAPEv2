@@ -1,7 +1,6 @@
+import argparse
 import os
 import sys
-import argparse
-
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -24,5 +23,3 @@ if "__main__" == __name__:
         paths = [path for path in paths if path_exists(path)]
         if paths:
             print("\n".join(paths))
-
-

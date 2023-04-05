@@ -13,5 +13,7 @@
     {% include "sections/dropped.html" %}
     {% include "sections/payloads.html" %}
     {% include "sections/behavior.html" %}
-    {% include "sections/volatility.html" %}
+    {% if results.memory %}
+        {% include "sections/volatility.html" %}
+    {% endif %}
 {% endblock %}

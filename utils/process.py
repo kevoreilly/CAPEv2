@@ -456,6 +456,14 @@ def main():
                     sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
                 # handlers = init_logging(tid=str(num), debug=args.debug)
                 task = Database().view_task(num)
+                # Add sample lookup as we point to sample from TMP. Case when delete_original=on
+                if not path_exists(task.target):
+                    samples = Database().sample_path_by_hash(task_id=task.id)
+                    for sample in samples:
+                        if path_exists(sample):
+                            task.__setattr__("target", sample)
+                            break
+
                 if args.signatures:
                     report = False
                     results = _load_report(num, return_one=True)

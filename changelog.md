@@ -1,3 +1,14 @@
+### [5.4.2023] Configs make easier
+* Simplifing the configuration
+    * Do NOT edit any config that ends on `.default` as it will be default config.
+    * For more details read readme inside of `conf` folder.
+
+### [30.3.2023]
+* RedLine config extraction - thanks @Gi7w0rm
+* Monitor fixes:
+    * Harden GetExportAddress() against malformed PE images
+    * Add fallback payload metadata in ProcessTrackedRegions
+
 ### [21.3.2023] Syscall Hooks
 * New feature (beta):
     * Syscall hooks on Win10+ (via InstrumentationCallback) via submission checkbox or option: syscall=1

@@ -76,6 +76,7 @@ class ReportHTML(Report):
             }
         )
         env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
+        results["local_conf"] = self.options
 
         try:
             tpl = env.get_template("report.html")

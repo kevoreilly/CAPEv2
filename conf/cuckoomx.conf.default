@@ -1,0 +1,8 @@
+[cuckoomx]
+server = domain
+port = 465
+user = x
+password = cuckoo
+db = sqlite:///cuckoomx.db
+archive_password = infected
+cuckoo_url = http://host/analysis/

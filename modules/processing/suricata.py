@@ -124,7 +124,7 @@ class Suricata(Processing):
             log.warning("Unable to Run Suricata: Conf File %s does not exist", SURICATA_CONF)
             return suricata
         if not path_exists(self.pcap_path):
-            log.warning(
+            log.debug(
                 "Unable to Run Suricata: Pcap file %s does not exist. Did you run analysis with live connection?", self.pcap_path
             )
             return suricata
@@ -233,24 +233,24 @@ class Suricata(Processing):
                         and not parsed["alert"]["signature"].startswith("SURICATA STREAM")
                     ):
                         alog = {
-                            "gid": parsed["alert"]["gid"] or "None",
-                            "rev": parsed["alert"]["rev"] or "None",
-                            "severity": parsed["alert"]["severity"] or "None",
+                            "gid": parsed["alert"]["gid"] or None,
+                            "rev": parsed["alert"]["rev"] or None,
+                            "severity": parsed["alert"]["severity"] or None,
                             "sid": parsed["alert"]["signature_id"],
                         }
                         try:
                             alog["srcport"] = parsed["src_port"]
                         except Exception:
-                            alog["srcport"] = "None"
+                            alog["srcport"] = None
                         alog["srcip"] = parsed["src_ip"]
                         try:
                             alog["dstport"] = parsed["dest_port"]
                         except Exception:
-                            alog["dstport"] = "None"
+                            alog["dstport"] = None
                         alog["dstip"] = parsed["dest_ip"]
                         alog["protocol"] = parsed["proto"]
                         alog["timestamp"] = parsed["timestamp"].replace("T", " ")
-                        alog["category"] = parsed["alert"]["category"] or "None"
+                        alog["category"] = parsed["alert"]["category"] or None
                         alog["signature"] = parsed["alert"]["signature"]
                         suricata["alerts"].append(alog)
 
@@ -275,9 +275,9 @@ class Suricata(Processing):
                         )
                         for key, key_s in zip(keyword, keyword_suri):
                             try:
-                                hlog[key] = parsed["http"].get(key_s, "None")
+                                hlog[key] = parsed["http"].get(key_s, None)
                             except Exception:
-                                hlog[key] = "None"
+                                hlog[key] = None
                         suricata["http"].append(hlog)
 
                     elif parsed["event_type"] == "tls":

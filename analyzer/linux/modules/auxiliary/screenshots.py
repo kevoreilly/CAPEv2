@@ -2,14 +2,19 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import asyncio
 import logging
-import time
-from io import BytesIO
+import threading
 from threading import Thread
 
-from lib.api.screenshot import Screenshot
+from lib.api.screenshot import HAVE_DBUS_NEXT, HAVE_PIL
+
+if HAVE_PIL and HAVE_DBUS_NEXT:
+    from PIL import Image
+    from lib.api.screenshot import Screenshot, ScreenshotGrabber, ScreenshotsUnsupported
+
 from lib.common.abstracts import Auxiliary
-from lib.common.results import NetlogFile
+from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
@@ -20,20 +25,20 @@ SHOT_DELAY = 1
 SKIP_AREA = None
 
 
-class Screenshots(Auxiliary, Thread):
+class Screenshots(Thread, Auxiliary):
     """Take screenshots."""
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         self.enabled = config.screenshots_linux
-        self.do_run = self.enabled
+        self.event = threading.Event()
         Thread.__init__(self)
 
     def stop(self):
         if not self.enabled:
             return False
 
-        self.do_run = False
+        self.event.set()
 
     def run(self):
         """Run screenshotting.
@@ -42,38 +47,50 @@ class Screenshots(Auxiliary, Thread):
         if not self.enabled:
             return False
 
-        if not Screenshot().have_pil():
+        if not HAVE_PIL:
             log.warning("Python Image Library is not installed, screenshots are disabled")
             return False
 
+        if not HAVE_DBUS_NEXT:
+            log.warning("dbus_next is not installed, screenshots are disabled")
+            return False
+
+        return asyncio.run(self.take_screenshots())
+
+    async def take_screenshots(self):
         img_counter = 0
         img_last = None
 
-        while self.do_run:
-            time.sleep(SHOT_DELAY)
+        try:
+            async with ScreenshotGrabber() as grabber:
+                while not self.event.is_set():
+                    await asyncio.sleep(SHOT_DELAY)
 
-            try:
-                img_current = Screenshot().take()
-            except IOError as e:
-                log.error("Cannot take screenshot: %s", e)
-                continue
+                    try:
+                        img_path = await grabber.take_screenshot()
+                    except Exception as e:
+                        log.error("Cannot take screenshot: %s", e)
+                        continue
 
-            if img_last:
-                if Screenshot().equal(img_last, img_current, SKIP_AREA):
-                    continue
+                    if not img_path:
+                        continue
 
-            img_counter += 1
-            # workaround as PIL can't write to the socket file object :(
-            with BytesIO() as tmpio:
-                img_current.save(tmpio, format="JPEG")
-                tmpio.seek(0)
+                    # Technically, we shouldn't be using this blocking call
+                    # (`close` or `upload_to_host`` either) in an asyncio
+                    # event loop, but since this function is the only task we're running,
+                    # we should be ok.
+                    img_current = Image.open(img_path)
 
-                # now upload to host from the StringIO
-                nf = NetlogFile()
-                nf.init(f"shots/{str(img_counter).rjust(4, '0')}.jpg")
-                for chunk in tmpio:
-                    nf.sock.send(chunk)
-                nf.close()
-                img_last = img_current
+                    if img_last and Screenshot.equal(img_last, img_current, SKIP_AREA):
+                        continue
+
+                    img_counter += 1
+                    upload_to_host(img_path, f"shots/{img_counter:0>4}.png")
+                    if img_last:
+                        img_last.close()
+                    img_last = img_current
+        except ScreenshotsUnsupported as err:
+            log.error(str(err))
+            return False
 
         return True

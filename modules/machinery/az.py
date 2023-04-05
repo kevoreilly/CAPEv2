@@ -443,7 +443,7 @@ class Azure(Machinery):
         else:
             self.delete_machine(label)
 
-    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False):
+    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
         """
         Overloading abstracts.py:availables() to utilize the auto-scale option.
         """
@@ -458,10 +458,10 @@ class Azure(Machinery):
                     return 0
 
         return super(Azure, self).availables(
-            label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved
+            label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None):
+    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[]):
         """
         Overloading abstracts.py:acquire() to utilize the auto-scale option.
         @param machine_id: the name of the machine to be acquired
@@ -470,7 +470,9 @@ class Azure(Machinery):
         @param arch: the architecture of the operating system
         @return: dict representing machine object from DB
         """
-        base_class_return_value = super(Azure, self).acquire(machine_id=machine_id, platform=platform, tags=tags, arch=arch)
+        base_class_return_value = super(Azure, self).acquire(
+            machine_id=machine_id, platform=platform, tags=tags, arch=arch, os_version=os_version
+        )
         if base_class_return_value and base_class_return_value.name:
             vmss_name, _ = base_class_return_value.name.split("_")
 
@@ -771,7 +773,9 @@ class Azure(Machinery):
             # When true this limits the scale set to a single placement group, of max size 100 virtual machines.
             single_placement_group=False,
             scale_in_policy=models.ScaleInPolicy(rules=[models.VirtualMachineScaleSetScaleInRules.newest_vm]),
-            spot_restore_policy=models.SpotRestorePolicy(enabled=True, restore_timeout="PT30M"),
+            spot_restore_policy=(
+                models.SpotRestorePolicy(enabled=True, restore_timeout="PT30M") if self.options.az.spot_instances else None
+            ),
         )
         if not self.options.az.just_start:
             async_vmss_creation = Azure._azure_api_call(

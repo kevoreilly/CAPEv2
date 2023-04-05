@@ -1189,10 +1189,16 @@ class NodeRootApi(NodeBaseApi):
     def post(self):
         db = session()
         args = self._parser.parse_args()
-        node = Node(name=args["name"], url=args["url"], apikey=args["apikey"])
-
-        if db.query(Node).filter_by(name=args["name"]).first():
-            return dict(success=False, message="Node called %s already exists" % args["name"])
+        node_exist = False
+        # On autoscaling we might get the same name but different IP for server. Kinda PUT friendly POST
+        node = db.query(Node).filter_by(name=args["name"]).first()
+        if node:
+            if node.url == args["url"]:
+                return dict(success=False, message=f"Node called {args['name']} already exists")
+            else:
+                node.url = args["url"]
+        else:
+            node = Node(name=args["name"], url=args["url"], apikey=args["apikey"])
 
         machines = []
         for machine in node_list_machines(args["url"], args["apikey"]):
@@ -1211,14 +1217,19 @@ class NodeRootApi(NodeBaseApi):
             node.exitnodes.append(exitnode)
             db.add(exitnode)
 
-        db.add(node)
+        if args.get("enabled"):
+            node.enabled = bool(args["enabled"])
+
+        if not node_exist:
+            db.add(node)
         db.commit()
         db.close()
 
         if NFS_FETCH:
             # Add entry to /etc/fstab, create folder and mount server
             hostname = urlparse(args["url"]).netloc.split(":")[0]
-            send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", [hostname, args["name"]], {})
+            if hostname != main_server_name:
+                send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[hostname, args["name"]])
 
         return dict(name=args["name"], machines=machines, exitnodes=exitnodes)
 

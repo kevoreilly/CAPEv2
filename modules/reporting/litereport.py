@@ -3,11 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.path_utils import path_write_file
 
 try:
     import orjson
@@ -17,8 +16,6 @@ except ImportError:
     import json
 
     HAVE_ORJSON = False
-
-repconf = Config("reporting")
 
 
 class LiteReport(Report):
@@ -35,21 +32,21 @@ class LiteReport(Report):
         @raise CuckooReportError: if fails to write report.
         """
 
-        keys_to_copy = repconf.litereport.keys_to_copy.split(" ")
+        keys_to_copy = self.options.keys_to_copy.split(" ")
 
         # lite report report only has the specific keys
         lite_report = {k: results[k] for k in results.keys() & keys_to_copy}
 
         # add specific keys from behavior
-        behavior_keys_to_copy = repconf.litereport.behavior_keys_to_copy.split(" ")
+        behavior_keys_to_copy = self.options.behavior_keys_to_copy.split(" ")
         behavior = {k: results["behavior"][k] for k in results["behavior"].keys() & behavior_keys_to_copy}
         lite_report["behavior"] = behavior
 
         path = os.path.join(self.reports_path, "lite.json")
         try:
             if HAVE_ORJSON:
-                _ = Path(path).write_bytes(
-                    orjson.dumps(lite_report, option=orjson.OPT_INDENT_2, default=self.default)
+                _ = path_write_file(
+                    path, orjson.dumps(lite_report, option=orjson.OPT_INDENT_2, default=self.default)
                 )  # orjson.OPT_SORT_KEYS |
             else:
                 with open(path, "w") as report:

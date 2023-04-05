@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 def check_node_up(host: str) -> bool:
     """Auxiliar function for autodiscovery of instances when cluster autoscale"""
     try:
-        r = requests.get(f"http://{host}/apiv2/", verify=False, timeout=300)
+        r = requests.get(f"http://{host}:8000/apiv2/", verify=False, timeout=300)
         if r.ok:
             return True
     except Exception as e:
@@ -56,6 +56,7 @@ class GCP(object):
                         if not instance["name"].startswith(self.dist_cfg.GCP.instance_name):
                             continue
                         ips = [
+                            # Need to replace to internal IP not natIP
                             access["natIP"]
                             for net_iface in instance.get("networkInterfaces", [])
                             for access in net_iface.get("accessConfigs", [])
@@ -71,11 +72,14 @@ class GCP(object):
                 return servers
 
             for zone in self.zones:
-                if not instance.name.startswith(self.dist_cfg.GCP.instance_name):
-                    continue
                 instance_list = instance_client.list(project=self.project_id, zone=zone)
                 for instance in instance_list.items:
-                    ips = [access.nat_i_p for net_iface in instance.network_interfaces for access in net_iface.access_configs]
+                    if not instance.name.startswith(self.dist_cfg.GCP.instance_name):
+                        continue
+                    # Public IP
+                    # ips = [access.nat_i_p for net_iface in instance.network_interfaces for access in net_iface.access_configs]
+                    # Private IP
+                    ips = [net_iface.network_i_p for net_iface in instance.network_interfaces]
                     servers.setdefault(instance.name, ips)
 
         else:
@@ -99,7 +103,8 @@ class GCP(object):
                             continue
                         try:
                             r = requests.post(
-                                "http://localhost:9003/node", data={"name": name, "url": f"http://{ip}:8000/apiv2/"}
+                                "http://localhost:9003/node",
+                                data={"name": name, "url": f"http://{ip}:8000/apiv2/", "enabled": True},
                             )  # -F apikey=apikey
                             if r.ok:
                                 log.info("New worker with IP: %s registered", ip)

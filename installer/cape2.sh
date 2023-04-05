@@ -22,7 +22,7 @@ nginx_version=1.19.6
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.4.0
+guacamole_version=1.5.0
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0
@@ -697,6 +697,7 @@ function install_suricata() {
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'file-store:\n  version: 2\n  enabled: no', b'file-store:\n  version: 2\n  enabled: yes');open(pa, 'wb').write(q);"
 
     chown ${USER}:${USER} -R /etc/suricata
+    chown ${USER}:${USER} -R /var/log/suricata
     systemctl restart suricata
 }
 
@@ -734,11 +735,16 @@ function install_yara() {
     cd /tmp || return
     git clone --recursive https://github.com/VirusTotal/yara-python
     cd yara-python
+    # checkout tag v4.2.3 to work around broken master branch
+    git checkout tags/v4.2.3
+    # sometimes it requires to have a copy of YARA inside of yara-python for proper compilation
+    # git clone --recursive https://github.com/VirusTotal/yara
     # Temp workarond to fix issues compiling yara-python https://github.com/VirusTotal/yara-python/issues/212
     # partially applying PR https://github.com/VirusTotal/yara-python/pull/210/files
     sed -i "191 i \ \ \ \ # Needed to build tlsh'\n    module.define_macros.extend([('BUCKETS_128', 1), ('CHECKSUM_1B', 1)])\n    # Needed to build authenticode parser\n    module.libraries.append('ssl')" setup.py
-    python3 setup.py build --enable-cuckoo --enable-magic --enable-dotnet --enable-profiling
+    python3 setup.py build --enable-cuckoo --enable-magic --enable-profiling --enable-dotnet
     cd ..
+    # for root
     pip3 install ./yara-python
 }
 
@@ -1132,6 +1138,8 @@ function install_CAPE() {
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
+    sudo -u ${USER} bash -c 'poetry run extra/poetry_yara_installer.sh'
+
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
@@ -1158,6 +1166,12 @@ function install_CAPE() {
 
     # Configure direct internet connection
     sudo echo "400 ${INTERNET_IFACE}" >> /etc/iproute2/rt_tables
+
+    cat >> /etc/sudoers.d/cape << EOF
+Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
+${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
+EOF
+
 }
 
 function install_systemd() {
@@ -1250,6 +1264,11 @@ function install_guacamole() {
         cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
     fi
 
+    poetry_path=$(which poetry)
+    if ! grep -q $poetry_path /lib/systemd/system/guac-web.service ; then
+        sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
+    fi
+
     if [ ! -d "/var/www/guacrecordings" ] ; then
         sudo mkdir -p /var/www/guacrecordings && chown ${USER}:${USER} /var/www/guacrecordings
     fi
@@ -1312,8 +1331,8 @@ case "$COMMAND" in
     dependencies
     install_mongo
     install_suricata
-    install_yara
     install_CAPE
+    install_yara
     install_systemd
     install_jemalloc
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
@@ -1335,8 +1354,8 @@ case "$COMMAND" in
     install_volatility3
     install_mongo
     install_suricata
-    install_yara
     install_CAPE
+    install_yara
     install_systemd
     install_jemalloc
     install_logrotate

@@ -1,3 +1,39 @@
+### [5.4.2023] Configs make easier
+* Simplifing the configuration
+    * Do NOT edit any config that ends on `.default` as it will be default config.
+    * For more details read readme inside of `conf` folder.
+
+### [30.3.2023]
+* RedLine config extraction - thanks @Gi7w0rm
+* Monitor fixes:
+    * Harden GetExportAddress() against malformed PE images
+    * Add fallback payload metadata in ProcessTrackedRegions
+
+### [21.3.2023] Syscall Hooks
+* New feature (beta):
+    * Syscall hooks on Win10+ (via InstrumentationCallback) via submission checkbox or option: syscall=1
+* Ursnif/ISFB detection & config extraction update
+
+### [17.3.2023]
+* Monitor fixes:
+    * Unpacker: Improve ProcessTrackedRegion() to allow yara scans of mapped modules
+    * Disable sleep skips prior to thread creation (rather than after) and upon CoCreateInstance (WMI etc)
+
+### [16.3.2023] Loggers
+* New config `conf/logging.conf`. Remember to copy it to `custom/conf/logging.conf` for moddifications.
+    * Syslog handler for `cuckoo.py` and `process.py` can be on/off in config. Useful for global monitoring tools or cloud setups.
+    * Allow to create logs per analysis in analysis folder. Useful for distributed setup to show on webgui if enabled and have logs in main server.
+
+### [10.3.2023]
+* Monitor fixes:
+    * Prevent unpacker initialisation from adding imagebase to tracked regions, allow yara scans on caller
+    * CoGetClassObject hook: remove modification of dwClsContext parameter causing detonation failures
+
+### [9.3.2023]
+* Monitor updates:
+    * Remove cryptsp 'double' hooks in Office processes due to detonation failures (e.g. Word 2016)
+    * Prevent following child processes of WerSvc (to prevent werfault.exe producing mini dumps that are detected by yara due to in-memory monitor sigs)
+
 ### [8.3.2023]
 * Virtual machine tags: For Windows only. Please set windows version in tag, any of: winxp, win7, win8, win10, win11.
     * This is required for proper detonation for packages like MsiX.

@@ -16,13 +16,10 @@ import json
 import logging
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger()
 # ToDo store list of exclude files if conf enable to store them
-proc_cfg = Config("processing")
-skip_number = proc_cfg.antiransomware.skip_number
 do_not_skip = (
     "txt",
     "dll",
@@ -137,6 +134,6 @@ class AntiRansomware(Processing):
                 tmp_ext_list.setdefault(ext[-1], []).append(filename)
 
         for ext, count in extensions.items():
-            if count > skip_number:
+            if count > self.options.skip_number:
                 log.debug("Skipping all files with extension: %s", ext)
                 self.results["ransom_exclude_files"] += tmp_ext_list.get(ext, [])

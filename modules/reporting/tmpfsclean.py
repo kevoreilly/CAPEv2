@@ -2,12 +2,10 @@ import logging
 import shutil
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.utils import get_memdump_path
 
 log = logging.getLogger(__name__)
-repconf = Config("reporting")
 
 
 class TMPFSCLEAN(Report):
@@ -20,7 +18,7 @@ class TMPFSCLEAN(Report):
         if "store_memdump" in results["info"]["options"]:
             action = "store"
 
-        if repconf.tmpfsclean.key in results and any(["checkme" in block for block in results[repconf.tmpfsclean.key]]):
+        if self.options.key in results and any(["checkme" in block for block in results[self.options.key]]):
             action = "store"
 
         if action == "delete":

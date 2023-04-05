@@ -13,11 +13,11 @@ from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.replace_patterns_utils import _clean_path, check_deny_pattern
 from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
     default_converter,
-    get_options,
     logtime,
     pretty_print_arg,
     pretty_print_retval,
@@ -25,22 +25,12 @@ from lib.cuckoo.common.utils import (
 
 log = logging.getLogger(__name__)
 cfg = Config()
-cfg_process = Config("processing")
-
-
-def fix_key(key):
-    """Fix a registry key to have it normalized.
-    @param key: raw key
-    @returns: normalized key
-    """
-    # all normalization is done on the cuckoomon end, so this is now a no-op
-    return key
 
 
 class ParseProcessLog(list):
     """Parses process log file."""
 
-    def __init__(self, log_path):
+    def __init__(self, log_path, options):
         """@param log_path: log file path."""
         self._log_path = log_path
         self.fd = None
@@ -63,12 +53,14 @@ class ParseProcessLog(list):
         self.api_count = 0
         self.call_id = 0
         self.conversion_cache = {}
-        self.api_limit = cfg.processing.analysis_call_limit  # Limit of API calls per process
+        self.options = options
+        # Limit of API calls per process
+        self.api_limit = self.options.analysis_call_limit
 
         if path_exists(log_path) and os.stat(log_path).st_size > 0:
             self.parse_first_and_reset()
 
-        if cfg.processing.ram_boost:
+        if self.options.ram_boost:
             self.api_call_cache = []
             self.api_pointer = 0
 
@@ -184,7 +176,7 @@ class ParseProcessLog(list):
     def __next__(self):
         """Just accessing the cache"""
 
-        if not cfg.processing.ram_boost:
+        if not self.options.ram_boost:
             return self.cacheless_next()
         res = self.api_call_cache[self.api_pointer]
         if res is None:
@@ -216,7 +208,11 @@ class ParseProcessLog(list):
         @param context: ignored
         @param environdict: dict of the various collected information, which will expand over time
         """
-        self.environdict.update(bytes2str(environdict))
+        environdict = bytes2str(environdict)
+        if self.options.replace_patterns:
+            for key in ("UserName", "ComputerName", "TempPath", "CommandLine"):
+                environdict[key] = _clean_path(environdict[key], self.options.replace_patterns)
+        self.environdict.update(environdict)
 
     def log_anomaly(self, subcategory, tid, funcname, msg):
         """log an anomaly parsed from data file
@@ -257,7 +253,7 @@ class ParseProcessLog(list):
 
     def begin_reporting(self):
         self.reporting_mode = True
-        if cfg.processing.ram_boost:
+        if self.options.ram_boost:
             idx = 0
             ent = self.api_call_cache[idx]
             while ent:
@@ -362,11 +358,11 @@ class ParseProcessLog(list):
 class Processes:
     """Processes analyzer."""
 
-    def __init__(self, logs_path, task):
+    def __init__(self, logs_path, task, options):
         """@param  logs_path: logs path."""
         self.task = task
         self._logs_path = logs_path
-        self.options = get_options(self.task["options"])
+        self.options = options
 
     def run(self):
         """Run analysis.
@@ -387,8 +383,7 @@ class Processes:
         for file_name in os.listdir(self._logs_path):
             file_path = os.path.join(self._logs_path, file_name)
 
-            # Check if Loop Detection is enabled globally or locally (as an option)
-            if cfg_process.loop_detection.enabled or self.options.get("loop_detection"):
+            if self.options.loop_detection:
                 self.compress_log_file(file_path)
 
             if os.path.isdir(file_path):
@@ -400,7 +395,7 @@ class Processes:
                 continue
 
             # Invoke parsing of current log file (if ram_boost is enabled, otherwise parsing is done on-demand)
-            current_log = ParseProcessLog(file_path)
+            current_log = ParseProcessLog(file_path, self.options)
             if current_log.process_id is None:
                 continue
 
@@ -411,7 +406,7 @@ class Processes:
                     "process_id": current_log.process_id,
                     "process_name": bytes2str(current_log.process_name),
                     "parent_id": current_log.parent_id,
-                    "module_path": bytes2str(current_log.module_path),
+                    "module_path": _clean_path(bytes2str(current_log.module_path), self.options.replace_patterns),
                     "first_seen": logtime(current_log.first_seen),
                     "calls": current_log.calls,
                     "threads": current_log.threads,
@@ -446,7 +441,7 @@ class Summary:
 
     key = "summary"
 
-    def __init__(self):
+    def __init__(self, options):
         self.keys = []
         self.read_keys = []
         self.write_keys = []
@@ -460,6 +455,7 @@ class Summary:
         self.created_services = []
         self.executed_commands = []
         self.resolved_apis = []
+        self.options = options
 
     def get_argument(self, call, argname, strip=False):
         return next(
@@ -473,70 +469,70 @@ class Summary:
             None,
         )
 
+    def _filtering_helper(self, source_list, pattern):
+        if not pattern:
+            return
+        if self.options.replace_patterns:
+            check_deny_pattern(source_list, pattern)
+        else:
+            source_list.append(pattern)
+
     def event_apicall(self, call, process):
         """Generate processes list from streamed calls/processes.
         @return: None.
         """
-
         if call["api"].startswith("RegOpenKeyEx"):
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
-                self.keys.append(name)
+                self._filtering_helper(self.keys, name)
         elif call["api"].startswith("RegSetValue") or call["api"] == "NtSetValueKey":
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
-                self.keys.append(name)
+                self._filtering_helper(self.keys, name)
             if name and name not in self.write_keys:
+                self._filtering_helper(self.keys, name)
+        elif call["api"] == "NtCreateKey" or call["api"].startswith("RegCreateKeyEx"):
+            name = self.get_argument(call, "ObjectAttributes" if call["api"] == "NtCreateKey" else "FullName")
+            disposition = int(self.get_argument(call, "Disposition"))
+            if name and name not in self.keys:
+                self._filtering_helper(self.keys, name)
+            # if disposition == 1 then we created a new key
+            if name and disposition == 1 and name not in self.write_keys:
                 self.write_keys.append(name)
+
         elif call["api"] in ("NtDeleteValueKey", "NtDeleteKey") or call["api"].startswith("RegDeleteValue"):
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
-                self.keys.append(name)
+                self._filtering_helper(self.keys, name)
             if name and name not in self.delete_keys:
                 self.delete_keys.append(name)
-        elif call["api"].startswith("RegCreateKeyEx"):
-            name = self.get_argument(call, "FullName")
-            disposition = int(self.get_argument(call, "Disposition"))
-            if name and name not in self.keys:
-                self.keys.append(name)
-            # if disposition == 1 then we created a new key
-            if name and disposition == 1 and name not in self.write_keys:
-                self.write_keys.append(name)
         elif call["api"].startswith("NtOpenKey"):
             name = self.get_argument(call, "ObjectAttributes")
             if name and name not in self.keys:
-                self.keys.append(name)
-        elif call["api"] == "NtCreateKey":
-            name = self.get_argument(call, "ObjectAttributes")
-            disposition = int(self.get_argument(call, "Disposition"))
-            if name and name not in self.keys:
-                self.keys.append(name)
-            # if disposition == 1 then we created a new key
-            if name and disposition == 1 and name not in self.write_keys:
-                self.write_keys.append(name)
+                self._filtering_helper(self.keys, name)
         elif call["api"] in ("NtQueryValueKey", "NtQueryMultipleValueKey") or call["api"].startswith("RegQueryValue"):
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
-                self.keys.append(name)
+                self._filtering_helper(self.keys, name)
             if name and name not in self.read_keys:
-                self.read_keys.append(name)
+                self._filtering_helper(self.read_keys, name)
         elif call["api"] == "SHGetFileInfoW":
             filename = self.get_argument(call, "Path")
             if filename and (len(filename) < 2 or filename[1] != ":"):
                 filename = None
             if filename and filename not in self.files:
-                self.files.append(filename)
+                self._filtering_helper(self.files, filename)
         elif call["api"] == "ShellExecuteExW":
             filename = self.get_argument(call, "FilePath")
             if len(filename) < 2 or filename[1] != ":":
                 filename = None
             if filename and filename not in self.files:
-                self.files.append(filename)
+                self._filtering_helper(self.files, filename)
             path = self.get_argument(call, "FilePath", strip=True)
             params = self.get_argument(call, "Parameters", strip=True)
             cmdline = f"{path} {params}" if path else None
             if cmdline and cmdline not in self.executed_commands:
-                self.executed_commands.append(cmdline)
+                self._filtering_helper(self.executed_commands, cmdline)
         elif call["api"] == "NtSetInformationFile":
             filename = self.get_argument(call, "HandleName")
             infoclass = int(self.get_argument(call, "FileInformationClass"))
@@ -546,27 +542,24 @@ class Summary:
                     fileinfo = fileinfo.encode()
                 disp = struct.unpack_from("B", fileinfo)[0]
                 if disp and filename not in self.delete_files:
-                    self.delete_files.append(filename)
-
+                    self._filtering_helper(self.delete_files, filename)
         elif call["api"].startswith("DeleteFile") or call["api"] == "NtDeleteFile" or call["api"].startswith("RemoveDirectory"):
             filename = self.get_argument(call, "FileName")
             if not filename:
                 filename = self.get_argument(call, "DirectoryName")
             if filename:
                 if filename not in self.files:
-                    self.files.append(filename)
+                    self._filtering_helper(self.files, filename)
                 if filename not in self.delete_files:
-                    self.delete_files.append(filename)
+                    self._filtering_helper(self.delete_files, filename)
         elif call["api"].startswith("StartService"):
             servicename = self.get_argument(call, "ServiceName", strip=True)
             if servicename and servicename not in self.started_services:
-                self.started_services.append(servicename)
-
+                self._filtering_helper(self.started_services, servicename)
         elif call["api"].startswith("CreateService"):
             servicename = self.get_argument(call, "ServiceName", strip=True)
             if servicename and servicename not in self.created_services:
-                self.created_services.append(servicename)
-
+                self._filtering_helper(self.created_services, servicename)
         elif call["api"] in ("CreateProcessInternalW", "NtCreateUserProcess", "CreateProcessWithTokenW", "CreateProcessWithLogonW"):
             cmdline = self.get_argument(call, "CommandLine", strip=True)
             appname = self.get_argument(call, "ApplicationName", strip=True)
@@ -580,7 +573,7 @@ class Summary:
                 if base not in firstarg:
                     cmdline = f"{appname} {cmdline}"
             if cmdline and cmdline not in self.executed_commands:
-                self.executed_commands.append(cmdline)
+                self._filtering_helper(self.executed_commands, cmdline)
 
         elif call["api"] == "LdrGetProcedureAddress" and call["status"]:
             dllname = self.get_argument(call, "ModuleName").lower()
@@ -594,21 +587,21 @@ class Summary:
         elif call["api"].startswith("NtCreateProcess"):
             cmdline = self.get_argument(call, "FileName")
             if cmdline and cmdline not in self.executed_commands:
-                self.executed_commands.append(cmdline)
+                self._filtering_helper(self.executed_commands, cmdline)
 
         elif call["api"] in ("MoveFileWithProgressW", "MoveFileWithProgressTransactedW"):
             origname = self.get_argument(call, "ExistingFileName")
             newname = self.get_argument(call, "NewFileName")
             if origname:
                 if origname not in self.files:
-                    self.files.append(origname)
+                    self._filtering_helper(self.files, origname)
                 if origname not in self.delete_files:
-                    self.delete_files.append(origname)
+                    self._filtering_helper(self.delete_files, origname)
             if newname:
                 if newname not in self.files:
-                    self.files.append(newname)
+                    self._filtering_helper(self.files, newname)
                 if newname not in self.write_files:
-                    self.write_files.append(newname)
+                    self._filtering_helper(self.write_files, newname)
 
         elif call["category"] == "filesystem":
             filename = self.get_argument(call, "FileName")
@@ -624,30 +617,31 @@ class Summary:
                     and (access & 0x80000000 or access & 0x10000000 or access & 0x02000000 or access & 0x1)
                     and filename not in self.read_files
                 ):
-                    self.read_files.append(filename)
+                    # self.read_files.append(filename)
+                    self._filtering_helper(self.read_files, srcfilename)
                 if (
                     access
                     and (access & 0x40000000 or access & 0x10000000 or access & 0x02000000 or access & 0x6)
                     and filename not in self.write_files
                 ):
-                    self.write_files.append(filename)
+                    self._filtering_helper(self.write_files, srcfilename)
                 if filename not in self.files:
-                    self.files.append(filename)
+                    self._filtering_helper(self.files, filename)
             if srcfilename:
                 if srcfilename not in self.read_files:
-                    self.read_files.append(srcfilename)
+                    self._filtering_helper(self.read_files, srcfilename)
                 if srcfilename not in self.files:
-                    self.files.append(srcfilename)
+                    self._filtering_helper(self.files, srcfilename)
             if dstfilename:
                 if dstfilename not in self.write_files:
-                    self.write_files.append(dstfilename)
+                    self._filtering_helper(self.write_files, dstfilename)
                 if dstfilename not in self.files:
-                    self.files.append(dstfilename)
+                    self._filtering_helper(self.files, dstfilename)
 
         elif call["category"] == "synchronization":
             value = self.get_argument(call, "MutexName")
             if value and value not in self.mutexes:
-                self.mutexes.append(value)
+                self._filtering_helper(self.mutexes, value)
 
     def run(self):
         """Get registry keys, mutexes and files.
@@ -909,8 +903,7 @@ class Enhanced:
             {"event": "delete", "object": "service", "apis": ["DeleteService"], "args": [("service", "ServiceName")]},
         ]
 
-        # Not sure I really want this, way too noisy anyway and doesn't bring
-        # much value.
+        # Not sure I really want this, way too noisy anyway and doesn't bring much value.
         # if self.details:
         #    gendata += [{"event" : "get",
         #           "object" : "procedure",
@@ -1163,16 +1156,16 @@ class BehaviorAnalysis(Processing):
         """Run analysis.
         @return: results dict.
         """
-        behavior = {"processes": Processes(self.logs_path, self.task).run()}
+        behavior = {"processes": Processes(self.logs_path, self.task, self.options).run()}
 
         instances = [
             Anomaly(),
             ProcessTree(),
-            Summary(),
+            Summary(self.options),
             Enhanced(),
             EncryptedBuffers(),
         ]
-        enabled_instances = [instance for instance in instances if getattr(cfg_process.behavior, instance.key, True)]
+        enabled_instances = [instance for instance in instances if getattr(self.options, instance.key, True)]
 
         if enabled_instances:
             # Iterate calls and tell interested signatures about them

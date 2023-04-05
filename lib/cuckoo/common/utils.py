@@ -30,7 +30,6 @@ from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_is_dir, path_mkdir, path_read_file
 
 try:
@@ -106,6 +105,7 @@ texttypes = [
 
 
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
+
 
 def get_platform(magic):
     if magic and any(x in magic for x in VALID_LINUX_TYPES):
@@ -883,12 +883,3 @@ def get_ip_address(ifname):
 def validate_ttp(ttp: str) -> bool:
     regex = r"^(O?[BCTFSU]\d{4}(\.\d{3})?)|(E\d{4}(\.m\d{2})?)$"
     return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))
-
-
-def trim_sample(first_chunk):
-    try:
-        overlay_data_offset = PortableExecutable(data=first_chunk).get_overlay_raw()
-        if overlay_data_offset is not None:
-            return overlay_data_offset
-    except Exception as e:
-        log.info(e)

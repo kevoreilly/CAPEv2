@@ -4,6 +4,7 @@
 
 import logging
 import os
+import re
 
 HAVE_IMAGEHASH = False
 try:
@@ -94,7 +95,7 @@ class Deduplicate(Processing):
             shots_path = os.path.join(self.analysis_path, "shots")
             if path_exists(shots_path):
                 screenshots = sorted(self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc))
-                shots = [screenshot.replace(".jpg", "") for screenshot in screenshots]
+                shots = [re.sub(r"\.(png|jpg)$", "", screenshot) for screenshot in screenshots]
         except Exception as e:
             log.error(e)
 

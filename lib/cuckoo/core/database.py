@@ -2450,9 +2450,10 @@ class Database(object, metaclass=Singleton):
         return sample
 
     @classlock
-    def sample_path_by_hash(self, sample_hash):
+    def sample_path_by_hash(self, sample_hash: str = False, task_id: int = False):
         """Retrieve information on a sample location by given hash.
         @param hash: md5/sha1/sha256/sha256.
+        @param task_id: task_id
         @return: samples path(s) as list.
         """
         sizes = {
@@ -2474,6 +2475,17 @@ class Database(object, metaclass=Singleton):
             "CAPE": "CAPE",
             "procdump": "procdump",
         }
+        if task_id:
+            file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "binary")
+            if path_exists(file_path):
+                sample = [file_path]
+                return sample
+
+        # binary also not stored in binaries, perform hash lookup
+        if task_id and not sample_hash:
+            db_sample = session.query(Sample).options(joinedload("tasks")).filter(Task.id == task_id).filter(Sample.id == Task.sample_id).first()
+            if db_sample:
+                sample_hash = db_sample.sha256
 
         query_filter = sizes.get(len(sample_hash), "")
         sample = []

@@ -2498,7 +2498,7 @@ class Database(object, metaclass=Singleton):
                     "storage",
                     "binaries",
                     str(task_id),
-                    sample_hash,
+                    db_sample.sha256,
                 )
                 if path_exists(file_path):
                     return [file_path]

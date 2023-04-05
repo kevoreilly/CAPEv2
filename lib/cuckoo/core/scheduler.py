@@ -610,7 +610,7 @@ class AnalysisManager(threading.Thread):
                 )
                 self._rooter_response_check()
 
-        log.info("Enabled route '%s'. Bear in mind that routes none and drop won't generate PCAP file", self.route)
+        log.info("Enabled route '%s'.", self.route)
 
         if self.rt_table:
             self.rooter_response = rooter("srcroute_enable", self.rt_table, self.machine.ip)

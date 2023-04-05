@@ -2479,8 +2479,7 @@ class Database(object, metaclass=Singleton):
         if task_id:
             file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "binary")
             if path_exists(file_path):
-                sample = [file_path]
-                return sample
+                return [file_path]
 
         session = False
         # binary also not stored in binaries, perform hash lookup
@@ -2494,6 +2493,16 @@ class Database(object, metaclass=Singleton):
                 .first()
             )
             if db_sample:
+                file_path = os.path.join(
+                                        CUCKOO_ROOT,
+                                        "storage",
+                                        "binaries",
+                                        str(task_id),
+                                        sample_hash,
+                                    )
+                if path_exists(file_path):
+                    return [file_path]
+
                 sample_hash = db_sample.sha256
 
         query_filter = sizes.get(len(sample_hash), "")

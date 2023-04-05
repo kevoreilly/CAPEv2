@@ -2494,12 +2494,12 @@ class Database(object, metaclass=Singleton):
             )
             if db_sample:
                 file_path = os.path.join(
-                                        CUCKOO_ROOT,
-                                        "storage",
-                                        "binaries",
-                                        str(task_id),
-                                        sample_hash,
-                                    )
+                    CUCKOO_ROOT,
+                    "storage",
+                    "binaries",
+                    str(task_id),
+                    sample_hash,
+                )
                 if path_exists(file_path):
                     return [file_path]
 

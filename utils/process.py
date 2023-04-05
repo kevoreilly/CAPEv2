@@ -458,7 +458,7 @@ def main():
                 task = Database().view_task(num)
                 # Add sample lookup as we point to sample from TMP. Case when delete_original=on
                 if not path_exists(task.target):
-                    samples = Database().sample_path_by_hash(task_id = task.id)
+                    samples = Database().sample_path_by_hash(task_id=task.id)
                     for sample in samples:
                         if path_exists(sample):
                             task.__setattr__("target", sample)

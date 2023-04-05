@@ -2483,7 +2483,13 @@ class Database(object, metaclass=Singleton):
 
         # binary also not stored in binaries, perform hash lookup
         if task_id and not sample_hash:
-            db_sample = session.query(Sample).options(joinedload("tasks")).filter(Task.id == task_id).filter(Sample.id == Task.sample_id).first()
+            db_sample = (
+                session.query(Sample)
+                .options(joinedload("tasks"))
+                .filter(Task.id == task_id)
+                .filter(Sample.id == Task.sample_id)
+                .first()
+            )
             if db_sample:
                 sample_hash = db_sample.sha256
 

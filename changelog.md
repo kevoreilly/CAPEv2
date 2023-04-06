@@ -1,3 +1,6 @@
+### [6.4.2023]
+* Monitor update: Add hook for WinExec()
+
 ### [30.3.2023]
 * RedLine config extraction - thanks @Gi7w0rm
 * Monitor fixes:

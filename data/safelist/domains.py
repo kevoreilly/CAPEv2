@@ -88,6 +88,9 @@ domain_passlist_re = [
     r"rt\.microsoft\.com",
     r"isatap",
     r"ipv6.msftncsi\.com",
+    r"mozilla\.org",
+    r"mozilla\.com",
+    r"office\.net",
 ]
 
 
@@ -191,4 +194,5 @@ domain_passlist = [
     "trustocean.crt.sectigo.com",
     "statuse.digitalcertvalidation.com",
     "certificates.intel.com",
+    "hostonly.hostonly",
 ]

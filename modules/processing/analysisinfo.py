@@ -92,6 +92,7 @@ class AnalysisInfo(Processing):
             "started": self.task["started_on"],
             "ended": self.task.get("completed_on", "none"),
             "duration": duration,
+            "processed_on": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "id": int(self.task["id"]),
             "category": self.task["category"],
             "custom": self.task["custom"],

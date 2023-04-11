@@ -9,6 +9,7 @@ import shutil
 
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
+from lib.common.common import disable_wow64_redirection
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1
@@ -163,6 +164,7 @@ class Package:
 
         return True
 
+    @disable_wow64_redirection
     def move_curdir(self, filepath):
         """Move a file to the current working directory so it can be executed
         from there.

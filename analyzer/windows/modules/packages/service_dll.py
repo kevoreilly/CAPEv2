@@ -1,11 +1,11 @@
 import ctypes
 import logging
 import sys
-from winreg import HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_EXPAND_SZ, REG_MULTI_SZ, CloseKey, CreateKeyEx, SetValueEx
+from winreg import HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, KEY_WOW64_64KEY, REG_EXPAND_SZ, REG_MULTI_SZ, CloseKey, CreateKeyEx, SetValueEx
 
 from lib.api.process import Process
 from lib.common.abstracts import Package
-from lib.common.common import check_file_extension
+from lib.common.common import check_file_extension, disable_wow64_redirection
 from lib.common.defines import ADVAPI32, KERNEL32
 
 INJECT_CREATEREMOTETHREAD = 0
@@ -60,36 +60,42 @@ class ServiceDll(Package):
             options = {}
         self.config = config
         self.options = options
-        self.options["curdir"] = "%SystemRoot%\system32"
+        self.options["curdir"] = "C:\\Windows\\System32"
 
     PATHS = [
         ("SystemRoot", "system32", "sc.exe"),
     ]
 
     def set_keys(self, servicename, dllpath):
-
         svchost_path = r"Software\Microsoft\Windows NT\CurrentVersion\Svchost"
+        service_path = rf"System\CurrentControlSet\Services\{servicename}"
         parameter_path = rf"System\CurrentControlSet\Services\{servicename}\Parameters"
 
         try:
             log.info("Adding Parameters value: %s -> ServiceDll = %s", parameter_path, dllpath)
-            with CreateKeyEx(HKEY_LOCAL_MACHINE, parameter_path, 0, KEY_ALL_ACCESS) as key:
+            with CreateKeyEx(HKEY_LOCAL_MACHINE, parameter_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 SetValueEx(key, "ServiceDll", 0, REG_EXPAND_SZ, dllpath)
-                CloseKey(key)
         except Exception as e:
             log.info("Error setting registry value: %s", e)
-            # Service is not installed
+            return
+
+        # try to remove the WOW64 field in service registry, which is created by CreateServiceA
+        try:
+            with OpenKeyEx(HKEY_LOCAL_MACHINE, service_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
+                DeleteValue(key, "WOW64")
+        except Exception as e:
+            log.info("Error deleting registry value: %s", e)
             return
 
         try:
             log.info("Adding capegroup value: capegroup = %s", servicename)
-            with CreateKeyEx(HKEY_LOCAL_MACHINE, svchost_path, 0, KEY_ALL_ACCESS) as key:
+            with CreateKeyEx(HKEY_LOCAL_MACHINE, svchost_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 SetValueEx(key, "capegroup", 0, REG_MULTI_SZ, [servicename])
-                CloseKey(key)
         except Exception as e:
             log.info("Error setting registry value: %s", e)
             return
 
+    @disable_wow64_redirection
     def start(self, path):
         try:
             servicename = self.options.get("servicename", "CAPEService").encode("utf8")

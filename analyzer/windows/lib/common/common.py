@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 import ctypes
-from ctypes import wintypes, windll, POINTER
+from ctypes import wintypes, POINTER
 from ctypes.wintypes import BOOL, HANDLE
 from functools import wraps
 

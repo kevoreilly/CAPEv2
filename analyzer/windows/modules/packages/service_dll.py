@@ -8,8 +8,6 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension, disable_wow64_redirection
 from lib.common.defines import ADVAPI32, KERNEL32
 
-INJECT_CREATEREMOTETHREAD = 0
-INJECT_QUEUEUSERAPC = 1
 SC_MANAGER_CONNECT = 0x0001
 SC_MANAGER_CREATE_SERVICE = 0x0002
 SC_MANAGER_ENUMERATE_SERVICE = 0x0004
@@ -60,7 +58,6 @@ class ServiceDll(Package):
             options = {}
         self.config = config
         self.options = options
-        self.options["curdir"] = "C:\\Windows\\System32"
 
     PATHS = [
         ("SystemRoot", "system32", "sc.exe"),
@@ -136,8 +133,7 @@ class ServiceDll(Package):
             log.info("Created service %s (handle: 0x%s)", servicename.decode(), service_handle)
             self.set_keys(servicename.decode(), dllpath)
             servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid)
-            filepath = servproc.get_filepath()
-            servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+            servproc.inject(injectmode=0, interest=path, nosleepskip=True)
             servproc.close()
             KERNEL32.Sleep(500)
             service_launched = ADVAPI32.StartServiceA(service_handle, 0, None)
@@ -148,7 +144,7 @@ class ServiceDll(Package):
                 log.info("Failed to start service")
             ADVAPI32.CloseServiceHandle(service_handle)
             ADVAPI32.CloseServiceHandle(scm_handle)
-            return
+            return self.config.services_pid
         except Exception as e:
             log.info(sys.exc_info()[0])
             log.info(e)

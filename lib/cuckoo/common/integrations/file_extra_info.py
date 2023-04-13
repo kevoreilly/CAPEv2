@@ -681,7 +681,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )
-            valid_msi_filetypes = ["PE32", "text"]
+            valid_msi_filetypes = ["PE32", "text", "Microsoft Cabinet archive"]
             for root, _, filenames in os.walk(tempdir):
                 for filename in filenames:
                     path = os.path.join(root, filename)

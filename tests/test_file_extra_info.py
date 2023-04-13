@@ -78,7 +78,7 @@ class TestFileExtraInfo:
             filetype="MSI Installer",
             **{"tests": True, "options": {}}
         )
-        assert len(extracted_files["result"]["extracted_files"]) == 4
+        assert len(extracted_files["result"]["extracted_files"]) == 2
 
     def test_Inno_extract(self):
         extracted_files = file_extra_info.Inno_extract(

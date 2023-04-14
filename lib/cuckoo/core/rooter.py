@@ -12,9 +12,8 @@ cfg = Config()
 router_cfg = Config("routing")
 log = logging.getLogger(__name__)
 
-vpns = {}
-socks5s = {}
-
+vpns = dict()
+socks5s = dict()
 
 def _load_socks5_operational():
 
@@ -42,6 +41,14 @@ def _load_socks5_operational():
                 continue
 
             socks5s[name] = socks5.to_dict()
+
+            # decode utf-8 socks5man database data
+            for k, v in socks5s[name].items():
+                if isinstance(v, (bytes, bytearray)):
+                    try:
+                        socks5s[name][k] = v.decode()
+                    except (UnicodeDecodeError, AttributeError):
+                        pass
     except Socks5manDatabaseError as e:
         print(e, "you migth have an outdated database at $HOME/.socks5man")
 

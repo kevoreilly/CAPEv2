@@ -34,7 +34,7 @@ from lib.cuckoo.common.web_utils import (
     process_new_task_files,
 )
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+from lib.cuckoo.core.rooter import _load_socks5_operational
 
 # this required for hash searches
 cfg = Config("cuckoo")
@@ -548,15 +548,11 @@ def index(request, task_id=None, resubmit_hash=None):
         vpn_random = ""
 
         if routing.socks5.random_socks5 and socks5s:
-            socks5s_random = random.choice(socks5s.values()).get("name", False)
+            socks5s_random = socks5s[random.choice(list(socks5s.keys()))]
 
-        if routing.vpn.random_vpn:
-            vpn = list(vpns.values())
-            if vpn:
-                vpn_random = random.choice(vpn).get("name", False)
-
-        if socks5s:
-            socks5s_random = random.choice(list(socks5s.values())).get("name", False)
+        from lib.cuckoo.core.rooter import vpns
+        if routing.vpn.random_vpn and vpns:
+            vpn_random = vpns[random.choice(list(vpns.keys()))]
 
         random_route = False
         if vpn_random and socks5s_random:
@@ -565,6 +561,41 @@ def index(request, task_id=None, resubmit_hash=None):
             random_route = vpn_random
         elif socks5s_random:
             random_route = socks5s_random
+
+        # prepare data for the gui rendering
+        if random_route:
+            if random_route is vpn_random:
+                random_route = {
+                    "name": random_route["name"],
+                    "description": random_route["description"],
+                    "interface": random_route["interface"],
+                    "type": "VPN"
+                }
+            else:
+                random_route = {
+                    "name": random_route["description"],
+                    "host": random_route["host"],
+                    "port": random_route["port"],
+                    "type": "SOCKS5"
+                }
+        socks5s = [
+            {
+                "name": v["description"],
+                "host": v["host"],
+                "port": v["port"],
+                "type": "socks5"
+            }
+            for k, v in socks5s.items()
+        ]
+        vpns = [
+            {
+                "name": v["name"],
+                "description": v["description"],
+                "interface": v["interface"],
+                "type": "vpn"
+            }
+            for k, v in vpns.items()
+        ]
 
         existent_tasks = {}
         if resubmit_hash:
@@ -580,9 +611,9 @@ def index(request, task_id=None, resubmit_hash=None):
             {
                 "packages": sorted(packages),
                 "machines": machines,
-                "vpns": list(vpns.values()),
+                "vpns": vpns,
                 "random_route": random_route,
-                "socks5s": list(socks5s.values()),
+                "socks5s": socks5s,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,

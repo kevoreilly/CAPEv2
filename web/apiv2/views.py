@@ -1434,17 +1434,17 @@ def tasks_iocs(request, task_id, detail=None):
             tmpdict = {}
             if entry.get("clamav", False):
                 tmpdict["clamav"] = entry["clamav"]
-            if entry.get("sha256", False):
+            if entry.get("sha256"):
                 tmpdict["sha256"] = entry["sha256"]
-            if entry.get("md5", False):
+            if entry.get("md5"):
                 tmpdict["md5"] = entry["md5"]
-            if entry.get("yara", False):
+            if entry.get("yara"):
                 tmpdict["yara"] = entry["yara"]
-            if entry.get("trid", False):
+            if entry.get("trid"):
                 tmpdict["trid"] = entry["trid"]
-            if entry.get("type", False):
+            if entry.get("type"):
                 tmpdict["type"] = entry["type"]
-            if entry.get("guest_paths", False):
+            if entry.get("guest_paths"):
                 tmpdict["guest_paths"] = entry["guest_paths"]
             data["dropped"].append(tmpdict)
 

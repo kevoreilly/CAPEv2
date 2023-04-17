@@ -479,8 +479,8 @@ def socks5_enable(ipaddr, resultserver_port, dns_port, proxy_port):
         "--to-ports",
         proxy_port,
     )
-    run_iptables("-I", "1", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
-    run_iptables("-I", "2", "OUTPUT", "-m", "state", "--state", "INVALID", "-j", "DROP")
+    run_iptables("-I", "OUTPUT", "1", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
+    run_iptables("-I", "OUTPUT", "2", "-m", "state", "--state", "INVALID", "-j", "DROP")
     run_iptables(
         "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port
     )

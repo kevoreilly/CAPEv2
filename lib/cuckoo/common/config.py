@@ -117,9 +117,11 @@ class Config(_BaseConfig, metaclass=ConfigMeta):
 
     def _get_files_to_read(self, fname_base):
         files = [
+            os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf.default"),
             os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf"),
             os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf"),
         ]
+        files.extend(sorted(glob.glob(os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf.d", "*.conf"))))
         files.extend(sorted(glob.glob(os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf.d", "*.conf"))))
         return files
 

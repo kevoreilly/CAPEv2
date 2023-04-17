@@ -313,13 +313,22 @@ class GuestManager:
         # ToDo fix it
         # self.aux.callback("prepare_guest")
 
+        # ToDo https://github.com/kevoreilly/CAPEv2/issues/1468
+        # Lookup file if current doesn't exist in TMP anymore
+        alternative_path = False
+        if not path_exists(options["target"]):
+            path_found = db.sample_path_by_hash(task_id=options["id"])
+            if path_found:
+                alternative_path = path_found[0]
+
+        sample_path = alternative_path or options["target"]
         # If the target is a file, upload it to the guest.
         if options["category"] in ("file", "archive"):
             data = {
                 "filepath": os.path.join(self.determine_temp_path(), options["file_name"]),
             }
             files = {
-                "file": ("sample.bin", open(options["target"], "rb")),
+                "file": ("sample.bin", open(sample_path, "rb")),
             }
             self.post("/store", files=files, data=data)
 

@@ -46,10 +46,8 @@ def _load_socks5_operational():
             # decode utf-8 socks5man database data
             for k, v in socks5s[name].items():
                 if isinstance(v, (bytes, bytearray)):
-                    try:
+                    with suppress(UnicodeDecodeError, AttributeError):
                         socks5s[name][k] = v.decode()
-                    except (UnicodeDecodeError, AttributeError):
-                        pass
     except Socks5manDatabaseError as e:
         print(e, "you migth have an outdated database at $HOME/.socks5man")
 

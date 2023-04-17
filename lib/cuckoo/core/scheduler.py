@@ -18,7 +18,6 @@ from lib.cuckoo.common.exceptions import (
     CuckooGuestCriticalTimeout,
     CuckooGuestError,
     CuckooMachineError,
-    CuckooNetworkError,
     CuckooOperationalError,
 )
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
@@ -40,7 +39,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missde dependency: pip3 install psutil")
+    print("Missed dependency: pip3 install psutil")
 
 log = logging.getLogger(__name__)
 
@@ -375,7 +374,7 @@ class AnalysisManager(threading.Thread):
 
             self.db.guest_set_status(self.task.id, "stopping")
             succeeded = True
-        except (CuckooMachineError, CuckooNetworkError) as e:
+        except CuckooMachineError as e:
             if not unlocked:
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
@@ -594,7 +593,10 @@ class AnalysisManager(threading.Thread):
 
         # check if the interface is up
         if HAVE_NETWORKIFACES and routing.routing.verify_interface and self.interface and self.interface not in network_interfaces:
-            raise CuckooNetworkError(f"Network interface {self.interface} not found")
+            log.info("Network interface {} not found, falling back to dropping network traffic", self.interface)
+            self.interface = None
+            self.rt_table = None
+            self.route = "drop"
 
         if self.interface:
             self.rooter_response = rooter("forward_enable", self.machine.interface, self.interface, self.machine.ip)

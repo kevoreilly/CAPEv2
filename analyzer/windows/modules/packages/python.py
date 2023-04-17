@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from lib.common.abstracts import Package
+from lib.common.exceptions import CuckooPackageError
 
 
 class Python(Package):
@@ -11,6 +12,11 @@ class Python(Package):
     PATHS = [("HomeDrive", "Python*", "python.exe"), ("SystemRoot", "py.exe")]
 
     def start(self, path):
-        python = self.get_path_glob("Python")
+        # Try getting python or py as a backup
+        try:
+            python = self.get_path_glob("python.exe")
+        except CuckooPackageError:
+            python = self.get_path_glob("py.exe")
+
         arguments = self.options.get("arguments", "")
         return self.execute(python, f"{path} {arguments}", path)

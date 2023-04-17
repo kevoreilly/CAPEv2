@@ -30,7 +30,7 @@ class ONE(Package):
     ]
 
     def start(self, path):
-        onenote = self.get_path_glob("Microsoft Office OneNote")
+        onenote = self.get_path_glob("ONENOTE.EXE")
         if "." not in os.path.basename(path):
             new_path = f"{path}.one"
             os.rename(path, new_path)

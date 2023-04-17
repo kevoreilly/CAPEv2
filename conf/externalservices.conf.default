@@ -1,0 +1,10 @@
+[misp]
+enabled = no
+url =
+apikey =
+hash_lookup = no
+
+# Register for API Account at www.whoisxmlapi.com is able to retrieve the API Key
+[whoisxmlapi]
+enabled = no
+apikey =

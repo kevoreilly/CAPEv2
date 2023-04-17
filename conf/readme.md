@@ -1,13 +1,14 @@
-### Consider to use custom configs directory to simplify your life on updates
+### Simplify your life
+* Do NOT edit `<name>.conf.default` it will contain the same as repo config and in case if new field is added you don't need to update your config
+* Now you can use any of the following path to edit your configuration:
+    * `<name>.conf`
+    * `<name>.conf.d`
+    * `custom/conf/<name>.conf` # backward friendly
+    * `custom/conf/<name>.conf.d/*` # backward friendly
 
-* Allow custom config dirs that extend the default ones.
-* $CAPE_ROOT = /opt/CAPEv2
+* `$CAPE_ROOT = /opt/CAPEv2`
 
-A new `$CAPE_ROOT/custom/conf/` directory can be used to hold additional
-configuration files that extend the ones in the top-level conf
-directory. See the custom/README.md for more information.
-
-`.conf.d` (e.g. `$CAPE_ROOT/custom/conf/reporting.conf.d/`) directories may also
+`.conf.d` (e.g. `$CAPE_ROOT/conf/reporting.conf.d/`) directories may also
 be used to store additional configuration.
 
 In addition, for `Config()` objects, only read the files once, so that if,

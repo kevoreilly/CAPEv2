@@ -271,6 +271,9 @@
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                     {% endif %}
                 {% endif %}
+                {% if file.dotnet_strings %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#dotnet_strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> DotNet Strings</a>
+                {% endif %}
                 {% if config.floss %}
                     {% if not file.floss %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "floss" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate floss strings"><span class="fas fa-cogs"></span> Floss</a>
@@ -360,6 +363,19 @@
                 <div class="collapse" id="strings_{{file.sha256}}">
                     <div>
                     {% for string in file.strings %}
+                        <div>{{string}}</div>
+                    {% endfor %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+        {% endif %}
+        {% if file.dotnet_strings %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="dotnet_strings_{{file.sha256}}">
+                    <div>
+                    {% for string in file.dotnet_strings %}
                         <div>{{string}}</div>
                     {% endfor %}
                     </div>

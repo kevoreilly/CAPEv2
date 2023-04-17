@@ -2495,7 +2495,7 @@ class Database(object, metaclass=Singleton):
             if db_sample:
                 for path in (
                     os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task_id), db_sample.sha256),
-                    os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                    os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256),
                 ):
                     if path_exists(path):
                         return [path]
@@ -2516,7 +2516,7 @@ class Database(object, metaclass=Singleton):
                 if db_sample is not None:
                     for path in (
                         os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task_id), db_sample.sha256),
-                        os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                        os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256),
                     ):
                         if path_exists(path):
                             sample = [path]

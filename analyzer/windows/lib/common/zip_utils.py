@@ -149,10 +149,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1)
                                 recursion_depth=recursion_depth + 1,
                             )
                         except BadZipfile:
-                            log.warning(
-                                "Nested file '%s' name ends with .zip extension is not a valid Zip. Skip extraction",
-                                name
-                            )
+                            log.warning("Nested file '%s' name ends with .zip extension is not a valid Zip. Skip extraction", name)
                         except RuntimeError as run_err:
                             log.error("Error extracting nested Zip file %s with details: %s", name, run_err)
 

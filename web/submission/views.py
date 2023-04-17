@@ -568,31 +568,20 @@ def index(request, task_id=None, resubmit_hash=None):
                     "name": random_route["name"],
                     "description": random_route["description"],
                     "interface": random_route["interface"],
-                    "type": "VPN"
+                    "type": "VPN",
                 }
             else:
                 random_route = {
                     "name": random_route["description"],
                     "host": random_route["host"],
                     "port": random_route["port"],
-                    "type": "SOCKS5"
+                    "type": "SOCKS5",
                 }
         socks5s_data = [
-            {
-                "name": v["description"],
-                "host": v["host"],
-                "port": v["port"],
-                "type": "socks5"
-            }
-            for k, v in socks5s.items()
+            {"name": v["description"], "host": v["host"], "port": v["port"], "type": "socks5"} for k, v in socks5s.items()
         ]
         vpns_data = [
-            {
-                "name": v["name"],
-                "description": v["description"],
-                "interface": v["interface"],
-                "type": "vpn"
-            }
+            {"name": v["name"], "description": v["description"], "interface": v["interface"], "type": "vpn"}
             for k, v in vpns.items()
         ]
 

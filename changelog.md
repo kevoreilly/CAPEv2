@@ -1,7 +1,11 @@
+### [6.4.2023]
+* Monitor update: Add hook for WinExec()
+
 ### [5.4.2023] Configs make easier
 * Simplifing the configuration
     * Do NOT edit any config that ends on `.default` as it will be default config.
     * For more details read readme inside of `conf` folder.
+
 
 ### [30.3.2023]
 * RedLine config extraction - thanks @Gi7w0rm

@@ -34,7 +34,7 @@ from lib.cuckoo.common.web_utils import (
     process_new_task_files,
 )
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.core.rooter import _load_socks5_operational
+from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 # this required for hash searches
 cfg = Config("cuckoo")
@@ -550,7 +550,6 @@ def index(request, task_id=None, resubmit_hash=None):
         if routing.socks5.random_socks5 and socks5s:
             socks5s_random = socks5s[random.choice(list(socks5s.keys()))]
 
-        from lib.cuckoo.core.rooter import vpns
         if routing.vpn.random_vpn and vpns:
             vpn_random = vpns[random.choice(list(vpns.keys()))]
 
@@ -578,7 +577,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     "port": random_route["port"],
                     "type": "SOCKS5"
                 }
-        socks5s = [
+        socks5s_data = [
             {
                 "name": v["description"],
                 "host": v["host"],
@@ -587,7 +586,7 @@ def index(request, task_id=None, resubmit_hash=None):
             }
             for k, v in socks5s.items()
         ]
-        vpns = [
+        vpns_data = [
             {
                 "name": v["name"],
                 "description": v["description"],
@@ -611,9 +610,9 @@ def index(request, task_id=None, resubmit_hash=None):
             {
                 "packages": sorted(packages),
                 "machines": machines,
-                "vpns": vpns,
+                "vpns": vpns_data,
                 "random_route": random_route,
-                "socks5s": socks5s,
+                "socks5s": socks5s_data,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,

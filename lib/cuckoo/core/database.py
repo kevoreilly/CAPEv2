@@ -2493,15 +2493,12 @@ class Database(object, metaclass=Singleton):
                 .first()
             )
             if db_sample:
-                file_path = os.path.join(
-                    CUCKOO_ROOT,
-                    "storage",
-                    "binaries",
-                    str(task_id),
-                    db_sample.sha256,
-                )
-                if path_exists(file_path):
-                    return [file_path]
+                for path in (
+                    os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task_id), db_sample.sha256),
+                    os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                ):
+                    if path_exists(path):
+                        return [path]
 
                 sample_hash = db_sample.sha256
 
@@ -2517,9 +2514,13 @@ class Database(object, metaclass=Singleton):
                     session = self.Session()
                 db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
                 if db_sample is not None:
-                    file_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
-                    if path_exists(file_path):
-                        sample = [file_path]
+                    for path in (
+                        os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task_id), db_sample.sha256),
+                        os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                    ):
+                        if path_exists(path):
+                            sample = [path]
+                            break
 
                 if not sample:
                     if repconf.mongodb.enabled:

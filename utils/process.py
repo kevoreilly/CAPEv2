@@ -279,7 +279,6 @@ def autoprocess(
                         if sample:
                             sample_hash = sample.sha256
 
-                        # ToDo check here db for more pending/running maybe too? tasks for this hash and pass it to process
                     args = task.target, sample_hash
                     kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging, debug=debug)
                     if memory_debugging:

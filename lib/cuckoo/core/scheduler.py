@@ -134,15 +134,13 @@ class AnalysisManager(threading.Thread):
             )
             return False
 
-        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id), sha256)
-        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
+        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
 
         if path_exists(self.binary):
             log.info("Task #%s: File already exists at '%s'", self.task.id, self.binary)
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
-                create_folder(folder=os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id)))
                 shutil.copy(self.task.target, self.binary)
             except (IOError, shutil.Error):
                 log.error(
@@ -153,21 +151,8 @@ class AnalysisManager(threading.Thread):
                 )
                 return False
 
-        if path_exists(copy_path):
-            log.info("Task #%s: File already exists at '%s'", self.task.id, copy_path)
-        else:
-            # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
-            try:
-                shutil.copy(self.task.target, copy_path)
-            except (IOError, shutil.Error):
-                log.error(
-                    "Task #%s: Unable to store file from '%s' to '%s', analysis aborted", self.task.id, self.task.target, copy_path
-                )
-                return False
-
         try:
             new_binary_path = os.path.join(self.storage, "binary")
-
             if hasattr(os, "symlink"):
                 os.symlink(self.binary, new_binary_path)
             else:

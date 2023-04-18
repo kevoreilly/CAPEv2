@@ -22,7 +22,7 @@ from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyEr
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
+from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder
 
 try:
     from sqlalchemy import (
@@ -1640,8 +1640,12 @@ class Database(object, metaclass=Singleton):
             file_path = file_path.encode()
 
         if not package:
-            # Checking original file as some filetypes doesn't require demux
-            package, _ = self._identify_aux_func(file_path, package)
+            if "file=" in options:
+                # set zip as package when specifying file= in options
+                package = "zip"
+            else:
+                # Checking original file as some filetypes doesn't require demux
+                package, _ = self._identify_aux_func(file_path, package)
 
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
@@ -1650,17 +1654,6 @@ class Database(object, metaclass=Singleton):
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
-
-        # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
-        opts = get_options(options)
-        if "file" in opts:
-            runfile = opts["file"].lower()
-            if isinstance(runfile, str):
-                runfile = runfile.encode()
-            for xfile in extracted_files:
-                if runfile in xfile.lower():
-                    extracted_files = [xfile]
-                    break
 
         # create tasks for each file in the archive
         for file in extracted_files:
@@ -1732,6 +1725,7 @@ class Database(object, metaclass=Singleton):
                     user_id=user_id,
                     username=username,
                 )
+                package = None
             if task_id:
                 task_ids.append(task_id)
 

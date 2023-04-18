@@ -2456,16 +2456,16 @@ class Database(object, metaclass=Singleton):
         @param task_id: task_id
         @return: bool
         """
-        with self.Session() as session:
-            db_sample = (
-                session.query(Sample)
-                .options(joinedload("tasks"))
-                .filter(Sample.sha256 == sample_hash)
-                .filter(Task.id != task_id)
-                .filter(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
-                .filter(Sample.id == Task.sample_id)
-                .first()
-            )
+        session = self.Session()
+        db_sample = (
+            session.query(Sample)
+            .options(joinedload("tasks"))
+            .filter(Sample.sha256 == sample_hash)
+            .filter(Task.id != task_id)
+            .filter(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
+            .filter(Sample.id == Task.sample_id)
+            .first()
+        )
         still_used = bool(db_sample)
         session.close()
         return still_used

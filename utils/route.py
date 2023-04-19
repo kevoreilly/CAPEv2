@@ -10,6 +10,9 @@ import subprocess
 IP_ROUTE_TABLES = "/etc/iproute2/rt_tables"
 
 if __name__ == "__main__":
+    # This doesn't work out of the box for most of the providers. 
+    # To make it works for your provider you need first to print os.environ to get all variables
+    # Adjust variables name or even code if needed
     config_name = os.environ.get("config")
     local_ip = os.environ.get("ifconfig_local")
     vpn_gateway = os.environ.get("route_vpn_gateway")

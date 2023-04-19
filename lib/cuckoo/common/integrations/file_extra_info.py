@@ -143,11 +143,11 @@ HAVE_STRINGS = False
 HAVE_DNFILE = False
 if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
+
     HAVE_STRINGS = True
 
     if processing_conf.strings.dotnet:
-        from lib.cuckoo.common.dotnet_utils import dotnet_user_strings, HAVE_DNFILE
-
+        from lib.cuckoo.common.dotnet_utils import HAVE_DNFILE, dotnet_user_strings
 
 
 HAVE_VIRUSTOTAL = False

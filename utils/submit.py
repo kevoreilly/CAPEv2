@@ -185,8 +185,7 @@ def main():
                             verify = False
                         else:
                             verify = True
-                        response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, data=data,
-                                                 verify=verify)
+                        response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, data=data, verify=verify)
                     else:
                         response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, data=data)
                 else:
@@ -309,11 +308,11 @@ def main():
                                 verify = False
                             else:
                                 verify = True
-                            response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, files=files,
-                                                     data=data, verify=verify)
+                            response = requests.post(
+                                url, headers={"Authorization": f"Token {args.token}"}, files=files, data=data, verify=verify
+                            )
                         else:
-                            response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, files=files,
-                                                     data=data)
+                            response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, files=files, data=data)
                     else:
                         if args.ssl:
                             if args.sslnoverify:

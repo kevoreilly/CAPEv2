@@ -135,7 +135,9 @@ class Azure(Machinery):
                 # If the initial pool size is 0, then post-initialization we will have 0 machines available for a
                 # scale set, which is bad for Cuckoo logic
                 if scale_set_opts["initial_pool_size"] <= 0:
-                    raise CuckooCriticalError(f"The initial pool size for VMSS '{scale_set_id}'  is 0. Please set it to a positive integer.")
+                    raise CuckooCriticalError(
+                        f"The initial pool size for VMSS '{scale_set_id}'  is 0. Please set it to a positive integer."
+                    )
 
                 # Insert the scale_set_opts into the module.scale_sets attribute
                 mmanager_opts["scale_sets"][scale_set_id] = scale_set_opts
@@ -159,7 +161,8 @@ class Azure(Machinery):
 
         # We will be using this as a source of truth for the VMSS configs
         self.required_vmsss = {
-            vmss_name: {"exists": False, "image": None, "platform": None, "tag": None, "initial_pool_size": None} for vmss_name in self.options.az.scale_sets
+            vmss_name: {"exists": False, "image": None, "platform": None, "tag": None, "initial_pool_size": None}
+            for vmss_name in self.options.az.scale_sets
         }
 
         # Starting the thread that sets API clients periodically

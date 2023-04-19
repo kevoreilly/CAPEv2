@@ -129,17 +129,20 @@ class Azure(Machinery):
                     if value and isinstance(value, str):
                         scale_set_opts[key] = value.strip()
 
+                if "initial_pool_size" not in scale_set_opts:
+                    raise AttributeError("'initial_pool_size' not present in scale set configuration")
+
+                # If the initial pool size is 0, then post-initialization we will have 0 machines available for a
+                # scale set, which is bad for Cuckoo logic
+                if scale_set_opts["initial_pool_size"] <= 0:
+                    raise CuckooCriticalError(f"The initial pool size for VMSS '{scale_set_id}'  is 0. Please set it to a positive integer.")
+
                 # Insert the scale_set_opts into the module.scale_sets attribute
                 mmanager_opts["scale_sets"][scale_set_id] = scale_set_opts
 
             except (AttributeError, CuckooOperationalError) as e:
                 log.warning(f"Configuration details about scale set {scale_set_id.strip()} are missing: {e}")
                 continue
-
-        # If the initial pool size is 0, then post-initialization we will have 0 machines available, which is bad
-        # for Cuckoo logic
-        if self.options.az.initial_pool_size <= 0:
-            raise CuckooCriticalError("The initial pool size for each VMSS is 0. Please set it to a positive integer.")
 
     def _initialize_check(self):
         """
@@ -156,7 +159,7 @@ class Azure(Machinery):
 
         # We will be using this as a source of truth for the VMSS configs
         self.required_vmsss = {
-            vmss_name: {"exists": False, "image": None, "platform": None, "tag": None} for vmss_name in self.options.az.scale_sets
+            vmss_name: {"exists": False, "image": None, "platform": None, "tag": None, "initial_pool_size": None} for vmss_name in self.options.az.scale_sets
         }
 
         # Starting the thread that sets API clients periodically
@@ -246,6 +249,7 @@ class Azure(Machinery):
             self.required_vmsss[scale_set_id]["platform"] = scale_set_values.platform.capitalize()
             self.required_vmsss[scale_set_id]["tag"] = scale_set_values.pool_tag
             self.required_vmsss[scale_set_id]["image"] = models.ImageReference(id=gallery_image.id)
+            self.required_vmsss[scale_set_id]["initial_pool_size"] = int(scale_set_values.initial_pool_size)
 
         # All required VMSSs must have an image reference, tag and os
         for required_vmss_name, required_vmss_values in self.required_vmsss.items():
@@ -255,6 +259,8 @@ class Azure(Machinery):
                 raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an tag.")
             elif required_vmss_values["platform"] is None:
                 raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an OS value.")
+            elif required_vmss_values["initial_pool_size"] is None:
+                raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an initial pool size.")
 
         # Get all VMSSs in Resource Group
         existing_vmsss = Azure._azure_api_call(
@@ -298,10 +304,10 @@ class Azure(Machinery):
                     vmss.virtual_machine_profile.storage_profile.image_reference.id = required_vmss["image"].id
 
                 # Check if the capacity of VMSS matches the initial pool size from the configuration
-                if self.options.az.reset_pool_size and vmss.sku.capacity != self.options.az.initial_pool_size:
+                if self.options.az.reset_pool_size and vmss.sku.capacity != required_vmss["initial_pool_size"]:
                     # If no, update it
                     update_vmss = True
-                    vmss.sku.capacity = self.options.az.initial_pool_size
+                    vmss.sku.capacity = required_vmss["initial_pool_size"]
 
                 # Initialize key-value pair for VMSS with specific details
                 machine_pools[vmss.name] = {
@@ -766,7 +772,7 @@ class Azure(Machinery):
         vmss = models.VirtualMachineScaleSet(
             location=self.options.az.region_name,
             tags=Azure.AUTO_SCALE_CAPE_TAG,
-            sku=models.Sku(name=self.options.az.instance_type, capacity=self.options.az.initial_pool_size),
+            sku=models.Sku(name=self.options.az.instance_type, capacity=self.required_vmsss[vmss_name]["initial_pool_size"]),
             upgrade_policy=models.UpgradePolicy(mode="Automatic"),
             virtual_machine_profile=vmss_vm_profile,
             overprovision=False,
@@ -789,7 +795,7 @@ class Azure(Machinery):
 
         # Initialize key-value pair for VMSS with specific details
         machine_pools[vmss_name] = {
-            "size": self.options.az.initial_pool_size,
+            "size": self.required_vmsss[vmss_name]["initial_pool_size"],
             "is_scaling": False,
             "is_scaling_down": False,
             "wait": False,
@@ -874,14 +880,14 @@ class Azure(Machinery):
 
             # If there are no relevant tasks in the queue, scale to the bare minimum pool size
             if relevant_task_queue == 0:
-                number_of_relevant_machines_required = self.options.az.initial_pool_size
+                number_of_relevant_machines_required = self.required_vmsss[vmss_name]["initial_pool_size"]
             else:
                 number_of_relevant_machines_required = int(
                     round(relevant_task_queue * (1 + float(self.options.az.overprovision) / 100))
                 )
 
-            if number_of_relevant_machines_required < self.options.az.initial_pool_size:
-                number_of_relevant_machines_required = self.options.az.initial_pool_size
+            if number_of_relevant_machines_required < self.required_vmsss[vmss_name]["initial_pool_size"]:
+                number_of_relevant_machines_required = self.required_vmsss[vmss_name]["initial_pool_size"]
             elif number_of_relevant_machines_required > self.options.az.scale_set_limit:
                 number_of_relevant_machines_required = self.options.az.scale_set_limit
 
@@ -892,7 +898,7 @@ class Azure(Machinery):
                 non_relevant_machines = number_of_machines - number_of_relevant_machines
                 number_of_relevant_machines_required = self.options.az.total_machines_limit - non_relevant_machines
                 if number_of_relevant_machines_required < 0:
-                    number_of_relevant_machines_required = self.options.az.initial_pool_size
+                    number_of_relevant_machines_required = self.required_vmsss[vmss_name]["initial_pool_size"]
 
             # Let's confirm that this number is actually achievable
             usages = Azure._azure_api_call(self.options.az.region_name, operation=self.compute_client.usage.list)

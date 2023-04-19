@@ -201,7 +201,7 @@ def get_document_window_click_around(hwnd, lparm):
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any(value in text.value for value in ("Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint","Adobe", "Acrobat DC", "Acrobat","Reader", "PDF")):
+        if any(value in text.value for value in ("Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint", "Adobe", "Acrobat DC", "Acrobat","Reader", "PDF")):
             USER32.SetForegroundWindow(hwnd)
             # first click the middle
             USER32.SetCursorPos(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
@@ -248,7 +248,7 @@ def get_document_window_click_around(hwnd, lparm):
 
 # Callback procedure invoked for every enumerated window.
 def get_document_window(hwnd, lparam):
-    global CLOSED_WINDOW
+    global CLOSED_DOCUMENT_WINDOW
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
@@ -256,7 +256,7 @@ def get_document_window(hwnd, lparam):
             # send ALT+F4 equivalent
             log.info("Closing document window")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
-            CLOSED_WINDOW = True
+            CLOSED_DOCUMENT_WINDOW = True
     return True
 
 

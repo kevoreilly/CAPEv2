@@ -900,7 +900,47 @@ class Enhanced:
                 "apis": ["ControlService"],
                 "args": [("service", "ServiceName"), ("controlcode", "ControlCode")],
             },
-            {"event": "delete", "object": "service", "apis": ["DeleteService"], "args": [("service", "ServiceName")]},
+            {
+                "event": "delete",
+                "object": "service",
+                "apis": ["DeleteService"],
+                "args": [("service", "ServiceName")]},
+            {
+                "event": "DNSquery",
+                "object": "network",
+                "apis": ["DnsQuery_A","DnsQuery_UTF8","DnsQuery_W"],
+                "args": [("name","Name"),("type","Type"),("options","Options")],
+            },
+            {
+                "event": "IOC",
+                "object": "network",
+                "apis": ["InternetOpenUrlA","InternetOpenUrlW"],
+                "args": [("url","URL"),("headers","Headers"),("flags","Flags")]
+            },
+            {
+                "event": "IOC",
+                "object": "network",
+                "apis": ["GetAddrInfoA","GetAddrInfoW"],
+                "args": [("NodeName","NodeName"),("ServiceName","ServiceName")]
+            },
+            {
+                "event": "IOC",
+                "object": "network",
+                "apis": ["InternetCrackUrlW","InternetCrackUrlA"],
+                "args": [("Url","Url")]
+            },
+            {
+                "event": "IOC",
+                "object": "network",
+                "apis": ["CryptRetrieveObjectByUrlW","CryptRetrieveObjectByUrlA"],
+                "args": [("Url","Url")]
+            },
+            {
+                "event": "IOC",
+                "object": "network",
+                "apis": ["ConnectEx"],
+                "args": [("ip","ip")]
+            }
         ]
 
         # Not sure I really want this, way too noisy anyway and doesn't bring much value.

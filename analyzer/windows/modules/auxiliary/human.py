@@ -7,7 +7,7 @@ import contextlib
 import logging
 import random
 import traceback
-from ctypes import POINTER, WINFUNCTYPE, c_bool, c_int, create_unicode_buffer, memmove, sizeof, byref, wintypes
+from ctypes import POINTER, WINFUNCTYPE, byref, c_bool, c_int, create_unicode_buffer, memmove, sizeof, wintypes
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
@@ -31,10 +31,12 @@ CLOSED_OFFICE = False
 OFFICE_CLICK_AROUND = False
 PDF_CLICK_AROUND = False
 
+
 def queryMousePosition():
     pt = wintypes.POINT()
     USER32.GetCursorPos(byref(pt))
-    return { "x": pt.x, "y": pt.y}
+    return {"x": pt.x, "y": pt.y}
+
 
 def foreach_child(hwnd, lparam):
     classname = create_unicode_buffer(128)
@@ -246,12 +248,13 @@ def get_office_window_click_around(hwnd, lparm):
             OFFICE_CLICK_AROUND = True
     return True
 
+
 def get_pdf_window_click_around(hwnd, lparm):
     global PDF_CLICK_AROUND
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any(value in text.value for value in ("Adobe", "Acrobat DC", "Acrobat","Reader", "PDF")):
+        if any(value in text.value for value in ("Adobe", "Acrobat DC", "Acrobat", "Reader", "PDF")):
             USER32.SetForegroundWindow(hwnd)
             # first click the middle
             USER32.SetCursorPos(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
@@ -295,6 +298,7 @@ def get_pdf_window_click_around(hwnd, lparm):
             PDF_CLICK_AROUND = True
     return True
 
+
 # Callback procedure invoked for every enumerated window.
 def get_office_window(hwnd, lparam):
     global CLOSED_OFFICE
@@ -308,12 +312,13 @@ def get_office_window(hwnd, lparam):
             CLOSED_OFFICE = True
     return True
 
+
 def get_pdf_window(hwnd, lparam):
     global CLOSED_PDF
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any(value in text.value for value in ("- Adobe", "- Acrobat DC", "- Acrobat","- Reader", "- PDF")):
+        if any(value in text.value for value in ("- Adobe", "- Acrobat DC", "- Acrobat", "- Reader", "- PDF")):
             # send ALT+F4 equivalent
             log.info("Closing PDF window")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
@@ -405,11 +410,14 @@ class Human(Auxiliary, Thread):
                     if rng < 4:
                         USER32.SetCursorPos(RESOLUTION["x"] // 2, 0)
                     else:
-                        USER32.SetCursorPos(int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)))
+                        USER32.SetCursorPos(
+                            int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),
+                            int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)),
+                        )
                     click_mouse()
-                    #log.debug("Click position: %s" % queryMousePosition())
+                    # log.debug("Click position: %s" % queryMousePosition())
                     move_mouse()
-                #log.debug("Mouse position: %s" % queryMousePosition())
+                # log.debug("Mouse position: %s" % queryMousePosition())
 
                 if (seconds % (15 + randoff)) == 0:
                     # curwind = USER32.GetForegroundWindow()

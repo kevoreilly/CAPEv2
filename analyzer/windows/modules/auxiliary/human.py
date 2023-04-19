@@ -322,7 +322,6 @@ class Human(Auxiliary, Thread):
                 ):
                     doc = True
                 elif "PDF" in file_type or file_name.endswith(".pdf"):
-                    log.debug("Using pdf mouse movement")
                     doc = True
 
             USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
@@ -343,9 +342,7 @@ class Human(Auxiliary, Thread):
                             int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)),
                         )
                     click_mouse()
-                    log.debug("Click position: %s" % queryMousePosition())
                     move_mouse()
-                #log.debug("Mouse position: %s" % queryMousePosition())
 
                 if (seconds % (15 + randoff)) == 0:
                     # curwind = USER32.GetForegroundWindow()

@@ -26,8 +26,8 @@ RESOLUTION = {"x": USER32.GetSystemMetrics(SM_CXSCREEN), "y": USER32.GetSystemMe
 RESOLUTION_WITHOUT_TASKBAR = {"x": USER32.GetSystemMetrics(SM_CXFULLSCREEN), "y": USER32.GetSystemMetrics(SM_CYFULLSCREEN)}
 
 INITIAL_HWNDS = []
-CLOSED_WINDOW = False
-WINDOW_CLICK_AROUND = False
+CLOSED_DOCUMENT_WINDOW = False
+DOCUMENT_WINDOW_CLICK_AROUND = False
 
 def queryMousePosition():
     pt = wintypes.POINT()
@@ -196,8 +196,8 @@ def click_mouse():
     USER32.mouse_event(4, 0, 0, 0, None)
 
 
-def get_window_click_around(hwnd, lparm):
-    global WINDOW_CLICK_AROUND
+def get_document_window_click_around(hwnd, lparm):
+    global DOCUMENT_WINDOW_CLICK_AROUND
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
@@ -239,22 +239,22 @@ def get_window_click_around(hwnd, lparm):
                     x += random.randint(150, 200)
                     KERNEL32.Sleep(50)
                 else:
-                    log.info("Breaking out of window click loop as our window went away")
+                    log.info("Breaking out of document window click loop as our window went away")
                     break
             KERNEL32.Sleep(20000)
-            WINDOW_CLICK_AROUND = True
+            DOCUMENT_WINDOW_CLICK_AROUND = True
     return True
 
 
 # Callback procedure invoked for every enumerated window.
-def get_window(hwnd, lparam):
+def get_document_window(hwnd, lparam):
     global CLOSED_WINDOW
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
         if any(value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint", "- Adobe", "- Acrobat DC", "- Acrobat","- Reader", "- PDF")):
             # send ALT+F4 equivalent
-            log.info("Closing window")
+            log.info("Closing document window")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
             CLOSED_WINDOW = True
     return True
@@ -274,7 +274,7 @@ class Human(Auxiliary, Thread):
         self.do_run = False
 
     def run(self):
-        global WINDOW_CLICK_AROUND
+        global DOCUMENT_WINDOW_CLICK_AROUND
         try:
             seconds = 0
             randoff = random.randint(0, 10)
@@ -327,9 +327,9 @@ class Human(Auxiliary, Thread):
             USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
 
             while self.do_run:
-                if doc and seconds > 45 and (seconds % 30) == 0 and not WINDOW_CLICK_AROUND and not CLOSED_WINDOW:
-                    USER32.EnumWindows(EnumWindowsProc(get_window_click_around), 0)
-                    USER32.EnumWindows(EnumWindowsProc(get_window), 0)
+                if doc and seconds > 45 and (seconds % 30) == 0 and not DOCUMENT_WINDOW_CLICK_AROUND and not CLOSED_DOCUMENT_WINDOW:
+                    USER32.EnumWindows(EnumWindowsProc(get_document_window_click_around), 0)
+                    USER32.EnumWindows(EnumWindowsProc(get_document_window), 0)
 
                 # only move the mouse 75% of the time, as malware can choose to act on an "idle" system just as it can on an "active" system
                 rng = random.randint(0, 7)

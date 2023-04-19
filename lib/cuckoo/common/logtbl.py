@@ -7,6 +7,8 @@
 This table is not automatically generated at the moment, but kept up-to-date
 by hand.
 
+The format specifier is defined in log.h of capemon
+
 """
 table = (
     ("__process__", "__init__", ("",)),

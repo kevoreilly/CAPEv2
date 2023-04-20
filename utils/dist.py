@@ -590,7 +590,7 @@ class Retriever(threading.Thread):
             time.sleep(5)
         db.close()
 
-    def delete_target_file(task_id: int, sample_sha256: str, target: str):
+    def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
         # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
         if cfg.cuckoo.delete_original and target and path_exists(target):
             path_delete(target)

@@ -44,6 +44,7 @@ from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modul
 cfg = Config()
 logconf = Config("logging")
 repconf = Config("reporting")
+db = Database()
 
 if repconf.mongodb.enabled:
     from bson.objectid import ObjectId
@@ -84,7 +85,7 @@ def get_memory():
 
 
 def process(
-    target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False, debug: bool = False
+    target=None, sample_sha256=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False, debug: bool = False
 ):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -126,11 +127,14 @@ def process(
         Database().set_status(task_id, TASK_REPORTED)
 
         if auto:
-            if cfg.cuckoo.delete_original and path_exists(target):
+            # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
+            if cfg.cuckoo.delete_original and target and path_exists(target):
                 path_delete(target)
 
-            if copy_path is not None and cfg.cuckoo.delete_bin_copy and path_exists(copy_path):
-                path_delete(copy_path)
+            if cfg.cuckoo.delete_bin_copy:
+                copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
+                if path_exists(copy_path) and not db.sample_still_used(sample_sha256, task_id):
+                    path_delete(copy_path)
 
     if memory_debugging:
         gc.collect()
@@ -236,7 +240,6 @@ def autoprocess(
 ):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
-    db = Database()
     # pool = multiprocessing.Pool(parallel, init_worker)
     try:
         memory_limit()
@@ -270,15 +273,13 @@ def autoprocess(
                         continue
 
                     log.info("Processing analysis data for Task #%d", task.id)
+                    sample_hash = ""
                     if task.category != "url":
                         sample = db.view_sample(task.sample_id)
                         if sample:
-                            copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task.id), sample.sha256)
-                        else:
-                            copy_path = None
-                    else:
-                        copy_path = None
-                    args = task.target, copy_path
+                            sample_hash = sample.sha256
+
+                    args = task.target, sample_hash
                     kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging, debug=debug)
                     if memory_debugging:
                         gc.collect()
@@ -293,11 +294,8 @@ def autoprocess(
                         log.info("(after) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
                     count += 1
                     added = True
-                    if copy_path is not None:
-                        copy_origin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
-                        if cfg.cuckoo.delete_bin_copy and path_exists(copy_origin_path):
-                            path_delete(copy_origin_path)
                     break
+
                 if not added:
                     # don't hog cpu
                     time.sleep(5)

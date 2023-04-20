@@ -22,7 +22,7 @@ from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyEr
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
+from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder
 
 try:
     from sqlalchemy import (
@@ -1640,8 +1640,12 @@ class Database(object, metaclass=Singleton):
             file_path = file_path.encode()
 
         if not package:
-            # Checking original file as some filetypes doesn't require demux
-            package, _ = self._identify_aux_func(file_path, package)
+            if "file=" in options:
+                # set zip as package when specifying file= in options
+                package = "zip"
+            else:
+                # Checking original file as some filetypes doesn't require demux
+                package, _ = self._identify_aux_func(file_path, package)
 
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
@@ -1650,17 +1654,6 @@ class Database(object, metaclass=Singleton):
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
-
-        # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
-        opts = get_options(options)
-        if "file" in opts:
-            runfile = opts["file"].lower()
-            if isinstance(runfile, str):
-                runfile = runfile.encode()
-            for xfile in extracted_files:
-                if runfile in xfile.lower():
-                    extracted_files = [xfile]
-                    break
 
         # create tasks for each file in the archive
         for file in extracted_files:
@@ -1732,6 +1725,7 @@ class Database(object, metaclass=Singleton):
                     user_id=user_id,
                     username=username,
                 )
+                package = None
             if task_id:
                 task_ids.append(task_id)
 
@@ -2450,6 +2444,28 @@ class Database(object, metaclass=Singleton):
         return sample
 
     @classlock
+    def sample_still_used(self, sample_hash: str, task_id: int):
+        """Retrieve information if sample is used by another task(s).
+        @param hash: md5/sha1/sha256/sha256.
+        @param task_id: task_id
+        @return: bool
+        """
+        session = self.Session()
+        db_sample = (
+            session.query(Sample)
+            .options(joinedload("tasks"))
+            .filter(Sample.sha256 == sample_hash)
+            .filter(Task.id != task_id)
+            .filter(Sample.id == Task.sample_id)
+            .filter(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
+            .first()
+        )
+        still_used = bool(db_sample)
+        session.close()
+        return still_used
+
+
+    @classlock
     def sample_path_by_hash(self, sample_hash: str = False, task_id: int = False):
         """Retrieve information on a sample location by given hash.
         @param hash: md5/sha1/sha256/sha256.
@@ -2493,12 +2509,9 @@ class Database(object, metaclass=Singleton):
                 .first()
             )
             if db_sample:
-                for path in (
-                    os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task_id), db_sample.sha256),
-                    os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256),
-                ):
-                    if path_exists(path):
-                        return [path]
+                path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                if path_exists(path):
+                    return [path]
 
                 sample_hash = db_sample.sha256
 
@@ -2514,13 +2527,9 @@ class Database(object, metaclass=Singleton):
                     session = self.Session()
                 db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
                 if db_sample is not None:
-                    for path in (
-                        os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task_id), db_sample.sha256),
-                        os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256),
-                    ):
-                        if path_exists(path):
-                            sample = [path]
-                            break
+                    path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256),
+                    if path_exists(path):
+                        sample = [path]
 
                 if not sample:
                     if repconf.mongodb.enabled:

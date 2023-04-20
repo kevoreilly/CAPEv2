@@ -376,7 +376,7 @@ Setup Wireguard
 
 Install wireguard::
 
-    ``sudo apt install wireguard``
+    sudo apt install wireguard
 
 Download Wireguard configurations from your VPN provider and copy them into ``/etc/wireguard/wgX.conf``. E.g.::
 
@@ -409,9 +409,6 @@ Then start the VPN: ``wg-quick up wg1``. If all goes well you can run wg and see
 
     curl https://ifconfig.me/
     curl --interface wg1 https://ifconfig.me/
-
-Configure Cuckoo Routing
-Read this file carefully. If you don’t understand this, read it again. The prerequisites that apply to our setup are here. Once that’s done, configure the VPN routing applicable to each Wireguard interface you setup.
 
 Example snippet from ``/opt/CAPEv2/conf/routing.conf`` configuration:
 

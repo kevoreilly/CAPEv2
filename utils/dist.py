@@ -65,6 +65,7 @@ if dist_conf.GCP.enabled:
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
 
+cfg = Config()
 reporting_conf = Config("reporting")
 web_conf = Config("web")
 
@@ -377,7 +378,6 @@ class Retriever(threading.Thread):
     def run(self):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
-        self.cfg = Config()
         self.t_is_none = {}
         self.status_count = {}
         self.current_queue = {}
@@ -449,7 +449,7 @@ class Retriever(threading.Thread):
         # error message and wait another round (this check is ignored
         # when the freespace configuration variable is set to zero).
         while True:
-            if self.cfg.cuckoo.freespace:
+            if cfg.cuckoo.freespace:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
@@ -461,7 +461,7 @@ class Retriever(threading.Thread):
                     space_available = dir_stats.f_bavail * dir_stats.f_frsize
                     space_available /= 1024 * 1024
 
-                    if space_available < self.cfg.cuckoo.freespace:
+                    if space_available < cfg.cuckoo.freespace:
                         log.error("Not enough free disk space! (Only %d MB!)", space_available)
                         self.stop_dist.set()
                         continue
@@ -590,6 +590,16 @@ class Retriever(threading.Thread):
             time.sleep(5)
         db.close()
 
+    def delete_target_file(task_id: int, sample_sha256: str, target: str):
+        # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
+        if cfg.cuckoo.delete_original and target and path_exists(target):
+            path_delete(target)
+
+        if cfg.cuckoo.delete_bin_copy:
+            copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
+            if path_exists(copy_path) and not main_db.sample_still_used(sample_sha256, task_id):
+                path_delete(copy_path)
+
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports_nfs(self):
         db = session()
@@ -647,8 +657,14 @@ class Retriever(threading.Thread):
 
                 # this doesn't exist for some reason
                 if path_exists(t.path):
-                    sample = open(t.path, "rb").read()
-                    sample_sha256 = hashlib.sha256(sample).hexdigest()
+                    sample_sha256 = main_db.find_sample(task_id = t.main_task_id)
+                    if sample_sha256:
+                        sample_sha256 = sample_sha256[0].sample.sha256
+                    else:
+                        # keep fallback for now
+                        sample = open(t.path, "rb").read()
+                        sample_sha256 = hashlib.sha256(sample).hexdigest()
+
                     destination = os.path.join(binaries_folder, sample_sha256)
                     if not path_exists(destination) and path_exists(t.path):
                         try:
@@ -664,6 +680,8 @@ class Retriever(threading.Thread):
                         except Exception as e:
                             print(f"Failed link binary: {e}")
                             pass
+
+                    self.delete_target_file(t.main_task_id, sample_sha256, t.path)
 
                 t.retrieved = True
                 t.finished = True
@@ -752,18 +770,28 @@ class Retriever(threading.Thread):
                                 log.error("Permission denied: {}".format(report_path))
 
                         if path_exists(t.path):
-                            sample = open(t.path, "rb").read()
-                            sample_sha256 = hashlib.sha256(sample).hexdigest()
+                            sample_sha256 = main_db.find_sample(task_id = t.main_task_id)
+                            if sample_sha256:
+                                sample_sha256 = sample_sha256[0].sample.sha256
+                            else:
+                                # keep fallback for now
+                                sample = open(t.path, "rb").read()
+                                sample_sha256 = hashlib.sha256(sample).hexdigest()
+
                             destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")
                             if not path_exists(destination):
                                 path_mkdir(destination, mode=0o755)
+
                             destination = os.path.join(destination, sample_sha256)
                             if not path_exists(destination) and path_exists(t.path):
                                 shutil.move(t.path, destination)
+
                             # creating link to analysis folder
                             if path_exists(t.path):
                                 with suppress(Exception):
                                     os.symlink(destination, os.path.join(report_path, "binary"))
+
+                                self.delete_target_file(t.main_task_id, sample_sha256, t.path)
 
                         else:
                             log.debug(f"{t.path} doesn't exist")
@@ -835,6 +863,7 @@ class StatusThread(threading.Thread):
         if node.name != main_server_name:
             # don"t do nothing if nothing in pending
             # Get tasks from main_db submitted through web interface
+            # Exclude category
             main_db_tasks = main_db.list_tasks(
                 status=TASK_PENDING, options_like=options_like, limit=pend_tasks_num, order_by=MD_Task.priority.desc()
             )

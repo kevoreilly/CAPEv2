@@ -657,7 +657,7 @@ class Retriever(threading.Thread):
 
                 # this doesn't exist for some reason
                 if path_exists(t.path):
-                    sample_sha256 = main_db.find_sample(task_id = t.main_task_id)
+                    sample_sha256 = main_db.find_sample(task_id=t.main_task_id)
                     if sample_sha256:
                         sample_sha256 = sample_sha256[0].sample.sha256
                     else:
@@ -770,7 +770,7 @@ class Retriever(threading.Thread):
                                 log.error("Permission denied: {}".format(report_path))
 
                         if path_exists(t.path):
-                            sample_sha256 = main_db.find_sample(task_id = t.main_task_id)
+                            sample_sha256 = main_db.find_sample(task_id=t.main_task_id)
                             if sample_sha256:
                                 sample_sha256 = sample_sha256[0].sample.sha256
                             else:

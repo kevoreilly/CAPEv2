@@ -212,7 +212,6 @@ class GuestManager:
         }
         self.post("/store", files={"file": "\n".join(config)}, data=data)
 
-
     def upload_scripts(self):
         """Upload various scripts such as pre_script and during_scripts."""
         log.info("Task #%s: Uploading script files to guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)

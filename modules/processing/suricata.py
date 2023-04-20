@@ -235,14 +235,7 @@ class Suricata(Processing):
                 if domain:
                     domain_passlist_re.append(domain)
 
-        filter_event_types = {
-            "alert": "",
-            "http": "hostname",
-            "tls": "sni",
-            "dns": "rrname",
-            "ssh": "hostname",
-            "fileinfo": ""
-        }
+        filter_event_types = {"alert": "", "http": "hostname", "tls": "sni", "dns": "rrname", "ssh": "hostname", "fileinfo": ""}
 
         parsed_files = []
         for data in datalist:

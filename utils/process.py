@@ -85,7 +85,14 @@ def get_memory():
 
 
 def process(
-    target=None, sample_sha256=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False, debug: bool = False
+    target=None,
+    sample_sha256=None,
+    task=None,
+    report=False,
+    auto=False,
+    capeproc=False,
+    memory_debugging=False,
+    debug: bool = False,
 ):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.

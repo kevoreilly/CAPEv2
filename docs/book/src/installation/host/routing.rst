@@ -323,11 +323,10 @@ Quick and dirty example of iproute2 configuration for VPN::
             interface = tunX
             rt_table = host1
 
-        Bear in mind that you will need to adjust some values inside of `VPN route script`. Read it!
+Bear in mind that you will need to adjust some values inside of `VPN route script`. Read it!
 
 * `Helper script vpt2cape.py, read code to understand it`_
 * `Example of wireguard integration`_
-* `VPN route script`_
 
 .. _`Helper script, read code to understand it`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/vpn2cape.py
 .. _`Example of wireguard integration`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html

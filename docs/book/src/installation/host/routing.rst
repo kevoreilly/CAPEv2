@@ -410,7 +410,7 @@ Then start the VPN: ``wg-quick up wg1``. If all goes well you can run wg and see
     curl https://ifconfig.me/
     curl --interface wg1 https://ifconfig.me/
 
-Example snippet from ``/opt/CAPEv2/conf/routing.conf`` configuration:
+Example snippet from ``/opt/CAPEv2/conf/routing.conf`` configuration::
 
     [vpn0]
     name = vpn0

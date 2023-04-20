@@ -2526,7 +2526,7 @@ class Database(object, metaclass=Singleton):
                     session = self.Session()
                 db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
                 if db_sample is not None:
-                    path = (os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256),)
+                    path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
                     if path_exists(path):
                         sample = [path]
 

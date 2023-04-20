@@ -1133,7 +1133,6 @@ function install_CAPE() {
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
-    mkdir -p "/opt/CAPEv2/custom/conf"
     cd "/opt/CAPEv2/" || return
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
@@ -1143,23 +1142,22 @@ function install_CAPE() {
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
-    cp -r conf/*.conf "custom/conf"
-    sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" custom/conf/cuckoo.conf
-    # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf
-    # sed -i "/memory_dump = off/cmemory_dump = on" custom/conf/cuckoo.conf
-    # sed -i "/machinery =/cmachinery = kvm" custom/conf/cuckoo.conf
-    sed -i "/interface =/cinterface = ${NETWORK_IFACE}" custom/conf/auxiliary.conf
+    sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" conf/cuckoo.conf
+    # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" conf/routing.conf
+    # sed -i "/memory_dump = off/cmemory_dump = on" conf/cuckoo.conf
+    # sed -i "/machinery =/cmachinery = kvm" conf/cuckoo.conf
+    sed -i "/interface =/cinterface = ${NETWORK_IFACE}" conf/auxiliary.conf
 
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
 	# default is enabled, so we only need to disable it
 	if [ "$MONGO_ENABLE" -lt 1 ]; then
-		crudini --set custom/conf/reporting.conf mongodb enabled no
+		crudini --set conf/reporting.conf mongodb enabled no
 	fi
 
 	if [ "$librenms_enable" -ge 1 ]; then
-		crudini --set custom/conf/reporting.conf litereport enabled yes
-		crudini --set custom/conf/reporting.conf runstatistics enabled yes
+		crudini --set conf/reporting.conf litereport enabled yes
+		crudini --set conf/reporting.conf runstatistics enabled yes
 	fi
 
     python3 utils/community.py -waf -cr

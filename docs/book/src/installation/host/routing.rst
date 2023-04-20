@@ -326,10 +326,8 @@ Quick and dirty example of iproute2 configuration for VPN::
 Bear in mind that you will need to adjust some values inside of `VPN route script`_. Read it!
 
 * `Helper script vpt2cape.py, read code to understand it`_
-* `Example of wireguard integration`_
 
 .. _`Helper script, read code to understand it`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/vpn2cape.py
-.. _`Example of wireguard integration`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html
 .. _`VPN route script`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/route.py
 
 VPN persistence & auto-restart `source`_::
@@ -367,6 +365,66 @@ VPN persistence & auto-restart `source`_::
 .. _`source`: https://www.ivpn.net/knowledgebase/linux/linux-autostart-openvpn-in-systemd-ubuntu/
 
 .. _routing_socks:
+
+Wireguard VPN
+^^^^^^^^^^^^^
+
+Setup Wireguard
+===============
+
+* `Original blogpost on how to setup WireGuard with CAPE`_
+
+Install wireguard::
+
+    ``sudo apt install wireguard``
+
+Download Wireguard configurations from your VPN provider and copy them into ``/etc/wireguard/wgX.conf``. E.g.::
+
+    /etc/wireguard/wg1.conf
+    /etc/wireguard/wg2.conf
+    /etc/wireguard/wg3.conf
+
+Each configuration is for a different exit destination.
+
+An example config for wg1.conf::
+
+    # VPN-exit-CC
+    [Interface]
+    PrivateKey = <REMOVED>
+    Address = xxx.xxx.xxx.xxx/32
+    Table = 420
+
+    # Following 2 lines added in attempt to allow local traffic
+    PreUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o %i -j MASQUERADE
+    PreDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o %i -j MASQUERADE
+
+    [Peer]
+    PublicKey = <REMOVED>
+    AllowedIPs = 0.0.0.0/0
+    Endpoint = xxx.xxx.xxx.xxx:51820
+
+The only changes I made to the original file from my VPN provider was adding ``Table = 420`` and the ``PreUp`` and ``PreDown`` lines to configure iptables.
+
+Then start the VPN: ``wg-quick up wg1``. If all goes well you can run wg and see that the tunnel is active. If you want to test it’s working I suggest::
+
+    curl https://ifconfig.me/
+    curl --interface wg1 https://ifconfig.me/
+
+Configure Cuckoo Routing
+Read this file carefully. If you don’t understand this, read it again. The prerequisites that apply to our setup are here. Once that’s done, configure the VPN routing applicable to each Wireguard interface you setup.
+
+Example snippet from ``/opt/CAPEv2/conf/routing.conf`` configuration:
+
+    [vpn0]
+    name = vpn0
+    description = vpn_CC_wg1
+    interface = wg1
+    rt_table = wg1
+
+.. note:: It is required to register each VPN network interface with iproute2
+    as described in the :ref:`routing_iproute2` section. Check quick and dirty note in original VPN secttion.
+
+.. _`Original blogpost on how to setup WireGuard with CAPE`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html
 
 SOCKS Routing
 ^^^^^^^^^^^^^

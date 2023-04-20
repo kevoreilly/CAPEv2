@@ -118,7 +118,6 @@ cat << EndOfHelp
         librenms_sneck_config - print the sneck config for use with LibreNMS
         prometheus - Install Prometheus and Grafana
         die - Install Detect It Easy
-        unautoit - Install UnAutoIt
         node_exporter - Install node_exporter to report data to Prometheus+Grafana, only on worker servers
         jemalloc - Install jemalloc, required for CAPE to decrease memory usage
             Details: https://zapier.com/engineering/celery-python-jemalloc/
@@ -1292,13 +1291,6 @@ function install_DIE() {
     dpkg -i DIE.deb
 }
 
-function install_UnAutoIt() {
-    cd /opt/CAPEv2/data/
-    snap install go --classic
-    git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt
-    GOOS="linux" GOARCH="amd64" go build -o UnAutoIt
-}
-
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 
@@ -1431,8 +1423,6 @@ case "$COMMAND" in
     install_crowdsecurity;;
 'die')
     install_DIE;;
-'unautoit')
-    install_UnAutoIt;;
 *)
     usage;;
 esac

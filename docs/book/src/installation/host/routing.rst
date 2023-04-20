@@ -308,11 +308,30 @@ Configuration for a single VPN looks roughly as follows::
 .. note:: It is required to register each VPN network interface with iproute2
     as described in the :ref:`routing_iproute2` section.
 
-* `Helper script, read code to understand it`_
+Quick and dirty example of iproute2 configuration for VPN::
+
+    Example:
+        /etc/iproute2/rt_tables
+            5 host1
+            6 host2
+            7 host3
+
+        conf/routing.conf
+            [vpn5]
+            name = X.ovpn
+            description = X
+            interface = tunX
+            rt_table = host1
+
+        Bear in mind that you will need to adjust some values inside of `VPN route script`. Read it!
+
+* `Helper script vpt2cape.py, read code to understand it`_
 * `Example of wireguard integration`_
+* `VPN route script`
 
 .. _`Helper script, read code to understand it`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/vpn2cape.py
 .. _`Example of wireguard integration`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html
+.. _`VPN route script`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/route.py
 
 VPN persistence & auto-restart `source`_::
 
@@ -356,6 +375,8 @@ You also can use socks proxy servers to route your traffic.
 To manage your socks server you can use Socks5man software.
 Building them by yourself, using your favorite software, bying, etc
 The configuration is pretty simple and looks like VPN, but you don't need to configure anything else
+
+Requires to install dependency: ``poetry run pip install git+https://github.com/CAPESandbox/socks5man``
 
 Example::
 

@@ -1,3 +1,6 @@
+### [21.4.2023]
+* Monitor updates: Misc fixes (see capemon repo) & hooks for CreateProcessA/W to reduce noise
+
 ### [6.4.2023]
 * Monitor update: Add hook for WinExec()
 

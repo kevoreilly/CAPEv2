@@ -36,6 +36,7 @@ try:
         init_routing,
         init_tasks,
         init_yara,
+        check_tcpdump_permissions,
     )
 
     bson  # Pretend like it's actually being used (for static checkers.)
@@ -82,6 +83,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     init_yara()
     init_rooter()
     init_routing()
+    check_tcpdump_permissions()
 
     # This is just a temporary hack, we need an actual test suite to integrate
     # with Travis-CI.

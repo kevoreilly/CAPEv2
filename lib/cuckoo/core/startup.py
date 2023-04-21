@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import copy
+import grp
 import getpass as gt
 import logging
 import logging.handlers
@@ -47,6 +48,7 @@ cuckoo = Config()
 logconf = Config("logging")
 routing = Config("routing")
 repconf = Config("reporting")
+auxconf = Config("auxiliary")
 dist_conf = Config("distributed")
 
 
@@ -520,3 +522,30 @@ def init_routing():
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
             rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)
+
+
+def check_tcpdump_permissions():
+
+    tcpdump = auxconf.sniffer.get("tcpdump", "/usr/sbin/tcpdump")
+
+    user = False
+    with suppress(Exception):
+        user = gt.getuser()
+
+    pcap_permissions_error = False
+    if user:
+        try:
+            if user not in grp.getgrnam("pcap").gr_mem:
+                pcap_permissions_error = True
+        except KeyError:
+            log.error('Group somegrp does not exist.')
+            pcap_permissions_error = True
+
+    if pcap_permissions_error:
+        print(f"""\nPcap generation wan't work till you fix the permission problems. Please run following command to fix it!
+            groupadd pcap
+            usermod -a -G pcap {user}
+            chgrp pcap {tcpdump}
+            setcap cap_net_raw,cap_net_admin=eip {tcpdump}
+            """
+        )

@@ -538,7 +538,7 @@ def check_tcpdump_permissions():
             if user not in grp.getgrnam("pcap").gr_mem:
                 pcap_permissions_error = True
         except KeyError:
-            log.error("Group somegrp does not exist.")
+            log.error("Group pcap does not exist.")
             pcap_permissions_error = True
 
     if pcap_permissions_error:

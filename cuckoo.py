@@ -27,6 +27,7 @@ try:
     from lib.cuckoo.core.startup import (
         check_configs,
         check_linux_dist,
+        check_tcpdump_permissions,
         check_webgui_mongo,
         check_working_directory,
         create_structure,
@@ -36,7 +37,6 @@ try:
         init_routing,
         init_tasks,
         init_yara,
-        check_tcpdump_permissions,
     )
 
     bson  # Pretend like it's actually being used (for static checkers.)

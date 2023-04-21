@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import copy
-import grp
 import getpass as gt
+import grp
 import logging
 import logging.handlers
 import os
@@ -538,11 +538,12 @@ def check_tcpdump_permissions():
             if user not in grp.getgrnam("pcap").gr_mem:
                 pcap_permissions_error = True
         except KeyError:
-            log.error('Group somegrp does not exist.')
+            log.error("Group somegrp does not exist.")
             pcap_permissions_error = True
 
     if pcap_permissions_error:
-        print(f"""\nPcap generation wan't work till you fix the permission problems. Please run following command to fix it!
+        print(
+            f"""\nPcap generation wan't work till you fix the permission problems. Please run following command to fix it!
             groupadd pcap
             usermod -a -G pcap {user}
             chgrp pcap {tcpdump}

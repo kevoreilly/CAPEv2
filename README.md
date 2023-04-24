@@ -5,7 +5,7 @@ It was derived from Cuckoo with the goal of adding automated malware unpacking a
 
 There is a free community instance online that anyone can use:
 
-https://capesandbox.com
+https://capesandbox.com - For account activation reach to https://twitter.com/capesandbox. 
 
 Although config and payload extraction was the original stated goal, it was the development of the debugger in CAPE that first inspired the project: in order to extract configs or unpacked payloads from arbitrary malware families without relying on process dumps (which sooner or later the bad guys will thwart), instruction-level monitoring and control is necessary. The novel debugger in CAPE follows the principle of maximising the use of processor hardware and minimising (almost completely) the use of Windows debugging interfaces, allowing malware to be stealthily instrumented and manipulated from the entry point with hardware breakpoints programmatically set during detonation by Yara signatures or API calls. This allows instruction traces to be captured, or actions to be performed such as control flow manipulation or dumping of a memory region.
 

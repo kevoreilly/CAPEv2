@@ -1,3 +1,6 @@
+import "pe"
+import "string"
+
 rule QakBot
 {
     meta:
@@ -39,4 +42,17 @@ rule QakBotAntiVM
         $antivm1 = {55 8B EC 3A E4 0F [2] 00 00 00 6A 04 58 3A E4 0F [2] 00 00 00 C7 44 01 [5] 81 44 01 [5] 66 3B FF 74 ?? 6A 04 58 66 3B ED 0F [2] 00 00 00 C7 44 01 [5] 81 6C 01 [5] EB}
     condition:
         all of them
+}
+
+rule export_address_jmp {
+     condition:
+        for 1 export in pe.export_details: 
+        (
+            (
+                (uint8(export.offset) == 0xe9 and uint8(export.offset + 4) == 0x00) or 
+                uint8(export.offset) == 0xeb
+            )
+            and string.length(export.name) == 4 
+            //and console.log("the export name is: ", export.name)
+        )
 }

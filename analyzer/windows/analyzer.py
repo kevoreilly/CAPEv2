@@ -1081,7 +1081,7 @@ class CommandPipeHandler:
             # SW_HIDE
             si.wShowWindow = 0
             subprocess.call(f"sc config {servname.decode()} type= own", startupinfo=si)
-            log.info('Announced starting service "%s"', servname)
+            log.info('Announced starting service "%s"', servname.decode())
             if not self.analyzer.MONITORED_SERVICES:
                 # Inject into services.exe so we can monitor service creation
                 # if tasklist previously failed to get the services.exe PID we'll be

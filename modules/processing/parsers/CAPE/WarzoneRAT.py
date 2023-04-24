@@ -15,6 +15,10 @@ import struct
 from contextlib import suppress
 
 import pefile
+from Crypto.Cipher import ARC4
+
+import logging
+log = logging.getLogger()
 
 DESCRIPTION = "WarzoneRAT configuration extractor."
 AUTHOR = "enzo"
@@ -32,6 +36,11 @@ def ksa(key: bytearray) -> bytearray:
         sbox[j] ^= sbox[i] & 0xFF
         sbox[i] ^= sbox[j] & 0xFF
     return sbox
+
+
+def decrypt_rc4(key, data):
+    cipher = ARC4.new(key)
+    return cipher.decrypt(data)
 
 
 def decrypt(sbox: bytearray, src_buf: bytearray) -> bytes:
@@ -79,11 +88,23 @@ def extract_config(data):
     key = bytearray(250)
     bss_data = extract_bss_data(pe)
     key_size = struct.unpack("i", bss_data[:4])[0]
+    log.info("key size: %d", key_size)
     key_bytes = bss_data[4 : 4 + key_size]
-    for k in range(len(key_bytes)):
+    for k in range(key_size):
         key[k] = key_bytes[k]
     etxt = bss_data[4 + key_size : 260 + key_size]
+    log.info("encrypted: %s", etxt)
+
     dtxt = decrypt(ksa(key), bytearray(etxt))
+    log.info("1st decrypt: %s", dtxt)
+
+    ctxt = bss_data[4+key_size:]
+    ctxt = ctxt.split(b'\x00\x00\x00\x00\x00\x00\x00\x00')[0]
+
+    #log.info("encrypted2: %s", ctxt)
+    #dtxt = decrypt_rc4(key_bytes, ctxt)
+    #log.info("2nd decrypt: %s", dtxt)
+
 
     offset = 4
     c2_size = struct.unpack("i", dtxt[:offset])[0]

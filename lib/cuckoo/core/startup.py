@@ -37,9 +37,9 @@ try:
 
     HAVE_YARA = True
     if not int(yara.__version__[0]) >= 4:
-        raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
+        raise ImportError("Missed library: poetry run pip install yara-python>=4.0.0 -U")
 except ImportError:
-    print("Missed library: pip3 install yara-python>=4.0.0 -U")
+    print("Missed library: poetry run pip install yara-python>=4.0.0 -U")
     HAVE_YARA = False
 
 log = logging.getLogger()

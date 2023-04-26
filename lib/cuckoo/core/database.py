@@ -47,7 +47,7 @@ try:
 
     Base = declarative_base()
 except ImportError:
-    raise CuckooDependencyError("Unable to import sqlalchemy (install with `pip3 install sqlalchemy`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry run pip install sqlalchemy`)")
 
 
 sandbox_packages = (

@@ -31,7 +31,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 try:
     import pyzipper
 except ImportError:
-    sys.exti("Missed pyzipper dependency: pip3 install pyzipper -U")
+    sys.exti("Missed pyzipper dependency: poetry run pip install pyzipper -U")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -108,7 +108,7 @@ failed_clean_enabled = False
 
 
 def required(package):
-    sys.exit("The %s package is required: pip3 install %s" % (package, package))
+    sys.exit("The %s package is required: poetry run pip install %s" % (package, package))
 
 
 try:

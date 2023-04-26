@@ -8,7 +8,7 @@ To see the current hosted REST API documentation head to ``/apiv2/``. You will f
 
 To enable the REST API, we use `django-rest-framework`::
 
-    $ pip3 install djangorestframework
+    $ poetry run pip install djangorestframework
 
 .. _`django-rest-framework`: https://www.django-rest-framework.org
 

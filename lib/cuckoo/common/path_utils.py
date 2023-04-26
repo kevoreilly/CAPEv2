@@ -45,6 +45,7 @@ def path_exists(path: str, windows: bool = False) -> bool:
 def path_get_size(path: str):
     return Path(path_to_ascii(path)).stat().st_size
 
+
 def path_get_date(path: str, value: str = "st_ctime"):
     return getattr(Path(path_to_ascii(path)).stat(), value)
 

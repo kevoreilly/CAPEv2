@@ -18,7 +18,7 @@ sys.path.append(CUCKOO_ROOT)
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_is_dir, path_get_date
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
@@ -531,6 +531,7 @@ def cape_clean_tlp():
     tlp_tasks = db.get_tlp_tasks()
     resolver_pool.map(lambda tid: delete_data(tid), tlp_tasks)
 
+
 def binaries_clean_before_day(args):
     # In case if "delete_bin_copy = off" we might need to clean binaries
     # find storage/binaries/ -name "*" -type f -mtime 5 -delete
@@ -647,7 +648,6 @@ if __name__ == "__main__":
     if args.delete_older_than_days:
         cuckoo_clean_before_day(args)
         sys.exit(0)
-
 
     if args.pcap_sorted_clean:
         cuckoo_clean_sorted_pcap_dump()

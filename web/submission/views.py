@@ -364,7 +364,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["errors"].append({os.path.basename(filename): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
-                    if web_conf.general.get("existent_tasks", False):
+                    if web_conf.web_reporting.get("enabled", False) and web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", hash, search_limit=5)
                         for record in records or []:
                             existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)

@@ -92,7 +92,7 @@ You can install CAPE's dependencies with the traditional. However, we recommend 
 
 To install dependencies with poetry, execute the following command (from the main working directory of CAPE, usually ``/opt/CAPEv2/``)::
 
-    $ sudo poetry install
+    $ poetry install
 
 Once the installation is done, you can confirm a virtual environment has been created with::
 

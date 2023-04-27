@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--vm-name",
         default="",
-        help="VM name to load VM config from conf/<machinery>.conf, name that you have between []. Ex: [cape_vm1]. Specify only cape_vm2",
+        help="VM name to load VM config from conf/<machinery>.conf, name that you have between []. Ex: [cape_vm1]. Specify only cape_vm1",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()

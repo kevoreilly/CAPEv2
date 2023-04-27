@@ -1,12 +1,9 @@
 #!/bin/bash
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
-
-# Copyright (C) 2011-2021 DoomedRaven.
-# This file is part of Tools - https://github.com/doomedraven/Tools
+# Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
 
 # Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne
-
 
 # Static values
 # Where to place everything

@@ -31,7 +31,7 @@ def send_socket_command(socket_path: str, command: str, *args, **kwargs):
         try:
             s.connect(socket_path.encode())
         except socket.error as e:
-            log.critical("Unable to passthrough root command as we're unable to connect to the fstab unix socket: %s", e)
+            log.critical("Unable to passthrough root command as we're unable to connect to the unix socket: %s", e)
             return
 
         s.send(

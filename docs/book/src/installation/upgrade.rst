@@ -57,8 +57,8 @@ The following steps are suggested as a requirement to migrate your data:
 
 Now setup Alembic (the framework used for migrations) and dateutil with::
 
-    pip3 install alembic
-    pip3 install python-dateutil
+    poetry run pip install alembic
+    poetry run pip install python-dateutil
 
 Enter the alembic migration directory in "utils/db_migration" with::
 
@@ -81,8 +81,8 @@ Python library upgrades:
 
 PIP3:
 
-   $ pip3 install -U <library>
+   $ poetry run pip install -U <library>
 
 PIP3+git:
-   $ pip3 install -U git+<repo_url>
-   $ pip3 install -U git+https://github.com/doomedraven/sflock
+   $ poetry run pip install -U git+<repo_url>
+   $ poetry run pip install -U git+https://github.com/doomedraven/sflock

@@ -18,7 +18,7 @@ sys.path.append(CUCKOO_ROOT)
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_is_dir
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
@@ -532,6 +532,28 @@ def cape_clean_tlp():
     resolver_pool.map(lambda tid: delete_data(tid), tlp_tasks)
 
 
+def binaries_clean_before_day(args):
+    # In case if "delete_bin_copy = off" we might need to clean binaries
+    # find storage/binaries/ -name "*" -type f -mtime 5 -delete
+
+    days = args.delete_binaries_items_older_than_days
+    today = datetime.today()
+    binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
+    if not path_exists(binaries_folder):
+        log.error("Binaries folder doesn't exist")
+        return
+
+    for _, _, filenames in os.walk(binaries_folder):
+        for sha256 in filenames:
+            bin_path = os.path.join(binaries_folder, sha256)
+            st_ctime = path_get_date(bin_path)
+            file_time = today - datetime.fromtimestamp(st_ctime)
+            if file_time.days > days:
+                # ToDo check database here to ensure that file is not used
+                if path_exists(bin_path) and not db.sample_still_used(sha256, 0):
+                    path_delete(bin_path)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -569,7 +591,13 @@ if __name__ == "__main__":
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
     parser.add_argument(
         "--delete-tmp-items-older-than-days",
-        help="Remove all items in tmp folder older than X number of days",
+        help="Remove all items in tmp folder older than X days",
+        type=int,
+        required=False,
+    )
+    parser.add_argument(
+        "--delete-binaries-items-older-than-days",
+        help="Remove all items in binaries folder older than X days",
         type=int,
         required=False,
     )
@@ -647,4 +675,8 @@ if __name__ == "__main__":
 
     if args.delete_tmp_items_older_than_days:
         tmp_clean_before_day(args)
+        sys.exit(0)
+
+    if args.delete_binaries_items_older_than_days:
+        binaries_clean_before_day(args)
         sys.exit(0)

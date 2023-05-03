@@ -27,6 +27,7 @@ try:
     from lib.cuckoo.core.startup import (
         check_configs,
         check_linux_dist,
+        check_tcpdump_permissions,
         check_webgui_mongo,
         check_working_directory,
         create_structure,
@@ -82,6 +83,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     init_yara()
     init_rooter()
     init_routing()
+    check_tcpdump_permissions()
 
     # This is just a temporary hack, we need an actual test suite to integrate
     # with Travis-CI.

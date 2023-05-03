@@ -141,7 +141,7 @@ urlscrub = (^http:\/\/serw\.clicksor\.com\/redir\.php\?url=|&InjectedParam=.+$)
 
 [suricata]
 # Notes on getting this to work check install_suricata function:
-# https://github.com/doomedraven/Tools/blob/master/Sandbox/cape2.sh
+# https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh
 
 enabled = yes
 #Runmode "cli" or "socket"

@@ -82,33 +82,14 @@ def extract_config(data):
     patterns = [pattern, pattern2, pattern3, pattern4, pattern5]
     key = c2 = botnet = base_location = None
 
-    if HAVE_DNFILE:
-        with suppress(Exception):
-            dn = dnfile.dnPE(data=data)
-            for p in patterns:
-                extracted = []
-                for match in p.findall(data):
-                    for item in match:
-                        user_string = dn.net.user_strings.get_us(int.from_bytes(item, "little")).value
-                        if user_string:
-                            extracted.append(user_string)
-                if extracted:
-                    key = extracted[2]
-                    c2 = decrypt(extracted[0], key)
-                    botnet = decrypt(extracted[1], key)
-                    if "." in c2:
-                        break
-            dn.close()
-
-    if not c2 or "." not in c2:
+    user_strings = extract_strings(data=data, on_demand=True)
+    if not user_strings:
         user_strings = dotnet_user_strings(data=data)
-        if not user_strings:
-            user_strings = extract_strings(data=data, on_demand=True)
-        if not user_strings:
-            return
-        with suppress(Exception):
-            base_location = user_strings.index("Yandex\\YaAddon")
+    if not user_strings:
+        return
 
+    with suppress(Exception):
+        base_location = user_strings.index("Yandex\\YaAddon")
         if base_location:
             # newer samples
             with suppress(Exception):
@@ -130,29 +111,49 @@ def extract_config(data):
     base_location = None
     with suppress(Exception):
         base_location = user_strings.index("Authorization")
-    if base_location:
-        # Final fallback
-        if not c2 or "." not in c2:
-            delta = base_location
-            while True:
-                delta += 1
-                if "==" in user_strings[delta]:
-                    c2 = user_strings[delta]
-                    if "=" in user_strings[delta + 1]:
-                        botnet = user_strings[delta + 1]
-                        key = user_strings[delta + 2]
-                    else:
-                        botnet = None
-                        key = user_strings[delta + 1]
-                    c2 = decrypt(c2, key)
-                    if botnet:
-                        botnet = decrypt(botnet, key)
-                    break
+        if base_location:
+            if not c2 or "." not in c2:
+                delta = base_location
+                while True:
+                    delta += 1
+                    if "==" in user_strings[delta]:
+                        c2 = user_strings[delta]
+                        if "=" in user_strings[delta + 1]:
+                            botnet = user_strings[delta + 1]
+                            key = user_strings[delta + 2]
+                            if "=" in key:
+                                key = user_strings[delta + 3]
+                        else:
+                            botnet = None
+                            key = user_strings[delta + 1]
+                        c2 = decrypt(c2, key)
+                        if botnet:
+                            botnet = decrypt(botnet, key)
+                        break
+
+    if not c2 or "." not in c2 and HAVE_DNFILE:
+        with suppress(Exception):
+            dn = dnfile.dnPE(data=data)
+            for p in patterns:
+                extracted = []
+                for match in p.findall(data):
+                    for item in match:
+                        user_string = dn.net.user_strings.get_us(int.from_bytes(item, "little")).value
+                        if user_string:
+                            extracted.append(user_string)
+                if extracted:
+                    key = extracted[2]
+                    c2 = decrypt(extracted[0], key)
+                    botnet = decrypt(extracted[1], key)
+                    if "." in c2:
+                        break
+            dn.close()
 
     if not c2 or "." not in c2:
         return
 
     config_dict = {"C2": c2, "Botnet": botnet, "Key": key}
+    base_location = user_strings.index("Authorization")
     if base_location:
         config_dict["Authorization"] = user_strings[base_location - 1]
 

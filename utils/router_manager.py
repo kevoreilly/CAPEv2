@@ -24,7 +24,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missde dependency: pip3 install psutil")
+    print("Missde dependency: poetry run pip install psutil")
 
 
 def _rooter_response_check(rooter_response):
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--vm-name",
         default="",
-        help="VM name to load VM config from conf/<machinery>.conf, name that you have between []. Ex: [cape_vm1]. Specify only cape_vm2",
+        help="VM name to load VM config from conf/<machinery>.conf, name that you have between []. Ex: [cape_vm1]. Specify only cape_vm1",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()

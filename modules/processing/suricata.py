@@ -249,10 +249,11 @@ class Suricata(Processing):
                 skip_event = False
                 if "event_type" in parsed:
                     event_key = parsed["event_type"]
+                    filter_key = event_key
                     if enabled_passlist and event_key in filter_event_types:
                         if event_key in ("alert", "fileinfo"):
-                            event_key = "http"
-                        search_value = parsed[event_key].get(filter_event_types[event_key], "")
+                            filter_key = "http"
+                        search_value = parsed[event_key].get(filter_event_types[filter_key], "")
 
                         for reject in domain_passlist_re:
                             if re.search(reject, search_value):

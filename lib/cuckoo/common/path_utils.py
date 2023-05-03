@@ -46,6 +46,10 @@ def path_get_size(path: str):
     return Path(path_to_ascii(path)).stat().st_size
 
 
+def path_get_date(path: str, value: str = "st_ctime"):
+    return getattr(Path(path_to_ascii(path)).stat(), value)
+
+
 def path_is_file(path: str) -> bool:
     return Path(path_to_ascii(path)).is_file()
 

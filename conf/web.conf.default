@@ -37,7 +37,7 @@ allow_ignore_size = no
 search_limit = 50
 # Allow anon users to browser site but not submit/download
 anon_viewable = no
-existent_tasks = yes
+existent_tasks = no
 top_detections = yes
 # hostname of the cape instance
 hostname = https://127.0.0.1/
@@ -168,6 +168,8 @@ username =
 password =
 guacd_host = localhost
 guacd_port = 4822
+# Server that exposes the VNC ports (e.g., your KVM host)
+vnc_host = localhost
 # You might need to add your server IP to ALLOWED_HOSTS in web/web/settings.py if it not ["*""]
 # vnc or rdp
 guest_protocol = vnc

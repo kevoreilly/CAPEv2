@@ -47,7 +47,7 @@ try:
 
     Base = declarative_base()
 except ImportError:
-    raise CuckooDependencyError("Unable to import sqlalchemy (install with `pip3 install sqlalchemy`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry run pip install sqlalchemy`)")
 
 
 sandbox_packages = (
@@ -2526,7 +2526,7 @@ class Database(object, metaclass=Singleton):
                     session = self.Session()
                 db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
                 if db_sample is not None:
-                    path = (os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256),)
+                    path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
                     if path_exists(path):
                         sample = [path]
 

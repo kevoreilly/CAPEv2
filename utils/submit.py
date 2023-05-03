@@ -146,7 +146,7 @@ def main():
     if args.url:
         if args.remote:
             if not HAVE_REQUESTS:
-                print((bold(red("Error")) + ": you need to install python-requests (`pip3 install requests`)"))
+                print((bold(red("Error")) + ": you need to install python-requests (`poetry run pip install requests`)"))
                 return False
 
             if args.ssl:
@@ -269,7 +269,7 @@ def main():
 
             if args.remote:
                 if not HAVE_REQUESTS:
-                    print((bold(red("Error")) + ": you need to install python-requests (`pip3 install requests`)"))
+                    print((bold(red("Error")) + ": you need to install python-requests (`poetry run pip install requests`)"))
                     return False
                 if args.ssl:
                     url = "https://{0}/apiv2/tasks/create/file/".format(args.remote)

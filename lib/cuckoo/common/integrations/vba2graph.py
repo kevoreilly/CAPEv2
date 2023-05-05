@@ -44,7 +44,7 @@ lst_mal_case_sensetive = [
     'CreateThread', 'VirtualAlloc', 'VirtualAllocEx', 'RtlMoveMemory',
     'EnumSystemLanguageGroupsW?', u'EnumDateFormats(?:W|(?:Ex){1,2})?',
     'URLDownloadToFileA',  'User-Agent',
-    'Net\.WebClient', 'DownloadFile', 'DownloadString', 
+    'Net\.WebClient', 'DownloadFile', 'DownloadString',
     'SendKeys', 'AppActivate', 'CallByName',
     'RegOpenKeyExAs', 'RegOpenKeyEx', 'RegCloseKey',
     'RegQueryValueExA', 'RegQueryValueEx', 'RegRead',
@@ -189,7 +189,7 @@ color_scheme = color_schemes[0]
 
 if processing_conf.vba2graph.enabled:
     HAVE_VBA2GRAPH = True
-        
+
     try:
         from oletools.olevba import VBA_Parser
         # Temporary workaround. Change when oletools 0.56 will be released.
@@ -210,7 +210,7 @@ def vba2graph_func(file_path: str, id: str, sha256: str, on_demand: bool = False
                 path_mkdir(vba2graph_path)
             vba_code = vba2graph_from_vba_object(file_path)
             if vba_code:
-                vba2graph_gen(vba_code, vba2graph_path)
+                vba2graph_gen(input_vba_content=vba_code, output_folder=vba2graph_path, input_file_name=sha256)
         except Exception as e:
             log.info(e)
 
@@ -226,6 +226,7 @@ def vba2graph_from_vba_object(filepath):
         try:
             vba = VBA_Parser(filepath)
         except Exception as e:
+            log.info(e)
             return False
     full_vba_code = ""
     for (subfilename, stream_path, vba_filename, vba_code) in vba.extract_macros():
@@ -379,13 +380,13 @@ def vba2graph_gen(input_vba_content, output_folder="output", input_file_name="vb
     svg_output_path = svg_folder + os.sep + input_file_name + '.svg'
     process = Popen(['dot', '-Tsvg', dot_output_path, '-o', svg_output_path])
     process.wait()
-    
+
 def vba_seperate_lines(input_vba_content):
     """Takes the full VBA input and breaks it into lines
-    
+
     Args:
         input_vba_content (string): full VBA content
-    
+
     Returns:
         string[]: array of VBA code lines
     """
@@ -400,10 +401,10 @@ def vba_seperate_lines(input_vba_content):
 
 def vba_clean_whitespace(vba_content_lines):
     """Removes unnecessary whitespace from the VBA code
-    
+
     Args:
         vba_content_lines (string[]): Array of VBA code lines
-    
+
     Returns:
         string[]: Array of VBA code lines, without unnecessary whitespace
     """
@@ -426,10 +427,10 @@ def vba_clean_whitespace(vba_content_lines):
 
 def vba_clean_metadata(vba_content_lines):
     """Removes unnecessary comments and metadata from the VBA code
-    
+
     Args:
         vba_content_lines (string[]): VBA code lines without unnecessary whitespace
-    
+
     Returns:
         string[]: VBA code lines without comments and metadata
     """
@@ -477,10 +478,10 @@ def vba_deobfuscation(vba_content_lines):
 
 def vba_extract_functions(vba_content_lines):
     """Seperates the input VBA code into functions
-    
+
     Args:
         vba_content_lines (string[]): VBA code lines without comments, metadata or spaces
-    
+
     Returns:
         dict[func_name]=func_code: Dictionary of VBA functions found
     """
@@ -597,10 +598,10 @@ def vba_extract_functions(vba_content_lines):
 
 def vba_extract_properties(vba_content_lines):
     """Find and extract the use of VBA Properties, in order to obfuscate macros
-    
+
     Args:
         vba_content_lines (string[]): VBA code lines without comments, metadata or spaces
-    
+
     Returns:
         dict[property_name]=property_code: Dictionary of VBA Properties found
     """
@@ -654,10 +655,10 @@ def vba_extract_properties(vba_content_lines):
 
 def create_call_graph(vba_func_dict):
     """Creates directed graph object (DG) from VBA functions dicitonary
-    
+
     Args:
         vba_func_dict (dict[func_name]=func_code): Functions dictionary
-    
+
     Returns:
         networkx.DiGraph: Directed Graph (DG) representing VBA call graph
     """
@@ -698,11 +699,11 @@ def create_call_graph(vba_func_dict):
 
 def find_keywords_in_graph(vba_func_dict, DG):
     """Find and highlight possible malicious keywords in graph
-    
+
     Args:
         vba_func_dict (dict[func_name]=func_code): Functions dictionary
         DG (networkx.DiGraph): Generated directed graph
-    
+
     Returns:
         networkx.DiGraph: Directed Graph with keywords highlighted in red
     """
@@ -746,7 +747,7 @@ def find_keywords_in_graph(vba_func_dict, DG):
             if DG.nodes[func_name]["keywords"] != "":
                 DG.nodes[func_name]["keywords"] = DG.nodes[func_name]["keywords"] + ","
 
-            DG.nodes[func_name]["keywords"] = DG.nodes[func_name]["keywords"] + "<font color='" + keyword_color + "'>" + dic_key + "[" + str(keyword_count) + "]" + "</font>" 
+            DG.nodes[func_name]["keywords"] = DG.nodes[func_name]["keywords"] + "<font color='" + keyword_color + "'>" + dic_key + "[" + str(keyword_count) + "]" + "</font>"
 
         # handle autorun keywords
         keywords_re = "(" + ")|(".join(lst_autorun) + ")"
@@ -759,11 +760,11 @@ def find_change_flow(vba_func_dict, DG):
     """Finds alternative macros call flow that is utilized by malicious macros:
     A _Change event is created for an object, and then the object text is changed using code.
     This creates a dummy call flow without explicitly calling a function.
-    
+
     Args:
         vba_func_dict (dict[func_name]=func_code): Functions dictionary
         DG (networkx.DiGraph): Generated directed graph
-    
+
     Returns:
         networkx.DiGraph: Directed Graph with highlighted Change triggers
     """
@@ -796,10 +797,10 @@ def find_change_flow(vba_func_dict, DG):
 
 def design_graph_dot(DG):
     """Select the design of regular graph nodes (colors and content)
-    
+
     Args:
         DG (networkx.DiGraph): Generated directed graph
-    
+
     Returns:
         networkx.DiGraph: Directed Graph with node design and content
     """
@@ -841,7 +842,7 @@ def design_graph_dot(DG):
 
 def create_functions_listing(function_dict, code_output_path):
     """Creates a .bas file with a listing of all the recognized VBA functions
-    
+
     Args:
         function_dict (func_dict[func_name]=func_code): Functions dictionary
         code_output_path (string): Listing output path

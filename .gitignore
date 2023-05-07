@@ -9,7 +9,7 @@ __pycache__/
 .cache/
 .local/
 .env/
-
+.vscode
 env/
 tests/test_objects/
 log/

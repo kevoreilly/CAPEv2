@@ -52,6 +52,6 @@ class PUB(Package):
 
     def start(self, path):
         self.set_keys()
-        publisher = self.get_path_glob("Microsoft Office Publisher")
+        publisher = self.get_path_glob("MSPUB.EXE")
         path = check_file_extension(path, ".pub")
         return self.execute(publisher, f'"{path}"', path)

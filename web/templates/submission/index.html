@@ -228,7 +228,11 @@ $(document).ready( function() {
                                             <option value="internet"{% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
                                         {% endif %}}
                                         {% if random_route %}
-                                            <option value="{{random_route}}" selected>{{random_route}}</option>
+                                            {% if random_route.type == "SOCKS5" %}
+                                            <option value="{{ random_route.name }}" selected hidden>[RANDOM] {{ random_route.name }} - {{ random_route.host }}:{{ random_route.port }} ({{ random_route.type }})</option>
+                                            {% else %}
+                                            <option value="{{ vpn.name }}" selected hidden>[RANDOM] {{ vpn.description }} ({{ vpn.interface }}, {{ vpn.type }})</option>
+                                            {% endif %}
                                         {% endif %}
                                         {% if inetsim %}
                                             <option value="inetsim">inetsim/fakenet-ng</option>
@@ -237,11 +241,11 @@ $(document).ready( function() {
                                             <option value="tor">tor</option>
                                         {% endif %}
                                         {% for vpn in vpns %}
-                                            <option value="{{ vpn.name }}">{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
+                                            <option value="{{ vpn.name }}">{{ vpn.description }} ({{ vpn.interface }}, {{ vpn.type }})</option>
                                         {% endfor %}
 
-                                        {% for socks5 in socks5s|dictsort:"0.lower" %}
-                                            <option value="{{ socks5.name }}">{{ socks5.description }} (socks5)</option>
+                                        {% for socks5 in socks5s %}
+                                            <option value="{{ socks5.name }}">{{ socks5.name }} - {{ socks5.host }}:{{ socks5.port }} ({{ socks5.type }})</option>
                                         {% endfor %}
                                         {% if all_exitnodes %}
                                             {% for route_name in all_exitnodes %}
@@ -612,6 +616,11 @@ $(document).ready( function() {
                             <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="unpacker" /> 'Active' unpacking <span class="text-muted"><small>(uses debugger breakpoints) </small></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <label>
+                                    <input type="checkbox" name="syscall" /> Syscall hooks <span class="text-muted"><small>(Beta - Windows 10+) </small></span>
                                 </label>
                             </div>
                             <div class="form-check">

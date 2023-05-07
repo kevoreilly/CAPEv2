@@ -3,10 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
-
-processing_conf = Config("processing")
 
 
 class UrlAnalysis(Processing):
@@ -21,6 +18,6 @@ class UrlAnalysis(Processing):
         target_info = {}
         if self.task["category"] == "url":
             target_info["url"] = self.task["target"]
-            if HAVE_WHOIS and processing_conf.url_analysis.whois:
+            if HAVE_WHOIS and self.options.whois:
                 self.results["url"] = URL(self.task["target"]).run()
         return target_info

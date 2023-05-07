@@ -116,7 +116,7 @@
         <tr>
             <th>SHA256</th>
             <td style="word-wrap: break-word;">{{sub_file.sha256}}
-                <a href="https://www.virustotal.com/gui/file/{{subfile.sha256}}/" style="color: #e74c3c">[VT]</a>
+                <a href="https://www.virustotal.com/gui/file/{{sub_file.sha256}}/" style="color: #e74c3c">[VT]</a>
                 <a href="https://mwdb.cert.pl/file/{{sub_file.sha256}}" style="color: #e74c3c">[MWDB]</a>
                 <a href="https://bazaar.abuse.ch/sample/{{sub_file.sha256}}/" style="color: #e74c3c">[Bazaar]</a>
             </td>
@@ -267,6 +267,9 @@
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                     {% endif %}
                 {% endif %}
+                {% if sub_file.dotnet_strings %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#dotnet_strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> DotNet Strings</a>
+                {% endif %}
                 {% if config.floss %}
                     {% if not sub_file.floss %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "floss" id "static" sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate floss strings"><span class="fas fa-cogs"></span> Floss</a>
@@ -347,6 +350,19 @@
                 <div class="collapse" id="strings_{{sub_file.sha256}}">
                     <div>
                     {{sub_file.strings|safe}}
+                    </div>
+                </div>
+            </td>
+            </tr>
+        {% endif %}
+        {% if sub_file.dotnet_strings %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="dotnet_strings_{{file.sha256}}">
+                    <div>
+                    {% for string in sub_file.dotnet_strings %}
+                        <div>{{string|safe}}</div>
+                    {% endfor %}
                     </div>
                 </div>
             </td>

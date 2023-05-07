@@ -171,7 +171,7 @@ Importing instruction traces into disassembler
 .. code-block:: bash
 
     1 Install lighthouse plugin from
-        pip3 install git+https://github.com/kevoreilly/lighthouse
+        poetry run pip install git+https://github.com/kevoreilly/lighthouse
     2 Load payload into IDA
     3 Check image base matches that from debugger log (if not rebase)
     4 Go to File -> Load File -> Code coverage file and load debugger logfile (ignore any warnings - any address outside image base causes these)

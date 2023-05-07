@@ -4,6 +4,7 @@
 
 import logging
 import os
+import re
 from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
@@ -64,14 +65,14 @@ def get_json_document(results, analysis_path):
     report["shots"] = []
     shots_path = os.path.join(analysis_path, "shots")
     if path_exists(shots_path):
-        shots = [shot for shot in os.listdir(shots_path) if shot.endswith(".jpg")]
+        shots = [shot for shot in os.listdir(shots_path) if shot.endswith((".jpg", ".png"))]
         for shot_file in sorted(shots):
             shot_path = os.path.join(analysis_path, "shots", shot_file)
             screenshot = File(shot_path)
             if screenshot.valid():
                 # Strip the extension as it's added later
                 # in the Django view
-                report["shots"].append(shot_file.replace(".jpg", ""))
+                report["shots"].append(re.sub(r"\.(png|jpg)$", "", shot_file))
 
     # Calculate the mlist_cnt for display if present to reduce db load
     for entry in results.get("signatures", []) or []:

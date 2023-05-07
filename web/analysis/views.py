@@ -31,7 +31,7 @@ sys.path.append(settings.CUCKOO_PATH)
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_safe
+from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
@@ -43,7 +43,7 @@ except ImportError:
     try:
         from ratelimit.decorators import ratelimit
     except ImportError:
-        print("missed dependency: pip3 install django-ratelimit -U")
+        print("missed dependency: poetry run pip install django-ratelimit -U")
 
 from lib.cuckoo.common.admin_utils import disable_user
 
@@ -64,7 +64,7 @@ try:
 
     HAVE_PYZIPPER = True
 except ImportError:
-    print("Missed dependency: pip3 install pyzipper -U")
+    print("Missed dependency: poetry run pip install pyzipper -U")
     HAVE_PYZIPPER = False
 
 TASK_LIMIT = 25
@@ -160,6 +160,7 @@ anon_not_viewable_func_list = (
     "search_behavior",
     "statistics_data",
 )
+
 
 # Conditional decorator for web authentication
 class conditional_login_required:
@@ -606,7 +607,6 @@ def load_files(request, task_id, category):
                 sha256_blocks = data.get(category, [])
 
         if (enabledconf["vba2graph"] or enabledconf["bingraph"]) and sha256_blocks:
-
             for block in sha256_blocks or []:
                 if not block.get("sha256"):
                     continue
@@ -1533,6 +1533,11 @@ def report(request, task_id):
                 continue
             existent_tasks[record["info"]["id"]] = record.get("detections")
 
+    # process log per task if enabled:
+    process_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "process.log")
+    if web_cfg.general.expose_process_log and path_exists(process_log_path) and path_get_size(process_log_path):
+        report["process_log"] = path_read_file(process_log_path, mode="text")
+
     return render(
         request,
         "analysis/report.html",
@@ -1564,22 +1569,25 @@ def report(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def file_nl(request, category, task_id, dlfile):
-    file_name = dlfile
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
     path = False
     if category == "screenshot":
-        file_name += ".jpg"
-        path = os.path.join(base_path, "shots", file_name)
-        cd = "image/jpeg"
+        for ext, cd in ((".jpg", "image/jpeg"), (".png", "image/png")):
+            file_name = dlfile + ext
+            path = os.path.join(base_path, "shots", file_name)
+            if path_exists(path):
+                break
+        else:
+            return render(request, "error.html", {"error": f"Could not find screenshot {dlfile}"})
 
     elif category == "bingraph":
-        path = os.path.join(base_path, "bingraph", file_name + "-ent.svg")
-        file_name += "-ent.svg"
+        file_name = dlfile + "-ent.svg"
+        path = os.path.join(base_path, "bingraph", file_name)
         cd = "image/svg+xml"
 
     elif category == "vba2graph":
-        path = os.path.join(base_path, "vba2graph", f"{file_name}.svg")
-        file_name = f"{file_name}.svg"
+        file_name = f"{dlfile}.svg"
+        path = os.path.join(base_path, "vba2graph", file_name)
         cd = "image/svg+xml"
 
     else:
@@ -1835,7 +1843,6 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def filereport(request, task_id, category):
-
     # check if allowed to download to all + if no if user has permissions
     if not settings.ALLOW_DL_REPORTS_TO_ALL and (
         request.user.is_anonymous
@@ -1901,7 +1908,6 @@ def full_memory_dump_file(request, analysis_number):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_strings(request, analysis_number):
-
     filename = None
     for name in ("memory.dmp.strings", "memory.dmp.strings.zip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), name)

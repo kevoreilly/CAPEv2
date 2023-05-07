@@ -56,7 +56,9 @@ class Sniffer(Auxiliary):
         # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
         mode = os.stat(tcpdump).st_mode
         if mode & S_ISUID:
-            log.error("Tcpdump is not accessible from this user network capture aborted")
+            log.error(
+                "Tcpdump is not accessible from this user network capture aborted. You probably need to add CAPE user to pcap group"
+            )
             return
 
         if not interface:
@@ -65,7 +67,7 @@ class Sniffer(Auxiliary):
 
         pargs = [tcpdump, "-U", "-q", "-s", "0", "-i", interface, "-n"]
 
-        # Trying to save pcap with the same user which cuckoo is running.
+        # Trying to save pcap with the same user which cape is running.
         try:
             user = getpass.getuser()
         except Exception:

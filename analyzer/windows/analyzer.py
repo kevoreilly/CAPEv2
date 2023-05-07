@@ -48,9 +48,6 @@ from modules import auxiliary
 
 log = logging.getLogger()
 
-INJECT_CREATEREMOTETHREAD = 0
-INJECT_QUEUEUSERAPC = 1
-
 BUFSIZE = 512
 FILES_LIST_LOCK = Lock()
 FILES_LIST = []
@@ -845,7 +842,8 @@ class ProcessList:
         """Add one or more process identifiers to the process list."""
         if isinstance(pids, (tuple, list)):
             for pid in pids:
-                self.add_pid(pid)
+                if pid is not None:
+                    self.add_pid(pid)
         else:
             self.add_pid(pids)
 
@@ -972,7 +970,7 @@ class CommandPipeHandler:
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -987,7 +985,7 @@ class CommandPipeHandler:
                     servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(2000)
@@ -997,7 +995,7 @@ class CommandPipeHandler:
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=wmi_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(wmi_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1024,7 +1022,7 @@ class CommandPipeHandler:
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=sched_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(sched_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1051,7 +1049,7 @@ class CommandPipeHandler:
 
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(2000)
@@ -1064,7 +1062,7 @@ class CommandPipeHandler:
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=bits_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(bits_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1089,7 +1087,7 @@ class CommandPipeHandler:
                     servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(1000)
@@ -1112,9 +1110,6 @@ class CommandPipeHandler:
             if event_handle:
                 KERNEL32.SetEvent(event_handle)
                 KERNEL32.CloseHandle(event_handle)
-                if self.analyzer.options.get("procmemdump"):
-                    p = Process(pid=process_id)
-                    p.dump_memory()
                 self.files.dump_files()
         self.analyzer.process_lock.release()
 
@@ -1181,12 +1176,7 @@ class CommandPipeHandler:
             # release the lock. Let the injection do its thing.
             self.analyzer.process_lock.release()
 
-            # If we have both pid and tid, then we can use APC to inject.
-            if process_id and thread_id:
-                proc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-            else:
-                proc.inject(injectmode=INJECT_CREATEREMOTETHREAD, interest=filepath, nosleepskip=True)
-
+            proc.inject(interest=filepath, nosleepskip=True)
             log.info("Injected into process with pid %s and name %s", proc.pid, filename)
 
     def _handle_process(self, data):
@@ -1237,7 +1227,7 @@ class CommandPipeHandler:
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
                     if not in_protected_path(filename):
-                        _ = proc.inject(INJECT_QUEUEUSERAPC, interest)
+                        _ = proc.inject(interest)
                         self.LASTINJECT_TIME = timeit.default_timer()
                         self.analyzer.NUM_INJECTED += 1
                     proc.close()

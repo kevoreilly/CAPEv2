@@ -43,7 +43,7 @@ log.setLevel(logging.INFO)
 
 
 def add_nfs_entry(hostname: str, worker_folder: str):
-    worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, hostname)
+    worker_path = os.path.abspath(os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, hostname))
     if not path_exists(worker_path):
         path_mkdir(worker_path, parent=True, mode=0o755)
 

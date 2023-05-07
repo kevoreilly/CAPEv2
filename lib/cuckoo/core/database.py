@@ -21,8 +21,8 @@ from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
-from lib.cuckoo.common.path_utils import path_exists, path_delete
-from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
+from lib.cuckoo.common.path_utils import path_delete, path_exists
+from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder
 
 try:
     from sqlalchemy import (
@@ -47,7 +47,7 @@ try:
 
     Base = declarative_base()
 except ImportError:
-    raise CuckooDependencyError("Unable to import sqlalchemy (install with `pip3 install sqlalchemy`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry run pip install sqlalchemy`)")
 
 
 sandbox_packages = (
@@ -833,7 +833,9 @@ class Database(object, metaclass=Singleton):
         """
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
-        vms = self.list_machines(locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version)
+        vms = self.list_machines(
+            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version
+        )
         if len(vms) > 0:
             # There are? Awesome!
             self.set_status(task_id=task.id, status=TASK_RUNNING)
@@ -1571,7 +1573,7 @@ class Database(object, metaclass=Singleton):
             username=username,
         )
 
-    def _identify_aux_func(self, file: str, package: str) -> str:
+    def _identify_aux_func(self, file: bytes, package: str) -> str:
         # before demux we need to check as msix has zip mime and we don't want it to be extracted:
         tmp_package = False
         if not package:
@@ -1584,8 +1586,10 @@ class Database(object, metaclass=Singleton):
 
         if tmp_package and tmp_package in sandbox_packages:
             # This probably should be way much bigger list of formats
-            if tmp_package == "iso":
+            if tmp_package == ("iso", "udf", "vhd"):
                 package = "archive"
+            elif tmp_package in ("zip", "rar"):
+                package = ""
             else:
                 package = tmp_package
 
@@ -1610,7 +1614,6 @@ class Database(object, metaclass=Singleton):
         shrike_sid=None,
         shrike_refer=None,
         parent_id=None,
-        sample_parent_id=None,
         tlp=None,
         static=False,
         source_url=False,
@@ -1633,29 +1636,24 @@ class Database(object, metaclass=Singleton):
         if platform == "linux":
             package = ""
 
-        # Checking original file as some filetypes doesn't require demux
-        package, _ = self._identify_aux_func(file_path, package)
+        if not isinstance(file_path, bytes):
+            file_path = file_path.encode()
+
+        if not package:
+            if "file=" in options:
+                # set zip as package when specifying file= in options
+                package = "zip"
+            else:
+                # Checking original file as some filetypes doesn't require demux
+                package, _ = self._identify_aux_func(file_path, package)
 
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
-        if not isinstance(file_path, bytes):
-            file_path = file_path.encode()
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
-
-        # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
-        opts = get_options(options)
-        if "file" in opts:
-            runfile = opts["file"].lower()
-            if isinstance(runfile, str):
-                runfile = runfile.encode()
-            for xfile in extracted_files:
-                if runfile in xfile.lower():
-                    extracted_files = [xfile]
-                    break
 
         # create tasks for each file in the archive
         for file in extracted_files:
@@ -1675,24 +1673,22 @@ class Database(object, metaclass=Singleton):
 
             if not config and not only_extraction:
                 if not package:
-                    package, tmp_package = self._identify_aux_func(file_path, package)
+                    package, tmp_package = self._identify_aux_func(file, "")
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
-                    del f
-                    if package == "dll" and "function" not in options:
-                        dll_export = PortableExecutable(file).choose_dll_export()
-                        if dll_export == "DllRegisterServer":
-                            package = "regsvr"
-                        elif dll_export == "xlAutoOpen":
-                            package = "xls"
-                        elif dll_export:
-                            if options:
-                                options += f",function={dll_export}"
-                            else:
-                                options = f"function={dll_export}"
-                    if package in ("iso", "udf", "vhd"):
-                        package = "archive"
+
+                if package == "dll" and "function" not in options:
+                    dll_export = PortableExecutable(file.decode()).choose_dll_export()
+                    if dll_export == "DllRegisterServer":
+                        package = "regsvr"
+                    elif dll_export == "xlAutoOpen":
+                        package = "xls"
+                    elif dll_export:
+                        if options:
+                            options += f",function={dll_export}"
+                        else:
+                            options = f"function={dll_export}"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
@@ -1729,6 +1725,7 @@ class Database(object, metaclass=Singleton):
                     user_id=user_id,
                     username=username,
                 )
+                package = None
             if task_id:
                 task_ids.append(task_id)
 
@@ -2447,9 +2444,31 @@ class Database(object, metaclass=Singleton):
         return sample
 
     @classlock
-    def sample_path_by_hash(self, sample_hash):
+    def sample_still_used(self, sample_hash: str, task_id: int):
+        """Retrieve information if sample is used by another task(s).
+        @param hash: md5/sha1/sha256/sha256.
+        @param task_id: task_id
+        @return: bool
+        """
+        session = self.Session()
+        db_sample = (
+            session.query(Sample)
+            .options(joinedload("tasks"))
+            .filter(Sample.sha256 == sample_hash)
+            .filter(Task.id != task_id)
+            .filter(Sample.id == Task.sample_id)
+            .filter(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
+            .first()
+        )
+        still_used = bool(db_sample)
+        session.close()
+        return still_used
+
+    @classlock
+    def sample_path_by_hash(self, sample_hash: str = False, task_id: int = False):
         """Retrieve information on a sample location by given hash.
         @param hash: md5/sha1/sha256/sha256.
+        @param task_id: task_id
         @return: samples path(s) as list.
         """
         sizes = {
@@ -2472,18 +2491,44 @@ class Database(object, metaclass=Singleton):
             "procdump": "procdump",
         }
 
+        if task_id:
+            file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "binary")
+            if path_exists(file_path):
+                return [file_path]
+
+        session = False
+        # binary also not stored in binaries, perform hash lookup
+        if task_id and not sample_hash:
+            session = self.Session()
+            db_sample = (
+                session.query(Sample)
+                .options(joinedload("tasks"))
+                .filter(Task.id == task_id)
+                .filter(Sample.id == Task.sample_id)
+                .first()
+            )
+            if db_sample:
+                path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                if path_exists(path):
+                    return [path]
+
+                sample_hash = db_sample.sha256
+
+        if not sample_hash:
+            return []
+
         query_filter = sizes.get(len(sample_hash), "")
         sample = []
         # check storage/binaries
         if query_filter:
-            session = self.Session()
             try:
-
+                if not session:
+                    session = self.Session()
                 db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
                 if db_sample is not None:
-                    file_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
-                    if path_exists(file_path):
-                        sample = [file_path]
+                    path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                    if path_exists(path):
+                        sample = [path]
 
                 if not sample:
                     if repconf.mongodb.enabled:

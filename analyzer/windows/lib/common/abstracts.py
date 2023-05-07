@@ -10,9 +10,6 @@ import shutil
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
 
-INJECT_CREATEREMOTETHREAD = 0
-INJECT_QUEUEUSERAPC = 1
-
 log = logging.getLogger(__name__)
 
 
@@ -85,7 +82,7 @@ class Package:
         """
         for path in self.enum_paths():
             for path in glob.iglob(path):
-                if os.path.isfile(path):
+                if os.path.isfile(path) and (not application or application.lower() in path.lower()):
                     return path
 
         raise CuckooPackageError(f"Unable to find any {application} executable")
@@ -121,28 +118,8 @@ class Package:
             return None
 
         if not kernel_analysis:
-            p.inject(INJECT_QUEUEUSERAPC, interest)
+            p.inject(interest)
 
-        p.resume()
-        p.close()
-
-        return p.pid
-
-    def debug(self, path, args, interest):
-        """Starts an executable for analysis.
-        @param path: executable path
-        @param args: executable arguments
-        @param interest: file of interest, passed to the cuckoomon config
-        @return: process pid
-        """
-
-        suspended = True
-
-        p = Process(options=self.options, config=self.config)
-        if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=False):
-            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
-
-        p.debug_inject(interest, childprocess=False)
         p.resume()
         p.close()
 

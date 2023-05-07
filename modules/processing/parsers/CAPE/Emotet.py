@@ -76,7 +76,7 @@ rule Emotet
         $snippetW = {4C 8D [2] 8B [2] 4C 8D 05 [4] F7 E1 2B CA D1 E9 03 CA C1 E9 06 89}
         $snippetX = {4C 8D 0? [2] (00|01) 00 [0-80] 48 8D [0-9] 81 75 [5] C7 45 [5-14] 81}
         $snippetY = {(3D [4] 0F 84 [4] 3D [4] 0F 85 [3] ??|B8 [4] E9 [3] ??) 48 8D 05 [4] 48 89 (81 [3] ??|41 ??) 48 8D 05 [4] 48 89 (81 [3] ??|41 ??) 48 8D 05 [4] 48 89}
-        $snippetZ = {(48 8B D8 48 85 C0 0F 84 [4-9] E9 [4-190] ?? | 55 53 48 8D AC 24 [2] FF FF 48 81 EC [2] 00 00 48 8B [3] 00 00 [0-80] ??) 48 8D 05 [4] 48 89 (85 [3] ??|4? ??) [0-190] 48 8D 05 [4] 48 89 (85 [3] ??|4? ??)}
+        $snippetZ = {(48 8B D8 48 85 C0 0F 84 [4-9] E9 [4-190] ?? | 55 53 48 8D AC 24 [2] FF FF 48 81 EC [2] 00 00 48 8B [3] 00 00 [0-80] ??) 48 8D 05 [4] 48 89 (85 [3] ??|4? ??) [0-220] 48 8D 05 [4] 48 89 (85 [3] ??|4? ??) [0-220] 48 8D 05 [4] 48 89 (85 [3] ??|4? ??)}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -105,7 +105,7 @@ rule Emotet
         $ref_eccM = {4C 8D 0D [4] 81 B5 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] 6B 85}
         $ref_eccN = {4C 8D 05 [4-28] F7 E1 2B CA D1 E9 03 CA C1 E9 05 89 8D ?? 00 00 00 C1 AD ?? 00 00 00 ?? 81 B5 ?? 00 00 00}
         $ref_eccO = {4C 8D 0D [4] 8B 45 ?? 8D 0C ?? B8 [4] 03 C9 89 4D ?? 8B 4D ?? F7 E1 B8 [4] 2B CA D1 E9 03 CA C1 E9 05}
-        $ref_eccP = {40 55 48 8D 6C 24 ?? 48 81 EC [12-36] C7 45 [4] 00 [0-43] C7 45 [4] 00 [0-43] C7 45 [4] 00 [0-43] C7 45}
+        $ref_eccP = {40 55 48 8D 6C 24 ?? 48 81 EC [12-36] C7 45 [4] 00 [0-60] C7 45 [4] 00 [0-60] C7 45 [4] 00 [0-60] C7 45}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -760,6 +760,11 @@ def extract_config(filebuf):
                                 point_y=int.from_bytes(key[8 + key_len :], "big"),
                             ).export_key(format="PEM"),
                         )
+
+    if "ECC ECK1" in conf_dict and "EFs0TIIEJgLTuqzx+58sdg==" in conf_dict["ECC ECK1"]:
+        conf_dict.setdefault("Epoch", "4")
+    if "ECC ECK1" in conf_dict and "OL7a+wCWnIQszh42gCRQlg==" in conf_dict["ECC ECK1"]:
+        conf_dict.setdefault("Epoch", "5")
 
     return conf_dict
 

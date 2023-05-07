@@ -7,7 +7,7 @@ import contextlib
 import logging
 import random
 import traceback
-from ctypes import POINTER, WINFUNCTYPE, c_bool, c_int, create_unicode_buffer, memmove, sizeof
+from ctypes import POINTER, WINFUNCTYPE, byref, c_bool, c_int, create_unicode_buffer, memmove, sizeof, wintypes
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
@@ -26,9 +26,14 @@ RESOLUTION = {"x": USER32.GetSystemMetrics(SM_CXSCREEN), "y": USER32.GetSystemMe
 RESOLUTION_WITHOUT_TASKBAR = {"x": USER32.GetSystemMetrics(SM_CXFULLSCREEN), "y": USER32.GetSystemMetrics(SM_CYFULLSCREEN)}
 
 INITIAL_HWNDS = []
+CLOSED_DOCUMENT_WINDOW = False
+DOCUMENT_WINDOW_CLICK_AROUND = False
 
-CLOSED_OFFICE = False
-OFFICE_CLICK_AROUND = False
+
+def queryMousePosition():
+    pt = wintypes.POINT()
+    USER32.GetCursorPos(byref(pt))
+    return {"x": pt.x, "y": pt.y}
 
 
 def foreach_child(hwnd, lparam):
@@ -192,12 +197,24 @@ def click_mouse():
     USER32.mouse_event(4, 0, 0, 0, None)
 
 
-def get_office_window_click_around(hwnd, lparm):
-    global OFFICE_CLICK_AROUND
+def get_document_window_click_around(hwnd, lparm):
+    global DOCUMENT_WINDOW_CLICK_AROUND
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any(value in text.value for value in ("Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint")):
+        if any(
+            value in text.value
+            for value in (
+                "Microsoft Word",
+                "Microsoft Excel",
+                "Microsoft PowerPoint",
+                "Adobe",
+                "Acrobat DC",
+                "Acrobat",
+                "Reader",
+                "PDF",
+            )
+        ):
             USER32.SetForegroundWindow(hwnd)
             # first click the middle
             USER32.SetCursorPos(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
@@ -235,24 +252,37 @@ def get_office_window_click_around(hwnd, lparm):
                     x += random.randint(150, 200)
                     KERNEL32.Sleep(50)
                 else:
-                    log.info("Breaking out of office click loop as our window went away")
+                    log.info("Breaking out of document window click loop as our window went away")
                     break
             KERNEL32.Sleep(20000)
-            OFFICE_CLICK_AROUND = True
+            DOCUMENT_WINDOW_CLICK_AROUND = True
     return True
 
 
 # Callback procedure invoked for every enumerated window.
-def get_office_window(hwnd, lparam):
-    global CLOSED_OFFICE
+def get_document_window(hwnd, lparam):
+    global CLOSED_DOCUMENT_WINDOW
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any(value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")):
+        if any(
+            value in text.value
+            for value in (
+                "- Microsoft",
+                "- Word",
+                "- Excel",
+                "- PowerPoint",
+                "- Adobe",
+                "- Acrobat DC",
+                "- Acrobat",
+                "- Reader",
+                "- PDF",
+            )
+        ):
             # send ALT+F4 equivalent
-            log.info("Closing Office window")
+            log.info("Closing document window")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
-            CLOSED_OFFICE = True
+            CLOSED_DOCUMENT_WINDOW = True
     return True
 
 
@@ -270,7 +300,7 @@ class Human(Auxiliary, Thread):
         self.do_run = False
 
     def run(self):
-        global OFFICE_CLICK_AROUND
+        global DOCUMENT_WINDOW_CLICK_AROUND
         try:
             seconds = 0
             randoff = random.randint(0, 10)
@@ -295,8 +325,7 @@ class Human(Auxiliary, Thread):
             nohuman = self.options.get("nohuman")
             if nohuman:
                 return True
-
-            officedoc = False
+            doc = False
             if hasattr(self.config, "file_type"):
                 file_type = self.config.file_type
                 file_name = self.config.file_name
@@ -307,28 +336,37 @@ class Human(Auxiliary, Thread):
                     or "MIME entity" in file_type
                     or file_name.endswith((".doc", ".docx", ".rtf", ".mht", ".mso"))
                 ):
-                    officedoc = True
+                    doc = True
                 elif (
                     "Microsoft Office Excel" in file_type
                     or "Microsoft Excel" in file_type
                     or file_name.endswith((".xls", ".xlsx", ".xlsm", ".xlsb"))
                 ):
-                    officedoc = True
+                    doc = True
                 elif "Microsoft PowerPoint" in file_type or file_name.endswith(
                     (".ppt", ".pptx", ".pps", ".ppsx", ".pptm", ".potm", ".potx", ".ppsm")
                 ):
-                    officedoc = True
+                    doc = True
+                elif "PDF" in file_type or file_name.endswith(".pdf"):
+                    doc = True
 
             USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
 
             while self.do_run:
-                if officedoc and seconds > 45 and (seconds % 30) == 0 and not OFFICE_CLICK_AROUND and not CLOSED_OFFICE:
-                    USER32.EnumWindows(EnumWindowsProc(get_office_window_click_around), 0)
-                    USER32.EnumWindows(EnumWindowsProc(get_office_window), 0)
+                if doc and seconds > 45 and (seconds % 30) == 0 and not DOCUMENT_WINDOW_CLICK_AROUND and not CLOSED_DOCUMENT_WINDOW:
+                    USER32.EnumWindows(EnumWindowsProc(get_document_window_click_around), 0)
+                    USER32.EnumWindows(EnumWindowsProc(get_document_window), 0)
 
                 # only move the mouse 75% of the time, as malware can choose to act on an "idle" system just as it can on an "active" system
-                if random.randint(0, 7) > 1:
-                    USER32.SetCursorPos(RESOLUTION["x"] // 2, 0)
+                rng = random.randint(0, 7)
+                if rng > 1:
+                    if rng < 4:
+                        USER32.SetCursorPos(RESOLUTION["x"] // 2, 0)
+                    else:
+                        USER32.SetCursorPos(
+                            int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),
+                            int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)),
+                        )
                     click_mouse()
                     move_mouse()
 

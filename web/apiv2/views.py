@@ -69,7 +69,7 @@ try:
     HAVE_PSUTIL = True
 except ImportError:
     HAVE_PSUTIL = False
-    print("Missed psutil dependency: pip3 install -U psutil")
+    print("Missed psutil dependency: poetry run pip install -U psutil")
 
 log = logging.getLogger(__name__)
 
@@ -107,6 +107,7 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     es = elastic_handler
 
 db = Database()
+
 
 # Conditional decorator for web authentication
 class conditional_login_required:
@@ -317,8 +318,7 @@ def tasks_create_file(request):
         opt_filename = get_user_filename(options, custom)
         list_of_tasks, details = process_new_task_files(request, files, details, opt_filename, unique)
 
-        for content, tmp_path, _, parent_sample_id in list_of_tasks:
-            details["parent_sample_id"] = parent_sample_id
+        for content, tmp_path, _ in list_of_tasks:
             if pcap:
                 if tmp_path.lower().endswith(".saz"):
                     saz = saz_to_pcap(tmp_path)
@@ -597,7 +597,6 @@ def tasks_create_dlnexec(request):
 @csrf_exempt
 @api_view(["GET"])
 def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
-
     if not apiconf.fileview.get("enabled"):
         resp = {"error": True, "error_value": "File View API is Disabled"}
         return Response(resp)
@@ -767,7 +766,6 @@ def ext_tasks_search(request):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_list(request, offset=None, limit=None, window=None):
-
     if not apiconf.tasklist.get("enabled"):
         resp = {"error": True, "error_value": "Task List API is Disabled"}
         return Response(resp)
@@ -837,7 +835,6 @@ def tasks_list(request, offset=None, limit=None, window=None):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_view(request, task_id):
-
     if not apiconf.taskview.get("enabled"):
         resp = {"error": True, "error_value": "Task View API is Disabled"}
         return Response(resp)
@@ -982,7 +979,6 @@ def tasks_view(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_reschedule(request, task_id):
-
     if not apiconf.taskresched.get("enabled"):
         resp = {"error": True, "error_value": "Task Reschedule API is Disabled"}
         return Response(resp)
@@ -1007,7 +1003,6 @@ def tasks_reschedule(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_reprocess(request, task_id):
-
     resp = {}
     if not apiconf.taskreprocess.get("enabled"):
         resp["error"] = True
@@ -1092,7 +1087,6 @@ def tasks_delete(request, task_id, status=False):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_status(request, task_id):
-
     if not apiconf.taskstatus.get("enabled"):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
@@ -1110,7 +1104,6 @@ def tasks_status(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_report(request, task_id, report_format="json", make_zip=False):
-
     if not apiconf.taskreport.get("enabled"):
         resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
@@ -1277,7 +1270,6 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_iocs(request, task_id, detail=None):
-
     if not apiconf.taskiocs.get("enabled"):
         resp = {"error": True, "error_value": "IOC download API is disabled"}
         return Response(resp)
@@ -1442,17 +1434,17 @@ def tasks_iocs(request, task_id, detail=None):
             tmpdict = {}
             if entry.get("clamav", False):
                 tmpdict["clamav"] = entry["clamav"]
-            if entry["sha256"]:
+            if entry.get("sha256"):
                 tmpdict["sha256"] = entry["sha256"]
-            if entry["md5"]:
+            if entry.get("md5"):
                 tmpdict["md5"] = entry["md5"]
-            if entry["yara"]:
+            if entry.get("yara"):
                 tmpdict["yara"] = entry["yara"]
-            if entry.get("trid", False):
+            if entry.get("trid"):
                 tmpdict["trid"] = entry["trid"]
-            if entry["type"]:
+            if entry.get("type"):
                 tmpdict["type"] = entry["type"]
-            if entry["guest_paths"]:
+            if entry.get("guest_paths"):
                 tmpdict["guest_paths"] = entry["guest_paths"]
             data["dropped"].append(tmpdict)
 
@@ -1508,7 +1500,6 @@ def tasks_iocs(request, task_id, detail=None):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_screenshot(request, task_id, screenshot="all"):
-
     if not apiconf.taskscreenshot.get("enabled"):
         resp = {"error": True, "error_value": "Screenshot download API is disabled"}
         return Response(resp)
@@ -1541,13 +1532,14 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         return resp
 
     else:
-        shot = srcdir + "/" + screenshot.zfill(4) + ".jpg"
-        if path_exists(shot):
-            fname = f"{task_id}_{os.path.basename(shot)}"
-            resp = StreamingHttpResponse(FileWrapper(open(shot, "rb"), 8096), content_type="image/jpeg")
-            resp["Content-Length"] = os.path.getsize(shot)
-            resp["Content-Disposition"] = f"attachment; filename={fname}"
-            return resp
+        for ext, ct in ((".jpg", "image/jpeg"), (".png", "image/png")):
+            shot = srcdir + "/" + screenshot.zfill(4) + ext
+            if path_exists(shot):
+                fname = f"{task_id}_{os.path.basename(shot)}"
+                resp = StreamingHttpResponse(FileWrapper(open(shot, "rb"), 8096), content_type=ct)
+                resp["Content-Length"] = os.path.getsize(shot)
+                resp["Content-Disposition"] = f"attachment; filename={fname}"
+                return resp
 
         else:
             resp = {"error": True, "error_value": "Screenshot does not exist"}
@@ -1557,7 +1549,6 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_pcap(request, task_id):
-
     if not apiconf.taskpcap.get("enabled"):
         resp = {"error": True, "error_value": "PCAP download API is disabled"}
         return Response(resp)
@@ -1588,7 +1579,6 @@ def tasks_pcap(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_dropped(request, task_id):
-
     if not apiconf.taskdropped.get("enabled"):
         resp = {"error": True, "error_value": "Dropped File download API is disabled"}
         return Response(resp)
@@ -1636,7 +1626,6 @@ def tasks_dropped(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_surifile(request, task_id):
-
     if not apiconf.taskdropped.get("enabled"):
         resp = {"error": True, "error_value": "Suricata File download API is disabled"}
         return Response(resp)
@@ -1747,7 +1736,6 @@ def tasks_rollingshrike(request, window=60, msgfilter=None):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_procmemory(request, task_id, pid="all"):
-
     if not apiconf.taskprocmemory.get("enabled"):
         resp = {"error": True, "error_value": "Process memory download API is disabled"}
         return Response(resp)
@@ -1785,7 +1773,6 @@ def tasks_procmemory(request, task_id, pid="all"):
     else:
         filepath = os.path.join(parent_folder, pid + ".dmp")
         if path_exists(filepath):
-
             mem_zip = create_zip(files=filepath, encrypted=True)
             if mem_zip is False:
                 resp = {"error": True, "error_value": "Can't create zip archive for report file"}
@@ -1803,7 +1790,6 @@ def tasks_procmemory(request, task_id, pid="all"):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_fullmemory(request, task_id):
-
     if not apiconf.taskfullmemory.get("enabled"):
         resp = {"error": True, "error_value": "Full memory download API is disabled"}
         return Response(resp)
@@ -1886,7 +1872,6 @@ def file(request, stype, value):
 @csrf_exempt
 @api_view(["GET"])
 def machines_list(request):
-
     if not apiconf.machinelist.get("enabled"):
         resp = {"error": True, "error_value": "Machine list API is disabled"}
         return Response(resp)
@@ -1903,7 +1888,6 @@ def machines_list(request):
 @csrf_exempt
 @api_view(["GET"])
 def exit_nodes_list(request):
-
     if not apiconf.list_exitnodes.get("enabled"):
         resp = {"error": True, "error_value": "Exit nodes list API is disabled"}
         return Response(resp)
@@ -1924,7 +1908,6 @@ def exit_nodes_list(request):
 @csrf_exempt
 @api_view(["GET"])
 def machines_view(request, name=None):
-
     if not apiconf.machineview.get("enabled"):
         resp = {"error": True, "error_value": "Machine view API is disabled"}
         return Response(resp)
@@ -1998,7 +1981,6 @@ def cuckoo_status(request):
 @csrf_exempt
 @api_view(["GET"])
 def task_x_hours(request):
-
     session = db.Session()
     res = (
         session.query(Task)
@@ -2017,7 +1999,6 @@ def task_x_hours(request):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_latest(request, hours):
-
     resp = {}
     resp["error"] = False
     timestamp = datetime.now() - timedelta(hours=int(hours))
@@ -2029,7 +2010,6 @@ def tasks_latest(request, hours):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_payloadfiles(request, task_id):
-
     if not apiconf.payloadfiles.get("enabled"):
         resp = {"error": True, "error_value": "CAPE payload file download API is disabled"}
         return Response(resp)
@@ -2063,7 +2043,6 @@ def tasks_payloadfiles(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_procdumpfiles(request, task_id):
-
     if not apiconf.procdumpfiles.get("enabled"):
         resp = {"error": True, "error_value": "Procdump file download API is disabled"}
         return Response(resp)
@@ -2080,7 +2059,6 @@ def tasks_procdumpfiles(request, task_id):
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
     if path_exists(srcdir):
-
         mem_zip = create_zip(folder=srcdir, encrypted=True)
         if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
@@ -2098,7 +2076,6 @@ def tasks_procdumpfiles(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_config(request, task_id, cape_name=False):
-
     if not apiconf.capeconfig.get("enabled"):
         resp = {"error": True, "error_value": "Config download API is disabled"}
         return Response(resp)
@@ -2154,7 +2131,6 @@ def tasks_config(request, task_id, cape_name=False):
 @api_view(["POST"])
 # should be securized by checking category, this is just an example how easy to extend webgui with external tools
 def post_processing(request, category, task_id):
-
     content = request.data.get("content", "")
     if content and category:
         content = json.loads(content)

@@ -19,5 +19,5 @@ class XLS2207(Package):
 
     def start(self, path):
         path = check_file_extension(path, ".xls")
-        excel = self.get_path_glob("Microsoft Office Excel")
+        excel = self.get_path_glob("EXCEL.EXE")
         return self.execute(excel, f'"{path}" /dde', path)

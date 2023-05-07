@@ -11,7 +11,6 @@ assignees: ''
 * Issues isn't the way to ask for account activation. Ping capesandbox in [Twitter](https://twitter.com/capesandbox) with your username
 
 ## This is open source and you are getting __free__ support so be friendly!
-* Free support from doomedraven ended - no whiskey, no support. For updates check the documentation.
 
 # Prerequisites
 
@@ -23,7 +22,6 @@ Please answer the following questions for yourself before submitting an issue.
 - [ ] I checked to make sure that this issue has not already been filed
 - [ ] I'm reporting the issue to the correct repository (for multi-repository projects)
 - [ ] I have read and checked all configs (with all optional parts)
-- [ ] I'm aware that configs now are in `custom/conf/`
 
 
 # Expected Behavior

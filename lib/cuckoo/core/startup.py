@@ -4,6 +4,7 @@
 
 import copy
 import getpass as gt
+import grp
 import logging
 import logging.handlers
 import os
@@ -36,16 +37,18 @@ try:
 
     HAVE_YARA = True
     if not int(yara.__version__[0]) >= 4:
-        raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
+        raise ImportError("Missed library: poetry run pip install yara-python>=4.0.0 -U")
 except ImportError:
-    print("Missed library: pip3 install yara-python>=4.0.0 -U")
+    print("Missed library: poetry run pip install yara-python>=4.0.0 -U")
     HAVE_YARA = False
 
 log = logging.getLogger()
 
 cuckoo = Config()
+logconf = Config("logging")
 routing = Config("routing")
 repconf = Config("reporting")
+auxconf = Config("auxiliary")
 dist_conf = Config("distributed")
 
 
@@ -175,7 +178,7 @@ class ConsoleHandler(logging.StreamHandler):
 
 
 def check_linux_dist():
-    ubuntu_versions = ("18.04", "20.04", "22.04")
+    ubuntu_versions = ("20.04", "22.04")
     with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
@@ -193,8 +196,19 @@ def init_logging(level: int):
     init_logger("console", level)
     init_logger("database")
 
-    if cuckoo.log_rotation.enabled:
-        days = cuckoo.log_rotation.backup_count or 7
+    # if logconf.logger.cape_per_task_log:
+    # if logconf.logger.cape_analysis_folder:
+    #    fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "cape.log"))
+    # else:
+    #    fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
+
+    if logconf.logger.syslog_cape:
+        fh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
+        fh.setFormatter(formatter)
+        log.addHandler(fh)
+
+    if logconf.log_rotation.enabled:
+        days = logconf.log_rotation.backup_count or 7
         fh = logging.handlers.TimedRotatingFileHandler(
             os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days)
         )
@@ -508,3 +522,31 @@ def init_routing():
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
             rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)
+
+
+def check_tcpdump_permissions():
+
+    tcpdump = auxconf.sniffer.get("tcpdump", "/usr/sbin/tcpdump")
+
+    user = False
+    with suppress(Exception):
+        user = gt.getuser()
+
+    pcap_permissions_error = False
+    if user:
+        try:
+            if user not in grp.getgrnam("pcap").gr_mem:
+                pcap_permissions_error = True
+        except KeyError:
+            log.error("Group pcap does not exist.")
+            pcap_permissions_error = True
+
+    if pcap_permissions_error:
+        print(
+            f"""\nPcap generation wan't work till you fix the permission problems. Please run following command to fix it!
+            groupadd pcap
+            usermod -a -G pcap {user}
+            chgrp pcap {tcpdump}
+            setcap cap_net_raw,cap_net_admin=eip {tcpdump}
+            """
+        )

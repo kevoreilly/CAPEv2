@@ -77,12 +77,16 @@ def parse_controllers(data):
     return controllers
 
 
-def parse_binary_c2(data, alignment):
+def parse_binary_c2(data):
     """
     Parses the binary CNC block format introduced Nov'20
     """
     length = len(data)
     controllers = []
+    if len(data) % 7 == 0:
+        alignment = 7
+    elif len(data) % 8 == 0:
+        alignment = 8
     for c2_offset in range(0, length, alignment):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])
@@ -90,7 +94,7 @@ def parse_binary_c2(data, alignment):
     return controllers
 
 
-def parse_binary_c2_2(data, alignment):
+def parse_binary_c2_2(data):
     """
     Parses the binary CNC block format introduced April'21
     """
@@ -105,6 +109,10 @@ def parse_binary_c2_2(data, alignment):
     length = len(data)
 
     controllers = []
+    if len(data) % 7 == 0:
+        alignment = 7
+    elif len(data) % 8 == 0:
+        alignment = 8
     for c2_offset in range(0, length, alignment):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])
@@ -257,10 +265,10 @@ def extract_config(filebuf):
                         config = parse_config(dec_bytes)
                     elif str(entry.name) == "311":
                         dec_bytes = decrypt_data(res_data)
-                        controllers = parse_binary_c2(dec_bytes, 7)
+                        controllers = parse_binary_c2(dec_bytes)
                     elif str(entry.name) in ("118", "3719"):
                         dec_bytes = decrypt_data2(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes, 7)
+                        controllers = parse_binary_c2_2(dec_bytes)
                     elif str(entry.name) in ("524", "5812"):
                         dec_bytes = decrypt_data2(res_data)
                         config = parse_config(dec_bytes)
@@ -269,13 +277,13 @@ def extract_config(filebuf):
                         config = parse_config(dec_bytes)
                     elif str(entry.name) in ("26F517AB", "EBBA", "102", "3C91E639"):
                         dec_bytes = decrypt_data3(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes, 7)
-                    elif str(entry.name) in ("89290AF9"):
+                        controllers = parse_binary_c2_2(dec_bytes)
+                    elif str(entry.name) in ("89290AF9", "COMPONENT_07"):
                         dec_bytes = decrypt_data4(res_data)
                         config = parse_config(dec_bytes)
-                    elif str(entry.name) in ("3C91E539"):
+                    elif str(entry.name) in ("3C91E539", "COMPONENT_08"):
                         dec_bytes = decrypt_data4(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes, 8)
+                        controllers = parse_binary_c2_2(dec_bytes)
                     end_config["Loader Build"] = parse_build(pe).decode()
                     for k, v in config.items():
                         # log.info({ k: v })
@@ -286,7 +294,7 @@ def extract_config(filebuf):
         except Exception as e:
             log.warning(e)
     elif filebuf[:1] == b"\x01":
-        controllers = parse_binary_c2(filebuf[: len(filebuf) - 20], 8)
+        controllers = parse_binary_c2(filebuf[: len(filebuf) - 20])
         for controller in controllers:
             end_config.setdefault("address", []).append(controller)
     elif b"=" in filebuf:

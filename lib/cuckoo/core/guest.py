@@ -212,23 +212,6 @@ class GuestManager:
         }
         self.post("/store", files={"file": "\n".join(config)}, data=data)
 
-    def upload_support_files(self, options):
-        """Upload supporting files from zip temp directory if they exist
-        :param options: options
-        :return:
-        """
-        log.info("Task #%s: Uploading support files to guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
-        basedir = os.path.dirname(options["target"])
-
-        for dirpath, _, files in os.walk(basedir):
-            for xf in files:
-                target = os.path.join(dirpath, xf)
-                # Copy all files except for the original target
-                if not target == options["target"]:
-                    data = {"filepath": os.path.join(self.determine_temp_path(), xf)}
-                    files = {"file": (xf, open(target, "rb"))}
-                    self.post("/store", files=files, data=data)
-
     def upload_scripts(self):
         """Upload various scripts such as pre_script and during_scripts."""
         log.info("Task #%s: Uploading script files to guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
@@ -313,18 +296,24 @@ class GuestManager:
         # ToDo fix it
         # self.aux.callback("prepare_guest")
 
+        # ToDo https://github.com/kevoreilly/CAPEv2/issues/1468
+        # Lookup file if current doesn't exist in TMP anymore
+        alternative_path = False
+        if not path_exists(options["target"]):
+            path_found = db.sample_path_by_hash(task_id=options["id"])
+            if path_found:
+                alternative_path = path_found[0]
+
+        sample_path = alternative_path or options["target"]
         # If the target is a file, upload it to the guest.
         if options["category"] in ("file", "archive"):
             data = {
                 "filepath": os.path.join(self.determine_temp_path(), options["file_name"]),
             }
             files = {
-                "file": ("sample.bin", open(options["target"], "rb")),
+                "file": ("sample.bin", open(sample_path, "rb")),
             }
             self.post("/store", files=files, data=data)
-
-        # check for support files and upload them to guest.
-        self.upload_support_files(options)
 
         # upload additional scripts
         self.upload_scripts()

@@ -304,7 +304,7 @@ The output should be similar to::
 
     $ sudo -u cape poetry run python3 manage.py migrate
     CAPE parser: No module named Nighthawk - No module named 'Crypto'
-    Missed dependency flare-floss: pip3 install -U flare-floss
+    Missed dependency flare-floss: poetry run pip install -U flare-floss
     Operations to perform:
       Apply all migrations: account, admin, auth, authtoken, contenttypes, openid, sessions, sites, socialaccount, users
     Running migrations:

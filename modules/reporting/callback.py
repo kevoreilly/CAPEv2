@@ -4,12 +4,10 @@ import logging
 import requests
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_REPORTED, Database
 
 log = logging.getLogger(__name__)
 main_db = Database()
-repconf = Config("reporting")
 
 
 class CALLBACKHOME(Report):
@@ -18,7 +16,7 @@ class CALLBACKHOME(Report):
     order = 10000  # used in the reporting module and required here.
 
     def run(self, results):
-        urls = repconf.callback.url.split(",")
+        urls = self.options.url.split(",")
         task_id = int(results.get("info", {}).get("id"))
         """Handles a possible race condition where the status is not updated before the callback is consumed."""
         # set completed_on time

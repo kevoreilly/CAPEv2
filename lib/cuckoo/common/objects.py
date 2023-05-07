@@ -319,7 +319,7 @@ class File:
             return None
 
         try:
-            return pydeep.hash_file(self.file_path)
+            return pydeep.hash_file(self.file_path).decode()
         except Exception:
             return None
 
@@ -548,7 +548,7 @@ class File:
         filetype = self.get_content_type()
         return any([ftype in filetype for ftype in type_list])
 
-    def get_all_hashe(self):
+    def get_all_hashes(self):
         return {
             "crc32": self.get_crc32(),
             "md5": self.get_md5(),

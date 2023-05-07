@@ -92,6 +92,7 @@ ExtractorReturnType = Optional[SuccessfulExtractionReturnType]
 processing_conf = Config("processing")
 selfextract_conf = Config("selfextract")
 
+
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
@@ -139,10 +140,14 @@ if processing_conf.trid.enabled:
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
 HAVE_STRINGS = False
+HAVE_DNFILE = False
 if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
 
     HAVE_STRINGS = True
+
+    if processing_conf.strings.dotnet:
+        from lib.cuckoo.common.dotnet_utils import HAVE_DNFILE, dotnet_user_strings
 
 
 HAVE_VIRUSTOTAL = False
@@ -193,8 +198,13 @@ def static_file_info(
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
-        if "Mono" in data_dictionary["type"] and selfextract_conf.general.dotnet:
-            data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
+        if "Mono" in data_dictionary["type"]:
+            if selfextract_conf.general.dotnet:
+                data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
+            if HAVE_DNFILE:
+                dotnet_strings = dotnet_user_strings(file_path)
+                if dotnet_strings:
+                    data_dictionary.setdefault("dotnet_strings", dotnet_strings)
     elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and selfextract_conf.general.office:
         # options is dict where we need to get pass get_options
         data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
@@ -226,7 +236,7 @@ def static_file_info(
     data = path_read_file(file_path)
 
     if not file_path.startswith(exclude_startswith) and not file_path.endswith(excluded_extensions):
-        data_dictionary["data"] = is_text_file(data_dictionary, file_path, 8192, data)
+        data_dictionary["data"] = is_text_file(data_dictionary, file_path, processing_conf.CAPE.buffer, data)
 
         if processing_conf.trid.enabled:
             data_dictionary["trid"] = trid_info(file_path)
@@ -359,7 +369,7 @@ def _extracted_files_metadata(
                     ),
                     file=f,
                 )
-            file_info["data"] = is_text_file(file_info, destination_folder, 8192)
+            file_info["data"] = is_text_file(file_info, destination_folder, processing_conf.CAPE.buffer)
             metadata.append(file_info)
 
     return metadata
@@ -414,7 +424,7 @@ def generic_file_extractors(
     # Arguments that all extractors need.
     args = (file,)
     # Arguments that some extractors need. They will always get passed, so the
-    # extractor functions need to accept `**_`` and just discard them.
+    # extractor functions need to accept `**_` and just discard them.
     kwargs = {
         "filetype": data_dictionary["type"],
         "data_dictionary": data_dictionary,
@@ -464,6 +474,15 @@ def generic_file_extractors(
         if extraction_result is None:
             continue
         tempdir = extraction_result.get("tempdir")
+        if extraction_result.get("data_dictionary"):
+            data_dictionary.update(extraction_result["data_dictionary"])
+            extraction_result.pop("data_dictionary")
+        """
+        if extraction_result.get("parent_sample"):
+            results.setdefault("info", {}).setdefault("parent_sample", {})
+            results["info"]["parent_sample"] = extraction_result["parent_sample"]
+            extraction_result.pop("parent_sample")
+        """
         try:
             extracted_files = extraction_result.get("extracted_files", [])
             if not extracted_files:

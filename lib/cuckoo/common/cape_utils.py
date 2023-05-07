@@ -237,7 +237,7 @@ def convert(data):
 
 def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) -> bool:
     if HAVE_PYDEEP:
-        ssdeep_grade = pydeep.compare(file_info["ssdeep"], cape_file["ssdeep"])
+        ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode(), cape_file["ssdeep"].encode())
         if ssdeep_grade >= ssdeep_threshold:
             log.debug("Duplicate payload skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold)
             append_file = False

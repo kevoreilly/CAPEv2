@@ -5,7 +5,7 @@ It was derived from Cuckoo with the goal of adding automated malware unpacking a
 
 There is a free community instance online that anyone can use:
 
-https://capesandbox.com
+https://capesandbox.com - For account activation reach to https://twitter.com/capesandbox.
 
 Although config and payload extraction was the original stated goal, it was the development of the debugger in CAPE that first inspired the project: in order to extract configs or unpacked payloads from arbitrary malware families without relying on process dumps (which sooner or later the bad guys will thwart), instruction-level monitoring and control is necessary. The novel debugger in CAPE follows the principle of maximising the use of processor hardware and minimising (almost completely) the use of Windows debugging interfaces, allowing malware to be stealthily instrumented and manipulated from the entry point with hardware breakpoints programmatically set during detonation by Yara signatures or API calls. This allows instruction traces to be captured, or actions to be performed such as control flow manipulation or dumping of a memory region.
 
@@ -13,7 +13,7 @@ Although config and payload extraction was the original stated goal, it was the 
 There is a community repository of signatures containing several hundred signatures developed by the CAPE community. All new community feature should be pushed to that repo. Later it can be moved to core if devs consider that an interesting extension.
 
 ### Config parsing
-Can be done using either of CAPE's, [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/) framework. 
+Can be done using either of CAPE's, [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/) framework.
 * Special thanks to:
     * Jason Reaves (@sysopfb) for the TrickBot parser and Fabien Perigaud for the PlugX parser.
 
@@ -88,13 +88,13 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 1. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/) and __do read ALL__ config files inside of `conf` folder!
 2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download)
-3. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as the hypervisor.
+3. [KVM](https://github.com/kevoreilly/CAPEv2/blob/master/installer/kvm-qemu.sh) is recommended as the hypervisor.
  * Replace `<username>` with a real pattern.
  * You need to replace all `<WOOT>` inside!
  * Read it! You must understand what it does! It has configuration in header of the script.
  * `sudo ./kvm-qemu.sh all <username> | tee kvm-qemu.log`
 4. To install CAPE itself, [cape2.sh](https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh) with all optimizations
-    * Read and understand what it does! This is not a silver buller for all your problems! It has configuration in header of the script.
+    * Read and understand what it does! This is not a silver bullet for all your problems! It has configuration in header of the script.
     * `sudo ./cape2.sh base | tee cape.log`
 5. After installing everything save both installation logs as gold!
 6. Configure CAPE by doing mods to config files inside `conf` folder.
@@ -117,7 +117,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 * [step by step](https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html)
 
 ## Virtual machine core dependency
-* [choco.bat](https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat)
+* [choco.bat](https://github.com/kevoreilly/CAPEv2/blob/master/installer/choco.bat)
 
 ## How to update
 * CAPE: `git pull`

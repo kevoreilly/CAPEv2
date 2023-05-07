@@ -1,12 +1,9 @@
 #!/bin/bash
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
-
-# Copyright (C) 2011-2021 DoomedRaven.
-# This file is part of Tools - https://github.com/doomedraven/Tools
+# Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
 
 # Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne
-
 
 # Static values
 # Where to place everything
@@ -22,7 +19,7 @@ nginx_version=1.19.6
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.4.0
+guacamole_version=1.5.0
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0
@@ -118,7 +115,6 @@ cat << EndOfHelp
         librenms_sneck_config - print the sneck config for use with LibreNMS
         prometheus - Install Prometheus and Grafana
         die - Install Detect It Easy
-        unautoit - Install UnAutoIt
         node_exporter - Install node_exporter to report data to Prometheus+Grafana, only on worker servers
         jemalloc - Install jemalloc, required for CAPE to decrease memory usage
             Details: https://zapier.com/engineering/celery-python-jemalloc/
@@ -697,6 +693,7 @@ function install_suricata() {
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'file-store:\n  version: 2\n  enabled: no', b'file-store:\n  version: 2\n  enabled: yes');open(pa, 'wb').write(q);"
 
     chown ${USER}:${USER} -R /etc/suricata
+    chown ${USER}:${USER} -R /var/log/suricata
     systemctl restart suricata
 }
 
@@ -734,11 +731,16 @@ function install_yara() {
     cd /tmp || return
     git clone --recursive https://github.com/VirusTotal/yara-python
     cd yara-python
+    # checkout tag v4.2.3 to work around broken master branch
+    git checkout tags/v4.2.3
+    # sometimes it requires to have a copy of YARA inside of yara-python for proper compilation
+    # git clone --recursive https://github.com/VirusTotal/yara
     # Temp workarond to fix issues compiling yara-python https://github.com/VirusTotal/yara-python/issues/212
     # partially applying PR https://github.com/VirusTotal/yara-python/pull/210/files
     sed -i "191 i \ \ \ \ # Needed to build tlsh'\n    module.define_macros.extend([('BUCKETS_128', 1), ('CHECKSUM_1B', 1)])\n    # Needed to build authenticode parser\n    module.libraries.append('ssl')" setup.py
-    python3 setup.py build --enable-cuckoo --enable-magic --enable-dotnet --enable-profiling
+    python3 setup.py build --enable-cuckoo --enable-magic --enable-profiling --enable-dotnet
     cd ..
+    # for root
     pip3 install ./yara-python
 }
 
@@ -1127,37 +1129,43 @@ function install_CAPE() {
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
-    mkdir -p "/opt/CAPEv2/custom/conf"
     cd "/opt/CAPEv2/" || return
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
+    sudo -u ${USER} bash -c 'poetry run extra/poetry_yara_installer.sh'
+
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
-    cp -r conf/*.conf "custom/conf"
-    sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" custom/conf/cuckoo.conf
-    # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf
-    # sed -i "/memory_dump = off/cmemory_dump = on" custom/conf/cuckoo.conf
-    # sed -i "/machinery =/cmachinery = kvm" custom/conf/cuckoo.conf
-    sed -i "/interface =/cinterface = ${NETWORK_IFACE}" custom/conf/auxiliary.conf
+    sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" conf/cuckoo.conf
+    # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" conf/routing.conf
+    # sed -i "/memory_dump = off/cmemory_dump = on" conf/cuckoo.conf
+    # sed -i "/machinery =/cmachinery = kvm" conf/cuckoo.conf
+    sed -i "/interface =/cinterface = ${NETWORK_IFACE}" conf/auxiliary.conf
 
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
 	# default is enabled, so we only need to disable it
 	if [ "$MONGO_ENABLE" -lt 1 ]; then
-		crudini --set custom/conf/reporting.conf mongodb enabled no
+		crudini --set conf/reporting.conf mongodb enabled no
 	fi
 
 	if [ "$librenms_enable" -ge 1 ]; then
-		crudini --set custom/conf/reporting.conf litereport enabled yes
-		crudini --set custom/conf/reporting.conf runstatistics enabled yes
+		crudini --set conf/reporting.conf litereport enabled yes
+		crudini --set conf/reporting.conf runstatistics enabled yes
 	fi
 
     python3 utils/community.py -waf -cr
 
     # Configure direct internet connection
     sudo echo "400 ${INTERNET_IFACE}" >> /etc/iproute2/rt_tables
+
+    cat >> /etc/sudoers.d/cape << EOF
+Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
+${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
+EOF
+
 }
 
 function install_systemd() {
@@ -1250,6 +1258,11 @@ function install_guacamole() {
         cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
     fi
 
+    poetry_path=$(which poetry)
+    if ! grep -q $poetry_path /lib/systemd/system/guac-web.service ; then
+        sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
+    fi
+
     if [ ! -d "/var/www/guacrecordings" ] ; then
         sudo mkdir -p /var/www/guacrecordings && chown ${USER}:${USER} /var/www/guacrecordings
     fi
@@ -1273,13 +1286,6 @@ function install_DIE() {
     apt install libqt5opengl5 libqt5script5 libqt5scripttools5 libqt5sql5 -y
     wget "https://github.com/horsicq/DIE-engine/releases/download/${DIE_VERSION}/die_${DIE_VERSION}_Ubuntu_${UBUNTU_VERSION}_amd64.deb" -O DIE.deb
     dpkg -i DIE.deb
-}
-
-function install_UnAutoIt() {
-    cd /opt/CAPEv2/data/
-    snap install go --classic
-    git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt
-    GOOS="linux" GOARCH="amd64" go build -o UnAutoIt
 }
 
 # Doesn't work ${$1,,}
@@ -1312,8 +1318,8 @@ case "$COMMAND" in
     dependencies
     install_mongo
     install_suricata
-    install_yara
     install_CAPE
+    install_yara
     install_systemd
     install_jemalloc
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
@@ -1335,8 +1341,8 @@ case "$COMMAND" in
     install_volatility3
     install_mongo
     install_suricata
-    install_yara
     install_CAPE
+    install_yara
     install_systemd
     install_jemalloc
     install_logrotate
@@ -1414,8 +1420,6 @@ case "$COMMAND" in
     install_crowdsecurity;;
 'die')
     install_DIE;;
-'unautoit')
-    install_UnAutoIt;;
 *)
     usage;;
 esac

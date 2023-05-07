@@ -7,3 +7,4 @@ false_positives:
   ignore:
     - rule: "CobaltStrikeBeacon"
     - rule: "Emotet"
+    - rule: "NSIS"

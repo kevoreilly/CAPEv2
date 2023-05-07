@@ -190,6 +190,9 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("unpacker"):
             options += "unpacker=2,"
 
+        if request.POST.get("syscall"):
+            options += "syscall=1,"
+
         if request.POST.get("kernel_analysis"):
             options += "kernel_analysis=yes,"
 
@@ -234,6 +237,7 @@ def index(request, task_id=None, resubmit_hash=None):
             "options": options,
             "only_extraction": False,
             "user_id": request.user.id or 0,
+            "package": package,
         }
         task_category = False
         samples = []
@@ -274,9 +278,9 @@ def index(request, task_id=None, resubmit_hash=None):
                 if task_category == "dlnexec":
                     path, content, sha256 = process_new_dlnexec_task(url, route, options, custom)
                     if path:
-                        list_of_tasks.append((content, path, sha256, None))
+                        list_of_tasks.append((content, path, sha256))
                 elif task_category == "url":
-                    list_of_tasks.append(("", url, "", None))
+                    list_of_tasks.append(("", url, ""))
 
         elif task_category in ("sample", "static", "pcap"):
             list_of_tasks, details = process_new_task_files(request, samples, details, opt_filename, unique)
@@ -335,14 +339,14 @@ def index(request, task_id=None, resubmit_hash=None):
                 else:
                     filename = base_dir + "/" + sanitize_filename(hash)
                 path = store_temp_file(content, filename)
-                list_of_tasks.append((content, path, hash, None))
+                list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
         if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl"):
             task_category = job_category
 
         if task_category == "resubmit":
-            for content, path, sha256, _ in list_of_tasks:
+            for content, path, sha256 in list_of_tasks:
                 if web_conf.pre_script.enabled and "pre_script" in request.FILES:
                     pre_script = request.FILES["pre_script"]
                     details["pre_script_name"] = request.FILES["pre_script"].name
@@ -360,14 +364,15 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["errors"].append({os.path.basename(filename): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
-                    if web_conf.general.get("existent_tasks", False):
+                    if web_conf.web_reporting.get("enabled", False) and web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", hash, search_limit=5)
-                        for record in records or []:
-                            existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
+                        if records:
+                            for record in records or []:
+                                existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
 
         elif task_category == "sample":
             details["service"] = "WebGUI"
-            for content, path, sha256, sample_parent_id in list_of_tasks:
+            for content, path, sha256 in list_of_tasks:
                 if web_conf.pre_script.enabled and "pre_script" in request.FILES:
                     pre_script = request.FILES["pre_script"]
                     details["pre_script_name"] = request.FILES["pre_script"].name
@@ -381,7 +386,6 @@ def index(request, task_id=None, resubmit_hash=None):
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
-                details["sample_parent_id"] = sample_parent_id
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
@@ -390,21 +394,21 @@ def index(request, task_id=None, resubmit_hash=None):
                 else:
                     if web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", sha256, search_limit=5)
-                        for record in records:
-                            if record.get("target").get("file", {}).get("sha256"):
-                                existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
+                        if records:
+                            for record in records:
+                                if record.get("target").get("file", {}).get("sha256"):
+                                    existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "static":
-            for content, path, sha256, sample_parent_id in list_of_tasks:
-                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+            for content, path, sha256 in list_of_tasks:
+                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
-                details["sample_parent_id"] = sample_parent_id
 
         elif task_category == "pcap":
-            for content, path, sha256, _ in list_of_tasks:
+            for content, path, sha256 in list_of_tasks:
                 if path.lower().endswith(b".saz"):
                     saz = saz_to_pcap(path)
                     if saz:
@@ -420,7 +424,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["task_ids"].append(task_id)
 
         elif task_category == "url":
-            for _, url, _, _ in list_of_tasks:
+            for _, url, _ in list_of_tasks:
                 if machine.lower() == "all":
                     machines = [vm.name for vm in db.list_machines(platform=platform)]
                 elif machine:
@@ -461,8 +465,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["task_ids"].append(task_id)
 
         elif task_category == "dlnexec":
-            for content, path, sha256, sample_parent_id in list_of_tasks:
-                details["sample_parent_id"] = sample_parent_id
+            for content, path, sha256 in list_of_tasks:
                 details["path"] = path
                 details["content"] = content
                 details["service"] = "DLnExec"
@@ -547,15 +550,10 @@ def index(request, task_id=None, resubmit_hash=None):
         vpn_random = ""
 
         if routing.socks5.random_socks5 and socks5s:
-            socks5s_random = random.choice(socks5s.values()).get("name", False)
+            socks5s_random = socks5s[random.choice(list(socks5s.keys()))]
 
-        if routing.vpn.random_vpn:
-            vpn = list(vpns.values())
-            if vpn:
-                vpn_random = random.choice(vpn).get("name", False)
-
-        if socks5s:
-            socks5s_random = random.choice(list(socks5s.values())).get("name", False)
+        if routing.vpn.random_vpn and vpns:
+            vpn_random = vpns[random.choice(list(vpns.keys()))]
 
         random_route = False
         if vpn_random and socks5s_random:
@@ -565,13 +563,38 @@ def index(request, task_id=None, resubmit_hash=None):
         elif socks5s_random:
             random_route = socks5s_random
 
+        # prepare data for the gui rendering
+        if random_route:
+            if random_route is vpn_random:
+                random_route = {
+                    "name": random_route["name"],
+                    "description": random_route["description"],
+                    "interface": random_route["interface"],
+                    "type": "VPN",
+                }
+            else:
+                random_route = {
+                    "name": random_route["description"],
+                    "host": random_route["host"],
+                    "port": random_route["port"],
+                    "type": "SOCKS5",
+                }
+        socks5s_data = [
+            {"name": v["description"], "host": v["host"], "port": v["port"], "type": "socks5"} for k, v in socks5s.items()
+        ]
+        vpns_data = [
+            {"name": v["name"], "description": v["description"], "interface": v["interface"], "type": "vpn"}
+            for k, v in vpns.items()
+        ]
+
         existent_tasks = {}
         if resubmit_hash:
             if web_conf.general.get("existent_tasks", False):
                 records = perform_search("target_sha256", resubmit_hash, search_limit=5)
-                for record in records:
-                    existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
-                    existent_tasks[record["target"]["file"]["sha256"]].append(record)
+                if records:
+                    for record in records:
+                        existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
+                        existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         return render(
             request,
@@ -579,9 +602,9 @@ def index(request, task_id=None, resubmit_hash=None):
             {
                 "packages": sorted(packages),
                 "machines": machines,
-                "vpns": list(vpns.values()),
+                "vpns": vpns_data,
                 "random_route": random_route,
-                "socks5s": list(socks5s.values()),
+                "socks5s": socks5s_data,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,

@@ -642,7 +642,6 @@ def remote_session(request, task_id):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     machine_status = False
-    label = ""
     session_data = ""
 
     if task.status == "running":

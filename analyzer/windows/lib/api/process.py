@@ -565,6 +565,7 @@ class Process:
                 "pre_script_args",
                 "pre_script_timeout",
                 "during_script_args",
+                "interactive_desktop",
             ]
 
             for optname, option in self.options.items():

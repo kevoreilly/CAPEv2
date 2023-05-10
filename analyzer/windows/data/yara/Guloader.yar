@@ -1,19 +1,3 @@
-rule Guloader
-{
-    meta:
-        author = "kevoreilly"
-        description = "Guloader bypass"
-        cape_options = "bp0=$trap0,bp0=$trap1+4,action0=skip,bp1=$trap2+11,bp1=$trap3+19,action1=skip,bp2=$antihook,action2=goto:ntdll::NtAllocateVirtualMemory,count=0"
-    strings:
-        $trap0 = {0F 85 [2] FF FF 81 BD ?? 00 00 00 [2] 00 00 0F 8F [2] FF FF 39 D2 83 FF 00}
-        $trap1 = {49 83 F9 00 75 [1-20] 83 FF 00 [2-6] 81 FF}
-        $trap2 = {39 CB 59 01 D7 49 85 C8 83 F9 00 75 B3}
-        $trap3 = {61 0F AE E8 0F 31 0F AE E8 C1 E2 20 09 C2 29 F2 83 FA 00 7E CE C3}
-        $antihook = {FF 34 08 [0-300] 8F 04 0B [0-300] 83 F9 18 [0-300] FF E3}
-    condition:
-        2 of them
-}
-
 rule GuloaderB
 {
     meta:
@@ -26,6 +10,36 @@ rule GuloaderB
         $trap1 = {31 FF [0-128] (B9|C7 85 F8 00 00 00) 60 5F A9 00}
         $antihook = {FF 34 08 [0-360] 8F 04 0B [0-360] 83 F9 18 [0-460] FF E3}
         $trap2 = {83 BD 9C 00 00 00 00 0F 85 [2] 00 00}
+    condition:
+        2 of them
+}
+
+rule GuloaderPrecursor
+{
+    meta:
+        author = "kevoreilly"
+        description = "Guloader precursor"
+        cape_options = "bp0=$antidbg,action0=scan,hc0=1,count=0"
+    strings:
+        $antidbg = {39 48 04 0F 85 [4] 39 48 08 0F 85 [4] 39 48 0C 0F 85 [4] 39 48 10 0F 85 [4] 39 48 14 0F 85 [4] 39 48 18 0F 85}
+        $except = {8B 45 08 [0-3] 8B 00 [0-3] 8B 58 18 [0-20] 81 38 05 00 00 C0 0F 85 [4-7] 83 FB 00 (0F 84|74)}
+    condition:
+        any of them
+}
+
+rule GuloaderC
+{
+    meta:
+        author = "kevoreilly"
+        description = "Guloader bypass 2023 Edition"
+        cape_options = "clear,bp0=$trap0,bp0=$trap0A,hc0=0,action0=ret,bp1=$trap1,action1=ret:4,bp2=$antihook,action2=goto:ntdll::NtAllocateVirtualMemory,count=0"
+        packed = "d0c1e946f02503a290d24637b5c522145f58372a9ded9e647d24cd904552d235"
+        packed = "26760a2ef432470c7fd2d570746b7decdcf34414045906871f33d80ff4dfc6ba"
+    strings:
+        $trap0 = {81 C6 00 10 00 00 [0-148] (39 CE|3B B5) [0-6] 0F 84 [2] 00 00}
+        $trap0A = {E8 00 00 00 00 59 [0-2800] 81 C6 00 10 00 00 [0-148] (39 CE|3B B5) [0-6] 0F 84 [2] 00 00}
+        $trap1 = {89 D6 60 0F 31 B8 [4] (05|35|2D|B8) [4] (05|35|2D|B8) [4] (05|35|2D|B8) [4] 0F A2}
+        $antihook = {FF 34 08 [0-360] 8F 04 0B [0-800] FF E3}
     condition:
         2 of them
 }

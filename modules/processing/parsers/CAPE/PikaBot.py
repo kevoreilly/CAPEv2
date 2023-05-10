@@ -13,10 +13,7 @@ class PikaException(Exception):
 
 
 def xor(data, key):
-    out = []
-    for c in data:
-        out.append(c ^ key)
-    return bytes(out)
+    return bytes([c ^ key for c in data])
 
 
 def wide_finder(data):

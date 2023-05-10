@@ -4,11 +4,10 @@
 # Credits to @MalwareCantFly
 # Code taken from https://github.com/MalwareCantFly/Vba2Graph
 
+import errno
 import logging
 import os
 import sys
-import errno
-
 from io import StringIO
 from subprocess import Popen
 
@@ -17,8 +16,8 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 try:
-    from networkx.drawing.nx_pydot import write_dot
     import networkx as nx
+    from networkx.drawing.nx_pydot import write_dot
 except ImportError:
     print("Optional! Missed regex dependency: poetry run pip install networkx[default,extra]")
 

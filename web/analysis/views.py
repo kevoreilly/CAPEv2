@@ -1587,7 +1587,7 @@ def file_nl(request, category, task_id, dlfile):
 
     elif category == "vba2graph":
         file_name = f"{dlfile}.svg"
-        path = os.path.join(base_path, "vba2graph", "svg",  file_name)
+        path = os.path.join(base_path, "vba2graph", "svg", file_name)
         cd = "image/svg+xml"
 
     else:

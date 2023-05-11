@@ -10,12 +10,11 @@ function GuacMe(element, guest_ip, vncport, session_id, recording_name) {
         /* Process terminal URL. */
 
         dialog_container = $(element).find('.guaconsole')[0];
-
-        var prot_map = {
-            "http:":  "ws:",
-            "https:": "wss:",
-        }
-        var terminal_ws_url = prot_map[location.protocol] + '//' + location.hostname;
+        
+        /* Build websocket url based on protocol */
+        var terminal_ws_url = location.origin.replace(/^http(s?):/, function(match, p1) {
+            return (p1 ? 'wss:' : 'ws:');
+        });
 
         /* Initialize Guacamole Client */
         terminal_client = new Guacamole.Client(

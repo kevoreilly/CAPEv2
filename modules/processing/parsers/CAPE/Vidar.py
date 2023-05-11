@@ -46,7 +46,7 @@ def extract_config(data):
     for url in c2:
         try:
             response = requests.get(url, timeout=3)
-        except Timeout:
+        except:
             continue
 
         ip_pattern = r"(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)[^\|]*"

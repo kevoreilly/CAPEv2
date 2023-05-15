@@ -1727,9 +1727,12 @@ def file(request, category, task_id, dlfile):
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
-    send_filename = f"{task_id + '_' if task_id not in os.path.basename(path) else ''}{os.path.basename(path)}"
-    if category in zip_categories:
-        send_filename += ".zip"
+    if not isinstance(path, list):
+        send_filename = f"{task_id + '_' if task_id not in os.path.basename(path) else ''}{os.path.basename(path)}"
+        if category in zip_categories:
+            send_filename += ".zip"
+    else:
+        send_filename = file_name + ".zip"
 
     if not path:
         return render(

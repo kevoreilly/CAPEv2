@@ -109,11 +109,10 @@ To test if your ``guacamole`` working correctly you can use this code
     $ systemctl status guacd or journalctl -u guacd
     $ cat /opt/CAPEv2/web/guac-server.log
 
-* Known problems and solution steps::
-
-    1. Ensure that CAPE loads on ``port 80`` (later you can enable TLS/SSL). Sometime config instead of `sites-enabled/cape.conf` should be `conf.d/default.conf`.
-    2. Once verified that it works with http, move to https.
-    3. You can try `websocket test client`_.
-    4. Try another browser.
+* Known problems and solution steps:
+1. Ensure that CAPE loads on ``port 80`` (later you can enable TLS/SSL). Sometime config instead of `sites-enabled/cape.conf` should be `conf.d/default.conf`.
+2. Once verified that it works with http, move to https.
+3. You can try `websocket test client`_.
+4. Try another browser.
 
 .. _websocket test client: https://chrome.google.com/webstore/detail/websocket-test-client/fgponpodhbmadfljofbimhhlengambbn/related

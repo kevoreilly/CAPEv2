@@ -287,10 +287,8 @@ def detect_it_easy_info(file_path: str):
 
         if strings:
             return strings
-    except subprocess.CalledProcessError:
-        log.warning("You need to configure your server to make TrID work properly")
-        log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
-
+    except Exception as e:
+        log.error("Trid error: %s", str(e))
     return []
 
 
@@ -303,8 +301,12 @@ def trid_info(file_path: dict):
         )
         return output.split("\n")[6:-1]
     except subprocess.CalledProcessError:
-        log.warning("You need to configure your server to make TrID work properly")
+        log.warning(
+            "You need to configure your server to make TrID work properly. Run trid by hand on file as example to ensure that it works properly."
+        )
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
+    except Exception as e:
+        log.error("Trid error: %s", str(e))
 
 
 def _extracted_files_metadata(

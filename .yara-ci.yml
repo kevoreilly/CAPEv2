@@ -8,4 +8,3 @@ false_positives:
     - rule: "CobaltStrikeBeacon"
     - rule: "Emotet"
     - rule: "NSIS"
-    - rule: "GuloaderPrecursor"

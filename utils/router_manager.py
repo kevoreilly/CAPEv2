@@ -8,7 +8,7 @@ sys.path.append(CAPE_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooNetworkError
-from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
+from lib.cuckoo.core.rooter import _load_socks5_operational, rooter
 
 cfg = Config()
 routing = Config("routing")

@@ -24,7 +24,7 @@ rule GuloaderPrecursor
         $antidbg = {39 48 04 0F 85 [4] 39 48 08 0F 85 [4] 39 48 0C 0F 85 [4] 39 48 10 0F 85 [4] 39 48 14 0F 85 [4] 39 48 18 0F 85}
         $except = {8B 45 08 [0-3] 8B 00 [0-3] 8B 58 18 [0-20] 81 38 05 00 00 C0 0F 85 [4-7] 83 FB 00 (0F 84|74)}
     condition:
-        any of them
+        any of them and not uint16(0) == 0x5A4D
 }
 
 rule GuloaderC

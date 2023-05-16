@@ -148,6 +148,9 @@ sort_pcap = on
 # SQLite doens't support database upgrades!
 # For production we strongly suggest go with PostgreSQL
 connection =
+# If you use PostgreSQL: SSL mode
+# https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS
+psql_ssl_mode = disable
 
 # Database connection timeout in seconds.
 # If empty, default is set to 60 seconds.

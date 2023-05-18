@@ -88,10 +88,8 @@ class SuccessfulExtractionReturnType(TypedDict, total=False):
 
 ExtractorReturnType = Optional[SuccessfulExtractionReturnType]
 
-
 processing_conf = Config("processing")
 selfextract_conf = Config("selfextract")
-
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
@@ -101,7 +99,6 @@ if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_dema
 HAVE_FLOSS = False
 if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
-
 
 log = logging.getLogger(__name__)
 
@@ -149,7 +146,6 @@ if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
     if processing_conf.strings.dotnet:
         from lib.cuckoo.common.dotnet_utils import HAVE_DNFILE, dotnet_user_strings
 
-
 HAVE_VIRUSTOTAL = False
 if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
     from lib.cuckoo.common.integrations.virustotal import vt_lookup
@@ -161,25 +157,24 @@ excluded_extensions = (".parti",)
 
 
 def static_file_info(
-    data_dictionary: dict,
-    file_path: str,
-    task_id: str,
-    package: str,
-    options: str,
-    destination_folder: str,
-    results: dict,
-    duplicated: DuplicatesType,
+        data_dictionary: dict,
+        file_path: str,
+        task_id: str,
+        package: str,
+        options: str,
+        destination_folder: str,
+        results: dict,
+        duplicated: DuplicatesType,
 ):
-
     size_mb = int(path_get_size(file_path) / (1024 * 1024))
     if size_mb > int(processing_conf.CAPE.max_file_size):
         log.info("static_file_info: skipping file that exceeded max_file_size: %s: %d MB", file_path, size_mb)
         return
 
     if (
-        not HAVE_OLETOOLS
-        and "Zip archive data, at least v2.0" in data_dictionary["type"]
-        and package in {"doc", "ppt", "xls", "pub"}
+            not HAVE_OLETOOLS
+            and "Zip archive data, at least v2.0" in data_dictionary["type"]
+            and package in {"doc", "ppt", "xls", "pub"}
     ):
         log.info("Missed dependencies: pip3 install oletools")
 
@@ -211,7 +206,7 @@ def static_file_info(
     elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and selfextract_conf.general.pdf:
         data_dictionary["pdf"] = PDF(file_path).run()
     elif (
-        package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf")
+            package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf")
     ) and selfextract_conf.general.windows_script:
         data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
@@ -250,7 +245,7 @@ def static_file_info(
                 data_dictionary["floss"] = floss_strings
 
         if HAVE_STRINGS:
-            strings = extract_strings(file_path)
+            strings = extract_strings(file_path, dedup=True)
             if strings:
                 data_dictionary["strings"] = strings
 
@@ -310,11 +305,11 @@ def trid_info(file_path: dict):
 
 
 def _extracted_files_metadata(
-    folder: str,
-    destination_folder: str,
-    files: List[str],
-    duplicated: Optional[DuplicatesType] = None,
-    results: Optional[dict] = None,
+        folder: str,
+        destination_folder: str,
+        files: List[str],
+        duplicated: Optional[DuplicatesType] = None,
+        results: Optional[dict] = None,
 ) -> List[dict]:
     """
     args:
@@ -354,6 +349,7 @@ def _extracted_files_metadata(
 
             dest_path = os.path.join(destination_folder, file_info["sha256"])
             file_info["path"] = dest_path
+            file_info["guest_paths"] = [file_info["name"]]
             file_info["name"] = os.path.basename(dest_path)
             if not path_exists(dest_path):
                 shutil.move(full_path, dest_path)
@@ -402,13 +398,13 @@ def time_tracker(func):
 
 
 def generic_file_extractors(
-    file: str,
-    destination_folder: str,
-    data_dictionary: dict,
-    options: dict,
-    results: dict,
-    duplicated: DuplicatesType,
-    tests: bool = False,
+        file: str,
+        destination_folder: str,
+        data_dictionary: dict,
+        options: dict,
+        results: dict,
+        duplicated: DuplicatesType,
+        tests: bool = False,
 ):
     """
     file - path to binary
@@ -437,18 +433,19 @@ def generic_file_extractors(
     futures = {}
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
         for extraction_func in (
-            msi_extract,
-            kixtart_extract,
-            vbe_extract,
-            batch_extract,
-            UnAutoIt_extract,
-            UPX_unpack,
-            RarSFX_extract,
-            Inno_extract,
-            SevenZip_unpack,
-            de4dot_deobfuscate,
-            eziriz_deobfuscate,
-            office_one,
+                msi_extract,
+                kixtart_extract,
+                vbe_extract,
+                batch_extract,
+                UnAutoIt_extract,
+                UPX_unpack,
+                RarSFX_extract,
+                Inno_extract,
+                SevenZip_unpack,
+                de4dot_deobfuscate,
+                eziriz_deobfuscate,
+                office_one,
+                msix_extract,
         ):
             funcname = extraction_func.__name__
             if not getattr(selfextract_conf, funcname, {}).get("enabled", False):
@@ -492,7 +489,8 @@ def generic_file_extractors(
             old_tool_name = data_dictionary.get("extracted_files_tool")
             new_tool_name = extraction_result["tool_name"]
             if old_tool_name:
-                log.warning("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
+                log.warning("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name,
+                            new_tool_name)
                 continue
             metadata = _extracted_files_metadata(
                 tempdir, destination_folder, files=extracted_files, duplicated=duplicated, results=results
@@ -544,7 +542,6 @@ def batch_extract(file: str, **_) -> ExtractorReturnType:
 
 @time_tracker
 def vbe_extract(file: str, **_) -> ExtractorReturnType:
-
     if not HAVE_VBE_DECODER:
         log.debug("Missed VBE decoder")
         return
@@ -571,7 +568,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
     if file.endswith("_Slayed"):
         return
 
-    if all("Eziriz .NET Reactor" not in string for string in data_dictionary.get("die", {})):
+    if all("Eziriz .NET Reactor" not in string for string in data_dictionary.get("die", [])):
         return
 
     binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
@@ -582,7 +579,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
 
     if not path_exists(binary):
         log.error(
-            "Missed dependency: Download your version from https://github.com/SychicBoy/NETReactorSlayer/releases and place under %s.",
+            "Missing dependency: Download from https://github.com/SychicBoy/NETReactorSlayer/releases and place under %s.",
             binary,
         )
         return
@@ -696,7 +693,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
 def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     """Work on Inno Installers"""
 
-    if all("Inno Setup" not in string for string in data_dictionary.get("die", {})):
+    if all("Inno Setup" not in string for string in data_dictionary.get("die", [])):
         return
 
     if not path_exists(selfextract_conf.Inno_extract.binary):
@@ -746,7 +743,7 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
 
     if not path_exists(unautoit_binary):
         log.warning(
-            f"Missed UnAutoIt binary: {unautoit_binary}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt"
+            f"Missing UnAutoIt binary: {unautoit_binary}. Download from - https://github.com/x0r19x91/UnAutoIt"
         )
         return
 
@@ -766,9 +763,9 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
 @time_tracker
 def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> ExtractorReturnType:
     if (
-        "UPX compressed" not in filetype
-        and all("UPX" not in string for string in data_dictionary.get("die", {}))
-        and all(block.get("name") != "UPX" for block in data_dictionary.get("yara", {}))
+            "UPX compressed" not in filetype
+            and all("UPX" not in string for string in data_dictionary.get("die", []))
+            and all(block.get("name") != "UPX" for block in data_dictionary.get("yara", {}))
     ):
         return
 
@@ -800,11 +797,18 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         logging.error("Missed 7z package: apt install p7zip-full")
         return
 
+    # Check for msix file since it's a zip
+    if ".msix" in data_dictionary.get("name", "") or all(
+            [pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or any(
+        "MSIX Windows app" in string for string in data_dictionary.get("trid", [])
+    ):
+        return
+
     password = ""
     # Only for real 7zip, breaks others
     password = options.get("password", "infected")
     if any(
-        "7-zip Installer data" in string for string in data_dictionary.get("die", {})
+            "7-zip Installer data" in string for string in data_dictionary.get("die", [])
     ) or "Zip archive data" in data_dictionary.get("type", ""):
         tool = "7Zip"
         prefix = "7zip_"
@@ -812,7 +816,7 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         password = f"-p{password}"
 
     elif any(
-        "Microsoft Cabinet" in string for string in data_dictionary.get("die", {})
+            "Microsoft Cabinet" in string for string in data_dictionary.get("die", [])
     ) or "Microsoft Cabinet" in data_dictionary.get("type", ""):
         tool = "UnCab"
         prefix = "cab_"
@@ -823,8 +827,8 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         prefix = "unnsis_"
         """
         elif (
-            any("SFX: WinRAR" in string for string in data_dictionary.get("die", {}))
-            or any("RAR Self Extracting archive" in string for string in data_dictionary.get("trid", {}))
+            any("SFX: WinRAR" in string for string in data_dictionary.get("die", [{}]))
+            or any("RAR Self Extracting archive" in string for string in data_dictionary.get("trid", []]))
             or "RAR self-extracting archive" in data_dictionary.get("type", "")
         ):
             tool = "UnRarSFX"
@@ -853,6 +857,7 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )
+
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx
@@ -862,9 +867,9 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
 @time_tracker
 def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnType:
     if (
-        all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
-        and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", {}))
-        and "RAR self-extracting archive" not in data_dictionary.get("type", "")
+            all("SFX: WinRAR" not in string for string in data_dictionary.get("die", []))
+            and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", []))
+            and "RAR self-extracting archive" not in data_dictionary.get("type", "")
     ):
         return
 
@@ -888,10 +893,9 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
 
 @time_tracker
 def office_one(file, **_) -> ExtractorReturnType:
-
     if not HAVE_ONE or open(file, "rb").read(16) not in (
-        b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3",
-        b"\xA1\x2F\xFF\x43\xD9\xEF\x76\x4C\x9E\xE2\x10\xEA\x57\x22\x76\x5F",
+            b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3",
+            b"\xA1\x2F\xFF\x43\xD9\xEF\x76\x4C\x9E\xE2\x10\xEA\x57\x22\x76\x5F",
     ):
         return
 
@@ -904,6 +908,37 @@ def office_one(file, **_) -> ExtractorReturnType:
                 _ = path_write_file(target_path, file_data)
         except OneNoteExtractorException:
             log.error("Can't process One file: %s", file)
+        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
+
+    return ctx
+
+
+@time_tracker
+def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
+    """Work on MSIX Package"""
+
+    if ".msix" not in data_dictionary.get("name", "") or all(
+            [pattern not in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or all(
+        "MSIX Windows app" not in string for string in data_dictionary.get("trid", [])
+    ):
+        return
+
+    with extractor_ctx(file, "MSIX", prefix="msixdump_") as ctx:
+        tempdir = ctx["tempdir"]
+        if HAVE_SFLOCK:
+            unpacked = unpack(file.encode())
+            for child in unpacked.children:
+                _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
+        else:
+            _ = subprocess.check_output(
+                [
+                    "unzip",
+                    file,
+                    f"-d {tempdir}",
+                ],
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

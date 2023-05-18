@@ -917,9 +917,9 @@ def office_one(file, **_) -> ExtractorReturnType:
 def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     """Work on MSIX Package"""
 
-    if ".msix" not in data_dictionary.get("name", "") or all(
-            [pattern not in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or all(
-        "MSIX Windows app" not in string for string in data_dictionary.get("trid", [])
+    if ".msix" not in data_dictionary.get("name", "") or not all(
+            [pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or not any(
+            "MSIX Windows app" in string for string in data_dictionary.get("trid", [])
     ):
         return
 

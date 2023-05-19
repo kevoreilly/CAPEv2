@@ -272,7 +272,7 @@ pre {
     /*background-color: white;*/
     color: #5bc0de;
 }
-#filter-toggle {
+.filter-toggle {
     display: inline-block;
     cursor: pointer;
 }

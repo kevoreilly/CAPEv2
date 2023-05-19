@@ -84,3 +84,7 @@ timeout = 60
 [office_one]
 enabled = yes
 timeout = 60
+
+[msix_extract]
+enabled = no
+timeout = 60

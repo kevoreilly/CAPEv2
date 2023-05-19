@@ -615,7 +615,9 @@ class Database(object, metaclass=Singleton):
             elif connection_string.startswith("postgres"):
                 # Disabling SSL mode to avoid some errors using sqlalchemy and multiprocesing.
                 # See: http://www.postgresql.org/docs/9.0/static/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS
-                self.engine = create_engine(connection_string, connect_args={"sslmode": "disable"}, pool_pre_ping=True)
+                self.engine = create_engine(
+                    connection_string, connect_args={"sslmode": self.cfg.database.psql_ssl_mode}, pool_pre_ping=True
+                )
             else:
                 self.engine = create_engine(connection_string)
         except ImportError as e:

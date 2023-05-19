@@ -181,6 +181,9 @@ class CAPE(Processing):
 
         file_info, pefile_object = f.get_all()
 
+        if category in ("static", "file"):
+            file_info["name"] = Path(self.task["target"]).name
+
         if pefile_object:
             self.results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
 
@@ -204,8 +207,6 @@ class CAPE(Processing):
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 
         if processing_conf.CAPE.targetinfo and category in ("static", "file"):
-            file_info["name"] = Path(self.task["target"]).name
-
             if MISP_HASH_LOOKUP:
                 misp_hash_lookup(file_info["sha256"], str(self.task["id"]), file_info)
 

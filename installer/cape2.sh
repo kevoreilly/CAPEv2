@@ -623,8 +623,8 @@ After=bind9.service
 PIDFile=/tmp/mongos.pid
 User=mongodb
 Group=mongodb
-StandardOutput=syslog
-StandardError=syslog
+# StandardOutput=syslog
+# StandardError=syslog
 SyslogIdentifier=mongodb
 ExecStart=/usr/bin/mongos --configdb cape_config/${DIST_MASTER_IP}:27019 --port 27020
 [Install]
@@ -759,7 +759,7 @@ function install_mongo(){
 		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
 		apt update 2>/dev/null
-		apt install libpcre3-dev numactl -y
+		apt install libpcre3-dev numactl cron -y
 		apt install -y mongodb-org
 		pip3 install pymongo -U
 
@@ -799,8 +799,8 @@ Restart=always
 # --wiredTigerCacheSizeGB=50
 User=mongodb
 Group=mongodb
-StandardOutput=syslog
-StandardError=syslog
+# StandardOutput=syslog
+# StandardError=syslog
 SyslogIdentifier=mongodb
 LimitNOFILE=65536
 [Install]
@@ -913,7 +913,7 @@ function dependencies() {
         echo "user ${USER} already exist"
     else
         groupadd ${USER}
-        useradd --system -g ${USER} -d /home/${USER}/ -m ${USER}
+        useradd --system -g ${USER} -d /home/${USER}/ -m ${USER} --shell /bin/bash
     fi
 
     groupadd pcap

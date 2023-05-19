@@ -8,13 +8,14 @@ sys.path.append(CAPE_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooNetworkError
-from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
+from lib.cuckoo.core.rooter import _load_socks5_operational, rooter
 
 cfg = Config()
 routing = Config("routing")
 log = logging.getLogger()
 socks5s = _load_socks5_operational()
 machinery_conf = Config(cfg.cuckoo.machinery)
+vpns = routing.vpn.get("vpns", "")
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False
@@ -168,8 +169,9 @@ if __name__ == "__main__":
         if routing.routing.reject_hostports != "none":
             reject_hostports = str(routing.routing.reject_hostports)
     elif route in vpns:
-        interface = vpns[route].interface
-        rt_table = vpns[route].rt_table
+        vpn = routing.get(route)
+        interface = vpn.interface
+        rt_table = vpn.rt_table
     elif route in socks5s:
         interface = ""
     else:

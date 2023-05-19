@@ -208,7 +208,18 @@ def main():
     enabled = []
 
     if args.all:
-        enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data", "integrations", "mitre", "common"]
+        enabled = [
+            "feeds",
+            "processing",
+            "signatures",
+            "reporting",
+            "machinery",
+            "analyzer",
+            "data",
+            "integrations",
+            "mitre",
+            "common",
+        ]
         flare_capa()
     else:
         if args.feeds:
@@ -224,7 +235,7 @@ def main():
         if args.analyzer:
             enabled.append("analyzer")
         if args.common:
-             enabled.append("common")
+            enabled.append("common")
         # Data contains yara
         if args.data:
             enabled.append("data")

@@ -320,13 +320,13 @@ def init_yara():
                 break
             except yara.SyntaxError as e:
                 bad_rule = re.match(r"(.+)\(\d+\):", str(e))[1]
-                log.debug("Trying to delete bad rule: %s", bad_rule)
+                log.debug("Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule)
                 if os.path.basename(bad_rule) in indexed:
                     for k, v in rules.items():
                         if v == bad_rule:
                             del rules[k]
                             indexed.remove(os.path.basename(bad_rule))
-                            print(f"Deleted broken yara rule: {bad_rule}")
+                            log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing module.", bad_rule)
                             break
                 else:
                     break

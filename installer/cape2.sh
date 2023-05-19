@@ -1,6 +1,5 @@
 #!/bin/bash
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
-# Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
 
 # Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne
@@ -569,8 +568,8 @@ function install_logrotate() {
     # du -sh /var/log/* | sort -hr | head -n10
     # thanks digitalocean.com for the manual
     # https://www.digitalocean.com/community/tutorials/how-to-manage-logfiles-with-logrotate-on-ubuntu-16-04
-    if [ ! -f /etc/logrotate.d/doomedraven.conf ]; then
-            cat >> /etc/logrotate.d/doomedraven.conf << EOF
+    if [ ! -f /etc/logrotate.d/cape.conf ]; then
+            cat >> /etc/logrotate.d/cape.conf << EOF
 #/var/log/*.log {
 #    daily
 #    missingok

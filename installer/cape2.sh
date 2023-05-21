@@ -952,22 +952,42 @@ EOF
     #Edit the Privoxy configuration
     #sudo sed -i 's/R#        forward-socks5t             /     127.0.0.1:9050 ./        forward-socks5t             /     127.0.0.1:9050 ./g' /etc/privoxy/config
     #service privoxy restart
-    {
-        echo "* soft nofile 1048576";
-        echo "* hard nofile 1048576";
-        echo "root soft nofile 1048576";
-        echo "root hard nofile 1048576";
-    } >>  /etc/security/limits.conf
-
-    {
-        echo "fs.file-max = 100000";
-        echo "net.ipv6.conf.all.disable_ipv6 = 1";
-        echo "net.ipv6.conf.default.disable_ipv6 = 1";
-        echo "net.ipv6.conf.lo.disable_ipv6 = 1";
-        echo "net.bridge.bridge-nf-call-ip6tables = 0";
-        echo "net.bridge.bridge-nf-call-iptables = 0";
-        echo "net.bridge.bridge-nf-call-arptables = 0";
-    } >> /etc/sysctl.conf
+    
+    if ! grep -q -E '^* soft nofile' /etc/security/limits.conf; then
+        echo "* soft nofile 1048576" >> /etc/security/limits.conf
+    fi
+    if ! grep -q -E '^* hard nofile' /etc/security/limits.conf; then
+        echo "* hard nofile 1048576" >> /etc/security/limits.conf
+    fi
+    if ! grep -q -E '^root soft nofile' /etc/security/limits.conf; then
+        echo "root soft nofile 1048576" >> /etc/security/limits.conf
+    fi
+    if ! grep -q -E '^root hard nofile' /etc/security/limits.conf; then
+        echo "root soft hard 1048576" >> /etc/security/limits.conf
+    fi
+    
+    
+    if ! grep -q -E '^fs.file-max' /etc/sysctl.conf; then
+        echo "fs.file-max = 100000" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.ipv6.conf.all.disable_ipv6' /etc/sysctl.conf; then
+        echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.ipv6.conf.default.disable_ipv6' /etc/sysctl.conf; then
+        echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.ipv6.conf.lo.disable_ipv6' /etc/sysctl.conf; then
+        echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.bridge.bridge-nf-call-ip6tables' /etc/sysctl.conf; then
+        echo "net.bridge.bridge-nf-call-ip6tables = 0" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.bridge.bridge-nf-call-iptables' /etc/sysctl.conf; then
+        echo "net.bridge.bridge-nf-call-iptables = 0" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.bridge.bridge-nf-call-arptables' /etc/sysctl.conf; then
+        echo "net.bridge.bridge-nf-call-arptables = 0" >> /etc/sysctl.conf
+    fi
 
     # enable packet forwarding for IPv4
     if ! grep -q -E '^net.ipv4.ip_forward=1' /etc/sysctl.conf; then
@@ -1161,11 +1181,12 @@ function install_CAPE() {
     # Configure direct internet connection
     sudo echo "400 ${INTERNET_IFACE}" >> /etc/iproute2/rt_tables
 
+if [ ! -f /etc/sudoers.d/cape ]; then
     cat >> /etc/sudoers.d/cape << EOF
 Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
 EOF
-
+fi
 }
 
 function install_systemd() {

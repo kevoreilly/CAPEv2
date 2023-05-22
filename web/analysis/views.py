@@ -850,8 +850,6 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
         apis = apilist.split(",")
         apis[:] = [s.strip().lower() for s in apis if len(s.strip())]
 
-        tid = int(tid)
-
         # Populate dict, fetching data from all calls and selecting only appropriate category/APIs.
         for call in process["calls"]:
             if enabledconf["mongodb"]:
@@ -860,8 +858,8 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                 chunk = es.search(index=get_calls_index(), body={"query": {"match": {"_id": call}}})["hits"]["hits"][0]["_source"]
             for call in chunk["calls"]:
                 # filter by call or tid
-                if caller != "null" or tid != 0:
-                    if call["caller"] == caller and call["thread_id"] == tid:
+                if caller != "null" or tid != "0":
+                    if (caller == "null" or call["caller"] == caller) and (tid == "0" or call["thread_id"] == tid):
                         filtered_process["calls"].append(call)
                 elif category in ("all", call["category"]):
                     if len(apis) > 0:

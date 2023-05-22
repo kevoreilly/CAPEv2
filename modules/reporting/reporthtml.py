@@ -69,7 +69,7 @@ class ReportHTML(Report):
                 "dict2list": dict2list,
                 "parentfixup": parentfixup,
                 "malware_config": malware_config,
-                "flare_capa_capabilities": flare_capa_capabilities,
+                "flare_capa_capability": flare_capa_capabilities,
                 "flare_capa_attck": flare_capa_attck,
                 "flare_capa_mbc": flare_capa_mbc,
                 "datefmt": datefmt,

@@ -718,7 +718,7 @@ function install_yara() {
     mkdir -p /tmp/yara_builded/DEBIAN
     cd "$directory" || return
     ./bootstrap.sh
-    ./configure --enable-cuckoo --enable-magic --enable-profiling
+    ./configure --enable-cuckoo --enable-magic --enable-profiling --enable-dotnet
     make -j"$(getconf _NPROCESSORS_ONLN)"
     yara_version_only=$(echo $yara_version|cut -c 2-)
     echo -e "Package: yara\nVersion: $yara_version_only\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: yara-$yara_version" > /tmp/yara_builded/DEBIAN/control

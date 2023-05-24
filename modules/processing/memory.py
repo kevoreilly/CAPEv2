@@ -13,10 +13,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.config import Config
 
 try:
     import re2 as re

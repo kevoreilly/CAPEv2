@@ -7,13 +7,16 @@
 
 # Static values
 # Where to place everything
+# CAPE TcpDump will sniff this interface
 NETWORK_IFACE=virbr1
-# for tor
+# On which IP TOR should listen
 IFACE_IP="192.168.1.1"
-# DB password
+# Confiures default network interface ip route table
 INTERNET_IFACE=$(ip route | grep '^default'|awk '{print $5}')
+# DB password
 PASSWD="SuperPuperSecret"
-DIST_MASTER_IP=X.X.X.X
+# Only in case if you using distributed CAPE And MongoDB sharding.
+DIST_MASTER_IP="192.168.1.1"
 USER="cape"
 nginx_version=1.19.6
 prometheus_version=2.20.1

@@ -77,7 +77,7 @@ TEMPLATES = [
 ]
 
 # Database settings. We don't need it.
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "siteauth.sqlite"}
+DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "siteauth.sqlite"}}
 
 ASGI_APPLICATION = "web.asgi.application"
 

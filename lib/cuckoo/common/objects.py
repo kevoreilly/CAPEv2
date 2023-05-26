@@ -361,6 +361,8 @@ class File:
         """
         if self.file_type:
             return self.file_type
+        else:
+            self.file_type = self.get_content_type()
         if self.file_path:
             try:
                 if IsPEImage(self.file_data):
@@ -371,7 +373,7 @@ class File:
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
                             log.error("Unable to instantiate pefile on image")
-                        if self.pe:
+                        if self.pe and not self.file_type:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
@@ -389,8 +391,6 @@ class File:
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")
             except Exception as e:
                 log.error(e, exc_info=True)
-        if not self.file_type:
-            self.file_type = self.get_content_type()
 
         return self.file_type
 

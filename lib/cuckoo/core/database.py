@@ -653,37 +653,33 @@ class Database(object, metaclass=Singleton):
         # TODO: sqlalchemy2
         # self.engine.execute(machines_tags.delete())
 
-        session = self.Session()
-        # TODO testing
-        session.execute(machines_tags.delete())
-        try:
-            session.query(Machine).delete()
-            session.commit()
-        except SQLAlchemyError as e:
-            log.debug("Database error cleaning machines: %s", e)
-            session.rollback()
-        finally:
-            session.close()
+        with self.Session() as session:
+            # TODO testing
+            session.execute(machines_tags.delete())
+            try:
+                session.query(Machine).delete()
+                session.commit()
+            except SQLAlchemyError as e:
+                log.debug("Database error cleaning machines: %s", e)
+                session.rollback()
 
     @classlock
     def delete_machine(self, name) -> bool:
         """Delete a single machine entry from DB."""
 
-        session = self.Session()
-        try:
-            machine = session.query(Machine).filter_by(name=name).first()
-            if machine:
-                session.delete(machine)
-                session.commit()
-                return True
-            else:
-                log.warning(f"{name} does not exist in the database.")
-                return False
-        except SQLAlchemyError as e:
-            log.debug("Database error deleting machine: %s", e)
-            session.rollback()
-        finally:
-            session.close()
+        with self.Session() as session:
+            try:
+                machine = session.query(Machine).filter_by(name=name).first()
+                if machine:
+                    session.delete(machine)
+                    session.commit()
+                    return True
+                else:
+                    log.warning(f"{name} does not exist in the database.")
+                    return False
+            except SQLAlchemyError as e:
+                log.debug("Database error deleting machine: %s", e)
+                session.rollback()
 
     @classlock
     def add_machine(self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port, reserved):

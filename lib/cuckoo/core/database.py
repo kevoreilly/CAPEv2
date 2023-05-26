@@ -2,6 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+# https://blog.miguelgrinberg.com/post/what-s-new-in-sqlalchemy-2-0
+# https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#
+# ToDO with session.begin():
+
 import json
 import logging
 import os
@@ -40,7 +44,7 @@ try:
         event,
         func,
         not_,
-        select
+        select,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.orm import joinedload, relationship, sessionmaker, declarative_base, backref
@@ -713,9 +717,7 @@ class Database(object, metaclass=Singleton):
             if tags:
                 for tag in tags.replace(" ", "").split(","):
                     machine.tags.append(self._get_or_create(session, Tag, name=tag))
-            print(name)
             session.add(machine)
-            import code;code.interact(local=dict(locals(), **globals()))
             try:
                 session.commit()
             except SQLAlchemyError as e:
@@ -996,7 +998,7 @@ class Database(object, metaclass=Singleton):
         """
         with self.Session() as session:
             try:
-                machines = session.query(Machine).options(joinedload(Tag))
+                machines = session.query(Machine).options(joinedload(Machine.tags))
                 if locked is not None and isinstance(locked, bool):
                     machines = machines.filter_by(locked=locked)
                 if label:
@@ -1015,6 +1017,7 @@ class Database(object, metaclass=Singleton):
                         machines = machines.filter(Machine.tags.any(name=tag))
                 return machines.all()
             except SQLAlchemyError as e:
+                print(e)
                 log.debug("Database error listing machines: %s", e)
                 return []
 
@@ -1148,7 +1151,7 @@ class Database(object, metaclass=Singleton):
         """
         with self.Session() as session:
             try:
-                machines = session.query(Machine).options(joinedload(Tag)).filter_by(locked=False).all()
+                machines = session.query(Machine).options(joinedload(Machine.tags)).filter_by(locked=False).all()
                 return machines
             except SQLAlchemyError as e:
                 log.debug("Database error getting available machines: %s", e)
@@ -2103,7 +2106,7 @@ class Database(object, metaclass=Singleton):
                 if category:
                     search = search.filter(Task.category == category)
                 if details:
-                    search = search.options(joinedload("guest"), joinedload("errors"), joinedload(Tag))
+                    search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
                 if sample_id is not None:
                     search = search.filter(Task.sample_id == sample_id)
                 if id_before is not None:
@@ -2242,7 +2245,8 @@ class Database(object, metaclass=Singleton):
             try:
                 if details:
                     # TODO ensure that we don't load unwanted data
-                    task = select(Task).where(Task.id == task_id).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+                    # task = select(Task).where(Task.id == task_id).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+                    task = select(Task).where(Task.id == task_id).options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
                     task = session.execute(task).first()
                 else:
                     task = session.get(Task, task_id)
@@ -2528,10 +2532,9 @@ class Database(object, metaclass=Singleton):
 
                 if not sample:
                     # search in temp folder if not found in binaries
-                    db_sample = session.query(Task).filter(query_filter == sample_hash).filter(Sample.id == Task.sample_id).all()
+                    db_sample = session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(query_filter == sample_hash).all()
 
-                    #<stdin>:1: SAWarning: SELECT statement has a cartesian product between FROM element(s) "tasks" and FROM element "samples".  Apply join condition(s) between each element to resolve.
-                    if db_sample:
+                    if db_sample is not None:
                         samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
                         # hash validation and if exist
                         samples = [file_path for file_path in samples if path_exists(file_path)]

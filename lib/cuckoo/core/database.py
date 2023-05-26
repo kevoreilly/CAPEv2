@@ -42,8 +42,7 @@ try:
         not_,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
-    from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy.orm import joinedload, relationship, sessionmaker
+    from sqlalchemy.orm import joinedload, relationship, sessionmaker, declarative_base
 
     Base = declarative_base()
 except ImportError:
@@ -650,9 +649,12 @@ class Database(object, metaclass=Singleton):
         """Clean old stored machines and related tables."""
         # Secondary table.
         # TODO: this is better done via cascade delete.
-        self.engine.execute(machines_tags.delete())
+        # TODO: sqlalchemy2
+        # self.engine.execute(machines_tags.delete())
 
         session = self.Session()
+        # TODO testing
+        session.execute(machines_tags.delete())
         try:
             session.query(Machine).delete()
             session.commit()
@@ -1017,7 +1019,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            machines = session.query(Machine).options(joinedload("tags"))
+            machines = session.query(Machine).options(joinedload(Tag))
             if locked is not None and isinstance(locked, bool):
                 machines = machines.filter_by(locked=locked)
             if label:
@@ -1184,7 +1186,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            machines = session.query(Machine).options(joinedload("tags")).filter_by(locked=False).all()
+            machines = session.query(Machine).options(joinedload(Tag)).filter_by(locked=False).all()
             return machines
         except SQLAlchemyError as e:
             log.debug("Database error getting available machines: %s", e)
@@ -2161,7 +2163,7 @@ class Database(object, metaclass=Singleton):
             if category:
                 search = search.filter(Task.category == category)
             if details:
-                search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
+                search = search.options(joinedload("guest"), joinedload("errors"), joinedload(Tag))
             if sample_id is not None:
                 search = search.filter(Task.sample_id == sample_id)
             if id_before is not None:
@@ -2311,7 +2313,7 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             if details:
-                task = session.query(Task).options(joinedload("guest"), joinedload("errors"), joinedload("tags")).get(task_id)
+                task = session.query(Task).options(joinedload("guest"), joinedload("errors"), joinedload(Tag)).get(task_id)
             else:
                 task = session.query(Task).get(task_id)
         except SQLAlchemyError as e:
@@ -2677,7 +2679,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            machine = session.query(Machine).options(joinedload("tags")).filter(Machine.name == name).first()
+            machine = session.query(Machine).options(joinedload(Tag)).filter(Machine.name == name).first()
         except SQLAlchemyError as e:
             log.debug("Database error viewing machine: %s", e)
             return None
@@ -2696,7 +2698,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            machine = session.query(Machine).options(joinedload("tags")).filter(Machine.label == label).first()
+            machine = session.query(Machine).options(joinedload(Tag)).filter(Machine.label == label).first()
         except SQLAlchemyError as e:
             log.debug("Database error viewing machine by label: %s", e)
             return None

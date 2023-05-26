@@ -40,8 +40,7 @@ try:
         event,
         func,
         not_,
-        select,
-        backref,
+        select
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.orm import joinedload, relationship, sessionmaker, declarative_base, backref

@@ -40,6 +40,7 @@ try:
         event,
         func,
         not_,
+        select,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.orm import joinedload, relationship, sessionmaker, declarative_base
@@ -747,7 +748,7 @@ class Database(object, metaclass=Singleton):
     def update_clock(self, task_id):
         session = self.Session()
         try:
-            row = session.query(Task).get(task_id)
+            row = session.get(Task, task_id)
 
             if not row:
                 return
@@ -774,7 +775,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            row = session.query(Task).get(task_id)
+            row = session.get(Task, task_id)
 
             if not row:
                 return
@@ -803,7 +804,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            row = session.query(Task).get(task_id)
+            row = session.get(Task, task_id)
 
             if not row:
                 return
@@ -910,7 +911,7 @@ class Database(object, metaclass=Singleton):
         guest = Guest(name, label, manager)
         try:
             guest.status = "init"
-            session.query(Task).get(task_id).guest = guest
+            session.get(Task, task_id).guest = guest
             session.commit()
             session.refresh(guest)
             return guest.id
@@ -963,7 +964,7 @@ class Database(object, metaclass=Singleton):
         """Removes a guest start entry."""
         session = self.Session()
         try:
-            guest = session.query(Guest).get(guest_id)
+            guest = session.get(Guest, guest_id)
             session.delete(guest)
             session.commit()
         except SQLAlchemyError as e:
@@ -980,7 +981,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            guest = session.query(Guest).get(guest_id)
+            guest = session.get(Guest, guest_id)
             if guest:
                 guest.shutdown_on = datetime.now()
                 session.commit()
@@ -1954,7 +1955,7 @@ class Database(object, metaclass=Singleton):
 
         # Change status to recovered.
         session = self.Session()
-        session.query(Task).get(task_id).status = TASK_RECOVERED
+        session.get(Task, task_id).status = TASK_RECOVERED
         try:
             session.commit()
         except SQLAlchemyError as e:
@@ -2009,7 +2010,7 @@ class Database(object, metaclass=Singleton):
         )
 
         session = self.Session()
-        session.query(Task).get(task_id).custom = f"Recovery_{new_task_id}"
+        session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
         try:
             session.commit()
         except SQLAlchemyError as e:
@@ -2313,9 +2314,11 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             if details:
-                task = session.query(Task).options(joinedload("guest"), joinedload("errors"), joinedload(Tag)).get(task_id)
+                # TODO ensure that we don't load unwanted data
+                task = select(Task).where(Task.id == task_id).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+                task = session.execute(task).first()
             else:
-                task = session.query(Task).get(task_id)
+                task = session.get(Task, task_id)
         except SQLAlchemyError as e:
             log.debug("Database error viewing task: %s", e)
             return None
@@ -2335,7 +2338,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            task = session.query(Task).get(task_id)
+            task = session.get(Task, task_id)
             if task:
                 task.dropped_files = details["dropped_files"]
                 task.running_processes = details["running_processes"]
@@ -2365,7 +2368,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            task = session.query(Task).get(task_id)
+            task = session.get(Task, task_id)
             session.delete(task)
             session.commit()
         except SQLAlchemyError as e:
@@ -2397,7 +2400,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            sample = session.query(Sample).get(sample_id)
+            sample = session.get(Sample, sample_id)
         except AttributeError:
             return None
         except SQLAlchemyError as e:

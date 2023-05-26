@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
@@ -184,6 +185,7 @@ class VolatilityManager:
         self.mask_pid = []
         self.taint_pid = set()
         self.memfile = memfile
+        self.options = Config("memory")
 
         conf_path = os.path.join(CUCKOO_ROOT, "conf", "memory.conf")
         if not path_exists(conf_path):

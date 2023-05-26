@@ -65,7 +65,7 @@ def check_user_permissions(as_root: bool = False):
     if as_root:
         log.warning("You running part of CAPE as non 'cape' user! That breaks permissions on temp folder and log folder.")
         return
-    if gt.getuser() != "cape":
+    if gt.getuser() != cuckoo.cuckoo.username:
         raise CuckooStartupError(
             f"Running as not 'cape' user breaks permissions! Run with cape user! Also fix permission on tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}"
         )
@@ -320,13 +320,13 @@ def init_yara():
                 break
             except yara.SyntaxError as e:
                 bad_rule = re.match(r"(.+)\(\d+\):", str(e))[1]
-                log.debug("Trying to delete bad rule: %s", bad_rule)
+                log.debug("Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule)
                 if os.path.basename(bad_rule) in indexed:
                     for k, v in rules.items():
                         if v == bad_rule:
                             del rules[k]
                             indexed.remove(os.path.basename(bad_rule))
-                            print(f"Deleted broken yara rule: {bad_rule}")
+                            log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing module.", bad_rule)
                             break
                 else:
                     break

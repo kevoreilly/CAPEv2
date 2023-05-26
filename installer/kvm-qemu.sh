@@ -396,9 +396,9 @@ function install_libvirt() {
     # http://ask.xmodulo.com/compile-virt-manager-debian-ubuntu.html
     #rm -r /usr/local/lib/python2.7/dist-packages/libvirt*
 
-    if [ ! -f /etc/apt/preferences.d/doomedraven ]; then
+    if [ ! -f /etc/apt/preferences.d/cape ]; then
     # set to hold to avoid side problems
-        cat >> /etc/apt/preferences.d/doomedraven << EOH
+        cat >> /etc/apt/preferences.d/cape << EOH
 Package: libvirt-bin
 Pin: release *
 Pin-Priority: -1

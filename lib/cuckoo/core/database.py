@@ -41,9 +41,10 @@ try:
         func,
         not_,
         select,
+        backref,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
-    from sqlalchemy.orm import joinedload, relationship, sessionmaker, declarative_base
+    from sqlalchemy.orm import joinedload, relationship, sessionmaker, declarative_base, backref
 
     Base = declarative_base()
 except ImportError:
@@ -200,7 +201,7 @@ class Machine(Base):
     arch = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     platform = Column(String(255), nullable=False)
-    tags = relationship("Tag", secondary=machines_tags, backref="machines")
+    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines"))
     interface = Column(String(255), nullable=True)
     snapshot = Column(String(255), nullable=True)
     locked = Column(Boolean(), nullable=False, default=False)
@@ -413,7 +414,7 @@ class Task(Base):
     # Task tags
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref="tasks", lazy="subquery")
+    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks", lazy="subquery"))
     options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
@@ -463,10 +464,10 @@ class Task(Base):
     timedout = Column(Boolean, nullable=False, default=False)
 
     sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
-    sample = relationship("Sample", backref="tasks", lazy="subquery")
+    sample = relationship("Sample", backref=backref("tasks", lazy="subquery"))
     machine_id = Column(Integer, nullable=True)
-    guest = relationship("Guest", uselist=False, backref="tasks", cascade="save-update, delete")
-    errors = relationship("Error", backref="tasks", cascade="save-update, delete")
+    guest = relationship("Guest", uselist=False, backref=backref("tasks"), cascade="save-update, delete")
+    errors = relationship("Error", backref=backref("tasks"), cascade="save-update, delete")
 
     shrike_url = Column(String(4096), nullable=True)
     shrike_refer = Column(String(4096), nullable=True)
@@ -2615,7 +2616,9 @@ class Database(object, metaclass=Singleton):
                 if not sample:
                     # search in temp folder if not found in binaries
                     db_sample = session.query(Task).filter(query_filter == sample_hash).filter(Sample.id == Task.sample_id).all()
-                    if db_sample is not None:
+
+                    #<stdin>:1: SAWarning: SELECT statement has a cartesian product between FROM element(s) "tasks" and FROM element "samples".  Apply join condition(s) between each element to resolve.
+                    if db_sample:
                         samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
                         # hash validation and if exist
                         samples = [file_path for file_path in samples if path_exists(file_path)]
@@ -2683,6 +2686,7 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             machine = session.query(Machine).options(joinedload(Tag)).filter(Machine.name == name).first()
+            # machine = session.execute(select(Machine).filter(Machine.name == name).options(joinedload(Tag))).first()
         except SQLAlchemyError as e:
             log.debug("Database error viewing machine: %s", e)
             return None

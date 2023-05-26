@@ -204,7 +204,7 @@ class Machine(Base):
     arch = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     platform = Column(String(255), nullable=False)
-    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines"))
+    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines")) # lazy="subquery"
     interface = Column(String(255), nullable=True)
     snapshot = Column(String(255), nullable=True)
     locked = Column(Boolean(), nullable=False, default=False)
@@ -417,7 +417,7 @@ class Task(Base):
     # Task tags
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks", lazy="subquery"))
+    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks")) # lazy="immediate"
     options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
@@ -721,6 +721,7 @@ class Database(object, metaclass=Singleton):
             try:
                 session.commit()
             except SQLAlchemyError as e:
+                print(e)
                 log.debug("Database error adding machine: %s", e)
                 session.rollback()
 
@@ -2244,19 +2245,19 @@ class Database(object, metaclass=Singleton):
         with self.Session() as session:
             try:
                 if details:
-                    # TODO ensure that we don't load unwanted data
-                    # task = select(Task).where(Task.id == task_id).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
-                    task = select(Task).where(Task.id == task_id).options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
+                    task = select(Task).where(Task.id == task_id).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
                     task = session.execute(task).first()
                 else:
-                    task = session.get(Task, task_id)
-            except SQLAlchemyError as e:
-                log.debug("Database error viewing task: %s", e)
-                return None
-            else:
+                    query = select(Task).where(Task.id == task_id).options(joinedload(Task.tags))
+                    task = session.execute(query).first()
                 if task:
+                    task = task[0]
                     session.expunge(task)
-                return task
+                    return task
+            except SQLAlchemyError as e:
+                print(e)
+                log.debug("Database error viewing task: %s", e)
+
 
     @classlock
     def add_statistics_to_task(self, task_id, details):
@@ -2599,7 +2600,7 @@ class Database(object, metaclass=Singleton):
         """
         with self.Session() as session:
             try:
-                machine = session.query(Machine).options(joinedload(Tag)).filter(Machine.name == name).first()
+                machine = session.query(Machine).options(joinedload(Machine.tags)).filter(Machine.name == name).first()
                 # machine = session.execute(select(Machine).filter(Machine.name == name).options(joinedload(Tag))).first()
             except SQLAlchemyError as e:
                 log.debug("Database error viewing machine: %s", e)
@@ -2617,7 +2618,7 @@ class Database(object, metaclass=Singleton):
         """
         with self.Session() as session:
             try:
-                machine = session.query(Machine).options(joinedload(Tag)).filter(Machine.label == label).first()
+                machine = session.query(Machine).options(joinedload(Machine.tags)).filter(Machine.label == label).first()
             except SQLAlchemyError as e:
                 log.debug("Database error viewing machine by label: %s", e)
                 return None

@@ -85,15 +85,18 @@ enabled = no
 [delete]
 enabled = no
 
-#Dl'n'Exec analysis tab on submission
+# Dl'n'Exec analysis tab on submission
 [dlnexec]
 enabled = no
 
-#url analysis tab on submission
+# url analysis tab on submission
 [url_analysis]
 enabled = no
+# Set your default browser preference or write your own one.
+# Existing: firefox, chrome, edge
+package = chrome
 
-#TLP markings on submission and webgui
+# TLP markings on submission and webgui
 [tlp]
 enabled = no
 

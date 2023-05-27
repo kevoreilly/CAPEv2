@@ -1903,6 +1903,8 @@ class Database(object, metaclass=Singleton):
             timeout = 0
         if not priority:
             priority = 1
+        if not package:
+            package = web_conf.url_analysis.package
 
         return self.add(
             URL(url),

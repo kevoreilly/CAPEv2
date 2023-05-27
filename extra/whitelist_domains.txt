@@ -31,6 +31,14 @@ crl\.microsoft\.com
 \.windows\.com\.akadns\.net$
 \.microsoft\.com\.nsatc\.net$
 
+-microsoft-com\.akamaized\.net$
+\.s-microsoft\.com$
+\.msedge\.net$
+\.res\.office365\.com$
+\.licdn\.com$
+\.xboxlive\.com$
+\.onestore\.ms$
+
 # Google
 update\.googleapis\.com$
 

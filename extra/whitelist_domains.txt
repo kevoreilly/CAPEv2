@@ -36,6 +36,7 @@ crl\.microsoft\.com
 \.msedge\.net$
 \.res\.office365\.com$
 \.licdn\.com$
+\.xboxlive\.com$
 
 # Google
 update\.googleapis\.com$

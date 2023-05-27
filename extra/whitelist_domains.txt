@@ -37,6 +37,7 @@ crl\.microsoft\.com
 \.res\.office365\.com$
 \.licdn\.com$
 \.xboxlive\.com$
+\.onestore\.ms$
 
 # Google
 update\.googleapis\.com$

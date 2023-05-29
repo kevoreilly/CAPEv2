@@ -417,7 +417,7 @@ class Task(Base):
     # Task tags
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks")) # lazy="immediate"
+    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks", lazy="subquery"))
     options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
@@ -2099,7 +2099,9 @@ class Database(object, metaclass=Singleton):
         """
         with self.Session() as session:
             try:
-                search = session.query(Task)
+                # ToDo temp options(joinedload) due to
+                # sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <Task at 0x7fde63d500a0> is not bound to a Session; lazy load operation of attribute 'tags' cannot proceed (Background on this error at: https://sqlalche.me/e/14/bhk3)
+                search = session.query(Task).options(joinedload(Task.tags))
                 if include_hashes:
                     search = search.join(Sample, Task.sample_id == Sample.id)
                 if status:

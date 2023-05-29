@@ -1,6 +1,6 @@
 ### [29.5.2023]
 * URL default analysis package selection in web.conf
-* SqlAlchemy2 migration started
+* SQLAlchemy2 migration started
 * MSIX extract
 
 ### [21.4.2023]

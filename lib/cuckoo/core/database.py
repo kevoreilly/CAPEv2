@@ -2196,7 +2196,7 @@ class Database(object, metaclass=Singleton):
                 search = search.order_by(Task.added_on.desc())
 
             tasks = search.limit(limit).offset(offset).all()
-            # session.expunge_all()
+            session.expunge_all()
             return tasks
         except RuntimeError as e:
             # RuntimeError: number of values in row (1) differ from number of column processors (62)

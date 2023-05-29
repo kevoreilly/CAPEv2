@@ -21,7 +21,7 @@ processing_cfg = Config("processing")
 log = logging.getLogger(__name__)
 
 
-def extract_strings(filepath: str = False, data: bytes = False, on_demand: bool = False):
+def extract_strings(filepath: str = False, data: bytes = False, on_demand: bool = False, dedup: bool = False):
     """Extract strings from analyzed file.
     @return: list of printable strings.
     """
@@ -55,5 +55,8 @@ def extract_strings(filepath: str = False, data: bytes = False, on_demand: bool 
 
     strings = [bytes2str(string) for string in re.findall(apat, data)]
     strings.extend(str(ws.decode("utf-16le")) for ws in re.findall(upat, data))
+
+    if dedup:
+        strings = list(set(strings))
 
     return strings

@@ -1,6 +1,11 @@
+### [29.5.2023]
+* URL default analysis package selection in web.conf
+* SQLAlchemy2 migration started
+* MSIX extract
+
 ### [21.4.2023]
 * Fix issue with Rhadamanthys & BumbleBeeLoader FPs due to monitor sigs in process dumps
-* Monitor update: Debugger hardening & new actions 
+* Monitor update: Debugger hardening & new actions
 
 ### [21.4.2023]
 * Monitor updates: Misc fixes (see capemon repo) & hooks for CreateProcessA/W to reduce noise

@@ -94,7 +94,8 @@ enabled = no
 enabled = no
 # Set your default browser preference or write your own one.
 # Existing: firefox, chrome, edge
-package = chrome
+# analyzer/*/modules/packages/
+package = edge
 
 # TLP markings on submission and webgui
 [tlp]

@@ -654,7 +654,6 @@ class Database(object, metaclass=Singleton):
         """Clean old stored machines and related tables."""
         # Secondary table.
         # TODO: this is better done via cascade delete.
-        # TODO: sqlalchemy2
         # self.engine.execute(machines_tags.delete())
 
         with self.Session() as session:
@@ -2099,8 +2098,8 @@ class Database(object, metaclass=Singleton):
         """
         with self.Session() as session:
             try:
-                # ToDo temp options(joinedload) due to
-                # sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <Task at 0x7fde63d500a0> is not bound to a Session; lazy load operation of attribute 'tags' cannot proceed (Background on this error at: https://sqlalche.me/e/14/bhk3)
+                # Can we remove "options(joinedload)" it is here due to next error
+                # sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <Task at X> is not bound to a Session; lazy load operation of attribute 'tags' cannot proceed
                 search = session.query(Task).options(joinedload(Task.tags))
                 if include_hashes:
                     search = search.join(Sample, Task.sample_id == Sample.id)

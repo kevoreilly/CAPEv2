@@ -47,7 +47,7 @@ try:
         select,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
-    from sqlalchemy.orm import joinedload, relationship, sessionmaker, declarative_base, backref
+    from sqlalchemy.orm import backref, declarative_base, joinedload, relationship, sessionmaker
 
     Base = declarative_base()
 except ImportError:
@@ -204,7 +204,7 @@ class Machine(Base):
     arch = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     platform = Column(String(255), nullable=False)
-    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines")) # lazy="subquery"
+    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines"))  # lazy="subquery"
     interface = Column(String(255), nullable=True)
     snapshot = Column(String(255), nullable=True)
     locked = Column(Boolean(), nullable=False, default=False)
@@ -417,7 +417,7 @@ class Task(Base):
     # Task tags
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks")) # lazy="immediate"
+    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"))  # lazy="immediate"
     options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
@@ -971,7 +971,6 @@ class Database(object, metaclass=Singleton):
             except TypeError:
                 log.warning("Data inconsistency in guests table detected, it might be a crash leftover. Continue")
                 session.rollback()
-
 
     @staticmethod
     def filter_machines_by_arch(machines, arch):
@@ -2247,7 +2246,11 @@ class Database(object, metaclass=Singleton):
         with self.Session() as session:
             try:
                 if details:
-                    task = select(Task).where(Task.id == task_id).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+                    task = (
+                        select(Task)
+                        .where(Task.id == task_id)
+                        .options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+                    )
                     task = session.execute(task).first()
                 else:
                     query = select(Task).where(Task.id == task_id).options(joinedload(Task.tags))
@@ -2259,7 +2262,6 @@ class Database(object, metaclass=Singleton):
             except SQLAlchemyError as e:
                 print(e)
                 log.debug("Database error viewing task: %s", e)
-
 
     @classlock
     def add_statistics_to_task(self, task_id, details):
@@ -2535,7 +2537,9 @@ class Database(object, metaclass=Singleton):
 
                 if not sample:
                     # search in temp folder if not found in binaries
-                    db_sample = session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(query_filter == sample_hash).all()
+                    db_sample = (
+                        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(query_filter == sample_hash).all()
+                    )
 
                     if db_sample is not None:
                         samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]

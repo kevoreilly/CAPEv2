@@ -121,7 +121,6 @@ if __name__ == "__main__":
     if args.stop:
         import psutil
         filename = Path(__file__).parts[-1]
-        import code;code.interact(local=dict(locals(), **globals()))
         for p in psutil.process_iter(attrs=["name", "pid", "cmdline"]):
             # cuckoo.py but doing in this way in case we rename it in future
             if filename in p.info['cmdline']:

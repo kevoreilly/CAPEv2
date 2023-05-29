@@ -4,7 +4,8 @@ from datetime import datetime
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, create_engine
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import relationship, sessionmaker, declarative_base
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.types import TypeDecorator
 
 Base = declarative_base()
@@ -36,6 +37,19 @@ worker_exitnodes = Table(
 )
 
 
+class Node(Base):
+    """Cuckoo node database model."""
+
+    __tablename__ = "node"
+    id = Column(Integer, primary_key=True)
+    name = Column(Text, nullable=False)
+    url = Column(Text, nullable=True)
+    enabled = Column(Boolean, default=False)
+    apikey = Column(String(255), nullable=False)
+    last_check = Column(DateTime(timezone=False))
+    machines = relationship("Machine", backref="node", lazy="dynamic")
+    exitnodes = relationship("ExitNodes", secondary=worker_exitnodes, backref="node", lazy="subquery")
+
 
 class StringList(TypeDecorator):
     """List of comma-separated strings as field."""
@@ -58,21 +72,6 @@ class Machine(Base):
     platform = Column(Text, nullable=False)
     tags = Column(StringList)
     node_id = Column(Integer, ForeignKey("node.id"))
-
-
-
-class Node(Base):
-    """Cuckoo node database model."""
-
-    __tablename__ = "node"
-    id = Column(Integer, primary_key=True)
-    name = Column(Text, nullable=False)
-    url = Column(Text, nullable=True)
-    enabled = Column(Boolean, default=False)
-    apikey = Column(String(255), nullable=False)
-    last_check = Column(DateTime(timezone=False))
-    machines = relationship(Machine, backref="node", lazy="dynamic")
-    exitnodes = relationship(ExitNodes, secondary=worker_exitnodes, backref="node", lazy="subquery")
 
 
 class Task(Base):
@@ -153,6 +152,6 @@ def create_session(db_connectionn: str, echo=False) -> sessionmaker:
     try:
         engine = create_engine(db_connectionn, echo=echo)  # pool_size=40, max_overflow=0,
         Base.metadata.create_all(engine)
-        return sessionmaker(autoflush=True, bind=engine)
+        return sessionmaker(autocommit=False, autoflush=True, bind=engine)
     except OperationalError as e:
         sys.exit(e)

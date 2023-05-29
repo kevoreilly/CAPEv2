@@ -490,6 +490,9 @@ class RunSignatures:
         test_signature: signature name, Ex: cape_detected_threat, to test unique signature
         """
 
+        if not self.cfg_processing.detections.behavior:
+            return
+
         # This will contain all the matched signatures.
         matched = []
         stats = {}

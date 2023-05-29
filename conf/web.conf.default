@@ -40,8 +40,8 @@ anon_viewable = no
 existent_tasks = no
 top_detections = yes
 # hostname of the cape instance
-hostname = https://127.0.0.1/
-;hostname = https://www.capesandbox.com/
+hostname = 127.0.0.1
+;hostname = www.capesandbox.com
 # Check if config exists or try to extract before accept task as static
 check_config_exists = no
 # Assign architecture to task to fetch correct VM type

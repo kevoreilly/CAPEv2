@@ -749,12 +749,9 @@ class Scheduler:
         for machine in machinery.machines():
             if not machine.interface:
                 log.info(
-                    "Unable to determine the network interface for VM "
-                    "with name %s, Cuckoo will not be able to give it "
-                    "full internet access or route it through a VPN! "
-                    "Please define a default network interface for the "
-                    "machinery or define a network interface for each "
-                    "VM",
+                    "Unable to determine the network interface for VM with name %s, Cuckoo will not be able to give it "
+                    "full internet access or route it through a VPN! Please define a default network interface for the "
+                    "machinery or define a network interface for each VM",
                     machine.name,
                 )
                 continue

@@ -3,6 +3,7 @@
     * Add GetWriteWatch & UpdateProcThreadAttribute hooks which allow Pikabot detonation - thanks @enzok!
     * CoCreateInstance(Ex) hook improvements - thanks @heck-gd!
     * PostThreadMessage hooks - thanks @nblog!
+* PikaBot detection update
 
 ### [29.5.2023]
 * URL default analysis package selection in web.conf

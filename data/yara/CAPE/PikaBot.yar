@@ -1,18 +1,3 @@
-rule PikaBotLoader
-{
-    meta:
-        author = "kevoreilly"
-        description = "PikaBot Loader"
-        cape_type = "PikaBot Loader"
-        packed = "c666aeb7ed75e58b645a2a4d1bc8c9d0a0a076a8a459e33c6dc60d12f4fa0c01"
-    strings:
-        $sub = {8A 44 0D ?? 2C ?? 88 44 0D ?? 41 83 F9 0C 7C F0}
-        $xor = {8A 44 0D ?? 34 ?? 88 44 0D ?? 41 83 F9 0C 7C F0}
-        $antivm = {33 C0 B8 00 00 00 40 0F A2 81 F9 72 65 56 4D 75 ?? 81 FA 77 61 72 65 75}
-    condition:
-        uint16(0) == 0x5A4D and all of them
-}
-
 rule PikaBot
 {
     meta:
@@ -21,7 +6,10 @@ rule PikaBot
         cape_type = "PikaBot Payload"
         hash = "59f42ecde152f78731e54ea27e761bba748c9309a6ad1c2fd17f0e8b90f8aed1"
     strings:
-        $setz = {83 FB 01 74 06 43 83 FB 06 7C ?? 8B 84 9D [2] FF FF 33 DB 33 C1 39 85 [2] FF FF 0F 95 C3 EB 06}
+        $rdtsc = {89 55 FC 89 45 F8 0F 31 89 55 F4 89 45 FC 33 C0 B8 05 00 00 00 C1 E8 02 2B C3 3B C1 0F 31 89 55 F0 89 45 F8 8B 44 8D}
+        $int2d = {B8 00 00 00 00 CD 2D 90 C3 CC CC CC CC CC CC CC}
+        $subsys = {64 A1 30 00 00 00 8B 40 18 C3}
+        $rijndael = {EB 0F 0F B6 04 3? FE C? 8A 80 [4] 88 04 3? 0F B6 [3] 7C EA 5? 5? C9 C3}
     condition:
-        uint16(0) == 0x5A4D and all of them
+        uint16(0) == 0x5A4D and 3 of them
 }

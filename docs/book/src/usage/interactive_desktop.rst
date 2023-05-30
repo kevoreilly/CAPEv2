@@ -27,52 +27,72 @@ Enable and configure ``guacamole`` in ``conf/web.conf`` and restart ``cape-web.s
 
     $ systemctl restart cape-web guacd.service
 
-In case you using ``NGINX``, you need to configure it, to be able to use interactive mode, Example config.
+In case you using are ``NGINX``, you need to configure it to be able to use interactive mode.  Here's an example config.
 
-.. code-block:: python
+Replace `www.capesandbox.com` with your own hostname.
 
-    map $http_upgrade $connection_upgrade {
-        default upgrade;
-        ''      close;
-    }
-    upstream nodeserver1 {
-        # CAPE
-        server 127.0.0.1:8000;
-    }
-    upstream nodeserver2 {
-        # guac-session
-        server 127.0.0.1:8008;
-    }
-    server {
-        listen <YOUR_DESIRED_IP>;
-        client_max_body_size 101M;
-        location / {
-            proxy_pass http://nodeserver1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Remote-User $remote_user;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+.. code-block:: nginx
+
+        server {
+            listen 80;
+            listen [::]:80;
+            server_name www.capesandbox.com;
+            client_max_body_size 101M;
+
+            location / {
+                proxy_pass http://127.0.0.1:8000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Remote-User $remote_user;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            location /static/ {
+                alias /opt/CAPEv2/web/static/;
+            }
+
+            location /static/admin/ {
+                proxy_pass http://127.0.0.1:8000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Remote-User $remote_user;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            location /guac {
+                proxy_pass http://127.0.0.1:8008;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_buffering off;
+                proxy_http_version 1.1;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection $http_connection;
+            }
+
+            location /recordings/playback/recfile {
+                alias /opt/CAPEv2/storage/guacrecordings/;
+                autoindex off;
+            }
         }
-        location /static/ {
-            alias /opt/CAPEv2/web/static/;
-        }
-        location /guac {
-            proxy_pass http://nodeserver2;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_buffering off;
-            proxy_http_version 1.1;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $http_connection;
-        }
-        location /guac/playback/recfile {
-            alias /var/www/guacrecordings/;
-            autoindex on;
-            autoindex_exact_size off;
-            autoindex_localtime on;
-        }
+
+If you want to block users from changing their own email addresses, add the following `location` directive inside of the `server` directive:
+
+.. code-block:: nginx
+
+    location /accounts/email/ {
+        return 403;
     }
+
+If you want to block users from changing their own passwords, add the following `location` directive inside of the `server` directive:
+
+.. code-block:: nginx
+
+    location /accounts/email/ {
+        return 403;
+    }
+        
 
 Virtual machine configuration
 =============================

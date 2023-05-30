@@ -505,6 +505,7 @@ class Pcap:
         """Adds an HTTP flow.
         @param conn: TCP connection info.
         @param tcpdata: TCP data flow.
+        @param ts: timestamp.
         """
         if tcpdata in self.http_requests:
             self.http_requests[tcpdata]["count"] += 1

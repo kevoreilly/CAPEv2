@@ -35,6 +35,7 @@ crl\.microsoft\.com$
 -microsoft-com\.akamaized\.net$
 msn-com\.akamaized\.net$
 \.s-microsoft\.com$
+\.microsoft.net$
 \.msedge\.net$
 \.licdn\.com$
 \.xboxlive\.com$

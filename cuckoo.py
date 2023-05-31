@@ -41,7 +41,7 @@ try:
 
     bson  # Pretend like it's actually being used (for static checkers.)
 except (CuckooDependencyError, ImportError) as e:
-    print("ERROR: Missing dependency: {0}".format(e))
+    print(f"ERROR: Missing dependency: {e}")
     sys.exit()
 
 log = logging.getLogger()

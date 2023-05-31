@@ -392,8 +392,10 @@ def vba2graph_func(file_path: str, id: str, sha256: str, on_demand: bool = False
             vba_code = vba2graph_from_vba_object(file_path)
             if vba_code:
                 vba2graph_gen(input_vba_content=vba_code, output_folder=vba2graph_path, input_file_name=sha256)
+        except ModuleNotFoundError as e:
+            log.error("Missed  vba2graph dependency: %s", str(e))
         except Exception as e:
-            log.info("Inside vba2graph_func: %s", str(e))
+            log.error("Inside vba2graph_func: %s", str(e))
 
 
 def vba2graph_from_vba_object(filepath):

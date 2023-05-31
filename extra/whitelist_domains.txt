@@ -44,6 +44,8 @@ msn-com\.akamaized\.net$
 \.virtualearth\.net$
 devtools\.azureedge\.net$
 
+\.local$
+
 # Google
 update\.googleapis\.com$
 _googlecast\._tcp\.local$

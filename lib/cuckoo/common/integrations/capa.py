@@ -252,7 +252,7 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
         except AttributeError:
             log.warning("FLARE CAPA -> Use GitHub's version. pip3 install git+https://github.com/mandiant/capa")
         except UnsupportedFormatError:
-             log.error("FLARE CAPA -> UnsupportedFormatError")
+            log.error("FLARE CAPA -> UnsupportedFormatError")
         except Exception as e:
             log.error(e, exc_info=True)
     return capa_output

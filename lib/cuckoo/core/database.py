@@ -657,7 +657,6 @@ class Database(object, metaclass=Singleton):
         # self.engine.execute(machines_tags.delete())
 
         with self.Session() as session:
-            # TODO testing
             session.execute(machines_tags.delete())
             try:
                 session.query(Machine).delete()
@@ -2364,7 +2363,7 @@ class Database(object, metaclass=Singleton):
                 elif sample_id:
                     sample = session.query(Sample).filter_by(id=sample_id).all()
                 elif task_id:
-                    sample = session.query(Task).filter(Task.id == task_id).filter(Sample.id == Task.sample_id).all()
+                    sample = session.query(Task).options(joinedload(Task.sample)).filter(Task.id == task_id).filter(Sample.id == Task.sample_id).all()
             except SQLAlchemyError as e:
                 log.debug("Database error searching sample: %s", e)
                 return None

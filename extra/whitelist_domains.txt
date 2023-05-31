@@ -11,6 +11,7 @@ client-office365-tas\.msedge\.net$
 api\.onedrive\.com$
 \.live\.com$
 \.bing.com$
+\.res\.office365\.com$
 
 # Microsoft
 watson\.telemetry\.microsoft\.com$
@@ -26,21 +27,28 @@ download\.windowsupdate\.com$
 \.windows\.com$
 \.edgesuite\.net$
 \.blob\.core\.windows\.net$
-crl\.microsoft\.com
+crl\.microsoft\.com$
 
 \.windows\.com\.akadns\.net$
 \.microsoft\.com\.nsatc\.net$
 
 -microsoft-com\.akamaized\.net$
+msn-com\.akamaized\.net$
 \.s-microsoft\.com$
+\.microsoft.net$
 \.msedge\.net$
-\.res\.office365\.com$
 \.licdn\.com$
 \.xboxlive\.com$
 \.onestore\.ms$
 
+\.virtualearth\.net$
+devtools\.azureedge\.net$
+
+\.local$
+
 # Google
 update\.googleapis\.com$
+_googlecast\._tcp\.local$
 
 # https://github.com/threatstop/crl-ocsp-whitelist
 aces\.ocsp\.identrust\.com

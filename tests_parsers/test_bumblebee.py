@@ -11,9 +11,7 @@ This is a quick POC
 The idea is to have folder with samples that is scanned with yara and automatically calls extractors on detection
 
 """
-import os
 def test_bumblebee():
-    print(os.listdir("tests/data/"))
-    with open("tests/data/malware/d0f51ff313ede61e1c4d7d57b644507a4bd46455e3e617e66c922c8c0c07024b", "rb") as data:
+    with open("tests/data/malware/33a3c20cf70977346acf57a190b46beff92a3d417e7593036a400c93011a0061", "rb") as data:
         conf = extract_config(data)
         assert conf == {"Botnet ID": "YTBSBbNTWU", "Campaign ID": "1904r", "Data": "XNgHUGLrCD", "C2s": ["444"]}

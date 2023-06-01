@@ -116,7 +116,7 @@ def extract_config(data):
             elif index == 1:
                 cfg["Campaign ID"] = key.decode()
             elif index == 2:
-                cfg["Data"] = key.decode()
+                cfg["Data"] = key.decode("latin-1")
             elif index == 3:
                 cfg["C2s"] = list(key.decode().split(","))
                 exit(0)

@@ -286,13 +286,14 @@ class Pcap:
             enriched_hosts.append({"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa})
         return enriched_hosts
 
-    def _tcp_dissect(self, conn, data):
+    def _tcp_dissect(self, conn, data, ts):
         """Runs all TCP dissectors.
         @param conn: connection.
         @param data: payload data.
+        @param ts: timestamp.
         """
         if self._check_http(data):
-            self._add_http(conn, data)
+            self._add_http(conn, data, ts)
         # SMTP.
         if conn["dport"] in (25, 587):
             self._reassemble_smtp(conn, data)
@@ -303,14 +304,15 @@ class Pcap:
         if conn["dport"] in self.ssl_ports or conn["sport"] in self.ssl_ports:
             self._https_identify(conn, data)
 
-    def _udp_dissect(self, conn, data):
+    def _udp_dissect(self, conn, data, ts):
         """Runs all UDP dissectors.
         @param conn: connection.
         @param data: payload data.
+        @param ts: timestamp.
         """
         # Select DNS and MDNS traffic.
         if (conn["dport"] in (53, 5353) or conn["sport"] in (53, 5353)) and self._check_dns(data):
-            self._add_dns(data)
+            self._add_dns(data, ts)
 
     def _check_icmp(self, icmp_data):
         """Checks for ICMP traffic.
@@ -355,9 +357,10 @@ class Pcap:
 
         return True
 
-    def _add_dns(self, udpdata):
+    def _add_dns(self, udpdata, ts):
         """Adds a DNS data flow.
         @param udpdata: UDP data flow.
+        @param ts: timestamp.
         """
         dns = dpkt.dns.DNS(udpdata)
 
@@ -461,8 +464,9 @@ class Pcap:
 
                 self.dns_answers.update(new_answers)
                 self.dns_requests[reqtuple]["answers"].extend({"type": i[0], "data": i[1]} for i in new_answers)
-            # else:
-            #    print(query)
+
+                if "first_seen" not in self.dns_requests[reqtuple]:
+                    self.dns_requests[reqtuple]["first_seen"] = ts
         return True
 
     def _add_domain(self, domain):
@@ -497,10 +501,11 @@ class Pcap:
 
         return True
 
-    def _add_http(self, conn, tcpdata):
+    def _add_http(self, conn, tcpdata, ts):
         """Adds an HTTP flow.
         @param conn: TCP connection info.
         @param tcpdata: TCP data flow.
+        @param ts: timestamp.
         """
         if tcpdata in self.http_requests:
             self.http_requests[tcpdata]["count"] += 1
@@ -551,6 +556,7 @@ class Pcap:
             entry["user-agent"] = convert_to_printable(http.headers["user-agent"]) if "user-agent" in http.headers else ""
             entry["version"] = convert_to_printable(http.version)
             entry["method"] = convert_to_printable(http.method)
+            entry["first_seen"] = ts
             self.http_requests[tcpdata] = entry
         except Exception:
             return False
@@ -716,7 +722,7 @@ class Pcap:
                     connection["dport"] = tcp.dport
 
                     if tcp.data:
-                        self._tcp_dissect(connection, tcp.data)
+                        self._tcp_dissect(connection, tcp.data, ts)
                         src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                         if not (
                             (dst, dport, src, sport) in self.tcp_connections_seen
@@ -747,7 +753,7 @@ class Pcap:
                     connection["sport"] = udp.sport
                     connection["dport"] = udp.dport
                     if len(udp.data) > 0:
-                        self._udp_dissect(connection, udp.data)
+                        self._udp_dissect(connection, udp.data, ts)
 
                     src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                     if not (
@@ -917,10 +923,11 @@ class Pcap2:
                             "mail_body": sent.message,
                         },
                         "resp": {"banner": recv.ready_message},
+                        "first_seen": ts,
                     }
                 )
 
-            if protocol in ("http", "https"):
+            elif protocol in ("http", "https"):
                 response = b""
                 request = b""
                 if isinstance(sent.raw, bytes):
@@ -942,6 +949,7 @@ class Pcap2:
                     # We'll keep these fields here for now.
                     "request": request,  # .decode("latin-1"),
                     "response": response,  # .decode("latin-1"),
+                    "first_seen": ts,
                 }
 
                 if status and status not in (301, 302):

@@ -40,6 +40,7 @@ if processing_conf.flare_capa.enabled:
             import capa.render.utils as rutils
             import capa.rules
             from capa.engine import capa
+            from capa.exceptions import UnsupportedFormatError
             from capa.rules import InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
@@ -251,8 +252,8 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
             log.warning("FLARE CAPA -> MemoryError")
         except AttributeError:
             log.warning("FLARE CAPA -> Use GitHub's version. pip3 install git+https://github.com/mandiant/capa")
-        # except UnsupportedRuntimeError:
-        #     log.error("FLARE CAPA -> UnsupportedRuntimeError")
+        except UnsupportedFormatError:
+            log.error("FLARE CAPA -> UnsupportedFormatError")
         except Exception as e:
             log.error(e, exc_info=True)
     return capa_output

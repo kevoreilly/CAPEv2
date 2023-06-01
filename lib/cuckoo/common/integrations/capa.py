@@ -40,7 +40,8 @@ if processing_conf.flare_capa.enabled:
             import capa.render.utils as rutils
             import capa.rules
             from capa.engine import capa
-            from capa.rules import InvalidRuleSet, InvalidRuleWithPath, UnsupportedFormatError
+            from capa.rules import InvalidRuleSet, InvalidRuleWithPath
+            from capa.exceptions import UnsupportedFormatError
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):

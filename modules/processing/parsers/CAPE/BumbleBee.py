@@ -26,7 +26,7 @@ def extract_key_data(data, pe, key_match):
     except Exception as e:
         log.debug(f"There was an exception extracting the key: {e}")
         log.debug(traceback.format_exc())
-        return
+        return False
     return key
 
 
@@ -86,11 +86,14 @@ def extract_config(data):
     """
     cfg = {}
     pe = None
+    pe = pefile.PE(data=data, fast_load=True)
     try:
-        with suppress(Exception):
-            pe = pefile.PE(data=data, fast_load=False)
+        #with suppress(Exception):
+
+
         if not pe:
-            return
+            print("not pe")
+            return cfg
         key_regex = re.compile(rb"(\x48\x8D.(?P<key>....)\x80\x3D....\x00)", re.DOTALL)
         regex = re.compile(
             rb"(?<campaign_id_ins>\x48\x8D.(?P<campaign_id>....))(?P<botnet_id_ins>\x48\x8D.(?P<botnet_id>....))(?P<c2s_ins>\x48\x8D.(?P<c2s>....))",
@@ -114,7 +117,7 @@ def extract_config(data):
         elif len(key_match) == 1:
             key = extract_key_data(data, pe, key_match[0])
             if not key:
-                return
+                return cfg
             cfg["RC4 Key"] = key.decode()
         # Extract config ciphertext
         config_match = regex.search(data)

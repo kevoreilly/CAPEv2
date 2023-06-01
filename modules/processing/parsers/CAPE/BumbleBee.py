@@ -86,13 +86,11 @@ def extract_config(data):
     """
     cfg = {}
     pe = None
-    pe = pefile.PE(data=data, fast_load=True)
     try:
-        #with suppress(Exception):
-
+        with suppress(Exception):
+            pe = pefile.PE(data=data, fast_load=True)
 
         if not pe:
-            print("not pe")
             return cfg
         key_regex = re.compile(rb"(\x48\x8D.(?P<key>....)\x80\x3D....\x00)", re.DOTALL)
         regex = re.compile(

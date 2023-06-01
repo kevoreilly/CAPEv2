@@ -14,4 +14,5 @@ The idea is to have folder with samples that is scanned with yara and automatica
 def test_bumblebee():
     with open("tests/data/malware/33a3c20cf70977346acf57a190b46beff92a3d417e7593036a400c93011a0061", "rb") as data:
         conf = extract_config(data)
+        print(sorted(conf))
         assert conf == {"Botnet ID": "YTBSBbNTWU", "Campaign ID": "1904r", "Data": "XNgHUGLrCD", "C2s": ["444"]}

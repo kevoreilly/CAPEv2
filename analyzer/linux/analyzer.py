@@ -182,6 +182,7 @@ class Analyzer:
 
             # Import the auxiliary module.
             try:
+                log.debug('Importing auxiliary module "%s"...', name)
                 __import__(name, globals(), locals(), ["dummy"], 0)
             except ImportError as e:
                 log.warning('Unable to import the auxiliary module "%s": %s', name, e)
@@ -192,8 +193,11 @@ class Analyzer:
             # Try to start the auxiliary module.
             try:
                 aux = module(self.options, self.config)
+                log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_avail.append(aux)
+                log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
+                log.debug('Started auxiliary module "%s"', module.__name__)
             except (NotImplementedError, AttributeError):
                 log.warning("Auxiliary module %s was not implemented", aux.__class__.__name__)
                 continue
@@ -202,7 +206,6 @@ class Analyzer:
                 continue
             finally:
                 log.debug("Started auxiliary module %s", aux.__class__.__name__)
-                # aux_enabled.append(aux)
                 if aux:
                     aux_enabled.append(aux)
 
@@ -310,14 +313,17 @@ class Analyzer:
             log.warning('The package "%s" package_files function raised an exception: %s', package_class, e)
 
         # Terminate the Auxiliary modules.
+        log.info("Stopping auxiliary modules")
         for aux in sorted(aux_enabled, key=lambda x: x.priority):
             try:
+                log.info("Stopping auxiliary module: %s", aux.__class__.__name__)
                 aux.stop()
             except (NotImplementedError, AttributeError):
                 continue
             except Exception as e:
                 log.warning("Cannot terminate auxiliary module %s: %s", aux.__class__.__name__, e)
 
+        log.info("Finishing auxiliary modules")
         if self.config.terminate_processes:
             # Try to terminate remaining active processes. We do this to make sure
             # that we clean up remaining open handles (sockets, files, etc.).

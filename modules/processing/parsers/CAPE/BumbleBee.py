@@ -46,7 +46,7 @@ def extract_config_data(data, pe, config_match):
     except Exception as e:
         log.debug(f"There was an exception extracting the campaign id: {e}")
         log.debug(traceback.format_exc())
-        return
+        return False, False, False
 
     try:
         # Get botnet id ciphertext
@@ -60,7 +60,7 @@ def extract_config_data(data, pe, config_match):
     except Exception as e:
         log.debug(f"There was an exception extracting the botnet id: {e}")
         log.debug(traceback.format_exc())
-        return
+        return False, False, False
 
     # Get C2 ciphertext
     try:
@@ -75,7 +75,7 @@ def extract_config_data(data, pe, config_match):
     except Exception as e:
         log.debug(f"There was an exception extracting the C2s: {e}")
         log.debug(traceback.format_exc())
-        return
+        return False, False, False
 
     return campaign_id_ct, botnet_id_ct, c2s_ct
 
@@ -119,12 +119,14 @@ def extract_config(data):
         # Extract config ciphertext
         config_match = regex.search(data)
         campaign_id, botnet_id, c2s = extract_config_data(data, pe, config_match)
-        # RC4 Decrypt
-        cfg["Campaign ID"] = ARC4.new(key).decrypt(campaign_id).split(b"\x00")[0].decode()
-        cfg["Botnet ID"] = ARC4.new(key).decrypt(botnet_id).split(b"\x00")[0].decode()
-        cfg["C2s"] = list(ARC4.new(key).decrypt(c2s).split(b"\x00")[0].decode().split(","))
+        if campaign_id:
+            cfg["Campaign ID"] = ARC4.new(key).decrypt(campaign_id).split(b"\x00")[0].decode()
+        if botnet_id:
+            cfg["Botnet ID"] = ARC4.new(key).decrypt(botnet_id).split(b"\x00")[0].decode()
+        if c2s:
+            cfg["C2s"] = list(ARC4.new(key).decrypt(c2s).split(b"\x00")[0].decode().split(","))
     except Exception as e:
-        print("This is broken: %s", str(e))
+        log.error("This is broken: %s", str(e), exc_info=True)
     return cfg
 
 if __name__ == "__main__":

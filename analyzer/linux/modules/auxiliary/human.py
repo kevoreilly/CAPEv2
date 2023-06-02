@@ -19,7 +19,6 @@ except Exception:
 from lib.common.abstracts import Auxiliary
 
 log = logging.getLogger(__name__)
-logging.disable(level=logging.DEBUG)
 
 if HAVE_GUI_LIBS:
     RESOLUTION = {"x": pyautogui.size()[0], "y": pyautogui.size()[1]}

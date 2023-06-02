@@ -287,7 +287,7 @@ def static_config_parsers(cape_name, file_path, file_data):
                     cape_config[cape_name].update({key: [value]})
                 parser_loaded = True
         except Exception as e:
-            log.error("CAPE: parsing error on %s with %s: %s", file_path, cape_name, e)
+            log.error("CAPE: parsing error on %s with %s: %s", file_path, cape_name, e, exc_info=True)
 
     # DC3-MWCP
     if HAS_MWCP and not parser_loaded and cape_name and cape_name in malware_parsers:
@@ -322,7 +322,7 @@ def static_config_parsers(cape_name, file_path, file_data):
                 "CAPE: DC3-MWCP config parsing error on %s with %s: %s",
                 file_path,
                 cape_name,
-                e,
+                str(e),
             )
 
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
@@ -358,7 +358,7 @@ def static_config_parsers(cape_name, file_path, file_data):
                     "malwareconfig parsing error for %s with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
                     file_path,
                     cape_name,
-                    e,
+                    str(e),
                 )
 
         if cape_config.get(cape_name) == {}:

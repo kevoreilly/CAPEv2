@@ -490,7 +490,7 @@ class Summary:
             if name and name not in self.keys:
                 self._filtering_helper(self.keys, name)
             if name and name not in self.write_keys:
-                self._filtering_helper(self.keys, name)
+                self._filtering_helper(self.write_keys, name)
         elif call["api"] == "NtCreateKey" or call["api"].startswith("RegCreateKeyEx"):
             name = self.get_argument(call, "ObjectAttributes" if call["api"] == "NtCreateKey" else "FullName")
             disposition = int(self.get_argument(call, "Disposition"))

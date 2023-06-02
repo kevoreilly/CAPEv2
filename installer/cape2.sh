@@ -1252,7 +1252,7 @@ function install_guacamole() {
     sudo apt update
     sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
     sudo apt install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
-    sudo apt install -y bindfs
+
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
 
 
@@ -1287,13 +1287,12 @@ function install_guacamole() {
         sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
 
-    if [ ! -d "/var/www/guacrecordings" ] ; then
-        sudo mkdir -p /var/www/guacrecordings && chown ${USER}:${USER} /var/www/guacrecordings
+    if [ ! -d "/opt/CAPEv2/storage/guacrecordings" ] ; then
+        sudo mkdir -p opt/CAPEv2/storage/guacrecordings && chown ${USER}:${USER} opt/CAPEv2/storage/guacrecordings
     fi
 
-    if grep -q '/var/www/guacrecordings' /etc/fstab; then
-        echo "/opt/CAPEv2/storage/guacrecordings /var/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
-    fi
+    # Add www-data to CAPE group to access guac recordings
+    sudo usermod www-data -G ${USER}
 
     cd /opt/CAPEv2
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'

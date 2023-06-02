@@ -73,7 +73,7 @@ Replace ``www.capesandbox.com`` with your own hostname.
             }
 
             location /recordings/playback/recfile {
-                alias /opt/www/guacrecordings/;
+                alias /opt/CAPEv2/storage/guacrecordings/;
                 autoindex off;
             }
         }

@@ -24,7 +24,7 @@ After=network.target
 ExecStart=/usr/local/sbin/guacd -f
 Restart=on-abnormal
 User=cape
-Group=www-data
+Group=cape
 
 [Install]
 WantedBy=multi-user.target

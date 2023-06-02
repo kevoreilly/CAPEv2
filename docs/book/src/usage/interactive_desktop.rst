@@ -27,7 +27,8 @@ Enable and configure ``guacamole`` in ``conf/web.conf`` and restart ``cape-web.s
 
     $ systemctl restart cape-web guacd.service
 
-In case you using are ``NGINX``, you need to configure it to be able to use interactive mode.  Here's an example config.
+In case you using are ``NGINX``, you need to configure it to be able to use interactive mode.  Here's an example config, 
+or add the contents of extra/guac related/nginx-site-config.txt to your site config.
 
 Replace `www.capesandbox.com` with your own hostname.
 
@@ -72,7 +73,7 @@ Replace `www.capesandbox.com` with your own hostname.
             }
 
             location /recordings/playback/recfile {
-                alias /opt/CAPEv2/storage/guacrecordings/;
+                alias /opt/www/guacrecordings/;
                 autoindex off;
             }
         }

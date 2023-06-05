@@ -1,3 +1,6 @@
+### [5.6.2023]
+* Stealc detection update
+
 ### [30.5.2023]
 * Monitor updates:
     * Add GetWriteWatch & UpdateProcThreadAttribute hooks which allow Pikabot detonation - thanks @enzok!

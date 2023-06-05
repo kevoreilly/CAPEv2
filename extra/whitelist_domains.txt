@@ -46,11 +46,16 @@ msn-com\.akamaized\.net$
 \.virtualearth\.net$
 devtools\.azureedge\.net$
 
+# Edge analytics
+\.scorecardresearch\.com$
+
 \.local$
 
 # Google
 update\.googleapis\.com$
 _googlecast\._tcp\.local$
+chrome\.cloudflare-dns\.com$
+
 
 # https://github.com/threatstop/crl-ocsp-whitelist
 aces\.ocsp\.identrust\.com

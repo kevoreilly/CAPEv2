@@ -39,9 +39,9 @@ msn-com\.akamaized\.net$
 \.msedge\.net$
 \.licdn\.com$
 \.xboxlive\.com$
-\.xboxservices.com$
+\.xboxservices\.com$
 \.onestore\.ms$
-\.passport.net$
+\.passport\.net$
 
 \.virtualearth\.net$
 devtools\.azureedge\.net$

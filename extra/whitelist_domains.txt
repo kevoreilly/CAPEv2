@@ -39,6 +39,7 @@ msn-com\.akamaized\.net$
 \.msedge\.net$
 \.licdn\.com$
 \.xboxlive\.com$
+\.xboxservices.com$
 \.onestore\.ms$
 \.passport.net$
 

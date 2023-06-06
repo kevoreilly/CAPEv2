@@ -50,7 +50,7 @@ host = root@192.168.122.1
 
 # Specify the path to your local installation of tcpdump. Make sure this
 # path is correct.
-tcpdump = /usr/sbin/tcpdump
+tcpdump = /usr/bin/tcpdump
 
 # Specify the network interface name on which tcpdump should monitor the
 # traffic. Make sure the interface is active.

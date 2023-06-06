@@ -51,7 +51,7 @@ QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux
 
 
 #https://www.qemu.org/download/#source or https://download.qemu.org/
-qemu_version=7.2.0
+qemu_version=7.2.3
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
 libvirt_version=9.0.0

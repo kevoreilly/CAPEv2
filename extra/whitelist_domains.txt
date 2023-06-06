@@ -39,16 +39,29 @@ msn-com\.akamaized\.net$
 \.msedge\.net$
 \.licdn\.com$
 \.xboxlive\.com$
+\.xboxservices\.com$
 \.onestore\.ms$
-
+\.passport\.net$
 \.virtualearth\.net$
+
+
+# Edge analytics
+\.scorecardresearch\.com$
+
+# Edge Developer Tools analytics
 devtools\.azureedge\.net$
+cm\.mgid\.com$
+code\.yengo\.com$
+trace\.mediago\.io$
+trace\.popin\.cc$
 
 \.local$
 
 # Google
 update\.googleapis\.com$
 _googlecast\._tcp\.local$
+chrome\.cloudflare-dns\.com$
+
 
 # https://github.com/threatstop/crl-ocsp-whitelist
 aces\.ocsp\.identrust\.com

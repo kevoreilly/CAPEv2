@@ -22,7 +22,7 @@ nginx_version=1.19.6
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.5.0
+guacamole_version=1.5.2
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0

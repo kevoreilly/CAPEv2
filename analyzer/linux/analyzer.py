@@ -198,16 +198,11 @@ class Analyzer:
                 log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
                 log.debug('Started auxiliary module "%s"', module.__name__)
+                aux_enabled.append(aux)
             except (NotImplementedError, AttributeError):
-                log.warning("Auxiliary module %s was not implemented", aux.__class__.__name__)
-                continue
+                log.warning("Auxiliary module %s was not implemented", module.__name__)
             except Exception as e:
-                log.warning("Cannot execute auxiliary module %s: %s", aux.__class__.__name__, e)
-                continue
-            finally:
-                log.debug("Started auxiliary module %s", aux.__class__.__name__)
-                if aux:
-                    aux_enabled.append(aux)
+                log.warning("Cannot execute auxiliary module %s: %s", module.__name__, e)
 
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.

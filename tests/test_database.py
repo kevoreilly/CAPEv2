@@ -90,8 +90,9 @@ class TestDatabaseEngine:
         assert task.category == "file"
 
         # write a real sample to storage
-        sample_path = os.path.join(self.binary_storage, task.sample.sha256)
-        shutil.copy(self.temp_filename, sample_path)
+        task_path = os.path.join(self.analyses_storage, str(task.id))
+        path_mkdir(task_path)
+        shutil.copy(self.temp_filename, os.path.join(task_path, "binary"))
 
         new_task_id = self.d.reschedule(task_id)
         assert new_task_id is not None

@@ -435,6 +435,7 @@ EOH
     fi
 
     # preferences.d doesnt work for me with qemu 7.0.0 and Ubuntu 22.04, to be sure, handle via dpkg
+    apt-mark hold qemu
     echo "qemu hold" | sudo dpkg --set-selections 2>/dev/null
     echo "[+] Checking/deleting old versions of Libvirt"
     apt purge libvirt0 libvirt-bin libvirt-$libvirt_version 2>/dev/null

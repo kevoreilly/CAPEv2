@@ -745,6 +745,11 @@ function install_yara() {
     cd ..
     # for root
     pip3 install ./yara-python
+
+    # Remove the yara-python directory after installing it to avoid permission issues if
+    # `cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/poetry_yara_installer.sh`
+    #needs to be ran again
+    rm -r yara-python
 }
 
 function install_mongo(){

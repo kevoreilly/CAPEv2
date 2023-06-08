@@ -584,7 +584,7 @@ def index(request, task_id=None, resubmit_hash=None):
         ]
         vpns_data = [
             {"name": v["name"], "description": v["description"], "interface": v["interface"], "type": "vpn"}
-            for k, v in vpns.items()
+            for v in vpns.values()
         ]
 
         existent_tasks = {}

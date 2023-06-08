@@ -127,6 +127,8 @@ def extract_config(data):
         print("This is broken: %s", str(e))
     return cfg
 
+
 if __name__ == "__main__":
     import sys
+
     print(extract_config(open(sys.argv[1], "rb").read()))

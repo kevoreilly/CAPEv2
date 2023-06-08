@@ -90,6 +90,11 @@ class TestEmptyFile:
             assert key in empty_file["file"].get_all()[0]
 
 
+def test_filetype():
+    filetype = File("tests/data/malware/53622590bb3138dcbf12b0105af96dd72aedc40de8984f97c8e882343a769b45").get_type()
+    assert filetype == "PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows"
+
+
 """ ToDo ReEnable
 @pytest.fixture(scope="class")
 def test_files():

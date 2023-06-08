@@ -36,7 +36,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt update && sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt-dev p7zip-full innoextract unrar upx
+          sudo apt update && sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt p7zip-full innoextract unrar upx
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
@@ -84,7 +84,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt-dev
+          sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt
 
       - name: Install Poetry
         uses: snok/install-poetry@v1

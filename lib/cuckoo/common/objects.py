@@ -380,9 +380,9 @@ class File:
                             )
                             # Emulate magic for now
                             if is_dll and is_x64:
-                                self.file_type = "PE32+ executable (DLL) (GUI) x86-64{dotnet_string} for MS Windows"
+                                self.file_type = f"PE32+ executable (DLL) (GUI) x86-64{dotnet_string} for MS Windows"
                             elif is_dll:
-                                self.file_type = "PE32 executable (DLL) (GUI) Intel 80386{dotnet_string} for MS Windows"
+                                self.file_type = f"PE32 executable (DLL) (GUI) Intel 80386{dotnet_string} for MS Windows"
                             elif is_x64:
                                 self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string} for MS Windows"
                             else:

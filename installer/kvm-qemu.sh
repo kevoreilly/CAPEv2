@@ -51,10 +51,10 @@ QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux
 
 
 #https://www.qemu.org/download/#source or https://download.qemu.org/
-qemu_version=7.2.0
+qemu_version=8.0.2
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
-libvirt_version=9.0.0
+libvirt_version=9.4.0
 # virt-manager - https://github.com/virt-manager/virt-manager/releases
 # autofilled
 OS=""
@@ -396,6 +396,17 @@ function install_libvirt() {
     # http://ask.xmodulo.com/compile-virt-manager-debian-ubuntu.html
     #rm -r /usr/local/lib/python2.7/dist-packages/libvirt*
 
+    # remove old
+    apt purge libvirt0 libvirt-bin -y
+    apt-mark hold libvirt0 libvirt-bin
+
+    # In Ubuntu 22.04 the libvirt0 package is named libvirt
+    apt purge libvirt libvirt-bin -y
+    apt-mark hold libvirt libvirt-bin
+
+    # Remove any library binaries that might have been leftover
+    rm -f /usr/local/lib/x86_64-linux-gnu/libvirt*
+
     if [ ! -f /etc/apt/preferences.d/cape ]; then
     # set to hold to avoid side problems
         cat >> /etc/apt/preferences.d/cape << EOH
@@ -403,6 +414,9 @@ Package: libvirt-bin
 Pin: release *
 Pin-Priority: -1
 Package: libvirt0
+Pin: release *
+Pin-Priority: -1
+Package: libvirt
 Pin: release *
 Pin-Priority: -1
 Package: qemu
@@ -562,6 +576,11 @@ EOH
         systemctl enable virtqemud.service virtnetworkd.service virtstoraged.service virtqemud.socket
         echo "[+] You should logout and login "
     fi
+    
+    cd ..
+    # Remove the $libvirt_version directory to permission errors when runing
+    # cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/poetry_libvirt_installer.sh later
+    rm -r libvirt-python-$libvirt_version
 
 }
 
@@ -683,10 +702,8 @@ function install_kvm_linux() {
     aptitude install -f gtk-update-icon-cache -y 2>/dev/null
 
     # WSL support
-    aptitude install -f gcc make gnutls-bin -y
-    # remove old
-    apt purge libvirt0 libvirt-bin -y
-    apt-mark hold libvirt0 libvirt-bin
+    aptitude install -f gcc make gnutls-bin
+
     install_libvirt
 
     systemctl enable libvirtd.service virtlogd.socket
@@ -836,7 +853,7 @@ function install_qemu() {
         aptitude install -f software-properties-common -y
         add-apt-repository universe -y
         apt update 2>/dev/null
-        aptitude install -f python3-pip openbios-sparc openbios-ppc libssh2-1-dev vde2 liblzo2-dev libghc-gtk3-dev libsnappy-dev libbz2-dev libxml2-dev google-perftools libgoogle-perftools-dev libvde-dev python3-sphinx-rtd-theme -y
+        aptitude install -f python3-pip libssh2-1-dev vde2 liblzo2-dev libghc-gtk3-dev libsnappy-dev libbz2-dev libxml2-dev google-perftools libgoogle-perftools-dev libvde-dev python3-sphinx-rtd-theme -y
         aptitude install -f debhelper libusb-1.0-0-dev libxen-dev uuid-dev xfslibs-dev libjpeg-dev libusbredirparser-dev device-tree-compiler texinfo libbluetooth-dev libbrlapi-dev libcap-ng-dev libcurl4-gnutls-dev libfdt-dev gnutls-dev libiscsi-dev libncurses5-dev libnuma-dev libcacard-dev librados-dev librbd-dev libsasl2-dev libseccomp-dev libspice-server-dev libaio-dev libcap-dev libattr1-dev libpixman-1-dev libgtk2.0-bin  libxml2-utils systemtap-sdt-dev uml-utilities libcapstone-dev -y
         # qemu docs required
         PERL_MM_USE_DEFAULT=1 perl -MCPAN -e install "Perl/perl-podlators"
@@ -858,7 +875,7 @@ function install_qemu() {
             cd qemu-$qemu_version || return
             # add in future --enable-netmap https://sgros-students.blogspot.com/2016/05/installing-and-testing-netmap.html
             # remove --target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux-user  if you want all targets
-                ./configure $QTARGETS --prefix=/usr --libexecdir=/usr/lib/qemu --localstatedir=/var --bindir=/usr/bin/ --enable-gnutls --enable-docs --enable-gtk --enable-vnc --enable-vnc-sasl --enable-curl --enable-kvm  --enable-linux-aio --enable-cap-ng --enable-vhost-net --enable-vhost-crypto --enable-spice --enable-usb-redir --enable-lzo --enable-snappy --enable-bzip2 --enable-coroutine-pool --enable-jemalloc --enable-replication --enable-tools
+                ./configure $QTARGETS --prefix=/usr --libexecdir=/usr/lib/qemu --localstatedir=/var --bindir=/usr/bin/ --enable-gnutls --enable-docs --enable-gtk --enable-vnc --enable-vnc-sasl --enable-curl --enable-kvm  --enable-linux-aio --enable-cap-ng --enable-vhost-net --enable-vhost-crypto --enable-spice --enable-usb-redir --enable-lzo --enable-snappy --enable-bzip2 --enable-coroutine-pool --enable-malloc=jemalloc --enable-replication --enable-tools
                 #  --enable-capstone
             if  [ $? -eq 0 ]; then
                 echo '[+] Starting Install it'

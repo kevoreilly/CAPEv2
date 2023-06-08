@@ -112,10 +112,11 @@ class TestDatabaseEngine:
         new_task = self.d.view_task(new_task_id)
         assert new_task.category == "file"
 
-    @pytest.mark.xfail(reason="Need fix")
     def test_reschedule_static(self):
         count = self.session.query(Task).count()
-        task_id = self.d.add_static(self.temp_filename)
+        task_ids = self.d.add_static(self.temp_filename)
+        assert len(task_ids) == 1
+        task_id = task_ids[0]
         assert self.session.query(Task).count() == count + 1
         task = self.d.view_task(task_id)
         assert task is not None

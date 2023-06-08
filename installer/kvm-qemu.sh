@@ -422,9 +422,6 @@ Pin-Priority: -1
 Package: qemu
 Pin: release *
 Pin-Priority: -1
-Package: qemu
-Pin: release *
-Pin-Priority: -1
 Package: gir1.2-libvirt-glib-1.0
 Pin: release *
 Pin-Priority: -1

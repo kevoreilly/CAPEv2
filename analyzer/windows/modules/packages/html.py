@@ -5,7 +5,7 @@
 import logging
 import shutil
 
-from lib.common.abstracts import Package, CuckooPackageError
+from lib.common.abstracts import CuckooPackageError, Package
 
 log = logging.getLogger(__name__)
 

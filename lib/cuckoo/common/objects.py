@@ -375,18 +375,22 @@ class File:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
-                            dotnet_string = (
-                                "Mono/.Net assembly" if self.pe.DIRECTORY_ENTRY_COM_DESCRIPTOR.VirtualAddress == 0 else ""
-                            )
-                            # Emulate magic for now
-                            if is_dll and is_x64:
-                                self.file_type = f"PE32+ executable (DLL) (GUI) x86-64{dotnet_string}, for MS Windows"
-                            elif is_dll:
-                                self.file_type = f"PE32 executable (DLL) (GUI) Intel 80386{dotnet_string}, for MS Windows"
-                            elif is_x64:
-                                self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string}, for MS Windows"
+                            try:
+                                dotnet_string = (
+                                    "Mono/.Net assembly" if self.pe.DIRECTORY_ENTRY_COM_DESCRIPTOR.VirtualAddress == 0 else ""
+                                )
+                            except AttributeError:
+                                pass
                             else:
-                                self.file_type = f"PE32 executable ({gui_type}) Intel 80386{dotnet_string}, for MS Windows"
+                                # Emulate magic for now
+                                if is_dll and is_x64:
+                                    self.file_type = f"PE32+ executable (DLL) (GUI) x86-64{dotnet_string}, for MS Windows"
+                                elif is_dll:
+                                    self.file_type = f"PE32 executable (DLL) (GUI) Intel 80386{dotnet_string}, for MS Windows"
+                                elif is_x64:
+                                    self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string}, for MS Windows"
+                                else:
+                                    self.file_type = f"PE32 executable ({gui_type}) Intel 80386{dotnet_string}, for MS Windows"
                     elif not File.notified_pefile:
                         File.notified_pefile = True
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")

@@ -15,8 +15,10 @@ class TestCuckooBsonCompresson:
 
     def test_run(self):
         file_path = os.path.join(pathlib.Path(__file__).absolute().parent.as_posix(), "test_bson.bson")
-        CuckooBsonCompressor().run(file_path=file_path)
         try:
-            path_delete("CAPEv2/tests/test_bson.bson.compressed")
-        except Exception as e:
-            print(("Exception cleaning up, should be fine:" + str(e)))
+            CuckooBsonCompressor().run(file_path=file_path)
+        finally:
+            try:
+                path_delete(os.path.dirname(file_path) + "/test_bson.bson.compressed")
+            except Exception as e:
+                print(("Exception cleaning up, should be fine:" + str(e)))

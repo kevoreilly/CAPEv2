@@ -45,6 +45,11 @@ msn-com\.akamaized\.net$
 \.virtualearth\.net$
 
 
+# Edge
+fp-vp-nocache\.azureedge\.net$
+\.clo.footprintdns\.com$
+edgeassetservice\.azureedge\.net$
+
 # Edge analytics
 \.scorecardresearch\.com$
 

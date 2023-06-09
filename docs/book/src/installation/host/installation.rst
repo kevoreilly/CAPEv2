@@ -65,8 +65,6 @@ To install CAPE with all the optimizations, use one of the following commands::
     $ sudo ./cape2.sh base cape | tee cape.log
     $ sudo ./cape2.sh all cape | tee cape.log
 
-The main difference between **base** and **all** is that **all** installs virt-manager, which is GUI for libvirt. This is useless if the installation is performed on a server, for example.
-
 Remember to **reboot** after the installation.
 
 This should install all libraries and services for you, read the code if you need more details. Specifically, the installed services are:

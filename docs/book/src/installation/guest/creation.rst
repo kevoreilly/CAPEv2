@@ -17,7 +17,7 @@ guide, so please refer to the virtualization software's official documentation.
     .. note::
 
         For analysis purposes, it is recommended to use a Windows 7 that has User
-        Access Control disabled. CAPE also supports Windows 10.
+        Access Control disabled. CAPE also supports Windows 10 21H2.
 
     .. note::
 

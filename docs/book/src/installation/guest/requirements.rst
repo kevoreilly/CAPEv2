@@ -63,7 +63,13 @@ additional software such as browsers, PDF readers, office suites, etc.
         Remember to disable the "Auto Update" or "Check For Updates" feature of
         any additional software that you install.
 
-        For Microsoft Office we suggest to use Office 2010 SP2
+        For Microsoft Office we recommend Office 2010 SP2. This is both for its
+        susceptibility to exploits typically used in maldocs, and its proven
+        compatibility with CAPE. The only recommended alternative is Office 2016
+        (32-bit).
+
+        We do not recommend any Office version more recent than 2016 due to lack
+        of proven compatibility with both maldocs and CAPE.
 
 For hints about what your needs may be, give the :doc:`../../introduction/sandboxing` chapter a read.
 

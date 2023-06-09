@@ -10,36 +10,50 @@ from tempfile import NamedTemporaryFile
 import pytest
 from sqlalchemy import delete
 
-from lib.cuckoo.common.path_utils import path_cwd, path_delete, path_mkdir
+from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core.database import Database, Machine, Tag, Task
 
 
+@pytest.fixture(autouse=True)
+def storage(tmp_path, request):
+    storage = tmp_path / "storage"
+    binaries = storage / "binaries"
+    binaries.mkdir(mode=0o755, parents=True)
+    analyses = storage / "analyses"
+    analyses.mkdir(mode=0o755, parents=True)
+    tmpdir = tmp_path / "tmp"
+    tmpdir.mkdir(mode=0o755, parents=True)
+    request.instance.tmp_path = tmp_path
+    request.instance.storage = str(storage)
+    request.instance.binary_storage = str(binaries)
+    request.instance.analyses_storage = str(analyses)
+    request.instance.tmpdir = str(tmpdir)
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
 class TestDatabaseEngine:
     """Test database stuff."""
 
     URI = None
 
-    def setup_method(self):
-        with NamedTemporaryFile(mode="w+", delete=False) as f:
+    def setup_method(self, method):
+        with NamedTemporaryFile(mode="w+", delete=False, dir=self.storage) as f:
             f.write("hehe")
         self.temp_filename = f.name
         pcap_header_base64 = b"1MOyoQIABAAAAAAAAAAAAAAABAABAAAA"
         pcap_bytes = base64.b64decode(pcap_header_base64)
-        self.temp_pcap = store_temp_file(pcap_bytes, "%s.pcap" % f.name)
+        self.temp_pcap = store_temp_file(pcap_bytes, "%s.pcap" % f.name, self.tmpdir.encode())
         self.d = Database(dsn="sqlite://")
         # self.d.connect(dsn=self.URI)
         self.session = self.d.Session()
         stmt = delete(Machine)
         self.session.execute(stmt)
         self.session.commit()
-        self.binary_storage = os.path.join(path_cwd(), "storage/binaries_test")
-        path_mkdir(self.binary_storage)
 
     def teardown_method(self):
         del self.d
-        path_delete(self.temp_filename)
-        shutil.rmtree(self.binary_storage)
+        shutil.rmtree(str(self.tmp_path))
 
     def add_url(self, url, priority=1, status="pending"):
         task_id = self.d.add_url(url, priority=priority)
@@ -80,7 +94,6 @@ class TestDatabaseEngine:
         tag_list = list(self.d.view_task(task).tags)
         assert [str(x.name) for x in tag_list].sort() == ["foo", "bar"].sort()
 
-    @pytest.mark.xfail(reason="Need fix")
     def test_reschedule_file(self):
         count = self.session.query(Task).count()
         task_id = self.d.add_path(self.temp_filename)
@@ -90,18 +103,20 @@ class TestDatabaseEngine:
         assert task.category == "file"
 
         # write a real sample to storage
-        sample_path = os.path.join(self.binary_storage, task.sample.sha256)
-        shutil.copy(self.temp_filename, sample_path)
+        task_path = os.path.join(self.analyses_storage, str(task.id))
+        path_mkdir(task_path)
+        shutil.copy(self.temp_filename, os.path.join(task_path, "binary"))
 
         new_task_id = self.d.reschedule(task_id)
         assert new_task_id is not None
         new_task = self.d.view_task(new_task_id)
         assert new_task.category == "file"
 
-    @pytest.mark.xfail(reason="Need fix")
     def test_reschedule_static(self):
         count = self.session.query(Task).count()
-        task_id = self.d.add_static(self.temp_filename)
+        task_ids = self.d.add_static(self.temp_filename)
+        assert len(task_ids) == 1
+        task_id = task_ids[0]
         assert self.session.query(Task).count() == count + 1
         task = self.d.view_task(task_id)
         assert task is not None
@@ -116,7 +131,6 @@ class TestDatabaseEngine:
         new_task = self.d.view_task(new_task_id)
         assert new_task.category == "static"
 
-    @pytest.mark.xfail(reason="Need fix")
     def test_reschedule_pcap(self):
         count = self.session.query(Task).count()
         task_id = self.d.add_pcap(self.temp_pcap)
@@ -135,7 +149,6 @@ class TestDatabaseEngine:
         new_task = self.d.view_task(new_task_id)
         assert new_task.category == "pcap"
 
-    @pytest.mark.xfail(reason="Need fix")
     def test_reschedule_url(self):
         # add a URL task
         count = self.session.query(Task).count()

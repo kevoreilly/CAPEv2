@@ -377,8 +377,8 @@ class File:
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
                             dotnet_string = (
                                 "Mono/.Net assembly"
-                                if hasattr(self.pe, "DIRECTORY_ENTRY_COM_DESCRIPTOR")
-                                and self.pe.DIRECTORY_ENTRY_COM_DESCRIPTOR.VirtualAddress == 0
+                                if hasattr(self.pe, "IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR")
+                                and self.pe.IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR.VirtualAddress == 0
                                 else ""
                             )
                             # Emulate magic for now

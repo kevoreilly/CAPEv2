@@ -94,6 +94,9 @@ def test_filetype():
     filetype = File("tests/data/malware/53622590bb3138dcbf12b0105af96dd72aedc40de8984f97c8e882343a769b45").get_type()
     assert filetype == "PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows"
 
+    filetype = File("tests/data/malware/5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b").get_type()
+    assert filetype == "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
+
 
 """ ToDo ReEnable
 @pytest.fixture(scope="class")

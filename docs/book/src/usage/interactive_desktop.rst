@@ -27,9 +27,10 @@ Enable and configure ``guacamole`` in ``conf/web.conf`` and restart ``cape-web.s
 
     $ systemctl restart cape-web guacd.service
 
-In case you using are ``NGINX``, you need to configure it to be able to use interactive mode.  Here's an example config.
+In case you using are ``NGINX``, you need to configure it to be able to use interactive mode.  Here's an example config, 
+or add the contents of extra/guac related/nginx-site-config.txt to your site config.
 
-Replace `www.capesandbox.com` with your own hostname.
+Replace ``www.capesandbox.com`` with your own hostname.
 
 .. code-block:: nginx
 
@@ -92,12 +93,63 @@ If you want to block users from changing their own passwords, add the following 
     location /accounts/email/ {
         return 403;
     }
-        
+
+The recording files written by ``guacd`` are only readable by the ``cape`` user and other members of the ``cape`` group, so in order for NGINX to read and serve the recordings the ``www-data`` user must be added to the ``cape`` group.
+
+.. code-block:: bash
+
+    sudo usermod www-data -G cape
+
+Then restart NGINX
+
+.. code-block:: bash
+
+    sudo service nginx restart
+
+.. warning::
+
+    The CAPE Guacamole Django web application is currently separate from the main CAPE Django web application, and does not support any authentication. Anyone who can connect to the web server access can Guacamole consoles and recordings, if they know the CAPE analysis ID and Guacamole session GUID.
+    
+    NGINX can be configured to require HTTP basic authentication for all CAPE web applications, as an alternative to the Django authentication system.
+
+    Install the ``apache2-utils`` package, which contains the ``htpasswd`` utility.
+ 
+    .. code-block:: bash
+
+        sudo apt install apache2-utils
+
+    Use the ``htpasswd`` file to create a new password file and add a first user, such as ``cape``.
+
+    .. code-block:: bash
+
+        sudo htpasswd -c /opt/CAPEv2/web/.htpasswd cape
+
+    Use the same command without the `-c` option to add another user to an existing password file.
+
+    Set the proper file permissions.
+
+    .. code-block:: bash
+
+        sudo chown root:www-data /opt/CAPEv2/web/.htpasswd
+        sudo chmod u=rw,g=r,o= /opt/CAPEv2/web/.htpasswd
+
+    Add the following lines to the NGINX configuration, just below the ``client_max_body_size`` line.
+
+    .. code-block :: nginx
+
+        auth_basic           "Authentication required";
+        auth_basic_user_file /opt/CAPEv2/web/.htpasswd;
+
+    Then restart NGINX
+
+    .. code-block:: bash
+
+        sudo service nginx restart
 
 Virtual machine configuration
 =============================
 * At the moment we support only KVM and we don't have plans to support any other hypervisor.
-* To enable support for remote session you need to configure your VM to use ``VNC`` display, otherwise it won't work.
+* To enable support for remote session you need to add a ``VNC`` display to your VM, otherwise it won't work.
 
 
 Having troubles?

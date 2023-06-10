@@ -1928,7 +1928,7 @@ class Database(object, metaclass=Singleton):
 
             # All other task types have a "target" pointing to a temp location,
             # so get a stable path "target" based on the sample hash.
-            paths = self.sample_path_by_hash(task.sample.sha256)
+            paths = self.sample_path_by_hash(task.sample.sha256, task_id)
             paths = [file_path for file_path in paths if path_exists(file_path)]
             if not paths:
                 return None

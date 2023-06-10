@@ -22,7 +22,7 @@ nginx_version=1.19.6
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.5.0
+guacamole_version=1.5.2
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0
@@ -745,6 +745,11 @@ function install_yara() {
     cd ..
     # for root
     pip3 install ./yara-python
+
+    # Remove the yara-python directory after installing it to avoid permission issues if
+    # `cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/poetry_yara_installer.sh`
+    #needs to be ran again
+    rm -r yara-python
 }
 
 function install_mongo(){
@@ -1252,7 +1257,7 @@ function install_guacamole() {
     sudo apt update
     sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
     sudo apt install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
-    sudo apt install -y bindfs
+
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
 
 
@@ -1287,13 +1292,12 @@ function install_guacamole() {
         sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
 
-    if [ ! -d "/var/www/guacrecordings" ] ; then
-        sudo mkdir -p /var/www/guacrecordings && chown ${USER}:${USER} /var/www/guacrecordings
+    if [ ! -d "/opt/CAPEv2/storage/guacrecordings" ] ; then
+        sudo mkdir -p opt/CAPEv2/storage/guacrecordings && chown ${USER}:${USER} opt/CAPEv2/storage/guacrecordings
     fi
 
-    if grep -q '/var/www/guacrecordings' /etc/fstab; then
-        echo "/opt/CAPEv2/storage/guacrecordings /var/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
-    fi
+    # Add www-data to CAPE group to access guac recordings
+    sudo usermod www-data -G ${USER}
 
     cd /opt/CAPEv2
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'

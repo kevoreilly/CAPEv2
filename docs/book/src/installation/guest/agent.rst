@@ -18,6 +18,12 @@ spawned, with a title similar to ``C:\Windows\py.exe``. If you want to hide this
 *agent.py* to **agent.pyw** which will prevent the window from
 spawning upon launching the script. 
 
+   .. warning::
+      It is **encouraged** to use the agent in its window-less version (``.pyw`` extension) 
+      given that opening a ``cmd`` window will definitely interfere with `human.py <https://github.com/kevoreilly/CAPEv2/blob/master/analyzer/windows/modules/auxiliary/human.py>`_, causing 
+      several problems like blocking the `agent.py <https://github.com/kevoreilly/CAPEv2/blob/master/agent/agent.py>`_. communication with the host or 
+      producing no **behavioral analysis** output, just to mention some.
+
 Don't forget to test the agent before saving the snapshot. You can do it both navigating to ``VM_IP:8000`` with a browser from your Host or be executing: ``curl VM_IP:8000``. You should see an output similar to the following:
 
    .. image:: ../../_images/screenshots/running_agentpy_within_guest_0.png

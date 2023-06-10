@@ -86,3 +86,35 @@ PIP3:
 PIP3+git:
    $ poetry run pip install -U git+<repo_url>
    $ poetry run pip install -U git+https://github.com/doomedraven/sflock
+
+Troubleshooting:
+================
+When trying to update your local CAPE installation with poetry with either of the following commands::
+
+   $ sudo -u cape poetry install
+   $ sudo -u cape poetry update
+
+you may encounter the following error::
+
+   CalledProcessError
+      Command '['git', '--git-dir', '/tmp/pypoetry-git-web3.pyocemorcf/.git', '--work-tree', '/tmp/pypoetry-git-web3.pyocemorcf', 'checkout', 'master']' returned non-zero exit status 1.
+
+
+Or maybe when trying to update ``poetry`` itself with::
+
+   $ sudo -u cape poetry self update
+
+you may face the following error::
+
+   RuntimeError
+      Poetry was not installed with the recommended installer. Cannot update automatically.
+
+That is becuase you probably installed poetry with pip.
+
+In order to solve it you must first upgrade your local ``poetry`` installation with::
+
+   $ sudo pip3 install poetry --upgrade
+
+and then run the update command again::
+
+   $ sudo -u cape poetry update

@@ -583,8 +583,7 @@ def index(request, task_id=None, resubmit_hash=None):
             {"name": v["description"], "host": v["host"], "port": v["port"], "type": "socks5"} for k, v in socks5s.items()
         ]
         vpns_data = [
-            {"name": v["name"], "description": v["description"], "interface": v["interface"], "type": "vpn"}
-            for k, v in vpns.items()
+            {"name": v["name"], "description": v["description"], "interface": v["interface"], "type": "vpn"} for v in vpns.values()
         ]
 
         existent_tasks = {}

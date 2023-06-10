@@ -130,6 +130,8 @@ def extract_config(data):
         log.error("This is broken: %s", str(e), exc_info=True)
     return cfg
 
+
 if __name__ == "__main__":
     import sys
+
     print(extract_config(open(sys.argv[1], "rb").read()))

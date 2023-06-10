@@ -45,7 +45,7 @@ except ImportError:
     except ImportError:
         print("missed dependency: poetry run pip install django-ratelimit -U")
 
-from lib.cuckoo.common.admin_utils import disable_user
+from lib.cuckoo.common.webadmin_utils import disable_user
 
 try:
     import re2 as re

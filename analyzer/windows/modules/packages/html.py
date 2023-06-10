@@ -5,7 +5,7 @@
 import logging
 import shutil
 
-from lib.common.abstracts import Package
+from lib.common.abstracts import CuckooPackageError, Package
 
 log = logging.getLogger(__name__)
 
@@ -14,11 +14,16 @@ class HTML(Package):
     """HTML file analysis package."""
 
     PATHS = [
+        ("ProgramFiles", "Microsoft", "Edge", "Application" "msedge.exe"),
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
 
     def start(self, path):
-        iexplore = self.get_path("iexplore.exe")
+        try:
+            browser = self.get_path("msedge.exe")
+        except CuckooPackageError:
+            log.info("Could not find Microsoft Edge. Falling back to Internet Explorer.")
+            browser = self.get_path("iexplore.exe")
 
         # Travelling inside malware universe you should bring a towel with you.
         # If a file detected as HTML is submitted without a proper extension,
@@ -31,4 +36,4 @@ class HTML(Package):
             path += ".html"
             log.info("Submitted file is missing extension, adding .html")
 
-        return self.execute(iexplore, f'"{path}"', path)
+        return self.execute(browser, f'"{path}"', path)

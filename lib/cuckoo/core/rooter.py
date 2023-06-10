@@ -13,12 +13,11 @@ cfg = Config()
 router_cfg = Config("routing")
 log = logging.getLogger(__name__)
 
-vpns = dict()
-socks5s = dict()
+vpns = {}
+socks5s = {}
 
 
 def _load_socks5_operational():
-
     socks5s = {}
 
     if not router_cfg.socks5.enabled:

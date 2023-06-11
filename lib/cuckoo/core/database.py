@@ -2248,11 +2248,11 @@ class Database(object, metaclass=Singleton):
                     task = (
                         select(Task)
                         .where(Task.id == task_id)
-                        .options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags), joinedload(Task.sample_id))
+                        .options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
                     )
                     task = session.execute(task).first()
                 else:
-                    query = select(Task).where(Task.id == task_id).options(joinedload(Task.tags), joinedload(Task.sample_id))
+                    query = select(Task).where(Task.id == task_id).options(joinedload(Task.tags))
                     task = session.execute(query).first()
                 if task:
                     task = task[0]

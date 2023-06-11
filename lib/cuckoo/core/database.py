@@ -204,7 +204,7 @@ class Machine(Base):
     arch = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     platform = Column(String(255), nullable=False)
-    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines")) # lazy="subquery"
+    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines"))  # lazy="subquery"
     interface = Column(String(255), nullable=True)
     snapshot = Column(String(255), nullable=True)
     locked = Column(Boolean(), nullable=False, default=False)
@@ -969,7 +969,6 @@ class Database(object, metaclass=Singleton):
             except TypeError:
                 log.warning("Data inconsistency in guests table detected, it might be a crash leftover. Continue")
                 session.rollback()
-
 
     @staticmethod
     def filter_machines_by_arch(machines, arch):
@@ -1915,51 +1914,50 @@ class Database(object, metaclass=Singleton):
                 session.rollback()
                 return False
 
-        # Normalize tags.
-        if task.tags:
-            tags = ",".join(tag.name for tag in task.tags)
-        else:
-            tags = task.tags
+            # Normalize tags.
+            if task.tags:
+                tags = ",".join(tag.name for tag in task.tags)
+            else:
+                tags = task.tags
 
-        def _ensure_valid_target(task):
-            if task.category == "url":
-                # URL tasks always have valid targets, return it as-is.
-                return task.target
+            def _ensure_valid_target(task):
+                if task.category == "url":
+                    # URL tasks always have valid targets, return it as-is.
+                    return task.target
 
-            # All other task types have a "target" pointing to a temp location,
-            # so get a stable path "target" based on the sample hash.
-            paths = self.sample_path_by_hash(task.sample.sha256, task_id)
-            paths = [file_path for file_path in paths if path_exists(file_path)]
-            if not paths:
-                return None
+                # All other task types have a "target" pointing to a temp location,
+                # so get a stable path "target" based on the sample hash.
+                paths = self.sample_path_by_hash(task.sample.sha256, task_id)
+                paths = [file_path for file_path in paths if path_exists(file_path)]
+                if not paths:
+                    return None
 
-            if task.category == "pcap":
-                # PCAP task paths are represented as bytes
-                return paths[0].encode()
-            return paths[0]
+                if task.category == "pcap":
+                    # PCAP task paths are represented as bytes
+                    return paths[0].encode()
+                return paths[0]
 
-        task_target = _ensure_valid_target(task)
-        if not task_target:
-            log.warning("Unable to find valid target for task: %s", task_id)
-            return
+            task_target = _ensure_valid_target(task)
+            if not task_target:
+                log.warning("Unable to find valid target for task: %s", task_id)
+                return
 
-        new_task_id = add(
-            task_target,
-            task.timeout,
-            task.package,
-            task.options,
-            task.priority,
-            task.custom,
-            task.machine,
-            task.platform,
-            tags,
-            task.memory,
-            task.enforce_timeout,
-            task.clock,
-            tlp=task.tlp,
-        )
+            new_task_id = add(
+                task_target,
+                task.timeout,
+                task.package,
+                task.options,
+                task.priority,
+                task.custom,
+                task.machine,
+                task.platform,
+                tags,
+                task.memory,
+                task.enforce_timeout,
+                task.clock,
+                tlp=task.tlp,
+            )
 
-        with self.Session() as session:
             session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
             try:
                 session.commit()
@@ -1968,7 +1966,7 @@ class Database(object, metaclass=Singleton):
                 session.rollback()
                 return False
 
-        return new_task_id
+            return new_task_id
 
     @classlock
     def count_matching_tasks(self, category=None, status=None, not_status=None):
@@ -2247,7 +2245,11 @@ class Database(object, metaclass=Singleton):
         with self.Session() as session:
             try:
                 if details:
-                    task = select(Task).where(Task.id == task_id).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+                    task = (
+                        select(Task)
+                        .where(Task.id == task_id)
+                        .options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+                    )
                     task = session.execute(task).first()
                 else:
                     query = select(Task).where(Task.id == task_id).options(joinedload(Task.tags))
@@ -2259,7 +2261,6 @@ class Database(object, metaclass=Singleton):
             except SQLAlchemyError as e:
                 print(e)
                 log.debug("Database error viewing task: %s", e)
-
 
     @classlock
     def add_statistics_to_task(self, task_id, details):
@@ -2363,7 +2364,13 @@ class Database(object, metaclass=Singleton):
                 elif sample_id:
                     sample = session.query(Sample).filter_by(id=sample_id).all()
                 elif task_id:
-                    sample = session.query(Task).options(joinedload(Task.sample)).filter(Task.id == task_id).filter(Sample.id == Task.sample_id).all()
+                    sample = (
+                        session.query(Task)
+                        .options(joinedload(Task.sample))
+                        .filter(Task.id == task_id)
+                        .filter(Sample.id == Task.sample_id)
+                        .all()
+                    )
             except SQLAlchemyError as e:
                 log.debug("Database error searching sample: %s", e)
                 return None
@@ -2535,7 +2542,9 @@ class Database(object, metaclass=Singleton):
 
                 if not sample:
                     # search in temp folder if not found in binaries
-                    db_sample = session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(query_filter == sample_hash).all()
+                    db_sample = (
+                        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(query_filter == sample_hash).all()
+                    )
 
                     if db_sample is not None:
                         samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]

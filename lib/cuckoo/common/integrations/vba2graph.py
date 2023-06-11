@@ -140,7 +140,7 @@ lst_mal_case_sensetive = [
     r"Application\\.\\w+",
     "Sleep",
     "Process",
-    "NormalTemplate\.\w+",
+    r"NormalTemplate\\.\\w+",
     r"\\w+\\.Application",
     "CommandBars",
     r"System\\.\\w+",
@@ -218,7 +218,7 @@ lst_mal_case_insensetive = [
     "VIRTUAL",
     "VMWARE",
     "VBOX",
-    '"[\w-_\\/]+\.(?:EXE|PIF|GADGET|MSI|MSP|MSC|VBS|VBE|VB|JSE|JS|WSF|WSC|WSH|WS|BAT|CMD|DLL|SCR|HTA|CPL|CLASS|JAR|PS1XML|PS1|PS2XML|PS2|PSC1|PSC2|SCF|LNK|INF|REG)"',
+    r'"[\\w-_\\/]+\.(?:EXE|PIF|GADGET|MSI|MSP|MSC|VBS|VBE|VB|JSE|JS|WSF|WSC|WSH|WS|BAT|CMD|DLL|SCR|HTA|CPL|CLASS|JAR|PS1XML|PS1|PS2XML|PS2|PSC1|PSC2|SCF|LNK|INF|REG)"',
     "FileSystemObject",
     "GetSpecialFolder",
     "PowerShell",
@@ -226,7 +226,7 @@ lst_mal_case_insensetive = [
     "deletefolder",
     r"regsvr\\.32",
     r"scrobj\\.dll",
-    "cmd\.exe",
+    r"cmd\\.exe",
     r'Environ\\("ALLUSERSPROFILE"\\)|Environ\\("TEMP"\\)|Environ\\("TMP"\\)|Environ',
     r"Msxml2\\.XMLHTTP|Microsoft\\.XMLHTTP|MSXML2\\.ServerXMLHTTP|microsoft\.xmlhttp|http",
 ]
@@ -857,7 +857,7 @@ def create_call_graph(vba_func_dict):
 
         func_code = vba_func_dict[func_name]
         # split function code into tokens
-        func_code_tokens = list(filter(None, re.split('["(, \-!?:\r\n)&=.><]+', func_code)))
+        func_code_tokens = list(filter(None, re.split(r'["(, \\-!?:\\r\\n)&=.><]+', func_code)))
         # inside each function's code, we are looking for a function name
         for func_name1 in vba_func_dict:
             orig_func_name = func_name1

@@ -1,3 +1,6 @@
+### [11.6.2023]
+* New dependency. Run `cd /opt/CAPEv2 && poetry install`
+
 ### [5.6.2023]
 * Stealc detection update
 * Monitor update: Fix NtWriteFile hook issue by removing critical sections - thanks to @RazviOverflow for report

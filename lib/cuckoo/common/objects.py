@@ -378,7 +378,11 @@ class File:
                             dotnet_string = ""
                             with contextlib.suppress(AttributeError):
                                 dotnet_string = (
-                                    " Mono/.Net assembly" if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR']].VirtualAddress != 0
+                                    " Mono/.Net assembly"
+                                    if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                                        pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
+                                    ].VirtualAddress
+                                    != 0
                                     else ""
                                 )
                             # Emulate magic for now

@@ -375,12 +375,16 @@ class File:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
-                            dotnet_string = (
-                                "Mono/.Net assembly"
-                                if hasattr(self.pe, "DIRECTORY_ENTRY_COM_DESCRIPTOR")
-                                and self.pe.DIRECTORY_ENTRY_COM_DESCRIPTOR.VirtualAddress == 0
-                                else ""
-                            )
+                            dotnet_string = ""
+                            with contextlib.suppress(AttributeError):
+                                dotnet_string = (
+                                    " Mono/.Net assembly"
+                                    if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                                        pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
+                                    ].VirtualAddress
+                                    != 0
+                                    else ""
+                                )
                             # Emulate magic for now
                             if is_dll and is_x64:
                                 self.file_type = f"PE32+ executable (DLL) (GUI) x86-64{dotnet_string}, for MS Windows"

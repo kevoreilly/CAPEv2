@@ -19,9 +19,11 @@ faced with his CAPE clusters. Just to mention some:
 
 Dependencies
 ------------
-
-* Only four libraries::
-    $ cd /opt/CAPEv2 && poetry run pip install scp paramiko mmh3 deepdiff
+You need to add your ssh key to ``.ssh/authorized_keys``. I personally suggest to add it under ``root`` user.
+Install dependencies::
+    * ``cd /opt/CAPEv2 && poetry run pip install scp paramiko mmh3 deepdiff``
+    * To install them on all servers you can run:
+        * ``poetry run python admin/admin.py -e "sudo -H -u cape bash -c 'cd /opt/CAPEv2 && poetry run pip install mmh3 deepdiff'"``
 
 SSH Pivoting explained
 ======================
@@ -29,7 +31,7 @@ SSH Pivoting explained
 SSH pivoting is when you access to one server using another as ``proxy``. In case if you need deeper expalantion of this. Google it!
 ``admin.py`` support two types of of pivoting, simple and more complex::
 
-* You need to configure ``admin/admin_conf.py``
+* You need to configure ``admin/admin_conf.py``::
 * ``-jb`` or ``--jump-box`` - is simple one server proxy pivoting. Using ``JUMP_BOX`` from config.
     * You -> ssh proxy server -> server(s)
 * ``-jbs`` or ``--jump-box-second`` - is more complex setup when you have to use two proxy servers. Using ``JUMP_BOX_SECOND`` from config.
@@ -55,26 +57,26 @@ The rest of the posibilities
 ============================
 
 Restart ``processing`` on server(s)::
-    $ poetry run python admin/admin.py --restart-service
+    * ``poetry run python admin/admin.py --restart-service``
 
 ``Deploy`` one or multiple files::
-    $ poetry run python admin/admin.py --deploy-file <file/files>
-    In case of ``Yara rule`` you can specify the category by using ``--yara-category``, default is ``CAPE`` folder.
+    * ``poetry run python admin/admin.py --deploy-file <file/files>``
+    * In case of ``Yara rule`` you can specify the category by using ``--yara-category``, default is ``CAPE`` folder.
 
 ``Deploy local changes`` - Deploy all local changes before you do ``git commit``::
-    $ poetry run python admin/admin.py --deploy-local-changes
+    * ``poetry run python admin/admin.py --deploy-local-changes``
 
 ``Deploy local changes`` - Deploy all local changes before you do ``git commit``::
-    $ poetry run python admin/admin.py --deploy-local-changes
+    * ``poetry run python admin/admin.py --deploy-local-changes``
 
 ``Deploy remote changes`` - Deploy all local changes that is already merged and you just did ``git pull``::
-    $ poetry run python admin/admin.py --deploy-remote-head 1
+    * ``poetry run python admin/admin.py --deploy-remote-head 1``
 
 ``Pull file`` from server(s)::
-    $ poetry run python admin/admin.py --fetch-file <server side path>
+    * ``poetry run python admin/admin.py --fetch-file <server side path>``
 
 ``Execute command on server(s)``. By default it runs them as root::
-    $ poetry run python admin/admin.py --execute-command <command>
+    * ``poetry run python admin/admin.py --execute-command <command>``
     * Few examples:
-        * poetry run python admin/admin.py -e "pip3 install mmh3 deepdiff"
-        * poetry run python admin/admin.py -e "sudo -H -u cape bash -c 'pip3 install -U sflock2'"
+        * ``poetry run python admin/admin.py -e "pip3 install mmh3 deepdiff"``
+        * ``poetry run python admin/admin.py -e "sudo -H -u cape bash -c 'pip3 install -U sflock2'"``

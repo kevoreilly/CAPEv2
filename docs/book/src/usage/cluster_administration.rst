@@ -68,7 +68,7 @@ Is also a good idea to verify your deployed servers to ensure that all files are
     * Admin disabled one node for maintaninece and someone pushed a new/modified ``Yara rule``, ``config extractor``, etc to production. So that server will stay with old file.
 
 To generate all file listenings on all servers you can run:
-    * ``poetry run python CAPEv2/admin/admin.py --generate-files-listening <path>``
+    * ``poetry run python CAPEv2/admin/admin.py --enum-all-servers --generate-files-listening <path>``
 
 The rest of the posibilities
 ============================

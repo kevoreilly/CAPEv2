@@ -20,8 +20,10 @@ faced with his CAPE clusters. Just to mention some:
 Dependencies
 ------------
 You need to add your ssh key to ``.ssh/authorized_keys``. I personally suggest to add it under ``root`` user.
-Install dependencies::
-* ``cd /opt/CAPEv2 && poetry run pip install scp paramiko mmh3 deepdiff``
+
+* Install dependencies:
+    * ``cd /opt/CAPEv2 && poetry run pip install scp paramiko mmh3 deepdiff``
+
 * To install them on all servers you can run:
     * ``poetry run python admin/admin.py -e "sudo -H -u cape bash -c 'cd /opt/CAPEv2 && poetry run pip install mmh3 deepdiff'"``
 

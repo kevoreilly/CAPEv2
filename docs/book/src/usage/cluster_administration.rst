@@ -30,14 +30,15 @@ SSH Pivoting explained
 
 SSH pivoting is when you access to one server using another as ``proxy``. In case if you need deeper expalantion of this. Google it!
 ``admin.py`` support two types of of pivoting, simple and more complex::
+    * You need to configure ``admin/admin_conf.py``::
 
-* You need to configure ``admin/admin_conf.py``::
 
-* ``-jb`` or ``--jump-box`` - is simple one server proxy pivoting. Using ``JUMP_BOX`` from config.
-    * You -> ssh proxy server -> server(s)
+You -> ssh proxy server -> server(s)
+    * ``-jb`` or ``--jump-box`` - is simple one server proxy pivoting. Using ``JUMP_BOX`` from config.
 
-* ``-jbs`` or ``--jump-box-second`` - is more complex setup when you have to use two proxy servers. Using ``JUMP_BOX_SECOND`` from config.
-    * You -> second ssh proxy server -> first proxy server -> server(s)
+You -> second ssh proxy server -> first proxy server -> server(s)
+    * ``-jbs`` or ``--jump-box-second`` - is more complex setup when you have to use two proxy servers. Using ``JUMP_BOX_SECOND`` from config.
+
 
 
 Comparing files

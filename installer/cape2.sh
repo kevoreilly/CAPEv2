@@ -960,7 +960,7 @@ EOF
     #Edit the Privoxy configuration
     #sudo sed -i 's/R#        forward-socks5t             /     127.0.0.1:9050 ./        forward-socks5t             /     127.0.0.1:9050 ./g' /etc/privoxy/config
     #service privoxy restart
-    
+
     if ! grep -q -E '^* soft nofile' /etc/security/limits.conf; then
         echo "* soft nofile 1048576" >> /etc/security/limits.conf
     fi
@@ -973,8 +973,8 @@ EOF
     if ! grep -q -E '^root hard nofile' /etc/security/limits.conf; then
         echo "root soft hard 1048576" >> /etc/security/limits.conf
     fi
-    
-    
+
+
     if ! grep -q -E '^fs.file-max' /etc/sysctl.conf; then
         echo "fs.file-max = 100000" >> /etc/sysctl.conf
     fi
@@ -1165,6 +1165,9 @@ function install_CAPE() {
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
+
+    # copy *.conf.default to *.conf so we have all properly updated fields, as we can't ignore old configs in repository
+    for filename in conf/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g')";  done
 
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" conf/cuckoo.conf
     # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" conf/routing.conf

@@ -1546,6 +1546,8 @@ class Database(object, metaclass=Singleton):
             timeout = 0
         if not priority:
             priority = 1
+        if file_path.endswith((".htm", ".html")) and not package:
+            package = web_conf.url_analysis.package
 
         return self.add(
             File(file_path),

@@ -45,15 +45,30 @@ Comparing files
 
 The idea of this is to spot files that doesn't match and fix them. Right now only deletion works, but in future it will support deploying of mismatched files.
 
-You can generate local listening for example for upstream repo or your private repo::
+You can generate local listening for example for upstream repo or your private repo:
     * ``poetry run python admin/admin.py --generate-files-listing --directory <path to folder upstream/private repo> --filename <path/name to store listening>``
 
-To get file listening from all your servers you can just run::
+To get file listening from all your servers you can just run:
     * ``poetry run python admin/admin.py --enum-all-servers``
 
-Compare two files::
+Compare two files:
     * ``poetry run python admin/admin.py --check-files-difference <file1> <file2>``
 
+In case you use your own fork of CAPE. Is good to compare from time to time that you didn't miss any update and have all files properly updated.
+Some of us will have made custom mods to some files as for example: ``file_extra_info.py`` for example. You can exclude them in config under ``EXCLUDE_FILENAMES``.
+Also another known problem that most advanced users will have their own ``YARA`` rules, ``config extractors``, etc. For that my personal suggestion is to use prefix of your choice in that way you can filter them out in config with ``EXCLUDE_PREFIX``.
+To generate repositories listening run:
+    * ``poetry run python admin/admin.py -gfl <path to private fork> --filename <Your fork name>``
+    * ``poetry run python admin/admin.py -gfl <path to upstream repo> --filename upstream``
+
+That generates 2 files, with ``.json`` extension. Now you can compare the difference of your fork and upstream by running:
+    * ``poetry run python CAPEv2/admin/admin.py -cfd <Your fork name>.json upstream.json``
+
+Is also a good idea to verify your deployed servers to ensure that all files are properly deployed as there many reason when something can go wrong as for example:
+    * Admin disabled one node for maintaninece and someone pushed a new/modified ``Yara rule``, ``config extractor``, etc to production. So that server will stay with old file.
+
+To generate all file listenings on all servers you can run:
+    * ``poetry run python CAPEv2/admin/admin.py --generate-files-listening <path>``
 
 The rest of the posibilities
 ============================
@@ -74,7 +89,7 @@ Restart ``processing`` on server(s):
 ``Deploy remote changes`` - Deploy all local changes that is already merged and you just did ``git pull``:
     * ``poetry run python admin/admin.py --deploy-remote-head 1``
 
-``Pull file`` from server(s)::
+``Pull file`` from server(s):
     * ``poetry run python admin/admin.py --fetch-file <server side path>``
 
 ``Execute command on server(s)``. By default it runs them as root:
@@ -82,3 +97,6 @@ Restart ``processing`` on server(s):
     * Few examples:
         * ``poetry run python admin/admin.py -e "pip3 install mmh3 deepdiff"``
         * ``poetry run python admin/admin.py -e "sudo -H -u cape bash -c 'pip3 install -U sflock2'"``
+
+``Copy file to remove server(s)`` - This one is useful in case of generic file that is not easy to properly recognize:
+    * ``poetry run python admin/admin.py --copy-file <local_path> <remote_path>``

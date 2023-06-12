@@ -61,12 +61,20 @@ trace\.mediago\.io$
 trace\.popin\.cc$
 
 \.local$
+\.arpa$
 
 # Google
 update\.googleapis\.com$
 _googlecast\._tcp\.local$
 chrome\.cloudflare-dns\.com$
 
+# Firefox
+\.firefox.com$
+\.mozaws.net$
+\.mozgcp.net$
+\.mozilla.net$
+\.getpocket.com$
+mozilla.cloudflare-dns.com
 
 # https://github.com/threatstop/crl-ocsp-whitelist
 aces\.ocsp\.identrust\.com

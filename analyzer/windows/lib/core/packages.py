@@ -87,8 +87,6 @@ def choose_package(file_type, file_name, exports, target):
         return "eml"
     elif file_name.endswith((".js", ".jse")):
         return "js"
-    elif file_name.endswith((".htm", ".html")):
-        return "html"
     elif file_name.endswith(".hta"):
         return "hta"
     elif file_name.endswith(".xps"):

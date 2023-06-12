@@ -44,7 +44,7 @@ rule AgentTeslaV2 {
     meta:
         author = "ditekshen"
         description = "AgenetTesla Type 2 Keylogger payload"
-        cape_type = "AgentTeslaV2 Payload"
+        cape_type = "AgentTesla Payload"
     strings:
         $s1 = "get_kbHook" ascii
         $s2 = "GetPrivateProfileString" ascii
@@ -70,7 +70,7 @@ rule AgentTeslaV3 {
     meta:
       author = "ditekshen"
       description = "AgentTeslaV3 infostealer payload"
-      cape_type = "AgentTeslaV3 payload"
+      cape_type = "AgentTesla payload"
     strings:
         $s1 = "get_kbok" fullword ascii
         $s2 = "get_CHoo" fullword ascii
@@ -113,7 +113,7 @@ rule AgentTeslaV3 {
 rule AgentTeslaV4 {
     meta:
         author = "Rony (r0ny_123)"
-        cape_type = "AgentTeslaV4 payload"
+        cape_type = "AgentTesla payload"
     strings:
         $decode_1 = { 06 91 06 61 20 [4] 61 d2 9c 06 17 58 0a } // seen in other AgentTesla samples
         $decode_2 = { 91 06 1a 58 4a 61 d2 61 d2 52 } // seen in XorStringsNET obfuscated AgentTesla

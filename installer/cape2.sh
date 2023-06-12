@@ -985,7 +985,7 @@ EOF
         echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf
     fi
     if ! grep -q -E '^net.ipv6.conf.lo.disable_ipv6' /etc/sysctl.conf; then
-        echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> /etc/sysctl.conf
+        echo "net.ipv6.conf.lo.disable_ipv6 = 0" >> /etc/sysctl.conf
     fi
     if ! grep -q -E '^net.bridge.bridge-nf-call-ip6tables' /etc/sysctl.conf; then
         echo "net.bridge.bridge-nf-call-ip6tables = 0" >> /etc/sysctl.conf

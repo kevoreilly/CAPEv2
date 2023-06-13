@@ -1,3 +1,6 @@
+### [13.6.2023]
+* Monitor update: fix issue with Microsoft Edge not launching properly (#1587)
+
 ### [5.6.2023]
 * Stealc detection update
 * Monitor update: Fix NtWriteFile hook issue by removing critical sections - thanks to @RazviOverflow for report

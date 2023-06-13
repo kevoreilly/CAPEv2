@@ -6,12 +6,12 @@ CAPE provides a full-fledged web interface in the form of a Django application.
 This interface will allow you to submit files, browse through the reports as well
 as search across all the analysis results.
 
-``cape2.sh`` adds ``systemd`` deamon called ``cape-web.service`` which listen on all interfaces::
+``cape2.sh`` adds ``systemd`` daemon called ``cape-web.service`` which listen on all interfaces::
 
     $ /lib/systemd/system/cape-web.service
 
 To modify that you need to edit that file and change from ``0.0.0.0`` to your IP.
-You need to restart deamon to reload after change it::
+You need to restart daemon to reload after change it::
 
     $ systemctl daemon-reload
 
@@ -64,7 +64,7 @@ from the ``web/`` directory::
     $ python3 manage.py runserver_plus --traceback --keep-meta-shutdown
 
 If you want to configure the web interface as listening for any IP on a
-specified port (by default the web interace is deployed at localhost:8000), you can start it with the following command (replace PORT
+specified port (by default the web interface is deployed at localhost:8000), you can start it with the following command (replace PORT
 with the desired port number)::
 
     $ python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
@@ -76,14 +76,15 @@ Please refer both to the documentation of the web server of your choice as well 
 .. _`Django documentation`: https://docs.djangoproject.com/
 
 
-Suscription
-==========
+Subscription
+============
 
-Suscription called parts that allows you to control which users what can do.
+Subscription allows you to control which users what can do what.
+
 Right now we support:
 
-    * Request - limitation per second/minute/hours limits using django-ratelimit extensions
-    * Reports - Allow or not to download reports to specific user. Check conf/web.conf to enable this feature.
+    * Request - Limits per second/minute/hour using django-ratelimit extensions
+    * Reports - Allow or block downloading reports for specific users. Check conf/web.conf to enable this feature.
 
 To extend the capabilities of control what users can do check `Django migrations a primer`_.
 
@@ -110,60 +111,195 @@ To get rid of many bots/scrappers so we suggest deploying this amazing project `
 .. _`ReCaptcha`: https://www.google.com/recaptcha/admin/
 
 
+.. _best_practices_for_production:
+
 Best practices for production
 =============================
-We suggest to use ``uwsgi/gunicorn`` + ``NGINX``.
 
-`UWSGI documentation`_
+Gunicorn + NGINX is the recommended way of serving the CAPE web UI.
 
-Instalation::
+First, configure the ``cape-web`` service to use Gunicorn
 
-    # nginx is optional
-    # sudo apt-get install uwsgi uwsgi-plugin-python nginx
+Modify ``/lib/systemd/system/cape-web.service`` so the ``ExecStart``
+setting is set to
+``/usr/bin/python3 -m poetry run gunicorn web.wsgi -w 4 -t 200 --capture-output --enable-stdio-inheritance``.
 
-To enable ``uwsgi`` copy ``/opt/CAPE/uwsgi/cape.ini`` to ``/etc/uwsgi/apps-enabled/cape.ini``:
+Run
 
-.. code-block:: python
+.. code:: bash
 
-    [uwsgi]
-    lazy-apps = True
-    vacuum = True
-    ; if using with NGINX
-    ;http-socket = 127.0.0.1:8000
-    ; if standalone
-    http-socket = 0.0.0.0:8000
-    static-map = /static=/opt/CAPEv2/web/static
-    plugins = python38
-    callable = application
-    chdir = /opt/CAPEv2/web
-    file = web/wsgi.py
-    env = DJANGO_SETTINGS_MODULE=web.settings
-    uid = cape
-    gid = cape
-    enable-threads = true
-    master = true
-    processes = 10
-    workers = 10
-    ;max-requests = 300
-    manage-script-name = true
-    ;disable-logging = True
-    listen = 2056
-    ;harakiri = 30
-    hunder-lock = True
-    #max-worker-lifetime = 30
-    ;Some files found in this directory are processed by uWSGI init.d script as
-    ;uWSGI configuration files.
+   sudo systemctl daemon-reload
+   sudo service cape-web restart
+
+Next, install NGINX and configure it to be a reverse proxy to Gunicorn.
+
+.. code:: bash
+
+   sudo apt install nginx
+
+Create a configuration file at ``/etc/nginx/sites-available/cape``
+
+Replace ``www.capesandbox.com`` with your actual hostname.
+
+.. code-block:: nginx
+
+    server {
+        listen 80;
+        server_name www.capesandbox.com;
+        client_max_body_size 101M;
+        proxy_connect_timeout 75;
+        proxy_send_timeout 200;
+        proxy_read_timeout 200;
 
 
-.. _`UWSGI documentation`: https://uwsgi-docs.readthedocs.io/en/latest/
+        location ^~ /.well-known/acme-challenge/ {
+          default_type "text/plain";
+          root         /var/www/html;
+          break;
+      }
 
-Start uwsgi with::
+      location = /.well-known/acme-challenge/ {
+        return 404;
+      }
 
-    $ systemctl restart uwsgi
+        location / {
+            proxy_pass http://127.0.0.1:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Remote-User $remote_user;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        location /static/ {
+            alias /opt/CAPEv2/web/static/;
+        }
+
+        location /static/admin/ {
+            proxy_pass http://127.0.0.1:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Remote-User $remote_user;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        location /guac {
+            proxy_pass http://127.0.0.1:8008;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_buffering off;
+            proxy_http_version 1.1;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $http_connection;
+        }
+
+        location /recordings/playback/recfile {
+            alias /opt/CAPEv2/storage/guacrecordings/;
+            autoindex off;
+        }
+    }
+
+If you want to block users from changing their own email addresses, add the following `location` directive inside of the `server` directive:
+
+.. code-block:: nginx
+
+    location /accounts/email/ {
+        return 403;
+    }
+
+If you want to block users from changing their own passwords, add the following `location` directive inside of the `server` directive:
+
+.. code-block:: nginx
+
+    location /accounts/email/ {
+        return 403;
+    }
+
+The recording files written by ``guacd`` are only readable by the ``cape`` user and other members of the ``cape`` group, so in order for NGINX to read and serve the recordings the ``www-data`` user must be added to the ``cape`` group.
+
+.. code-block:: bash
+
+    sudo usermod www-data -G cape
+
+Then restart NGINX
+
+.. code-block:: bash
+
+    sudo service nginx restart
+
+.. warning::
+
+    The CAPE Guacamole Django web application is currently separate from the main CAPE Django web application, and does not support any authentication. Anyone who can connect to the web server access can Guacamole consoles and recordings, if they know the CAPE analysis ID and Guacamole session GUID.
+    
+    NGINX can be configured to require HTTP basic authentication for all CAPE web applications, as an alternative to the Django authentication system.
+
+    Install the ``apache2-utils`` package, which contains the ``htpasswd`` utility.
+ 
+    .. code-block:: bash
+
+        sudo apt install apache2-utils
+
+    Use the ``htpasswd`` file to create a new password file and add a first user, such as ``cape``.
+
+    .. code-block:: bash
+
+        sudo htpasswd -c /opt/CAPEv2/web/.htpasswd cape
+
+    Use the same command without the `-c` option to add another user to an existing password file.
+
+    Set the proper file permissions.
+
+    .. code-block:: bash
+
+        sudo chown root:www-data /opt/CAPEv2/web/.htpasswd
+        sudo chmod u=rw,g=r,o= /opt/CAPEv2/web/.htpasswd
+
+    Add the following lines to the NGINX configuration, just below the ``client_max_body_size`` line.
+
+    .. code-block :: nginx
+
+        auth_basic           "Authentication required";
+        auth_basic_user_file /opt/CAPEv2/web/.htpasswd;
+
+    Then restart NGINX
+
+    .. code-block:: bash
+
+        sudo service nginx restart
+
+Let's Encrypt certificates
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you would like to install a free Let's Encrypt certificate on your NGINX
+server, follow these steps, replacing ``capesandbox.com`` with your actual
+hostname.
+
+Install `certbot`.
+
+.. code-block:: bash
+
+    sudo snap install core; sudo snap refresh core
+    sudo snap install --classic certbot
+    sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+Request the certificate
+
+.. code-block:: bash
+
+    sudo certbot certonly --webroot -w /var/www/html -d www.capesandbox.com -d capesandbox.com
+ 
+Install the certificate. When prompted, select the
+"Attempt to reinstall this existing certificate" option.
+
+.. code-block:: bash
+ 
+    sudo certbot --nginx -d www.capesandbox.com -d capesandbox.com
 
 
 Some extra security TIP(s)
 ==========================
+
 * `ModSecurity tutorial`_ - rejects requests
 * `Fail2ban tutorial`_ - ban hosts
 * `Fail2ban + CloudFlare`_ - how to ban on CloudFlare aka CDN firewall level
@@ -263,7 +399,7 @@ Some extra security TIP(s)
     action = iptables-multiport
              cloudflare
 
-    # This will ban any host that trying to access kinda bruteforce login or unauthorized requests for 5 times in 1 minute
+    # This will ban any host that trying to brute force login or unauthorized requests for 5 times in 1 minute
     # Goes to /etc/fail2ban/filters.d/filter.d/nginx-cape-login.conf
     [Definition]
     failregex = ^<HOST> -.*"(GET|POST|HEAD) /accounts/login/\?next=.*HTTP.*"

@@ -94,7 +94,7 @@ assume you're going to use KVM. Please see the latest version here: `kvm.conf`_.
 If you are using KVM (kvm.conf), for each VM you want to use for analysis there must be a dedicated section. First you have to create and configure the VM (following the instructions in the dedicated chapter, see :ref:`preparing_the_guest`). The name of the section must be the same as the label of the VM as printed by ``$ virsh list --all``. If no VMs are shown, you can execute the following command sequence: ``$ virsh``, ``$ connect qemu:///system``, ``$ list --all``; or you can check `this link <https://serverfault.com/a/861853>`_ to learn how to change the connection in Virtual Manager.
 
 
-You can also find examples of other hipervisors like:
+You can also find examples of other hypervisors like:
 
 * VirtualBox: `virtualbox.conf`_.
 * VMWare: `vmware.conf`_.

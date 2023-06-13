@@ -4,7 +4,7 @@ CAPE's debugger
 
 * Is unique among Windows debuggers, and is one of the most powerful features of the sandbox, having been built from scratch with the overriding design principles of minimal (almost zero) use of Windows debugging interfaces, maximal use of the processor's debugging hardware, and to be quick and easy to use.
 * Here is a quick guide on getting started with the debugger:
-* For starters it's worth emphasising that the debugger is programmable but not interactive; you configure it when submitting a sample, allow it to run, then check the results at the end in the form of the debugger log (in the debugger tab).
+* For starters it's worth emphasizing that the debugger is programmable but not interactive; you configure it when submitting a sample, allow it to run, then check the results at the end in the form of the debugger log (in the debugger tab).
 
 Breakpoints: bp0, bp1, bp2, bp3
 ===============================
@@ -12,14 +12,14 @@ Breakpoints: bp0, bp1, bp2, bp3
 * The simplest form of this option is to set it to 'ep': ``bp0=ep``
 
 * This will instruct the debugger to break on the entry point of the main executable of each process and begin tracing. (In the case of a DLL, this breakpoint will also be set on the entry point of the DLL). When the breakpoint hits, any corresponding actions will be performed (see later) and the instruction broken upon will be output to the log. As long as the count (see later) hasn't been set to zero, the debugger will then proceed to trace the instruction flow in single-step mode.
-* To target specific code regions more accurately, breakpoints on specific addresses can be used. These values are interpreted as RVA values unless they are above a hardcoded value (0x200000) in which case they are interpreted as VA values. This allows both RVAs and VAs to be used interchangeably, in most cases the debugger will recognise due to its size that a value is a VA, not an RVA, and set the breakpoint appropriately.
+* To target specific code regions more accurately, breakpoints on specific addresses can be used. These values are interpreted as RVA values unless they are above a hardcoded value (0x200000) in which case they are interpreted as VA values. This allows both RVAs and VAs to be used interchangeably, in most cases the debugger will recognize due to its size that a value is a VA, not an RVA, and set the breakpoint appropriately.
 * There are four breakpoints in the Intel CPU to make use of, so we could in theory use all four directly. However, the debugger in CAPE exposes only the first three. The fourth (bp3) is kept free so that it can be used in stepping-over calls. There is no help from the hardware for a debugger feature like stepping over, so a breakpoint is needed to implement the depth feature but is also required for calls that CAPE debugger *must* step over, such as calls into kernel mode for example.
 * We set and use bp0 through bp2 as follows. These breakpoints will be applied to each thread of each process in the analysis:
     * bp0=ep,bp1=0x1234,bp2=0x5678
 
 Depth
 =====
-* The behaviour of the instruction trace in single-step mode can be characterised in terms of whether it will step into a call, or over it. From this comes the concept of depth - the debugger will trace at the same depth in a trace by stepping-over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behaviour will be to step over all the subsequent calls (at least until a ret is encountered):
+* The behavior of the instruction trace in single-step mode can be characterized in terms of whether it will step into a call, or over it. From this comes the concept of depth - the debugger will trace at the same depth in a trace by stepping-over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behavior will be to step over all the subsequent calls (at least until a ret is encountered):
     * depth=0
 * If we set a depth of, say, three, then the debugger will step into calls into further levels of depth three times:
     * depth=3

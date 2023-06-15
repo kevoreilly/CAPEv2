@@ -924,10 +924,8 @@ function dependencies() {
         useradd --system -g ${USER} -d /home/${USER}/ -m ${USER} --shell /bin/bash
     fi
 
-    groupadd pcap
-    usermod -a -G pcap ${USER}
-    chgrp pcap ${TCPDUMP_PATH}
-    setcap cap_net_raw,cap_net_admin=eip ${TCPDUMP_PATH}
+    echo "${USER} ALL=NOPASSWD: ${TCPDUMP_PATH}" > /etc/sudoers.d/tcpdump
+    chmod 440 /etc/sudoers.d/tcpdump
 
     usermod -a -G systemd-journal ${USER}
 

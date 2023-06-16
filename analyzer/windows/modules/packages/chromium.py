@@ -15,5 +15,9 @@ class Chromium(Package):
 
     def start(self, url):
         chrome = self.get_path("chrome.exe")
-        # pass the URL instead of a filename in this case
-        return self.execute(chrome, f'"{url}"', url)
+        args = [
+    "--disable-features=RendererCodeIntegrity",
+    ]
+        args.append('"{}"'.format(url))
+        args = args.join(" ")
+        return self.execute(chrome, args)

@@ -10,6 +10,7 @@ class Chrome(Package):
 
     PATHS = [
         ("ProgramFiles", "Google", "Chrome", "Application", "chrome.exe"),
+        ("LOCALAPPDATA", "Chromium", "Application", "chrome.exe"),
     ]
 
     def start(self, url):

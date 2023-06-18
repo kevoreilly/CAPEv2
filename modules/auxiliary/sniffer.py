@@ -53,19 +53,29 @@ class Sniffer(Auxiliary):
             log.error('Tcpdump does not exist at path "%s", network capture aborted', tcpdump)
             return
 
-        # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
-        mode = os.stat(tcpdump).st_mode
-        if mode & S_ISUID:
-            log.error(
-                "Tcpdump is not accessible from this user network capture aborted. You probably need to add CAPE user to pcap group"
-            )
-            return
+        sudo = False
+        sudo_path = "/usr/bin/sudo"
+        try:
+            subprocess.check_call([sudo_path, "--list", "--non-interactive", tcpdump])
+        except subprocess.CalledProcessError:
+            # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
+            mode = os.stat(tcpdump).st_mode
+            if mode & S_ISUID:
+                log.error(
+                    "Tcpdump is not accessible for this user. Network capture aborted. "
+                    "You probably need to grant sudo access to %s or add CAPE user to "
+                    "pcap group",
+                    tcpdump,
+                )
+                return
+        else:
+            sudo = True
 
         if not interface:
             log.error("Network interface not defined, network capture aborted")
             return
 
-        pargs = [tcpdump, "-U", "-q", "-s", "0", "-i", interface, "-n"]
+        pargs = ([sudo_path, "--non-interactive", "--"] if sudo else []) + [tcpdump, "-U", "-q", "-s", "0", "-i", interface, "-n"]
 
         # Trying to save pcap with the same user which cape is running.
         try:

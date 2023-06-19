@@ -5,7 +5,7 @@
 
 import logging
 import struct
-import _winreg
+import winreg
 
 from ctypes import windll, POINTER, byref, pointer
 from ctypes import c_ushort, c_wchar_p, c_void_p, create_string_buffer
@@ -46,14 +46,14 @@ RegCloseKey = windll.advapi32.RegCloseKey
 RegCloseKey.argtypes = HANDLE,
 
 _rootkeys = {
-    "HKEY_LOCAL_MACHINE": _winreg.HKEY_LOCAL_MACHINE,
-    "HKEY_CURRENT_USER": _winreg.HKEY_CURRENT_USER,
+    "HKEY_LOCAL_MACHINE": winreg.HKEY_LOCAL_MACHINE,
+    "HKEY_CURRENT_USER": winreg.HKEY_CURRENT_USER,
 }
 
 _regtypes = {
-    "REG_DWORD": _winreg.REG_DWORD,
-    "REG_SZ": _winreg.REG_SZ,
-    "REG_BINARY": _winreg.REG_BINARY,
+    "REG_DWORD": winreg.REG_DWORD,
+    "REG_SZ": winreg.REG_SZ,
+    "REG_BINARY": winreg.REG_BINARY,
 }
 
 def rename_regkey(skey, ssubkey, dsubkey):
@@ -62,7 +62,7 @@ def rename_regkey(skey, ssubkey, dsubkey):
     res_handle = HANDLE()
     options = DWORD(0)
     res = RegOpenKeyExW(
-        skey, ssubkey, options, _winreg.KEY_ALL_ACCESS, byref(res_handle)
+        skey, ssubkey, options, winreg.KEY_ALL_ACCESS, byref(res_handle)
     )
     if not res:
         bsize = c_ushort(len(dsubkey) * 2)
@@ -82,19 +82,18 @@ def rename_regkey(skey, ssubkey, dsubkey):
 def regkey_exists(rootkey, subkey):
     res_handle = HANDLE()
     res = RegOpenKeyExW(
-        rootkey, subkey, 0, _winreg.KEY_QUERY_VALUE, byref(res_handle)
+        rootkey, subkey, 0, winreg.KEY_QUERY_VALUE, byref(res_handle)
     )
     RegCloseKey(res_handle)
     return not res
 
 def set_regkey(rootkey, subkey, name, type_, value):
-    if type_ == _winreg.REG_SZ:
-        value = unicode(value)
+    if type_ == winreg.REG_SZ:
         length = len(value) * 2 + 2
-    elif type_ == _winreg.REG_MULTI_SZ:
+    elif type_ == winreg.REG_MULTI_SZ:
         value = u"\u0000".join(value) + u"\u0000\u0000"
         length = len(value) * 2 + 2
-    elif type_ == _winreg.REG_DWORD:
+    elif type_ == winreg.REG_DWORD:
         value = struct.pack("I", value)
         length = 4
     else:
@@ -102,7 +101,7 @@ def set_regkey(rootkey, subkey, name, type_, value):
 
     res_handle = HANDLE()
     res = RegCreateKeyExW(
-        rootkey, subkey, 0, None, 0, _winreg.KEY_ALL_ACCESS,
+        rootkey, subkey, 0, None, 0, winreg.KEY_ALL_ACCESS,
         0, byref(res_handle), None
     )
     if not res:
@@ -131,7 +130,7 @@ def query_value(rootkey, subkey, name):
     length = DWORD(1024 * 1024)
 
     res = RegOpenKeyExW(
-        rootkey, subkey, 0, _winreg.KEY_QUERY_VALUE, byref(res_handle)
+        rootkey, subkey, 0, winreg.KEY_QUERY_VALUE, byref(res_handle)
     )
     if not res:
         res = RegQueryValueExW(
@@ -140,11 +139,11 @@ def query_value(rootkey, subkey, name):
         RegCloseKey(res_handle)
 
     if not res:
-        if type_.value == _winreg.REG_SZ:
+        if type_.value == winreg.REG_SZ:
             return value.raw[:length.value].decode("utf16").rstrip("\x00")
-        if type_.value == _winreg.REG_MULTI_SZ:
+        if type_.value == winreg.REG_MULTI_SZ:
             value = value.raw[:length.value].decode("utf16")
             return value.rstrip(u"\u0000").split(u"\u0000")
-        if type_.value == _winreg.REG_DWORD:
+        if type_.value == winreg.REG_DWORD:
             return struct.unpack("I", value.raw[:length.value])[0]
         return value.raw[:length.value]

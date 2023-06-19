@@ -1,3 +1,6 @@
+### [19.6.2023]
+* Monitor update: misc improvements & fixes
+
 ### [13.6.2023]
 * Monitor update: fix issue with Microsoft Edge not launching properly (#1587)
 

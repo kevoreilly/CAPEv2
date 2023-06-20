@@ -9,12 +9,11 @@ import shutil
 from collections import defaultdict
 from datetime import datetime, timedelta
 from multiprocessing import Lock
-from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_write_file
 from lib.cuckoo.core.database import TASK_REPORTED, Database, Task
 
 log = logging.getLogger(__name__)
@@ -148,6 +147,6 @@ class Retention(Report):
 
             # Write the task log for future reporting, to avoid returning tasks
             # that we have already deleted data from.
-            _ = Path(retPath / "task_check.log").write_text(json.dumps(saveTaskLogged))
+            _ = path_write_file(os.path.join(retPath, "task_check.log"), json.dumps(saveTaskLogged), mode="text")
         finally:
             lock.release()

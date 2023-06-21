@@ -22,7 +22,7 @@ Save it to file, give execution permission with sudo a+x iptables_fix.sh and run
     !/bin/bash
     # Fix when docker breaks your iptables
     if [ $# -eq 0 ] || [ $# -lt 2 ]; then
-        echo "$0 <netowrk range> <vir_iface> <real_iface>"
+        echo "$0 <network range> <vir_iface> <real_iface>"
         echo "    example: $0 192.168.1.0 virbr0 eno0"
         exit 1
     fi
@@ -71,8 +71,7 @@ Following is the list of available routing options.
 |                         | including traffic within the VMs' subnet.        |
 +-------------------------+--------------------------------------------------+
 | :ref:`routing_internet` | Full internet access as provided by the given    |
-|                         | network interface (similar to the                |
-|                         | :ref:`simple_global_routing` setup).             |
+|                         | network interface                                |
 +-------------------------+--------------------------------------------------+
 | :ref:`routing_inetsim`  | Routes all traffic to an InetSim instance -      |
 |                         | which provides fake services - running on the    |
@@ -103,55 +102,144 @@ Both global routing and per-analysis routing require ip forwarding to be enabled
     $ echo 1 | sudo tee -a /proc/sys/net/ipv4/ip_forward
     $ sudo sysctl -w net.ipv4.ip_forward=1
 
-.. _routing_iproute2:
+.. _routing_netplan:
 
-Configuring iproute2
-====================
+Configuring netplan
+===================
 
-For Linux kernel TCP/IP source routing reasons it is required to register each
-of the network interfaces that we use with ``iproute2``. This is trivial but
-necessary.
+In modern releases of Ubuntu, all network configuration is handled by
+``netplan``, including routing tables.
 
-As an example we'll be configuring :ref:`routing_internet` (aka the
-``dirty line``) for which we'll be using as example ``eth0`` network interface.
-You need to replace ``eth0`` with your server main network interface.
-To get your default network interface you can run::
+If you are using Ubuntu Server, disable ``cloud-init``, which is used by
+default.
 
-    * ``ip route | grep '^default'|awk '{print $5}'``
+Do this by writing a file at
+``/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg``, with the
+content ``{config: disabled}``, then delete
+``/etc/netplan/50-cloud-init.yaml``.
 
-To configure ``iproute2`` with ``eth0`` we're going to open the
-``/etc/iproute2/rt_tables`` file which will look roughly as follows::
+If you are using a desktop version of Ubuntu instead,
+you will need to disable ``NetworkManager`` and enable ``networkd``.
 
-    #
-    # reserved values
-    #
-    255     local
-    254     main
-    253     default
-    0       unspec
-    #
-    # local
-    #
+.. code:: text
 
-Now roll a random number that is not yet present in this file with your dice
-of choice and use it to craft a new line at the end of the file. As an
-example, registering ``eth0`` with ``iproute2`` could look as follows::
+   sudo systemctl stop NetworkManager
+   sudo systemctl disable NetworkManager
+   sudo systemctl mask NetworkManager
 
-    #
-    # reserved values
-    #
-    255     local
-    254     main
-    253     default
-    0       unspec
-    #
-    # local
-    #
+   sudo systemctl unmask systemd-networkd
+   sudo systemctl enable systemd-networkd
+   sudo systemctl start systemd-networkd
 
-    400     eth0
+Next, create your own ``netplan`` configuration file manually at
+``/etc/netplan/99-manual.yaml``
 
-And that's all there is to it. You will have to do this for each
-network interface you intend to use for network routing.
+The example ``netplan`` configuration below has a 5G hotspot interface named
+``enx00a0c6000000`` for :ref:`routing_internet` (aka the
+``dirty line``) and a management interface named ``enp8s0`` for hosting the
+CAPE web UI, SSH and other administrative services. In this configuration the
+dirty line is used as the default gateway for all internet traffic on the host.
+This helps prevent network leaks, firewall IDS/IPS issues, and keeps
+administrative traffic separate, where it could be placed in its own subnet
+for additional security. 
+
+You will need to replace the interface names and IP addresses to reflect your
+own system.
+
+Each interface configuration needs a ``routes`` section that describes the 
+routes that can be accessed via that interface. In order for the configuration
+to work with CAPE's per-analysis routing, each ``routes`` section must have an
+arbitrary but unique ``table`` integer value.
+
+.. code:: yaml
+
+   network:
+       version: 2
+       renderer: networkd
+       ethernets:
+           lo:
+               addresses: [ "127.0.0.1/8", "::1/128", "7.7.7.7/32" ]
+           enx00a0c6000000:
+               dhcp4: no
+               addresses: [ "192.168.1.2/24" ]
+               nameservers:
+                   addresses: [ "192.168.1.1" ]
+               routes:
+                   - to: default
+                     via: 192.168.1.1
+                   - to: 192.168.1.0/24
+                     via: 192.168.1.1
+                     table: 101
+               routing-policy:
+                - from: 192.168.1.0/24
+                  table: 101
+           enp8s0:
+               dhcp4: no
+               addresses: [ "10.23.6.66/24" ]
+               routes:
+                   - to: 10.23.6.0/24
+                     via: 10.23.6.1
+                     table: 102
+               :
+                  routing-policy - from: 10.23.6.0/24
+                     table: 102
+
+Run ``sudo netplan apply`` to apply the new ``netplan`` configuration.
+
+.. _routing_firewall:
+
+Protecting host ports
+=====================
+
+By default, most Linux network services listen on all network interface
+interfaces/addresses, leaving the services running on the host machine
+exposed to potential attacks from the analysis VMs.
+
+To mitigate this issue, use the ``ufw`` firewall included with Ubuntu.
+It will not break CAPE’s per-analysis network routing.
+
+Allow access to administrative services using the interface that is
+being used for management of the sandbox. Network interface details can
+be found by using the ``ip addr`` command.
+
+In this example the management interface name is ``enp8s0``, with an IP
+address of ``10.23.6.66``. Replace these values with the proper values
+for your server.
+
+.. code:: bash
+
+   # HTTP
+   sudo ufw allow in on enp8s0 to 10.23.6.66 port 80 proto tcp
+
+   # HTTPS
+   sudo ufw allow in on enp8s0 to 10.23.6.66 port 443 proto tcp
+
+   # SSH
+   sudo ufw allow in on enp8s0 to 10.23.6.66 port 22 proto tcp
+
+   # SMB (smbd is enabled by default on desktop versions of Ubuntu)
+   sudo ufw allow in on enp8s0 to 10.23.6.66 port 22 proto tcp
+
+   # RDP (if xrdp is used on the server)
+   sudo ufw allow in on enp8s0 to 10.23.6.66 port 445 proto tcp
+
+Allow analysis VMs to access the CAPE result server, which used TCP port
+``2042`` by default.
+
+In this example the host interface name is ``virbr1`` with an IP address
+of ``192.168.42.1``. Replace these values with the proper values for
+your server.
+
+.. code:: bash
+
+   sudo ufw allow in virbr1 to 192.168.42.1 port 2042 proto tcp
+
+Enable the firewall after all of the rules have ben configured.
+
+.. code:: bash
+
+   sudo ufw enable
+
 
 .. _routing_none:
 
@@ -160,8 +248,7 @@ None Routing
 
 The default routing mechanism in the sense that CAPE allows the analysis to
 route as defined by a third party. As in, it doesn't do anything.
-One may use the ``none routing`` in conjunction with the
-:ref:`simple_global_routing`.
+One may use the ``none routing``
 
 .. _routing_drop:
 
@@ -188,7 +275,7 @@ as the ``dirty line`` due to its nature of allowing all potentially malicious
 samples to connect to the internet through the same uplink.
 
 .. note:: It is required to register the dirty line network interface with
-    iproute2 as described in the :ref:`routing_iproute2` section.
+    iproute2 as described in the :ref:`routing_netplan` section.
 
 .. _routing_inetsim:
 
@@ -305,8 +392,8 @@ Configuration for a single VPN looks roughly as follows::
     # for existing names and IDs).
     rt_table = tun0
 
-.. note:: It is required to register each VPN network interface with iproute2
-    as described in the :ref:`routing_iproute2` section.
+.. note:: It is required to register each VPN network interface with netplan
+    as described in the :ref:`routing_netplan` section.
 
 Quick and dirty example of iproute2 configuration for VPN::
 
@@ -327,7 +414,7 @@ Bear in mind that you will need to adjust some values inside of `VPN route scrip
 
 * `Helper script vpt2cape.py, read code to understand it`_
 
-.. _`Helper script, read code to understand it`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/vpn2cape.py
+.. _`Helper script vpt2cape.py, read code to understand it`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/vpn2cape.py
 .. _`VPN route script`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/route.py
 
 VPN persistence & auto-restart `source`_::
@@ -338,7 +425,7 @@ VPN persistence & auto-restart `source`_::
         then press ‘Ctrl X’ to save the changes and exit the text editor.
 
     2. Move the .ovpn file with the desired server location to the ‘/etc/openvpn’ folder:
-        # sudo cp /location/whereYouDownloadedConfigfilesTo/Germany.ovpn /etc/openvpn/
+        # sudo cp /location/whereYouDownloadedConfigFilesTo/Germany.ovpn /etc/openvpn/
 
     3. In the ‘/etc/openvpn’ folder, create a text file called login.creds:
         # sudo nano /etc/openvpn/login.creds
@@ -372,7 +459,7 @@ Wireguard VPN
 Setup Wireguard
 ===============
 
-* `Original blogpost on how to setup WireGuard with CAPE`_
+* `Original blog post on how to setup WireGuard with CAPE`_
 
 Install wireguard::
 
@@ -418,16 +505,16 @@ Example snippet from ``/opt/CAPEv2/conf/routing.conf`` configuration::
     interface = wg1
     rt_table = wg1
 
-.. note:: It is required to register each VPN network interface with iproute2
-    as described in the :ref:`routing_iproute2` section. Check quick and dirty note in original VPN secttion.
+.. note:: It is required to register each VPN network interface with netplan
+    as described in the :ref:`routing_netplan` section. Check quick and dirty note in original VPN section.
 
-.. _`Original blogpost on how to setup WireGuard with CAPE`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html
+.. _`Original blog post on how to setup WireGuard with CAPE`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html
 
 SOCKS Routing
 ^^^^^^^^^^^^^
 You also can use socks proxy servers to route your traffic.
 To manage your socks server you can use Socks5man software.
-Building them by yourself, using your favorite software, bying, etc
+Building them by yourself, using your favorite software, buying, etc
 The configuration is pretty simple and looks like VPN, but you don't need to configure anything else
 
 Requires to install dependency: ``poetry run pip install git+https://github.com/CAPESandbox/socks5man``

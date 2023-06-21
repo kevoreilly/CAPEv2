@@ -2,10 +2,10 @@
 Curtain
 =======
 
-* Detailed writeup by `Mandiant's powershell blogpost`_
+* Detailed writeup by `Mandiant's powershell blog post`_
 * Configuration required in Virtual Machine. Example for Windows 7::
 
-    Windows 7 SP1, .NET at least 4.5, powershell 5 preferly over v4
+    Windows 7 SP1, .NET at least 4.5, powershell 5 preferably over v4
     KB3109118 - Script block logging back port update for WMF4
     x64 - https://cuckoo.sh/vmcloak/Windows6.1-KB3109118-v4-x64.msu
     x32 - https://cuckoo.sh/vmcloak/Windows6.1-KB3109118-v4-x86.msu
@@ -23,4 +23,4 @@ Curtain
     reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" /v EnableInvocationHeader /t REG_DWORD /d 00000001 /f /reg:64
 
 
-.. _`Mandiant's powershell blogpost`: https://www.mandiant.com/resources/blog/greater-visibility
+.. _`Mandiant's powershell blog post`: https://www.mandiant.com/resources/blog/greater-visibility

@@ -139,7 +139,7 @@ some options (in this case a command line argument for the malware)::
 - ``disable_hook_content``: Set to 1 to remove functionality of all hooks except those critical for monitoring other processes.  Set to 2 to apply to all hooks.
 - ``hook-type``: Valid for 32-bit analyses only.  Specifies the hook type to use: direct, indirect, or safe.  Safe attempts a Detours-style hook.
 - ``serial``: Spoof the serial of the system volume as the provided hex value
-- ``single-process``: When set to 1 this will limit behaviour monitoring to the initial process only.
+- ``single-process``: When set to 1 this will limit behavior monitoring to the initial process only.
 - ``exclude-apis``: Exclude the colon-separated list of APIs from being hooked
 - ``exclude-dlls``: Exclude the colon-separated list of DLLs from being hooked
 - ``dropped-limit``: Override the default dropped file limit of 100 files
@@ -157,7 +157,7 @@ some options (in this case a command line argument for the malware)::
 - ``referrer``: Specify the referrer to be used for URL tasks, overriding the default Google referrer
 - ``loop_detection``: Set this option to 1 to enable loop detection (compress call logs - behavior analysis)
 - ``static``: Check if config can be extracted statically, if not, send to vm
-- ``Dl&Exec add headers``: Example: dnl_user_agent: "CAPE Sandbox", dnl_referer: google
+- ``Dl&Exec add headers``: Example: dnl_user_agent: "CAPE Sandbox", dnl_referrer: google
 - ``servicedesc`` - for service package: Service description
 - ``arguments`` - for service package: Service arguments
 - ``store_memdump``: Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this 

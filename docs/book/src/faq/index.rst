@@ -27,7 +27,7 @@ What I need to use CAPE with VMware ESXi?
 
 To run with VMware vSphere Hypervisor (or ESXi) CAPE levareges on libvirt.
 Libivirt is currently using VMware API to take control over virtual machines,
-althogh these API are available ony in licensed version.
+although these API are available ony in licensed version.
 In VMware vSphere free edition, these API are read only, so you are unable
 to use CAPE with it.
 For the minimum license needed, please have a look at VMware website.

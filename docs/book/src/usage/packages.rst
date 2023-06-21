@@ -46,7 +46,7 @@ The following is a list of the existing packages in alphabetical order:
             * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
             * ``enable_mutli``: *[yes/no, true/false, on/off]*: if enabled, multiple functions can be run.
             * ``function``: specify the function to be executed. If none is specified, CAPE will try to run all available functions,
-            up to the limit found in the `max_dll_exports` task option.
+              up to the limit found in the `max_dll_exports` task option.
             * ``max_dll_exports``: A positive integer, representing how many functions you wish to execute. `enable_mutli` must be enabled.
             * ``use_export_name``: *[yes/no, true/false, on/off]*: if enabled, functions will be run by name rather than by ordinal number.
 
@@ -72,7 +72,6 @@ The following is a list of the existing packages in alphabetical order:
     * ``firefox``: used to open **the given URL** via ``firefox.exe``.
     * ``generic``: used to run and analyze **generic samples** via ``cmd.exe``.
     * ``hta``: used to run and analyze **HTML Applications** via ``mshta.exe``.
-    * ``html``: used to run and analyze **HTML files** via ``iexplore.exe``.
     * ``hwp``: used to run and analyze **Hangul Word Processor files** via ``hwp.exe`` or ``hword.exe``.
     * ``ichitaro``: used to run and analyze **Ichitaro Word Processor files** via ``taroview.exe``.
     * ``ie``: used to open **the given URL** via ``iexplore.exe``.
@@ -181,7 +180,7 @@ The following is a list of the existing packages in alphabetical order:
             * ``arguments``: specify arguments to pass to the DLL through commandline.
             * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
             * ``function``: specify the function to be executed. If none is specified, CAPE will try to run all available functions,
-            up to the limit found in the `max_dll_exports` task option.
+              up to the limit found in the `max_dll_exports` task option.
     
     * ``unpacker_js``: used to run and analyze **JavaScript and JScript Encoded files** via ``wscript.exe``, with unpacking!
     * ``unpacker_ps1``: used to run and analyze **PowerShell scripts** via ``powershell.exe``, with unpacking!
@@ -210,7 +209,7 @@ The following is a list of the existing packages in alphabetical order:
             * ``arguments``: specify arguments to pass to the DLL through commandline.
             * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
             * ``function``: specify the function to be executed. If none is specified, CAPE will try to run all available functions,
-            up to the limit found in the `max_dll_exports` task option.
+              up to the limit found in the `max_dll_exports` task option.
     
     * ``upx``: used to run and analyze generic **Windows executables** packed with **Ultimate Packer for eXecutables**.
 

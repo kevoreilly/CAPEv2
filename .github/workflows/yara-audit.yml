@@ -29,6 +29,7 @@ jobs:
         uses: snok/install-poetry@v1
         with:
           version: latest
+          installation-arguments: --git https://github.com/python-poetry/poetry.git@fedff6da43f33a350598ec0ea85b5dca30178a03 # 1.5.1
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
@@ -48,7 +49,6 @@ jobs:
         run: |
           sudo bash ./installer/cape2.sh yara
           cd $GITHUB_WORKSPACE
-          sudo rm -r /tmp/yara-python
           bash -c "poetry run ./extra/poetry_yara_installer.sh"
 
       - name: Run unit tests

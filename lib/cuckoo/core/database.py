@@ -103,6 +103,7 @@ sandbox_packages = (
     "vhd",
     "udf",
     "one",
+    "inf",
 )
 
 log = logging.getLogger(__name__)
@@ -1498,6 +1499,8 @@ class Database(object, metaclass=Singleton):
             timeout = 0
         if not priority:
             priority = 1
+        if file_path.endswith((".htm", ".html")) and not package:
+            package = web_conf.url_analysis.package
 
         return self.add(
             File(file_path),
@@ -1540,7 +1543,7 @@ class Database(object, metaclass=Singleton):
 
         if tmp_package and tmp_package in sandbox_packages:
             # This probably should be way much bigger list of formats
-            if tmp_package == ("iso", "udf", "vhd"):
+            if tmp_package in ("iso", "udf", "vhd"):
                 package = "archive"
             elif tmp_package in ("zip", "rar"):
                 package = ""

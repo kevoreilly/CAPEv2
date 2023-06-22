@@ -109,7 +109,7 @@ you may face the following error::
    RuntimeError
       Poetry was not installed with the recommended installer. Cannot update automatically.
 
-That is becuase you probably installed poetry with pip.
+That is because you probably installed poetry with pip.
 
 In order to solve it you must first upgrade your local ``poetry`` installation with::
 

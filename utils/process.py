@@ -248,6 +248,7 @@ def autoprocess(
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     # pool = multiprocessing.Pool(parallel, init_worker)
+    pool = False
     try:
         memory_limit()
         log.info("Processing analysis data")
@@ -320,8 +321,9 @@ def autoprocess(
 
         traceback.print_exc()
     finally:
-        pool.close()
-        pool.join()
+        if pool:
+            pool.close()
+            pool.join()
 
 
 def _load_report(task_id: int, return_one: bool = False):

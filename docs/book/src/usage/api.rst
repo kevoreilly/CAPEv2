@@ -106,17 +106,19 @@ Following is a list of currently available resources and a brief description of 
 
         Adds a file to the list of pending tasks. Returns the ID of the newly created task.
 
-        **Example request**::
+        **Example request**
+        .. code-block:: bash
 
             curl -F file=@/path/to/file http://localhost:8090/tasks/create/file
 
-        **Example request using Python**::
+        **Example request using Python**
+        .. code-block:: python
 
             import requests
             import json
 
             REST_URL = "http://localhost:8090/tasks/create/file"
-            SAMPLE_FILE = "/path/to/malwr.exe"
+            SAMPLE_FILE = "/path/to/malware.exe"
 
             with open(SAMPLE_FILE, "rb") as sample:
                 multipart_file = {"file": ("temp_file_name", sample)}
@@ -165,7 +167,8 @@ Following is a list of currently available resources and a brief description of 
 
             curl -F url="http://www.malicious.site" http://localhost:8090/tasks/create/url
 
-        **Example request using Python**::
+        **Example request using Python**
+        .. code-block:: python
 
             import requests
             import json
@@ -181,7 +184,7 @@ Following is a list of currently available resources and a brief description of 
             json_decoder = json.JSONDecoder()
             task_id = json_decoder.decode(request.text)["task_id"]
 
-            # Add your code toerror checking if task_id is None.
+            # Add your code to error checking if task_id is None.
 
         **Example response**::
 

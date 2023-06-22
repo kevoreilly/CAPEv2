@@ -13,6 +13,7 @@ This chapter explains how to use CAPE.
     web
     api
     dist
+    cluster_administration
     packages
     results
     clean

@@ -105,7 +105,21 @@ From now on, you will have to execute CAPE within the virtual env of Poetry. To 
 
     $ sudo -u cape poetry run python3 cuckoo.py
 
-If you need further assistance with Poetry, there are hundreds of cheatsheets on the Internet
+If you need further assistance with Poetry, there are hundreds of cheat sheets on the Internet
+
+Optional dependencies
+~~~~~~~~~~~~~~~~~~~~~
+
+.. code:: bash
+
+   sudo -u cape poetry run pip install https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip#egg=peepdf==0.4.2
+   sudo -u cape poetry run pip install flare-floss
+   sudo -u cape poetry run pip install git+https://github.com/DissectMalware/batch_deobfuscator
+   sudo -u cape poetry run pip install git+https://github.com/CAPESandbox/httpreplay
+   sudo -u cape poetry run pip install networkx graphviz pydot
+   sudo -u cape poetry run pip install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git
+   sudo -u cape poetry run pip install git+https://github.com/CAPESandbox/binGraph
+
 
 ============================
 **ATTENTION!** ``cape`` user

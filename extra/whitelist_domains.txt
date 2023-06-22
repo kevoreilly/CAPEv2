@@ -49,6 +49,7 @@ msn-com\.akamaized\.net$
 fp-vp-nocache\.azureedge\.net$
 \.clo.footprintdns\.com$
 edgeassetservice\.azureedge\.net$
+\.nelreports.net$
 
 # Edge analytics
 \.scorecardresearch\.com$
@@ -60,13 +61,27 @@ code\.yengo\.com$
 trace\.mediago\.io$
 trace\.popin\.cc$
 
+# Cloudflare Network Error Logging (NEL)
+\.nel\.cloudflare.com$
+
+# Cloudflare browser verification
+challenges\.cloudflare\.com$
+
 \.local$
+\.arpa$
 
 # Google
 update\.googleapis\.com$
 _googlecast\._tcp\.local$
 chrome\.cloudflare-dns\.com$
 
+# Firefox
+\.firefox.com$
+\.mozaws.net$
+\.mozgcp.net$
+\.mozilla.net$
+\.getpocket.com$
+mozilla.cloudflare-dns.com
 
 # https://github.com/threatstop/crl-ocsp-whitelist
 aces\.ocsp\.identrust\.com

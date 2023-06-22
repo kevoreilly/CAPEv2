@@ -28,7 +28,7 @@ requests-file = "1.5.1"
 orjson = "3.8.5"
 # maec = "4.1.0.17"
 regex = "2021.7.6"
-SFlock2 = {version = "0.3.49", extras = ["shellcode"]}
+SFlock2 = {version = "0.3.50", extras = ["shellcode"]}
 pyattck = "7.1.1"
 # volatility3 = "2.0.0"
 # XLMMacroDeobfuscator = "0.2.7"
@@ -72,6 +72,7 @@ django-allauth = "0.54.0"  # https://django-allauth.readthedocs.io/en/latest/con
 psycopg2-binary = "^2.9.5"
 Werkzeug = "2.2.3"
 packaging = "23.1"
+setuptools = "68.0.0"
 
 # guac-session
 pyguacamole = "^0.11"

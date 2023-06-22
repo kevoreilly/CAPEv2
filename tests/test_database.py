@@ -128,7 +128,7 @@ class TestDatabaseEngine:
 
         new_task_id = self.d.reschedule(task_id)
         assert new_task_id is not None
-        new_task = self.d.view_task(new_task_id)
+        new_task = self.d.view_task(new_task_id[0])
         assert new_task.category == "static"
 
     def test_reschedule_pcap(self):

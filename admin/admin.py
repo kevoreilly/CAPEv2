@@ -41,14 +41,23 @@ from lib.cuckoo.common.admin_utils import (
     load_workers_list,
     ssh,
     CAPE_PATH,
-    JUMP_BOX,
-    SERVERS_STATIC_LIST,
-    JUMP_BOX_SECOND,
-    JUMP_BOX_SECOND_USERNAME,
     POSTPROCESS,
     AutoAddPolicy,
-    LOAD_SERVERS_LIST,
 )
+
+try:
+    from admin_conf import (
+        SERVERS_STATIC_LIST,
+        JUMP_BOX,
+        # JUMP_BOX_PORT,
+        JUMP_BOX_SECOND,
+        # JUMP_BOX_SECOND_PORT,
+        JUMP_BOX_SECOND_USERNAME,
+        LOAD_SERVERS_LIST,
+    )
+except ImportError:
+    sys.exit("You need to create admin_conf.py")
+
 from lib.cuckoo.common.sshclient import SSHJumpClient  # working solution
 
 JUMPBOX_USED = False

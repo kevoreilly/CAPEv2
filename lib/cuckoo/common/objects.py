@@ -411,6 +411,8 @@ class File:
 
     def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
+        if not isinstance(yara_string, bytes):
+            return yara_string
         try:
             new = yara_string.decode()
         except UnicodeDecodeError:
@@ -432,8 +434,21 @@ class File:
         try:
             results, rule = [], File.yara_rules[category]
             for match in rule.match(self.file_path_ansii, externals=externals):
-                strings = {self._yara_encode_string(s[2]) for s in match.strings}
-                addresses = {s[1].strip("$"): s[0] for s in match.strings}
+
+                # malduck thank you for this <3 https://github.com/CERT-Polska/malduck/pull/94/files
+                for yara_string in match.strings:
+                    # yara-python 4.3.0 broke compatibilty and started returning a StringMatch object
+                    if type(yara_string) is tuple:
+                        offsets = [yara_string[0]]
+                        identifier = yara_string[1]
+                        contents = [yara_string[2]]
+                    else:
+                        offsets = [x.offset for x in yara_string.instances]
+                        identifier = yara_string.identifier
+                        contents = [x.matched_data for x in yara_string.instances]
+
+                strings = {self._yara_encode_string(s) for s in contents}
+                addresses = {identifier.strip("$"): offset for offset in offsets}
                 results.append(
                     {
                         "name": match.rule,

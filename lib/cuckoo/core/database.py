@@ -99,6 +99,7 @@ sandbox_packages = (
     "vhd",
     "udf",
     "one",
+    "inf",
 )
 
 log = logging.getLogger(__name__)

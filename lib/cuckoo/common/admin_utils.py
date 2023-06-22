@@ -49,7 +49,7 @@ try:
         # EXCLUDE_PREFIX,
         EXCLUDE_CAPE_FILES,
         NUM_THREADS,
-        POSTPROCESS,
+        # POSTPROCESS,
         UPSTREAM_REPO_PATH,
         PRIVATE_REPO_PATH,
     )

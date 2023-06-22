@@ -411,6 +411,8 @@ class File:
 
     def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
+        if not isinstance(yara_string, bytes):
+            return yara_string
         try:
             new = yara_string.decode()
         except UnicodeDecodeError:

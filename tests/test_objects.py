@@ -10,9 +10,9 @@ import yara
 
 from lib.cuckoo.common.objects import Dictionary, File  # ,ProcDump
 from lib.cuckoo.common.path_utils import path_delete, path_write_file
+from lib.cuckoo.common.cape_utils import init_yara
 
 # from tcr_misc import get_sample, random_string
-
 
 @pytest.fixture
 def dict_cfg():
@@ -201,6 +201,7 @@ def yara_compiled():
 
 
 class TestFiles:
+
     @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_get_type(self, test_files):
         for sample in test_files:
@@ -215,17 +216,23 @@ class TestFiles:
             {"meta": {}, "addresses": {"a": 0}, "name": "hello", "strings": ["hello"]}
         ]
 
+    def test_get_yaras(self):
+        init_yara()
+        yara_matches = File("tests/data/malware/53622590bb3138dcbf12b0105af96dd72aedc40de8984f97c8e882343a769b45").get_yara(category="CAPE")
+        assert yara_matches == [{'name': 'RedLine', 'meta': {'author': 'ditekSHen', 'description': 'Detects RedLine infostealer', 'cape_type': 'RedLine Payload'}, 'strings': ['procName'], 'addresses': {'v4_8': 100177}}]
+
+        yara_matches = File("tests/data/malware/f8a6eddcec59934c42ea254cdd942fb62917b5898f71f0feeae6826ba4f3470d").get_yara(category="CAPE")
+        assert yara_matches == [{'name': 'BumbleBee', 'meta': {'author': 'enzo & kevoreilly', 'description': 'BumbleBee Payload', 'cape_type': 'BumbleBee Payload'}, 'strings': ['/gate'], 'addresses': {'str_gate': 1911968}}]
+
     @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_get_yara_no_categories(self, test_files):
         assert not test_files[0]["download_location"].get_yara()
 
 
 class TestMisc:
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_yara_encode_string_deal_with_error(self):
         assert File("none_existent_file")._yara_encode_string("\xd0\x91") == "\xd0\x91"
 
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_yara_encode_string(self):
         assert File("none_existent_file")._yara_encode_string("velociraptor") == "velociraptor"
 

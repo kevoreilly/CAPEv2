@@ -365,6 +365,7 @@ class TestAnalysisManager:
             "file_pickup": False,
             "filecollector": True,
             "permissions": False,
+            "recentfiles": False,
             "screenshots_linux": True,
             "screenshots_windows": True,
             "tlsdump": True,

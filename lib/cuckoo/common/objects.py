@@ -442,7 +442,7 @@ class File:
                         contents = [yara_string[2]]
                     else:
                         offsets = [x.offset for x in yara_string.instances]
-                        identifier = [yara_string.identifier]
+                        identifier = yara_string.identifier
                         contents = [x.matched_data for x in yara_string.instances]
 
                 strings = {self._yara_encode_string(s) for s in contents}

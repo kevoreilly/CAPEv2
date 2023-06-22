@@ -15,45 +15,43 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import sys
-import shutil
-import logging
 import argparse
+import logging
+import os
+import shutil
 import subprocess
+import sys
 from hashlib import sha256
-from queue import Queue
 from pathlib import Path
+from queue import Queue
 
 CAPE_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CAPE_ROOT)
 
 from lib.cuckoo.common.admin_utils import (
-    compare_hashed_files,
-    enumerate_files_on_all_servers,
-    gen_hashfile,
-    file_recon,
-    execute_command_on_all,
-    get_file,
-    deploy_file,
-    delete_file,
-    delete_file_recon,
-    load_workers_list,
-    ssh,
     CAPE_PATH,
     POSTPROCESS,
     AutoAddPolicy,
+    compare_hashed_files,
+    delete_file,
+    delete_file_recon,
+    deploy_file,
+    enumerate_files_on_all_servers,
+    execute_command_on_all,
+    file_recon,
+    gen_hashfile,
+    get_file,
+    load_workers_list,
+    ssh,
 )
 
 try:
-    from admin_conf import (
-        SERVERS_STATIC_LIST,
+    from admin_conf import (  # JUMP_BOX_PORT,; JUMP_BOX_SECOND_PORT,
         JUMP_BOX,
-        # JUMP_BOX_PORT,
         JUMP_BOX_SECOND,
-        # JUMP_BOX_SECOND_PORT,
         JUMP_BOX_SECOND_USERNAME,
         LOAD_SERVERS_LIST,
+        SERVERS_STATIC_LIST,
     )
 except ImportError:
     sys.exit("You need to create admin_conf.py")

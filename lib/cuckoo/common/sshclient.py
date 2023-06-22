@@ -12,20 +12,10 @@ Objects provided by this module:
 
 from contextlib import contextmanager
 from getpass import getpass
-
-from typing import (
-    AnyStr,
-    Callable,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import AnyStr, Callable, List, Optional, Sequence, Tuple, Union
 
 from paramiko import AutoAddPolicy
 from paramiko.client import SSH_PORT, SSHClient
-
 
 _Host = Union[AnyStr, Tuple[AnyStr, int]]
 _Prompt = Tuple[AnyStr, bool]

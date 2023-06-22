@@ -1,22 +1,22 @@
-import re
-import os
-import sys
 import json
-import urllib3
 import logging
-from socket import if_nameindex
-from hashlib import sha256
-from queue import Queue
-from threading import Thread
-from pathlib import Path
-
-from contextlib import suppress
+import os
+import re
 
 # from glob import glob
 import shutil
+import sys
+from contextlib import suppress
+from hashlib import sha256
+from pathlib import Path
+from queue import Queue
+from socket import if_nameindex
+from threading import Thread
+
+import urllib3
 
 try:
-    from deepdiff import DeepDiff  #  extract as diffextract
+    from deepdiff import DeepDiff  # extract as diffextract
 
     HAVE_DEEPDIFF = True
 except ImportError:
@@ -24,34 +24,32 @@ except ImportError:
     print("poetry run pip install mmh3 deepdiff")
 
 try:
-    from paramiko import SSHClient, AutoAddPolicy
+    from paramiko import AutoAddPolicy, SSHClient
+    from paramiko.ssh_exception import AuthenticationException, BadHostKeyException, PasswordRequiredException
     from scp import SCPClient, SCPException
-    from paramiko.ssh_exception import BadHostKeyException, PasswordRequiredException, AuthenticationException
 
     HAVE_PARAMIKO = True
 except ImportError:
     print("poetry run pip install -U paramiko scp")
     HAVE_PARAMIKO = False
 
-from lib.cuckoo.common.colors import red, green
+from lib.cuckoo.common.colors import green, red
 
 try:
-    from admin_conf import (
-        REMOTE_SERVER_USER,
-        CAPE_PATH,
-        VOL_PATH,
-        MASTER_NODE,
+    from admin_conf import (  # EXCLUDE_PREFIX,; POSTPROCESS,
         CAPE_DIST_URL,
-        JUMP_BOX_USERNAME,
-        EXCLUDE_DIRS,
-        EXCLUDE_FILENAMES,
-        EXCLUDE_EXTENSIONS,
-        # EXCLUDE_PREFIX,
+        CAPE_PATH,
         EXCLUDE_CAPE_FILES,
+        EXCLUDE_DIRS,
+        EXCLUDE_EXTENSIONS,
+        EXCLUDE_FILENAMES,
+        JUMP_BOX_USERNAME,
+        MASTER_NODE,
         NUM_THREADS,
-        # POSTPROCESS,
-        UPSTREAM_REPO_PATH,
         PRIVATE_REPO_PATH,
+        REMOTE_SERVER_USER,
+        UPSTREAM_REPO_PATH,
+        VOL_PATH,
     )
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")

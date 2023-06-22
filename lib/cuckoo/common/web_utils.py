@@ -652,7 +652,9 @@ def download_file(**kwargs):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
-    kwargs["options"], timeout, enforce_timeout, package = recon(kwargs["path"], kwargs["options"], timeout, enforce_timeout, package)
+    kwargs["options"], timeout, enforce_timeout, package = recon(
+        kwargs["path"], kwargs["options"], timeout, enforce_timeout, package
+    )
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 

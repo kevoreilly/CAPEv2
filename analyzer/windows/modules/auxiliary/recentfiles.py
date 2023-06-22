@@ -9,7 +9,7 @@ import random
 from uuid import UUID
 
 from lib.common.abstracts import Auxiliary
-from lib.common.defines import SHELL32, SHARD_PATHA, PWSTR
+from lib.common.defines import PWSTR, SHARD_PATHA, SHELL32
 from lib.common.rand import random_string
 from lib.common.registry import set_regkey_full
 from lib.core.config import Config
@@ -22,7 +22,13 @@ class RecentFiles(Auxiliary):
     anti-sandbox measures."""
 
     extensions = [
-        "txt", "rtf", "doc", "docx", "docm", "ppt", "pptx",
+        "txt",
+        "rtf",
+        "doc",
+        "docx",
+        "docm",
+        "ppt",
+        "pptx",
     ]
 
     locations = {
@@ -39,17 +45,11 @@ class RecentFiles(Auxiliary):
     def get_path(self):
         location = self.options.get("recentfiles", "documents")
         if location not in self.locations:
-            log.warning(
-                "Unknown RecentFiles location specified, "
-                "defaulting to 'documents'."
-            )
+            log.warning("Unknown RecentFiles location specified, " "defaulting to 'documents'.")
             location = "documents"
 
         dirpath = PWSTR()
-        r = SHELL32.SHGetKnownFolderPath(
-            UUID(self.locations[location]).bytes_le,
-            0, None, ctypes.byref(dirpath)
-        )
+        r = SHELL32.SHGetKnownFolderPath(UUID(self.locations[location]).bytes_le, 0, None, ctypes.byref(dirpath))
         if r:
             log.warning("Error obtaining user directory: 0x%08x", r)
             return
@@ -75,8 +75,7 @@ class RecentFiles(Auxiliary):
             SHELL32.SHAddToRecentDocs(SHARD_PATHA, filepath)
 
             set_regkey_full(
-                "HKEY_CURRENT_USER\\Software\\Microsoft\\Office\\14.0\\"
-                "Word\\File MRU\\Item %d" % (idx + 1),
-                "REG_SZ", "[F00000000][T01D1C40000000000]*%s" % filepath,
+                "HKEY_CURRENT_USER\\Software\\Microsoft\\Office\\14.0\\" "Word\\File MRU\\Item %d" % (idx + 1),
+                "REG_SZ",
+                "[F00000000][T01D1C40000000000]*%s" % filepath,
             )
-

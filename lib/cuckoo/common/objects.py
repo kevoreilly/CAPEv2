@@ -439,13 +439,13 @@ class File:
                     if type(yara_string) is tuple:
                         offsets = [yara_string[0]]
                         identifier = yara_string[1]
-                        # contents = [yara_string[2]]
+                        contents = [yara_string[2]]
                     else:
                         offsets = [x.offset for x in yara_string.instances]
                         identifier = [yara_string.identifier]
-                        # contents = [x.matched_data for x in yara_string.instances]
+                        contents = [x.matched_data for x in yara_string.instances]
 
-                strings = {s for s in identifier}
+                strings = {self._yara_encode_string(s) for s in contents}
                 addresses = {identifier.strip("$"): offset for offset in offsets}
                 results.append(
                     {

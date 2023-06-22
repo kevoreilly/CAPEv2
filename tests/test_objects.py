@@ -208,7 +208,7 @@ class TestFiles:
             assert sample["download_location"].get_type() == sample["get_type_str"]
             print(("Verified that " + sample["download_location"].file_path + " == " + sample["get_type_str"]))
 
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
+    # @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_get_yara(self, hello_file, yara_compiled):
         File.yara_rules = {"hello": yara_compiled}
         assert hello_file["file"].get_yara(category="hello") == [

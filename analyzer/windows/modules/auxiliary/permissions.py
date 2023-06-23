@@ -25,9 +25,12 @@ class Permissions(Auxiliary):
         if not self.enabled:
             return False
 
-        # TODO: Put locations here that you want to protect. Do NOT put Path.cwd() or "C:\\tmp*" in the locations list,
-        # as this will crash CAPE. Type to cherry-pick directories that are important to your analysis.
-        locations = []
+        # Put locations here that you want to protect. Do NOT put Path.cwd() or "C:\\tmp*" in the locations list,
+        # as this will crash CAPE. Try to cherry-pick directories that are important to your analysis.
+        # The locations must be pipe-separated. The default for CAPE is to separate items passed via options
+        # with a colon, but that does not work with file paths, so | it is!
+        locations = self.options.get("permissions", "")
+        locations = locations.split("|")
 
         log.debug("Adjusting permissions for %s", locations)
         for location in locations:

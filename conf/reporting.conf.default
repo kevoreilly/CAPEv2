@@ -4,6 +4,7 @@
 # You can also add additional options under the section of your module and
 # they will be available in your Python class.
 
+# Community
 [cents]
 enabled = no
 on_demand = no
@@ -23,14 +24,17 @@ binary = yes
 cape = yes
 procdump = yes
 
+# Community
 [pcap2cert]
 enabled = yes
 
+# Community
 [litereport]
 enabled = no
 keys_to_copy = CAPE procdump info signatures dropped static target network shot malscore ttps
 behavior_keys_to_copy = processtree summary
 
+# Community
 [reportbackup]
 enabled = no
 # External service to use
@@ -46,6 +50,7 @@ enabled = yes
 indent = 4
 encoding = latin-1
 
+# Community
 [reporthtml]
 # Standalone report, not requires CAPE webgui
 enabled = no
@@ -53,16 +58,19 @@ enabled = no
 screenshots = no
 apicalls = no
 
+# Community
 [reporthtmlsummary]
 # much smaller, faster report generation, omits API logs and is non-interactive
 enabled = no
 # Include screenshots in report
 screenshots = no
 
+# Community
 [reportpdf]
 # Note that this requires reporthtmlsummary to be enabled above as well
 enabled = no
 
+# Community
 [maec41]
 enabled = no
 mode = overview
@@ -73,6 +81,7 @@ strings = true
 virustotal = true
 deduplicate = true
 
+# Community
 [maec5]
 enabled = no
 
@@ -95,7 +104,7 @@ db = cuckoo
 # reporting module or from the jsondump module.
 fix_large_docs = yes
 
-# ES is not officially supported by core dev and relays on community
+# Community
 # Latest known working version is 7.16.2
 # Use ElasticSearch as the "database" which powers Django.
 # NOTE: If this is enabled, MongoDB should not be enabled, unless
@@ -113,6 +122,7 @@ index = cuckoo
 # use_ssl =
 # verify_certs =
 
+# Community
 [retention]
 enabled = no
 # run at most once every this many hours (unless reporting.conf is modified)
@@ -143,6 +153,7 @@ logfile = yes
 # if yes, what logname? [Default: syslog.txt]
 logname = syslog.log
 
+# Community
 [moloch]
 enabled = no
 base = https://172.18.100.105:8005/
@@ -153,11 +164,12 @@ user = admin
 pass = admin
 realm = Moloch
 
+# Community
 [resubmitexe]
 enabled = no
 resublimit = 5
 
-
+# Community
 [compression]
 enabled = no
 zipmemdump = yes
@@ -165,6 +177,7 @@ zipmemstrings = yes
 zipprocdump = yes
 zipprocstrings = yes
 
+# Community
 [misp]
 enabled = no
 apikey =
@@ -192,12 +205,14 @@ dropped = no
 registry = no
 mutexes = no
 
+# Community
 [callback]
 enabled = no
 # will send as post data {"task_id":X}
 # can be coma separated urls
 url = http://IP/callback
 
+# Community
 # Compress results including CAPE output
 # to help avoid reaching the hard 16MB MongoDB limit.
 [compressresults]
@@ -207,16 +222,18 @@ enabled = no
 enabled = no
 key = tr_extractor
 
+# Community
 # This calls the specified command, pointing it at the report.json as
 # well as setting $ENV{CAPE_TASK_ID} to the task ID of the run in question.
-#
 [zexecreport]
 enabled=no
 command=/foo/bar.pl
 
-# run statistics, this may take more times.
+# Community
+# run statistics, this may take more time.
 [runstatistics]
 enabled = no
 
+# Community
 [malheur]
 enabled = no

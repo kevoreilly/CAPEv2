@@ -35,6 +35,10 @@ Huge thanks to:
 
 # ACPI tables related
 # https://wiki.archlinux.org/index.php/DSDT
+
+# Might need update the WMI queries but you have example how to dump the information
+# https://github.com/SecSamDev/cancamusa/blob/main/bin/extract-info.ps1
+
 # Dump on linux
 #   acpidump > acpidump.out
 # Dump on Windows

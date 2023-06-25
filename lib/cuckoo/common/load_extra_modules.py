@@ -73,15 +73,18 @@ def malduck_load_decoders(CUCKOO_ROOT: str):
 
 def file_extra_info_load_modules(CUCKOO_ROOT: str):
     file_extra_modules = []
-    extra_modules = os.path.join(CUCKOO_ROOT, "lib", "cuckoo", "common", "integrations", "file_extra_info")
+    extra_modules = os.path.join(CUCKOO_ROOT, "lib", "cuckoo", "common", "integrations", "file_extra_info_modules")
     if not Path(extra_modules).exists():
-        return {}
+        return []
 
     EXTRA_MODULES = [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{extra_modules}/[!_]*.py")]
 
     for name in EXTRA_MODULES:
         try:
-            file_extra_modules.append(importlib.import_module(f"lib.cuckoo.common.integrations.file_extra_info.{name}"))
+            module = importlib.import_module(f"lib.cuckoo.common.integrations.file_extra_info_modules.{name}")
+            if not getattr(module, "enabled", False):
+                continue
+            file_extra_modules.append(module)
         except (ImportError, IndexError) as e:
             print(f"file_extra_info module: No module named {name} - {e}")
 

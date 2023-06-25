@@ -432,25 +432,25 @@ def generic_file_extractors(
         "tests": tests,
     }
 
-    file_info_funcs = [
-        msi_extract,
-        kixtart_extract,
-        vbe_extract,
-        batch_extract,
-        UnAutoIt_extract,
-        UPX_unpack,
-        RarSFX_extract,
-        Inno_extract,
-        SevenZip_unpack,
-        de4dot_deobfuscate,
-        eziriz_deobfuscate,
-        office_one,
-        msix_extract,
-    ] + extra_info_modules
+    file_info_funcs =
 
     futures = {}
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
-        for extraction_func in file_info_funcs:
+        for extraction_func in (
+            msi_extract,
+            kixtart_extract,
+            vbe_extract,
+            batch_extract,
+            UnAutoIt_extract,
+            UPX_unpack,
+            RarSFX_extract,
+            Inno_extract,
+            SevenZip_unpack,
+            de4dot_deobfuscate,
+            eziriz_deobfuscate,
+            office_one,
+            msix_extract,
+        ):
             funcname = extraction_func.__name__
             if not getattr(selfextract_conf, funcname, {}).get("enabled", False) or not getattr(extraction_func, "enabled", False):
                 continue
@@ -458,6 +458,11 @@ def generic_file_extractors(
             func_timeout = int(getattr(selfextract_conf, funcname).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
 
+        if extra_info_modules:
+            for module in extra_info_modules:
+                func_timeout = int(getattr(module, "timeout", 60))
+                funcname = module.__name__.split(".")[-1]
+                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
     pool.join()
 
     for funcname, future in futures.items():

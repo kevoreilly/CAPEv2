@@ -38,6 +38,7 @@ from lib.cuckoo.common.path_utils import (
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file
+from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
 
 try:
     from sflock import unpack
@@ -54,6 +55,7 @@ except ImportError:
     HAVE_ONE = False
 
 DuplicatesType = DefaultDict[str, Set[str]]
+extra_info_modules = file_extra_info_load_modules(CUCKOO_ROOT)
 
 
 @contextlib.contextmanager
@@ -430,25 +432,27 @@ def generic_file_extractors(
         "tests": tests,
     }
 
+    file_info_funcs = [
+        msi_extract,
+        kixtart_extract,
+        vbe_extract,
+        batch_extract,
+        UnAutoIt_extract,
+        UPX_unpack,
+        RarSFX_extract,
+        Inno_extract,
+        SevenZip_unpack,
+        de4dot_deobfuscate,
+        eziriz_deobfuscate,
+        office_one,
+        msix_extract,
+    ] + extra_info_modules
+
     futures = {}
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
-        for extraction_func in (
-            msi_extract,
-            kixtart_extract,
-            vbe_extract,
-            batch_extract,
-            UnAutoIt_extract,
-            UPX_unpack,
-            RarSFX_extract,
-            Inno_extract,
-            SevenZip_unpack,
-            de4dot_deobfuscate,
-            eziriz_deobfuscate,
-            office_one,
-            msix_extract,
-        ):
+        for extraction_func in file_info_funcs:
             funcname = extraction_func.__name__
-            if not getattr(selfextract_conf, funcname, {}).get("enabled", False):
+            if not getattr(selfextract_conf, funcname, {}).get("enabled", False) or not getattr(extraction_func, "enabled", False):
                 continue
 
             func_timeout = int(getattr(selfextract_conf, funcname).get("timeout", 60))

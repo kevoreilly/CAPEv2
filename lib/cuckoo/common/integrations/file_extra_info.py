@@ -38,6 +38,7 @@ from lib.cuckoo.common.path_utils import (
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file
+from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
 
 try:
     from sflock import unpack
@@ -54,6 +55,7 @@ except ImportError:
     HAVE_ONE = False
 
 DuplicatesType = DefaultDict[str, Set[str]]
+extra_info_modules = file_extra_info_load_modules(CUCKOO_ROOT)
 
 
 @contextlib.contextmanager
@@ -430,6 +432,8 @@ def generic_file_extractors(
         "tests": tests,
     }
 
+    file_info_funcs =
+
     futures = {}
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
         for extraction_func in (
@@ -448,12 +452,17 @@ def generic_file_extractors(
             msix_extract,
         ):
             funcname = extraction_func.__name__
-            if not getattr(selfextract_conf, funcname, {}).get("enabled", False):
+            if not getattr(selfextract_conf, funcname, {}).get("enabled", False) or not getattr(extraction_func, "enabled", False):
                 continue
 
             func_timeout = int(getattr(selfextract_conf, funcname).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
 
+        if extra_info_modules:
+            for module in extra_info_modules:
+                func_timeout = int(getattr(module, "timeout", 60))
+                funcname = module.__name__.split(".")[-1]
+                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
     pool.join()
 
     for funcname, future in futures.items():

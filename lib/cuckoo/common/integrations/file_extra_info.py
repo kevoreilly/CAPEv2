@@ -432,8 +432,6 @@ def generic_file_extractors(
         "tests": tests,
     }
 
-    file_info_funcs =
-
     futures = {}
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
         for extraction_func in (

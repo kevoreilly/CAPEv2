@@ -2,36 +2,45 @@
 CAPE's debugger
 ===============
 
-* Is unique among Windows debuggers, and is one of the most powerful features of the sandbox, having been built from scratch with the overriding design principles of minimal (almost zero) use of Windows debugging interfaces, maximal use of the processor's debugging hardware, and to be quick and easy to use.
-* Here is a quick guide on getting started with the debugger:
-* For starters it's worth emphasizing that the debugger is programmable but not interactive; you configure it when submitting a sample, allow it to run, then check the results at the end in the form of the debugger log (in the debugger tab).
+CAPE's debugger is a programmable but not interactive debugger which is configured at submission specifically to action on specific behavior/data with malware analysis in mind.It is one of the most powerful features of the sandbox and use the options syntax of CAPE in order to pass values and can be also used in Yara scanning of rules in the analyzer.
+What make CAPE's debugger unique among Windows debuggers is the fact that it has been built from scratch with the main design principles of minimal (almost zero) use of Windows debugging interfaces, maximal use of the processor's debugging hardware for quick and easy use.
+As an interactive debugger, CAPE's debugger results are found in the debugger log (in the debugger tab in the UI). One of the consequence of this type of debugger is the fact that it require the end user to understand at least in some capacity assembly and/or registries and how they evolve during a program execution.  
+
+* Following is a quick guide on getting started with the debugger.
 
 Breakpoints: bp0, bp1, bp2, bp3
 ===============================
-* Perhaps the simplest of the debugger options is bp to set one of three CPU breakpoints. (For instruction traces to function properly, bp3 should be reserved for the debugger to maintain the ability to step over certain instructions during tracing.)
-* The simplest form of this option is to set it to 'ep': ``bp0=ep``
+One important concept to be aware of, are the breakpoints/debug registers and their use in the debugging process. There are four breakpoints slots in the Intel CPU to make use of, so we could in theory use all four directly.However, the debugger in CAPE exposes only the first three.
+The fourth (bp3) is kept free so that it can be used in stepping-over calls. There is no help from the hardware for a debugger feature like stepping over, so a breakpoint is needed to implement the depth feature but is also required for calls that CAPE debugger must step over, such as calls into kernel mode for example.
+For more information see: https://en.wikipedia.org/wiki/X86_debug_register.
 
-* This will instruct the debugger to break on the entry point of the main executable of each process and begin tracing. (In the case of a DLL, this breakpoint will also be set on the entry point of the DLL). When the breakpoint hits, any corresponding actions will be performed (see later) and the instruction broken upon will be output to the log. As long as the count (see later) hasn't been set to zero, the debugger will then proceed to trace the instruction flow in single-step mode.
-* To target specific code regions more accurately, breakpoints on specific addresses can be used. These values are interpreted as RVA values unless they are above a hardcoded value (0x200000) in which case they are interpreted as VA values. This allows both RVAs and VAs to be used interchangeably, in most cases the debugger will recognize due to its size that a value is a VA, not an RVA, and set the breakpoint appropriately.
-* There are four breakpoints in the Intel CPU to make use of, so we could in theory use all four directly. However, the debugger in CAPE exposes only the first three. The fourth (bp3) is kept free so that it can be used in stepping-over calls. There is no help from the hardware for a debugger feature like stepping over, so a breakpoint is needed to implement the depth feature but is also required for calls that CAPE debugger *must* step over, such as calls into kernel mode for example.
-* We set and use bp0 through bp2 as follows. These breakpoints will be applied to each thread of each process in the analysis:
-    * bp0=ep,bp1=0x1234,bp2=0x5678
+* Perhaps the simplest of the debugger options is bp to set one of three CPU breakpoints. 
+
+Possible values:
+* The simplest form of this option is to set it to 'ep': ``bp0=ep``.This will instruct the debugger to break on the entry point of the main executable of each process and begin tracing. (In the case of a DLL, this breakpoint will also be set on the entry point of the DLL). 
+* To target specific code regions more accurately, breakpoints on specific addresses can be used. These values are interpreted as RVA values unless they are hardcoded value (0x200000) in which case they are interpreted as VA values. This allows both RVAs and VAs to be used interchangeably, in most cases the debugger will recognise due to its size that a value is a VA, not an RVA, and set the breakpoint appropriately.
+* Possible values are what is exposed from the CONTEXT structure that represent the x86 debug registers Dr0-Dr3. See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-context for more details.
+
+The idea of this feature is when the breakpoint hits, any corresponding actions will be performed (seen later) and the instruction broken upon will be output to the log. 
+As long as the count (seen later) hasn't been set to zero, the debugger will then proceed to trace the instruction flow in single-step mode.
+
+* To limit the size of the output, the debugger starts with some default values for some important parameters which are worth understanding to enable more advanced use. The first two parameters that are important are count and depth.
+Implemented in Debbugger.c of Capemon(CAPE's monitor).
 
 Depth
 =====
-* The behavior of the instruction trace in single-step mode can be characterized in terms of whether it will step into a call, or over it. From this comes the concept of depth - the debugger will trace at the same depth in a trace by stepping-over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behavior will be to step over all the subsequent calls (at least until a ret is encountered):
+* The behaviour of the instruction trace in single-step mode can be characterised in terms of whether it will step into a call, or over it. From this comes the concept of depth - the debugger will trace at the same depth in a trace by stepping-over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behaviour will be to step over all the subsequent calls (at least until a ret is encountered):
     * depth=0
 * If we set a depth of, say, three, then the debugger will step into calls into further levels of depth three times:
     * depth=3
-
+The default depth is zero.
 Count
 =====
 * The other obvious characteristic of our trace is its length or count of instructions. This is set with the count option, for example:
     * count=10000
 * The count may also be specified as hexadecimal:
     * count=0xff00
-
-* To limit the size of the output, the debugger starts with some default values for some important parameters which are worth understanding to enable more advanced use. The first two parameters that are important are count and depth. As mentioned above, the default depth is zero and the default count is 0x4000.
+The default count is 0x4000.
 
 Break-on-return
 ===============
@@ -53,26 +62,49 @@ Base-on-alloc
 Actions
 =======
 * Often we might wish to perform an action when a breakpoint is hit. These actions can be defined by the actions: action0, action1, action2, and action3, each corresponding to a respective breakpoint. The action is specified by a simple string (not case sensitive). The list of actions is constantly growing, so if the need arises for further actions, they can be simply added.
-* To divert the execution flow upon a conditional jump JZ - 'flip' the direction of a branch. Since this is one of the most useful actions, there are many actions to choose from.
-* For direct control over the instruction pointer:
-    * Skip
-    * Jmp
 
+Available actions:
+* For direct control over the instruction pointer:
+    * Skip --> The 'skip' action is equivalent to 'nopping out' the instruction.
+    * Jmp --> The 'jmp' action results in the jump always being taken, no matter what the state of the flags or the condition.
+    * Nop --> The 'nop' action results in the adding of the nop instruction for the report, can be used as canary or for other purposes.
+    * Wret --> The 'wret' action results in the changing of the value of the RIP/EIP register value related to the RET instruction.
+    * Ret --> The 'ret' action results is the same you would expect from the ret instruction in assembly, meaning pop of the last element from the stack and assign the value to the RIP/EIP register.
+    * Goto --> The 'goto' action results in the local jump to a target address.
 * To control the CPU zero flag:
     * SetZeroFlag, ClearZeroFlag, FlipZeroFlag
 * To control the sign flag:
     * SetSignFlag, ClearSignFlag, FlipSignFlag
-
 * The carry flag:
     * SetCarryFlag, ClearCarryFlag & FlipCarryFlag
-
-* The 'skip' action is equivalent to 'nopping out' the instruction. The Jmp action results in the jump always being taken, no matter what the state of the flags or the condition. The remaining options set, clear, or flip the relevant flags. For example:
-    * bp0=0x1234,action0=skip
-
-* Hereupon breaking on the instruction at 0x1234, the instruction will be skipped.
-
+* Change Register value:
+    * SetEax --> Change the register value Eax to the given value.
+    * SetEbx --> Change the register value Ebx to the given value.
+    * SetEcx --> Change the register value Ecx to the given value.
+    * SetEdx --> Change the register value Edx to the given value.
+    * SetEsi --> Change the register value Esi to the given value.
+    * SetEdi --> Change the register value Edi to the given value.
+* Changing the count value:
+    * Count --> Changing the count value explained in the count section above.
+* Stack manipulation:
+    * Push --> Push a given value onto the stack.
+    * Pop --> Pop a value from the stack.
+* Probing: 
+    * Unwind --> Unwind the SEH info.
+    * Print: --> The action "print:" is used to dump the string buffer at the given address. (Work only on x86) 
+    * DumpImage --> The action "dumpimage" is used to dump the dump type of dumptypeX or UNPACKED_PE with typestringX of the region of the calling module.
+    * DumpSize --> The action "dumpsize" is used to change the size of the dump that would be outputed by the "dump" action.
+    * SetDump: --> The action "setdump:" is used to change the address of where the dump would be taken from the "dump" action.
+    * Dump --> The action "dump" dump the dump type of dumptypeX or UNPACKED_PE with typestringX at the address given from the "setdump" action and of size of the "dumpsize" action.
+    * Scan --> The action "scan" is used to scan a specific address region, in Capemon terms it mean running YaraScan of that specific region.
+    * DumpStack --> The action "dumpstack" is used like the name imply to dump the stack.
+* Hooks:
+    * Hooks: --> The action "hooks:" is a given boolean value which enable or disable the hooks.
 * Instruction traces can grow to be huge so often it's important to be able to stop at a chosen point. To stop the trace at a given breakpoint, the action is simply:
     * Stop
+
+The list of actions and their implementation can be found in Trace.c of Capemon(CAPE's monitor), specifically in the ActionDispatcher.
+It would be really easy to add additionnal actions and there is a lot of other gadgets which could be added there depending on the needs of the debugger's user.
 
 Type
 ====
@@ -89,12 +121,12 @@ br0, br1, br2, br3
 ==================
 * Sometimes it may be convenient to set a breakpoint on the return address of a function, for example when it might be easier to write a YARA signature to detect a function but when you wish to break after it has been executed.
 * For this, the br options exist, where br0 will set a breakpoint on the return address of the function at the supplied address.
-* For example:
-    * br0=0x4567
+* The format for the address is the same as the one for breakpoints mentionned above. 
 * Since the return address (for the breakpoint) is fetched from the top of the stack, the addresses supplied must either be the very first instruction of the function or certainly must come before any instruction that modifies the stack pointer such as push or pop.
 
 Fake-rdtsc
 ==========
+This advanced feature is there for interacting with the TSC register. To learn more on it and what it's used for see: https://en.wikipedia.org/wiki/Time_Stamp_Counter.
 * To 'emulate' (skip and fake) the rdtsc instruction, the option fake-rdtsc=1 may be set. This will only have an affect on rdtsc instructions that are traced over by the debugger. If the debugger is not tracing at the time the CPU executes the instruction, it cannot of course fake the return value.
 * The effect of this setting is to allow the first traced rdtsc instruction to execute normally, but thereafter to fake the return value with the original return value plus whatever value is specified in the option. For example:
     * rdtsc=0x1000
@@ -102,7 +134,6 @@ Fake-rdtsc
 
 Practical examples
 ==================
-
 * For more and latest versions of examples can be found `here <https://github.com/kevoreilly/CAPEv2/tree/master/analyzer/windows/data/yara>`_
 
 .. code-block:: bash
@@ -163,15 +194,19 @@ Practical examples
             ($golden_ratio) and any of ($crypto32*)
     }
 
+As shown in the example above, the debugger options are passed in the cape_options section of yar files in the analyzer of CAPE but could be passed to the submission itself like other parameters. 
+It is important to note that even through it appear that br0 and br1 would have multiple values in the Guloader rule above, it is not the case and it's not possible to assign multiples values to them.  This is because the yara is designed with an assumption in mind: the patterns $trap0 and $trap1 should never appear concurrently in the same sample. This particular sig is designed to deal with two variants of the same malware where bp0 and bp1 will only ever be set to either one of those values.
+
 Importing instruction traces into disassembler
 ==============================================
-
+It is possible to import CAPE's debugger output into a dissassembler. 
+One example procedure is as follow:
 * Highlight CFG in disassembler:
 
 .. code-block:: bash
 
     1 Install lighthouse plugin from
-        poetry run pip install git+https://github.com/kevoreilly/lighthouse
+        pip3 install git+https://github.com/kevoreilly/lighthouse
     2 Load payload into IDA
     3 Check image base matches that from debugger log (if not rebase)
     4 Go to File -> Load File -> Code coverage file and load debugger logfile (ignore any warnings - any address outside image base causes these)

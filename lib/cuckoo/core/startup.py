@@ -66,7 +66,7 @@ def check_user_permissions(as_root: bool = False):
     if as_root:
         log.warning("You running part of CAPE as non 'cape' user! That breaks permissions on temp folder and log folder.")
         return
-    if gt.getuser() != cuckoo.cuckoo.username:
+    if gt.getuser() != cuckoo.cuckoo.get("username", "cape"):
         raise CuckooStartupError(
             f"Running as not 'cape' user breaks permissions! Run with cape user! Also fix permission on tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}"
         )

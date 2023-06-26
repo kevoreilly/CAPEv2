@@ -477,7 +477,7 @@ def fix_section_permission(path):
 
 
 # Submission hooks to set options based on some naming patterns
-def recon(filename, orig_options, timeout, enforce_timeout):
+def recon(filename, orig_options, timeout, enforce_timeout, package):
     filename = filename.lower()
     if not isinstance(filename, str):
         filename = bytes2str(filename)
@@ -486,7 +486,7 @@ def recon(filename, orig_options, timeout, enforce_timeout):
         timeout = 400
         enforce_timeout = True
 
-    return orig_options, timeout, enforce_timeout
+    return orig_options, timeout, enforce_timeout, package
 
 
 def get_magic_type(data):
@@ -652,7 +652,9 @@ def download_file(**kwargs):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
-    kwargs["options"], timeout, enforce_timeout = recon(kwargs["path"], kwargs["options"], timeout, enforce_timeout)
+    kwargs["options"], timeout, enforce_timeout, package = recon(
+        kwargs["path"], kwargs["options"], timeout, enforce_timeout, package
+    )
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 

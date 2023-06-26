@@ -2,12 +2,15 @@
 Box-js
 ======
 
-* :ref:`installation`
-* :ref:`preparation`
-* :ref:`starting`
-* :ref:`restapi`
+* :ref:`box_installation`
+* :ref:`box_preparation`
+* :ref:`box_starting`
+* :ref:`box_restapi`
 
-.. _installation:
+.. _box_installation:
+
+Installation
+============
 
 * Quick and dirty notes on how to integrate box-js to CAPE::
 
@@ -21,7 +24,7 @@ Box-js
     $ cd /opt/box-js
     $ sudo npm audit fix --force
 
-.. _preparation:
+.. _box_preparation:
 
 Preparation
 ===========
@@ -61,7 +64,7 @@ Preparation
     WORKDIR /samples
     CMD box-js /samples --output-dir=/samples --loglevel=debug
 
-.. _starting:
+.. _box_starting:
 
 Starting box-js rest-api
 ========================
@@ -69,7 +72,7 @@ Starting box-js rest-api
 
     $ node api.js
 
-.. _restapi:
+.. _box_restapi:
 
 Box-js rest-api endpoints
 =========================

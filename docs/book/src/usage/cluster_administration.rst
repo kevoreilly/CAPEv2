@@ -30,7 +30,7 @@ You need to add your ssh key to ``.ssh/authorized_keys``. I personally suggest t
 SSH Pivoting explained
 ======================
 
-SSH pivoting is when you access to one server using another as ``proxy``. In case if you need deeper expalantion of this. Google it!
+SSH pivoting is when you access to one server using another as ``proxy``. In case if you need deeper explanation of this. Google it!
 ``admin.py`` support two types of of pivoting, simple and more complex. You need to configure ``admin/admin_conf.py``
 
 You -> ssh proxy server -> server(s)
@@ -45,10 +45,10 @@ Comparing files
 
 The idea of this is to spot files that doesn't match and fix them. Right now only deletion works, but in future it will support deploying of mismatched files.
 
-You can generate local listening for example for upstream repo or your private repo:
-    * ``poetry run python admin/admin.py --generate-files-listing --directory <path to folder upstream/private repo> --filename <path/name to store listening>``
+You can generate local listing for example for upstream repo or your private repo:
+    * ``poetry run python admin/admin.py --generate-files-listing --directory <path to folder upstream/private repo> --filename <path/name to store listing>``
 
-To get file listening from all your servers you can just run:
+To get file listing from all your servers you can just run:
     * ``poetry run python admin/admin.py --enum-all-servers``
 
 Compare two files:
@@ -57,7 +57,8 @@ Compare two files:
 In case you use your own fork of CAPE. Is good to compare from time to time that you didn't miss any update and have all files properly updated.
 Some of us will have made custom mods to some files as for example: ``file_extra_info.py`` for example. You can exclude them in config under ``EXCLUDE_FILENAMES``.
 Also another known problem that most advanced users will have their own ``YARA`` rules, ``config extractors``, etc. For that my personal suggestion is to use prefix of your choice in that way you can filter them out in config with ``EXCLUDE_PREFIX``.
-To generate repositories listening run:
+To generate repositories listing run:
+
     * ``poetry run python admin/admin.py -gfl <path to private fork> --filename <Your fork name>``
     * ``poetry run python admin/admin.py -gfl <path to upstream repo> --filename upstream``
 
@@ -65,13 +66,13 @@ That generates 2 files, with ``.json`` extension. Now you can compare the differ
     * ``poetry run python CAPEv2/admin/admin.py -cfd <Your fork name>.json upstream.json``
 
 Is also a good idea to verify your deployed servers to ensure that all files are properly deployed as there many reason when something can go wrong as for example:
-    * Admin disabled one node for maintaninece and someone pushed a new/modified ``Yara rule``, ``config extractor``, etc to production. So that server will stay with old file.
+    * Admin disabled one node for maintenance and someone pushed a new/modified ``Yara rule``, ``config extractor``, etc to production. So that server will stay with old file.
 
-To generate all file listenings on all servers you can run:
-    * ``poetry run python CAPEv2/admin/admin.py --enum-all-servers --generate-files-listening <path>``
+To generate all file listings on all servers you can run:
+    * ``poetry run python CAPEv2/admin/admin.py --enum-all-servers --generate-files-listing <path>``
 
-The rest of the posibilities
-============================
+The rest of the possibilities
+=============================
 
 Restart ``processing`` on server(s):
     * ``poetry run python admin/admin.py --restart-service``

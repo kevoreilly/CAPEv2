@@ -41,6 +41,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
+          installation-arguments: --git https://github.com/python-poetry/poetry.git@fedff6da43f33a350598ec0ea85b5dca30178a03 # 1.5.1
           version: latest
           virtualenvs-create: true
           virtualenvs-in-project: true
@@ -59,6 +60,9 @@ jobs:
 
       - name: Run unit tests
         run: poetry run pytest -s --import-mode=append -k "not test_yara"
+
+      - name: Run parsers unit tests
+        run: poetry run pytest tests_parsers -s --import-mode=append
 
       - name: Install dependencies
         run: poetry run pip install ruff

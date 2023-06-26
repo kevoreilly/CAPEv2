@@ -26,7 +26,7 @@ def extract_key_data(data, pe, key_match):
     except Exception as e:
         log.debug(f"There was an exception extracting the key: {e}")
         log.debug(traceback.format_exc())
-        return
+        return False
     return key
 
 
@@ -46,7 +46,7 @@ def extract_config_data(data, pe, config_match):
     except Exception as e:
         log.debug(f"There was an exception extracting the campaign id: {e}")
         log.debug(traceback.format_exc())
-        return
+        return False, False, False
 
     try:
         # Get botnet id ciphertext
@@ -60,7 +60,7 @@ def extract_config_data(data, pe, config_match):
     except Exception as e:
         log.debug(f"There was an exception extracting the botnet id: {e}")
         log.debug(traceback.format_exc())
-        return
+        return False, False, False
 
     # Get C2 ciphertext
     try:
@@ -75,7 +75,7 @@ def extract_config_data(data, pe, config_match):
     except Exception as e:
         log.debug(f"There was an exception extracting the C2s: {e}")
         log.debug(traceback.format_exc())
-        return
+        return False, False, False
 
     return campaign_id_ct, botnet_id_ct, c2s_ct
 
@@ -88,9 +88,10 @@ def extract_config(data):
     pe = None
     try:
         with suppress(Exception):
-            pe = pefile.PE(data=data, fast_load=False)
+            pe = pefile.PE(data=data, fast_load=True)
+
         if not pe:
-            return
+            return cfg
         key_regex = re.compile(rb"(\x48\x8D.(?P<key>....)\x80\x3D....\x00)", re.DOTALL)
         regex = re.compile(
             rb"(?<campaign_id_ins>\x48\x8D.(?P<campaign_id>....))(?P<botnet_id_ins>\x48\x8D.(?P<botnet_id>....))(?P<c2s_ins>\x48\x8D.(?P<c2s>....))",
@@ -114,17 +115,19 @@ def extract_config(data):
         elif len(key_match) == 1:
             key = extract_key_data(data, pe, key_match[0])
             if not key:
-                return
+                return cfg
             cfg["RC4 Key"] = key.decode()
         # Extract config ciphertext
         config_match = regex.search(data)
         campaign_id, botnet_id, c2s = extract_config_data(data, pe, config_match)
-        # RC4 Decrypt
-        cfg["Campaign ID"] = ARC4.new(key).decrypt(campaign_id).split(b"\x00")[0].decode()
-        cfg["Botnet ID"] = ARC4.new(key).decrypt(botnet_id).split(b"\x00")[0].decode()
-        cfg["C2s"] = list(ARC4.new(key).decrypt(c2s).split(b"\x00")[0].decode().split(","))
+        if campaign_id:
+            cfg["Campaign ID"] = ARC4.new(key).decrypt(campaign_id).split(b"\x00")[0].decode()
+        if botnet_id:
+            cfg["Botnet ID"] = ARC4.new(key).decrypt(botnet_id).split(b"\x00")[0].decode()
+        if c2s:
+            cfg["C2s"] = list(ARC4.new(key).decrypt(c2s).split(b"\x00")[0].decode().split(","))
     except Exception as e:
-        print("This is broken: %s", str(e))
+        log.error("This is broken: %s", str(e), exc_info=True)
     return cfg
 
 

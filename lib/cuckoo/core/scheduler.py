@@ -730,6 +730,7 @@ class Scheduler:
         # At this point all the available machines should have been identified
         # and added to the list. If none were found, Cuckoo needs to abort the
         # execution.
+
         if not len(machinery.machines()):
             raise CuckooCriticalError("No machines available")
         else:
@@ -737,10 +738,7 @@ class Scheduler:
 
         if len(machinery.machines()) > 1 and self.db.engine.name == "sqlite":
             log.warning(
-                "As you've configured Cuckoo to execute parallel "
-                "analyses, we recommend you to switch to a MySQL "
-                "a PostgreSQL database as SQLite might cause some "
-                "issues"
+                "As you've configured CAPE to execute parallelanalyses, we recommend you to switch to a PostgreSQL database as SQLite might cause some issues"
             )
 
         # Drop all existing packet forwarding rules for each VM. Just in case

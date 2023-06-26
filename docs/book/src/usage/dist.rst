@@ -17,7 +17,7 @@ through the following command (on Debian/Ubuntu)::
 Starting the Distributed REST API
 =================================
 
-The Distributed REST API requires a few commandline options in order to run::
+The Distributed REST API requires a few command line options in order to run::
 
     $ cd /opt/CAPEv2/web && poetry run python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
@@ -76,7 +76,7 @@ POST /node
 
 Register a new CAPE node by providing the name and the URL. Optionally the apikey if auth is enabled,
 You might need to enable ``list_exitnodes`` and ``machinelist`` in ``custom/conf/api.conf``
-if your Node API is behing htaccess authentication::
+if your Node API is using htaccess authentication::
 
     $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/ -F apikey=apikey -F enabled=1
     {
@@ -119,7 +119,7 @@ Update basic information of a CAPE node::
     * enabled
         False=0 or True=1 to activate or deactivate worker node
     * exitnodes
-        exitnodes=1 - Update exit nodes list, to show on main webgui
+        exitnodes=1 - Update exit nodes list, to show on main web UI
     * apikey
         apikey for authorization
 
@@ -188,7 +188,7 @@ Note about VMs tags in hypervisor conf as kvm.conf::
 * Probably will be improved in future for better solution
 
 custom/conf/cuckoo.conf
-^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Optional: Update ``tmppath`` to something that holds enough storage to store a few
 hundred binaries. On some servers or setups ``/tmp`` may have a limited amount
@@ -199,19 +199,19 @@ SQLite3 doesn't support multi-threaded applications that well and this
 will give errors at random if used. Neither support database schema upgrade.
 
 custom/conf/processing.conf
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You may want to disable some processing modules, such as ``virustotal``.
 
 custom/conf/reporting.conf
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Depending on which report(s) are required for integration with your system it
 might make sense to only make those report(s) that you're going to use. Thus
 disable the other ones.
 
 custom/conf/distributed.conf
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Check also "[distributed]" section, where you can set the database, path for samples,
 and a few more values.
@@ -226,7 +226,7 @@ Register CAPE nodes
 ---------------------
 
 As outlined in :ref:`quick-usage` the CAPE nodes have to be registered with
-the Distributed CAPE script::
+the Distributed CAPE script
 
 without htaccess::
 
@@ -286,7 +286,7 @@ Installation of "uwsgi"::
 
 It's better if you run "web" and "dist.py" as uwsgi application. To run your api with config just execute as::
 
-    # WEBGUI is started by systemd as cape-web.service
+    # Web UI is started by systemd as cape-web.service
     $ uwsgi --ini /opt/CAPEv2/uwsgi/capedist.ini
 
 To add your application to auto start after boot, copy your config file to::
@@ -305,10 +305,10 @@ Optimizations::
             set max connection number to be able handle number of requests dist + dist2 + 10
 
 
-Distributed Mongo setup::
+Distributed Mongo setup
 
 Set one mongo as master and the rest just point to it, in this example cuckoo_dist.fe is our master server.
-Depending on your hardware you may prepend the next command before mongod
+Depending on your hardware you may prepend the next command before mongod::
 
     $ numactl --interleave=all
 
@@ -320,7 +320,7 @@ This execute on all nodes, master included:
 These commands should be executed only on the master::
 
     # create config server instance with the "cuckoo_config" replica set
-    # Preferly to execute few config servers on different shards
+    # Preferably to execute few config servers on different shards
     /usr/bin/mongod --configsvr --replSet cuckoo_config --bind_ip_all
 
     # initialize the "cuckoo_config" replica set
@@ -483,7 +483,7 @@ User authentication and roles::
 
 NFS data fetching::
 
-    Nice comparision between NFS, SSHFS, SMB
+    Nice comparison between NFS, SSHFS, SMB
     https://blog.ja-ke.tech/2019/08/27/nas-performance-sshfs-nfs-smb.html
 
 To configure NFS on the main server (NFS calls it client)

@@ -54,7 +54,7 @@ Additional Software
 At this point, you should have installed everything needed by CAPE to run
 properly.
 
-Depending on what kind of files you want to analyze and what kind of sandboxed
+Depending on what kind of files you want to analyze and what kind of sandbox
 environment you want to run the malware samples in, you may want to install
 additional software such as browsers, PDF readers, office suites, etc.
 

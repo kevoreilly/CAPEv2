@@ -1,3 +1,12 @@
+
+### [24.6.2023] EuskalHack feature
+* .inf detonation. Requires `sflock2==0.3.50`
+* New admin/admin.py - Cluster edition - [Documentation](https://capev2.readthedocs.io/en/latest/usage/cluster_administration.html)
+* New dependency. Run `cd /opt/CAPEv2 && poetry install`
+* 
+### [19.6.2023]
+* Monitor update: misc improvements & fixes
+
 ### [13.6.2023]
 * Monitor update: fix issue with Microsoft Edge not launching properly (#1587)
 

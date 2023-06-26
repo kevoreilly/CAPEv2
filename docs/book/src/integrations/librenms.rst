@@ -27,7 +27,7 @@ will work.
     # DB PW
     pass=12345
 
-This module will also send warnings, errors, and criticals found in
+This module will also send warnings, errors, and critical errors found in
 the logs to LibreNMS. To filter these,
 ``/usr/local/etc/cape_extend.ignores`` can be used. The format for
 that is as below.
@@ -36,7 +36,7 @@ that is as below.
 
     <ignore level> <pattern>
 
-This the ignore level will be lower cased. The seperator bween the
+This the ignore level will be lower cased. The separator between the
 level and the regexp pattern is ``/[\ \t]+/``. So if you want to ignore
 the two warnings generated when VM traffic is dropped, you would use
 the two lines such as below.

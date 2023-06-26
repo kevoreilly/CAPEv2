@@ -11,7 +11,8 @@ import sys
 import timeit
 from collections import defaultdict
 from contextlib import suppress
-from distutils.version import StrictVersion
+
+from packaging.version import Version
 
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
 from lib.cuckoo.common.config import AnalysisConfig, Config
@@ -409,14 +410,13 @@ class RunSignatures:
         # become obsolete in future versions or that might already be obsolete,
         # I need to match its requirements with the running version of Cuckoo.
         version = CUCKOO_VERSION.split("-", 1)[0]
+        sandbox_version = Version(version)
 
-        # If provided, check the minimum working Cuckoo version for this
-        # signature.
+        # If provided, check the minimum working Cuckoo version for this signature.
         if current.minimum:
             try:
-                # If the running Cuckoo is older than the required minimum
-                # version, skip this signature.
-                if StrictVersion(version) < StrictVersion(current.minimum.split("-", 1)[0]):
+                # If the running Cuckoo is older than the required minimum version, skip this signature.
+                if sandbox_version < Version(current.minimum.split("-", 1)[0]):
                     log.debug(
                         'You are running an older incompatible version of Cuckoo, the signature "%s" requires minimum version %s',
                         current.name,
@@ -427,13 +427,11 @@ class RunSignatures:
                 log.debug("Wrong minor version number in signature %s", current.name)
                 return None
 
-        # If provided, check the maximum working Cuckoo version for this
-        # signature.
+        # If provided, check the maximum working Cuckoo version for this  signature.
         if current.maximum:
             try:
-                # If the running Cuckoo is newer than the required maximum
-                # version, skip this signature.
-                if StrictVersion(version) > StrictVersion(current.maximum.split("-", 1)[0]):
+                # If the running Cuckoo is newer than the required maximum version, skip this signature.
+                if sandbox_version > Version(current.maximum.split("-", 1)[0]):
                     log.debug(
                         'You are running a newer incompatible version of Cuckoo, the signature "%s" requires maximum version %s',
                         current.name,

@@ -24,6 +24,7 @@ NTDLL = windll.ntdll
 KERNEL32 = windll.kernel32
 ADVAPI32 = windll.advapi32
 USER32 = windll.user32
+SHELL32 = windll.shell32
 PDH = windll.pdh
 
 BYTE = c_ubyte
@@ -36,6 +37,7 @@ ULONG = c_uint
 UINT64 = c_ulonglong
 LPBYTE = POINTER(c_ubyte)
 LPTSTR = POINTER(c_char)
+PWSTR = c_wchar_p
 HANDLE = c_void_p
 PVOID = c_void_p
 LPVOID = c_void_p

@@ -11,6 +11,7 @@ import os
 import platform
 import re
 import socket
+import subprocess
 import sys
 from contextlib import suppress
 from pathlib import Path
@@ -535,18 +536,26 @@ def check_tcpdump_permissions():
     pcap_permissions_error = False
     if user:
         try:
-            if user not in grp.getgrnam("pcap").gr_mem:
+            subprocess.check_call(["/usr/bin/sudo", "--list", "--non-interactive", tcpdump])
+        except subprocess.CalledProcessError:
+            try:
+                if user not in grp.getgrnam("pcap").gr_mem:
+                    pcap_permissions_error = True
+            except KeyError:
+                log.error("Group pcap does not exist.")
                 pcap_permissions_error = True
-        except KeyError:
-            log.error("Group pcap does not exist.")
-            pcap_permissions_error = True
 
     if pcap_permissions_error:
         print(
             f"""\nPcap generation wan't work till you fix the permission problems. Please run following command to fix it!
+
             groupadd pcap
             usermod -a -G pcap {user}
             chgrp pcap {tcpdump}
             setcap cap_net_raw,cap_net_admin=eip {tcpdump}
+
+            OR add the following line to /etc/sudoers:
+
+            {user} ALL=NOPASSWD: {tcpdump}
             """
         )

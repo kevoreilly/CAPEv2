@@ -2,9 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import functools
 import getpass
 import logging
 import os
+import signal
 import subprocess
 from stat import S_ISUID
 
@@ -21,6 +23,8 @@ router_cfg = Config("routing")
 
 
 class Sniffer(Auxiliary):
+    sudo_path = "/usr/bin/sudo"
+
     def __init__(self):
         Auxiliary.__init__(self)
         self.proc = None
@@ -49,23 +53,36 @@ class Sniffer(Auxiliary):
         ResultServer()
         resultserver_port = str(self.machine.resultserver_port or cfg.resultserver.port)
 
-        if not path_exists(tcpdump):
-            log.error('Tcpdump does not exist at path "%s", network capture aborted', tcpdump)
-            return
+        sudo = False
+        if not remote:
+            if not path_exists(tcpdump):
+                log.error('Tcpdump does not exist at path "%s", network capture aborted', tcpdump)
+                return
 
-        # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
-        mode = os.stat(tcpdump).st_mode
-        if mode & S_ISUID:
-            log.error(
-                "Tcpdump is not accessible from this user network capture aborted. You probably need to add CAPE user to pcap group"
-            )
-            return
+            try:
+                subprocess.check_call([self.sudo_path, "--list", "--non-interactive", tcpdump])
+            except subprocess.CalledProcessError:
+                # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
+                mode = os.stat(tcpdump).st_mode
+                if mode & S_ISUID:
+                    log.error(
+                        "Tcpdump is not accessible for this user. Network capture aborted. "
+                        "You probably need to grant sudo access to %s or add CAPE user to "
+                        "pcap group",
+                        tcpdump,
+                    )
+                    return
+            else:
+                sudo = True
 
         if not interface:
             log.error("Network interface not defined, network capture aborted")
             return
 
-        pargs = [tcpdump, "-U", "-q", "-s", "0", "-i", interface, "-n"]
+        pargs = []
+        if sudo:
+            pargs.extend([self.sudo_path, "--non-interactive", "--"])
+        pargs.extend([tcpdump, "-U", "-q", "-s", "0", "-i", interface, "-n"])
 
         # Trying to save pcap with the same user which cape is running.
         try:
@@ -209,17 +226,31 @@ class Sniffer(Auxiliary):
             return
 
         if self.proc and not self.proc.poll():
+            if self.proc.args[0] == self.sudo_path and "-Z" in self.proc.args:
+                # We must kill the child process that sudo spawned. We won't
+                # have permission to kill the parent process because it's owned by root.
+                try:
+                    pid = int(subprocess.check_output(["ps", "--ppid", str(self.proc.pid), "-o", "pid="]).decode())
+                except (subprocess.CalledProcessError, TypeError, ValueError):
+                    log.exception("Failed to get child pid of sudo process to stop the sniffer.")
+                    return
+                term_func = functools.partial(os.kill, pid, signal.SIGTERM)
+                kill_func = functools.partial(os.kill, pid, signal.SIGKILL)
+            else:
+                term_func = self.proc.terminate
+                kill_func = self.proc.kill
+                pid = self.proc.pid
             try:
-                self.proc.terminate()
+                term_func()
                 _, _ = self.proc.communicate()
             except Exception as e:
-                log.exception("Unable to stop the sniffer (first try) with pid %d: %s", self.proc.pid, e)
+                log.exception("Unable to stop the sniffer (first try) with pid %d: %s", pid, e)
                 try:
                     if not self.proc.poll():
                         log.debug("Killing sniffer")
-                        self.proc.kill()
+                        kill_func()
                         _, _ = self.proc.communicate()
                 except OSError as e:
                     log.debug("Error killing sniffer: %s, continuing", e)
                 except Exception as e:
-                    log.exception("Unable to stop the sniffer with pid %d: %s", self.proc.pid, e)
+                    log.exception("Unable to stop the sniffer with pid %d: %s", pid, e)

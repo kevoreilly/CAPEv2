@@ -15,7 +15,7 @@ Sometimes the Microsoft Store opens up as soon as an analysis starts. In order t
 Reduce Overall Noise
 --------------------
 
-Sometimes disabling all Windows services (like UAC, defender, update, aero, firewal, etc...) is necessary in order to make the analysis as fluent as possible.
+Sometimes disabling all Windows services (like UAC, defender, update, aero, firewall, etc...) is necessary in order to make the analysis as fluent as possible.
 Make sure you check the `script`_ out and use it to get rid of all unnecessary noise. This is just example, you might need to configure your Virtual machine for the rest of the noise.
 
 .. _script: https://github.com/kevoreilly/CAPEv2/blob/master/installer/disable_win7noise.bat

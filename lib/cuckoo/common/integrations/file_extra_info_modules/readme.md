@@ -1,7 +1,7 @@
 ### This allows us to put custom modules without editing configs and easier to maintain private forks.
 
 * `extract_details` is the entry point called by `file_extra_info.py`
-* Here is a scheleton example of module:
+* Here is a skeleton example of module:
 
 ```
 import os

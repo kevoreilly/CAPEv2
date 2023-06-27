@@ -19,5 +19,5 @@ class Chrome(Package):
             "--disable-features=RendererCodeIntegrity",
     ]
         args.append('"{}"'.format(url))
-        args = args.join(" ")
+        args = " ".join(args)
         return self.execute(chrome, args)

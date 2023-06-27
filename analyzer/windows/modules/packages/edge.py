@@ -9,10 +9,5 @@ class Edge(Package):
     ]
 
     def start(self, url):
-        chrome = self.get_path("chrome.exe")
-        args = [
-            "--disable-features=RendererCodeIntegrity",
-    ]
-        args.append('"{}"'.format(url))
-        args = args.join(" ")
-        return self.execute(chrome, args)
+        edge = self.get_path("msedge.exe")
+        return self.execute(edge, f'"{url}"', url)

@@ -631,7 +631,7 @@ class RunSignatures:
             malscore = 0.0
 
         self.results["malscore"] = malscore
-        self.results["ttps"] = self.ttps
+        self.results["ttps"] = mapTTP(self.ttps)
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         if (

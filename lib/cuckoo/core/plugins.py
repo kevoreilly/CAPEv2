@@ -11,7 +11,8 @@ import sys
 import timeit
 from collections import defaultdict
 from contextlib import suppress
-from distutils.version import StrictVersion
+
+from packaging.version import Version
 
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
 from lib.cuckoo.common.config import AnalysisConfig, Config
@@ -197,7 +198,7 @@ class RunProcessing:
         """@param task: task dictionary of the analysis to process."""
         self.task = task
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
-        self.cfg = Config("processing")
+        self.cfg = processing_cfg
         self.cuckoo_cfg = Config()
         self.results = results
 
@@ -318,23 +319,15 @@ class RunSignatures:
         self.task = task
         self.results = results
         self.ttps = []
-        self.cfg_processing = Config("processing")
+        self.cfg_processing = processing_cfg
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
-
 
         # Gather all enabled & up-to-date Signatures.
         self.signatures = []
         for signature in list_plugins(group="signatures"):
-            sigName = signature.name
-            if "PDF" in self.results["target"]["file"]["type"]:
-                if "pdf" in sigName:
-                    self.signatures.append(signature(self.results))
-                continue
-
-            if not "pdf" in sigName:
-                if self._should_load_signature(signature):
-                    # Initialize them all
-                    self.signatures.append(signature(self.results))
+            if self._should_load_signature(signature):
+                # Initialize them all
+                self.signatures.append(signature(self.results))
 
         overlay = self._load_overlay()
         log.debug("Applying signature overlays for signatures: %s", ", ".join(overlay))
@@ -417,14 +410,13 @@ class RunSignatures:
         # become obsolete in future versions or that might already be obsolete,
         # I need to match its requirements with the running version of Cuckoo.
         version = CUCKOO_VERSION.split("-", 1)[0]
+        sandbox_version = Version(version)
 
-        # If provided, check the minimum working Cuckoo version for this
-        # signature.
+        # If provided, check the minimum working Cuckoo version for this signature.
         if current.minimum:
             try:
-                # If the running Cuckoo is older than the required minimum
-                # version, skip this signature.
-                if StrictVersion(version) < StrictVersion(current.minimum.split("-", 1)[0]):
+                # If the running Cuckoo is older than the required minimum version, skip this signature.
+                if sandbox_version < Version(current.minimum.split("-", 1)[0]):
                     log.debug(
                         'You are running an older incompatible version of Cuckoo, the signature "%s" requires minimum version %s',
                         current.name,
@@ -435,13 +427,11 @@ class RunSignatures:
                 log.debug("Wrong minor version number in signature %s", current.name)
                 return None
 
-        # If provided, check the maximum working Cuckoo version for this
-        # signature.
+        # If provided, check the maximum working Cuckoo version for this  signature.
         if current.maximum:
             try:
-                # If the running Cuckoo is newer than the required maximum
-                # version, skip this signature.
-                if StrictVersion(version) > StrictVersion(current.maximum.split("-", 1)[0]):
+                # If the running Cuckoo is newer than the required maximum version, skip this signature.
+                if sandbox_version > Version(current.maximum.split("-", 1)[0]):
                     log.debug(
                         'You are running a newer incompatible version of Cuckoo, the signature "%s" requires maximum version %s',
                         current.name,
@@ -497,6 +487,9 @@ class RunSignatures:
         """Run evented signatures.
         test_signature: signature name, Ex: cape_detected_threat, to test unique signature
         """
+
+        if not self.cfg_processing.detections.behavior:
+            return
 
         # This will contain all the matched signatures.
         matched = []
@@ -637,10 +630,8 @@ class RunSignatures:
         if malscore < 0.0:
             malscore = 0.0
 
-
-        from lib.cuckoo.common.mapTTPs import mapTTP
         self.results["malscore"] = malscore
-        self.results["ttps"] = mapTTP(self.ttps)
+        self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         if (
@@ -677,7 +668,7 @@ class RunReporting:
 
         self.results = results
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
-        self.cfg = Config("reporting")
+        self.cfg = reporting_cfg
         self.reprocess = reprocess
 
     def process(self, module):
@@ -719,14 +710,7 @@ class RunReporting:
         try:
             log.debug('Executing reporting module "%s"', current.__class__.__name__)
             pretime = timeit.default_timer()
-
-            if module_name == "submitCAPE" and self.reprocess:
-                tasks = db.list_parents(self.task["id"])
-                if tasks:
-                    self.results["CAPE_children"] = tasks
-                return
-            else:
-                current.run(self.results)
+            current.run(self.results)
             timediff = timeit.default_timer() - pretime
             self.results["statistics"]["reporting"].append(
                 {

@@ -1282,6 +1282,10 @@ function install_guacamole() {
     sudo ldconfig
 
     pip3 install -U 'Twisted[tls,http2]'
+    
+    if [ -f "/etc/systemd/system/guacd.service" ] ; then
+        sudo rm /etc/systemd/system/guacd.service
+    fi
 
     if [ ! -f "/opt/lib/systemd/system/guac-web.service" ] ; then
         cp /opt/CAPEv2/systemd/guacd.service /lib/systemd/system/guacd.service
@@ -1303,8 +1307,6 @@ function install_guacamole() {
     cd /opt/CAPEv2
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     cd ..
-
-    sudo mount -a
 
     systemctl daemon-reload
     systemctl enable guacd.service guac-web.service

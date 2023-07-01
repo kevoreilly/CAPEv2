@@ -8,11 +8,13 @@ def mapTTP(oldTTPs:list):
     configPath = os.path.join(CUCKOO_ROOT, 'conf', 'TTPs.conf')
     config.read(configPath)
 
+    ttpsList = []
     for ttpObj in oldTTPs:
         for option in config.options('TTPs'):
             if '.' in ttpObj['ttp']:
-                ttpObj.clear()
                 break
             elif ttpObj['ttp'] == option.upper():
                 ttpObj['ttp'] = config.get('TTPs', option)
-    return oldTTPs
+                ttpsList.append(ttpObj)
+                break
+    return ttpsList

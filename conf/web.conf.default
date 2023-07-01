@@ -37,6 +37,7 @@ allow_ignore_size = no
 search_limit = 50
 # Allow anon users to browser site but not submit/download
 anon_viewable = no
+# If webgui response time is too long, you can disable existent_tasks and top_detections
 existent_tasks = no
 top_detections = yes
 # hostname of the cape instance

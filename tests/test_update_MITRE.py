@@ -30,7 +30,7 @@ def mapMitre(oldID):
 
 
 if __name__ == "__main__":
-    configPath = os.path.join(CUCKOO_ROOT, 'conf', 'TTPs2.conf')
+    configPath = os.path.join(CUCKOO_ROOT, 'TTPs.conf')
     config = ConfigParser()
     ttpDict = {}
     import_package(modules.signatures)

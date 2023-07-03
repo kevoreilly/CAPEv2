@@ -6,7 +6,7 @@ from collections import defaultdict
 # Read the config file
 def mapTTP(oldTTPs:list):
     config = ConfigParser()
-    configPath = os.path.join(CUCKOO_ROOT, 'conf', 'TTPs.conf')
+    configPath = os.path.join(CUCKOO_ROOT, 'TTPs.conf')
     config.read(configPath)
 
     ttpsList = []

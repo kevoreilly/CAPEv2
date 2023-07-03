@@ -630,6 +630,7 @@ class RunSignatures:
         if malscore < 0.0:
             malscore = 0.0
 
+        from lib.cuckoo.common.mapTTPs import mapTTP
         self.results["malscore"] = malscore
         self.results["ttps"] = mapTTP(self.ttps)
 

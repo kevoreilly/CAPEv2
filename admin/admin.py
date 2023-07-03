@@ -32,6 +32,7 @@ from lib.cuckoo.common.admin_utils import (
     CAPE_PATH,
     POSTPROCESS,
     AutoAddPolicy,
+    bulk_deploy,
     compare_hashed_files,
     delete_file,
     delete_file_recon,
@@ -43,7 +44,6 @@ from lib.cuckoo.common.admin_utils import (
     get_file,
     load_workers_list,
     ssh,
-    bulk_deploy,
 )
 
 try:

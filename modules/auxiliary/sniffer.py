@@ -61,7 +61,7 @@ class Sniffer(Auxiliary):
 
             try:
                 subprocess.check_call([self.sudo_path, "--list", "--non-interactive", tcpdump])
-            except subprocess.CalledProcessError:
+            except (FileNotFoundError, subprocess.CalledProcessError):
                 # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
                 mode = os.stat(tcpdump).st_mode
                 if mode & S_ISUID:

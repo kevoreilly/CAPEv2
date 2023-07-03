@@ -6,6 +6,7 @@ import struct
 from contextlib import suppress
 
 import pefile
+
 # import requests
 
 
@@ -39,7 +40,6 @@ def extract_config(data):
             matches = m.group().decode().split("\0")[0]
             if len(matches) > 8:
                 c2.append(matches)
-
 
     """ Leaking your IP, uncomment on your risks, 3rd is the proxy, not steam/t.me
     # Retrieve C2 from dead drops

@@ -9,7 +9,6 @@ from lib.cuckoo.common.abstracts import CUCKOO_ROOT
 
 
 def mapMitre(oldID):
-    # Step 2: Fetch the mapping documentation
     MITRE_URL = f'https://attack.mitre.org/techniques/{oldID}'
 
     response = requests.get(MITRE_URL)

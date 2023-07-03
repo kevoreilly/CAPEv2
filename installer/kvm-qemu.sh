@@ -35,6 +35,10 @@ Huge thanks to:
 
 # ACPI tables related
 # https://wiki.archlinux.org/index.php/DSDT
+
+# Might need update the WMI queries but you have example how to dump the information
+# https://github.com/SecSamDev/cancamusa/blob/main/bin/extract-info.ps1
+
 # Dump on linux
 #   acpidump > acpidump.out
 # Dump on Windows
@@ -772,7 +776,7 @@ function replace_seabios_clues_public() {
 
     FILES=(
         src/hw/blockcmd.c
-        src/fw/paravirt.c
+        #src/fw/paravirt.c
     )
     for file in "${FILES[@]}"; do
         _sed_aux 's/"QEMU/"<WOOT>/g' "$file" "QEMU was not replaced in $file"

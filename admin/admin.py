@@ -32,6 +32,7 @@ from lib.cuckoo.common.admin_utils import (
     CAPE_PATH,
     POSTPROCESS,
     AutoAddPolicy,
+    bulk_deploy,
     compare_hashed_files,
     delete_file,
     delete_file_recon,
@@ -356,7 +357,7 @@ if __name__ == "__main__":
         if not files:
             sys.exit()
 
-        get_file(files, args.yara_category, args.dry_run)
+        bulk_deploy(files, args.yara_category, args.dry_run, servers, jumpbox)
 
     if args.restart_service and POSTPROCESS:
         execute_command_on_all(POSTPROCESS, servers, jumpbox)

@@ -6,14 +6,14 @@ import struct
 from contextlib import suppress
 
 import pefile
-import requests
+
+# import requests
 
 
 def extract_section(pe, name):
     for section in pe.sections:
         if name in section.Name:
             return section.get_data(section.VirtualAddress, section.SizeOfRawData)
-    return None
 
 
 def within_section(addr, pe, name):
@@ -35,12 +35,13 @@ def extract_config(data):
     # Look for the C2 in the ".rdata" section
     c2 = []
     rdata_data = extract_section(pe, b".rdata")
+    if rdata_data:
+        for m in re.finditer(rb"(https?://[\d\w\.:/?#&+=_-]+)", rdata_data):
+            matches = m.group().decode().split("\0")[0]
+            if len(matches) > 8:
+                c2.append(matches)
 
-    for m in re.finditer(rb"(https?://[\d\w\.:/?#&+=_-]+)", rdata_data):
-        matches = m.group().decode().split("\0")[0]
-        if len(matches) > 8:
-            c2.append(matches)
-
+    """ Leaking your IP, uncomment on your risks, 3rd is the proxy, not steam/t.me
     # Retrieve C2 from dead drops
     drops = []
     for url in c2:
@@ -58,7 +59,7 @@ def extract_config(data):
 
     for drop in drops:
         c2.append(drop)
-
+    """
     config_dict["C2"] = c2
 
     text_data = extract_section(pe, b".text")

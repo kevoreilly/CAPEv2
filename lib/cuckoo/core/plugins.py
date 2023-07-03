@@ -11,6 +11,7 @@ import sys
 import timeit
 from collections import defaultdict
 from contextlib import suppress
+
 from packaging.version import Version
 
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature

@@ -115,15 +115,22 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
     parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
-    parser.add_argument("-s", "--stop", help="Send signal to STOP analyzing upcoming tasks. Finish existent tasks and quit. Proper restart to pick any core changes.", action="store_true", required=False)
+    parser.add_argument(
+        "-s",
+        "--stop",
+        help="Send signal to STOP analyzing upcoming tasks. Finish existent tasks and quit. Proper restart to pick any core changes.",
+        action="store_true",
+        required=False,
+    )
     args = parser.parse_args()
 
     if args.stop:
         import psutil
+
         filename = Path(__file__).parts[-1]
         for p in psutil.process_iter(attrs=["name", "pid", "cmdline"]):
             # cuckoo.py but doing in this way in case we rename it in future
-            if filename in p.info['cmdline']:
+            if filename in p.info["cmdline"]:
                 p.send_signal(1)
                 break
     else:

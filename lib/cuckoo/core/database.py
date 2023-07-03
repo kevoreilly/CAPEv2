@@ -47,7 +47,7 @@ try:
         select,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
-    from sqlalchemy.orm import joinedload, relationship, sessionmaker, declarative_base, backref
+    from sqlalchemy.orm import backref, declarative_base, joinedload, relationship, sessionmaker
 
     Base = declarative_base()
 except ImportError:

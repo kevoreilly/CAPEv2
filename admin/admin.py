@@ -43,6 +43,7 @@ from lib.cuckoo.common.admin_utils import (
     get_file,
     load_workers_list,
     ssh,
+    bulk_deploy,
 )
 
 try:
@@ -356,7 +357,7 @@ if __name__ == "__main__":
         if not files:
             sys.exit()
 
-        get_file(files, args.yara_category, args.dry_run)
+        bulk_deploy(files, args.yara_category, args.dry_run, servers, jumpbox)
 
     if args.restart_service and POSTPROCESS:
         execute_command_on_all(POSTPROCESS, servers, jumpbox)

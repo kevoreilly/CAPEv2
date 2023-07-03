@@ -24,7 +24,7 @@ def mapMitre(oldID):
                 sub_id = matches.group(2) if matches.group(2) else ""
                 # Create the final output with TTP ID and sub ID
                 final_output = f"{ttp_id}.{sub_id}" if sub_id else ttp_id
-                return final_output  # Output: T1218.004 if sub ID exists, otherwise T1218
+                return final_output  # Output: i.e. T1218.004 if sub ID exists, otherwise T1218
          else:
             return oldID
 

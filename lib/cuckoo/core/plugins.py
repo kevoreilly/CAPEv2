@@ -27,6 +27,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.mapTTPs import mapTTP
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -630,8 +631,9 @@ class RunSignatures:
         if malscore < 0.0:
             malscore = 0.0
 
+
         self.results["malscore"] = malscore
-        self.results["ttps"] = self.ttps
+        self.results["ttps"] = mapTTP(self.ttps)
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         if (

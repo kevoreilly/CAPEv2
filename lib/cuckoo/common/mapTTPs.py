@@ -1,24 +1,29 @@
-from configparser import ConfigParser
-from lib.cuckoo.common.abstracts import CUCKOO_ROOT
 import os
+import json
 from collections import defaultdict
+
+from lib.cuckoo.common.abstracts import CUCKOO_ROOT
+
+ttpDict = {}
+ttps_map_file = os.path.join(CUCKOO_ROOT, "data", "mitre", 'TTPs.json')
+if os.path.exists(ttps_map_file):
+    try:
+        ttpDict = json.loads(open(ttps_map_file, "r").read())
+    except Exception as e:
+        print("Can't load TTPs.json file", e)
 
 # Read the config file
 def mapTTP(oldTTPs:list):
-    config = ConfigParser()
-    configPath = os.path.join(CUCKOO_ROOT, 'TTPs.conf')
-    config.read(configPath)
-
     ttpsList = []
-    for ttpObj in oldTTPs:
-        for option in config.options('TTPs'):
-            if '.' in ttpObj['ttp']:
-                break
-            elif ttpObj['ttp'] == option.upper():
-                ttpObj['ttp'] = config.get('TTPs', option)
-                ttpsList.append(ttpObj)
-                break
     grouped_ttps = defaultdict(list)
+
+    for ttpObj in oldTTPs:
+        if '.' in ttpObj['ttp']:
+            break
+        elif ttpDict.get(ttpObj['ttp']):
+            ttpObj['ttp'] = ttpDict.get(ttpObj['ttp'])
+            ttpsList.append(ttpObj)
+            break
 
     for item in ttpsList:
         grouped_ttps[item['signature']].append(item['ttp'])

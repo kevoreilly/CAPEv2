@@ -58,8 +58,8 @@ def yara_scan(raw_data, rule_name):
     for match in matches:
         if match.rule == "BitPaymer":
             for item in match.strings:
-                if item[1] == rule_name:
-                    return {item[1]: item[0]}
+                if item.identifier.strip("$") == rule_name:
+                    return {item.identifier.strip("$"): item.instances[0].offset}
 
 
 def extract_rdata(pe):

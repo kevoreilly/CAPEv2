@@ -81,13 +81,13 @@ def extract_config(filebuf):
         if match.rule != "DridexLoader":
             continue
         for item in match.strings:
-            if "$c2parse" in item[1]:
-                c2va_offset = int(item[0])
-                line = item[1]
-            elif "$botnet_id" in item[1]:
-                botnet_code = int(item[0])
-            elif "$rc4_key" in item[1] and not rc4_decode:
-                rc4_decode = int(item[0])
+            if "$c2parse" in item.identifier.strip("$"):
+                c2va_offset = item.instances[0].offset
+                line = item.identifier.strip("$")
+            elif "$botnet_id" in item.identifier.strip("$"):
+                botnet_code = item.instances[0].offset
+            elif "$rc4_key" in item.identifier.strip("$") and not rc4_decode:
+                rc4_decode = item.instances[0].offset
     if line == "$c2parse_6":
         c2_rva = struct.unpack("i", filebuf[c2va_offset + 44 : c2va_offset + 48])[0] - image_base
         botnet_rva = struct.unpack("i", filebuf[c2va_offset - 7 : c2va_offset - 3])[0] - image_base

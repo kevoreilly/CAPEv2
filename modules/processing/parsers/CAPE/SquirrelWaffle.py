@@ -79,8 +79,8 @@ def extract_config(data):
             if match.rule != "SquirrelWaffle":
                 continue
             for item in match.strings:
-                if "$c2key" in item[1]:
-                    c2key_offset = int(item[0])
+                if "$c2key" in item.identifier.strip("$"):
+                    c2key_offset = item.instances[0].offset
                     key_rva = struct.unpack("i", data[c2key_offset + 28 : c2key_offset + 32])[0] - pe.OPTIONAL_HEADER.ImageBase
                     key_offset = pe.get_offset_from_rva(key_rva)
                     config["C2 key"] = string_from_offset(data, key_offset).decode()

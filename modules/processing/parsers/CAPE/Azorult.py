@@ -43,12 +43,12 @@ def yara_scan(raw_data, rule_name):
     for match in matches:
         if match.rule == "Azorult":
             for item in match.strings:
-                if item[1] == rule_name:
-                    return {item[1]: item[0]}
+                if item.identifier.strip("$") == rule_name:
+                    return {item.identifier.strip("$"): item.instances[0].offset}
 
 
 def string_from_offset(data, offset):
-    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def extract_config(filebuf):

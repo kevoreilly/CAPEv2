@@ -434,8 +434,9 @@ class File:
         try:
             results, rule = [], File.yara_rules[category]
             for match in rule.match(self.file_path_ansii, externals=externals):
-
                 # malduck thank you for this <3 https://github.com/CERT-Polska/malduck/pull/94/files
+                strings = []
+                addresses = {}
                 for yara_string in match.strings:
                     # yara-python 4.3.0 broke compatibilty and started returning a StringMatch object
                     if type(yara_string) is tuple:
@@ -447,13 +448,14 @@ class File:
                         identifier = yara_string.identifier
                         contents = [x.matched_data for x in yara_string.instances]
 
-                strings = {self._yara_encode_string(s) for s in contents}
-                addresses = {identifier.strip("$"): offset for offset in offsets}
+                    strings.extend({self._yara_encode_string(s) for s in contents})
+                    addresses.update({identifier.strip("$"): offset for offset in offsets})
+
                 results.append(
                     {
                         "name": match.rule,
                         "meta": match.meta,
-                        "strings": list(strings),
+                        "strings": strings,
                         "addresses": addresses,
                     }
                 )

@@ -10,7 +10,13 @@ def test_mitre_attck():
     mitre, _, pyattck_version = mitre_load(True)
     assert mitre
 
-    data = {"ttps":[{'signature': 'http_request', 'ttps': ['T1071']}, {'signature': 'modify_proxy', 'ttps': ['T1112']}, {'signature': 'recon_fingerprint', 'ttps': ['T1012', 'T1082']}]}
+    data = {
+        "ttps": [
+            {"signature": "http_request", "ttps": ["T1071"]},
+            {"signature": "modify_proxy", "ttps": ["T1112"]},
+            {"signature": "recon_fingerprint", "ttps": ["T1012", "T1082"]},
+        ]
+    }
 
     # Download mitre jsons here
     install(["mitre"], True, True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")

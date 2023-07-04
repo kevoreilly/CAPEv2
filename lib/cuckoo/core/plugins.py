@@ -24,10 +24,10 @@ from lib.cuckoo.common.exceptions import (
     CuckooProcessingError,
     CuckooReportError,
 )
+from lib.cuckoo.common.mapTTPs import mapTTP
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.mapTTPs import mapTTP
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -630,7 +630,6 @@ class RunSignatures:
             malscore = 10.0
         if malscore < 0.0:
             malscore = 0.0
-
 
         self.results["malscore"] = malscore
         self.results["ttps"] = mapTTP(self.ttps)

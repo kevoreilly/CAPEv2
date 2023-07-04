@@ -19,11 +19,11 @@ def mapTTP(oldTTPs:list):
 
     for ttpObj in oldTTPs:
         if '.' in ttpObj['ttp']:
-            break
+            continue
         elif ttpDict.get(ttpObj['ttp']):
             ttpObj['ttp'] = ttpDict.get(ttpObj['ttp'])
             ttpsList.append(ttpObj)
-            break
+            continue
 
     for item in ttpsList:
         grouped_ttps[item['signature']].append(item['ttp'])

@@ -13,8 +13,10 @@ log = logging.getLogger("mitre")
 def mitre_generate_attck(results, mitre):
     attck = {}
     ttp_dict = {}
-    for ttp in results["ttps"]:
-        ttp_dict.setdefault(ttp["ttp"], set()).add(ttp["signature"])
+    # [{'signature': 'http_request', 'ttps': ['T1071']}, {'signature': 'modify_proxy', 'ttps': ['T1112']}, {'signature': 'recon_fingerprint', 'ttps': ['T1012', 'T1082']}]
+    for ttp_block in results["ttps"]:
+        for ttp in ttp_block.get("ttps", []):
+            ttp_dict.setdefault(ttp, set()).add(ttp_block["signature"])
     try:
         for technique in mitre.enterprise.techniques:
             if technique.technique_id not in list(ttp_dict.keys()):

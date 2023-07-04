@@ -48,7 +48,7 @@ def yara_scan(raw_data):
     for match in matches:
         if match.rule == "SmokeLoader":
             for item in match.strings:
-                ret_matches[item.identifier.strip("$")] = item.instances[0].offset
+                ret_matches[item.identifier] = item.instances[0].offset
 
     return ret_matches
 

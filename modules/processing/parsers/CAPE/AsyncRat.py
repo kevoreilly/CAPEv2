@@ -91,7 +91,7 @@ def extract_config(filebuf):
         return config
 
     for match in matches[0].strings:
-        if match.identifier.strip("$") == "$magic_cslr_0":
+        if match == "$magic_cslr_0":
             addr = match.instances[0].offset
 
     strings_offset = struct.unpack("<I", filebuf[addr + 0x40 : addr + 0x44])[0]

@@ -43,7 +43,7 @@ def yara_scan(raw_data):
     for match in matches:
         if match.rule == "ChChes":
             for item in match.strings:
-                addresses[item.identifier.strip("$")] = item.instances[0].offset
+                addresses[item.identifier] = item.instances[0].offset
     return addresses
 
 

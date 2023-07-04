@@ -150,7 +150,7 @@ git push
 ```
 
 ### How to cite this work
-If you use CAPEv2 in your work, please cite it as specified in the [CITATION](./CITATION.cff) file.
+If you use CAPEv2 in your work, please cite it as specified in the "Cite this repository" GitHub menu.
 
 ### Special note about 3rd part dependencies:
 * They becoming a headache, specially those that using `pefile` as each pins version that they want.
@@ -158,3 +158,5 @@ If you use CAPEv2 in your work, please cite it as specified in the [CITATION](./
 
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
+
+

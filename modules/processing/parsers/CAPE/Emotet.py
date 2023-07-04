@@ -115,25 +115,48 @@ MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 
 
 def first_match(matches, pattern):
-    for match in matches:
-        for item in match.strings:
-            if pattern == item[1]:
-                return int(item[0])
+
+    for yara_string in matches[0].strings:
+        # yara-python 4.3.0 broke compatibilty and started returning a StringMatch object
+        if type(yara_string) is tuple:
+            offsets = [yara_string[0]]
+            identifier = yara_string[1]
+            # contents = [yara_string[2]]
+        else:
+            offsets = [x.offset for x in yara_string.instances]
+            identifier = yara_string.identifier
+            # contents = [x.matched_data for x in yara_string.instances]
+
+        if identifier == pattern:
+            return offsets[0]
+
     return 0
 
 
 def addresses_from_matches(matches, pattern):
     addresses = []
     for match in matches:
-        for item in match.strings:
-            if item[1] == pattern:
-                addresses.append(item[0])
-    return addresses
+        for yara_string in match.strings:
+            # yara-python 4.3.0 broke compatibilty and started returning a StringMatch object
+            if type(yara_string) is tuple:
+                offsets = [yara_string[0]]
+                identifier = yara_string[1]
+                # contents = [yara_string[2]]
+            else:
+                offsets = [x.offset for x in yara_string.instances]
+                identifier = yara_string.identifier
+                # contents = [x.matched_data for x in yara_string.instances]
+
+            if identifier == pattern:
+                addresses.extend(offsets)
+
+    return []
 
 
 def c2_funcs_from_match(matches, pattern, data):
     addresses = []
-    hit = first_match(matches, pattern) + data[first_match(matches, pattern) :].find(b"\x48\x8D\x05")
+    addr = first_match(matches, pattern)
+    hit = addr + data[addr:].find(b"\x48\x8D\x05")
     next = 1
     while next > 0:
         addresses.append(struct.unpack("i", data[hit + 3 : hit + 7])[0] + hit + 7)

@@ -116,8 +116,7 @@ MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 
 def first_match(matches, pattern):
 
-    # malduck thank you for this <3 https://github.com/CERT-Polska/malduck/pull/94/files
-    for yara_string in matches.strings:
+    for yara_string in matches[0].strings:
         # yara-python 4.3.0 broke compatibilty and started returning a StringMatch object
         if type(yara_string) is tuple:
             offsets = [yara_string[0]]
@@ -137,10 +136,21 @@ def first_match(matches, pattern):
 def addresses_from_matches(matches, pattern):
     addresses = []
     for match in matches:
-        for item in match.strings:
-            if item[1] == pattern:
-                addresses.append(item[0])
-    return addresses
+        for yara_string in match.strings:
+            # yara-python 4.3.0 broke compatibilty and started returning a StringMatch object
+            if type(yara_string) is tuple:
+                offsets = [yara_string[0]]
+                identifier = yara_string[1]
+                # contents = [yara_string[2]]
+            else:
+                offsets = [x.offset for x in yara_string.instances]
+                identifier = yara_string.identifier
+                # contents = [x.matched_data for x in yara_string.instances]
+
+            if identifier == pattern:
+                addresses.extend(offsets)
+
+    return []
 
 
 def c2_funcs_from_match(matches, pattern, data):

@@ -46,8 +46,8 @@ def yara_scan(raw_data, rule_name):
     for match in matches:
         if match.rule == "RCSession":
             for item in match.strings:
-                if item.identifier.strip("$") == rule_name:
-                    addresses[item.identifier.strip("$")] = item.instances[0].offset
+                if item.identifier == rule_name:
+                    addresses[item.identifier] = item.instances[0].offset
     return addresses
 
 

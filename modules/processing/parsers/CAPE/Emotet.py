@@ -117,7 +117,7 @@ MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 
 def first_match(matches, pattern):
     for item in matches[0].strings:
-        if pattern == item.identifier.strip("$"):
+        if pattern == item.identifier:
             return item.instances[0].offset
     return 0
 
@@ -126,7 +126,7 @@ def addresses_from_matches(matches, pattern):
     addresses = []
     for match in matches:
         for item in match.strings:
-            if item.identifier.strip("$") == pattern:
+            if item.identifier == pattern:
                 addresses.append(item.instances[0].offset)
     return addresses
 

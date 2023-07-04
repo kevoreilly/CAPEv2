@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+title: CAPEv2
+message: Malware Configuration And Payload Extraction
+type: software
+authors:
+  - given-names: O'Reilly
+    family-names: Kevin
+  - given-names: Andriy
+    family-names: Brukhovetskyy
+identifiers:
+  - type: url
+    value: 'https://github.com/kevoreilly/CAPEv2'
+    description: CAPE v2
+repository-code: 'https://github.com/kevoreilly/CAPEv2'
+url: 'https://capev2.readthedocs.io/en/latest/#'
+abstract: >
+  CAPEv2: Malware Configuration And Payload Extraction is a
+  malware sandbox.
+keywords:
+  - malware
+  - sandbox
+  - cape
+  - capev2
+  - analysis
+license: GPL-3.0

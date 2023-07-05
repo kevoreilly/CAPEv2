@@ -40,11 +40,15 @@ MAX_STRING_SIZE = 32
 def yara_scan(raw_data, rule_name):
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
+
     for match in matches:
-        if match.rule == "Azorult":
-            for item in match.strings:
-                if item.identifier == rule_name:
-                    return {item.identifier: item.instances[0].offset}
+        if match.rule != "Azorult":
+            continue
+
+        for block in match.strings:
+            for instance in block.instances:
+                if block.identifier == rule_name:
+                    return {block.identifier: instance.offset}
 
 
 def string_from_offset(data, offset):

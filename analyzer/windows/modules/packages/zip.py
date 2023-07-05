@@ -42,7 +42,7 @@ class Zip(Package):
     ]
 
     def execute_interesting_file(self, root: str, file_name: str, file_path: str):
-        log.debug('file_name: "%s"', file_name)
+        log.debug('Interesting file_name: "%s"', file_name)
         if file_name.lower().endswith((".lnk", ".bat", ".cmd")):
             cmd_path = self.get_path("cmd.exe")
             cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
@@ -104,12 +104,25 @@ class Zip(Package):
             extract_zip(path, root, password, 0)
             for f in zipinfos:
                 file_names.append(f.filename)
-        except CuckooPackageError:
+        except CuckooPackageError as e:
+            # We should not be trying to do other things if we cannot extract the initial
+            # password-protected zip file
+            if "Bad password for file" in repr(e):
+                raise
+
             # use 7z on files that Python zip module couldn't handle
             seven_zip_path = self.get_path_app_in_path("7z.exe")
             file_names = get_file_names(seven_zip_path, path)
             if len(file_names):
                 extract_archive(seven_zip_path, path, root, password)
+
+        # If the .zip only contains a 7zip file, then do:
+        if len(file_names) == 1 and file_names[0].endswith(".7z"):
+            seven_zip_path = self.get_path_app_in_path("7z.exe")
+            nested_7z = os.path.join(root, file_names[0])
+            file_names = get_file_names(seven_zip_path, nested_7z)
+            if len(file_names):
+                extract_archive(seven_zip_path, nested_7z, root, password)
 
         file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.

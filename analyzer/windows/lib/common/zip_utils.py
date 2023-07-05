@@ -110,7 +110,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1)
         zip_path = new_zip_path
 
     # requires bytes not str
-    if not isinstance(password, bytes):
+    if isinstance(password, str):
         password = password.encode()
 
     # Extraction.
@@ -121,9 +121,10 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1)
             is_encrypted = zip_info.flag_bits & 0x1
             # If encrypted and the user didn't provide a password
             # set to default value
-            if is_encrypted and password == b"":
-                log.debug("Archive is encrypted and user did not provide a password, using default value: infected")
-                password = b"infected"
+            if is_encrypted and (password in (b"", b"infected")):
+                log.debug("Archive is encrypted, using default password value: infected")
+                if password == b"":
+                    password = b"infected"
             # Else, either password stays as user specified or archive is not encrypted
 
         try:
@@ -131,6 +132,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1)
         except BadZipfile as e:
             raise CuckooPackageError("Invalid Zip file") from e
         except RuntimeError:
+            # Try twice, just for kicks
             try:
                 archive.extractall(path=extract_path, pwd=password)
             except RuntimeError as e:

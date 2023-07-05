@@ -280,9 +280,8 @@ class CAPE(Processing):
             # Check for a payload or config hit
             cape_name = None
             try:
-                if File.yara_hit_provides_detection(hit):
-                    file_info["cape_type"] = hit["meta"]["cape_type"]
-                    cape_name = File.get_cape_name_from_yara_hit(hit)
+               if yara['name']:
+                    cape_name=yara['name']
                     cape_names.add(cape_name)
             except Exception as e:
                 log.error("Cape type error: %s", str(e))

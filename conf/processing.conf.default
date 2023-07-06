@@ -214,7 +214,7 @@ userdb_signature = no
 # https://capev2.readthedocs.io/en/latest/usage/patterns_replacement.html
 replace_patterns = no
 # If enabled, the detections section will depend on YARA hits only if the rule contains an identifier named "cape_type" and contains "config", "payload", or "loader"
-# otherwise, it will be triggered whatever YARA hits are found
+# otherwise, it will be triggered whatever YARA hits are found (related to "data/yara/CAPE" ONLY)
 yara_detections = no
 
 # Deduplicate screenshots

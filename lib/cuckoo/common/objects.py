@@ -434,7 +434,6 @@ class File:
         try:
             results, rule = [], File.yara_rules[category]
             for match in rule.match(self.file_path_ansii, externals=externals):
-
                 # malduck thank you for this <3 https://github.com/CERT-Polska/malduck/pull/94/files
                 strings = []
                 addresses = {}

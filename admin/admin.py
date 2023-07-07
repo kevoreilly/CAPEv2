@@ -98,7 +98,7 @@ if __name__ == "__main__":
         default=False,
         required=False,
     )
-    parser.add_argument("--custom", help="Deploy custom stuff", action="store_true", default=False, required=False)
+    parser.add_argument("--custom", help="Deploy custom stuff", action="store", default=False, required=False)
     parser.add_argument(
         "-yc",
         "--yara-category",
@@ -328,12 +328,8 @@ if __name__ == "__main__":
             files.append(dest_file)
             shutil.copyfile(os.path.join(community_folder, file), dest_file)
     elif args.custom:
-        # this is only useful on next installs
-        for root, dirs, files in os.walk("Custom"):
-            for name in files:
-                files.append(os.path.join(os.path.join(root, name)))
-                # ToDo
-        sys.exit()
+        for root, dirs, files in os.walk(args.custom):
+            files.extend([os.path.join(root, name) for name in files])
     elif args.fetch_process_log:
         get_file(f"{CAPE_PATH}/log/process.log", servers, jumpbox)
         sys.exit()

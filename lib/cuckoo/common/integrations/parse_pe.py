@@ -5,7 +5,6 @@
 import array
 import base64
 import binascii
-import contextlib
 import hashlib
 import itertools
 import json
@@ -16,6 +15,7 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Tuple
+from contextlib import suppress
 
 from PIL import Image
 
@@ -301,7 +301,7 @@ class PortableExecutable:
             except Exception:
                 return None
         finally:
-            with contextlib.suppress(Exception):
+            with suppress(Exception):
                 ms.close()
         return file_type
 
@@ -748,15 +748,18 @@ class PortableExecutable:
         if address == 0:
             return retlist
 
-        signatures = pe.write()[address + 8 :]
-
-        if isinstance(signatures, bytearray):
-            signatures = bytes(signatures)
-
+        certs = []
         try:
-            certs = backend.load_der_pkcs7_certificates(signatures)
-        except Exception:
-            certs = []
+            signatures = pe.write()[address + 8 :]
+
+            if isinstance(signatures, bytearray):
+                signatures = bytes(signatures)
+
+            with suppress(Exception):
+                certs = backend.load_der_pkcs7_certificates(signatures)
+
+        except AttributeError:
+            log.error("Can't get PE signatures")
 
         for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()

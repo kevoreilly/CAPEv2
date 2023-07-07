@@ -11,11 +11,11 @@ import json
 import logging
 import math
 import struct
+from contextlib import suppress
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Tuple
-from contextlib import suppress
 
 from PIL import Image
 

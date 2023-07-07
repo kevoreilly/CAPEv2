@@ -1,3 +1,9 @@
+### [7.7.2023]
+* UPX-type dynamic unpacker in yara sig
+* Monitor updates: 
+    * New debugger action 'Step2OEP' for packers like UPX
+    * Deprecate obsolete UPX unpacker code
+    * misc improvements & fixes
 
 ### [24.6.2023] EuskalHack feature
 * .inf detonation. Requires `sflock2==0.3.50`
@@ -40,7 +46,6 @@
 * Simplifing the configuration
     * Do NOT edit any config that ends on `.default` as it will be default config.
     * For more details read readme inside of `conf` folder.
-
 
 ### [30.3.2023]
 * RedLine config extraction - thanks @Gi7w0rm

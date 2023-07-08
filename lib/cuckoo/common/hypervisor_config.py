@@ -5,7 +5,7 @@ from lib.cuckoo.common.config import Config
 
 proxmox_conf = Config("proxmoxVMs")
 
-def ShuttingDown(machineName:str):
+def proxmox_shutdown_vm(machineName:str):
     
     proxmoxIP = proxmox_conf.ProxmoxSettings.serverip    
     username = proxmox_conf.ProxmoxSettings.username

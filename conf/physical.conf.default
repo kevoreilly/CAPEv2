@@ -4,6 +4,10 @@
 # on the respective machine. (E.g. physical1,physical2,physical3)
 machines = physical01
 interface = ens33
+# Specify the setup type [proxmox/vmware/pure]
+## proxmox/vmware: It means that the entire lab is installed on hypervisor
+## pure: It means that the entire lab is installed in physical machines without any hypervisor
+type = proxmox
 
 # For Fog to work you need two API keys, one system wide and one which is tied to
 # your user. By default API is disabled in Fog. To enable it navigate to

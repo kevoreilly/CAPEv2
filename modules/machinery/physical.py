@@ -15,7 +15,8 @@ import requests
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
-from lib.cuckoo.common.config_proxmox import ShuttingDown
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.hypervisor_config import proxmox_shutdown_vm
 
 
 log = logging.getLogger(__name__)
@@ -129,13 +130,15 @@ class Physical(Machinery):
                     payload = json.dumps({"taskTypeID": taskID_Deploy, "shutdown": "", "wol": "true"}).encode()
 
                     requests.post(f"http://{self.options.fog.hostname}/fog/host/{hostID}/task", headers=headers, data=payload)
-
+                    managerType = Config("physical")
                     try:
-                        # requests.post(
-                        #     f"http://{machine.ip}:{CUCKOO_GUEST_PORT}/execute",
-                        #     data={"command": "shutdown -r -f -t 0"},
-                        # )
-                        ShuttingDown(machine.name)
+                        if managerType.physical.type == "pure":
+                            requests.post(
+                                f"http://{machine.ip}:{CUCKOO_GUEST_PORT}/execute",
+                                data={"command": "shutdown -r -f -t 0"},
+                            )
+                        elif managerType.physical.type == "proxmox":
+                            proxmox_shutdown_vm(machine.name)
                     except Exception:
                         # The reboot will start immediately which may kill our socket so we just ignore this exception
                         log.debug("Socket killed from analysis machine due to reboot")

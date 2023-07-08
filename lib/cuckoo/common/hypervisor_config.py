@@ -3,9 +3,10 @@ import json
 from lib.cuckoo.common.config import Config
 
 
-proxmox_conf = Config("proxmoxVMs")
+
 
 def proxmox_shutdown_vm(machineName:str):
+    proxmox_conf = Config("proxmoxVMs")
     
     proxmoxIP = proxmox_conf.ProxmoxSettings.serverip    
     username = proxmox_conf.ProxmoxSettings.username

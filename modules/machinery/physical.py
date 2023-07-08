@@ -20,7 +20,7 @@ from lib.cuckoo.common.hypervisor_config import proxmox_shutdown_vm
 
 
 log = logging.getLogger(__name__)
-
+managerType = Config("physical")
 
 class Physical(Machinery):
     """Manage physical sandboxes."""
@@ -130,7 +130,7 @@ class Physical(Machinery):
                     payload = json.dumps({"taskTypeID": taskID_Deploy, "shutdown": "", "wol": "true"}).encode()
 
                     requests.post(f"http://{self.options.fog.hostname}/fog/host/{hostID}/task", headers=headers, data=payload)
-                    managerType = Config("physical")
+
                     try:
                         if managerType.physical.type == "pure":
                             requests.post(

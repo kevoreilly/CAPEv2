@@ -13,9 +13,9 @@ from time import sleep
 import requests
 
 from lib.cuckoo.common.abstracts import Machinery
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
-from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
 managerType = Config("physical").physical.type

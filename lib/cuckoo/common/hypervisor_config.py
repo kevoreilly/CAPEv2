@@ -1,5 +1,7 @@
-import requests
 import json
+
+import requests
+
 from lib.cuckoo.common.config import Config
 
 proxmox_conf = Config("proxmox")

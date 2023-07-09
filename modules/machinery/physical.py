@@ -20,7 +20,7 @@ from lib.cuckoo.common.config import Config
 log = logging.getLogger(__name__)
 managerType = Config("physical").physical.type
 
-if managerType == "proxmon":
+if managerType == "proxmox":
     from lib.cuckoo.common.hypervisor_config import proxmox_shutdown_vm
 
 

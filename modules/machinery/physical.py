@@ -16,11 +16,13 @@ from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.hypervisor_config import proxmox_shutdown_vm
-
 
 log = logging.getLogger(__name__)
-managerType = Config("physical")
+managerType = Config("physical").physical.type
+
+if managerType == "proxmon":
+    from lib.cuckoo.common.hypervisor_config import proxmox_shutdown_vm
+
 
 class Physical(Machinery):
     """Manage physical sandboxes."""
@@ -132,12 +134,12 @@ class Physical(Machinery):
                     requests.post(f"http://{self.options.fog.hostname}/fog/host/{hostID}/task", headers=headers, data=payload)
 
                     try:
-                        if managerType.physical.type == "pure":
+                        if managerType == "pure":
                             requests.post(
                                 f"http://{machine.ip}:{CUCKOO_GUEST_PORT}/execute",
                                 data={"command": "shutdown -r -f -t 0"},
                             )
-                        elif managerType.physical.type == "proxmox":
+                        elif managerType == "proxmox":
                             proxmox_shutdown_vm(machine.name)
                     except Exception:
                         # The reboot will start immediately which may kill our socket so we just ignore this exception

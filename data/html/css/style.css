@@ -7,6 +7,14 @@ body {
     padding-top: 60px;
     background: #1c1c1c repeat-x;
 }
+@media print {
+    html {
+        -webkit-print-color-adjust: exact;
+    }
+    .table{
+        color: #000!important;
+    }
+}
 
 @page {
     size: A3;

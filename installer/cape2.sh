@@ -1017,6 +1017,8 @@ EOF
 
     pip3 install unicorn capstone
 
+    sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
+
 }
 
 function install_clamav() {

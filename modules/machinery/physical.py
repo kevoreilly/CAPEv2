@@ -8,7 +8,7 @@ import logging
 import socket
 import struct
 import sys
-from time import sleep
+#from time import sleep
 
 import requests
 

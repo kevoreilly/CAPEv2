@@ -10,6 +10,7 @@ import signal
 import threading
 import time
 from collections import defaultdict
+import ping3
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -194,6 +195,11 @@ class AnalysisManager(threading.Thread):
             machine = machinery.acquire(
                 machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version
             )
+
+            # Check if machine is up or not to submit new task
+            response_time = ping3.ping(machine.ip)
+            if response_time is None:
+                continue  # Machine is down. Maybe it's being reimaged
 
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:

@@ -11,7 +11,7 @@ import timeit
 try:
     # Azure-specific imports
     # pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network
-    from azure.identity import ClientSecretCredential
+    from azure.identity import ClientSecretCredential, CertificateCredential
     from azure.mgmt.compute import ComputeManagementClient, models
     from azure.mgmt.network import NetworkManagementClient
     from msrest.polling import LROPoller
@@ -183,13 +183,24 @@ class Azure(Machinery):
         @return: an Azure ClientSecretCredential object
         """
 
-        # Instantiates the ClientSecretCredential object using
-        # Azure client ID, secret and Azure tenant ID
-        credentials = ClientSecretCredential(
-            client_id=self.options.az.client_id,
-            client_secret=self.options.az.secret,
-            tenant_id=self.options.az.tenant,
-        )
+        credentials = None
+        if self.options.az.secret and self.options.az.secret != "<secret>":
+            # Instantiates the ClientSecretCredential object using
+            # Azure client ID, secret and Azure tenant ID
+            credentials = ClientSecretCredential(
+                client_id=self.options.az.client_id,
+                client_secret=self.options.az.secret,
+                tenant_id=self.options.az.tenant,
+            )
+        else:
+            # Instantiates the CertificateCredential object using
+            # Azure client ID, secret and Azure tenant ID
+            credentials = CertificateCredential(
+                client_id=self.options.az.client_id,
+                tenant_id=self.options.az.tenant,
+                certificate_path=self.options.az.certificate_path,
+                password=self.options.az.certificate_password,
+            )
         return credentials
 
     def _thr_refresh_clients(self):

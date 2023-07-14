@@ -1,3 +1,6 @@
+### [14.7.2023]
+* Monitor update: Add hook for LoadLibraryExW
+
 ### [7.7.2023]
 * UPX-type dynamic unpacker in yara sig
 * Monitor updates: 

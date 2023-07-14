@@ -11,7 +11,7 @@ import timeit
 try:
     # Azure-specific imports
     # pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network
-    from azure.identity import ClientSecretCredential, CertificateCredential
+    from azure.identity import CertificateCredential, ClientSecretCredential
     from azure.mgmt.compute import ComputeManagementClient, models
     from azure.mgmt.network import NetworkManagementClient
     from msrest.polling import LROPoller

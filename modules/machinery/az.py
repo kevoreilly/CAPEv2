@@ -390,7 +390,6 @@ class Azure(Machinery):
         # If we want to programmatically determine the number of cores for the sku
         if self.options.az.find_number_of_cores_for_sku or self.options.az.instance_type_cores == 0:
             resource_skus = Azure._azure_api_call(
-                self.options.az.region_name,
                 filter=f"location={self.options.az.region_name}",
                 operation=self.compute_client.resource_skus.list,
             )

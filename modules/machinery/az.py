@@ -692,20 +692,14 @@ class Azure(Machinery):
         # I figured this was the most concrete way to guarantee that an API method was being passed
         if not kwargs["operation"]:
             raise Exception("kwargs in _azure_api_call requires 'operation' parameter.")
-        operation = kwargs["operation"]
+        operation = kwargs.pop("operation")
 
         # This is used for logging
-        api_call = f"{operation}({args})"
-
-        # Note that we are using a custom polling interval for some operations
-        polling_interval = kwargs.get("polling_interval")
+        api_call = f"{operation}({args},{kwargs})"
 
         try:
             log.debug(f"Trying {api_call}")
-            if polling_interval:
-                results = operation(*args, polling_interval=polling_interval)
-            else:
-                results = operation(*args)
+            results = operation(*args, **kwargs)
         except Exception as exc:
             # For ClientRequestErrors, they do not have the attribute 'error'
             error = exc.error.error if getattr(exc, "error", False) else exc

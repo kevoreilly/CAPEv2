@@ -537,7 +537,7 @@ def check_tcpdump_permissions():
     if user:
         try:
             subprocess.check_call(["/usr/bin/sudo", "--list", "--non-interactive", tcpdump])
-        except subprocess.CalledProcessError:
+        except (FileNotFoundError, subprocess.CalledProcessError):
             try:
                 if user not in grp.getgrnam("pcap").gr_mem:
                     pcap_permissions_error = True

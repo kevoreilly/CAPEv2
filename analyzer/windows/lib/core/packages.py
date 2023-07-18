@@ -125,7 +125,7 @@ def choose_package(file_type, file_name, exports, target):
         return "pdf"
     elif re.search(b'<script\\s+language="(J|VB|Perl)Script"', file_content, re.I):
         return "wsf"
-    elif file_name.endswith((".vbs", ".vbe")) or re.findall(rb"\s?Dim\s", file_content, re.I) or re.findall(r'\bDim\b', file_content.decode('utf-16le'), re.IGNORECASE):
+    elif file_name.endswith((".vbs", ".vbe")) or re.findall(rb"\s?Dim\s", file_content, re.I) or re.findall(b"\s?\x00D\x00i\x00m\x00\s", file_content, re.I):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"

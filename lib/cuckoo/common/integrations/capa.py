@@ -23,17 +23,13 @@ details = flare_capa_details(path, "static", on_demand=True)
 
 rules = False
 HAVE_FLARE_CAPA = False
-print(processing_conf.flare_capa.enabled)
 if processing_conf.flare_capa.enabled:
-    if True:  # try:
+    try:
         from capa.version import __version__ as capa_version
 
-        """
         if capa_version[0] != "6":
             print("FLARE-CAPA missed, poetry run pip3 install git+https://github.com/mandiant/capa")
         else:
-        """
-        if True:
             import capa.main
             import capa.rules
             import capa.engine
@@ -76,10 +72,10 @@ if processing_conf.flare_capa.enabled:
             else:
                 print("FLARE CAPA signature missed! You can download them using python3 community.py -cr")
                 HAVE_FLARE_CAPA = False
-    # except ImportError as e:
-    #    HAVE_FLARE_CAPA = False
-    #    print(e)
-    #    print("FLARE-CAPA missed, poetry run pip3 install -U flare-capa")
+    except ImportError as e:
+        HAVE_FLARE_CAPA = False
+        print(e)
+        print("FLARE-CAPA missed, poetry run pip3 install -U flare-capa")
 
 
 # == Render ddictionary helpers
@@ -237,7 +233,7 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
         and not processing_conf.flare_capa.on_demand
         or on_demand
     ):
-        if True:  # try:
+        try:
             file_path_object = path_object(file_path)
             # extract features and find capabilities
             extractor = capa.main.get_extractor(
@@ -256,7 +252,7 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
             # ...as python dictionary, simplified as textable but in dictionary
             doc = rd.ResultDocument.from_capa(meta, rules, capabilities)
             capa_output = render_dictionary(doc)
-        """
+
         except MemoryError:
             log.warning("FLARE CAPA -> MemoryError")
         except AttributeError:
@@ -265,5 +261,5 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
             log.error("FLARE CAPA -> UnsupportedFormatError")
         except Exception as e:
             log.error(e, exc_info=True)
-        """
+
     return capa_output

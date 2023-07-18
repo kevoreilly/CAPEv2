@@ -11,46 +11,19 @@
 
         <table class="table table-striped table-bordered">
             <tr>
-                <th>Engine</th>
-                {% if file.info.category == "file" %}
-                    <th>Signature</th>
-                {% else %}
-                    <th>Result</th>
-                {% endif %}
-                <th>Engine</th>
-                {% if file.info.category == "file" %}
-                    <th>Signature</th>
-                {% else %}
-                    <th>Result</th>
-                {% endif %}
-                <th>Engine</th>
-                {% if file.info.category == "file" %}
-                    <th>Signature</th>
-                {% else %}
-                    <th>Result</th>
-                {% endif %}
+                <th>Engine</th><th>Result</th><th>Engine</th><th>Result</th><th>Engine</th><th>Result</th>
             </tr>
 
             {% for av, values in file.virustotal.scans.items %}
                 <td>{{av}}</td>
                 <td>
-                    {% if file.info.category == "file" %}
-                        {% if not values.result %}
-                            <span class="text-muted">Clean</span>
-                        {% else %}
-                            <span class="text-danger">{{values.result}}
-                            {% if values.moloch %}
-                            <a href="{{values.moloch}}" target="_blank">[MLCH]</a>
-                            {% endif %}
-                            </span>
-                        {% endif %}
+                    {% if not values.result %}
+                        <span class="text-muted">Clean</span>
                     {% else %}
-                        {% if not values.detected %}
-                            <span class="text-muted">
-                        {% else %}
-                            <span class="text-danger">
+                        <span class="text-danger">{{values.result}}
+                        {% if values.moloch %}
+                        <a href="{{values.moloch}}" target="_blank">[MLCH]</a>
                         {% endif %}
-                        {{ values.result|title }}
                         </span>
                     {% endif %}
                 </td>

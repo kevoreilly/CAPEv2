@@ -12,19 +12,20 @@ def test_mitre_attck():
 
     data = {
         "ttps": [
-            {"ttp": "T1486", "signature": "cape_detected_threat"},
-            {"ttp": "T1486", "signature": "cape_extracted_content"},
+            {"signature": "http_request", "ttps": ["T1071"]},
+            {"signature": "modify_proxy", "ttps": ["T1112"]},
+            {"signature": "recon_fingerprint", "ttps": ["T1012", "T1082"]},
         ]
     }
 
     # Download mitre jsons here
     install(["mitre"], True, True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
     attck = mitre_generate_attck(data, mitre)
-    assert "Impact" in attck
-    assert len(attck["Impact"]) == 1
-    assert sorted(attck["Impact"][0]["signature"]) == ["cape_detected_threat", "cape_extracted_content"]
-    assert not attck["Impact"][0]["t_id"].startswith("attack-pattern")
-    assert attck["Impact"][0]["t_id"] == "T1486"
+    assert "Discovery" in attck
+    assert len(attck["Discovery"]) == 2
+    assert sorted(attck["Discovery"][0]["signature"]) == ["recon_fingerprint"]
+    assert not attck["Discovery"][0]["t_id"].startswith("attack-pattern")
+    assert attck["Discovery"][0]["t_id"] == "T1082"
 
 
 if __name__ == "__main__":

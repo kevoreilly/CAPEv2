@@ -1,9 +1,22 @@
 
+### [18.7.2023]
+* FLARE CAPA v6 support. Is now uniq supported version. They doing breaking changes.
+
+### [14.7.2023]
+* Monitor update: Add hook for LoadLibraryExW
+
+### [7.7.2023]
+* UPX-type dynamic unpacker in yara sig
+* Monitor updates:
+    * New debugger action 'Step2OEP' for packers like UPX
+    * Deprecate obsolete UPX unpacker code
+    * misc improvements & fixes
+
 ### [24.6.2023] EuskalHack feature
 * .inf detonation. Requires `sflock2==0.3.50`
 * New admin/admin.py - Cluster edition - [Documentation](https://capev2.readthedocs.io/en/latest/usage/cluster_administration.html)
 * New dependency. Run `cd /opt/CAPEv2 && poetry install`
-* 
+*
 ### [19.6.2023]
 * Monitor update: misc improvements & fixes
 
@@ -40,7 +53,6 @@
 * Simplifing the configuration
     * Do NOT edit any config that ends on `.default` as it will be default config.
     * For more details read readme inside of `conf` folder.
-
 
 ### [30.3.2023]
 * RedLine config extraction - thanks @Gi7w0rm

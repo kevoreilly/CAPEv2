@@ -747,11 +747,12 @@ function install_yara() {
     pip3 install ./yara-python
     rm -r yara-python
 
-    # Remove the yara-python directory after installing it to avoid permission issues if
-    if [ -d "/opt/CAPEv2/" ]; then
-        cd /opt/CAPEv2/; sudo -u cape poetry run extra/poetry_yara_installer.sh
+    if id "cape" >/dev/null 2>&1; then
+        cd /opt/CAPEv2/
+        sudo -u cape poetry run extra/poetry_yara_installer.sh
+        cd -
     fi
-
+    rm -r yara-python
 }
 
 function install_mongo(){
@@ -1016,6 +1017,8 @@ EOF
     sudo checkinstall -D --pkgname=passivedns --default
 
     pip3 install unicorn capstone
+
+    sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
 
 }
 
@@ -1284,7 +1287,7 @@ function install_guacamole() {
     sudo ldconfig
 
     pip3 install -U 'Twisted[tls,http2]'
-    
+
     if [ -f "/etc/systemd/system/guacd.service" ] ; then
         sudo rm /etc/systemd/system/guacd.service
     fi

@@ -11,7 +11,7 @@ import timeit
 try:
     # Azure-specific imports
     # pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network
-    from azure.identity import ClientSecretCredential
+    from azure.identity import CertificateCredential, ClientSecretCredential
     from azure.mgmt.compute import ComputeManagementClient, models
     from azure.mgmt.network import NetworkManagementClient
     from msrest.polling import LROPoller
@@ -183,13 +183,24 @@ class Azure(Machinery):
         @return: an Azure ClientSecretCredential object
         """
 
-        # Instantiates the ClientSecretCredential object using
-        # Azure client ID, secret and Azure tenant ID
-        credentials = ClientSecretCredential(
-            client_id=self.options.az.client_id,
-            client_secret=self.options.az.secret,
-            tenant_id=self.options.az.tenant,
-        )
+        credentials = None
+        if self.options.az.secret and self.options.az.secret != "<secret>":
+            # Instantiates the ClientSecretCredential object using
+            # Azure client ID, secret and Azure tenant ID
+            credentials = ClientSecretCredential(
+                client_id=self.options.az.client_id,
+                client_secret=self.options.az.secret,
+                tenant_id=self.options.az.tenant,
+            )
+        else:
+            # Instantiates the CertificateCredential object using
+            # Azure client ID, secret and Azure tenant ID
+            credentials = CertificateCredential(
+                client_id=self.options.az.client_id,
+                tenant_id=self.options.az.tenant,
+                certificate_path=self.options.az.certificate_path,
+                password=self.options.az.certificate_password,
+            )
         return credentials
 
     def _thr_refresh_clients(self):
@@ -379,7 +390,6 @@ class Azure(Machinery):
         # If we want to programmatically determine the number of cores for the sku
         if self.options.az.find_number_of_cores_for_sku or self.options.az.instance_type_cores == 0:
             resource_skus = Azure._azure_api_call(
-                self.options.az.region_name,
                 filter=f"location={self.options.az.region_name}",
                 operation=self.compute_client.resource_skus.list,
             )
@@ -682,20 +692,14 @@ class Azure(Machinery):
         # I figured this was the most concrete way to guarantee that an API method was being passed
         if not kwargs["operation"]:
             raise Exception("kwargs in _azure_api_call requires 'operation' parameter.")
-        operation = kwargs["operation"]
+        operation = kwargs.pop("operation")
 
         # This is used for logging
-        api_call = f"{operation}({args})"
-
-        # Note that we are using a custom polling interval for some operations
-        polling_interval = kwargs.get("polling_interval")
+        api_call = f"{operation}({args},{kwargs})"
 
         try:
             log.debug(f"Trying {api_call}")
-            if polling_interval:
-                results = operation(*args, polling_interval=polling_interval)
-            else:
-                results = operation(*args)
+            results = operation(*args, **kwargs)
         except Exception as exc:
             # For ClientRequestErrors, they do not have the attribute 'error'
             error = exc.error.error if getattr(exc, "error", False) else exc

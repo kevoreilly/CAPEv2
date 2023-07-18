@@ -7,10 +7,11 @@ import logging
 import os
 import shlex
 import shutil
+import signal
 import subprocess
 import tempfile
 import timeit
-from typing import DefaultDict, List, Optional, Set, TypedDict
+from typing import DefaultDict, List, Optional, Set, TypedDict, Union
 
 import pebble
 
@@ -399,6 +400,26 @@ def time_tracker(func):
     return wrapped
 
 
+def pass_signal(proc, signum, frame):
+    proc.send_signal(signum)
+
+
+def run_tool(*args, **kwargs) -> Union[bytes, str]:
+    """Start a subprocess to run the given tool. Make sure to pass a SIGTERM signal to
+    that process if it is received.
+    """
+    kwargs["stdout"] = subprocess.PIPE
+    old_handler = None
+    try:
+        proc = subprocess.Popen(*args, **kwargs)
+        old_handler = signal.signal(signal.SIGTERM, functools.partial(pass_signal, proc))
+        (stdout, stderr) = proc.communicate()
+        return stdout
+    finally:
+        if old_handler:
+            signal.signal(signal.SIGTERM, old_handler)
+
+
 def generic_file_extractors(
     file: str,
     destination_folder: str,
@@ -597,7 +618,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
     with extractor_ctx(file, "eziriz", prefix="eziriz_") as ctx:
         tempdir = ctx["tempdir"]
         dest_path = os.path.join(tempdir, os.path.basename(file))
-        _ = subprocess.check_output(
+        _ = run_tool(
             [
                 os.path.join(CUCKOO_ROOT, binary),
                 *shlex.split(selfextract_conf.eziriz_deobfuscate.extra_args.strip()),
@@ -630,7 +651,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     with extractor_ctx(file, "de4dot", prefix="de4dot_") as ctx:
         tempdir = ctx["tempdir"]
         dest_path = os.path.join(tempdir, os.path.basename(file))
-        _ = subprocess.check_output(
+        _ = run_tool(
             [
                 binary,
                 *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
@@ -661,7 +682,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
         output = False
         if not kwargs.get("tests"):
             # msiextract in different way that 7z, we need to add subfolder support
-            output = subprocess.check_output(
+            output = run_tool(
                 [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
@@ -673,7 +694,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
                 if path_is_file(os.path.join(tempdir, extracted_file))
             ]
         else:
-            output = subprocess.check_output(
+            output = run_tool(
                 [
                     "7z",
                     "e",
@@ -708,7 +729,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
 
     with extractor_ctx(file, "InnoExtract", prefix="innoextract_") as ctx:
         tempdir = ctx["tempdir"]
-        subprocess.check_output(
+        run_tool(
             [selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir],
             universal_newlines=True,
             stderr=subprocess.PIPE,
@@ -753,7 +774,7 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
 
     with extractor_ctx(file, "UnAutoIt", prefix="unautoit_") as ctx:
         tempdir = ctx["tempdir"]
-        output = subprocess.check_output(
+        output = run_tool(
             [unautoit_binary, "extract-all", "--output-dir", tempdir, file],
             universal_newlines=True,
             stderr=subprocess.PIPE,
@@ -776,7 +797,7 @@ def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> Extra
     with extractor_ctx(file, "UnUPX", prefix="unupx_") as ctx:
         basename = f"{os.path.basename(file)}_unpacked"
         dest_path = os.path.join(ctx["tempdir"], basename)
-        output = subprocess.check_output(
+        output = run_tool(
             [
                 "upx",
                 "-d",
@@ -850,7 +871,7 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
             for child in unpacked.children:
                 _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
         else:
-            _ = subprocess.check_output(
+            _ = run_tool(
                 [
                     "7z",
                     "e",
@@ -885,7 +906,7 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
     with extractor_ctx(file, "UnRarSFX", prefix="unrar_") as ctx:
         tempdir = ctx["tempdir"]
         password = options.get("password", "infected")
-        output = subprocess.check_output(
+        output = run_tool(
             ["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir],
             universal_newlines=True,
             stderr=subprocess.PIPE,
@@ -934,7 +955,7 @@ def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
             for child in unpacked.children:
                 _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
         else:
-            _ = subprocess.check_output(
+            _ = run_tool(
                 [
                     "unzip",
                     file,

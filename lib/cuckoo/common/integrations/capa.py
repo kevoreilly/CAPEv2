@@ -9,7 +9,7 @@ from typing import Any, Dict, Set
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_object
 
 log = logging.getLogger(__name__)
 
@@ -27,29 +27,26 @@ if processing_conf.flare_capa.enabled:
     try:
         from capa.version import __version__ as capa_version
 
-        if capa_version[0] not in ("4", "5"):
-            print("FLARE-CAPA missed, pip3 install git+https://github.com/mandiant/capa")
+        if capa_version[0] != "6":
+            print("FLARE-CAPA missed, poetry run pip3 install git+https://github.com/mandiant/capa")
         else:
+            import capa.main
+            import capa.rules
             import capa.engine
             import capa.features
-            import capa.features.freeze.features as frzf
-            import capa.main
-            import capa.render.default
             import capa.render.json
-            import capa.render.result_document as rd
             import capa.render.utils as rutils
-            import capa.rules
-            from capa.engine import capa
+            import capa.render.default
+            import capa.render.result_document as rd
+            import capa.features.freeze.features as frzf
+            from capa.features.common import OS_AUTO, FORMAT_AUTO
             from capa.exceptions import UnsupportedFormatError
             from capa.rules import InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
                 try:
-                    if capa_version[0] == "5":
-                        rules = capa.main.get_rules([rules_path])
-                    else:
-                        rules = capa.rules.RuleSet(capa.main.get_rules([rules_path], disable_progress=True))
+                    rules = capa.main.get_rules([path_object(rules_path)])
                     HAVE_FLARE_CAPA = True
                 except InvalidRuleWithPath:
                     print("FLARE_CAPA InvalidRuleWithPath")
@@ -66,7 +63,7 @@ if processing_conf.flare_capa.enabled:
 
             signatures_path = os.path.join(CUCKOO_ROOT, "data", "flare-signatures")
             if path_exists(signatures_path):
-                capa.main.SIGNATURES_PATH_DEFAULT_STRING = signatures_path
+                capa.main.SIGNATURES_PATH_DEFAULT_STRING = path_object(signatures_path)
                 try:
                     signatures = capa.main.get_signatures(capa.main.SIGNATURES_PATH_DEFAULT_STRING)
                     HAVE_FLARE_CAPA = True
@@ -78,25 +75,25 @@ if processing_conf.flare_capa.enabled:
     except ImportError as e:
         HAVE_FLARE_CAPA = False
         print(e)
-        print("FLARE-CAPA missed, pip3 install -U flare-capa")
+        print("FLARE-CAPA missed, poetry run pip3 install -U flare-capa")
 
 
 # == Render ddictionary helpers
-def render_meta(doc: rd.ResultDocument, result):
+def render_meta(doc, result):
     result["md5"] = doc.meta.sample.md5
     result["sha1"] = doc.meta.sample.sha1
     result["sha256"] = doc.meta.sample.sha256
     result["path"] = doc.meta.sample.path
 
 
-def find_subrule_matches(doc: rd.ResultDocument) -> Set[str]:
+def find_subrule_matches(doc) -> Set[str]:
     """
     collect the rule names that have been matched as a subrule match.
     this way we can avoid displaying entries for things that are too specific.
     """
     matches = set([])
 
-    def rec(node: rd.Match):
+    def rec(node):
         if not node.success:
             # there's probably a bug here for rules that do `not: match: ...`
             # but we don't have any examples of this yet
@@ -117,7 +114,7 @@ def find_subrule_matches(doc: rd.ResultDocument) -> Set[str]:
     return matches
 
 
-def render_capabilities(doc: rd.ResultDocument, result):
+def render_capabilities(doc, result):
     """
     example::
         {'CAPABILITY': {'accept command line arguments': 'host-interaction/cli',
@@ -213,7 +210,7 @@ def render_mbc(doc, result):
         result["MBC"].setdefault(objective.upper(), inner_rows)
 
 
-def render_dictionary(doc: rd.ResultDocument) -> Dict[str, Any]:
+def render_dictionary(doc) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     render_meta(doc, result)
     render_attack(doc, result)
@@ -237,23 +234,32 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
         or on_demand
     ):
         try:
+            file_path_object = path_object(file_path)
             # extract features and find capabilities
-            extractor = capa.main.get_extractor(file_path, "auto", capa.main.BACKEND_VIV, [], False, disable_progress=True)
+            extractor = capa.main.get_extractor(
+                file_path_object, FORMAT_AUTO, OS_AUTO, capa.main.BACKEND_VIV, [], False, disable_progress=True
+            )
             capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
 
             # collect metadata (used only to make rendering more complete)
-            meta = capa.main.collect_metadata([], file_path, [rules_path], extractor)
-            meta["analysis"].update(counts)
-            meta["analysis"]["layout"] = capa.main.compute_layout(rules, extractor, capabilities)
+            meta = capa.main.collect_metadata([], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor)
+            meta.analysis.feature_counts = counts["feature_counts"]
+            meta.analysis.library_functions = counts["library_functions"]
+            meta.analysis.layout = capa.main.compute_layout(rules, extractor, capabilities)
+
+            capa_output: Any = False
+
             # ...as python dictionary, simplified as textable but in dictionary
             doc = rd.ResultDocument.from_capa(meta, rules, capabilities)
             capa_output = render_dictionary(doc)
+
         except MemoryError:
             log.warning("FLARE CAPA -> MemoryError")
         except AttributeError:
-            log.warning("FLARE CAPA -> Use GitHub's version. pip3 install git+https://github.com/mandiant/capa")
+            log.warning("FLARE CAPA -> Use GitHub's version. poetry run pip3 install git+https://github.com/mandiant/capa")
         except UnsupportedFormatError:
             log.error("FLARE CAPA -> UnsupportedFormatError")
         except Exception as e:
             log.error(e, exc_info=True)
+
     return capa_output

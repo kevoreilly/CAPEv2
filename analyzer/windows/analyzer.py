@@ -331,25 +331,22 @@ class Analyzer:
         log.debug("Python path: %s", os.path.dirname(sys.executable))
 
         # If no analysis package was specified at submission, we try to select one automatically.
-        if not self.config.package:
-            log.debug("No analysis package specified, trying to detect it automagically")
+        log.debug("No analysis package specified, trying to detect it automagically")
 
-            # If the analysis target is a file, we choose the package according to the file format.
-            if self.config.category == "file":
-                package = choose_package(self.config.file_type, self.config.file_name, self.config.exports, self.target)
-            # If it's an URL, we'll just use the default Internet Explorer package.
-            else:
-                package = "ie"
-
-            # If we weren't able to automatically determine the proper package, we need to abort the analysis.
-            if not package:
-                raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
-
-            log.info('Automatically selected analysis package "%s"', package)
-        # Otherwise just select the specified package.
+        # If the analysis target is a file, we choose the package according to the file format.
+        if self.config.category == "file":
+            package = choose_package(self.config.file_type, self.config.file_name, self.config.exports, self.target)
+        # If it's an URL, we'll just use the default Internet Explorer package.
         else:
-            package = self.config.package
-            log.info('Analysis package "%s" has been specified', package)
+            package = "ie"
+
+        # If we weren't able to automatically determine the proper package, we need to abort the analysis.
+        if not package:
+            raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
+
+        log.info('Automatically selected analysis package "%s"', package)
+        # Otherwise just select the specified package.
+
         # Generate the package path.
         package_name = f"modules.packages.{package}"
         # Try to import the analysis package.

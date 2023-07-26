@@ -244,7 +244,7 @@ def _delete_many(node, ids, nodes, db):
         db.rollback()
 
 
-def node_submit_task(task_id, node_id):
+def node_submit_task(task_id, node_id, main_task_id):
 
     db = session()
     node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
@@ -336,10 +336,11 @@ def node_submit_task(task_id, node_id):
                 check = True
             else:
                 log.debug(
-                    "Failed to submit task {} to node: {}, code: {}, msg: {}".format(task_id, node.name, r.status_code, r.content)
+                    "Failed to submit: main_task_id: {} task {} to node: {}, code: {}, msg: {}".format(main_task_id, task_id, node.name, r.status_code, r.content)
                 )
 
-            log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
+            if task.task_id:
+                log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
 
         elif r.status_code == 500:
             log.debug((r.status_code, r.text))
@@ -968,7 +969,7 @@ class StatusThread(threading.Thread):
 
                     if force_push or force_push_push:
                         # Submit appropriate tasks to node
-                        submitted = node_submit_task(task.id, node.id)
+                        submitted = node_submit_task(task.id, node.id, t.id)
                         if submitted:
                             if node.name == main_server_name:
                                 main_db.set_status(t.id, TASK_RUNNING)
@@ -1011,7 +1012,7 @@ class StatusThread(threading.Thread):
                 # Submit appropriate tasks to node
                 log.debug("going to upload {} tasks to node {}".format(pend_tasks_num, node.name))
                 for task in to_upload:
-                    submitted = node_submit_task(task.id, node.id)
+                    submitted = node_submit_task(task.id, node.id, task.main_task_id)
                     if submitted:
                         if node.name == main_server_name:
                             main_db.set_status(task.main_task_id, TASK_RUNNING)

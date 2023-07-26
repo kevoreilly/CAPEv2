@@ -59,10 +59,10 @@ jobs:
         run: poetry install --no-interaction --no-root
 
       - name: Run unit tests
-        run: poetry run pytest -s --import-mode=append -k "not test_yara"
+        run: poetry run python -m pytest -s --import-mode=append -k "not test_yara"
 
       - name: Run parsers unit tests
-        run: poetry run pytest tests_parsers -s --import-mode=append
+        run: poetry run python -m pytest tests_parsers -s --import-mode=append
 
       - name: Install dependencies
         run: poetry run pip install ruff

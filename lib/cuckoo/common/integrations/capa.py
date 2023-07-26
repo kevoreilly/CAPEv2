@@ -41,7 +41,7 @@ if processing_conf.flare_capa.enabled:
             import capa.features.freeze.features as frzf
             from capa.features.common import OS_AUTO, FORMAT_AUTO
             from capa.exceptions import UnsupportedFormatError
-            from capa.rules import InvalidRuleSet, InvalidRuleWithPath
+            from capa.rules import InvalidRuleSet, InvalidRuleWithPath, InvalidRule
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
@@ -52,6 +52,9 @@ if processing_conf.flare_capa.enabled:
                     print("FLARE_CAPA InvalidRuleWithPath")
                     HAVE_FLARE_CAPA = False
                 except InvalidRuleSet:
+                    print("FLARE_CAPA InvalidRuleSet")
+                    HAVE_FLARE_CAPA = False
+                except InvalidRule:
                     print("FLARE_CAPA InvalidRuleSet")
                     HAVE_FLARE_CAPA = False
                 except TypeError:

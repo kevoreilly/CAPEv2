@@ -109,6 +109,7 @@ sandbox_packages = (
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 repconf = Config("reporting")
+distconf = Config("distributed")
 web_conf = Config("web")
 LINUX_ENABLED = web_conf.linux.enabled
 DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
@@ -1649,7 +1650,7 @@ class Database(object, metaclass=Singleton):
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
-                if static and not config and repconf.distributed.enabled:
+                if static and not config and distconf.distributed.enabled:
                     if options:
                         options += ",dist_extract=1"
                     else:

@@ -481,7 +481,7 @@ def main():
                             if args.json_report and path_exists(args.json_report):
                                 report = args.json_report
                             else:
-                                sys.exit(f"File {report} doest exist")
+                                sys.exit(f"File {report} does not exist")
                         if report:
                             results = json.load(open(report))
                     if results is not None:
@@ -489,6 +489,9 @@ def main():
                         if "statistics" not in results:
                             results["statistics"] = {"signatures": []}
                         RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
+                        # If you are only running a single signature, print that output
+                        if args.signature_name and results["signatures"]:
+                            print(results["signatures"][0])
                 else:
                     process(
                         task=task,

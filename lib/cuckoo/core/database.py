@@ -1360,7 +1360,7 @@ class Database(object, metaclass=Singleton):
                         else:
                             tags = "x64"
                     else:
-                        if LINUX_ENABLED:
+                        if LINUX_ENABLED and platform == "linux":
                             linux_arch = _get_linux_vm_tag(file_type)
                             if linux_arch:
                                 if tags:

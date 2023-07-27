@@ -7,7 +7,6 @@ import random
 import re
 import sys
 import time
-import json
 from datetime import datetime, timedelta
 
 import requests

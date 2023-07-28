@@ -1,4 +1,44 @@
-rule IcedID
+rule IcedIDSyscallMap
+{
+    meta:
+        author = "kevoreilly"
+        description = "IcedID 'syscall' packer bypass - mapped view variant"
+        cape_options = "bp0=$mapview+34,action0=setbp1:r13,action1=goto:ntdll::NtMapViewOfSection,count=0"
+        packed = "7a412420a1defe06326ad043d2c516aab2493d634be7daed8c5a3282be414f3e"
+    strings:
+        $mapview = {45 33 C9 C7 44 24 ?? 01 00 00 00 48 83 CA FF 48 89 44 24 30 4C 89 6C 24 28 4C 89 6C 24 20 4C 8B 6D ?? 41 FF D5}
+    condition:
+        uint16(0) == 0x5A4D and all of them
+}
+
+rule IcedIDSyscallWriteMemA
+{
+    meta:
+        author = "kevoreilly"
+        description = "IcedID 'syscall' packer bypass - direct write variant A"
+        cape_options = "bp0=$writememory,action0=setbp1:rbx,action1=goto:ntdll::NtWriteVirtualMemory,count=0"
+        packed = "28075ecae5e224c06e250f2c949c826b81844bca421e9158a7a9e965a29ef894"
+    strings:
+        $writememory = {FF D3 33 D2 EB 05 48 8B 5C 24 ?? 44 8B 4D ?? 4D 8B C4 48 8B 4C 24 ?? 48 89 54 24}
+    condition:
+        uint16(0) == 0x5A4D and all of them
+}
+
+rule IcedIDSyscallWriteMemB
+{
+    meta:
+        author = "kevoreilly"
+        description = "IcedID 'syscall' packer bypass - direct write variant B"
+        cape_options = "bp0=$tokencheck+9,action0=jmp,bp1=$writememory,action1=setbp2:rbx,action2=goto:ntdll::NtWriteVirtualMemory,count=0"
+        packed = "045dff9f14a03225df55997cb2ca74ff60ecaf317b9e033ea93386785db84161"
+    strings:
+        $tokencheck = {39 5D F0 75 06 83 7D F4 03 74 05 BB 01 00 00 00 41 89 1C 24 48 8B 4D F8 41 FF D7}
+        $writememory = {FF D3 44 8B 4E ?? 4C 8B 46 ?? 48 8B 55 ?? 48 8B 4C 24 ?? 48 83 64 24 ?? 00 FF D3}
+    condition:
+        uint16(0) == 0x5A4D and all of them
+}
+
+rule IcedIDHook
 {
     meta:
         author = "kevoreilly"

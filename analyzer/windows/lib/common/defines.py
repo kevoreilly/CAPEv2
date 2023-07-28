@@ -26,6 +26,7 @@ ADVAPI32 = windll.advapi32
 USER32 = windll.user32
 SHELL32 = windll.shell32
 PDH = windll.pdh
+PSAPI = windll.psapi
 
 BYTE = c_ubyte
 USHORT = c_ushort
@@ -133,6 +134,8 @@ OPEN_EXISTING = 3
 OPEN_ALWAYS = 4
 TRUNCATE_EXISTING = 5
 CREATE_NO_WINDOW = 0x08000000
+
+MAX_PATH = 260
 
 
 class STARTUPINFO(Structure):

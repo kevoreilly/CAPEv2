@@ -14,7 +14,14 @@ import subprocess
 import sys
 import timeit
 import traceback
-from ctypes import POINTER, byref, c_int, c_ulong, c_void_p, cast, create_string_buffer, create_unicode_buffer, sizeof
+from ctypes import (
+    byref,
+    c_buffer,
+    c_int,
+    create_string_buffer,
+    sizeof,
+    wintypes,
+)
 from pathlib import Path
 from shutil import copy
 from threading import Lock
@@ -34,7 +41,15 @@ from lib.common.constants import (
     SHUTDOWN_MUTEX,
     TERMINATE_EVENT,
 )
-from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, NTDLL, SYSTEM_PROCESS_INFORMATION
+from lib.common.defines import (
+    ADVAPI32,
+    EVENT_MODIFY_STATE,
+    KERNEL32,
+    PSAPI,
+    SHELL32,
+    MAX_PATH,
+    PROCESS_QUERY_LIMITED_INFORMATION,
+)
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -186,29 +201,41 @@ class Analyzer:
             return f"\\\\.\\PIPE\\{name}"
         return f"\\??\\PIPE\\{name}"
 
-    def pids_from_process_name_list(self, namelist):
-        proclist = []
-        pidlist = []
-        buf = create_unicode_buffer(1024 * 1024)
-        p = cast(buf, c_void_p)
-        retlen = c_ulong(0)
-        retval = NTDLL.NtQuerySystemInformation(5, buf, 1024 * 1024, byref(retlen))
-        if retval:
-            return []
-        proc = cast(p, POINTER(SYSTEM_PROCESS_INFORMATION)).contents
-        while proc.NextEntryOffset:
-            p.value += proc.NextEntryOffset
-            proc = cast(p, POINTER(SYSTEM_PROCESS_INFORMATION)).contents
-            # proclist.append((proc.ImageName.Buffer[:proc.ImageName.Length // 2], proc.UniqueProcessId))
-            proclist.append((proc.ImageName.Buffer, proc.UniqueProcessId))
+    def pids_from_image_names(self, suffixlist):
+        """Get PIDs for processes whose image name ends with one of the given suffixes.
 
-        for proc in proclist:
-            lowerproc = proc[0].lower()
-            for name in namelist:
-                if lowerproc == name:
-                    pidlist.append(proc[1])
-                    break
-        return pidlist
+        Matches are not sensitive to casing; both the suffixes and process
+        image names are normalized prior to comparison.
+        """
+        retpids = []
+        arr = wintypes.DWORD * 10000 # arbitrary - is this enough?
+        lpid_process_ptr = arr()
+        num_bytes = wintypes.DWORD()
+        image_name = c_buffer(MAX_PATH)
+        ok = PSAPI.EnumProcesses(byref(lpid_process_ptr), sizeof(lpid_process_ptr), byref(num_bytes))
+        if not ok:
+            log.debug("psapi.EnumProcesses failed")
+            return retpids
+
+        suffixlist = tuple([x.lower() for x in suffixlist])
+        num_processes = int(num_bytes.value / sizeof(wintypes.DWORD))
+        pids = lpid_process_ptr[:num_processes]
+
+        for pid in pids:
+            h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not h_process:
+                log.debug("kernel.OpenProcess failed for PID: %d", pid)
+                continue
+            n = PSAPI.GetProcessImageFileNameA(h_process, image_name, MAX_PATH)
+            KERNEL32.CloseHandle(h_process)
+            if not n:
+                log.debug("psapi.GetProcessImageFileNameA failed for PID: %d", pid)
+                continue
+            image_name_pystr = image_name.value.decode().lower()
+            # e.g., image name: "\device\harddiskvolume4\windows\system32\services.exe"
+            if image_name_pystr.endswith(suffixlist):
+                retpids.append(pid)
+        return retpids
 
     def prepare(self):
         """Prepare env for analysis."""
@@ -255,13 +282,15 @@ class Analyzer:
         MONITOR_DLL_64 = self.options.get("dll_64")
 
         # get PID for services.exe for monitoring services
-        svcpid = self.pids_from_process_name_list(["services.exe"])
+        svcpid = self.pids_from_image_names(["services.exe"])
         if svcpid:
+            if len(svcpid) > 1:
+                log.debug("found %d services.exe processes", len(svcpid))
             self.SERVICES_PID = svcpid[0]
             self.config.services_pid = svcpid[0]
             self.CRITICAL_PROCESS_LIST.append(int(svcpid[0]))
 
-        HIDE_PIDS = set(self.pids_from_process_name_list(self.files.PROTECTED_NAMES))
+        HIDE_PIDS = set(self.pids_from_image_names(self.files.PROTECTED_NAMES))
 
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.
@@ -329,6 +358,11 @@ class Analyzer:
         log.debug("Storing results at: %s", PATHS["root"])
         log.debug("Pipe server name: %s", PIPE)
         log.debug("Python path: %s", os.path.dirname(sys.executable))
+
+        if SHELL32.IsUserAnAdmin():
+            log.info("analysis running as an admin")
+        else:
+            log.info("analysis running as a normal user")
 
         # If no analysis package was specified at submission, we try to select one automatically.
         if not self.config.package:

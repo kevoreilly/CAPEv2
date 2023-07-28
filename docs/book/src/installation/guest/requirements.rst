@@ -12,7 +12,10 @@ Python is a strict requirement for the CAPE guest component (*analyzer*) to run 
     .. note::
 
         Please note that only 32-bit (x86) versions of Python3 are
-        supported at this time for Windows. For other it can be 64-bit(x64).
+        supported at this time for Windows, due to the way the analyzer
+        interacts with low-level Windows libraries. Using a 64-bit version
+        of Python will crash the analyzer in Windows. For other platforms the
+        version of Python can be 64-bit (x64).
 
 You can download the proper `Windows`_ / `Linux`_ installer from the `official website`_.
 Python versions > 3.6 are preferred.

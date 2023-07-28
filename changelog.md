@@ -1,3 +1,9 @@
+### [28.7.2023]
+* Syscall hooks now enabled by default
+* Monitor updates:
+    * improved syscall hook logging, unpacker & debugger integration
+    * new debugger actions "call" & "setbpX"
+    * misc improvements
 
 ### [18.7.2023]
 * FLARE CAPA v6 support. Is now uniq supported version. They doing breaking changes.

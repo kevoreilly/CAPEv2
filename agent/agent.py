@@ -30,6 +30,9 @@ if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 # You must run x86 version not x64
+# The analysis process interacts with low-level Windows libraries that need a
+# x86 Python to be running.
+# (see https://github.com/kevoreilly/CAPEv2/issues/1680)
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 

@@ -190,8 +190,8 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("unpacker"):
             options += "unpacker=2,"
 
-        if request.POST.get("syscall"):
-            options += "syscall=1,"
+        if not request.POST.get("syscall"):
+            options += "syscall=0,"
 
         if request.POST.get("kernel_analysis"):
             options += "kernel_analysis=yes,"

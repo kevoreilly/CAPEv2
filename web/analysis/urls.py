@@ -26,7 +26,7 @@ urlpatterns = [
     ),
     re_path(r"^file_nl/(?P<category>\w+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", views.file_nl, name="file_nl"),
     re_path(r"^search/(?P<task_id>\d+)/$", views.search_behavior, name="search_behavior"),
-    re_path(r"^search/(?P<searched>[\w\d\s:\-_]+)/$", views.search, name="search"),
+    re_path(r"^search/(?P<searched>[\w\d\s:\-_\.]+)/$", views.search, name="search"),
     re_path(r"^search/$", views.search, name="search"),
     re_path(r"^pending/$", views.pending, name="pending"),
     re_path(r"^ban_user_tasks/(?P<user_id>[\d]+)/$", views.ban_all_user_tasks, name="ban_all_user_tasks"),

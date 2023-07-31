@@ -59,7 +59,7 @@ def choose_package(file_type, file_name, exports, target):
         (".ppt", ".ppa", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
     ):
         return "ppt"
-    elif "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
+    elif b'MANIFEST' in file_content or "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
         return "jar"
     elif "Zip" in file_type:
         return "zip"

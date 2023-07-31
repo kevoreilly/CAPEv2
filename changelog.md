@@ -1,3 +1,22 @@
+### [31.7.2023] Prescan feature
+* Allows to scan all new file tasks with YARA. Must be enabled in `web.conf` -> `[general]` -> `yara_recon`.
+    * This allows you to set CAPE arguments, as tags for example for proper VM pickup.
+    * YARA name must ends with `Crypter`, `Packer`, `Obfuscator` or `Loader` and have `cape_name` and `cape_options` in meta. Example:
+    * See `def recon` in `CAPEv2/lib/cuckoo/common/web_utils.py`
+```
+rule X_cryptor {
+    meta:
+        author = "doomedraven"
+        description = "New X Crypter"
+        cape_type = "New X Crypter"
+        cape_options = "tags=win10"
+    strings:
+        $a = "New awesome cryptor <3" fullword
+    condition:
+        $a
+}
+```
+
 ### [28.7.2023]
 * Syscall hooks now enabled by default
 * Monitor updates:

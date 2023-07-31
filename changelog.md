@@ -11,7 +11,7 @@ rule X_cryptor {
         cape_type = "New X Crypter"
         cape_options = "tags=win10"
     strings:
-        $a = "New awesome cryptor <3" fullword
+        $a = "New awesome crypter <3" fullword
     condition:
         $a
 }

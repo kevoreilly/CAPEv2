@@ -233,10 +233,6 @@ if __name__ == "__main__":
     #    log.setLevel(logging.DEBUG)
 
     if args.jump_box_second and not args.dry_run:
-        gcertstatus = subprocess.run(["gcertstatus"], universal_newlines=True, capture_output=True)
-        if "please run gcert" in gcertstatus.stderr:
-            sys.exit("Please refresh gcert and rerun")
-
         ssh.connect(
             JUMP_BOX_SECOND,
             username=JUMP_BOX_SECOND_USERNAME,

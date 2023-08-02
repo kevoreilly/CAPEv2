@@ -186,7 +186,7 @@ def init_yara():
                     if v == bad_rule:
                         del rules[k]
                         indexed.remove(os.path.basename(bad_rule))
-                        log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing module.", bad_rule)
+                        log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule)
                         break
             except yara.Error as e:
                 log.error("There was a syntax error in one or more Yara rules: %s", e)

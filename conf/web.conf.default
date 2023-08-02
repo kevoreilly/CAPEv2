@@ -27,6 +27,9 @@ disposable_email_disable = yes
 disposable_domain_list = data/safelist/disposable_domain_list.txt
 
 [general]
+# Prescan new file tasks with YARA for sample identification and custom execution
+# Useful to set options, tags, timeout, etc for packers/obfuscators/cryptors
+yara_recon = no
 max_sample_size = 30000000
 # Try to trim huge binaries that bigger than max_sample_size or enable allow_ingore_size and specify that option
 enable_trim = no

@@ -515,6 +515,9 @@ def recon(
                     tags += "," + parsed_options["tags"]
                 else:
                     tags = parsed_options["tags"]
+            # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
+            if "package":
+                package = parsed_options["package"]
 
     if "name" in filename:
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"

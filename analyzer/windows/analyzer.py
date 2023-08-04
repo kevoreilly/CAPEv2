@@ -97,6 +97,43 @@ def pid_from_service_name(servicename):
     return thepid
 
 
+def pids_from_image_names(suffixlist):
+    """Get PIDs for processes whose image name ends with one of the given suffixes.
+
+    Matches are not sensitive to casing; both the suffixes and process
+    image names are normalized prior to comparison.
+    """
+    retpids = []
+    arr = wintypes.DWORD * 10000 # arbitrary - is this enough?
+    lpid_process_ptr = arr()
+    num_bytes = wintypes.DWORD()
+    image_name = c_buffer(MAX_PATH)
+    ok = PSAPI.EnumProcesses(byref(lpid_process_ptr), sizeof(lpid_process_ptr), byref(num_bytes))
+    if not ok:
+        log.debug("psapi.EnumProcesses failed")
+        return retpids
+
+    suffixlist = tuple([x.lower() for x in suffixlist])
+    num_processes = int(num_bytes.value / sizeof(wintypes.DWORD))
+    pids = lpid_process_ptr[:num_processes]
+
+    for pid in pids:
+        h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not h_process:
+            log.debug("kernel.OpenProcess failed for PID: %d", pid)
+            continue
+        n = PSAPI.GetProcessImageFileNameA(h_process, image_name, MAX_PATH)
+        KERNEL32.CloseHandle(h_process)
+        if not n:
+            log.debug("psapi.GetProcessImageFileNameA failed for PID: %d", pid)
+            continue
+        image_name_pystr = image_name.value.decode().lower()
+        # e.g., image name: "\device\harddiskvolume4\windows\system32\services.exe"
+        if image_name_pystr.endswith(suffixlist):
+            retpids.append(pid)
+    return retpids
+
+
 def in_protected_path(fname):
     """Checks file name against some protected names."""
     if not fname:
@@ -201,42 +238,6 @@ class Analyzer:
             return f"\\\\.\\PIPE\\{name}"
         return f"\\??\\PIPE\\{name}"
 
-    def pids_from_image_names(self, suffixlist):
-        """Get PIDs for processes whose image name ends with one of the given suffixes.
-
-        Matches are not sensitive to casing; both the suffixes and process
-        image names are normalized prior to comparison.
-        """
-        retpids = []
-        arr = wintypes.DWORD * 10000 # arbitrary - is this enough?
-        lpid_process_ptr = arr()
-        num_bytes = wintypes.DWORD()
-        image_name = c_buffer(MAX_PATH)
-        ok = PSAPI.EnumProcesses(byref(lpid_process_ptr), sizeof(lpid_process_ptr), byref(num_bytes))
-        if not ok:
-            log.debug("psapi.EnumProcesses failed")
-            return retpids
-
-        suffixlist = tuple([x.lower() for x in suffixlist])
-        num_processes = int(num_bytes.value / sizeof(wintypes.DWORD))
-        pids = lpid_process_ptr[:num_processes]
-
-        for pid in pids:
-            h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-            if not h_process:
-                log.debug("kernel.OpenProcess failed for PID: %d", pid)
-                continue
-            n = PSAPI.GetProcessImageFileNameA(h_process, image_name, MAX_PATH)
-            KERNEL32.CloseHandle(h_process)
-            if not n:
-                log.debug("psapi.GetProcessImageFileNameA failed for PID: %d", pid)
-                continue
-            image_name_pystr = image_name.value.decode().lower()
-            # e.g., image name: "\device\harddiskvolume4\windows\system32\services.exe"
-            if image_name_pystr.endswith(suffixlist):
-                retpids.append(pid)
-        return retpids
-
     def prepare(self):
         """Prepare env for analysis."""
         global MONITOR_DLL, MONITOR_DLL_64, HIDE_PIDS
@@ -282,7 +283,7 @@ class Analyzer:
         MONITOR_DLL_64 = self.options.get("dll_64")
 
         # get PID for services.exe for monitoring services
-        svcpid = self.pids_from_image_names(["services.exe"])
+        svcpid = pids_from_image_names(["services.exe"])
         if svcpid:
             if len(svcpid) > 1:
                 log.debug("found %d services.exe processes", len(svcpid))
@@ -290,7 +291,7 @@ class Analyzer:
             self.config.services_pid = svcpid[0]
             self.CRITICAL_PROCESS_LIST.append(int(svcpid[0]))
 
-        HIDE_PIDS = set(self.pids_from_image_names(self.files.PROTECTED_NAMES))
+        HIDE_PIDS = set(pids_from_image_names(self.files.PROTECTED_NAMES))
 
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.

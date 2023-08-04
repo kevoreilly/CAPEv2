@@ -350,8 +350,6 @@ named_static_extractors = []
 def static_extraction(path):
     config = False
     try:
-        if not File.yara_initialized:
-            init_yara()
         hits = File(path).get_yara(category="CAPE")
         path_name = Path(path).name
         if not hits and path_name not in named_static_extractors:

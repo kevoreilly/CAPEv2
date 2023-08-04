@@ -85,8 +85,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     init_routing()
     check_tcpdump_permissions()
 
-    # This is just a temporary hack, we need an actual test suite to integrate
-    # with Travis-CI.
+    # This is just a temporary hack, we need an actual test suite to integrate with Travis-CI.
     if test:
         return
 

@@ -10,14 +10,7 @@ from typing import Dict, Tuple
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_read_file
-
-try:
-    import yara
-
-    HAVE_YARA = True
-except ImportError:
-    HAVE_YARA = False
+from lib.cuckoo.common.path_utils import path_read_file
 
 try:
     import pydeep
@@ -140,73 +133,6 @@ pe_map = {
 
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
-
-def init_yara():
-    """Generates index for yara signatures."""
-
-    categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
-
-    log.debug("Initializing Yara...")
-
-    # Generate root directory for yara rules.
-    yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
-    # Loop through all categories.
-    for category in categories:
-        # Check if there is a directory for the given category.
-        category_root = os.path.join(yara_root, category)
-        if not path_exists(category_root):
-            log.warning("Missing Yara directory: %s?", category_root)
-            continue
-
-        rules, indexed = {}, []
-        for category_root, _, filenames in os.walk(category_root, followlinks=True):
-            for filename in filenames:
-                if not filename.endswith((".yar", ".yara")):
-                    continue
-                filepath = os.path.join(category_root, filename)
-                rules[f"rule_{category}_{len(rules)}"] = filepath
-                indexed.append(filename)
-
-            # Need to define each external variable that will be used in the
-        # future. Otherwise Yara will complain.
-        externals = {"filename": ""}
-
-        while True:
-            try:
-                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-                File.yara_initialized = True
-                break
-            except yara.SyntaxError as e:
-                bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
-                log.debug("Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule)
-                if os.path.basename(bad_rule) not in indexed:
-                    break
-                for k, v in rules.items():
-                    if v == bad_rule:
-                        del rules[k]
-                        indexed.remove(os.path.basename(bad_rule))
-                        log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule)
-                        break
-            except yara.Error as e:
-                log.error("There was a syntax error in one or more Yara rules: %s", e)
-                break
-        if category == "memory":
-            try:
-                mem_rules = yara.compile(filepaths=rules, externals=externals)
-                mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
-            except yara.Error as e:
-                if "could not open file" in str(e):
-                    log.inf("Can't write index_memory.yarc. Did you starting it with correct user?")
-                else:
-                    log.error(e)
-
-        indexed = sorted(indexed)
-        for entry in indexed:
-            if (category, entry) == indexed[-1]:
-                log.debug("\t `-- %s %s", category, entry)
-            else:
-                log.debug("\t |-- %s %s", category, entry)
 
 
 def hash_file(method, path):
@@ -367,7 +293,7 @@ def static_config_parsers(cape_name, file_path, file_data):
     elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
         log.debug("Running Malduck on %s", file_path)
         if not File.yara_initialized:
-            init_yara()
+            File.init_yara()
         # placing here due to not load yara in not related tools
         malduck_rules.rules = File.yara_rules["CAPE"]
         malduck_modules.rules = malduck_rules

@@ -256,22 +256,6 @@ class UNICODE_STRING(Structure):
     ]
 
 
-class SYSTEM_PROCESS_INFORMATION(Structure):
-    _fields_ = [
-        ("NextEntryOffset", ULONG),
-        ("NumberOfThreads", ULONG),
-        ("Reserved0", UINT64),
-        ("Reserved1", UINT64),
-        ("Reserved2", UINT64),
-        ("CreateTime", UINT64),
-        ("UserTime", UINT64),
-        ("KernelTime", UINT64),
-        ("ImageName", UNICODE_STRING),
-        ("BasePriority", ULONG),
-        ("UniqueProcessId", PVOID),
-    ]
-
-
 class SECURITY_DESCRIPTOR(Structure):
     _pack_ = 1
     _fields_ = [

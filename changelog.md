@@ -1,3 +1,14 @@
+### [5.8.2023]
+* New anti-direct-syscall feature: 'syscall breakpoints' (64-bit only)
+    * redirect syscalls back through traditional hooks
+    * via monitor yara & updated monitor
+* Monitor updates:
+    * Unpacker: add dumping of decrypted PEs from CryptDecrypt(), NCryptDecrypt(), BCryptDecrypt()
+    * NtOpenProcessToken, NtQueryInformationToken, RtlWow64GetThreadContext hooks
+    * Syscall breakpoint implementation (64-bit)
+    * Fix hook issues with NtQueueApcThread, GetWriteWatch
+    * Misc fixes & improvements (see capemon repo for details)
+
 ### [31.7.2023] Prescan feature
 * Allows to scan all new file tasks with YARA. Must be enabled in `web.conf` -> `[general]` -> `yara_recon`.
     * This allows you to set CAPE arguments, as tags for example for proper VM pickup.

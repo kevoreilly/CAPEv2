@@ -336,7 +336,9 @@ def node_submit_task(task_id, node_id, main_task_id):
                 check = True
             else:
                 log.debug(
-                    "Failed to submit: main_task_id: {} task {} to node: {}, code: {}, msg: {}".format(task.main_task_id, task_id, node.name, r.status_code, r.content)
+                    "Failed to submit: main_task_id: {} task {} to node: {}, code: {}, msg: {}".format(
+                        task.main_task_id, task_id, node.name, r.status_code, r.content
+                    )
                 )
 
             if task.task_id:

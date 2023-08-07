@@ -5,13 +5,15 @@
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
-# Originally proposed by David Maciejak.
-
 
 class PS1(Package):
     """PowerShell analysis package."""
 
     PATHS = [
+        # PS v7
+        ("ProgramFiles", "PowerShell", "*", "pwsh.exe"),
+        # PS <= 5
+        ("SystemRoot", "sysnative", "WindowsPowerShell", "v*.0", "powershell.exe"),
         ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
 

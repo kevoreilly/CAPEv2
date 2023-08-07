@@ -30,18 +30,18 @@ if processing_conf.flare_capa.enabled:
         if capa_version[0] != "6":
             print("FLARE-CAPA missed, poetry run pip3 install git+https://github.com/mandiant/capa")
         else:
-            import capa.main
-            import capa.rules
             import capa.engine
             import capa.features
-            import capa.render.json
-            import capa.render.utils as rutils
-            import capa.render.default
-            import capa.render.result_document as rd
             import capa.features.freeze.features as frzf
-            from capa.features.common import OS_AUTO, FORMAT_AUTO
+            import capa.main
+            import capa.render.default
+            import capa.render.json
+            import capa.render.result_document as rd
+            import capa.render.utils as rutils
+            import capa.rules
             from capa.exceptions import UnsupportedFormatError
-            from capa.rules import InvalidRuleSet, InvalidRuleWithPath, InvalidRule
+            from capa.features.common import FORMAT_AUTO, OS_AUTO
+            from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):

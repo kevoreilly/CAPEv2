@@ -1,5 +1,6 @@
 import struct
 import yara
+from contextlib import suppress
 from Cryptodome.Cipher import ARC4
 
 import logging
@@ -43,32 +44,29 @@ def extract_config(filebuf):
             continue
         for item in match.strings:
             for instance in item.instances:
-                addr, name, blob = instance.offset, item.identifier, instance.matched_data
                 if "$fetch_c2_64" in item.identifier:
                     match_offset = (int(instance.offset) & 0xffff) + 4
                     try:
                         c2list_offset = (struct.unpack("<I", filebuf[match_offset:match_offset+4])[0] + match_offset + 4) & 0xffff
-                    except:
+                    except Exception:
                         break
                     delta = 8
                 if "$fetch_c2_32" in item.identifier:
                     match_offset = (int(instance.offset) & 0xffff) + 12
                     try:
                         c2list_offset = (struct.unpack("<I", filebuf[match_offset:match_offset+4])[0]) & 0xffff
-                    except:
+                    except Exception:
                         break
                     delta = 4
     if not c2list_offset:
         return
     while c2list_offset:
-        try:
+        with suppress(Exception):
             c2_offset = struct.unpack("<I", filebuf[c2list_offset:c2list_offset+4])[0] & 0xffff
             line = filebuf[c2_offset:]
             size = struct.unpack("B", line[0:1])[0]
             if size and size < 100:
                 c2list.append(rc4_decrypt(line[1:5], line[5:size+5]).decode())
-        except:
-            pass
         if not c2_offset or c2_offset < 0x100:
             break
         c2list_offset += delta
@@ -82,8 +80,5 @@ if __name__ == "__main__":
 
     logging.basicConfig()
     log.setLevel(logging.DEBUG)
-    if sys.argv[1] == "test":
-        test_them_all(sys.argv[2])
-    else:
-        data = Path(sys.argv[1]).read_bytes()
-        print(extract_config(data))
+    data = Path(sys.argv[1]).read_bytes()
+    print(extract_config(data))

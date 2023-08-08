@@ -9,7 +9,6 @@ import logging
 import logging.handlers
 import os
 import platform
-import re
 import socket
 import subprocess
 import sys

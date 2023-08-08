@@ -1,5 +1,4 @@
 import concurrent.futures
-import contextlib
 import functools
 import hashlib
 import json
@@ -9,11 +8,8 @@ import shlex
 import shutil
 import signal
 import subprocess
-import re
 from base64 import b64decode
-import tempfile
-import timeit
-from typing import DefaultDict, List, Optional, Set, TypedDict, Union
+from typing import DefaultDict, List, Optional, Set, Union
 
 import pebble
 
@@ -34,7 +30,6 @@ from lib.cuckoo.common.path_utils import (
     path_get_size,
     path_is_file,
     path_mkdir,
-    path_object,
     path_read_file,
     path_write_file,
 )

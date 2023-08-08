@@ -8,7 +8,6 @@ import shlex
 import shutil
 import signal
 import subprocess
-from base64 import b64decode
 from typing import DefaultDict, List, Optional, Set, Union
 
 import pebble
@@ -119,14 +118,13 @@ if processing_conf.trid.enabled:
 extra_info_modules = file_extra_info_load_modules(CUCKOO_ROOT)
 
 HAVE_STRINGS = False
-HAVE_DNFILE = False
 if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
 
     HAVE_STRINGS = True
 
     if processing_conf.strings.dotnet:
-        from lib.cuckoo.common.dotnet_utils import HAVE_DNFILE, dotnet_user_strings
+        from lib.cuckoo.common.dotnet_utils import dotnet_user_strings
 
 HAVE_VIRUSTOTAL = False
 if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:

@@ -9,3 +9,4 @@ false_positives:
     - rule: "Emotet"
     - rule: "NSIS"
     - rule: "UPX"
+    - rule: "Syscall"

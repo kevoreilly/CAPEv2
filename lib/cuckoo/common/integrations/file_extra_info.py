@@ -176,9 +176,10 @@ def static_file_info(
         if "Mono" in data_dictionary["type"]:
             if selfextract_conf.general.dotnet:
                 data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
-                dotnet_strings = dotnet_user_strings(file_path)
-                if dotnet_strings:
-                    data_dictionary.setdefault("dotnet_strings", dotnet_strings)
+                if processing_conf.strings.dotnet:
+                    dotnet_strings = dotnet_user_strings(file_path)
+                    if dotnet_strings:
+                        data_dictionary.setdefault("dotnet_strings", dotnet_strings)
 
     elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and selfextract_conf.general.office:
         # options is dict where we need to get pass get_options

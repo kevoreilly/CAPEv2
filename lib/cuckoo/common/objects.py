@@ -508,6 +508,9 @@ class File:
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
+        if float(yara.__version__[:-2]) < 4.3:
+            log.error("You using outdated YARA version. run: poetry install")
+            return []
 
         if not File.yara_initialized:
             File.init_yara()
@@ -519,23 +522,12 @@ class File:
         try:
             results, rule = [], File.yara_rules[category]
             for match in rule.match(self.file_path_ansii, externals=externals):
-                # malduck thank you for this <3 https://github.com/CERT-Polska/malduck/pull/94/files
                 strings = []
                 addresses = {}
                 for yara_string in match.strings:
-                    # yara-python 4.3.0 broke compatibility and started returning a StringMatch object
-                    if type(yara_string) is tuple:
-                        offsets = [yara_string[0]]
-                        identifier = yara_string[1]
-                        contents = [yara_string[2]]
-                    else:
-                        offsets = [x.offset for x in yara_string.instances]
-                        identifier = yara_string.identifier
-                        contents = [x.matched_data for x in yara_string.instances]
-
-                    strings.extend({self._yara_encode_string(s) for s in contents})
-                    addresses.update({identifier.strip("$"): offset for offset in offsets})
-
+                    for x in yara_string.instances:
+                        strings.extend({self._yara_encode_string(x.matched_data)})
+                        addresses.update({yara_string.identifier.strip("$"): x.offset})
                 results.append(
                     {
                         "name": match.rule,

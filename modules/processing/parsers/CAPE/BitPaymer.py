@@ -61,7 +61,7 @@ def yara_scan(raw_data, rule_name):
 
         for block in match.strings:
             for instance in block.instances:
-                if  block.identifier == rule_name:
+                if block.identifier == rule_name:
                     return {block.identifier: instance.offset}
 
 

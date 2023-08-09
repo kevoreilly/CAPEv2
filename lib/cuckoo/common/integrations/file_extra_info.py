@@ -14,6 +14,13 @@ import pebble
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.integrations.file_extra_info_modules import (
+    ExtractorReturnType,
+    SuccessfulExtractionReturnType,
+    collect_extracted_filenames,
+    extractor_ctx,
+    time_tracker,
+)
 from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
@@ -23,26 +30,12 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import (
-    path_exists,
-    path_get_size,
-    path_is_file,
-    path_mkdir,
-    path_read_file,
-    path_write_file,
-)
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_is_file, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.utils import get_options, is_text_file
-from lib.cuckoo.common.integrations.file_extra_info_modules import (
-    SuccessfulExtractionReturnType,
-    ExtractorReturnType,
-    collect_extracted_filenames,
-    extractor_ctx,
-    time_tracker,
-)
 
 try:
     from sflock import unpack

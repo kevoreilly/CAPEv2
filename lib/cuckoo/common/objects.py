@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,
     PAGE_EXECUTE_READ,
@@ -28,6 +27,7 @@ from lib.cuckoo.common.defines import (
     PAGE_WRITECOPY,
 )
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     import magic
@@ -433,7 +433,6 @@ class File:
 
         return new
 
-
     @classmethod
     def init_yara(self):
         """Generates index for yara signatures."""
@@ -473,7 +472,9 @@ class File:
                     break
                 except yara.SyntaxError as e:
                     bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
-                    log.debug("Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule)
+                    log.debug(
+                        "Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule
+                    )
                     if os.path.basename(bad_rule) not in indexed:
                         break
                     for k, v in rules.items():
@@ -501,8 +502,6 @@ class File:
                     log.debug("\t `-- %s %s", category, entry)
                 else:
                     log.debug("\t |-- %s %s", category, entry)
-
-
 
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.

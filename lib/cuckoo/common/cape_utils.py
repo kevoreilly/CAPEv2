@@ -134,7 +134,6 @@ pe_map = {
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
 
-
 def hash_file(method, path):
     """Calculates an hash on a file by path.
     @param method: callable hashing method

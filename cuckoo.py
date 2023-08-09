@@ -36,7 +36,6 @@ try:
         init_rooter,
         init_routing,
         init_tasks,
-        init_yara,
     )
 
     bson  # Pretend like it's actually being used (for static checkers.)
@@ -80,13 +79,11 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     check_webgui_mongo()
     init_modules()
     init_tasks()
-    init_yara()
     init_rooter()
     init_routing()
     check_tcpdump_permissions()
 
-    # This is just a temporary hack, we need an actual test suite to integrate
-    # with Travis-CI.
+    # This is just a temporary hack, we need an actual test suite to integrate with Travis-CI.
     if test:
         return
 

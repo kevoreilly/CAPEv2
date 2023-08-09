@@ -859,7 +859,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
             for call in chunk["calls"]:
                 # filter by call or tid
                 if caller != "null" or tid != "0":
-                    if (caller == "null" or call["caller"] == caller) and (tid == "0" or call["thread_id"] == tid):
+                    if caller in ("null", call["caller"]) and tid in ("0", call["thread_id"]):
                         filtered_process["calls"].append(call)
                 elif category in ("all", call["category"]):
                     if len(apis) > 0:

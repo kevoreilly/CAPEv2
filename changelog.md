@@ -1,3 +1,9 @@
+### [8.8.2023]
+* Minimal YARA version now is 4.3.1
+* `file_extra_info` modules autoload, see example in `lib/cuckoo/common/file_extra_info_modules`
+* Initial compatibility with x64 python version in guests.
+* In `agent.py` add `is_admin` value.
+
 ### [5.8.2023]
 * New anti-direct-syscall feature: 'syscall breakpoints' (64-bit only)
     * redirect syscalls back through traditional hooks

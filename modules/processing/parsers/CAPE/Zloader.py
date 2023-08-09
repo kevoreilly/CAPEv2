@@ -49,7 +49,7 @@ def decrypt_rc4(key, data):
 
 
 def string_from_offset(data, offset):
-    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def extract_config(filebuf):
@@ -63,11 +63,12 @@ def extract_config(filebuf):
         if match.rule != "Zloader":
             continue
         for item in match.strings:
-            if "$decrypt_conf" in item[1]:
-                decrypt_conf = int(item[0]) + 21
-    va = struct.unpack("I", filebuf[decrypt_conf : decrypt_conf + 4])[0]
+            if "$decrypt_conf" in item.identifier:
+                decrypt_conf = item.instances[0].offset + 21
+    va = struct.unpack("I", filebuf[decrypt_conf: decrypt_conf + 4])[0]
     key = string_from_offset(filebuf, pe.get_offset_from_rva(va - image_base))
-    data_offset = pe.get_offset_from_rva(struct.unpack("I", filebuf[decrypt_conf + 5 : decrypt_conf + 9])[0] - image_base)
+    data_offset = pe.get_offset_from_rva(
+        struct.unpack("I", filebuf[decrypt_conf + 5: decrypt_conf + 9])[0] - image_base)
     enc_data = filebuf[data_offset:].split(b"\0\0", 1)[0]
     raw = decrypt_rc4(key, enc_data)
     items = list(filter(None, raw.split(b"\x00\x00")))

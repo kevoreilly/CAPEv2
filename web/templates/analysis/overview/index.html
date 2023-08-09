@@ -41,10 +41,8 @@
                                                             <dl class="row" style="margin-bottom: 0px">
                                                                 {% with sorted_hashes=hashes|sort %}
                                                                     {% for algo, value in sorted_hashes.items %}
-                                                                        {% if algo != "sha256" %}
-                                                                            <dt class="col-sm-1">{{ algo }}</dt>
-                                                                            <dd class="col-sm-11">{{ value }}</dd>
-                                                                        {% endif %}
+                                                                        <dt class="col-sm-1">{{ algo }}</dt>
+                                                                        <dd class="col-sm-11">{{ value }}</dd>
                                                                     {% endfor %}
                                                                 {% endwith %}
                                                             </dl>

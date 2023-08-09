@@ -1,5 +1,4 @@
 import concurrent.futures
-import contextlib
 import functools
 import hashlib
 import json
@@ -9,9 +8,7 @@ import shlex
 import shutil
 import signal
 import subprocess
-import tempfile
-import timeit
-from typing import DefaultDict, List, Optional, Set, TypedDict, Union
+from typing import DefaultDict, List, Optional, Set, Union
 
 import pebble
 
@@ -32,13 +29,20 @@ from lib.cuckoo.common.path_utils import (
     path_get_size,
     path_is_file,
     path_mkdir,
-    path_object,
     path_read_file,
     path_write_file,
 )
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
+from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
 from lib.cuckoo.common.utils import get_options, is_text_file
+from lib.cuckoo.common.integrations.file_extra_info_modules import (
+    SuccessfulExtractionReturnType,
+    ExtractorReturnType,
+    collect_extracted_filenames,
+    extractor_ctx,
+    time_tracker,
+)
 
 try:
     from sflock import unpack
@@ -57,40 +61,14 @@ except ImportError:
 DuplicatesType = DefaultDict[str, Set[str]]
 
 
-@contextlib.contextmanager
-def extractor_ctx(filepath, tool_name, prefix=None):
-    tempdir = tempfile.mkdtemp(prefix=prefix)
-    retval = {"tempdir": tempdir}
-    try:
-        yield retval
-    except subprocess.CalledProcessError as err:
-        log.error(
-            "%s: Failed to extract files from %s: cmd=`%s`, stdout=`%s`, stderr=`%s`",
-            tool_name,
-            filepath,
-            shlex.join(err.cmd),
-            err.stdout,
-            err.stderr,
-        )
-    except Exception:
-        log.exception("Exception was raised while attempting to use %s on %s", tool_name, filepath)
-    else:
-        if retval.get("extracted_files", []):
-            retval["tool_name"] = tool_name
-        else:
-            retval.pop("extracted_files", None)
-
-
-class SuccessfulExtractionReturnType(TypedDict, total=False):
-    tempdir: str
-    extracted_files: List[str]
-    tool_name: str
-
-
-ExtractorReturnType = Optional[SuccessfulExtractionReturnType]
-
 processing_conf = Config("processing")
 selfextract_conf = Config("selfextract")
+
+try:
+    from modules.signatures.recon_checkip import dns_indicators
+except ImportError:
+    dns_indicators = ()
+
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
@@ -137,15 +115,16 @@ if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
+extra_info_modules = file_extra_info_load_modules(CUCKOO_ROOT)
+
 HAVE_STRINGS = False
-HAVE_DNFILE = False
 if processing_conf.strings.enabled and not processing_conf.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
 
     HAVE_STRINGS = True
 
     if processing_conf.strings.dotnet:
-        from lib.cuckoo.common.dotnet_utils import HAVE_DNFILE, dotnet_user_strings
+        from lib.cuckoo.common.dotnet_utils import dotnet_user_strings
 
 HAVE_VIRUSTOTAL = False
 if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
@@ -197,10 +176,10 @@ def static_file_info(
         if "Mono" in data_dictionary["type"]:
             if selfextract_conf.general.dotnet:
                 data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
-            if HAVE_DNFILE:
                 dotnet_strings = dotnet_user_strings(file_path)
                 if dotnet_strings:
                     data_dictionary.setdefault("dotnet_strings", dotnet_strings)
+
     elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and selfextract_conf.general.office:
         # options is dict where we need to get pass get_options
         data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
@@ -374,30 +353,6 @@ def _extracted_files_metadata(
     return metadata
 
 
-def collect_extracted_filenames(tempdir):
-    """Gather a list of files relative to the given directory."""
-    extracted_files = []
-    for root, _, files in os.walk(tempdir):
-        for file in files:
-            path = path_object(os.path.join(root, file))
-            if path.is_file():
-                extracted_files.append(str(path.relative_to(tempdir)))
-    return extracted_files
-
-
-def time_tracker(func):
-    @functools.wraps(func)
-    def wrapped(*args, **kwargs):
-        time_start = timeit.default_timer()
-        result = func(*args, **kwargs)
-        return {
-            "result": result,
-            "took_seconds": timeit.default_timer() - time_start,
-        }
-
-    return wrapped
-
-
 def pass_signal(proc, signum, frame):
     proc.send_signal(signum)
 
@@ -451,30 +406,40 @@ def generic_file_extractors(
         "tests": tests,
     }
 
+    file_info_funcs = [
+        msi_extract,
+        kixtart_extract,
+        vbe_extract,
+        batch_extract,
+        UnAutoIt_extract,
+        UPX_unpack,
+        RarSFX_extract,
+        Inno_extract,
+        SevenZip_unpack,
+        de4dot_deobfuscate,
+        eziriz_deobfuscate,
+        office_one,
+        msix_extract,
+    ]
+
     futures = {}
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
-        for extraction_func in (
-            msi_extract,
-            kixtart_extract,
-            vbe_extract,
-            batch_extract,
-            UnAutoIt_extract,
-            UPX_unpack,
-            RarSFX_extract,
-            Inno_extract,
-            SevenZip_unpack,
-            de4dot_deobfuscate,
-            eziriz_deobfuscate,
-            office_one,
-            msix_extract,
-        ):
-            funcname = extraction_func.__name__
-            if not getattr(selfextract_conf, funcname, {}).get("enabled", False):
+        for extraction_func in file_info_funcs:
+            funcname = extraction_func.__name__.split(".")[-1]
+            if (
+                not getattr(selfextract_conf, funcname, {}).get("enabled", False)
+                and getattr(extraction_func, "enabled", False) is False
+            ):
                 continue
 
-            func_timeout = int(getattr(selfextract_conf, funcname).get("timeout", 60))
+            func_timeout = int(getattr(selfextract_conf, funcname, {}).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
 
+        if extra_info_modules:
+            for module in extra_info_modules:
+                func_timeout = int(getattr(module, "timeout", 60))
+                funcname = module.__name__.split(".")[-1]
+                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
     pool.join()
 
     for funcname, future in futures.items():

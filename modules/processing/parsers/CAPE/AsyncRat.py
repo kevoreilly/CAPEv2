@@ -90,9 +90,11 @@ def extract_config(filebuf):
     if not matches:
         return config
 
-    for match in matches[0].strings:
-        if match[1] == "$magic_cslr_0":
-            addr = match[0]
+    for block in matches[0].strings:
+        for instance in block.instances:
+            if block.identifier == "$magic_cslr_0":
+                addr = instance.offset
+                break
 
     strings_offset = struct.unpack("<I", filebuf[addr + 0x40 : addr + 0x44])[0]
     strings_size = struct.unpack("<I", filebuf[addr + 0x44 : addr + 0x48])[0]

@@ -1,7 +1,8 @@
 import base64
 import binascii
-import pefile
 import sys
+
+import pefile
 
 from lib.cuckoo.common.integrations.strings import extract_strings
 

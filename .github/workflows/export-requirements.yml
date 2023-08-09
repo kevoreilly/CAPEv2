@@ -2,7 +2,7 @@ name: Update requirements.txt file
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, staging ]
     paths:
       - "pyproject.toml"
       - "poetry.lock"

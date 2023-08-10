@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,
     PAGE_EXECUTE_READ,
@@ -28,6 +27,7 @@ from lib.cuckoo.common.defines import (
     PAGE_WRITECOPY,
 )
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     import magic
@@ -433,7 +433,6 @@ class File:
 
         return new
 
-
     @classmethod
     def init_yara(self):
         """Generates index for yara signatures."""
@@ -473,7 +472,9 @@ class File:
                     break
                 except yara.SyntaxError as e:
                     bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
-                    log.debug("Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule)
+                    log.debug(
+                        "Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule
+                    )
                     if os.path.basename(bad_rule) not in indexed:
                         break
                     for k, v in rules.items():
@@ -502,12 +503,13 @@ class File:
                 else:
                     log.debug("\t |-- %s %s", category, entry)
 
-
-
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
+        if float(yara.__version__[:-2]) < 4.3:
+            log.error("You using outdated YARA version. run: poetry install")
+            return []
 
         if not File.yara_initialized:
             File.init_yara()
@@ -519,23 +521,12 @@ class File:
         try:
             results, rule = [], File.yara_rules[category]
             for match in rule.match(self.file_path_ansii, externals=externals):
-                # malduck thank you for this <3 https://github.com/CERT-Polska/malduck/pull/94/files
                 strings = []
                 addresses = {}
                 for yara_string in match.strings:
-                    # yara-python 4.3.0 broke compatibility and started returning a StringMatch object
-                    if type(yara_string) is tuple:
-                        offsets = [yara_string[0]]
-                        identifier = yara_string[1]
-                        contents = [yara_string[2]]
-                    else:
-                        offsets = [x.offset for x in yara_string.instances]
-                        identifier = yara_string.identifier
-                        contents = [x.matched_data for x in yara_string.instances]
-
-                    strings.extend({self._yara_encode_string(s) for s in contents})
-                    addresses.update({identifier.strip("$"): offset for offset in offsets})
-
+                    for x in yara_string.instances:
+                        strings.extend({self._yara_encode_string(x.matched_data)})
+                        addresses.update({yara_string.identifier.strip("$"): x.offset})
                 results.append(
                     {
                         "name": match.rule,

@@ -13,6 +13,7 @@ from lib.cuckoo.common.path_utils import path_delete, path_write_file
 
 # from tcr_misc import get_sample, random_string
 
+
 @pytest.fixture
 def dict_cfg():
     yield Dictionary()
@@ -200,7 +201,6 @@ def yara_compiled():
 
 
 class TestFiles:
-
     @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_get_type(self, test_files):
         for sample in test_files:

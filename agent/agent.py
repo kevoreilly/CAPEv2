@@ -206,11 +206,13 @@ class request:
 
 app = MiniHTTPServer()
 
+
 def isAdmin():
     is_admin = None
     try:
         if sys.platform == "win32":
             import ctypes
+
             is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
         else:
             is_admin = os.getuid() == 0
@@ -218,6 +220,7 @@ def isAdmin():
         print(e)
 
     return is_admin
+
 
 def json_error(error_code: int, message: str) -> jsonify:
     r = jsonify(message=message, error_code=error_code)

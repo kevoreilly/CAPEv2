@@ -14,14 +14,7 @@ import subprocess
 import sys
 import timeit
 import traceback
-from ctypes import (
-    byref,
-    c_buffer,
-    c_int,
-    create_string_buffer,
-    sizeof,
-    wintypes,
-)
+from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
 from threading import Lock
@@ -41,15 +34,7 @@ from lib.common.constants import (
     SHUTDOWN_MUTEX,
     TERMINATE_EVENT,
 )
-from lib.common.defines import (
-    ADVAPI32,
-    EVENT_MODIFY_STATE,
-    KERNEL32,
-    PSAPI,
-    SHELL32,
-    MAX_PATH,
-    PROCESS_QUERY_LIMITED_INFORMATION,
-)
+from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, MAX_PATH, PROCESS_QUERY_LIMITED_INFORMATION, PSAPI, SHELL32
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -104,7 +89,7 @@ def pids_from_image_names(suffixlist):
     image names are normalized prior to comparison.
     """
     retpids = []
-    arr = wintypes.DWORD * 10000 # arbitrary - is this enough?
+    arr = wintypes.DWORD * 10000  # arbitrary - is this enough?
     lpid_process_ptr = arr()
     num_bytes = wintypes.DWORD()
     image_name = c_buffer(MAX_PATH)

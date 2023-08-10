@@ -1,12 +1,12 @@
-import os
-from typing import List, Optional, TypedDict
-import tempfile
 import contextlib
-import logging
-import subprocess
-import shlex
-import timeit
 import functools
+import logging
+import os
+import shlex
+import subprocess
+import tempfile
+import timeit
+from typing import List, Optional, TypedDict
 
 from lib.cuckoo.common.path_utils import path_object
 

@@ -40,6 +40,7 @@ log = logging.getLogger()
 yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")
 if not os.path.exists(yara_rules_path):
     from lib.cuckoo.common.objects import File
+
     File.init_yara()
 
 # set logger volatility3

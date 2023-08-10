@@ -1,9 +1,10 @@
+import logging
 import struct
-import yara
 from contextlib import suppress
+
+import yara
 from Cryptodome.Cipher import ARC4
 
-import logging
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
@@ -27,10 +28,12 @@ rule SmokeLoader
 
 yara_rules = yara.compile(source=rule_source)
 
+
 def rc4_decrypt(key, ciphertext):
-    ARC4.key_size = range(1,257)
+    ARC4.key_size = range(1, 257)
     arc4 = ARC4.new(key)
     return arc4.decrypt(ciphertext)
+
 
 def extract_config(filebuf):
     cfg = {}
@@ -45,16 +48,18 @@ def extract_config(filebuf):
         for item in match.strings:
             for instance in item.instances:
                 if "$fetch_c2_64" in item.identifier:
-                    match_offset = (int(instance.offset) & 0xffff) + 4
+                    match_offset = (int(instance.offset) & 0xFFFF) + 4
                     try:
-                        c2list_offset = (struct.unpack("<I", filebuf[match_offset:match_offset+4])[0] + match_offset + 4) & 0xffff
+                        c2list_offset = (
+                            struct.unpack("<I", filebuf[match_offset : match_offset + 4])[0] + match_offset + 4
+                        ) & 0xFFFF
                     except Exception:
                         break
                     delta = 8
                 if "$fetch_c2_32" in item.identifier:
-                    match_offset = (int(instance.offset) & 0xffff) + 12
+                    match_offset = (int(instance.offset) & 0xFFFF) + 12
                     try:
-                        c2list_offset = (struct.unpack("<I", filebuf[match_offset:match_offset+4])[0]) & 0xffff
+                        c2list_offset = (struct.unpack("<I", filebuf[match_offset : match_offset + 4])[0]) & 0xFFFF
                     except Exception:
                         break
                     delta = 4
@@ -62,17 +67,18 @@ def extract_config(filebuf):
         return
     while c2list_offset:
         with suppress(Exception):
-            c2_offset = struct.unpack("<I", filebuf[c2list_offset:c2list_offset+4])[0] & 0xffff
+            c2_offset = struct.unpack("<I", filebuf[c2list_offset : c2list_offset + 4])[0] & 0xFFFF
             line = filebuf[c2_offset:]
             size = struct.unpack("B", line[0:1])[0]
             if size and size < 100:
-                c2list.append(rc4_decrypt(line[1:5], line[5:size+5]).decode())
+                c2list.append(rc4_decrypt(line[1:5], line[5 : size + 5]).decode())
         if not c2_offset or c2_offset < 0x100:
             break
         c2list_offset += delta
     if c2list != []:
         cfg["C2s"] = c2list
     return cfg
+
 
 if __name__ == "__main__":
     import sys

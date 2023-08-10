@@ -21,9 +21,10 @@ def decode(data):
                 strval += alphabet[-1] * (4 - padding)
             decoded_str = base64.b64decode(strval).decode("utf-8")
             if decoded_str.startswith("0="):
+                decoded_str = decoded_str.replace("0=", "port=")
                 config["other"] = decoded_str.split("\r\n")
             elif decoded_str.startswith("http"):
-                config["C2"] = decoded_str
+                config["C2"] = decoded_str.split("|")
 
     return config
 

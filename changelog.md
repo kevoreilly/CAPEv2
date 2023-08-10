@@ -1,3 +1,6 @@
+### [10.8.2023]
+* Monitor update: Fix for NtQueueApcThread hook: do not send thread handle in 'process' message
+
 ### [8.8.2023]
 * Minimal YARA version now is 4.3.1
 * `file_extra_info` modules autoload, see example in `lib/cuckoo/common/file_extra_info_modules`

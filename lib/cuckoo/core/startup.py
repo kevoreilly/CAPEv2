@@ -464,7 +464,7 @@ def check_tcpdump_permissions():
         try:
             subprocess.check_call(
                 ["/usr/bin/sudo", "--list", "--non-interactive", tcpdump],
-                stderr=open('/dev/null', 'w')
+                stderr=subprocess.DEVNULL
             )
         except (FileNotFoundError, subprocess.CalledProcessError):
             try:

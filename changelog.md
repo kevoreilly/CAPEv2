@@ -1,5 +1,7 @@
 ### [10.8.2023]
-* Monitor update: Fix for NtQueueApcThread hook: do not send thread handle in 'process' message
+* Monitor updates:
+    * Fix for NtQueueApcThread hook: do not send thread handle in 'process' message
+    * Add WmiPrvSE.exe to services hookset to fix Win10 WMI/interop detonation issues
 
 ### [8.8.2023]
 * Minimal YARA version now is 4.3.1

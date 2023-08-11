@@ -106,6 +106,13 @@ scale_down_polling_period = 1
 # This is switch used for machinery debugging/development, and should only be set to "true" in these scenarios
 just_start = false
 
+# This flag is used to indicate if VMSSs not associated with this particular CAPE deployment should be deleted if they
+# exist in the same sandbox_resource_group and contain the same AUTO_SCALE_CAPE KEY and VALUE.
+# If you have multiple CAPE deployments in the same sandbox_resource_group, set this to "true".
+# This is useful to set to "false" if you have leftover VMSSs from previous CAPE runs from your single deployment
+# that have different names from the current run. It doesn't happen often, but it could!
+multiple_capes_in_sandbox_rg = false
+
 [cuckoo1]
 # The gallery image name to use when creating the virtual machine scale set.
 gallery_image_name = <gallery_image_name>

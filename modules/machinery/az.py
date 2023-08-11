@@ -361,28 +361,6 @@ class Azure(Machinery):
                 f"Subnet '{self.options.az.subnet}' does not exist in Virtual Network '{self.options.az.vnet}'"
             )
 
-        # Create required VMSSs that don't exist yet
-        vmss_creation_threads = []
-        vmss_reimage_threads = []
-        for vmss, vals in self.required_vmsss.items():
-            if vals["exists"] and not self.options.az.just_start:
-                # Reimage VMSS!
-                thr = threading.Thread(
-                    target=self._thr_reimage_vmss,
-                    args=(vmss,),
-                )
-                vmss_reimage_threads.append(thr)
-                thr.start()
-            else:
-                # Create VMSS!
-                thr = threading.Thread(target=self._thr_create_vmss, args=(vmss, vals["image"], vals["platform"]))
-                vmss_creation_threads.append(thr)
-                thr.start()
-
-        # Wait for everything to complete!
-        for thr in vmss_reimage_threads + vmss_creation_threads:
-            thr.join()
-
         # Initialize the platform scaling state monitor
         is_platform_scaling = {Azure.WINDOWS_PLATFORM: False, Azure.LINUX_PLATFORM: False}
 
@@ -412,6 +390,31 @@ class Azure(Machinery):
         # Do not programmatically determine the number of cores for the sku
         else:
             self.instance_type_cpus = self.options.az.instance_type_cores
+
+        # Create required VMSSs that don't exist yet
+        vmss_creation_threads = []
+        vmss_reimage_threads = []
+        for vmss, vals in self.required_vmsss.items():
+            if vals["exists"] and not self.options.az.just_start:
+                if machine_pools[vmss]["size"] == 0:
+                    self._thr_scale_machine_pool(self.options.az.scale_sets[vmss].pool_tag, True if vals["platform"] else False),
+                else:
+                    # Reimage VMSS!
+                    thr = threading.Thread(
+                        target=self._thr_reimage_vmss,
+                        args=(vmss,),
+                    )
+                    vmss_reimage_threads.append(thr)
+                    thr.start()
+            else:
+                # Create VMSS!
+                thr = threading.Thread(target=self._thr_create_vmss, args=(vmss, vals["image"], vals["platform"]))
+                vmss_creation_threads.append(thr)
+                thr.start()
+
+        # Wait for everything to complete!
+        for thr in vmss_reimage_threads + vmss_creation_threads:
+            thr.join()
 
         # Initialize the batch reimage threads. We want at most 4 batch reimaging threads
         # so that if no VMSS scaling or batch deleting is taking place (aka we are receiving constant throughput of

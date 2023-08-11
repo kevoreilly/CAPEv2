@@ -340,7 +340,7 @@ class Azure(Machinery):
                         operation=self.compute_client.virtual_machine_scale_sets.begin_update,
                     )
                     _ = self._handle_poller_result(update_vmss_image)
-            else:
+            elif not self.options.az.multiple_capes_in_sandbox_rg:
                 # VMSS does not have the required name but has the tag that we associate with being a
                 # correct VMSS
                 Azure._azure_api_call(

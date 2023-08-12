@@ -43,7 +43,7 @@ def test_get_yaras():
             "name": "BumbleBee",
             "meta": {"author": "enzo & kevoreilly", "description": "BumbleBee Payload", "cape_type": "BumbleBee Payload"},
             "strings": ["{ 84 C0 74 09 33 C9 FF 15 34 AF 15 00 CC 33 C9 E8 34 8E 12 00 48 8B C8 E8 }", "/gate"],
-            "addresses": {'antivm1': 34936, "str_gate": 1911968},
+            "addresses": {"antivm1": 34936, "str_gate": 1911968},
         }
     ]
 

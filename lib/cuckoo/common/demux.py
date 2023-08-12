@@ -294,4 +294,4 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                         retlist.append(trimmed_path(filename))
                 retlist.remove(filename)
 
-    return retlist[:10]
+    return retlist[:10], platform

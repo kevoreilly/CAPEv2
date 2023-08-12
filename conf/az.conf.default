@@ -97,8 +97,9 @@ spot_instances = false
 # start pulling tasks off of the stack
 wait_for_agent_before_starting = true
 
-# This is the value of the DNS server that you want the scale sets to use
-dns_server_ip = <dns_server_ip>
+# These are the value(s) of the DNS server(s) that you want the scale sets to use. (E.g. 1.1.1.1,8.8.8.8)
+# NOTE: NO SPACES
+dns_server_ips = <dns_server_ip>
 
 # This is the number of seconds that we should wait between checking if there are relevant tasks for a VMSS in the queue
 scale_down_polling_period = 1

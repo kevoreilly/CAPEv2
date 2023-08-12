@@ -746,7 +746,7 @@ class Azure(Machinery):
             os_disk=vmss_os_disk,
         )
         vmss_dns_settings = models.VirtualMachineScaleSetNetworkConfigurationDnsSettings(
-            dns_servers=[self.options.az.dns_server_ip]
+            dns_servers=self.options.az.dns_server_ips.strip().split(",")
         )
         vmss_ip_config = models.VirtualMachineScaleSetIPConfiguration(
             name="vmss_ip_config",

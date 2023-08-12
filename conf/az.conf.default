@@ -123,5 +123,5 @@ arch = x64
 # virtual machines in this scale set will have this tag
 pool_tag = <tag>
 
-# Initial virtual machine pool size for scale set
+# Initial virtual machine pool size for scale set. This should be a positive integer.
 initial_pool_size = 1

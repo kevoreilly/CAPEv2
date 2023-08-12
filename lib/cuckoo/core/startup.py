@@ -359,15 +359,10 @@ def init_routing():
                 raise CuckooStartupError(f"Could not find VPN configuration for {name}")
 
             entry = routing.get(name)
-            # add = 1
-            # if not rooter("nic_available", entry.interface):
-            # raise CuckooStartupError(
-            #   f"The network interface that has been configured for VPN {entry.name} is not available"
-            # )
-            #    add = 0
-            is_rt_available = rooter("rt_available", entry.rt_table)["output"]
-            if not is_rt_available:
-                raise CuckooStartupError(f"The routing table that has been configured for VPN {entry.name} is not available")
+            if routing.routing.verify_rt_table:
+                is_rt_available = rooter("rt_available", entry.rt_table)["output"]
+                if not is_rt_available:
+                    raise CuckooStartupError(f"The routing table that has been configured for VPN {entry.name} is not available")
             vpns[entry.name] = entry
 
             # Disable & enable NAT on this network interface. Disable it just
@@ -402,9 +397,10 @@ def init_routing():
         if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as dirty line is not available")
 
-        is_rt_available = rooter("rt_available", routing.routing.rt_table)["output"]
-        if not is_rt_available:
-            raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
+        if routing.routing.verify_rt_table:
+            is_rt_available = rooter("rt_available", routing.routing.rt_table)["output"]
+            if not is_rt_available:
+                raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.

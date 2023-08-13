@@ -109,15 +109,3 @@ rule AgentTeslaV3 {
     condition:
         (uint16(0) == 0x5a4d and (8 of ($s*) or (6 of ($s*) and all of ($g*)))) or (2 of ($m*))
 }
-
-rule AgentTeslaV4 {
-    meta:
-        author = "Rony (r0ny_123)"
-        cape_type = "AgentTesla payload"
-    strings:
-        $decode = { 06 91 06 61 20 [4] 61 d2 9c 06 17 58 0a }
-    condition:
-        uint16be(0) == 0x4d5a
-        and uint32(uint32(0x3C)) == 0x00004550
-        and any of them
-}

@@ -207,7 +207,7 @@ def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     return list(filter(None, retlist))
 
 
-def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True) -> List[bytes]:
+def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = "") -> List[tuple]:
     """
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
@@ -223,10 +223,10 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         if File(filename).get_size() <= web_cfg.general.max_sample_size or (
             web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
-            retlist.append(filename)
+            retlist.append((filename, platform))
         else:
             if web_cfg.general.enable_trim and trim_file(filename):
-                retlist.append(trimmed_path(filename))
+                retlist.append((trimmed_path(filename), platform))
         return retlist
 
     # handle quarantine files
@@ -244,7 +244,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         password = options2passwd(options) or None
         if use_sflock:
             if HAS_SFLOCK:
-                return demux_office(filename, password)
+                return [(demux_office(filename, password), platform)]
             else:
                 log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
 
@@ -264,21 +264,21 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         else:
             if web_cfg.general.enable_trim and trim_file(filename):
                 retlist.append(trimmed_path(filename))
-        return retlist
+        return [(retlist, platform)]
 
+    new_retlist = []
     # all in one unarchiver
     retlist = demux_sflock(filename, options) if HAS_SFLOCK and use_sflock else []
     # if it isn't a ZIP or an email, or we aren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:
-        retlist.append(filename)
+        new_retlist.append((filename, platform))
     else:
-        for filename in retlist.copy():
+        for filename in retlist:
             # verify not Windows binaries here:
             magic_type = File(filename).get_type()
             platform = get_platform(magic_type)
             if platform == "linux" and not linux_enabled and "Python" not in magic_type:
-                retlist.remove(filename)
                 continue
 
             if File(filename).get_size() > web_cfg.general.max_sample_size and not (
@@ -287,7 +287,8 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 if web_cfg.general.enable_trim:
                     # maybe identify here
                     if trim_file(filename):
-                        retlist.append(trimmed_path(filename))
-                retlist.remove(filename)
+                        filename = trimmed_path(filename)
 
-    return retlist[:10]
+            new_retlist.append((filename, platform))
+
+    return new_retlist[:10]

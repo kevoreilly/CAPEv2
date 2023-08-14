@@ -1,6 +1,7 @@
 import base64
 import binascii
 import sys
+from contextlib import suppress
 
 import pefile
 
@@ -12,20 +13,18 @@ def decode(data):
     alphabet = "zLAxuU0kQKf3sWE7ePRO2imyg9GSpVoYC6rhlX48ZHnvjJDBNFtMd1I5acwbqT+="
     all_strings = extract_strings(data=data, on_demand=True, dedup=True)
     for strval in all_strings:
-        try:
+        with suppress(UnicodeDecodeError, binascii.Error):
             custom = strval.maketrans(alphabet, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
             strval = strval.translate(custom)
             padding = len(strval) % 4
             if padding:
                 strval += alphabet[-1] * (4 - padding)
-            decoded_bytes = base64.b64decode(strval)
-            decoded_str = decoded_bytes.decode("utf-8")
+            decoded_str = base64.b64decode(strval).decode("utf-8")
             if decoded_str.startswith("0="):
-                config["other"] = decoded_str.split("\r\n")
+                decoded_str = decoded_str.replace("0=", "port=", 1)
+                config["other"] = [x for x in decoded_str.split("\r\n") if x.strip() != ""]
             elif decoded_str.startswith("http"):
-                config["C2"] = decoded_str
-        except (UnicodeDecodeError, binascii.Error):
-            pass
+                config["C2"] = [x for x in decoded_str.split("|") if x.strip() != ""]
 
     return config
 
@@ -34,12 +33,10 @@ def extract_config(data):
     pe = pefile.PE(data=data)
     for section in pe.sections:
         if b"CODE" in section.Name:
-            data = section.get_data()
-            return decode(data)
+            return decode(section.get_data())
 
 
 if __name__ == "__main__":
-    filename = sys.argv[1]
-    with open(filename, "rb") as infile:
+    with open(sys.argv[1], "rb") as infile:
         t = extract_config(infile.read())
-    print(t)
+        print(t)

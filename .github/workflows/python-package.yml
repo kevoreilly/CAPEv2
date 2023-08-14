@@ -59,7 +59,7 @@ jobs:
         run: poetry install --no-interaction --no-root
 
       - name: Run unit tests
-        run: poetry run python -m pytest -s --import-mode=append -k "not test_yara"
+        run: poetry run python -m pytest --import-mode=append
 
       - name: Run parsers unit tests
         run: poetry run python -m pytest tests_parsers -s --import-mode=append

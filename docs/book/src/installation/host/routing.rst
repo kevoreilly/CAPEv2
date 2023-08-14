@@ -115,7 +115,7 @@ default.
 
 Do this by writing a file at
 ``/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg``, with the
-content ``{config: disabled}``, then delete
+content ``network: {config: disabled}``, then delete
 ``/etc/netplan/50-cloud-init.yaml``.
 
 If you are using a desktop version of Ubuntu instead,
@@ -141,12 +141,12 @@ CAPE web UI, SSH and other administrative services. In this configuration the
 dirty line is used as the default gateway for all internet traffic on the host.
 This helps prevent network leaks, firewall IDS/IPS issues, and keeps
 administrative traffic separate, where it could be placed in its own subnet
-for additional security. 
+for additional security.
 
 You will need to replace the interface names and IP addresses to reflect your
 own system.
 
-Each interface configuration needs a ``routes`` section that describes the 
+Each interface configuration needs a ``routes`` section that describes the
 routes that can be accessed via that interface. In order for the configuration
 to work with CAPE's per-analysis routing, each ``routes`` section must have an
 arbitrary but unique ``table`` integer value.
@@ -180,8 +180,8 @@ arbitrary but unique ``table`` integer value.
                    - to: 10.23.6.0/24
                      via: 10.23.6.1
                      table: 102
-               :
-                  routing-policy - from: 10.23.6.0/24
+                routing-policy:
+                   - from: 10.23.6.0/24
                      table: 102
 
 Run ``sudo netplan apply`` to apply the new ``netplan`` configuration.

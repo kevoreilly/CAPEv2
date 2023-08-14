@@ -28,23 +28,13 @@ def test_yara():
     )
     # print("Yara version %s" % yara.__version__)
     matches = rules.match(data="asdfklahjsdflkhjsd aaaaa dfgkhjadsfgjklsdfhgk")
-    assert len(matches[0].strings[0]) == 3
+    assert isinstance(matches[0].strings[0], yara.StringMatch)
 
     _ = yara.compile(source='import "dotnet" rule a { condition: false }')
 
 
 def test_get_yaras():
-    yara_matches = File("tests/data/malware/53622590bb3138dcbf12b0105af96dd72aedc40de8984f97c8e882343a769b45").get_yara(
-        category="CAPE"
-    )
-    assert yara_matches == [
-        {
-            "name": "RedLine",
-            "meta": {"author": "ditekSHen", "description": "Detects RedLine infostealer", "cape_type": "RedLine Payload"},
-            "strings": ["procName"],
-            "addresses": {"v4_8": 100177},
-        }
-    ]
+    File.init_yara()
     yara_matches = File("tests/data/malware/f8a6eddcec59934c42ea254cdd942fb62917b5898f71f0feeae6826ba4f3470d").get_yara(
         category="CAPE"
     )
@@ -52,8 +42,8 @@ def test_get_yaras():
         {
             "name": "BumbleBee",
             "meta": {"author": "enzo & kevoreilly", "description": "BumbleBee Payload", "cape_type": "BumbleBee Payload"},
-            "strings": ["/gate"],
-            "addresses": {"str_gate": 1911968},
+            "strings": ["{ 84 C0 74 09 33 C9 FF 15 34 AF 15 00 CC 33 C9 E8 34 8E 12 00 48 8B C8 E8 }", "/gate"],
+            "addresses": {"antivm1": 34936, "str_gate": 1911968},
         }
     ]
 

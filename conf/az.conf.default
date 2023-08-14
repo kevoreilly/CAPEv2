@@ -97,14 +97,22 @@ spot_instances = false
 # start pulling tasks off of the stack
 wait_for_agent_before_starting = true
 
-# This is the value of the DNS server that you want the scale sets to use
-dns_server_ip = <dns_server_ip>
+# These are the value(s) of the DNS server(s) that you want the scale sets to use. (E.g. 1.1.1.1,8.8.8.8)
+# NOTE: NO SPACES
+dns_server_ips = <dns_server_ip>
 
 # This is the number of seconds that we should wait between checking if there are relevant tasks for a VMSS in the queue
 scale_down_polling_period = 1
 
 # This is switch used for machinery debugging/development, and should only be set to "true" in these scenarios
 just_start = false
+
+# This flag is used to indicate if VMSSs not associated with this particular CAPE deployment should be deleted if they
+# exist in the same sandbox_resource_group and contain the same AUTO_SCALE_CAPE KEY and VALUE.
+# If you have multiple CAPE deployments in the same sandbox_resource_group, set this to "true".
+# This is useful to set to "false" if you have leftover VMSSs from previous CAPE runs from your single deployment
+# that have different names from the current run. It doesn't happen often, but it could!
+multiple_capes_in_sandbox_rg = false
 
 [cuckoo1]
 # The gallery image name to use when creating the virtual machine scale set.
@@ -123,5 +131,5 @@ arch = x64
 # virtual machines in this scale set will have this tag
 pool_tag = <tag>
 
-# Initial virtual machine pool size for scale set
+# Initial virtual machine pool size for scale set. This should be a positive integer.
 initial_pool_size = 1

@@ -82,7 +82,7 @@ def test_parse_request_arguments(mock_request):
         None,
         None,
         None,
-        None,
+        "",
         "",
     )
 

@@ -314,7 +314,12 @@ def init_rooter():
             )
 
         if e.strerror == "Permission denied":
+            extra_msg = ""
+            if  gt.getuser() != "cape":
+                extra_msg = 'You have executed this process with WRONG user! Run with "cape" user\n'
+
             raise CuckooStartupError(
+                f"{extra_msg} "
                 "The rooter is required but we can't connect to it due to "
                 "incorrect permissions. Did you assign it the correct group? "
                 "(In order to disable the use of rooter, please set route "

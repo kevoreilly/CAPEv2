@@ -315,7 +315,7 @@ def init_rooter():
 
         if e.strerror == "Permission denied":
             extra_msg = ""
-            if  gt.getuser() != "cape":
+            if gt.getuser() != "cape":
                 extra_msg = 'You have executed this process with WRONG user! Run with "cape" user\n'
 
             raise CuckooStartupError(

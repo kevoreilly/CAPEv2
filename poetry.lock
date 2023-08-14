@@ -578,6 +578,20 @@ tomli = {version = "*", optional = true, markers = "python_full_version <= \"3.1
 toml = ["tomli"]
 
 [[package]]
+name = "crudini"
+version = "0.9.4"
+description = "A utility for manipulating ini files"
+optional = false
+python-versions = "*"
+files = [
+    {file = "crudini-0.9.4-py2.py3-none-any.whl", hash = "sha256:639beb4649be5108bc00dc0947b5641995f40bab7814cbbb3e16e2082905b9c6"},
+    {file = "crudini-0.9.4.tar.gz", hash = "sha256:6fd0eb341b6cbd91e1883030ea9f2102c1c95619eb563af7ddabc2161e019f6b"},
+]
+
+[package.dependencies]
+iniparse = ">=0.5"
+
+[[package]]
 name = "cryptography"
 version = "41.0.3"
 description = "cryptography is a package which provides cryptographic recipes and primitives to Python developers."
@@ -1456,6 +1470,21 @@ files = [
     {file = "iniconfig-2.0.0-py3-none-any.whl", hash = "sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"},
     {file = "iniconfig-2.0.0.tar.gz", hash = "sha256:2d91e135bf72d31a410b17c16da610a82cb55f6b0477d1a902134b24a455b8b3"},
 ]
+
+[[package]]
+name = "iniparse"
+version = "0.5"
+description = "Accessing and Modifying INI files"
+optional = false
+python-versions = "*"
+files = [
+    {file = "iniparse-0.5-py2-none-any.whl", hash = "sha256:88ca60473b1637055a937933d48840be1b1b6835f381a6158ef118a532583675"},
+    {file = "iniparse-0.5-py3-none-any.whl", hash = "sha256:db6ef1d8a02395448e0e7b17ac0aa28b8d338b632bbd1ffca08c02ddae32cf97"},
+    {file = "iniparse-0.5.tar.gz", hash = "sha256:932e5239d526e7acb504017bb707be67019ac428a6932368e6851691093aa842"},
+]
+
+[package.dependencies]
+six = "*"
 
 [[package]]
 name = "intervaltree"
@@ -4043,4 +4072,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "f1391b19093788f7956bdd2c4ab4b6dcc97344bc6f7632149eebf2f35a22519f"
+content-hash = "4e319914ad1cc1704e62ea773b71f317fc2fe95cd0f0bb2b3369100954d4812d"

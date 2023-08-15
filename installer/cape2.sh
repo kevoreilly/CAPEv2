@@ -745,14 +745,19 @@ function install_yara() {
     cd ..
     # for root
     pip3 install ./yara-python
-    rm -r yara-python
+    if [ -d yara-python ]; then
+        rm -r yara-python
+    fi
 
     if id "cape" >/dev/null 2>&1; then
         cd /opt/CAPEv2/
         sudo -u cape poetry run extra/poetry_yara_installer.sh
         cd -
     fi
-    rm -r yara-python
+    if [ -d yara-python ]; then
+        rm -r yara-python
+    fi
+
 }
 
 function install_mongo(){
@@ -813,7 +818,7 @@ Group=mongodb
 # StandardOutput=syslog
 # StandardError=syslog
 SyslogIdentifier=mongodb
-LimitNOFILE=65536
+LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 EOF

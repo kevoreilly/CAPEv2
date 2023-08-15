@@ -73,6 +73,8 @@ psycopg2-binary = "^2.9.5"
 Werkzeug = "2.2.3"
 packaging = "23.1"
 setuptools = "68.0.0"
+# command line config manipulation
+crudini = "0.9.4"
 
 # guac-session
 pyguacamole = "^0.11"

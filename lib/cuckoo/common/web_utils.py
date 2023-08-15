@@ -498,7 +498,6 @@ def recon(
     route,
     cape,
 ):
-    filename = filename.lower()
     if not isinstance(filename, str):
         filename = bytes2str(filename)
 
@@ -516,7 +515,7 @@ def recon(
             if "package" in parsed_options:
                 package = parsed_options["package"]
 
-    if "name" in filename:
+    if "name" in filename.lower():
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
         timeout = 400
         enforce_timeout = True

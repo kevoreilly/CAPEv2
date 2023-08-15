@@ -1409,6 +1409,9 @@ class Database(object, metaclass=Singleton):
             if tags:
                 for tag in tags.split(","):
                     if tag.strip():
+                        # "Task" object is being merged into a Session along the backref cascade path for relationship "Tag.tasks"; in SQLAlchemy 2.0, this reverse cascade will not take place.
+                        # Set cascade_backrefs to False in either the relationship() or backref() function for the 2.0 behavior; or to set globally for the whole Session, set the future=True flag
+                        # (Background on this error at: https://sqlalche.me/e/14/s9r1) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
                         task.tags.append(self._get_or_create(session, Tag, name=tag))
 
             if clock:
@@ -1606,15 +1609,15 @@ class Database(object, metaclass=Singleton):
                 package, _ = self._identify_aux_func(file_path, package)
 
         # extract files from the (potential) archive
-        extracted_files = demux_sample(file_path, package, options)
+        extracted_files = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
-        if extracted_files and file_path not in extracted_files:
+        if extracted_files and (file_path, platform) not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
 
         # create tasks for each file in the archive
-        for file in extracted_files:
+        for file, platform in extracted_files:
             if static:
                 # On huge loads this just become a bottleneck
                 config = False
@@ -1770,14 +1773,14 @@ class Database(object, metaclass=Singleton):
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
-        if extracted_files and file_path not in extracted_files:
+        if extracted_files and (file_path, platform) not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
                 path_delete(file_path)
 
         task_ids = []
         # create tasks for each file in the archive
-        for file in extracted_files:
+        for file, platform in extracted_files:
             task_id = self.add(
                 Static(file.decode()),
                 timeout,

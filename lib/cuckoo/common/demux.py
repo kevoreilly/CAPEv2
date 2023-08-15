@@ -207,7 +207,7 @@ def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     return list(filter(None, retlist))
 
 
-def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = "") -> tuple[bytes, str]:
+def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""): #   -> tuple[bytes, str]:
     """
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)

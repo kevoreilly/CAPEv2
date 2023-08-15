@@ -1609,7 +1609,7 @@ class Database(object, metaclass=Singleton):
                 package, _ = self._identify_aux_func(file_path, package)
 
         # extract files from the (potential) archive
-        extracted_files = demux_sample(file_path, package, options, platform)
+        extracted_files = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
         if extracted_files and (file_path, platform) not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)

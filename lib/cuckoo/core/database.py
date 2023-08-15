@@ -1773,14 +1773,14 @@ class Database(object, metaclass=Singleton):
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
-        if extracted_files and file_path not in extracted_files:
+        if extracted_files and (file_path, platform) not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
                 path_delete(file_path)
 
         task_ids = []
         # create tasks for each file in the archive
-        for file in extracted_files:
+        for file, platform in extracted_files:
             task_id = self.add(
                 Static(file.decode()),
                 timeout,

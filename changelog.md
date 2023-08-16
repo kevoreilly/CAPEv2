@@ -1,3 +1,6 @@
+### [16.8.2023]
+* Monitor update: Filter uninteresting process dumps via new VerifyCodeSection() function checking code section for modification
+
 ### [10.8.2023]
 * Monitor updates:
     * Fix for NtQueueApcThread hook: do not send thread handle in 'process' message

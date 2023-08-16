@@ -2,6 +2,7 @@ import struct
 
 import pefile
 
+
 def calc_section_alignment(pe: pefile.PE, offset: int, addr: int) -> int:
     """
     offset is: Ex struct.unpack("i", blob[0x43:0x47])[0] + 0x47

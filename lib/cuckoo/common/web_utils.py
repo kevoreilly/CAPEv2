@@ -626,10 +626,6 @@ def download_file(**kwargs):
         elif socks5s_random:
             route = socks5s_random
 
-    if package:
-        if package == "Emotet":
-            return "error", {"error": "Hey guy update your script, this package doesn't exist anymore"}
-
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {

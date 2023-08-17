@@ -1,5 +1,7 @@
 ### [16.8.2023]
-* Monitor update: Filter uninteresting process dumps via new VerifyCodeSection() function checking code section for modification
+* Monitor updates:
+    * Filter uninteresting process dumps via new VerifyCodeSection() function checking code section for modification
+    * Fix issue with process path-based options being set too late (after yara init)
 
 ### [10.8.2023]
 * Monitor updates:

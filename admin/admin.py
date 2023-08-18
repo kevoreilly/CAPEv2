@@ -74,9 +74,17 @@ if __name__ == "__main__":
     )
     parser.add_argument("-u", "--username", default="jenkins", action="store", required=False)
     parser.add_argument(
-        "-r",
+        "-rs",
         "--restart-service",
         help="Restart processing, to be used with deployment options",
+        action="store_true",
+        default=False,
+        required=False,
+    )
+    parser.add_argument(
+        "-rw",
+        "--restart-uwsgi",
+        help="Restart UWSGI, by touching control file",
         action="store_true",
         default=False,
         required=False,
@@ -339,10 +347,6 @@ if __name__ == "__main__":
         gen_hashfile(args.generate_files_listing, args.filename)
     elif args.check_files_difference:
         compare_hashed_files(args.check_files_difference, servers, jumpbox, args.private_repo)
-
-    # comparing done
-    elif args.restart_service:
-        pass
     else:
         parser.print_help()
     if args.deploy_local_changes or args.deploy_remote_changes or args.sync_community or args.deploy_remote_head or args.custom:
@@ -353,3 +357,6 @@ if __name__ == "__main__":
 
     if args.restart_service and POSTPROCESS:
         execute_command_on_all(POSTPROCESS, servers, jumpbox)
+
+    if args.restart_uwsgi:
+        execute_command_on_all("touch /tmp/capeuwsgireload", servers, jumpbox)

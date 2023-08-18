@@ -191,7 +191,7 @@ def demux_sflock(filename: bytes, options: str) -> List[bytes]:
             unpacked = unpack(filename, check_shellcode=True)
 
         if unpacked.package in whitelist_extensions:
-            return [filename]
+            return filename
         if unpacked.package in blacklist_extensions:
             return retlist
         for sf_child in unpacked.children:

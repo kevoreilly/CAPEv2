@@ -2108,7 +2108,10 @@ class Database(object, metaclass=Singleton):
                 if include_hashes:
                     search = search.join(Sample, Task.sample_id == Sample.id)
                 if status:
-                    search = search.filter(Task.status == status)
+                    if "|" in status:
+                        search = search.filter(Task.status.in_(status.split("|")))
+                    else:
+                        search = search.filter(Task.status == status)
                 if not_status:
                     search = search.filter(Task.status != not_status)
                 if category:

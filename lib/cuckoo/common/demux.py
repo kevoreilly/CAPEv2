@@ -130,7 +130,7 @@ def options2passwd(options: str) -> str:
     return password
 
 
-def demux_office(filename: bytes, password: str) -> List[bytes]:
+def demux_office(filename: bytes, password: str, platform: str) -> List[bytes]:
     retlist = []
     target_path = os.path.join(tmp_path, "cuckoo-tmp/msoffice-crypt-tmp")
     if not path_exists(target_path):
@@ -143,12 +143,12 @@ def demux_office(filename: bytes, password: str) -> List[bytes]:
         # TODO: add decryption verification checks
         if hasattr(d, "contents") and "Encrypted" not in d.magic:
             _ = path_write_file(decrypted_name, d.contents)
-            retlist.append(decrypted_name.encode())
+            retlist.append((decrypted_name.encode(), platform))
     else:
         raise CuckooDemuxError("MS Office decryptor not available")
 
     if not retlist:
-        retlist.append(filename)
+        retlist.append((filename, platform))
 
     return retlist
 
@@ -219,9 +219,9 @@ def demux_sample(
     if isinstance(filename, str) and use_sflock:
         filename = filename.encode()
 
+    retlist = []
     # if a package was specified, trim if allowed and required
     if package:
-        retlist = []
         if File(filename).get_size() <= web_cfg.general.max_sample_size or (
             web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
@@ -246,7 +246,8 @@ def demux_sample(
         password = options2passwd(options) or None
         if use_sflock:
             if HAS_SFLOCK:
-                return [(demux_office(filename, password), platform)]
+                retlist = demux_office(filename, password, platform)
+                return retlist
             else:
                 log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
 
@@ -290,7 +291,5 @@ def demux_sample(
                     # maybe identify here
                     if trim_file(filename):
                         filename = trimmed_path(filename)
-
             new_retlist.append((filename, platform))
-
     return new_retlist[:10]

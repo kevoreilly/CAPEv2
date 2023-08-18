@@ -23,6 +23,7 @@ from itertools import islice
 from json import loads
 from urllib.parse import urlunparse
 
+import cachetools.func
 import dns.resolver
 from dns.reversename import from_address
 
@@ -109,11 +110,29 @@ if enabled_ip_passlist and ip_passlist_file:
             ip_passlist.add(ip)
 
 if HAVE_GEOIP and proc_cfg.network.maxmind_database:
-    maxmind_db_path = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
-    if proc_cfg.network.country_lookup and path_exists(maxmind_db_path):
-        maxminddb_client = maxminddb.open_database(maxmind_db_path)
-    else:
-        HAVE_GEOIP = False
+    # Reload the maxmind database when it has changed, but only check the file system
+    # every 5 minutes.
+    _MAXMINDDB_PATH = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
+    _MAXMINDDB_CLIENT = None
+    _MAXMINDDB_MTIME = None
+
+    @cachetools.func.ttl_cache(maxsize=None, ttl=5 * 60)
+    def get_maxminddb_client():
+        global _MAXMINDDB_CLIENT
+        global _MAXMINDDB_MTIME
+        if path_exists(_MAXMINDDB_PATH):
+            mtime = os.stat(_MAXMINDDB_PATH).st_mtime
+            if mtime != _MAXMINDDB_MTIME:
+                _MAXMINDDB_MTIME = mtime
+                log.info("Loading maxmind database from %s", _MAXMINDDB_PATH)
+                _MAXMINDDB_CLIENT = maxminddb.open_database(_MAXMINDDB_PATH)
+            return _MAXMINDDB_CLIENT
+        return None
+
+else:
+
+    def get_maxminddb_client():
+        return None
 
 
 class Pcap:
@@ -234,11 +253,13 @@ class Pcap:
                     return True
 
     def _get_cn(self, ip):
-        if HAVE_GEOIP:
-            try:
-                return maxminddb_client.get(ip).get("country", {}).get("names", {}).get("en", "unknown")
-            except Exception:
-                log.error("Unable to resolve GEOIP for %s", ip)
+        if proc_cfg.network.country_lookup:
+            maxminddb_client = get_maxminddb_client()
+            if maxminddb_client:
+                try:
+                    return maxminddb_client.get(ip).get("country", {}).get("names", {}).get("en", "unknown")
+                except Exception:
+                    log.error("Unable to resolve GEOIP for %s", ip)
         return "unknown"
 
     def _add_hosts(self, connection):

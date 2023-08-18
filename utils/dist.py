@@ -345,7 +345,9 @@ def node_submit_task(task_id, node_id, main_task_id):
                 log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
 
         elif r.status_code == 500:
-            log.debug((r.status_code, r.text))
+            log.info("Saving error to /tmp/dist_error.html")
+            _ = path_write_file("/tmp/dist_error.html", r.content)
+            log.info((r.status_code, r.text[:200]))
 
         elif r.status_code == 429:
             log.info((r.status_code, "see api auth for more details"))

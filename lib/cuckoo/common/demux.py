@@ -262,11 +262,11 @@ def demux_sample(
         if File(filename).get_size() <= web_cfg.general.max_sample_size or (
             web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
-            retlist.append(filename)
+            retlist.append((filename, platform))
         else:
             if web_cfg.general.enable_trim and trim_file(filename):
-                retlist.append(trimmed_path(filename))
-        return [(retlist, platform)]
+                retlist.append((trimmed_path(filename), platform))
+        return retlist
 
     new_retlist = []
     # all in one unarchiver

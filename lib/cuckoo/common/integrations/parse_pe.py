@@ -545,7 +545,7 @@ class PortableExecutable:
 
     def generate_icon_dhash(self, image: Image.Image, hash_size: int = 8) -> str:
         # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
-        image = image.convert("L").resize((hash_size + 1, hash_size), Image.ANTIALIAS)
+        image = image.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
 
         difference = []
 

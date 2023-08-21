@@ -65,6 +65,7 @@ pymongo = ">=4.0.1"
 psutil = "5.8.0"
 # ImageHash = "4.2.1"
 LnkParse3 = "1.2.0"
+cachetools = "^5.3.0"
 django-allauth = "0.54.0"  # https://django-allauth.readthedocs.io/en/latest/configuration.html
 # socks5man = {git = "https://github.com/doomedraven/socks5man.git", rev = "7b335d027297b67abdf28f38cc7d5d42c9d810b5"}
 # httpreplay = {git = "https://github.com/CAPESandbox/httpreplay.git", rev = "0d5a5b3144ab15f93189b83ca8188afde43db134"}

@@ -33,7 +33,7 @@ class During_script(Thread, Auxiliary):
             self.file_ext = os.path.splitext(self.file_path)[-1]
             self.do_run = True
             if self.file_ext == ".py":
-                self.executable = ["python.exe"]
+                self.executable = ["python.exe", "-u"]
             elif self.file_ext == ".ps1":
                 self.executable = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "bypass", "-File"]
             else:
@@ -63,17 +63,10 @@ class During_script(Thread, Auxiliary):
             else:
                 self.executable.append(self.during_script_args_list)
             log.info("During_script command: %s", " ".join(self.executable))
-            popen = subprocess.Popen(self.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            popen = subprocess.Popen(self.executable, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-            for stdout_line in iter(popen.stdout.readline, ""):
-                nf.sock.send(stdout_line.encode())
-            popen.stdout.close()
-            nf.close()
-            return_code = popen.wait()
-            log.info("Running during_script, saved output to logs/during_script.logs")
-            if return_code:
-                log.error("Process stderr: %s", popen.stderr)
-                raise subprocess.CalledProcessError(return_code, str(self.executable))
+            self.popen = popen
+            self.nf = nf
         except Exception as e:
             log.error("Error running during_script due to error: %s", e)
             return False
@@ -81,3 +74,24 @@ class During_script(Thread, Auxiliary):
 
     def stop(self):
         self.do_run = False
+
+        popen = self.popen
+        nf = self.nf
+        log.info("Stopping during_script")
+        try:
+            return_code = popen.poll()
+            if return_code is None:
+                popen.terminate()
+            
+            stdout_data, stderr_data = popen.communicate()
+            nf.sock.send(stdout_data)
+            if stderr_data:
+                nf.sock.send(b"Process stderr\n")
+                nf.sock.send(b"--------------\n")
+                nf.sock.send(stderr_data)
+                raise subprocess.CalledProcessError(return_code, str(self.executable))
+            nf.close()
+        except Exception as e:
+            log.error("Error running during_script due to error: %s", e)
+            return False
+        return True

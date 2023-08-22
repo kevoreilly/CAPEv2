@@ -65,15 +65,8 @@ class During_script(Thread, Auxiliary):
             log.info("During_script command: %s", " ".join(self.executable))
             popen = subprocess.Popen(self.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
-            for stdout_line in iter(popen.stdout.readline, ""):
-                nf.sock.send(stdout_line.encode())
-            popen.stdout.close()
-            nf.close()
-            return_code = popen.wait()
-            log.info("Running during_script, saved output to logs/during_script.logs")
-            if return_code:
-                log.error("Process stderr: %s", popen.stderr)
-                raise subprocess.CalledProcessError(return_code, str(self.executable))
+            self.popen = popen
+            self.nf = nf
         except Exception as e:
             log.error("Error running during_script due to error: %s", e)
             return False
@@ -81,3 +74,16 @@ class During_script(Thread, Auxiliary):
 
     def stop(self):
         self.do_run = False
+
+        popen = self.popen
+        nf = self.nf
+
+        for stdout_line in iter(popen.stdout.readline, ""):
+            nf.sock.send(stdout_line.encode())
+        popen.stdout.close()
+        nf.close()
+        return_code = popen.wait()
+        log.info("Running during_script, saved output to logs/during_script.logs")
+        if return_code:
+            log.error("Process stderr: %s", popen.stderr)
+            raise subprocess.CalledProcessError(return_code, str(self.executable))

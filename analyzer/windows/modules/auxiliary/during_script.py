@@ -82,7 +82,7 @@ class During_script(Thread, Auxiliary):
             return_code = popen.poll()
             if return_code is None:
                 popen.terminate()
-            
+
             stdout_data, stderr_data = popen.communicate()
             nf.sock.send(stdout_data)
             if stderr_data:

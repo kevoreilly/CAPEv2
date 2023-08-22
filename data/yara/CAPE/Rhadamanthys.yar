@@ -2,7 +2,7 @@ rule Rhadamanthys
 {
     meta:
         author = "kevoreilly"
-		description = "Rhadamanthys Loader"
+        description = "Rhadamanthys Loader"
         cape_type = "RhadamanthysLoader Payload"
     strings:
         $rc4 = {88 4C 01 08 41 81 F9 00 01 00 00 7C F3 89 75 08 33 FF 8B 4D 08 3B 4D 10 72 04 83 65 08 00}

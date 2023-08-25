@@ -2,6 +2,7 @@ import struct
 
 import pefile
 
+
 # dotnet
 def get_mdtoken(data: bytes) -> int:
     return struct.unpack_from("<I", data)[0] & 0xFFFFFF

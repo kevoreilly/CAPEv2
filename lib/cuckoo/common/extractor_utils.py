@@ -2,6 +2,15 @@ import struct
 
 import pefile
 
+# dotnet
+def get_mdtoken(data: bytes) -> int:
+    return struct.unpack_from("<I", data)[0] & 0xFFFFFF
+
+
+def get_data_offset(pe: pefile.PE, string_offset: int, addr: int) -> int:
+    alignment = calc_section_alignment(pe, string_offset, addr)
+    return string_offset + addr - alignment
+
 
 def calc_section_alignment(pe: pefile.PE, offset: int, addr: int) -> int:
     """

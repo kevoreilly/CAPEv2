@@ -55,10 +55,10 @@ QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux
 
 
 #https://www.qemu.org/download/#source or https://download.qemu.org/
-qemu_version=8.0.2
+qemu_version=8.1.0
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
-libvirt_version=9.4.0
+libvirt_version=9.6.0
 # virt-manager - https://github.com/virt-manager/virt-manager/releases
 # autofilled
 OS=""
@@ -160,6 +160,16 @@ cat << EndOfHelp
             * https://www.jamescoyle.net/how-to/1810-qcow2-disk-images-and-performance
             * https://www.jamescoyle.net/how-to/2060-qcow2-physical-size-with-different-preallocation-settings
 EndOfHelp
+}
+
+function configure_needreboot(){
+    # Ubuntu 22
+    # Disabele: Daemons using outdated libraries
+    # https://stackoverflow.com/questions/73397110/how-to-stop-ubuntu-pop-up-daemons-using-outdated-libraries-when-using-apt-to-i
+    sed "/#\$nrconf{restart} = 'i';/s/.*/\$nrconf{restart} = 'a';/" /etc/needrestart/needrestart.conf
+    # Disabele: Pending kernel upgrade
+    # https://askubuntu.com/questions/1349884/how-to-disable-pending-kernel-upgrade-message
+    sed -i "s/#\$nrconf{kernelhints} = -1;/\$nrconf{kernelhints} = -1;/g" /etc/needrestart/needrestart.conf
 }
 
 function grub_iommu(){
@@ -1253,6 +1263,7 @@ case "$COMMAND" in
 'issues')
     issues;;
 'all')
+    configure_needreboot
     aptitude install -f language-pack-UTF-8 -y
     install_qemu
     install_seabios
@@ -1326,6 +1337,8 @@ case "$COMMAND" in
     grub_iommu;;
 'jemalloc')
     install_jemalloc;;
+'needreboot')
+    configure_needreboot;;
 'mosh')
     if [ "$OS" = "Linux" ]; then
         sudo aptitude install -f mosh -y

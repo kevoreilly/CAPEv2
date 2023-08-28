@@ -166,7 +166,7 @@ function configure_needreboot(){
     # Ubuntu 22
     # Disabele: Daemons using outdated libraries
     # https://stackoverflow.com/questions/73397110/how-to-stop-ubuntu-pop-up-daemons-using-outdated-libraries-when-using-apt-to-i
-    sed "/#\$nrconf{restart} = 'i';/s/.*/\$nrconf{restart} = 'a';/" /etc/needrestart/needrestart.conf
+    sed -i "/#\$nrconf{restart} = 'i';/s/.*/\$nrconf{restart} = 'a';/" /etc/needrestart/needrestart.conf
     # Disabele: Pending kernel upgrade
     # https://askubuntu.com/questions/1349884/how-to-disable-pending-kernel-upgrade-message
     sed -i "s/#\$nrconf{kernelhints} = -1;/\$nrconf{kernelhints} = -1;/g" /etc/needrestart/needrestart.conf

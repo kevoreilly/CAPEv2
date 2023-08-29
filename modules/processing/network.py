@@ -632,8 +632,8 @@ class Pcap:
         # data is list
         for conn, data in self.smtp_flow.items():
             # Detect new SMTP flow.
-            if b"EHLO" in data or b"HELO" in data:
-                self.smtp_requests.append({"dst": conn, "raw": convert_to_printable(data)})
+            if any(b"EHLO" in item or b"HELO" in item for item in data):
+                self.smtp_requests.append({"dst": conn, "raw": convert_to_printable(b"".join(data))})
 
     def _check_irc(self, tcpdata):
         """

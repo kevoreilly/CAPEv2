@@ -1,3 +1,9 @@
+### [25.8.2023]
+* Monitor update: Upgrade monitor Yara to 4.3.2 (thanks Michael Weiser)
+
+### [19.8.2023]
+* Monitor update: fix memcpy hook logging issue
+
 ### [16.8.2023]
 * Monitor updates:
     * Filter uninteresting process dumps via new VerifyCodeSection() function checking code section for modification

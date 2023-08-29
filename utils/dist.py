@@ -513,11 +513,7 @@ class Retriever(threading.Thread):
                 for task in node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete"):
                     t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                     if t is not None:
-                        log.info(
-                            "Cleaning failed for id:{}, node:{}: main_task_id: {}".format(
-                                t.id, t.node_id, t.main_task_id
-                            )
-                        )
+                        log.info("Cleaning failed for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
                         main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
                         t.finished = True
                         t.retrieved = True

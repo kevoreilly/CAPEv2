@@ -38,6 +38,7 @@ class Sniffer(Auxiliary):
         tcpdump = self.options.get("tcpdump", "/usr/sbin/tcpdump")
         bpf = self.options.get("bpf", "")
         remote = self.options.get("remote", False)
+        custom = self.options.get("custom", "")
         remote_host = self.options.get("host", "")
         file_path = (
             f"/tmp/tcp.dump.{self.task.id}"
@@ -156,6 +157,8 @@ class Sniffer(Auxiliary):
 
         # TODO fix this, temp fix to not get all that noise
         # pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
+        if custom:
+            pargs.extend(["and", "(", *custom.split(" "), ")", "'"])
 
         if remote and bpf:
             pargs.extend(["and", "(", *bpf.split(" "), ")", "'"])

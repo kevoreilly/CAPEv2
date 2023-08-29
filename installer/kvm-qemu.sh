@@ -628,7 +628,7 @@ function install_virt_manager() {
     gstreamer1.0-x adwaita-icon-theme at-spi2-core augeas-lenses cpu-checker dconf-gsettings-backend dconf-service \
     fontconfig fontconfig-config fonts-dejavu-core genisoimage gir1.2-appindicator3-0.1 gir1.2-secret-1 \
     gobject-introspection intltool pkg-config libxml2-dev libxslt-dev python3-dev gir1.2-gtk-vnc-2.0 gir1.2-spiceclientgtk-3.0 libgtk-3-dev \
-    mlocate gir1.2-gtksource-4 libgtksourceview-4-0 libgtksourceview-4-common checkinstall -y
+    mlocate gir1.2-gtksource-4 libgtksourceview-4-0 libgtksourceview-4-common -y
     # should be installed first
     # moved out as some 20.04 doesn't have this libs %)
     aptitude install -f -y python3-ntlm-auth libpython3-stdlib libbrlapi-dev libgirepository1.0-dev python3-testresources
@@ -656,20 +656,19 @@ function install_virt_manager() {
         gpg --verify "libvirt-glib-3.0.0.tar.gz.asc"
 
     fi
+    # ToDo add blacklist
     tar xf libvirt-glib-3.0.0.tar.gz
     cd libvirt-glib-3.0.0 || return
     aclocal && libtoolize --force
     automake --add-missing
     ./configure
-    # mkdir -p /tmp/libvirt-glib_builded/DEBIAN
-    # echo -e "Package: libvirt-glib-1.0-0\nVersion: 1.0-0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: libvirt-glib-1.0-0" > /tmp/libvirt-glib_builded/DEBIAN/control
-    # make -j"$(nproc)" install DESTDIR=/tmp/libvirt-glib_builded
-    # dpkg-deb --build --root-owner-group /tmp/libvirt-glib_builded
-    # apt -y -o Dpkg::Options::="--force-overwrite" install /tmp/libvirt-glib_builded.deb
-
+    mkdir -p /tmp/libvirt-glib_builded/DEBIAN
+    echo -e "Package: libvirt-glib\nVersion: 1.0-0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom libvirt-glib-1.0-0" > /tmp/libvirt-glib-1.0-0_builded/DEBIAN/control
+    make -j"$(nproc)" install DESTDIR=/tmp/libvirt-glib_builded
+    dpkg-deb --build --root-owner-group /tmp/libvirt-glib_builded
+    apt -y -o Dpkg::Options::="--force-overwrite" install /tmp/libvirt-glib_builded.deb
     make -j"$(nproc)"
-    # ToDo add blacklist
-    checkinstall --pkgname=libvirt-glib-1.0-0 --default
+
     # v4 is meson based
     # sudo meson build -D system=true
     cd /tmp || return
@@ -895,12 +894,8 @@ function install_qemu() {
                 mkdir -p /tmp/qemu-"$qemu_version"_builded/DEBIAN
                 echo -e "Package: qemu\nVersion: $qemu_version\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom antivm qemu" > /tmp/qemu-"$qemu_version"_builded/DEBIAN/control
                 make -j"$(nproc)" install DESTDIR=/tmp/qemu-"$qemu_version"_builded
-                if [ "$OS" = "Linux" ]; then
-                    dpkg-deb --build --root-owner-group /tmp/qemu-"$qemu_version"_builded
-                    apt -y -o Dpkg::Options::="--force-overwrite" install /tmp/qemu-"$qemu_version"_builded.deb
-                elif [ "$OS" = "Darwin" ]; then
-                    make -j"$(nproc)" install
-                fi
+                dpkg-deb --build --root-owner-group /tmp/qemu-"$qemu_version"_builded
+                apt -y -o Dpkg::Options::="--force-overwrite" install /tmp/qemu-"$qemu_version"_builded.deb
                 # hack for libvirt/virt-manager
                 if [ ! -f /usr/bin/qemu-system-x86_64-spice ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64-spice
@@ -930,7 +925,7 @@ function install_qemu() {
     if [ "$OS" = "linux" ]; then
         dpkg --get-selections | grep "qemu" | xargs apt-mark hold
         dpkg --get-selections | grep "libvirt" | xargs apt-mark hold
-        apt-mark unhold qemu libvirt
+        apt-mark hold qemu libvirt
     fi
 
 }

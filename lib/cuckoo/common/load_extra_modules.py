@@ -40,6 +40,9 @@ def cape_load_decoders(CUCKOO_ROOT: str):
     cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
     CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{cape_decoders}/[!_]*.py")]
 
+    private_cape_decoders = os.path.join(CUCKOO_ROOT, "private", "parsers")
+    CAPE_DECODERS += [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{private_cape_decoders}/[!_]*.py")]
+
     for name in CAPE_DECODERS:
         try:
             # The name of the module must match what's given as the cape_type for yara

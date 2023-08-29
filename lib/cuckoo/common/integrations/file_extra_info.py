@@ -418,6 +418,14 @@ def generic_file_extractors(
 
     futures = {}
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
+        # Prefer custom modules over the built-in ones, since only 1 is allowed
+        # to be the extracted_files_tool.
+        if extra_info_modules:
+            for module in extra_info_modules:
+                func_timeout = int(getattr(module, "timeout", 60))
+                funcname = module.__name__.split(".")[-1]
+                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
+
         for extraction_func in file_info_funcs:
             funcname = extraction_func.__name__.split(".")[-1]
             if (
@@ -428,12 +436,6 @@ def generic_file_extractors(
 
             func_timeout = int(getattr(selfextract_conf, funcname, {}).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
-
-        if extra_info_modules:
-            for module in extra_info_modules:
-                func_timeout = int(getattr(module, "timeout", 60))
-                funcname = module.__name__.split(".")[-1]
-                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
     pool.join()
 
     for funcname, future in futures.items():

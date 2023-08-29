@@ -81,7 +81,6 @@ except ImportError:
     HAVE_YARA = False
 
 
-
 log = logging.getLogger(__name__)
 
 yara_error = {

@@ -23,7 +23,6 @@ import modules.signatures
 
 # Private
 import private.signatures
-
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -34,7 +33,6 @@ from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Databas
 from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns
-
 
 log = logging.getLogger()
 

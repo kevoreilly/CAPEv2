@@ -19,7 +19,7 @@ DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
 
 
-def is_pe_image(path):
+def is_pe_image(path) -> bool:
     if not path:
         return False
 
@@ -39,15 +39,15 @@ def is_pe_image(path):
         offset = 0
         while offset < PE_HEADER_LIMIT - 86:
             try:
-                machine_probe = struct.unpack("<H", buf[offset : offset + 2])[0]
+                machine_probe = struct.unpack("<H", buf[offset: offset + 2])[0]
             except struct.error:
                 machine_probe = ""
             if machine_probe and machine_probe in {IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64}:
-                nt_headers = buf[offset - 4 : offset + 252]
+                nt_headers = buf[offset - 4: offset + 252]
                 break
             offset += 2
     else:
-        nt_headers = buf[e_lfanew : e_lfanew + 256]
+        nt_headers = buf[e_lfanew: e_lfanew + 256]
     if not nt_headers:
         return False
 
@@ -71,7 +71,7 @@ def is_pe_image(path):
     return True
 
 
-def pe_trimmed_size(path):
+def pe_trimmed_size(path) -> int:
     if not HAVE_PEFILE:
         return 0
 
@@ -86,3 +86,21 @@ def pe_trimmed_size(path):
                 + pe.sections[pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
             )
     return 0
+
+
+def choose_dll_export(path) -> str:
+    if not HAVE_PEFILE:
+        return ""
+
+    if not is_pe_image(path):
+        return ""
+
+    pe = pefile.PE(path)
+
+    if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
+        for exp in pe.DIRECTORY_ENTRY_EXPORT.symbols:
+            with suppress(Exception):
+                if not exp.name:
+                    continue
+                if exp.name.decode() in ("DllInstall", "DllRegisterServer", "xlAutoOpen"):
+                    return exp.name.decode()

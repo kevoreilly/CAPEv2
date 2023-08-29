@@ -74,8 +74,12 @@ try:
     import yara
 
     HAVE_YARA = True
+    if not int(yara.__version__[0]) >= 4:
+        raise ImportError("Missed library. Run: poetry install")
 except ImportError:
+    print("Missed library. Run: poetry install")
     HAVE_YARA = False
+
 
 
 log = logging.getLogger(__name__)
@@ -438,28 +442,28 @@ class File:
         """Generates index for yara signatures."""
 
         categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
-
         log.debug("Initializing Yara...")
 
         # Generate root directory for yara rules.
         yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
+        priacte_yara_root = os.path.join(CUCKOO_ROOT, "private", "yara")
         # Loop through all categories.
         for category in categories:
-            # Check if there is a directory for the given category.
-            category_root = os.path.join(yara_root, category)
-            if not path_exists(category_root):
-                log.warning("Missing Yara directory: %s?", category_root)
-                continue
-
             rules, indexed = {}, []
-            for category_root, _, filenames in os.walk(category_root, followlinks=True):
-                for filename in filenames:
-                    if not filename.endswith((".yar", ".yara")):
-                        continue
-                    filepath = os.path.join(category_root, filename)
-                    rules[f"rule_{category}_{len(rules)}"] = filepath
-                    indexed.append(filename)
+            # Check if there is a directory for the given category.
+            for path in (yara_root, priacte_yara_root):
+                category_root = os.path.join(path, category)
+                if not path_exists(category_root):
+                    log.warning("Missing Yara directory: %s?", category_root)
+                    continue
+
+                for category_root, _, filenames in os.walk(category_root, followlinks=True):
+                    for filename in filenames:
+                        if not filename.endswith((".yar", ".yara")):
+                            continue
+                        filepath = os.path.join(category_root, filename)
+                        rules[f"rule_{category}_{len(rules)}"] = filepath
+                        indexed.append(filename)
 
                 # Need to define each external variable that will be used in the
             # future. Otherwise Yara will complain.

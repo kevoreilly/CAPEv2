@@ -41,7 +41,9 @@ def cape_load_decoders(CUCKOO_ROOT: str):
     CAPE_DECODERS = {"cape": [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{cape_decoders}/[!_]*.py")]}
 
     private_cape_decoders = os.path.join(CUCKOO_ROOT, "private", "parsers")
-    CAPE_DECODERS.setdefault("private", []).extend([os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{private_cape_decoders}/[!_]*.py")])
+    CAPE_DECODERS.setdefault("private", []).extend(
+        [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{private_cape_decoders}/[!_]*.py")]
+    )
 
     versions = {
         "cape": "modules.processing.parsers.CAPE",

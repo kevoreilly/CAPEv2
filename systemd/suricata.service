@@ -18,6 +18,6 @@ PrivateTmp=no
 InaccessibleDirectories=/home /root
 ReadOnlyDirectories=/boot /usr /etc
 User=root
-
+Group=root
 [Install]
 WantedBy=multi-user.target

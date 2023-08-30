@@ -121,8 +121,7 @@ def foreach_child(hwnd, lparam):
             "spaeter",
             "einverstanden",
             # ru
-            u"установить"
-
+            "установить",
         )
 
         # List of buttons labels to not click.

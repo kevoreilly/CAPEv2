@@ -141,6 +141,9 @@ def foreach_child(hwnd, lparam):
             "nicht ausfuehren",
             "hilfe",
             "stimme nicht zu",
+            # ru
+            "приoстановить",
+            "отмена",
         )
 
         # Check if the button is set as "clickable" and click it.

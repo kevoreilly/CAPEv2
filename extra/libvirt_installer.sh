@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # run this via...
-# cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/poetry_libvirt_installer.sh
+# cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/libvirt_installer.sh
 
 LIB_VERSION=9.6.0
 cd /tmp || return

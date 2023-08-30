@@ -754,7 +754,7 @@ function install_yara() {
 
     if id "cape" >/dev/null 2>&1; then
         cd /opt/CAPEv2/
-        sudo -u cape poetry run extra/poetry_yara_installer.sh
+        sudo -u cape poetry run extra/yara_installer.sh
         cd -
     fi
     if [ -d yara-python ]; then
@@ -1171,8 +1171,8 @@ function install_CAPE() {
     cd "/opt/CAPEv2/" || return
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
-    sudo -u ${USER} bash -c 'poetry run extra/poetry_yara_installer.sh'
+    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
+    sudo -u ${USER} bash -c 'poetry run extra/yara_installer.sh'
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}

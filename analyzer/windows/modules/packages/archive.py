@@ -38,7 +38,6 @@ class Archive(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["disable_hook_content"] = 4
 
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),

@@ -16,7 +16,7 @@ from contextlib import suppress
 from pathlib import Path
 
 # Private
-import private.signatures
+import custom.signatures
 
 import modules.auxiliary
 import modules.feeds
@@ -253,7 +253,7 @@ def init_modules():
     # Import all signatures.
     import_package(modules.signatures)
     # Import all private signatures
-    import_package(private.signatures)
+    import_package(custom.signatures)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
         log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
     # Import all reporting modules.

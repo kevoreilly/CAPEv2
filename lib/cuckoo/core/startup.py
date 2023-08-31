@@ -15,14 +15,14 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
+# Private
+import private.signatures
+
 import modules.auxiliary
 import modules.feeds
 import modules.processing
 import modules.reporting
 import modules.signatures
-
-# Private
-import private.signatures
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

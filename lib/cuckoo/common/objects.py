@@ -445,12 +445,12 @@ class File:
 
         # Generate root directory for yara rules.
         yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-        priacte_yara_root = os.path.join(CUCKOO_ROOT, "private", "yara")
+        custom_yara_root = os.path.join(CUCKOO_ROOT, "custom", "yara")
         # Loop through all categories.
         for category in categories:
             rules, indexed = {}, []
             # Check if there is a directory for the given category.
-            for path in (yara_root, priacte_yara_root):
+            for path in (yara_root, custom_yara_root):
                 category_root = os.path.join(path, category)
                 if not path_exists(category_root):
                     log.warning("Missing Yara directory: %s?", category_root)

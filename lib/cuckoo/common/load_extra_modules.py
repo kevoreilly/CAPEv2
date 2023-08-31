@@ -41,7 +41,7 @@ def cape_load_decoders(CUCKOO_ROOT: str):
     CAPE_DECODERS = {"cape": [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{cape_decoders}/[!_]*.py")]}
 
     custom_cape_decoders = os.path.join(CUCKOO_ROOT, "custom", "parsers")
-    CAPE_DECODERS.setdefault("private", []).extend(
+    CAPE_DECODERS.setdefault("custom", []).extend(
         [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{custom_cape_decoders}/[!_]*.py")]
     )
 

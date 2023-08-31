@@ -106,9 +106,11 @@ class HandlerContext:
 
     def read(self):
         try:
+            # Test
+            self.sock.settimeout(None)
             return self.sock.recv(16384)
         except socket.timeout as e:
-            print("Do we need to fix it?", e)
+            print(f"Do we need to fix it?. <Context for {self.command}>", e)
             return b""
         except socket.error as e:
             if e.errno == errno.EBADF:

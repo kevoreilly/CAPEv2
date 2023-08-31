@@ -17,7 +17,6 @@ from pathlib import Path
 
 # Private
 import custom.signatures
-
 import modules.auxiliary
 import modules.feeds
 import modules.processing

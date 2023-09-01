@@ -364,7 +364,9 @@ class LibVirtMachinery(Machinery):
             return
 
         if not HAVE_LIBVIRT:
-            raise CuckooDependencyError("Unable to import libvirt. Ensure that you properly installed it by running: cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/libvirt_installer.sh")
+            raise CuckooDependencyError(
+                "Unable to import libvirt. Ensure that you properly installed it by running: cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/libvirt_installer.sh"
+            )
 
         super(LibVirtMachinery, self).__init__()
 

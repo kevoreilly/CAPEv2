@@ -1,3 +1,8 @@
+### [1.9.2023]
+* Monitor updates: 
+    * Fix missing browser hooks config setting for Edge & Chrome
+    * Trace: add config option to try and skip loops which flood trace logs (loopskip=1)
+
 ### [25.8.2023]
 * Monitor update: Upgrade monitor Yara to 4.3.2 (thanks Michael Weiser)
 

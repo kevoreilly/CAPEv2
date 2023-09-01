@@ -180,7 +180,7 @@ arbitrary but unique ``table`` integer value.
                    - to: 10.23.6.0/24
                      via: 10.23.6.1
                      table: 102
-                routing-policy:
+               routing-policy:
                    - from: 10.23.6.0/24
                      table: 102
 

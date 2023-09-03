@@ -31,7 +31,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 try:
     import pyzipper
 except ImportError:
-    sys.exti("Missed pyzipper dependency: poetry run pip install pyzipper -U")
+    sys.exti("Missed pyzipper dependency: poetry install")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)

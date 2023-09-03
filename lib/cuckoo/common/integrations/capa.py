@@ -28,7 +28,7 @@ if processing_conf.flare_capa.enabled:
         from capa.version import __version__ as capa_version
 
         if capa_version[0] != "6":
-            print("FLARE-CAPA missed, poetry run pip install git+https://github.com/mandiant/capa")
+            print("FLARE-CAPA missed, poetry install")
         else:
             import capa.engine
             import capa.features
@@ -78,7 +78,7 @@ if processing_conf.flare_capa.enabled:
     except ImportError as e:
         HAVE_FLARE_CAPA = False
         print(e)
-        print("FLARE-CAPA missed: poetry run pip install -U flare-capa")
+        print("FLARE-CAPA missed: poetry install")
 
 
 # == Render ddictionary helpers
@@ -259,7 +259,7 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
         except MemoryError:
             log.warning("FLARE CAPA -> MemoryError")
         except AttributeError:
-            log.warning("FLARE CAPA -> Use GitHub's version. poetry run pip3 install git+https://github.com/mandiant/capa")
+            log.warning("FLARE CAPA -> Use GitHub's version. poetry install")
         except UnsupportedFormatError:
             log.error("FLARE CAPA -> UnsupportedFormatError")
         except Exception as e:

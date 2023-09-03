@@ -43,7 +43,7 @@ except ImportError:
     try:
         from ratelimit.decorators import ratelimit
     except ImportError:
-        print("missed dependency: poetry run pip install django-ratelimit -U")
+        print("missed dependency: poetry install")
 
 from lib.cuckoo.common.webadmin_utils import disable_user
 
@@ -64,7 +64,7 @@ try:
 
     HAVE_PYZIPPER = True
 except ImportError:
-    print("Missed dependency: poetry run pip install pyzipper -U")
+    print("Missed dependency: poetry install")
     HAVE_PYZIPPER = False
 
 TASK_LIMIT = 25

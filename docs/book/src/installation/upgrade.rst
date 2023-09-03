@@ -85,7 +85,7 @@ PIP3:
 
 PIP3+git:
    $ poetry run pip install -U git+<repo_url>
-   $ poetry run pip install -U git+https://github.com/doomedraven/sflock
+   $ poetry run pip install -U git+https://github.com/CAPEsandbox/sflock
 
 Troubleshooting:
 ================

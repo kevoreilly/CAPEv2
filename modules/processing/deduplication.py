@@ -12,14 +12,14 @@ try:
 
     HAVE_IMAGEHASH = True
 except ImportError:
-    print("Missed dependency: pip3 install ImageHash")
+    print("Missed dependency: poetry run pip install ImageHash")
 
 try:
     from PIL import Image
 
     Image.logger.setLevel(logging.WARNING)
 except ImportError:
-    print("Missed dependency: pip3 install Pillow")
+    print("Missed dependency: poetry install")
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.path_utils import path_exists

@@ -727,9 +727,7 @@ class PortableExecutable:
             return []
 
         if not HAVE_CRYPTO:
-            log.critical(
-                "You do not have the cryptography library installed preventing certificate extraction. poetry install"
-            )
+            log.critical("You do not have the cryptography library installed preventing certificate extraction. poetry install")
             return []
 
         dir_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]

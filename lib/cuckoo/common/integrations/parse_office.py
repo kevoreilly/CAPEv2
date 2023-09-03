@@ -23,7 +23,7 @@ try:
     HAVE_OLEFILE = True
 except ImportError:
     HAVE_OLEFILE = False
-    print("Missed olefile dependency: pip3 install olefile")
+    print("Missed olefile dependency: poetry run pip install olefile")
 
 try:
     from csv import Error as csv_error
@@ -36,7 +36,7 @@ try:
 
     HAVE_OLETOOLS = True
 except ImportError:
-    print("Missed oletools dependency: pip3 install oletools")
+    print("Missed oletools dependency: poetry run pip install olefile")
     HAVE_OLETOOLS = False
 
 logging.getLogger("msodde").setLevel(logging.CRITICAL)
@@ -239,7 +239,7 @@ class Office:
         except (csv_error, UnicodeDecodeError):
             pass
         except AttributeError:
-            log.warning("OleFile library bug: AttributeError! fix: pip3 install -U olefile")
+            log.warning("OleFile library bug: AttributeError! fix: poetry run pip install olefile")
         except Exception as e:
             log.error(e, exc_info=True)
 

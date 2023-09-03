@@ -28,7 +28,7 @@ if processing_conf.xlsdeobf.enabled:
         from XLMMacroDeobfuscator.deobfuscator import process_file as XLMMacroDeobf
     except ImportError:
         print(
-            "Missed dependey XLMMacroDeobfuscator: pip3 install -U git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git"
+            "Missed dependey XLMMacroDeobfuscator: poetry run pip install -U git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git"
         )
 
     xlm_kwargs = {

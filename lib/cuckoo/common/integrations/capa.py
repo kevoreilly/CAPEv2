@@ -28,7 +28,7 @@ if processing_conf.flare_capa.enabled:
         from capa.version import __version__ as capa_version
 
         if capa_version[0] != "6":
-            print("FLARE-CAPA missed, poetry run pip3 install git+https://github.com/mandiant/capa")
+            print("FLARE-CAPA missed, poetry run pip install git+https://github.com/mandiant/capa")
         else:
             import capa.engine
             import capa.features
@@ -61,7 +61,7 @@ if processing_conf.flare_capa.enabled:
                     print("FLARE_CAPA problems. Probably install CAPA from github")
                     HAVE_FLARE_CAPA = False
             else:
-                print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
+                print("FLARE CAPA rules missed! You can download them using: poetry run python utils/community.py -cr")
                 HAVE_FLARE_CAPA = False
 
             signatures_path = os.path.join(CUCKOO_ROOT, "data", "flare-signatures")
@@ -73,12 +73,12 @@ if processing_conf.flare_capa.enabled:
                 except IOError:
                     print("FLARE_CAPA InvalidSignatures")
             else:
-                print("FLARE CAPA signature missed! You can download them using python3 community.py -cr")
+                print("FLARE CAPA signature missed! You can download them using: poetry run python utils/community.py -cr")
                 HAVE_FLARE_CAPA = False
     except ImportError as e:
         HAVE_FLARE_CAPA = False
         print(e)
-        print("FLARE-CAPA missed, poetry run pip3 install -U flare-capa")
+        print("FLARE-CAPA missed: poetry run pip install -U flare-capa")
 
 
 # == Render ddictionary helpers

@@ -58,7 +58,7 @@ try:
     IS_DPKT = True
 except ImportError:
     IS_DPKT = False
-    print("Missed dependency: pip3 install -U dpkt")
+    print("Missed dependency: poetry run pip install")
 
 HAVE_HTTPREPLAY = False
 try:

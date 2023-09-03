@@ -32,7 +32,7 @@ try:
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
-    print("Missed cryptography library: pip3 install -U cryptography")
+    print("Missed cryptography library: poetry install")
 
 try:
     import magic
@@ -728,7 +728,7 @@ class PortableExecutable:
 
         if not HAVE_CRYPTO:
             log.critical(
-                "You do not have the cryptography library installed preventing certificate extraction. pip3 install cryptography"
+                "You do not have the cryptography library installed preventing certificate extraction. poetry install"
             )
             return []
 

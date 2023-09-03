@@ -1371,7 +1371,7 @@ case "$COMMAND" in
     # Disabled due to frequent CAPA updates and it breaks it. Users should care about this subject
     # Update FLARE CAPA rules and community every X hours
     # if ! crontab -l | grep -q 'community.py -waf -cr'; then
-    #    crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && python3 community.py -waf -cr && pip3 install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    #    crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     # fi
     if ! crontab -l | grep -q 'echo signal newnym'; then
         crontab -l | { cat; echo "00 */1 * * * (echo authenticate '""'; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null"; } | crontab -

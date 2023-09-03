@@ -25,11 +25,11 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\nsudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\npip3 install -U SFlock2")
+    print("You must install sflock\nsudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\npoetry install")
     HAS_SFLOCK = False
 
 if sf_version and int(sf_version.split(".")[-1]) < 42:
-    print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
+    print("You using old version of sflock! Upgrade: poetry install")
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
@@ -249,7 +249,7 @@ def demux_sample(
                 retlist = demux_office(filename, password, platform)
                 return retlist
             else:
-                log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
+                log.error("Detected password protected office file, but no sflock is installed: poetry install")
 
     # don't try to extract from Java archives or executables
     if (

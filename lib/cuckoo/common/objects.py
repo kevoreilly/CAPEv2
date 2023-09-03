@@ -574,7 +574,7 @@ class File:
         """Get ClamAV signatures matches.
         Requires pyclamd module. Additionally if running with apparmor, an exception must be made.
         apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
-        pip3 install -U pyclamd
+        poetry run pip install -U pyclamd
         systemctl enable clamav-daemon
         systemctl start clamav-daemon
         usermod -a -G cuckoo clamav

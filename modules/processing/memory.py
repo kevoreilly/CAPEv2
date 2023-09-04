@@ -23,6 +23,8 @@ try:
 except ImportError:
     import re
 
+
+JsonRenderer = ""
 try:
     import volatility3.plugins
     import volatility3.symbols

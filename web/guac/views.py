@@ -6,7 +6,7 @@ from django.shortcuts import render
 try:
     import libvirt
 except ImportError:
-    print("Missed python-libvirt. Use extra/poetry_libvirt_installer.sh")
+    print("Missed python-libvirt. Use extra/libvirt_installer.sh")
 
 
 def index(request, task_id, session_data):

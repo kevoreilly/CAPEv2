@@ -48,9 +48,9 @@ If you used poetry to install dependencies, you should launch cape with the foll
 
         $ sudo -u cape poetry run python3 cuckoo.py
 
-If you get any dependency-related error, make sure you execute the **extra/poetry_libvirt_installer.sh** script.::
+If you get any dependency-related error, make sure you execute the **extra/libvirt_installer.sh** script.::
 
-        $ sudo -u cape poetry run extra/poetry_libvirt_installer.sh
+        $ sudo -u cape poetry run extra/libvirt_installer.sh
 
 Troubleshooting
 ===============

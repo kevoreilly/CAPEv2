@@ -809,6 +809,8 @@ def truncate_filename(x):
 def sanitize_filename(x):
     """Kind of awful but necessary sanitizing of filenames to
     get rid of unicode problems."""
+    while x.startswith(" "):
+        x = x.lstrip()
     out = "".join(c if c in string.ascii_letters + string.digits + " _-." else "_" for c in x)
 
     """Prevent long filenames such as files named by hash

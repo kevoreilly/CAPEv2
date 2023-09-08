@@ -149,6 +149,11 @@ if enabledconf["elasticsearchdb"]:
 
     es = elastic_handler
 
+DISABLED_WEB = True
+# if elif else won't work here
+if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
+    DISABLED_WEB = False
+
 db = Database()
 
 anon_not_viewable_func_list = (
@@ -1370,7 +1375,12 @@ def report(request, task_id):
         esdata = {"index": query["_index"], "id": query["_id"]}
         report["es"] = esdata
     if not report:
-        return render(request, "error.html", {"error": "The specified analysis does not exist or not finished yet"})
+        if DISABLED_WEB:
+            msg = "You need to enable Mongodb/ES to be able to use WEBGUI to see the analysis"
+        else:
+            msg = "The specified analysis does not exist or not finished yet."
+
+        return render(request, "error.html", {"error": msg})
 
     if isinstance(report.get("CAPE"), dict) and report.get("CAPE", {}).get("configs", {}):
         report["malware_conf"] = report["CAPE"]["configs"]

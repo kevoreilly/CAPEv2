@@ -27,6 +27,7 @@ from lib.cuckoo.common.defines import (
     PAGE_WRITECOPY,
 )
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
+from lib.cuckoo.common.integrations.clamav import get_clamav
 from lib.cuckoo.common.path_utils import path_exists
 
 try:
@@ -42,13 +43,6 @@ try:
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
-
-try:
-    import pyclamd
-
-    HAVE_CLAMAV = True
-except ImportError:
-    HAVE_CLAMAV = False
 
 try:
     import re2 as re
@@ -570,34 +564,6 @@ class File:
         """
         return cls.cape_name_regex.sub("", cape_type)
 
-    def get_clamav(self):
-        """Get ClamAV signatures matches.
-        Requires pyclamd module. Additionally if running with apparmor, an exception must be made.
-        apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
-        poetry run pip install -U pyclamd
-        systemctl enable clamav-daemon
-        systemctl start clamav-daemon
-        usermod -a -G cuckoo clamav
-        echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
-        @return: matched ClamAV signatures.
-        """
-        matches = []
-
-        if HAVE_CLAMAV and os.path.getsize(self.file_path) > 0:
-            try:
-                cd = pyclamd.ClamdUnixSocket()
-                results = cd.allmatchscan(self.file_path)
-                if results:
-                    for entry in results[self.file_path]:
-                        if entry[0] == "FOUND" and entry[1] not in matches:
-                            matches.append(entry[1])
-            except ConnectionError:
-                log.warning("failed to connect to clamd socket")
-            except Exception as e:
-                log.warning("failed to scan file with clamav %s", e)
-            finally:
-                return matches
-        return matches
 
     def get_tlsh(self):
         """
@@ -692,7 +658,7 @@ class File:
             "type": self.get_type(),
             "yara": self.get_yara(),
             "cape_yara": self.get_yara(category="CAPE"),
-            "clamav": self.get_clamav(),
+            "clamav": get_clamav(self.file_path),
             "tlsh": self.get_tlsh(),
             "sha3_384": self.get_sha3_384(),
         }

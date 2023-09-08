@@ -7,6 +7,7 @@ import datetime
 import glob
 import json
 import logging
+import ntpath
 import os
 import shutil
 import socket
@@ -22,6 +23,7 @@ from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
+from lib.cuckoo.common.utils import sanitize_filename
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
@@ -307,8 +309,13 @@ class GuestManager:
         sample_path = alternative_path or options["target"]
         # If the target is a file, upload it to the guest.
         if options["category"] in ("file", "archive"):
+            # Use the correct os.sep in the filepath based on what OS this file is destined for
+            if self.platform == "windows":
+                filepath = ntpath.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
+            else:
+                filepath = os.path.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
             data = {
-                "filepath": os.path.join(self.determine_temp_path(), options["file_name"]),
+                "filepath": filepath
             }
             files = {
                 "file": ("sample.bin", open(sample_path, "rb")),

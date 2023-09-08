@@ -1,3 +1,7 @@
+### [8.9.2023]
+* Monitor update: 
+    * .NET JIT native cache scanning & dumping
+
 ### [1.9.2023]
 * Monitor updates: 
     * Fix missing browser hooks config setting for Edge & Chrome

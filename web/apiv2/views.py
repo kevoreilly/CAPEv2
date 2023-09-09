@@ -988,9 +988,12 @@ def tasks_reschedule(request, task_id):
         return Response(resp)
 
     resp = {}
-    if db.reschedule(task_id):
+    new_task_id = db.reschedule(task_id)
+    if new_task_id:
         resp["error"] = False
-        resp["data"] = "Task ID {0} has been rescheduled".format(task_id)
+        resp["data"] = {}
+        resp["data"]["new_task_id"] = new_task_id
+        resp["data"]["message"] = "Task ID {0} has been rescheduled".format(task_id)
     else:
         resp = {
             "error": True,

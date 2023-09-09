@@ -1963,6 +1963,7 @@ class Database(object, metaclass=Singleton):
                 task.enforce_timeout,
                 task.clock,
                 tlp=task.tlp,
+                route=task.route,
             )
 
             session.get(Task, task_id).custom = f"Recovery_{new_task_id}"

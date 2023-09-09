@@ -1949,22 +1949,40 @@ class Database(object, metaclass=Singleton):
                 log.warning("Unable to find valid target for task: %s", task_id)
                 return
 
-            new_task_id = add(
-                task_target,
-                task.timeout,
-                task.package,
-                task.options,
-                task.priority,
-                task.custom,
-                task.machine,
-                task.platform,
-                tags,
-                task.memory,
-                task.enforce_timeout,
-                task.clock,
-                tlp=task.tlp,
-                route=task.route,
-            )
+            new_task_id = None
+            if task.category in ["file", "url"]:
+                new_task_id = add(
+                    task_target,
+                    task.timeout,
+                    task.package,
+                    task.options,
+                    task.priority,
+                    task.custom,
+                    task.machine,
+                    task.platform,
+                    tags,
+                    task.memory,
+                    task.enforce_timeout,
+                    task.clock,
+                    tlp=task.tlp,
+                    route=task.route,
+                )
+            elif task.category in ["pcap", "static"]:
+                new_task_id = add(
+                    task_target,
+                    task.timeout,
+                    task.package,
+                    task.options,
+                    task.priority,
+                    task.custom,
+                    task.machine,
+                    task.platform,
+                    tags,
+                    task.memory,
+                    task.enforce_timeout,
+                    task.clock,
+                    tlp=task.tlp,
+                )
 
             session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
             try:

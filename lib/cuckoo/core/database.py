@@ -1950,7 +1950,7 @@ class Database(object, metaclass=Singleton):
                 return
 
             new_task_id = None
-            if task.category in ["file", "url"]:
+            if task.category in ("file", "url"):
                 new_task_id = add(
                     task_target,
                     task.timeout,
@@ -1967,7 +1967,7 @@ class Database(object, metaclass=Singleton):
                     tlp=task.tlp,
                     route=task.route,
                 )
-            elif task.category in ["pcap", "static"]:
+            elif task.category in ("pcap", "static"):
                 new_task_id = add(
                     task_target,
                     task.timeout,

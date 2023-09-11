@@ -118,7 +118,7 @@ def extract_config(filebuf):
         print(e)
         return {}
 
-    if config["version"].startswith("0"):
+    if config.get("version", "").startswith("0"):
         return config
     return {}
 

@@ -57,6 +57,7 @@ RESULT_UPLOADABLE = (
     b"sysmon",
     b"stap",
     b"evtx",
+    b"htmldump",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
@@ -221,7 +222,7 @@ class FileUpload(ProtocolHandler):
                 raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
-        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"tlsdump/", b"evtx")):
+        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"tlsdump/", b"evtx", b"htmldump/")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
                 print(

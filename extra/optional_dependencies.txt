@@ -21,3 +21,4 @@ pydot>=1.2.4
 regex
 ruff
 scp
+urlextract==1.5.0

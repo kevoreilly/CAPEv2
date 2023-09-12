@@ -314,9 +314,7 @@ class GuestManager:
                 filepath = ntpath.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
             else:
                 filepath = os.path.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
-            data = {
-                "filepath": filepath
-            }
+            data = {"filepath": filepath}
             files = {
                 "file": ("sample.bin", open(sample_path, "rb")),
             }

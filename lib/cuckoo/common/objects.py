@@ -26,8 +26,8 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
-from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
 from lib.cuckoo.common.integrations.clamav import get_clamav
+from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
 from lib.cuckoo.common.path_utils import path_exists
 
 try:
@@ -563,7 +563,6 @@ class File:
         " Payload", " Config", or " Loader".
         """
         return cls.cape_name_regex.sub("", cape_type)
-
 
     def get_tlsh(self):
         """

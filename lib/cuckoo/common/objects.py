@@ -388,7 +388,7 @@ class File:
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
                             dotnet_string = ""
-                            with contextlib.suppress(AttributeError):
+                            with contextlib.suppress(AttributeError, IndexError):
                                 dotnet_string = (
                                     " Mono/.Net assembly"
                                     if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[

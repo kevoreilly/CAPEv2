@@ -177,6 +177,7 @@ def init_logging(auto=False, tid=0, debug=False):
     log.addHandler(ch)
 
     slh = False
+    fhpa = False
 
     if logconf.logger.syslog_process:
         slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
@@ -194,6 +195,14 @@ def init_logging(auto=False, tid=0, debug=False):
                 )
             else:
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
+            if logconf.logger.process_analysis_folder:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
+                # We need to delete old log, otherwise it will append to existing one
+                if path_exists(path):
+                    path_delete(path)
+                fhpa = logging.handlers.WatchedFileHandler(path)
+                fhpa.setFormatter(FORMATTER)
+                log.addHandler(fhpa)
         else:
             if logconf.logger.process_analysis_folder:
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
@@ -218,7 +227,7 @@ def init_logging(auto=False, tid=0, debug=False):
         log.setLevel(logging.INFO)
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    return ch, fh, slh
+    return ch, fh, slh, fhpa
 
 
 def processing_finished(future):
@@ -459,7 +468,8 @@ def main():
                 set_formatter_fmt(num)
                 log.debug("Processing task")
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
-                    sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
+                    print(red(f"\n[{num}] Analysis folder doesn't exist anymore\n"))
+                    continue
                 # handlers = init_logging(tid=str(num), debug=args.debug)
                 task = Database().view_task(num)
                 # Add sample lookup as we point to sample from TMP. Case when delete_original=on
@@ -480,7 +490,7 @@ def main():
                             if args.json_report and path_exists(args.json_report):
                                 report = args.json_report
                             else:
-                                sys.exit(f"File {report} does not exist")
+                                sys.exit(f"File {report} doesn't exist")
                         if report:
                             results = json.load(open(report))
                     if results is not None:

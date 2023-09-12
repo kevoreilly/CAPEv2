@@ -78,6 +78,8 @@ def extract_config(data):
 
     key = bytearray(250)
     bss_data = extract_bss_data(pe)
+    if not bss_data:
+        return cfg
     key_size = struct.unpack("i", bss_data[:4])[0]
     key_bytes = bss_data[4 : 4 + key_size]
     for k in range(len(key_bytes)):

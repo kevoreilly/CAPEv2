@@ -115,6 +115,8 @@ MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 
 
 def first_match(matches, pattern):
+    if not matches:
+        return 0
     for item in matches[0].strings:
         if pattern == item.identifier:
             return item.instances[0].offset

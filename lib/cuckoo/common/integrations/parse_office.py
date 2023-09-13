@@ -101,8 +101,11 @@ class Office:
         metares = {"SummaryInformation": {}, "DocumentSummaryInformation": {}}
 
         for elem in core._get_documentElement().childNodes:
-            n = elem._get_tagName()
             try:
+                if isinstance(elem, xml.dom.minidom.Text):
+                    continue
+
+                n = elem._get_tagName()
                 data = core.getElementsByTagName(n)
                 if not data:
                     continue

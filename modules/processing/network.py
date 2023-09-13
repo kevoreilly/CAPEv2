@@ -8,6 +8,7 @@
 
 import binascii
 import heapq
+import ipaddress
 import logging
 import os
 import socket
@@ -90,6 +91,9 @@ passlist_file = proc_cfg.network.dnswhitelist_file
 enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
 
+enabled_network_passlist = proc_cfg.network.network_passlist
+network_passlist_file = proc_cfg.network.network_passlist_file
+
 # Be less verbose about httpreplay logging messages.
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
@@ -102,12 +106,23 @@ if enabled_passlist and passlist_file:
             domain_passlist_re.append(domain)
 
 ip_passlist = set()
+network_passlist = []
+
 if enabled_ip_passlist and ip_passlist_file:
     f = path_read_file(os.path.join(CUCKOO_ROOT, ip_passlist_file), mode="text")
     for ip in f.splitlines():
         ip = comment_re.sub("", ip).strip()
         if ip:
             ip_passlist.add(ip)
+
+if enabled_network_passlist and network_passlist_file and os.path.isfile(network_passlist_file):
+    with open(os.path.join(CUCKOO_ROOT, network_passlist_file), "r") as f:
+        for cidr in set(f.read().splitlines()):
+            if cidr.startswith("#") or len(cidr.strip()) == 0:
+                # comment or empty line
+                continue
+
+            network_passlist.append(ipaddress.ip_network(cidr.strip()))
 
 if HAVE_GEOIP and proc_cfg.network.maxmind_database:
     # Reload the maxmind database when it has changed, but only check the file system
@@ -271,7 +286,8 @@ class Pcap:
                 ip = convert_to_printable(connection["dst"])
 
                 if ip not in self.hosts:
-                    if ip in ip_passlist:
+                    ip_address = ipaddress.ip_address(ip)
+                    if ip in ip_passlist or any(ip_address in network for network in network_passlist):
                         return False
                     self.hosts.append(ip)
 

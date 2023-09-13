@@ -172,6 +172,15 @@ def set_formatter_fmt(task_id=None):
 
 
 def init_logging(auto=False, tid=0, debug=False):
+
+    # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
+    # If basicConfig was already called by something and had a StreamHandler added,
+    # replace it with a ConsoleHandler.
+    for h in log.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log.removeHandler(h)
+            h.close()
+
     ch = ConsoleHandler()
     ch.setFormatter(FORMATTER)
     log.addHandler(ch)

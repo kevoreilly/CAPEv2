@@ -12,9 +12,9 @@ def extract_config(data):
     if lines[i] == "1":
         config_dict["Protocol"] = "SMTP"
         config_dict["Port"] = lines[i + 2]
-        config_dict["C2"] = lines[i + 3]
-        config_dict["Username"] = lines[i + 4]
-        config_dict["Password"] = lines[i + 5]
+        config_dict["C2"] = lines[i + 4]
+        config_dict["Username"] = lines[i + 5]
+        config_dict["Password"] = lines[i + 6]
     elif lines[i] == "2":
         config_dict["Protocol"] = "FTP"
         config_dict["C2"] = lines[i + 1]

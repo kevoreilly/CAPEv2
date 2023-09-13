@@ -1,14 +1,8 @@
 import logging
-from typing import Any
-from typing import Dict
-from typing import Iterable
-from typing import Set
-from typing import Union
+from typing import Any, Dict, Iterable, Set, Union
 
 try:
-    from pdfminer import pdfparser
-    from pdfminer import pdfdocument
-    from pdfminer import pdftypes
+    from pdfminer import pdfdocument, pdfparser, pdftypes
 
     HAVE_PDFMINER = True
 except ImportError:
@@ -28,7 +22,7 @@ def _search_for_url(obj: Union[dict, list]) -> Iterable[str]:
             yield from _search_for_url(v)
     elif isinstance(obj, dict):
         for key, value in obj.items():
-            if key == 'URI':
+            if key == "URI":
                 yield value.decode() if isinstance(value, bytes) else value
                 continue
 
@@ -38,7 +32,7 @@ def _search_for_url(obj: Union[dict, list]) -> Iterable[str]:
 def _mine_for_urls(file_path: str) -> Set[str]:
     urls = set()
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             parser = pdfparser.PDFParser(f)
             doc = pdfdocument.PDFDocument(parser)
 

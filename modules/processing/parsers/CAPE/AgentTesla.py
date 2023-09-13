@@ -4,7 +4,7 @@ def extract_config(data):
         return
     try:
         lines = data.decode().split("\n")
-    except:
+    except Exception:
         return
     i = 0
     while len(lines[i]) != 1:

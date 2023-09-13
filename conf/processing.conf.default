@@ -102,6 +102,8 @@ dnswhitelist = yes
 dnswhitelist_file = extra/whitelist_domains.txt
 ipwhitelist = yes
 ipwhitelist_file = extra/whitelist_ips.txt
+network_passlist = no
+network_passlist_file = extra/whitelist_network.txt
 
 # Requires geoip2 and maxmind database
 country_lookup = no

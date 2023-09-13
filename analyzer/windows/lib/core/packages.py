@@ -34,6 +34,8 @@ def choose_package(file_type, file_name, exports, target):
         return "exe"
     elif file_name.endswith((".msi", ".msp", ".appx")) or "MSI Installer" in file_type:
         return "msi"
+    elif file_type.startswith('Audio file') or file_name.endswith('.mp3'):
+        return "wmplayer"
     elif file_name.endswith(".pub"):
         return "pub"
     elif file_name.endswith(".one"):

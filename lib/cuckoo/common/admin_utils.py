@@ -40,7 +40,7 @@ from lib.cuckoo.common.colors import green, red
 from utils.community_blocklist import blocklist
 
 try:
-    from admin_conf import (
+    from admin_conf import (  # POSTPROCESS,
         CAPE_DIST_URL,
         CAPE_PATH,
         EXCLUDE_CAPE_FILES,
@@ -50,7 +50,6 @@ try:
         JUMP_BOX_USERNAME,
         MASTER_NODE,
         NUM_THREADS,
-        # POSTPROCESS,
         PRIVATE_REPO_PATH,
         REMOTE_SERVER_USER,
         UPSTREAM_REPO_PATH,

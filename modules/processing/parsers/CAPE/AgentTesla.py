@@ -24,6 +24,9 @@ def extract_config(data):
         config_dict["Protocol"] = "Telegram"
         config_dict["C2"] = lines[i + 1]
         config_dict["Password"] = lines[i + 2]
+    elif lines[i] == "4":
+        config_dict["Protocol"] = "Discord"
+        config_dict["C2"] = lines[i + 1]
     else:
         return
     return config_dict

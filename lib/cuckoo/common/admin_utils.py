@@ -50,7 +50,7 @@ try:
         JUMP_BOX_USERNAME,
         MASTER_NODE,
         NUM_THREADS,
-        POSTPROCESS,
+        # POSTPROCESS,
         PRIVATE_REPO_PATH,
         REMOTE_SERVER_USER,
         UPSTREAM_REPO_PATH,
@@ -327,7 +327,7 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
             if server not in sockets:
                 ssh = SSHJumpClient(jump_session=ssh_proxy if ssh_proxy else None)
                 ssh.set_missing_host_key_policy(AutoAddPolicy())
-                ssh_port = 22 if ":" not in server else int(server.split(":")[1])
+                # ssh_port = 22 if ":" not in server else int(server.split(":")[1])
                 ssh.connect(
                     server,
                     username=JUMP_BOX_USERNAME,
@@ -346,7 +346,7 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
             ssh = SSHJumpClient()
             ssh.load_system_host_keys()
             ssh.set_missing_host_key_policy(AutoAddPolicy())
-            ssh_port = 22 if ":" not in server else int(server.split(":")[1])
+            # ssh_port = 22 if ":" not in server else int(server.split(":")[1])
             ssh.connect(
                 server,
                 username=REMOTE_SERVER_USER,

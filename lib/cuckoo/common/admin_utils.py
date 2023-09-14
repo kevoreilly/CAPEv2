@@ -1,22 +1,22 @@
-import json
-import logging
-import os
 import re
+import os
+import sys
+import json
+import urllib3
+import logging
+from socket import if_nameindex
+from hashlib import sha256
+from queue import Queue
+from threading import Thread
+from pathlib import Path
+
+from contextlib import suppress
 
 # from glob import glob
 import shutil
-import sys
-from contextlib import suppress
-from hashlib import sha256
-from pathlib import Path
-from queue import Queue
-from socket import if_nameindex
-from threading import Thread
-
-import urllib3
 
 try:
-    from deepdiff import DeepDiff  # extract as diffextract
+    from deepdiff import DeepDiff  #  extract as diffextract
 
     HAVE_DEEPDIFF = True
 except ImportError:
@@ -24,39 +24,43 @@ except ImportError:
     print("poetry run pip install mmh3 deepdiff")
 
 try:
-    from paramiko import AutoAddPolicy, SSHClient
-    from paramiko.ssh_exception import AuthenticationException, BadHostKeyException, PasswordRequiredException
+    from paramiko import SSHClient, AutoAddPolicy, ProxyCommand, SSHConfig
     from scp import SCPClient, SCPException
+    from paramiko.ssh_exception import BadHostKeyException, PasswordRequiredException, AuthenticationException, ProxyCommandFailure
+
+    conf = SSHConfig()
+    conf.parse(open(os.path.expanduser('~/.ssh/config')))
 
     HAVE_PARAMIKO = True
 except ImportError:
     print("poetry run pip install -U paramiko scp")
     HAVE_PARAMIKO = False
 
-from lib.cuckoo.common.colors import green, red
+from lib.cuckoo.common.colors import red, green
+from utils.community_blocklist import blocklist
 
 try:
-    from admin_conf import (  # EXCLUDE_PREFIX,; POSTPROCESS,
-        CAPE_DIST_URL,
-        CAPE_PATH,
-        EXCLUDE_CAPE_FILES,
-        EXCLUDE_DIRS,
-        EXCLUDE_EXTENSIONS,
-        EXCLUDE_FILENAMES,
-        JUMP_BOX_USERNAME,
-        MASTER_NODE,
-        NUM_THREADS,
-        PRIVATE_REPO_PATH,
+    from admin_conf import (
+        POSTPROCESS,
         REMOTE_SERVER_USER,
-        UPSTREAM_REPO_PATH,
+        CAPE_PATH,
         VOL_PATH,
+        MASTER_NODE,
+        CAPE_DIST_URL,
+        JUMP_BOX_USERNAME,
+        EXCLUDE_DIRS,
+        EXCLUDE_FILENAMES,
+        EXCLUDE_EXTENSIONS,
+        EXCLUDE_CAPE_FILES,
+        NUM_THREADS,
+        UPSTREAM_REPO_PATH,
+        PRIVATE_REPO_PATH,
     )
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")
 
+# Only needed when jumping over nodes
 from lib.cuckoo.common.sshclient import SSHJumpClient
-
-urllib3.disable_warnings()
 
 # this is bad, but getLogger doesn't work, this can be cause of duplication of log entries if used outside
 logging.basicConfig(level=logging.INFO)
@@ -69,6 +73,17 @@ ssh.set_missing_host_key_policy(AutoAddPolicy())
 urllib3.disable_warnings()
 
 
+def session_checker():
+    """
+    Detects CHROME_REMOTE_DESKTOP_SESSION and missed key for a session
+    """
+    if os.getenv("CHROME_REMOTE_DESKTOP_SESSION") == "1":
+        sys.exit(
+            """Please run in the same terminal before executing this script:\n
+unset CHROME_REMOTE_DESKTOP_SESSION
+eval "$(ssh-agent -s)"
+ssh-add -t 1h ~/.ssh/<your_key>
+            """)
 def load_workers_list():
     servers = []
     # Need to add some check as it do this if we don't provide args
@@ -109,7 +124,6 @@ def compare_hashed_files(files: list, servers: list, ssh_proxy: SSHClient, priva
     for k in ("dictionary_item_added", "dictionary_item_removed", "values_changed"):
         for value in dd.get(k, []):
             path = value.split("'")[-2]
-            # print(value)
             # path = diffextract(dd, value)
             if path.endswith(EXCLUDE_CAPE_FILES):
                 continue
@@ -124,21 +138,45 @@ def compare_hashed_files(files: list, servers: list, ssh_proxy: SSHClient, priva
 
     from pprint import pprint as pp
 
-    if private_repo:
-        pp(added_or_modified)
-        copy_files = input("Do you want to copy files to your local fork? y/n ").lower()
-        if copy_files == "y":
-            # we copy files from upstream CAPE to our private fork
-            for path in added_or_modified:
-                origin_path = os.path.join(UPSTREAM_REPO_PATH, path)
-                # import code;code.interact(local=dict(locals(), **globals()))
-                if not os.path.exists(origin_path):
-                    print(f"[-] File doesn't exist: {origin_path}")
-                    continue
-                # TODO import files from ignore list /Users/Do_Not_Scan/github/1cuckoo/CAPEv2/utils/community_blocklist.py
+    pp(added_or_modified)
+
+    copy_files = input("Do you want to copy files to your local fork? y/n ").lower()
+    deploy_files = input("Do you want to deploy ? y/n ").lower()
+
+    if deploy_files == "y":
+        queue = Queue()
+
+    if copy_files == "y" or deploy_files == "y":
+        # we copy files from upstream CAPE to our private fork
+        for path in added_or_modified:
+            # get parent folder here, check if we have it in blocklist, check files list
+            key = Path(path).parts[0]
+            if key and key in blocklist and path in blocklist[key].values():
+                print("[+] Skipping blocked file ", path)
+                continue
+            origin_path = os.path.join(UPSTREAM_REPO_PATH, path)
+            # import code;code.interact(local=dict(locals(), **globals()))
+            if not os.path.exists(origin_path):
+                print(f"[-] File doesn't exist: {origin_path}")
+                continue
+
+            if copy_files == "y":
                 print(origin_path, os.path.join(PRIVATE_REPO_PATH, path))
                 with suppress(shutil.SameFileError):
                     shutil.copy(origin_path, os.path.join(PRIVATE_REPO_PATH, path))
+
+            if origin_path.endswith("admin.py"):
+                continue
+
+            parameters = file_recon(origin_path, "CAPE")
+            if not parameters:
+                sys.exit()
+            queue.put([servers, origin_path] + list(parameters))
+
+        if deploy_files == "y":
+            _ = deploy_file(queue, ssh_proxy)
+
+    # need way to suggest deployment of those files, bulk_deploy
 
     # Create folders? get paths, make uniq, run command on all before deploy to server
     # pp(diff)
@@ -150,7 +188,7 @@ def compare_hashed_files(files: list, servers: list, ssh_proxy: SSHClient, priva
 
 
 def enumerate_files_on_all_servers(servers: list, ssh_proxy: SSHClient, dir_folder: str, filename: str):
-    cmd = f"python3 {CAPE_PATH}/admin/admin.py --generate-files-listening {dir_folder} -f /tmp/{filename}"
+    cmd = f"python3 {CAPE_PATH}/admin/admin.py -gfl {dir_folder} -f /tmp/{filename} -s"
     execute_command_on_all(cmd, servers, ssh_proxy)
     get_file(f"/tmp/{filename}.json", servers, ssh_proxy)
 
@@ -204,7 +242,7 @@ def file_recon(file, yara_category="CAPE"):
     # print(file, "file", os.path.exists(file))
     if b"SignatureMock.run" in f:
         return
-    if b"(Signature)" in f:
+    if b"(TcrSignature):" in f or b"(Signature)" in f:
         TARGET = f"{CAPE_PATH}modules/signatures/{filename}"
     elif filename in ("loader.exe", "loader_x64.exe"):
         TARGET = f"{CAPE_PATH}/analyzer/windows/bin/{filename}"
@@ -246,6 +284,14 @@ def file_recon(file, yara_category="CAPE"):
         TARGET = "/lib/systemd/system/{filename}"
         OWNER = "root:root"
         POSTPROCESS = "systemctl daemon-reload"
+    elif "Extractors/StandAlone/" in file:
+        TARGET = f"{CAPE_PATH}custom/parsers/"
+        stem = "Extractors/StandAlone"
+        if file.startswith(stem) and os.path.dirname(file) != stem:
+            # another directory inside Standalone
+            extra_dir = os.path.dirname(file)[len(stem) + 1 :]
+            TARGET += f"{extra_dir}/"
+        TARGET += f"{filename}"
     elif file.endswith("admin.py") and "/web/" not in file:
         print("Ignoring admin.py")
         return False
@@ -267,6 +313,8 @@ sockets = {}
 
 
 def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
+    session_checker()
+    host = conf.lookup(server)
     try:
         """
         This is SSH pivoting it ssh to host Y via host X, can be used due to different networks
@@ -276,12 +324,15 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
             if server not in sockets:
                 ssh = SSHJumpClient(jump_session=ssh_proxy if ssh_proxy else None)
                 ssh.set_missing_host_key_policy(AutoAddPolicy())
+                ssh_port = 22 if ":" not in server else int(server.split(":")[1])
                 ssh.connect(
                     server,
-                    username=REMOTE_SERVER_USER,
-                    look_for_keys=True,
-                    allow_agent=True,
-                    disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]),
+                    username=JUMP_BOX_USERNAME,
+                    key_filename=host.get('identityfile'),
+                    # look_for_keys=True,
+                    # allow_agent=True,
+                    # disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]),
+                    # port=ssh_port,
                 )
                 sockets[server] = ssh
             else:
@@ -292,12 +343,23 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
             ssh = SSHJumpClient()
             ssh.load_system_host_keys()
             ssh.set_missing_host_key_policy(AutoAddPolicy())
-
-            ssh.connect(server, username=REMOTE_SERVER_USER, look_for_keys=False, allow_agent=True)
+            ssh_port = 22 if ":" not in server else int(server.split(":")[1])
+            ssh.connect(
+                server,
+                username=REMOTE_SERVER_USER,
+                key_filename=host.get('identityfile'),
+                # look_for_keys=False,
+                # allow_agent=True,
+                # port=ssh_port,
+                sock=ProxyCommand(host.get('proxycommand'))
+            )
     except (BadHostKeyException, AuthenticationException, PasswordRequiredException) as e:
         sys.exit(
             f"Connect error: {str(e)}. Also pay attention to this log for more details /var/log/auth.log and paramiko might need update"
         )
+    except ProxyCommandFailure as e:
+        # Todo reconnect
+        log.error("Can't connect to server: %s", str(e))
     return ssh
 
 
@@ -333,10 +395,6 @@ def bulk_deploy(files, yara_category, dry_run=False, servers: list = [], ssh_pro
             files.remove(original_name)
             continue
 
-        if "/custom/" in file and "/conf/" in file and file.endswith(".conf"):
-            files.remove(original_name)
-            continue
-
         if not Path(original_name).exists():
             print(f"File doesn't exists: {original_name}. Skipping")
             files.remove(original_name)
@@ -361,9 +419,10 @@ def bulk_deploy(files, yara_category, dry_run=False, servers: list = [], ssh_pro
     queue.join()
 
 
-def get_file(path, servers: list, ssh_proxy: SSHClient):
+def get_file(path, servers: list, ssh_proxy: SSHClient, yara_category: str = "CAPE", dry_run: bool = False):
     for server in servers:
         try:
+            print(server)
             ssh = _connect_via_jump_box(server, ssh_proxy)
             with SCPClient(ssh.get_transport()) as scp:
                 try:
@@ -457,7 +516,9 @@ def delete_file(queue, ssh_proxy: SSHClient):
 def delete_file_recon(path: str) -> str:
     base_path = CAPE_PATH
     f_name = Path(path).name
-    if "yara/CAPE" in path and path.endswith((".yar", ".yara")):
+    if "Extractors/StandAlone/" in path:
+        return f"{base_path}/custom/parsers/{f_name}"
+    elif "yara/CAPE" in path and path.endswith((".yar", ".yara")):
         return f"{base_path}/data/yara/CAPE/{f_name}"
     elif "modules/signatures" in path:
         return f"{base_path}/modules/signatures/{f_name}"

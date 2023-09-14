@@ -132,6 +132,9 @@ class FileCollector(Auxiliary, Thread):
                 if os.path.basename(event.pathname) == "stap.log":
                     return
 
+                if os.path.basename(event.pathname) == "strace.log":
+                    return
+
                 try:
                     # log.info("Trying to collect file %s", event.pathname)
                     sha256 = hash_file(hashlib.sha256, event.pathname)

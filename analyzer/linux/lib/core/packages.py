@@ -97,6 +97,7 @@ class Package:
         self.free = self.options.get("free")
         self.proc = None
         self.pids = []
+        self.strace_output = kwargs.get("strace_ouput", "/tmp")
 
     def set_pids(self, pids):
         """Update list of monitored PIDs in the package context.
@@ -118,7 +119,8 @@ class Package:
             # Remove the trailing slash (if any)
             self.target = filepath.rstrip("/")
         self.prepare()
-        self.normal_analysis()
+        # self.normal_analysis()
+        self.strace_analysis()
         return self.proc.pid
         """
         if self.free:
@@ -157,38 +159,55 @@ class Package:
     def get_pids(self):
         return []
 
-    def apicalls_analysis(self):
+    def strace_analysis(self):
         kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
         log.info(self.target)
-        cmd = apicalls(self.target, **kwargs)
-        stap_start = timeit.default_timer()
+        
+        target_cmd = f'{self.target}'
+        if "args" in kwargs:
+            target_cmd += f' {" ".join(kwargs["args"])}'
+
+        cmd = f"sudo strace -ttf -o {self.strace_output}/strace.log {target_cmd}"
         log.info(cmd)
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
-
-        while b"systemtap_module_init() returned 0" not in self.proc.stderr.readline():
-            # log.debug(self.proc.stderr.readline())
-            pass
-
-        stap_stop = timeit.default_timer()
-        log.info("Process startup took %.2f seconds", stap_stop - stap_start)
+        log.info("Process started with strace")
         return True
+
+    ## This feature has already been migrated to Auxiliary:stap.py
+    # def apicalls_analysis(self):
+    #     kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
+    #     log.info(self.target)
+    #     cmd = apicalls(self.target, **kwargs)
+    #     stap_start = timeit.default_timer()
+    #     log.info(cmd)
+    #     self.proc = subprocess.Popen(
+    #         cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
+    #     )
+
+    #     while b"systemtap_module_init() returned 0" not in self.proc.stderr.readline():
+    #         # log.debug(self.proc.stderr.readline())
+    #         pass
+
+    #     stap_stop = timeit.default_timer()
+    #     log.info("Process startup took %.2f seconds", stap_stop - stap_start)
+    #     return True
 
     def normal_analysis(self):
         kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
 
         # cmd = apicalls(self.target, **kwargs)
         cmd = f"{self.target} {' '.join(kwargs['args'])}"
-        stap_start = timeit.default_timer()
+        process_start = timeit.default_timer()
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
 
         log.debug(self.proc.stderr.readline())
 
-        stap_stop = timeit.default_timer()
-        log.info("Process startup took %.2f seconds", stap_stop - stap_start)
+        process_stop = timeit.default_timer()
+        log.info("Process startup took %.2f seconds", process_start - process_stop)
         return True
 
     @staticmethod
@@ -200,17 +219,18 @@ class Package:
                     nf.sock.sendall(chunk)  # dirty direct send, no reconnecting
             nf.close()
 
-    def stop(self):
-        log.info("Package requested stop")
-        try:
-            r = self.proc.poll()
-            log.debug("stap subprocess retval %d", r)
-            self.proc.kill()
-            # subprocess.check_call(["sudo", "kill", str(self.proc.pid)])
-            waitpid(self.proc.pid, 0)
-            self._upload_file("stap.log", "logs/all.stap")
-        except Exception as e:
-            log.warning("Exception uploading log: %s", e)
+    # This feature has already been migrated to Auxiliary:stap.py
+    # def stop(self):
+    #     log.info("Package requested stop")
+    #     try:
+    #         r = self.proc.poll()
+    #         log.debug("stap subprocess retval %d", r)
+    #         self.proc.kill()
+    #         # subprocess.check_call(["sudo", "kill", str(self.proc.pid)])
+    #         waitpid(self.proc.pid, 0)
+    #         self._upload_file("stap.log", "stap/all.log")
+    #     except Exception as e:
+    #         log.warning("Exception uploading log: %s", e)
 
 
 def _string_to_bool(raw):

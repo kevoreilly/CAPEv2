@@ -16,4 +16,5 @@ PATHS = {
     "shots": os.path.join(ROOT, "shots"),
     "memory": os.path.join(ROOT, "memory"),
     "drop": os.path.join(ROOT, "drop"),
+    "strace": os.path.join(ROOT, "strace"),
 }

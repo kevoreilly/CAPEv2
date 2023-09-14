@@ -168,7 +168,7 @@ class Analyzer:
         if not package_class:
             raise Exception("Could not find an appropriate analysis package")
         # Package initialization
-        kwargs = {"options": self.config.options, "timeout": self.config.timeout}
+        kwargs = {"options": self.config.options, "timeout": self.config.timeout, "strace_ouput": PATHS["strace"]}
 
         # Initialize the analysis package.
         # pack = package_class(self.config.get_options())
@@ -306,6 +306,11 @@ class Analyzer:
                     upload_to_host(package[0], os.path.join("files", package[1]))
         except Exception as e:
             log.warning('The package "%s" package_files function raised an exception: %s', package_class, e)
+        try:
+            # Upload the strace logs to host
+            upload_to_host(os.path.join(PATHS["strace"], "strace.log"), "strace/strace.log")
+        except Exception as e:
+            log.warning('The strace log failed to transfer')
 
         # Terminate the Auxiliary modules.
         log.info("Stopping auxiliary modules")

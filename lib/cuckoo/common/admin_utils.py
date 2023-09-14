@@ -1,22 +1,22 @@
-import re
-import os
-import sys
 import json
-import urllib3
 import logging
-from socket import if_nameindex
-from hashlib import sha256
-from queue import Queue
-from threading import Thread
-from pathlib import Path
-
-from contextlib import suppress
+import os
+import re
 
 # from glob import glob
 import shutil
+import sys
+from contextlib import suppress
+from hashlib import sha256
+from pathlib import Path
+from queue import Queue
+from socket import if_nameindex
+from threading import Thread
+
+import urllib3
 
 try:
-    from deepdiff import DeepDiff  #  extract as diffextract
+    from deepdiff import DeepDiff  # extract as diffextract
 
     HAVE_DEEPDIFF = True
 except ImportError:
@@ -24,37 +24,37 @@ except ImportError:
     print("poetry run pip install mmh3 deepdiff")
 
 try:
-    from paramiko import SSHClient, AutoAddPolicy, ProxyCommand, SSHConfig
+    from paramiko import AutoAddPolicy, ProxyCommand, SSHClient, SSHConfig
+    from paramiko.ssh_exception import AuthenticationException, BadHostKeyException, PasswordRequiredException, ProxyCommandFailure
     from scp import SCPClient, SCPException
-    from paramiko.ssh_exception import BadHostKeyException, PasswordRequiredException, AuthenticationException, ProxyCommandFailure
 
     conf = SSHConfig()
-    conf.parse(open(os.path.expanduser('~/.ssh/config')))
+    conf.parse(open(os.path.expanduser("~/.ssh/config")))
 
     HAVE_PARAMIKO = True
 except ImportError:
     print("poetry run pip install -U paramiko scp")
     HAVE_PARAMIKO = False
 
-from lib.cuckoo.common.colors import red, green
+from lib.cuckoo.common.colors import green, red
 from utils.community_blocklist import blocklist
 
 try:
     from admin_conf import (
-        POSTPROCESS,
-        REMOTE_SERVER_USER,
-        CAPE_PATH,
-        VOL_PATH,
-        MASTER_NODE,
         CAPE_DIST_URL,
-        JUMP_BOX_USERNAME,
-        EXCLUDE_DIRS,
-        EXCLUDE_FILENAMES,
-        EXCLUDE_EXTENSIONS,
+        CAPE_PATH,
         EXCLUDE_CAPE_FILES,
+        EXCLUDE_DIRS,
+        EXCLUDE_EXTENSIONS,
+        EXCLUDE_FILENAMES,
+        JUMP_BOX_USERNAME,
+        MASTER_NODE,
         NUM_THREADS,
-        UPSTREAM_REPO_PATH,
+        POSTPROCESS,
         PRIVATE_REPO_PATH,
+        REMOTE_SERVER_USER,
+        UPSTREAM_REPO_PATH,
+        VOL_PATH,
     )
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")
@@ -83,7 +83,10 @@ def session_checker():
 unset CHROME_REMOTE_DESKTOP_SESSION
 eval "$(ssh-agent -s)"
 ssh-add -t 1h ~/.ssh/<your_key>
-            """)
+            """
+        )
+
+
 def load_workers_list():
     servers = []
     # Need to add some check as it do this if we don't provide args
@@ -328,7 +331,7 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
                 ssh.connect(
                     server,
                     username=JUMP_BOX_USERNAME,
-                    key_filename=host.get('identityfile'),
+                    key_filename=host.get("identityfile"),
                     # look_for_keys=True,
                     # allow_agent=True,
                     # disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]),
@@ -347,11 +350,11 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
             ssh.connect(
                 server,
                 username=REMOTE_SERVER_USER,
-                key_filename=host.get('identityfile'),
+                key_filename=host.get("identityfile"),
                 # look_for_keys=False,
                 # allow_agent=True,
                 # port=ssh_port,
-                sock=ProxyCommand(host.get('proxycommand'))
+                sock=ProxyCommand(host.get("proxycommand")),
             )
     except (BadHostKeyException, AuthenticationException, PasswordRequiredException) as e:
         sys.exit(

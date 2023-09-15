@@ -265,9 +265,9 @@
                     {% endif %}
                 {% endif %}
                 {% if config.strings %}
-                    {% if not file.strings %}
+                    {% if "strings" not in file %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "strings" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate strings"><span class="fas fa-cogs"></span> Strings</a>
-                    {% else %}
+                    {% elif file.strings %}
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                     {% endif %}
                 {% endif %}

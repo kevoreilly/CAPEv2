@@ -45,6 +45,7 @@ atexit.register(resolver_pool.close)
 db = Database()
 if repconf.mongodb.enabled:
     mdb = repconf.mongodb.get("db", "cuckoo")
+    from dev_utils.mongo_hooks import delete_unused_file_docs
     from dev_utils.mongodb import (
         connect_to_mongo,
         mdb,
@@ -498,8 +499,17 @@ def cuckoo_clean_range_tasks(start, end):
     resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), pending_tasks)
 
 
-def cuckoo_dedup_cluster_queue():
+def delete_unused_file_data_in_mongo():
+    """Cleans the entries in the 'files' collection that no longer have any analysis
+    tasks associated with them.
+    """
+    init_console_logging()
+    log.info("Removing file entries in Mongo that are no longer referenced.")
+    result = delete_unused_file_docs()
+    log.info("Removed %s file %s.", result.deleted_count, "entry" if result.deleted_count == 1 else "entries")
 
+
+def cuckoo_dedup_cluster_queue():
     """
     Cleans duplicated pending tasks from cluster queue
     """
@@ -521,7 +531,6 @@ def cuckoo_dedup_cluster_queue():
 
 
 def cape_clean_tlp():
-
     create_structure()
     init_console_logging()
 
@@ -605,6 +614,12 @@ if __name__ == "__main__":
         "-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true"
     )
     parser.add_argument(
+        "-duf",
+        "--delete-unused-file-data-in-mongo",
+        help="Delete data from the 'files' collection in mongo that is no longer needed.",
+        action="store_true",
+    )
+    parser.add_argument(
         "-drs",
         "--delete-range-start",
         help="First job in range to delete, should be used with --delete-range-end",
@@ -679,4 +694,8 @@ if __name__ == "__main__":
 
     if args.delete_binaries_items_older_than_days:
         binaries_clean_before_day(args)
+        sys.exit(0)
+
+    if args.delete_unused_file_data_in_mongo:
+        delete_unused_file_data_in_mongo()
         sys.exit(0)

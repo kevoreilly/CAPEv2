@@ -56,6 +56,8 @@ dynamic_platform_determination = yes
 reports_dl_allowed_to_all = yes
 # Expose process log per task if enabled
 expose_process_log = no
+# Show button to reprocess the task
+reprocess_tasks = no
 
 # ratelimit for anon users
 [ratelimit]
@@ -194,3 +196,7 @@ guest_rdp_port = 3389
 # Some samples will only detonate on specific versions of Windows (see web.conf packages for more info)
 # Example: MSIX - Windows >= 10
 msix = win10,win11
+
+[security]
+# When using mounted folder you might want to set to no
+check_path_safe = yes

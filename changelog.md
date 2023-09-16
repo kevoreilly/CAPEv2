@@ -1,3 +1,9 @@
+### [13.9.2023]
+* Monitor updates: 
+    * .NET JIT native cache handling improvements
+    * New debugger action 'string' to capture decrypted strings
+    * Fix issue in procname_watch_init() with non-null-terminated unicode paths - thanks Proofpoint for the report
+
 ### [8.9.2023]
 * Monitor update: 
     * .NET JIT native cache scanning & dumping

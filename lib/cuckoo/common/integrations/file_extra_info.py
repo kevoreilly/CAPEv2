@@ -218,10 +218,18 @@ def static_file_info(
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
-        if HAVE_STRINGS:
+        if data_dictionary["data"]:
+            # Don't store "strings" for text files, but don't let the web frontend
+            # think that we want to look them up on-demand (i.e. display the
+            # "strings" button linking to an on_demand URL).
+            data_dictionary["strings"] = []
+        elif HAVE_STRINGS:
             strings = extract_strings(file_path, dedup=True)
-            if strings:
-                data_dictionary["strings"] = strings
+            data_dictionary["strings"] = strings
+        else:
+            # Don't store anything in data_dictionary["strings"] so that the frontend
+            # will display the "strings" button and allow them to be fetched on-demand.
+            pass
 
         # ToDo we need url support
         if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:

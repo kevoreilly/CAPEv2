@@ -57,6 +57,8 @@ class Dll(Package):
         run_ordinal_range = False
         run_multiple_functions = False
 
+        max_dll_exports = None
+        available_exports = []
         if function:
             # If user has requested we use functions (by name or by ordinal number), separated by colon
             if enable_multi and ":" in function:
@@ -112,12 +114,23 @@ class Dll(Package):
         # To get to this stage, the user has enabled `enable_multi`, and has either specified an ordinal
         # range or requested that we use available exports by ordinal number, up to a limit
         if run_ordinal_range:
+            ret_list = []
             with contextlib.suppress(ValueError, AssertionError):
                 start, end = (int(_.lstrip("#")) for _ in function.replace("..", "-").split("-", 1))
                 assert start < end
-                args = '/c for /l %i in ({start},1,{end}) do @{rundll32} "{path}",#%i {arguments}'.format(**locals())
-                # if there are multiple functions launch them by their ordinal number in a for loop via cmd.exe calling rundll32.exe
-                return self.execute("C:\\Windows\\System32\\cmd.exe", args.strip(), path)
+                # if there are more exports than max_dll_exports we still want to run the last export
+                if max_dll_exports and len(available_exports) > max_dll_exports:
+                    end -= 1
+                    args = f'"{path}",#{len(available_exports)}'
+                    if arguments:
+                        args += f" {arguments}"
+                    ret_list.append(self.execute(rundll32, args, path))
+                # if there are multiple functions launch them by their ordinal number in a for loop
+                for i in range(start, end + 1, 1):
+                    args = f'"{path}",#{i}'
+                    if arguments:
+                        args += f" {arguments}"
+                    ret_list.append(self.execute(rundll32, args, path))
 
         # To get to this stage, the user has enabled `enable_multi`, and has either specified a list of function names
         # or requested that we use available exports by name, up to a limit

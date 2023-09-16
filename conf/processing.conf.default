@@ -102,6 +102,8 @@ dnswhitelist = yes
 dnswhitelist_file = extra/whitelist_domains.txt
 ipwhitelist = yes
 ipwhitelist_file = extra/whitelist_ips.txt
+network_passlist = no
+network_passlist_file = extra/whitelist_network.txt
 
 # Requires geoip2 and maxmind database
 country_lookup = no
@@ -319,3 +321,6 @@ tight_strings = yes
 min_length = 5
 # Download FLOSS signatures from https://github.com/mandiant/flare-floss/tree/master/sigs
 sigs_path = data/flare-signatures
+
+[html_scraper]
+enabled = no

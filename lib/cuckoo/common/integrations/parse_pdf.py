@@ -6,6 +6,7 @@ import json
 import logging
 from typing import Any, Dict
 
+from lib.cuckoo.common.integrations.pdfminer import pdfminer_parse
 from lib.cuckoo.common.integrations.peepdf import peepdf_parse
 from lib.cuckoo.common.path_utils import path_exists
 
@@ -59,6 +60,7 @@ class PDF:
             "Keywords": {str(keyword["name"]): keyword["count"] for keyword in pdfid_data["pdfid"]["keywords"]["keyword"]},
         }
         pdfresult = peepdf_parse(self.file_path, pdfresult)
+        pdfresult = pdfminer_parse(self.file_path, pdfresult)
 
         return pdfresult
 

@@ -18,6 +18,11 @@ jobs:
         python-version: ["3.8", "3.11"]
 
     steps:
+      - name: Install dependencies
+        run: poetry run pip install ruff
+      - name: Run Ruff
+        run: poetry run ruff . --line-length 132 --ignore E501,E402
+
       - name: Check out repository code
         uses: actions/checkout@v3
         with:
@@ -66,11 +71,6 @@ jobs:
 
       - name: Run parsers unit tests
         run: poetry run python -m pytest tests_parsers -s --import-mode=append
-
-      - name: Install dependencies
-        run: poetry run pip install ruff
-      - name: Run Ruff
-        run: poetry run ruff . --line-length 132 --ignore E501,E402
 
   format:
     runs-on: ubuntu-latest

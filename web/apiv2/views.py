@@ -50,7 +50,6 @@ from lib.cuckoo.common.web_utils import (
     search_term_map,
     statistics,
     validate_task,
-    tasks_reprocess,
 )
 from lib.cuckoo.core.database import (
     TASK_COMPLETED,
@@ -1003,14 +1002,14 @@ def tasks_reschedule(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
-def tasks_reprocess_func(request, task_id):
+def tasks_reprocess(request, task_id):
     resp = {}
     if not apiconf.taskreprocess.get("enabled"):
         resp["error"] = True
         resp["error_value"] = "Task Reprocess API is Disabled"
         return Response(resp)
 
-    error, msg, task_status = tasks_reprocess(task_id)
+    error, msg, task_status = db.tasks_reprocess(task_id)
     if error:
         return Response({"error": True, "data": msg})
 

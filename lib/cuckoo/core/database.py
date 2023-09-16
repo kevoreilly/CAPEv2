@@ -2718,3 +2718,27 @@ class Database(object, metaclass=Singleton):
             )
             session.commit()
             session.close()
+
+    @classlock
+    def tasks_reprocess(self, task_id: int):
+        """common func for api and views"""
+        task = self.view_task(task_id)
+        if not task:
+            return True, "Task ID does not exist in the database", ""
+
+        if task.status not in {
+            # task status suitable for reprocessing
+            # allow reprocessing of tasks already processed (maybe detections changed)
+            TASK_REPORTED,
+            # allow reprocessing of tasks that were rescheduled
+            TASK_RECOVERED,
+            # allow reprocessing of tasks that previously failed the processing stage
+            TASK_FAILED_PROCESSING,
+            # allow reprocessing of tasks that previously failed the reporting stage
+            TASK_FAILED_REPORTING,
+            TASK_COMPLETED,
+        }:
+            return True, f"Task ID {task_id} cannot be reprocessed in status {task.status}", task.status
+
+        self.set_status(task_id, TASK_COMPLETED)
+        return False, "", task.status

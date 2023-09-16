@@ -40,7 +40,6 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     rateblock,
     statistics,
-    tasks_reprocess,
 )
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
@@ -2411,7 +2410,7 @@ def reprocess_task(request, task_id: int):
     if not settings.REPROCESS_TASKS:
         return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
 
-    error, msg, _ = tasks_reprocess(task_id)
+    error, msg, _ = db.tasks_reprocess(task_id)
     if error:
         return render(request, "error.html", {"error": msg})
     else:

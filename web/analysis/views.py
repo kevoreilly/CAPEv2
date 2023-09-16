@@ -42,7 +42,7 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     tasks_reprocess,
 )
-from lib.cuckoo.core.database import TASK_PENDING, Database, Task, TASK_COMPLETED
+from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 
 try:

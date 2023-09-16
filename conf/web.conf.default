@@ -56,6 +56,8 @@ dynamic_platform_determination = yes
 reports_dl_allowed_to_all = yes
 # Expose process log per task if enabled
 expose_process_log = no
+# Show button to reprocess the task
+reprocess_tasks = no
 
 # ratelimit for anon users
 [ratelimit]

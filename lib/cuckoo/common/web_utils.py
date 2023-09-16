@@ -38,6 +38,7 @@ from lib.cuckoo.core.database import (
     TASK_FAILED_REPORTING,
     TASK_RECOVERED,
     TASK_REPORTED,
+    TASK_COMPLETED,
     Database,
     Sample,
     Task,
@@ -1472,3 +1473,30 @@ def get_running_commit() -> str:
     git_folder = Path(CUCKOO_ROOT, ".git")
     head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
     return Path(git_folder, head_name).read_text().replace("\n", "")
+
+
+# task status suitable for reprocessing
+valid_status = {
+    # allow reprocessing of tasks already processed (maybe detections changed)
+    TASK_REPORTED,
+    # allow reprocessing of tasks that were rescheduled
+    TASK_RECOVERED,
+    # allow reprocessing of tasks that previously failed the processing stage
+    TASK_FAILED_PROCESSING,
+    # allow reprocessing of tasks that previously failed the reporting stage
+    TASK_FAILED_REPORTING,
+    TASK_COMPLETED,
+}
+
+
+def tasks_reprocess(task_id: int):
+    """common func for api and views"""
+    task = db.view_task(task_id)
+    if not task:
+        return True, "Task ID does not exist in the database", ""
+
+    if task.status not in valid_status:
+        return True, f"Task ID {task_id} cannot be reprocessed in status {task.status}", task.status
+
+    db.set_status(task_id, TASK_COMPLETED)
+    return False, "", task.status

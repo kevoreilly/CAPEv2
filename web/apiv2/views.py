@@ -50,6 +50,7 @@ from lib.cuckoo.common.web_utils import (
     search_term_map,
     statistics,
     validate_task,
+    reprocess_task,
 )
 from lib.cuckoo.core.database import (
     TASK_COMPLETED,
@@ -1012,34 +1013,12 @@ def tasks_reprocess(request, task_id):
         resp["error_value"] = "Task Reprocess API is Disabled"
         return Response(resp)
 
-    task = db.view_task(task_id)
-    if not task:
-        resp["error"] = True
-        resp["error_value"] = "Task ID does not exist in the database"
-        return Response(resp)
-
-    # task status suitable for reprocessing
-    valid_status = {
-        # allow reprocessing of tasks already processed (maybe detections changed)
-        TASK_REPORTED,
-        # allow reprocessing of tasks that were rescheduled
-        TASK_RECOVERED,
-        # allow reprocessing of tasks that previously failed the processing stage
-        TASK_FAILED_PROCESSING,
-        # allow reprocessing of tasks that previously failed the reporting stage
-        TASK_FAILED_REPORTING,
-    }
-
-    if task.status not in valid_status:
-        error_fmt = "Task ID {0} cannot be reprocessed in status {1}"
-        resp["error"] = True
-        resp["error_value"] = error_fmt.format(task_id, task.status)
-        return Response(resp)
+    error, msg, task_status = reprocess_task(task_id)
+    if error:
+        return Response({"error": True, "data": msg})
 
     db.set_status(task_id, TASK_COMPLETED)
-    resp["error"] = False
-    resp["data"] = f"Task ID {task_id} with status {task.status} marked for reprocessing"
-    return Response(resp)
+    return Response({"error": False, "data": f"Task ID {task_id} with status {task_status} marked for reprocessing"})
 
 
 @csrf_exempt

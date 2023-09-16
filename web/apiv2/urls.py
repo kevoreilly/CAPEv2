@@ -29,7 +29,7 @@ urlpatterns = [
     re_path(r"^tasks/list/(?P<limit>\d+)/(?P<offset>\d+)/(?P<window>\d+)/$", views.tasks_list),
     re_path(r"^tasks/view/(?P<task_id>\d+)/$", views.tasks_view),
     re_path(r"^tasks/reschedule/(?P<task_id>\d+)/$", views.tasks_reschedule),
-    re_path(r"^tasks/reprocess/(?P<task_id>\d+)/$", views.tasks_reprocess),
+    re_path(r"^tasks/reprocess/(?P<task_id>\d+)/$", views.tasks_reprocess_func),
     re_path(r"^tasks/delete/(?P<task_id>(\d+|[0-9,]+))/$", views.tasks_delete),
     re_path(r"^tasks/delete/(?P<task_id>\d+)/(?P<status>\w+)/$", views.tasks_delete),
     re_path(r"^tasks/delete_many/$", views.tasks_delete_many),

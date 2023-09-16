@@ -18,11 +18,6 @@ jobs:
         python-version: ["3.8", "3.11"]
 
     steps:
-      - name: Install dependencies
-        run: poetry run pip install ruff
-      - name: Run Ruff
-        run: poetry run ruff . --line-length 132 --ignore E501,E402
-
       - name: Check out repository code
         uses: actions/checkout@v3
         with:
@@ -58,6 +53,11 @@ jobs:
         with:
           path: .venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry run pip install ruff
+      - name: Run Ruff
+        run: poetry run ruff . --line-length 132 --ignore E501,E402
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'

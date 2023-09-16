@@ -38,7 +38,6 @@ from lib.cuckoo.core.database import (
     TASK_FAILED_REPORTING,
     TASK_RECOVERED,
     TASK_REPORTED,
-    TASK_COMPLETED,
     Database,
     Sample,
     Task,

@@ -34,21 +34,21 @@ jobs:
           sudo apt update && sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev p7zip-full innoextract unrar upx
 
       - name: Install poetry
-        run: pip install poetry ruff
+        run: pip install poetry
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          check-latest: true
+          # check-latest: true
           python-version: ${{ matrix.python-version }}
           cache: 'poetry'
-      - run: poetry install --no-interaction --no-root
+      - name: Install requirements
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          poetry install --no-interaction --no-root
 
       - name: Run Ruff
-        run: ruff . --line-length 132 --ignore E501,E402
-
-      - name: Run ensure pytest installed
-        run: poetry run pip install pytest=="7.2.0"
+        run: poetry run ruff . --line-length 132 --ignore E501,E402
 
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append
@@ -81,7 +81,10 @@ jobs:
           check-latest: true
           python-version: ${{ matrix.python-version }}
           cache: 'poetry'
-      - run: poetry install --no-interaction --no-root
+      - name: Install requirements
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          poetry install --no-interaction --no-root
 
       - name: Format with black
         run: poetry run black .

@@ -1011,10 +1011,10 @@ def tasks_reprocess(request, task_id):
 
     error, msg, task_status = db.tasks_reprocess(task_id)
     if error:
-        return Response({"error": True, "data": msg})
+        return Response({"error": True, "error_value": msg})
 
     db.set_status(task_id, TASK_COMPLETED)
-    return Response({"error": False, "data": f"Task ID {task_id} with status {task_status} marked for reprocessing"})
+    return Response({"error": False, "error_value": f"Task ID {task_id} with status {task_status} marked for reprocessing"})
 
 
 @csrf_exempt

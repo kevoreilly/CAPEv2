@@ -10,7 +10,9 @@ import signal
 import threading
 import time
 from collections import defaultdict
+import requests
 
+from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import (
@@ -194,6 +196,15 @@ class AnalysisManager(threading.Thread):
             machine = machinery.acquire(
                 machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version
             )
+
+            # Check if machine is up before acquiring the new task
+            url = f"http://{machine.ip}:{CUCKOO_GUEST_PORT}"
+
+            try:
+                r = requests.get(f"{url}/status")
+                log.debug(r.text)
+            except:
+                continue
 
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:

@@ -8,7 +8,7 @@ import logging
 import socket
 import struct
 import sys
-from time import sleep
+#from time import sleep
 
 import requests
 
@@ -133,36 +133,17 @@ class Physical(Machinery):
 
                     requests.post(f"http://{self.options.fog.hostname}/fog/host/{hostID}/task", headers=headers, data=payload)
 
-                    try:
-                        if managerType == "pure":
-                            requests.post(
-                                f"http://{machine.ip}:{CUCKOO_GUEST_PORT}/execute",
-                                data={"command": "shutdown -r -f -t 0"},
-                            )
-                        elif managerType == "proxmox":
-                            proxmox_shutdown_vm(machine.name)
-                    except Exception:
-                        # The reboot will start immediately which may kill our socket so we just ignore this exception
-                        log.debug("Socket killed from analysis machine due to reboot")
+                    
+                    if managerType == "pure":
+                        requests.post(
+                            f"http://{machine.ip}:{CUCKOO_GUEST_PORT}/execute",
+                            data={"command": "shutdown -r -f -t 0"},
+                        )
+                    elif managerType == "proxmox":
+                        proxmox_shutdown_vm(machine.name)
 
-        # We are waiting until we are able to connect to the agent again since we dont know how long it will take to restore the machine
-        while not self.isTaskigDone(hostID):
-            log.debug("Restore operation for %s still running", machine.name)
-            sleep(10)
-
-        # After the restore operation is done we are waiting until it is up again and we can connect to the agent
-        url = f"http://{machine.ip}:{CUCKOO_GUEST_PORT}"
-
-        connection_succesful = False
-
-        while not connection_succesful:
-            try:
-                r = requests.get(f"{url}/status")
-                print(r.text)
-                connection_succesful = True
-            except Exception:
-                log.debug("Machine not reachable yet after reset")
-                sleep(3)
+                        # Start processing collected results even if machine is not started
+                        return
 
     def _list(self):
         """List physical machines installed.

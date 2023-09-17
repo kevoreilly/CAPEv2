@@ -51,13 +51,7 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import (
-    TASK_COMPLETED,
-    TASK_RECOVERED,
-    TASK_RUNNING,
-    Database,
-    Task,
-)
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_RECOVERED, TASK_RUNNING, Database, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 try:

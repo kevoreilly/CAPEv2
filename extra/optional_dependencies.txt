@@ -23,3 +23,4 @@ ruff
 scp
 urlextract==1.5.0
 pdfminer==20191125
+pg_activity

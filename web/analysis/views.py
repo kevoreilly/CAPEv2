@@ -33,7 +33,14 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder
-from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
+from lib.cuckoo.common.web_utils import (
+    category_all_files,
+    my_rate_minutes,
+    my_rate_seconds,
+    perform_search,
+    rateblock,
+    statistics,
+)
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 
@@ -506,7 +513,7 @@ def index(request, page=1):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
-    db = Database()
+    # db = Database()
     tasks = db.list_tasks(status=TASK_PENDING)
 
     pending = []
@@ -2396,3 +2403,15 @@ def ban_user(request, user_id: int):
         else:
             return render(request, "error.html", {"error": f"Can't ban user id {user_id}"})
     return render(request, "error.html", {"error": "Nice try! You don't have permission to ban users"})
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def reprocess_task(request, task_id: int):
+    if not settings.REPROCESS_TASKS:
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
+
+    error, msg, _ = db.tasks_reprocess(task_id)
+    if error:
+        return render(request, "error.html", {"error": msg})
+    else:
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))

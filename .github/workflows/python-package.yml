@@ -39,10 +39,13 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          check-latest: true
+          # check-latest: true
           python-version: ${{ matrix.python-version }}
           cache: 'poetry'
-      - run: poetry install --no-interaction --no-root
+      - name: Install requirements
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          poetry install --no-interaction --no-root
 
       - name: Run Ruff
         run: poetry run ruff . --line-length 132 --ignore E501,E402
@@ -78,7 +81,10 @@ jobs:
           check-latest: true
           python-version: ${{ matrix.python-version }}
           cache: 'poetry'
-      - run: poetry install --no-interaction --no-root
+      - name: Install requirements
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          poetry install --no-interaction --no-root
 
       - name: Format with black
         run: poetry run black .

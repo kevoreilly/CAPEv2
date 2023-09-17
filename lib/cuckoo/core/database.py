@@ -2134,7 +2134,7 @@ class Database(object, metaclass=Singleton):
                 if not_status:
                     search = search.filter(Task.status != not_status)
                 if category:
-                    search = search.filter(Task.category == category)
+                    search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
                 if details:
                     search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
                 if sample_id is not None:

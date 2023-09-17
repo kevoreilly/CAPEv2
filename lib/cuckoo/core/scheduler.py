@@ -825,7 +825,6 @@ class Scheduler:
 
             # If no machines are available, it's pointless to fetch for pending tasks. Loop over.
             # But if we analyze pcaps/static only it's fine
-            # ToDo verify that it works with static and file/url
             if self.categories_need_VM and not machinery.availables(include_reserved=True):
                 continue
             # Exits if max_analysis_count is defined in the configuration

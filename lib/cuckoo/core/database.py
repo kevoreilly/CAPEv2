@@ -2736,7 +2736,7 @@ class Database(object, metaclass=Singleton):
             TASK_FAILED_PROCESSING,
             # allow reprocessing of tasks that previously failed the reporting stage
             TASK_FAILED_REPORTING,
-            TASK_COMPLETED,
+            # TASK_COMPLETED,
         }:
             return True, f"Task ID {task_id} cannot be reprocessed in status {task.status}", task.status
 

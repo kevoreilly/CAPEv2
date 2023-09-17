@@ -217,6 +217,14 @@ def init_console_logging():
     """Initializes logging only to console."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
+    # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
+    # If basicConfig was already called by something and had a StreamHandler added,
+    # replace it with a ConsoleHandler.
+    for h in log.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log.removeHandler(h)
+            h.close()
+
     ch = ConsoleHandler()
     ch.setFormatter(formatter)
     log.addHandler(ch)

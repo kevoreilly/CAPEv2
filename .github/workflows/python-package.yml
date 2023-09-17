@@ -45,10 +45,7 @@ jobs:
       - run: poetry install --no-interaction --no-root
 
       - name: Run Ruff
-        run: ruff . --line-length 132 --ignore E501,E402
-
-      - name: Run ensure pytest installed
-        run: poetry run pip install pytest=="7.2.0"
+        run: poetry run ruff . --line-length 132 --ignore E501,E402
 
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append

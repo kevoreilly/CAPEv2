@@ -364,7 +364,9 @@ class LibVirtMachinery(Machinery):
             return
 
         if not HAVE_LIBVIRT:
-            raise CuckooDependencyError("Unable to import libvirt")
+            raise CuckooDependencyError(
+                "Unable to import libvirt. Ensure that you properly installed it by running: cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/libvirt_installer.sh"
+            )
 
         super(LibVirtMachinery, self).__init__()
 
@@ -783,8 +785,6 @@ class Signature:
 
     def yara_detected(self, name):
 
-        analysis_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]))
-
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for keyword in ("cape_yara", "yara"):
@@ -797,7 +797,7 @@ class Signature:
                     for yara_block in block[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
                             # we can't use here values from set_path
-                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), yara_block, block
+                            yield "sample", block["path"], yara_block, block
 
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
             for sub_keyword in ("cape_yara", "yara"):
@@ -809,7 +809,7 @@ class Signature:
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in subblock[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), yara_block, block
+                            yield "sample", subblock["path"], yara_block, block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if self.results.get(keyword) is not None:
@@ -832,9 +832,7 @@ class Signature:
                         for keyword in ("cape_yara", "yara"):
                             for yara_block in subblock[keyword]:
                                 if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", os.path.join(
-                                        analysis_folder, "selfextracted", subblock["sha256"]
-                                    ), yara_block, block
+                                    yield "sample", subblock["path"], yara_block, block
 
         macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:

@@ -40,7 +40,7 @@ class TLSDumpMasterSecrets(Auxiliary):
         try:
             p = Process(options=self.options, config=self.config, pid=pid)
             filepath = p.get_filepath()
-            p.inject(injectmode=0, interest=filepath, nosleepskip=True)
+            p.inject(interest=filepath, nosleepskip=True)
         except CuckooError as e:
             if "process access denied" in e.message:
                 log.warning("You're not running the Agent as Administrator")

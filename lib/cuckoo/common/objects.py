@@ -14,6 +14,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict
 
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,
     PAGE_EXECUTE_READ,
@@ -25,7 +26,9 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
+from lib.cuckoo.common.integrations.clamav import get_clamav
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     import magic
@@ -40,13 +43,6 @@ try:
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
-
-try:
-    import pyclamd
-
-    HAVE_CLAMAV = True
-except ImportError:
-    HAVE_CLAMAV = False
 
 try:
     import re2 as re
@@ -67,6 +63,17 @@ try:
 except ImportError:
     print("Missed dependency: pip3 install python-tlsh")
     HAVE_TLSH = False
+
+try:
+    import yara
+
+    HAVE_YARA = True
+    if not int(yara.__version__[0]) >= 4:
+        raise ImportError("Missed library. Run: poetry install")
+except ImportError:
+    print("Missed library. Run: poetry install")
+    HAVE_YARA = False
+
 
 log = logging.getLogger(__name__)
 
@@ -330,9 +337,14 @@ class File:
         file_type = None
         if self.path_object.exists():
             if HAVE_MAGIC:
+                fn = False
+                if hasattr(magic, "detect_from_filename"):
+                    fn = magic.detect_from_filename
                 if hasattr(magic, "from_file"):
+                    fn = magic.from_file
+                if fn:
                     try:
-                        file_type = magic.from_file(self.file_path_ansii)
+                        file_type = fn(self.file_path_ansii)
                     except Exception as e:
                         log.error(e, exc_info=True)
                 if not file_type and hasattr(magic, "open"):
@@ -375,15 +387,25 @@ class File:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
+                            dotnet_string = ""
+                            with contextlib.suppress(AttributeError, IndexError):
+                                dotnet_string = (
+                                    " Mono/.Net assembly"
+                                    if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                                        pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
+                                    ].VirtualAddress
+                                    != 0
+                                    else ""
+                                )
                             # Emulate magic for now
                             if is_dll and is_x64:
-                                self.file_type = "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
+                                self.file_type = f"PE32+ executable (DLL) (GUI) x86-64{dotnet_string}, for MS Windows"
                             elif is_dll:
-                                self.file_type = "PE32 executable (DLL) (GUI) Intel 80386, for MS Windows"
+                                self.file_type = f"PE32 executable (DLL) (GUI) Intel 80386{dotnet_string}, for MS Windows"
                             elif is_x64:
-                                self.file_type = f"PE32+ executable ({gui_type}) x86-64, for MS Windows"
+                                self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string}, for MS Windows"
                             else:
-                                self.file_type = f"PE32 executable ({gui_type}) Intel 80386, for MS Windows"
+                                self.file_type = f"PE32 executable ({gui_type}) Intel 80386{dotnet_string}, for MS Windows"
                     elif not File.notified_pefile:
                         File.notified_pefile = True
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")
@@ -396,6 +418,8 @@ class File:
 
     def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
+        if not isinstance(yara_string, bytes):
+            return yara_string
         try:
             new = yara_string.decode()
         except UnicodeDecodeError:
@@ -406,10 +430,87 @@ class File:
 
         return new
 
+    @classmethod
+    def init_yara(self):
+        """Generates index for yara signatures."""
+
+        categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
+        log.debug("Initializing Yara...")
+
+        # Generate root directory for yara rules.
+        yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
+        custom_yara_root = os.path.join(CUCKOO_ROOT, "custom", "yara")
+        # Loop through all categories.
+        for category in categories:
+            rules, indexed = {}, []
+            # Check if there is a directory for the given category.
+            for path in (yara_root, custom_yara_root):
+                category_root = os.path.join(path, category)
+                if not path_exists(category_root):
+                    log.warning("Missing Yara directory: %s?", category_root)
+                    continue
+
+                for category_root, _, filenames in os.walk(category_root, followlinks=True):
+                    for filename in filenames:
+                        if not filename.endswith((".yar", ".yara")):
+                            continue
+                        filepath = os.path.join(category_root, filename)
+                        rules[f"rule_{category}_{len(rules)}"] = filepath
+                        indexed.append(filename)
+
+                # Need to define each external variable that will be used in the
+            # future. Otherwise Yara will complain.
+            externals = {"filename": ""}
+
+            while True:
+                try:
+                    File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                    File.yara_initialized = True
+                    break
+                except yara.SyntaxError as e:
+                    bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
+                    log.debug(
+                        "Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule
+                    )
+                    if os.path.basename(bad_rule) not in indexed:
+                        break
+                    for k, v in rules.items():
+                        if v == bad_rule:
+                            del rules[k]
+                            indexed.remove(os.path.basename(bad_rule))
+                            log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule)
+                            break
+                except yara.Error as e:
+                    log.error("There was a syntax error in one or more Yara rules: %s", e)
+                    break
+            if category == "memory":
+                try:
+                    mem_rules = yara.compile(filepaths=rules, externals=externals)
+                    mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+                except yara.Error as e:
+                    if "could not open file" in str(e):
+                        log.inf("Can't write index_memory.yarc. Did you starting it with correct user?")
+                    else:
+                        log.error(e)
+
+            indexed = sorted(indexed)
+            for entry in indexed:
+                if (category, entry) == indexed[-1]:
+                    log.debug("\t `-- %s %s", category, entry)
+                else:
+                    log.debug("\t |-- %s %s", category, entry)
+
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
+        if float(yara.__version__[:-2]) < 4.3:
+            log.error("You using outdated YARA version. run: poetry install")
+            return []
+
+        if not File.yara_initialized:
+            File.init_yara()
+
         results = []
         if not os.path.getsize(self.file_path):
             return results
@@ -417,13 +518,17 @@ class File:
         try:
             results, rule = [], File.yara_rules[category]
             for match in rule.match(self.file_path_ansii, externals=externals):
-                strings = {self._yara_encode_string(s[2]) for s in match.strings}
-                addresses = {s[1].strip("$"): s[0] for s in match.strings}
+                strings = []
+                addresses = {}
+                for yara_string in match.strings:
+                    for x in yara_string.instances:
+                        strings.extend({self._yara_encode_string(x.matched_data)})
+                        addresses.update({yara_string.identifier.strip("$"): x.offset})
                 results.append(
                     {
                         "name": match.rule,
                         "meta": match.meta,
-                        "strings": list(strings),
+                        "strings": strings,
                         "addresses": addresses,
                     }
                 )
@@ -458,35 +563,6 @@ class File:
         " Payload", " Config", or " Loader".
         """
         return cls.cape_name_regex.sub("", cape_type)
-
-    def get_clamav(self):
-        """Get ClamAV signatures matches.
-        Requires pyclamd module. Additionally if running with apparmor, an exception must be made.
-        apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
-        pip3 install -U pyclamd
-        systemctl enable clamav-daemon
-        systemctl start clamav-daemon
-        usermod -a -G cuckoo clamav
-        echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
-        @return: matched ClamAV signatures.
-        """
-        matches = []
-
-        if HAVE_CLAMAV and os.path.getsize(self.file_path) > 0:
-            try:
-                cd = pyclamd.ClamdUnixSocket()
-                results = cd.allmatchscan(self.file_path)
-                if results:
-                    for entry in results[self.file_path]:
-                        if entry[0] == "FOUND" and entry[1] not in matches:
-                            matches.append(entry[1])
-            except ConnectionError:
-                log.warning("failed to connect to clamd socket")
-            except Exception as e:
-                log.warning("failed to scan file with clamav %s", e)
-            finally:
-                return matches
-        return matches
 
     def get_tlsh(self):
         """
@@ -581,7 +657,7 @@ class File:
             "type": self.get_type(),
             "yara": self.get_yara(),
             "cape_yara": self.get_yara(category="CAPE"),
-            "clamav": self.get_clamav(),
+            "clamav": get_clamav(self.file_path),
             "tlsh": self.get_tlsh(),
             "sha3_384": self.get_sha3_384(),
         }

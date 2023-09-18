@@ -1,28 +1,28 @@
 #!/bin/bash
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
-
-# Copyright (C) 2011-2021 DoomedRaven.
-# This file is part of Tools - https://github.com/doomedraven/Tools
+# Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
 
 # Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne
 
-
 # Static values
 # Where to place everything
+# CAPE TcpDump will sniff this interface
 NETWORK_IFACE=virbr1
-# for tor
+# On which IP TOR should listen
 IFACE_IP="192.168.1.1"
-# DB password
+# Confiures default network interface ip route table
 INTERNET_IFACE=$(ip route | grep '^default'|awk '{print $5}')
+# DB password
 PASSWD="SuperPuperSecret"
-DIST_MASTER_IP=X.X.X.X
+# Only in case if you using distributed CAPE And MongoDB sharding.
+DIST_MASTER_IP="192.168.1.1"
 USER="cape"
 nginx_version=1.19.6
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.5.0
+guacamole_version=1.5.2
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0
@@ -52,7 +52,7 @@ librenms_megaraid_enable=0
 # disabling this will result in the web interface being disabled
 MONGO_ENABLE=1
 
-DIE_VERSION="3.07"
+DIE_VERSION="3.08"
 
 TOR_SOCKET_TIMEOUT="60"
 
@@ -118,7 +118,6 @@ cat << EndOfHelp
         librenms_sneck_config - print the sneck config for use with LibreNMS
         prometheus - Install Prometheus and Grafana
         die - Install Detect It Easy
-        unautoit - Install UnAutoIt
         node_exporter - Install node_exporter to report data to Prometheus+Grafana, only on worker servers
         jemalloc - Install jemalloc, required for CAPE to decrease memory usage
             Details: https://zapier.com/engineering/celery-python-jemalloc/
@@ -573,8 +572,8 @@ function install_logrotate() {
     # du -sh /var/log/* | sort -hr | head -n10
     # thanks digitalocean.com for the manual
     # https://www.digitalocean.com/community/tutorials/how-to-manage-logfiles-with-logrotate-on-ubuntu-16-04
-    if [ ! -f /etc/logrotate.d/doomedraven.conf ]; then
-            cat >> /etc/logrotate.d/doomedraven.conf << EOF
+    if [ ! -f /etc/logrotate.d/cape.conf ]; then
+            cat >> /etc/logrotate.d/cape.conf << EOF
 #/var/log/*.log {
 #    daily
 #    missingok
@@ -627,8 +626,8 @@ After=bind9.service
 PIDFile=/tmp/mongos.pid
 User=mongodb
 Group=mongodb
-StandardOutput=syslog
-StandardError=syslog
+# StandardOutput=syslog
+# StandardError=syslog
 SyslogIdentifier=mongodb
 ExecStart=/usr/bin/mongos --configdb cape_config/${DIST_MASTER_IP}:27019 --port 27020
 [Install]
@@ -690,6 +689,9 @@ function install_suricata() {
     sed -i 's/#checksum-validation: none/checksum-validation: none/g' /etc/suricata/suricata.yaml
     sed -i 's/checksum-checks: auto/checksum-checks: no/g' /etc/suricata/suricata.yaml
 
+    # https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
+    sed -i 's|limit-noproc: true|limit-noproc: false|g' /etc/suricata/suricata.yaml
+
     # enable eve-log
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'eve-log:\n      enabled: no\n', b'eve-log:\n      enabled: yes\n');open(pa, 'wb').write(q);"
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'unix-command:\n  enabled: auto\n  #filename: custom.socket', b'unix-command:\n  enabled: yes\n  filename: /tmp/suricata-command.socket');open(pa, 'wb').write(q);"
@@ -736,16 +738,29 @@ function install_yara() {
     git clone --recursive https://github.com/VirusTotal/yara-python
     cd yara-python
     # checkout tag v4.2.3 to work around broken master branch
-    git checkout tags/v4.2.3
+    # git checkout tags/v4.2.3
     # sometimes it requires to have a copy of YARA inside of yara-python for proper compilation
     # git clone --recursive https://github.com/VirusTotal/yara
     # Temp workarond to fix issues compiling yara-python https://github.com/VirusTotal/yara-python/issues/212
     # partially applying PR https://github.com/VirusTotal/yara-python/pull/210/files
-    sed -i "191 i \ \ \ \ # Needed to build tlsh'\n    module.define_macros.extend([('BUCKETS_128', 1), ('CHECKSUM_1B', 1)])\n    # Needed to build authenticode parser\n    module.libraries.append('ssl')" setup.py
-    python3 setup.py build --enable-cuckoo --enable-magic --enable-profiling --enable-dotnet
+    # sed -i "191 i \ \ \ \ # Needed to build tlsh'\n    module.define_macros.extend([('BUCKETS_128', 1), ('CHECKSUM_1B', 1)])\n    # Needed to build authenticode parser\n    module.libraries.append('ssl')" setup.py
+    python3 setup.py build --enable-cuckoo --enable-magic --enable-profiling
     cd ..
     # for root
     pip3 install ./yara-python
+    if [ -d yara-python ]; then
+        rm -r yara-python
+    fi
+
+    if id "cape" >/dev/null 2>&1; then
+        cd /opt/CAPEv2/
+        sudo -u cape poetry run extra/yara_installer.sh
+        cd -
+    fi
+    if [ -d yara-python ]; then
+        rm -r yara-python
+    fi
+
 }
 
 function install_mongo(){
@@ -753,7 +768,7 @@ function install_mongo(){
 		echo "[+] Installing MongoDB"
 		# Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
 		if grep -q ' avx ' /proc/cpuinfo; then
-			MONGO_VERSION="6.0"
+			MONGO_VERSION="7.0"
 		else
 			echo "[-] Mongo >= 5 is not supported"
 			MONGO_VERSION="4.4"
@@ -763,7 +778,7 @@ function install_mongo(){
 		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
 		apt update 2>/dev/null
-		apt install libpcre3-dev numactl -y
+		apt install libpcre3-dev numactl cron -y
 		apt install -y mongodb-org
 		pip3 install pymongo -U
 
@@ -803,10 +818,10 @@ Restart=always
 # --wiredTigerCacheSizeGB=50
 User=mongodb
 Group=mongodb
-StandardOutput=syslog
-StandardError=syslog
+# StandardOutput=syslog
+# StandardError=syslog
 SyslogIdentifier=mongodb
-LimitNOFILE=65536
+LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -917,13 +932,11 @@ function dependencies() {
         echo "user ${USER} already exist"
     else
         groupadd ${USER}
-        useradd --system -g ${USER} -d /home/${USER}/ -m ${USER}
+        useradd --system -g ${USER} -d /home/${USER}/ -m ${USER} --shell /bin/bash
     fi
 
-    groupadd pcap
-    usermod -a -G pcap ${USER}
-    chgrp pcap ${TCPDUMP_PATH}
-    setcap cap_net_raw,cap_net_admin=eip ${TCPDUMP_PATH}
+    echo "${USER} ALL=NOPASSWD: ${TCPDUMP_PATH}" > /etc/sudoers.d/tcpdump
+    chmod 440 /etc/sudoers.d/tcpdump
 
     usermod -a -G systemd-journal ${USER}
 
@@ -956,22 +969,42 @@ EOF
     #Edit the Privoxy configuration
     #sudo sed -i 's/R#        forward-socks5t             /     127.0.0.1:9050 ./        forward-socks5t             /     127.0.0.1:9050 ./g' /etc/privoxy/config
     #service privoxy restart
-    {
-        echo "* soft nofile 1048576";
-        echo "* hard nofile 1048576";
-        echo "root soft nofile 1048576";
-        echo "root hard nofile 1048576";
-    } >>  /etc/security/limits.conf
 
-    {
-        echo "fs.file-max = 100000";
-        echo "net.ipv6.conf.all.disable_ipv6 = 1";
-        echo "net.ipv6.conf.default.disable_ipv6 = 1";
-        echo "net.ipv6.conf.lo.disable_ipv6 = 1";
-        echo "net.bridge.bridge-nf-call-ip6tables = 0";
-        echo "net.bridge.bridge-nf-call-iptables = 0";
-        echo "net.bridge.bridge-nf-call-arptables = 0";
-    } >> /etc/sysctl.conf
+    if ! grep -q -E '^* soft nofile' /etc/security/limits.conf; then
+        echo "* soft nofile 1048576" >> /etc/security/limits.conf
+    fi
+    if ! grep -q -E '^* hard nofile' /etc/security/limits.conf; then
+        echo "* hard nofile 1048576" >> /etc/security/limits.conf
+    fi
+    if ! grep -q -E '^root soft nofile' /etc/security/limits.conf; then
+        echo "root soft nofile 1048576" >> /etc/security/limits.conf
+    fi
+    if ! grep -q -E '^root hard nofile' /etc/security/limits.conf; then
+        echo "root soft hard 1048576" >> /etc/security/limits.conf
+    fi
+
+
+    if ! grep -q -E '^fs.file-max' /etc/sysctl.conf; then
+        echo "fs.file-max = 100000" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.ipv6.conf.all.disable_ipv6' /etc/sysctl.conf; then
+        echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.ipv6.conf.default.disable_ipv6' /etc/sysctl.conf; then
+        echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.ipv6.conf.lo.disable_ipv6' /etc/sysctl.conf; then
+        echo "net.ipv6.conf.lo.disable_ipv6 = 0" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.bridge.bridge-nf-call-ip6tables' /etc/sysctl.conf; then
+        echo "net.bridge.bridge-nf-call-ip6tables = 0" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.bridge.bridge-nf-call-iptables' /etc/sysctl.conf; then
+        echo "net.bridge.bridge-nf-call-iptables = 0" >> /etc/sysctl.conf
+    fi
+    if ! grep -q -E '^net.bridge.bridge-nf-call-arptables' /etc/sysctl.conf; then
+        echo "net.bridge.bridge-nf-call-arptables = 0" >> /etc/sysctl.conf
+    fi
 
     # enable packet forwarding for IPv4
     if ! grep -q -E '^net.ipv4.ip_forward=1' /etc/sysctl.conf; then
@@ -992,6 +1025,8 @@ EOF
     sudo checkinstall -D --pkgname=passivedns --default
 
     pip3 install unicorn capstone
+
+    sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
 
 }
 
@@ -1133,33 +1168,34 @@ function install_CAPE() {
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
-    mkdir -p "/opt/CAPEv2/custom/conf"
     cd "/opt/CAPEv2/" || return
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
-    sudo -u ${USER} bash -c 'poetry run extra/poetry_yara_installer.sh'
+    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
+    sudo -u ${USER} bash -c 'poetry run extra/yara_installer.sh'
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
-    cp -r conf/*.conf "custom/conf"
-    sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" custom/conf/cuckoo.conf
-    # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf
-    # sed -i "/memory_dump = off/cmemory_dump = on" custom/conf/cuckoo.conf
-    # sed -i "/machinery =/cmachinery = kvm" custom/conf/cuckoo.conf
-    sed -i "/interface =/cinterface = ${NETWORK_IFACE}" custom/conf/auxiliary.conf
+    # copy *.conf.default to *.conf so we have all properly updated fields, as we can't ignore old configs in repository
+    for filename in conf/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g')";  done
+
+    sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" conf/cuckoo.conf
+    # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" conf/routing.conf
+    # sed -i "/memory_dump = off/cmemory_dump = on" conf/cuckoo.conf
+    # sed -i "/machinery =/cmachinery = kvm" conf/cuckoo.conf
+    sed -i "/interface =/cinterface = ${NETWORK_IFACE}" conf/auxiliary.conf
 
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
 	# default is enabled, so we only need to disable it
 	if [ "$MONGO_ENABLE" -lt 1 ]; then
-		crudini --set custom/conf/reporting.conf mongodb enabled no
+		crudini --set conf/reporting.conf mongodb enabled no
 	fi
 
 	if [ "$librenms_enable" -ge 1 ]; then
-		crudini --set custom/conf/reporting.conf litereport enabled yes
-		crudini --set custom/conf/reporting.conf runstatistics enabled yes
+		crudini --set conf/reporting.conf litereport enabled yes
+		crudini --set conf/reporting.conf runstatistics enabled yes
 	fi
 
     python3 utils/community.py -waf -cr
@@ -1167,11 +1203,12 @@ function install_CAPE() {
     # Configure direct internet connection
     sudo echo "400 ${INTERNET_IFACE}" >> /etc/iproute2/rt_tables
 
+if [ ! -f /etc/sudoers.d/cape ]; then
     cat >> /etc/sudoers.d/cape << EOF
 Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
 EOF
-
+fi
 }
 
 function install_systemd() {
@@ -1234,7 +1271,7 @@ function install_guacamole() {
     sudo apt update
     sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
     sudo apt install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
-    sudo apt install -y bindfs
+
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
 
 
@@ -1259,6 +1296,10 @@ function install_guacamole() {
 
     pip3 install -U 'Twisted[tls,http2]'
 
+    if [ -f "/etc/systemd/system/guacd.service" ] ; then
+        sudo rm /etc/systemd/system/guacd.service
+    fi
+
     if [ ! -f "/opt/lib/systemd/system/guac-web.service" ] ; then
         cp /opt/CAPEv2/systemd/guacd.service /lib/systemd/system/guacd.service
         cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
@@ -1269,19 +1310,16 @@ function install_guacamole() {
         sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
 
-    if [ ! -d "/var/www/guacrecordings" ] ; then
-        sudo mkdir -p /var/www/guacrecordings && chown ${USER}:${USER} /var/www/guacrecordings
+    if [ ! -d "/opt/CAPEv2/storage/guacrecordings" ] ; then
+        sudo mkdir -p opt/CAPEv2/storage/guacrecordings && chown ${USER}:${USER} opt/CAPEv2/storage/guacrecordings
     fi
 
-    if grep -q '/var/www/guacrecordings' /etc/fstab; then
-        echo "/opt/CAPEv2/storage/guacrecordings /var/www/guacrecordings fuse.bindfs perms=0000:u+rwD:g+rwD:o+rD 0 0" >> /etc/fstab
-    fi
+    # Add www-data to CAPE group to access guac recordings
+    sudo usermod www-data -G ${USER}
 
     cd /opt/CAPEv2
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     cd ..
-
-    sudo mount -a
 
     systemctl daemon-reload
     systemctl enable guacd.service guac-web.service
@@ -1290,15 +1328,7 @@ function install_guacamole() {
 
 function install_DIE() {
     apt install libqt5opengl5 libqt5script5 libqt5scripttools5 libqt5sql5 -y
-    wget "https://github.com/horsicq/DIE-engine/releases/download/${DIE_VERSION}/die_${DIE_VERSION}_Ubuntu_${UBUNTU_VERSION}_amd64.deb" -O DIE.deb
-    dpkg -i DIE.deb
-}
-
-function install_UnAutoIt() {
-    cd /opt/CAPEv2/data/
-    snap install go --classic
-    git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt
-    GOOS="linux" GOARCH="amd64" go build -o UnAutoIt
+    wget "https://github.com/horsicq/DIE-engine/releases/download/${DIE_VERSION}/die_${DIE_VERSION}_Ubuntu_${UBUNTU_VERSION}_amd64.deb" -O DIE.deb && dpkg -i DIE.deb
 }
 
 # Doesn't work ${$1,,}
@@ -1341,7 +1371,7 @@ case "$COMMAND" in
     # Disabled due to frequent CAPA updates and it breaks it. Users should care about this subject
     # Update FLARE CAPA rules and community every X hours
     # if ! crontab -l | grep -q 'community.py -waf -cr'; then
-    #    crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && python3 community.py -waf -cr && pip3 install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    #    crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     # fi
     if ! crontab -l | grep -q 'echo signal newnym'; then
         crontab -l | { cat; echo "00 */1 * * * (echo authenticate '""'; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null"; } | crontab -
@@ -1433,8 +1463,6 @@ case "$COMMAND" in
     install_crowdsecurity;;
 'die')
     install_DIE;;
-'unautoit')
-    install_UnAutoIt;;
 *)
     usage;;
 esac

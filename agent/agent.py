@@ -30,10 +30,13 @@ if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 # You must run x86 version not x64
+# The analysis process interacts with low-level Windows libraries that need a
+# x86 Python to be running.
+# (see https://github.com/kevoreilly/CAPEv2/issues/1680)
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.11"
+AGENT_VERSION = "0.12"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -204,6 +207,21 @@ class request:
 app = MiniHTTPServer()
 
 
+def isAdmin():
+    is_admin = None
+    try:
+        if sys.platform == "win32":
+            import ctypes
+
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+        else:
+            is_admin = os.getuid() == 0
+    except Exception as e:
+        print(e)
+
+    return is_admin
+
+
 def json_error(error_code: int, message: str) -> jsonify:
     r = jsonify(message=message, error_code=error_code)
     r.status_code = error_code
@@ -222,7 +240,8 @@ def json_success(message: str, **kwargs) -> jsonify:
 
 @app.route("/")
 def get_index():
-    return json_success("CAPE Agent!", version=AGENT_VERSION, features=AGENT_FEATURES)
+    is_admin = isAdmin()
+    return json_success("CAPE Agent!", version=AGENT_VERSION, features=AGENT_FEATURES, is_user_admin=bool(is_admin))
 
 
 @app.route("/status")

@@ -59,7 +59,7 @@ def choose_package(file_type, file_name, exports, target):
         (".ppt", ".ppa", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
     ):
         return "ppt"
-    elif "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
+    elif b"MANIFEST" in file_content or "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
         return "jar"
     elif "Zip" in file_type:
         return "zip"
@@ -87,8 +87,6 @@ def choose_package(file_type, file_name, exports, target):
         return "eml"
     elif file_name.endswith((".js", ".jse")):
         return "js"
-    elif file_name.endswith((".htm", ".html")):
-        return "html"
     elif file_name.endswith(".hta"):
         return "hta"
     elif file_name.endswith(".xps"):
@@ -127,7 +125,11 @@ def choose_package(file_type, file_name, exports, target):
         return "pdf"
     elif re.search(b'<script\\s+language="(J|VB|Perl)Script"', file_content, re.I):
         return "wsf"
-    elif file_name.endswith((".vbs", ".vbe")) or re.findall(rb"\s?Dim\s", file_content, re.I):
+    elif (
+        file_name.endswith((".vbs", ".vbe"))
+        or re.findall(rb"\s?Dim\s", file_content, re.I)
+        or re.findall(b"\s?\x00D\x00i\x00m\x00\s", file_content, re.I)
+    ):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"

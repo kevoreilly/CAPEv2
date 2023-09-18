@@ -44,7 +44,7 @@ early February.
 
 In late January 2012, we opened `Malwr.com`_, a free and public running Cuckoo
 Sandbox instance provided with a full-fledged interface through which people
-could submit files to be analysed and results were returned.
+could submit files to be analyzed and results were returned.
 
 In March 2012 Cuckoo Sandbox won the first round of the `Magnificent7`_ program
 organized by `Rapid7`_.

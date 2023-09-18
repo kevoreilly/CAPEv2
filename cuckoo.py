@@ -27,6 +27,7 @@ try:
     from lib.cuckoo.core.startup import (
         check_configs,
         check_linux_dist,
+        check_tcpdump_permissions,
         check_webgui_mongo,
         check_working_directory,
         create_structure,
@@ -35,12 +36,11 @@ try:
         init_rooter,
         init_routing,
         init_tasks,
-        init_yara,
     )
 
     bson  # Pretend like it's actually being used (for static checkers.)
 except (CuckooDependencyError, ImportError) as e:
-    print("ERROR: Missing dependency: {0}".format(e))
+    print(f"ERROR: Missing dependency: {e}")
     sys.exit()
 
 log = logging.getLogger()
@@ -79,12 +79,11 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     check_webgui_mongo()
     init_modules()
     init_tasks()
-    init_yara()
     init_rooter()
     init_routing()
+    check_tcpdump_permissions()
 
-    # This is just a temporary hack, we need an actual test suite to integrate
-    # with Travis-CI.
+    # This is just a temporary hack, we need an actual test suite to integrate with Travis-CI.
     if test:
         return
 
@@ -113,17 +112,34 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
     parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
+    parser.add_argument(
+        "-s",
+        "--stop",
+        help="Send signal to STOP analyzing upcoming tasks. Finish existent tasks and quit. Proper restart to pick any core changes.",
+        action="store_true",
+        required=False,
+    )
     args = parser.parse_args()
 
-    try:
-        cuckoo_init(quiet=args.quiet, debug=args.debug, artwork=args.artwork, test=args.test)
-        if not args.artwork and not args.test:
-            cuckoo_main(max_analysis_count=args.max_analysis_count)
-    except CuckooCriticalError as e:
-        message = "{0}: {1}".format(e.__class__.__name__, e)
-        if any(filter(lambda hdlr: not isinstance(hdlr, logging.NullHandler), log.handlers)):
-            log.critical(message)
-        else:
-            sys.stderr.write("{0}\n".format(message))
+    if args.stop:
+        import psutil
 
-        sys.exit(1)
+        filename = Path(__file__).parts[-1]
+        for p in psutil.process_iter(attrs=["name", "pid", "cmdline"]):
+            # cuckoo.py but doing in this way in case we rename it in future
+            if filename in p.info["cmdline"]:
+                p.send_signal(1)
+                break
+    else:
+        try:
+            cuckoo_init(quiet=args.quiet, debug=args.debug, artwork=args.artwork, test=args.test)
+            if not args.artwork and not args.test:
+                cuckoo_main(max_analysis_count=args.max_analysis_count)
+        except CuckooCriticalError as e:
+            message = "{0}: {1}".format(e.__class__.__name__, e)
+            if any(filter(lambda hdlr: not isinstance(hdlr, logging.NullHandler), log.handlers)):
+                log.critical(message)
+            else:
+                sys.stderr.write("{0}\n".format(message))
+
+            sys.exit(1)

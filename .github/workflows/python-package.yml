@@ -29,81 +29,62 @@ jobs:
           repository: CAPESandbox/CAPE-TestFiles
           path: tests/data/
 
+      - name: Install dependencies
+        run: |
+          sudo apt update && sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev p7zip-full innoextract unrar upx
+
+      - name: Install poetry
+        run: pip install poetry
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
+          # check-latest: true
           python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          sudo apt update && sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt-dev p7zip-full innoextract unrar upx
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: latest
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          installer-parallel: true
-
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install dependencies
+          cache: 'poetry'
+      - name: Install requirements
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
+        run: |
+          poetry install --no-interaction --no-root
 
-      - name: Run unit tests
-        run: poetry run pytest -s --import-mode=append -k "not test_yara"
-
-      - name: Install dependencies
-        run: poetry run pip install ruff
       - name: Run Ruff
         run: poetry run ruff . --line-length 132 --ignore E501,E402
+
+      - name: Run unit tests
+        run: poetry run python -m pytest --import-mode=append
+
+      - name: Run parsers unit tests
+        run: poetry run python -m pytest tests_parsers -s --import-mode=append
 
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       matrix:
-        python-version: [3.8]
+        python-version: ["3.8", "3.11"]
     if: ${{ github.ref == 'refs/heads/master' }}
 
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev
+
+      - name: Install poetry
+        run: pip install poetry
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
+          check-latest: true
           python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev libvirt-dev
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: latest
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          installer-parallel: false
-
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install dependencies
+          cache: 'poetry'
+      - name: Install requirements
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
+        run: |
+          poetry install --no-interaction --no-root
 
       - name: Format with black
         run: poetry run black .

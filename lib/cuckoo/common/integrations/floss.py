@@ -14,7 +14,7 @@ try:
     HAVE_FLOSS = True
     import floss.main as fm
 except ImportError:
-    print("Missed dependency flare-floss: pip3 install -U flare-floss")
+    print("Missed dependency flare-floss: poetry run pip install -U flare-floss")
 
 log = logging.getLogger(__name__)
 
@@ -32,13 +32,17 @@ class Floss:
         @return: dictionary of floss strings.
         """
 
-        if not HAVE_FLOSS or processing_cfg.floss.on_demand and not self.on_demand:
+        if not HAVE_FLOSS:
+            return
+
+        if processing_cfg.floss.on_demand and not self.on_demand:
             return
 
         results = {}
 
         if not path_exists(self.file_path):
             log.error("Sample file doesn't exist: %s", self.file_path)
+            return
 
         try:
             if not fm.is_supported_file_type(self.file_path):

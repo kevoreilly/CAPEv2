@@ -52,7 +52,7 @@ def yara_scan(raw_data):
     for match in matches:
         if match.rule == "EvilGrab":
             for item in match.strings:
-                addresses[item[1]] = item[0]
+                addresses[item.identifier] = item.instances[0].offset
     return addresses
 
 

@@ -8,13 +8,14 @@ sys.path.append(CAPE_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooNetworkError
-from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
+from lib.cuckoo.core.rooter import _load_socks5_operational, rooter
 
 cfg = Config()
 routing = Config("routing")
 log = logging.getLogger()
 socks5s = _load_socks5_operational()
 machinery_conf = Config(cfg.cuckoo.machinery)
+vpns = routing.vpn.get("vpns", "")
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False
@@ -24,7 +25,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missde dependency: pip3 install psutil")
+    print("Missde dependency: poetry run pip install psutil")
 
 
 def _rooter_response_check(rooter_response):
@@ -144,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--vm-name",
         default="",
-        help="VM name to load VM config from conf/<machinery>.conf, name that you have between []. Ex: [cape_vm1]. Specify only cape_vm2",
+        help="VM name to load VM config from conf/<machinery>.conf, name that you have between []. Ex: [cape_vm1]. Specify only cape_vm1",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
@@ -168,8 +169,9 @@ if __name__ == "__main__":
         if routing.routing.reject_hostports != "none":
             reject_hostports = str(routing.routing.reject_hostports)
     elif route in vpns:
-        interface = vpns[route].interface
-        rt_table = vpns[route].rt_table
+        vpn = routing.get(route)
+        interface = vpn.interface
+        rt_table = vpn.rt_table
     elif route in socks5s:
         interface = ""
     else:

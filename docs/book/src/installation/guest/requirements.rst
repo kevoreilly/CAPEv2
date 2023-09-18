@@ -12,7 +12,10 @@ Python is a strict requirement for the CAPE guest component (*analyzer*) to run 
     .. note::
 
         Please note that only 32-bit (x86) versions of Python3 are
-        supported at this time for Windows. For other it can be 64-bit(x64).
+        supported at this time for Windows, due to the way the analyzer
+        interacts with low-level Windows libraries. Using a 64-bit version
+        of Python will crash the analyzer in Windows. For other platforms the
+        version of Python can be 64-bit (x64).
 
 You can download the proper `Windows`_ / `Linux`_ installer from the `official website`_.
 Python versions > 3.6 are preferred.
@@ -37,7 +40,7 @@ CAPE guest component. They include:
     The recommended installation is the execution of the following commands::
 
     > python -m pip install --upgrade pip
-    > python -m pip install --upgrade Pillow
+    > python -m pip install Pillow==9.5.0
 
 These Python libraries are not strictly required by CAPE, but you are encouraged
 to install them if you want to have access to all available features. Make sure
@@ -54,7 +57,7 @@ Additional Software
 At this point, you should have installed everything needed by CAPE to run
 properly.
 
-Depending on what kind of files you want to analyze and what kind of sandboxed
+Depending on what kind of files you want to analyze and what kind of sandbox
 environment you want to run the malware samples in, you may want to install
 additional software such as browsers, PDF readers, office suites, etc.
 
@@ -63,9 +66,15 @@ additional software such as browsers, PDF readers, office suites, etc.
         Remember to disable the "Auto Update" or "Check For Updates" feature of
         any additional software that you install.
 
-        For Microsoft Office we suggest to use Office 2010 SP2
+        For Microsoft Office we recommend Office 2010 SP2. This is both for its
+        susceptibility to exploits typically used in maldocs, and its proven
+        compatibility with CAPE. The only recommended alternative is Office 2016
+        (32-bit).
+
+        We do not recommend any Office version more recent than 2016 due to lack
+        of proven compatibility with both maldocs and CAPE.
 
 For hints about what your needs may be, give the :doc:`../../introduction/sandboxing` chapter a read.
 
-.. _`choco.bat`: https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat
-.. _`disablewin7noise.bat`: https://github.com/doomedraven/Tools/blob/master/Windows/disable_win7noise.bat
+.. _`choco.bat`: https://github.com/kevoreilly/CAPEv2/blob/master/installer/choco.bat
+.. _`disablewin7noise.bat`:  https://github.com/kevoreilly/CAPEv2/blob/master/installer/disable_win7noise.bat

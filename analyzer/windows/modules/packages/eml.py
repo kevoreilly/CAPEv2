@@ -15,5 +15,5 @@ class EML(Package):
     ]
 
     def start(self, path):
-        outlook = self.get_path_glob("Microsoft Office Outlook")
+        outlook = self.get_path_glob("OUTLOOK.EXE")
         return self.execute(outlook, f'/eml "{path}"', path)

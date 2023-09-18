@@ -51,16 +51,7 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import (
-    TASK_COMPLETED,
-    TASK_FAILED_PROCESSING,
-    TASK_FAILED_REPORTING,
-    TASK_RECOVERED,
-    TASK_REPORTED,
-    TASK_RUNNING,
-    Database,
-    Task,
-)
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_RECOVERED, TASK_RUNNING, Database, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 try:
@@ -69,7 +60,7 @@ try:
     HAVE_PSUTIL = True
 except ImportError:
     HAVE_PSUTIL = False
-    print("Missed psutil dependency: pip3 install -U psutil")
+    print("Missed psutil dependency: poetry run pip install -U psutil")
 
 log = logging.getLogger(__name__)
 
@@ -988,9 +979,12 @@ def tasks_reschedule(request, task_id):
         return Response(resp)
 
     resp = {}
-    if db.reschedule(task_id):
+    new_task_id = db.reschedule(task_id)
+    if new_task_id:
         resp["error"] = False
-        resp["data"] = "Task ID {0} has been rescheduled".format(task_id)
+        resp["data"] = {}
+        resp["data"]["new_task_id"] = new_task_id
+        resp["data"]["message"] = "Task ID {0} has been rescheduled".format(task_id)
     else:
         resp = {
             "error": True,
@@ -1009,34 +1003,12 @@ def tasks_reprocess(request, task_id):
         resp["error_value"] = "Task Reprocess API is Disabled"
         return Response(resp)
 
-    task = db.view_task(task_id)
-    if not task:
-        resp["error"] = True
-        resp["error_value"] = "Task ID does not exist in the database"
-        return Response(resp)
-
-    # task status suitable for reprocessing
-    valid_status = {
-        # allow reprocessing of tasks already processed (maybe detections changed)
-        TASK_REPORTED,
-        # allow reprocessing of tasks that were rescheduled
-        TASK_RECOVERED,
-        # allow reprocessing of tasks that previously failed the processing stage
-        TASK_FAILED_PROCESSING,
-        # allow reprocessing of tasks that previously failed the reporting stage
-        TASK_FAILED_REPORTING,
-    }
-
-    if task.status not in valid_status:
-        error_fmt = "Task ID {0} cannot be reprocessed in status {1}"
-        resp["error"] = True
-        resp["error_value"] = error_fmt.format(task_id, task.status)
-        return Response(resp)
+    error, msg, task_status = db.tasks_reprocess(task_id)
+    if error:
+        return Response({"error": True, "error_value": msg})
 
     db.set_status(task_id, TASK_COMPLETED)
-    resp["error"] = False
-    resp["data"] = f"Task ID {task_id} with status {task.status} marked for reprocessing"
-    return Response(resp)
+    return Response({"error": error, "data": f"Task ID {task_id} with status {task_status} marked for reprocessing"})
 
 
 @csrf_exempt
@@ -1434,17 +1406,17 @@ def tasks_iocs(request, task_id, detail=None):
             tmpdict = {}
             if entry.get("clamav", False):
                 tmpdict["clamav"] = entry["clamav"]
-            if entry["sha256"]:
+            if entry.get("sha256"):
                 tmpdict["sha256"] = entry["sha256"]
-            if entry["md5"]:
+            if entry.get("md5"):
                 tmpdict["md5"] = entry["md5"]
-            if entry["yara"]:
+            if entry.get("yara"):
                 tmpdict["yara"] = entry["yara"]
-            if entry.get("trid", False):
+            if entry.get("trid"):
                 tmpdict["trid"] = entry["trid"]
-            if entry["type"]:
+            if entry.get("type"):
                 tmpdict["type"] = entry["type"]
-            if entry["guest_paths"]:
+            if entry.get("guest_paths"):
                 tmpdict["guest_paths"] = entry["guest_paths"]
             data["dropped"].append(tmpdict)
 

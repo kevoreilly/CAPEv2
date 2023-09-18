@@ -31,7 +31,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 try:
     import pyzipper
 except ImportError:
-    sys.exti("Missed pyzipper dependency: pip3 install pyzipper -U")
+    sys.exti("Missed pyzipper dependency: poetry install")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -65,6 +65,7 @@ if dist_conf.GCP.enabled:
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
 
+cfg = Config()
 reporting_conf = Config("reporting")
 web_conf = Config("web")
 
@@ -107,7 +108,7 @@ failed_clean_enabled = False
 
 
 def required(package):
-    sys.exit("The %s package is required: pip3 install %s" % (package, package))
+    sys.exit("The %s package is required: poetry run pip install %s" % (package, package))
 
 
 try:
@@ -243,7 +244,7 @@ def _delete_many(node, ids, nodes, db):
         db.rollback()
 
 
-def node_submit_task(task_id, node_id):
+def node_submit_task(task_id, node_id, main_task_id):
 
     db = session()
     node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
@@ -335,13 +336,18 @@ def node_submit_task(task_id, node_id):
                 check = True
             else:
                 log.debug(
-                    "Failed to submit task {} to node: {}, code: {}, msg: {}".format(task_id, node.name, r.status_code, r.content)
+                    "Failed to submit: main_task_id: {} task {} to node: {}, code: {}, msg: {}".format(
+                        task.main_task_id, task_id, node.name, r.status_code, r.content
+                    )
                 )
 
-            log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
+            if task.task_id:
+                log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
 
         elif r.status_code == 500:
-            log.debug((r.status_code, r.text))
+            log.info("Saving error to /tmp/dist_error.html")
+            _ = path_write_file("/tmp/dist_error.html", r.content)
+            log.info((r.status_code, r.text[:200]))
 
         elif r.status_code == 429:
             log.info((r.status_code, "see api auth for more details"))
@@ -377,7 +383,6 @@ class Retriever(threading.Thread):
     def run(self):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
-        self.cfg = Config()
         self.t_is_none = {}
         self.status_count = {}
         self.current_queue = {}
@@ -449,7 +454,7 @@ class Retriever(threading.Thread):
         # error message and wait another round (this check is ignored
         # when the freespace configuration variable is set to zero).
         while True:
-            if self.cfg.cuckoo.freespace:
+            if cfg.cuckoo.freespace:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
@@ -461,7 +466,7 @@ class Retriever(threading.Thread):
                     space_available = dir_stats.f_bavail * dir_stats.f_frsize
                     space_available /= 1024 * 1024
 
-                    if space_available < self.cfg.cuckoo.freespace:
+                    if space_available < cfg.cuckoo.freespace:
                         log.error("Not enough free disk space! (Only %d MB!)", space_available)
                         self.stop_dist.set()
                         continue
@@ -505,30 +510,25 @@ class Retriever(threading.Thread):
         while True:
             for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(enabled=True).all():
                 log.info("Checking for failed tasks on: {}".format(node.name))
-                for status in ("failed_analysis", "failed_processing"):
-                    for task in node_fetch_tasks(status, node.url, node.apikey, action="delete"):
-                        t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
-                        if t is not None:
-                            log.info(
-                                "Cleaning failed_analysis for id:{}, node:{}: main_task_id: {}".format(
-                                    t.id, t.node_id, t.main_task_id
-                                )
-                            )
-                            main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
-                            t.finished = True
-                            t.retrieved = True
-                            t.notificated = True
-                            lock_retriever.acquire()
-                            if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((t.node_id, t.task_id))
-                            lock_retriever.release()
-                        else:
-                            log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
-                            lock_retriever.acquire()
-                            if (node.id, task["id"]) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((node.id, task["id"]))
-                            lock_retriever.release()
-                    db.commit()
+                for task in node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete"):
+                    t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
+                    if t is not None:
+                        log.info("Cleaning failed for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
+                        main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
+                        t.finished = True
+                        t.retrieved = True
+                        t.notificated = True
+                        lock_retriever.acquire()
+                        if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
+                            self.cleaner_queue.put((t.node_id, t.task_id))
+                        lock_retriever.release()
+                    else:
+                        log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
+                        lock_retriever.acquire()
+                        if (node.id, task["id"]) not in self.cleaner_queue.queue:
+                            self.cleaner_queue.put((node.id, task["id"]))
+                        lock_retriever.release()
+                db.commit()
             time.sleep(600)
         db.close()
 
@@ -590,6 +590,16 @@ class Retriever(threading.Thread):
             time.sleep(5)
         db.close()
 
+    def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
+        # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
+        if cfg.cuckoo.delete_original and target and path_exists(target):
+            path_delete(target)
+
+        if cfg.cuckoo.delete_bin_copy:
+            copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
+            if path_exists(copy_path) and not main_db.sample_still_used(sample_sha256, task_id):
+                path_delete(copy_path)
+
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports_nfs(self):
         db = session()
@@ -600,10 +610,10 @@ class Retriever(threading.Thread):
             self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
-                # In the case that a Cuckoo node has been reset over time it"s
+                # In the case that a CAPE node has been reset over time it"s
                 # possible that there are multiple combinations of
                 # node-id/task-id, in this case we take the last one available.
-                # (This makes it possible to re-setup a Cuckoo node).
+                # (This makes it possible to re-setup a CAPE node).
                 t = (
                     db.query(Task)
                     .filter_by(node_id=node_id, task_id=task["id"], retrieved=False, finished=False)
@@ -647,8 +657,14 @@ class Retriever(threading.Thread):
 
                 # this doesn't exist for some reason
                 if path_exists(t.path):
-                    sample = open(t.path, "rb").read()
-                    sample_sha256 = hashlib.sha256(sample).hexdigest()
+                    sample_sha256 = main_db.find_sample(task_id=t.main_task_id)
+                    if sample_sha256:
+                        sample_sha256 = sample_sha256[0].sample.sha256
+                    else:
+                        # keep fallback for now
+                        sample = open(t.path, "rb").read()
+                        sample_sha256 = hashlib.sha256(sample).hexdigest()
+
                     destination = os.path.join(binaries_folder, sample_sha256)
                     if not path_exists(destination) and path_exists(t.path):
                         try:
@@ -664,6 +680,8 @@ class Retriever(threading.Thread):
                         except Exception as e:
                             print(f"Failed link binary: {e}")
                             pass
+
+                    self.delete_target_file(t.main_task_id, sample_sha256, t.path)
 
                 t.retrieved = True
                 t.finished = True
@@ -752,18 +770,28 @@ class Retriever(threading.Thread):
                                 log.error("Permission denied: {}".format(report_path))
 
                         if path_exists(t.path):
-                            sample = open(t.path, "rb").read()
-                            sample_sha256 = hashlib.sha256(sample).hexdigest()
+                            sample_sha256 = main_db.find_sample(task_id=t.main_task_id)
+                            if sample_sha256:
+                                sample_sha256 = sample_sha256[0].sample.sha256
+                            else:
+                                # keep fallback for now
+                                sample = open(t.path, "rb").read()
+                                sample_sha256 = hashlib.sha256(sample).hexdigest()
+
                             destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")
                             if not path_exists(destination):
                                 path_mkdir(destination, mode=0o755)
+
                             destination = os.path.join(destination, sample_sha256)
                             if not path_exists(destination) and path_exists(t.path):
                                 shutil.move(t.path, destination)
+
                             # creating link to analysis folder
                             if path_exists(t.path):
                                 with suppress(Exception):
                                     os.symlink(destination, os.path.join(report_path, "binary"))
+
+                                self.delete_target_file(t.main_task_id, sample_sha256, t.path)
 
                         else:
                             log.debug(f"{t.path} doesn't exist")
@@ -835,6 +863,7 @@ class StatusThread(threading.Thread):
         if node.name != main_server_name:
             # don"t do nothing if nothing in pending
             # Get tasks from main_db submitted through web interface
+            # Exclude category
             main_db_tasks = main_db.list_tasks(
                 status=TASK_PENDING, options_like=options_like, limit=pend_tasks_num, order_by=MD_Task.priority.desc()
             )
@@ -939,7 +968,7 @@ class StatusThread(threading.Thread):
 
                     if force_push or force_push_push:
                         # Submit appropriate tasks to node
-                        submitted = node_submit_task(task.id, node.id)
+                        submitted = node_submit_task(task.id, node.id, t.id)
                         if submitted:
                             if node.name == main_server_name:
                                 main_db.set_status(t.id, TASK_RUNNING)
@@ -982,7 +1011,7 @@ class StatusThread(threading.Thread):
                 # Submit appropriate tasks to node
                 log.debug("going to upload {} tasks to node {}".format(pend_tasks_num, node.name))
                 for task in to_upload:
-                    submitted = node_submit_task(task.id, node.id)
+                    submitted = node_submit_task(task.id, node.id, task.main_task_id)
                     if submitted:
                         if node.name == main_server_name:
                             main_db.set_status(task.main_task_id, TASK_RUNNING)

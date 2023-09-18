@@ -11,7 +11,7 @@ import timeit
 try:
     # Azure-specific imports
     # pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network
-    from azure.identity import ClientSecretCredential
+    from azure.identity import CertificateCredential, ClientSecretCredential
     from azure.mgmt.compute import ComputeManagementClient, models
     from azure.mgmt.network import NetworkManagementClient
     from msrest.polling import LROPoller
@@ -129,17 +129,22 @@ class Azure(Machinery):
                     if value and isinstance(value, str):
                         scale_set_opts[key] = value.strip()
 
+                if "initial_pool_size" not in scale_set_opts:
+                    raise AttributeError("'initial_pool_size' not present in scale set configuration")
+
+                # If the initial pool size is 0, then post-initialization we will have 0 machines available for a
+                # scale set, which is bad for Cuckoo logic
+                if scale_set_opts["initial_pool_size"] <= 0:
+                    raise CuckooCriticalError(
+                        f"The initial pool size for VMSS '{scale_set_id}'  is 0. Please set it to a positive integer."
+                    )
+
                 # Insert the scale_set_opts into the module.scale_sets attribute
                 mmanager_opts["scale_sets"][scale_set_id] = scale_set_opts
 
             except (AttributeError, CuckooOperationalError) as e:
                 log.warning(f"Configuration details about scale set {scale_set_id.strip()} are missing: {e}")
                 continue
-
-        # If the initial pool size is 0, then post-initialization we will have 0 machines available, which is bad
-        # for Cuckoo logic
-        if self.options.az.initial_pool_size <= 0:
-            raise CuckooCriticalError("The initial pool size for each VMSS is 0. Please set it to a positive integer.")
 
     def _initialize_check(self):
         """
@@ -156,7 +161,8 @@ class Azure(Machinery):
 
         # We will be using this as a source of truth for the VMSS configs
         self.required_vmsss = {
-            vmss_name: {"exists": False, "image": None, "platform": None, "tag": None} for vmss_name in self.options.az.scale_sets
+            vmss_name: {"exists": False, "image": None, "platform": None, "tag": None, "initial_pool_size": None}
+            for vmss_name in self.options.az.scale_sets
         }
 
         # Starting the thread that sets API clients periodically
@@ -177,13 +183,24 @@ class Azure(Machinery):
         @return: an Azure ClientSecretCredential object
         """
 
-        # Instantiates the ClientSecretCredential object using
-        # Azure client ID, secret and Azure tenant ID
-        credentials = ClientSecretCredential(
-            client_id=self.options.az.client_id,
-            client_secret=self.options.az.secret,
-            tenant_id=self.options.az.tenant,
-        )
+        credentials = None
+        if self.options.az.secret and self.options.az.secret != "<secret>":
+            # Instantiates the ClientSecretCredential object using
+            # Azure client ID, secret and Azure tenant ID
+            credentials = ClientSecretCredential(
+                client_id=self.options.az.client_id,
+                client_secret=self.options.az.secret,
+                tenant_id=self.options.az.tenant,
+            )
+        else:
+            # Instantiates the CertificateCredential object using
+            # Azure client ID, secret and Azure tenant ID
+            credentials = CertificateCredential(
+                client_id=self.options.az.client_id,
+                tenant_id=self.options.az.tenant,
+                certificate_path=self.options.az.certificate_path,
+                password=self.options.az.certificate_password,
+            )
         return credentials
 
     def _thr_refresh_clients(self):
@@ -246,6 +263,7 @@ class Azure(Machinery):
             self.required_vmsss[scale_set_id]["platform"] = scale_set_values.platform.capitalize()
             self.required_vmsss[scale_set_id]["tag"] = scale_set_values.pool_tag
             self.required_vmsss[scale_set_id]["image"] = models.ImageReference(id=gallery_image.id)
+            self.required_vmsss[scale_set_id]["initial_pool_size"] = int(scale_set_values.initial_pool_size)
 
         # All required VMSSs must have an image reference, tag and os
         for required_vmss_name, required_vmss_values in self.required_vmsss.items():
@@ -255,6 +273,8 @@ class Azure(Machinery):
                 raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an tag.")
             elif required_vmss_values["platform"] is None:
                 raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an OS value.")
+            elif required_vmss_values["initial_pool_size"] is None:
+                raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an initial pool size.")
 
         # Get all VMSSs in Resource Group
         existing_vmsss = Azure._azure_api_call(
@@ -298,10 +318,10 @@ class Azure(Machinery):
                     vmss.virtual_machine_profile.storage_profile.image_reference.id = required_vmss["image"].id
 
                 # Check if the capacity of VMSS matches the initial pool size from the configuration
-                if self.options.az.reset_pool_size and vmss.sku.capacity != self.options.az.initial_pool_size:
+                if self.options.az.reset_pool_size and vmss.sku.capacity != required_vmss["initial_pool_size"]:
                     # If no, update it
                     update_vmss = True
-                    vmss.sku.capacity = self.options.az.initial_pool_size
+                    vmss.sku.capacity = required_vmss["initial_pool_size"]
 
                 # Initialize key-value pair for VMSS with specific details
                 machine_pools[vmss.name] = {
@@ -320,7 +340,7 @@ class Azure(Machinery):
                         operation=self.compute_client.virtual_machine_scale_sets.begin_update,
                     )
                     _ = self._handle_poller_result(update_vmss_image)
-            else:
+            elif not self.options.az.multiple_capes_in_sandbox_rg:
                 # VMSS does not have the required name but has the tag that we associate with being a
                 # correct VMSS
                 Azure._azure_api_call(
@@ -341,28 +361,6 @@ class Azure(Machinery):
                 f"Subnet '{self.options.az.subnet}' does not exist in Virtual Network '{self.options.az.vnet}'"
             )
 
-        # Create required VMSSs that don't exist yet
-        vmss_creation_threads = []
-        vmss_reimage_threads = []
-        for vmss, vals in self.required_vmsss.items():
-            if vals["exists"] and not self.options.az.just_start:
-                # Reimage VMSS!
-                thr = threading.Thread(
-                    target=self._thr_reimage_vmss,
-                    args=(vmss,),
-                )
-                vmss_reimage_threads.append(thr)
-                thr.start()
-            else:
-                # Create VMSS!
-                thr = threading.Thread(target=self._thr_create_vmss, args=(vmss, vals["image"], vals["platform"]))
-                vmss_creation_threads.append(thr)
-                thr.start()
-
-        # Wait for everything to complete!
-        for thr in vmss_reimage_threads + vmss_creation_threads:
-            thr.join()
-
         # Initialize the platform scaling state monitor
         is_platform_scaling = {Azure.WINDOWS_PLATFORM: False, Azure.LINUX_PLATFORM: False}
 
@@ -370,7 +368,6 @@ class Azure(Machinery):
         # If we want to programmatically determine the number of cores for the sku
         if self.options.az.find_number_of_cores_for_sku or self.options.az.instance_type_cores == 0:
             resource_skus = Azure._azure_api_call(
-                self.options.az.region_name,
                 filter=f"location={self.options.az.region_name}",
                 operation=self.compute_client.resource_skus.list,
             )
@@ -393,6 +390,31 @@ class Azure(Machinery):
         # Do not programmatically determine the number of cores for the sku
         else:
             self.instance_type_cpus = self.options.az.instance_type_cores
+
+        # Create required VMSSs that don't exist yet
+        vmss_creation_threads = []
+        vmss_reimage_threads = []
+        for vmss, vals in self.required_vmsss.items():
+            if vals["exists"] and not self.options.az.just_start:
+                if machine_pools[vmss]["size"] == 0:
+                    self._thr_scale_machine_pool(self.options.az.scale_sets[vmss].pool_tag, True if vals["platform"] else False),
+                else:
+                    # Reimage VMSS!
+                    thr = threading.Thread(
+                        target=self._thr_reimage_vmss,
+                        args=(vmss,),
+                    )
+                    vmss_reimage_threads.append(thr)
+                    thr.start()
+            else:
+                # Create VMSS!
+                thr = threading.Thread(target=self._thr_create_vmss, args=(vmss, vals["image"], vals["platform"]))
+                vmss_creation_threads.append(thr)
+                thr.start()
+
+        # Wait for everything to complete!
+        for thr in vmss_reimage_threads + vmss_creation_threads:
+            thr.join()
 
         # Initialize the batch reimage threads. We want at most 4 batch reimaging threads
         # so that if no VMSS scaling or batch deleting is taking place (aka we are receiving constant throughput of
@@ -673,20 +695,14 @@ class Azure(Machinery):
         # I figured this was the most concrete way to guarantee that an API method was being passed
         if not kwargs["operation"]:
             raise Exception("kwargs in _azure_api_call requires 'operation' parameter.")
-        operation = kwargs["operation"]
+        operation = kwargs.pop("operation")
 
         # This is used for logging
-        api_call = f"{operation}({args})"
-
-        # Note that we are using a custom polling interval for some operations
-        polling_interval = kwargs.get("polling_interval")
+        api_call = f"{operation}({args},{kwargs})"
 
         try:
             log.debug(f"Trying {api_call}")
-            if polling_interval:
-                results = operation(*args, polling_interval=polling_interval)
-            else:
-                results = operation(*args)
+            results = operation(*args, **kwargs)
         except Exception as exc:
             # For ClientRequestErrors, they do not have the attribute 'error'
             error = exc.error.error if getattr(exc, "error", False) else exc
@@ -733,7 +749,7 @@ class Azure(Machinery):
             os_disk=vmss_os_disk,
         )
         vmss_dns_settings = models.VirtualMachineScaleSetNetworkConfigurationDnsSettings(
-            dns_servers=[self.options.az.dns_server_ip]
+            dns_servers=self.options.az.dns_server_ips.strip().split(",")
         )
         vmss_ip_config = models.VirtualMachineScaleSetIPConfiguration(
             name="vmss_ip_config",
@@ -766,7 +782,7 @@ class Azure(Machinery):
         vmss = models.VirtualMachineScaleSet(
             location=self.options.az.region_name,
             tags=Azure.AUTO_SCALE_CAPE_TAG,
-            sku=models.Sku(name=self.options.az.instance_type, capacity=self.options.az.initial_pool_size),
+            sku=models.Sku(name=self.options.az.instance_type, capacity=self.required_vmsss[vmss_name]["initial_pool_size"]),
             upgrade_policy=models.UpgradePolicy(mode="Automatic"),
             virtual_machine_profile=vmss_vm_profile,
             overprovision=False,
@@ -789,7 +805,7 @@ class Azure(Machinery):
 
         # Initialize key-value pair for VMSS with specific details
         machine_pools[vmss_name] = {
-            "size": self.options.az.initial_pool_size,
+            "size": self.required_vmsss[vmss_name]["initial_pool_size"],
             "is_scaling": False,
             "is_scaling_down": False,
             "wait": False,
@@ -874,14 +890,14 @@ class Azure(Machinery):
 
             # If there are no relevant tasks in the queue, scale to the bare minimum pool size
             if relevant_task_queue == 0:
-                number_of_relevant_machines_required = self.options.az.initial_pool_size
+                number_of_relevant_machines_required = self.required_vmsss[vmss_name]["initial_pool_size"]
             else:
                 number_of_relevant_machines_required = int(
                     round(relevant_task_queue * (1 + float(self.options.az.overprovision) / 100))
                 )
 
-            if number_of_relevant_machines_required < self.options.az.initial_pool_size:
-                number_of_relevant_machines_required = self.options.az.initial_pool_size
+            if number_of_relevant_machines_required < self.required_vmsss[vmss_name]["initial_pool_size"]:
+                number_of_relevant_machines_required = self.required_vmsss[vmss_name]["initial_pool_size"]
             elif number_of_relevant_machines_required > self.options.az.scale_set_limit:
                 number_of_relevant_machines_required = self.options.az.scale_set_limit
 
@@ -892,7 +908,7 @@ class Azure(Machinery):
                 non_relevant_machines = number_of_machines - number_of_relevant_machines
                 number_of_relevant_machines_required = self.options.az.total_machines_limit - non_relevant_machines
                 if number_of_relevant_machines_required < 0:
-                    number_of_relevant_machines_required = self.options.az.initial_pool_size
+                    number_of_relevant_machines_required = self.required_vmsss[vmss_name]["initial_pool_size"]
 
             # Let's confirm that this number is actually achievable
             usages = Azure._azure_api_call(self.options.az.region_name, operation=self.compute_client.usage.list)

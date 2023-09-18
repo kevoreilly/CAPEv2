@@ -1,0 +1,191 @@
+[cuckoo]
+
+# Which category of tasks do you want to analyze?
+categories = static, pcap, url, file
+
+# If turned on, Cuckoo will delete the original file after its analysis
+# has been completed.
+delete_original = off
+
+# Archives are not deleted by default, as it extracts and "original file" become extracted file
+delete_archive = on
+
+# If turned on, Cuckoo will delete the copy of the original file in the
+# local binaries repository after the analysis has finished. (On *nix this
+# will also invalidate the file called "binary" in each analysis directory,
+# as this is a symlink.)
+delete_bin_copy = off
+
+# Specify the name of the machinery module to use, this module will
+# define the interaction between Cuckoo and your virtualization software
+# of choice.
+machinery = kvm
+
+# Enable creation of memory dump of the analysis machine before shutting
+# down. Even if turned off, this functionality can also be enabled at
+# submission. Currently available for: VirtualBox and libvirt modules (KVM).
+memory_dump = off
+
+# When the timeout of an analysis is hit, the VM is just killed by default.
+# For some long-running setups it might be interesting to terminate the
+# moinitored processes before killing the VM so that connections are closed.
+terminate_processes = off
+
+# Enable automatically re-schedule of "broken" tasks each startup.
+# Each task found in status "processing" is re-queued for analysis.
+reschedule = off
+
+# Fail "unserviceable" tasks as they are queued.
+# Any task found that will never be analyzed based on the available analysis machines
+# will have its status set to "failed".
+fail_unserviceable = on
+
+# Limit the amount of analysis jobs a Cuckoo process goes through.
+# This can be used together with a watchdog to mitigate risk of memory leaks.
+max_analysis_count = 0
+
+# Limit the number of concurrently executing analysis machines.
+# This may be useful on systems with limited resources.
+# Set to 0 to disable any limits.
+max_machines_count = 10
+
+# Limit the amount of VMs that are allowed to start in parallel. Generally
+# speaking starting the VMs is one of the more CPU intensive parts of the
+# actual analysis. This option tries to avoid maxing out the CPU completely.
+max_vmstartup_count = 5
+
+# Minimum amount of free space (in MB) available before starting a new task.
+# This tries to avoid failing an analysis because the reports can't be written
+# due out-of-diskspace errors. Setting this value to 0 disables the check.
+# (Note: this feature is currently not supported under Windows.)
+freespace = 50000
+# Process tasks, but not reach out of memory
+freespace_processing = 15000
+
+# Temporary directory containing the files uploaded through Cuckoo interfaces
+# (web.py, api.py, Django web interface).
+tmppath = /tmp
+
+# Delta in days from current time to set the guest clocks to for file analyses
+# A negative value sets the clock back, a positive value sets it forward.
+# The default of 0 disables this option
+# Note that this can still be overridden by the per-analysis clock setting
+# and it is not performed by default for URL analysis as it will generally
+# result in SSL errors
+daydelta = 0
+
+# Path to the unix socket for running root commands.
+rooter = /tmp/cuckoo-rooter
+
+# Enable if you want to see a DEBUG log periodically containing backlog of pending tasks, locked vs unlocked machines.
+# NOTE: Enabling this feature adds 4 database calls every 10 seconds.
+periodic_log = off
+
+# Max filename length for submissions, before truncation. 196 is arbitrary.
+max_len = 196
+
+# If it is greater than this, call truncate the filename further for sanitizing purposes.
+# Length truncated to is controlled by sanitize_to_len.
+#
+# This is to prevent long filenames such as files named by hash.
+sanitize_len = 32
+sanitize_to_len = 24
+
+[resultserver]
+# The Result Server is used to receive in real time the behavioral logs
+# produced by the analyzer.
+# Specify the IP address of the host. The analysis machines should be able
+# to contact the host through such address, so make sure it's valid.
+# NOTE: if you set resultserver IP to 0.0.0.0 you have to set the option
+# `resultserver_ip` for all your virtual machines in machinery configuration.
+ip = 192.168.1.1
+
+# Specify a port number to bind the result server on.
+port = 2042
+
+# Force the port chosen above, don't try another one (we can select another
+# port dynamically if we can not bind this one, but that is not an option
+# in some setups)
+force_port = yes
+
+pool_size = 0
+
+# Should the server write the legacy CSV format?
+# (if you have any custom processing on those, switch this on)
+store_csvs = off
+
+# Maximum size of uploaded files from VM (screenshots, dropped files, log)
+# The value is expressed in bytes, by default 100MB.
+upload_max_size = 100000000
+
+# To enable trimming of huge binaries go to -> web.conf -> general -> enable_trim
+# Prevent upload of files that passes upload_max_size?
+do_upload_max_size = no
+
+[processing]
+# Set the maximum size of analyses generated files to process. This is used
+# to avoid the processing of big files which may take a lot of processing
+# time. The value is expressed in bytes, by default 200MB.
+analysis_size_limit = 200000000
+
+# Enable or disable DNS lookups.
+resolve_dns = on
+
+# Enable or disable reverse DNS lookups
+# This information currently is not displayed in the web interface
+reverse_dns = off
+
+# Enable PCAP sorting, needed for the connection content view in the web interface.
+sort_pcap = on
+
+[database]
+# Specify the database connection string.
+# Examples, see documentation for more:
+# sqlite:///foo.db
+# postgresql://foo:bar@localhost:5432/mydatabase
+# mysql://foo:bar@localhost/mydatabase
+# If empty, default is a SQLite in db/cuckoo.db.
+# SQLite doens't support database upgrades!
+# For production we strongly suggest go with PostgreSQL
+connection =
+# If you use PostgreSQL: SSL mode
+# https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS
+psql_ssl_mode = disable
+
+# Database connection timeout in seconds.
+# If empty, default is set to 60 seconds.
+timeout =
+
+[timeouts]
+# Set the default analysis timeout expressed in seconds. This value will be
+# used to define after how many seconds the analysis will terminate unless
+# otherwise specified at submission.
+default = 200
+
+# Set the critical timeout expressed in (relative!) seconds. It will be added
+# to the default timeout above and after this timeout is hit
+# Cuckoo will consider the analysis failed and it will shutdown the machine
+# no matter what. When this happens the analysis results will most likely
+# be lost.
+critical = 60
+
+# Maximum time to wait for virtual machine status change. For example when
+# shutting down a vm. Default is 300 seconds.
+vm_state = 300
+
+[tmpfs]
+# only if you using volatility to speedup IO
+# mkdir -p /mnt/tmpfs
+# mount -t tmpfs -o size=50g ramfs /mnt/tmpfs
+# chown cape:cape /mnt/tmpfs
+#
+# vim /etc/fstab
+# tmpfs       /mnt/tmpfs tmpfs   nodev,nosuid,noexec,nodiratime,size=50g   0 0
+#
+# Add crontab with
+# @reboot chown cape:cape /mnt/tmpfs -R
+enabled = off
+path = /mnt/tmpfs/
+# in mb
+freespace = 2000
+

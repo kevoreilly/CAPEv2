@@ -90,6 +90,14 @@ class TestEmptyFile:
             assert key in empty_file["file"].get_all()[0]
 
 
+def test_filetype():
+    filetype = File("tests/data/malware/53622590bb3138dcbf12b0105af96dd72aedc40de8984f97c8e882343a769b45").get_type()
+    assert filetype == "PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows"
+
+    filetype = File("tests/data/malware/f8a6eddcec59934c42ea254cdd942fb62917b5898f71f0feeae6826ba4f3470d").get_type()
+    assert filetype == "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
+
+
 """ ToDo ReEnable
 @pytest.fixture(scope="class")
 def test_files():
@@ -200,7 +208,6 @@ class TestFiles:
             assert sample["download_location"].get_type() == sample["get_type_str"]
             print(("Verified that " + sample["download_location"].file_path + " == " + sample["get_type_str"]))
 
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_get_yara(self, hello_file, yara_compiled):
         File.yara_rules = {"hello": yara_compiled}
         assert hello_file["file"].get_yara(category="hello") == [
@@ -213,11 +220,9 @@ class TestFiles:
 
 
 class TestMisc:
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_yara_encode_string_deal_with_error(self):
         assert File("none_existent_file")._yara_encode_string("\xd0\x91") == "\xd0\x91"
 
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_yara_encode_string(self):
         assert File("none_existent_file")._yara_encode_string("velociraptor") == "velociraptor"
 

@@ -39,11 +39,12 @@ from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import free_space_monitor
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
-from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules, init_yara
+from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
 
 cfg = Config()
 logconf = Config("logging")
 repconf = Config("reporting")
+db = Database()
 
 if repconf.mongodb.enabled:
     from bson.objectid import ObjectId
@@ -84,7 +85,14 @@ def get_memory():
 
 
 def process(
-    target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False, debug: bool = False
+    target=None,
+    sample_sha256=None,
+    task=None,
+    report=False,
+    auto=False,
+    capeproc=False,
+    memory_debugging=False,
+    debug: bool = False,
 ):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -126,11 +134,14 @@ def process(
         Database().set_status(task_id, TASK_REPORTED)
 
         if auto:
-            if cfg.cuckoo.delete_original and path_exists(target):
+            # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
+            if cfg.cuckoo.delete_original and target and path_exists(target):
                 path_delete(target)
 
-            if copy_path is not None and cfg.cuckoo.delete_bin_copy and path_exists(copy_path):
-                path_delete(copy_path)
+            if cfg.cuckoo.delete_bin_copy:
+                copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
+                if path_exists(copy_path) and not db.sample_still_used(sample_sha256, task_id):
+                    path_delete(copy_path)
 
     if memory_debugging:
         gc.collect()
@@ -161,11 +172,21 @@ def set_formatter_fmt(task_id=None):
 
 
 def init_logging(auto=False, tid=0, debug=False):
+
+    # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
+    # If basicConfig was already called by something and had a StreamHandler added,
+    # replace it with a ConsoleHandler.
+    for h in log.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log.removeHandler(h)
+            h.close()
+
     ch = ConsoleHandler()
     ch.setFormatter(FORMATTER)
     log.addHandler(ch)
 
     slh = False
+    fhpa = False
 
     if logconf.logger.syslog_process:
         slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
@@ -183,6 +204,14 @@ def init_logging(auto=False, tid=0, debug=False):
                 )
             else:
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
+            if logconf.logger.process_analysis_folder:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
+                # We need to delete old log, otherwise it will append to existing one
+                if path_exists(path):
+                    path_delete(path)
+                fhpa = logging.handlers.WatchedFileHandler(path)
+                fhpa.setFormatter(FORMATTER)
+                log.addHandler(fhpa)
         else:
             if logconf.logger.process_analysis_folder:
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
@@ -207,7 +236,7 @@ def init_logging(auto=False, tid=0, debug=False):
         log.setLevel(logging.INFO)
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    return ch, fh, slh
+    return ch, fh, slh, fhpa
 
 
 def processing_finished(future):
@@ -236,8 +265,8 @@ def autoprocess(
 ):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
-    db = Database()
     # pool = multiprocessing.Pool(parallel, init_worker)
+    pool = False
     try:
         memory_limit()
         log.info("Processing analysis data")
@@ -270,15 +299,13 @@ def autoprocess(
                         continue
 
                     log.info("Processing analysis data for Task #%d", task.id)
+                    sample_hash = ""
                     if task.category != "url":
                         sample = db.view_sample(task.sample_id)
                         if sample:
-                            copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(task.id), sample.sha256)
-                        else:
-                            copy_path = None
-                    else:
-                        copy_path = None
-                    args = task.target, copy_path
+                            sample_hash = sample.sha256
+
+                    args = task.target, sample_hash
                     kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging, debug=debug)
                     if memory_debugging:
                         gc.collect()
@@ -293,11 +320,8 @@ def autoprocess(
                         log.info("(after) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
                     count += 1
                     added = True
-                    if copy_path is not None:
-                        copy_origin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
-                        if cfg.cuckoo.delete_bin_copy and path_exists(copy_origin_path):
-                            path_delete(copy_origin_path)
                     break
+
                 if not added:
                     # don't hog cpu
                     time.sleep(5)
@@ -315,8 +339,9 @@ def autoprocess(
 
         traceback.print_exc()
     finally:
-        pool.close()
-        pool.join()
+        if pool:
+            pool.close()
+            pool.join()
 
 
 def _load_report(task_id: int, return_one: bool = False):
@@ -434,7 +459,6 @@ def main():
     )
     args = parser.parse_args()
 
-    init_yara()
     init_modules()
     if args.id == "auto":
         if not logconf.logger.process_per_task_log:
@@ -453,9 +477,18 @@ def main():
                 set_formatter_fmt(num)
                 log.debug("Processing task")
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
-                    sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
+                    print(red(f"\n[{num}] Analysis folder doesn't exist anymore\n"))
+                    continue
                 # handlers = init_logging(tid=str(num), debug=args.debug)
                 task = Database().view_task(num)
+                # Add sample lookup as we point to sample from TMP. Case when delete_original=on
+                if not path_exists(task.target):
+                    samples = Database().sample_path_by_hash(task_id=task.id)
+                    for sample in samples:
+                        if path_exists(sample):
+                            task.__setattr__("target", sample)
+                            break
+
                 if args.signatures:
                     report = False
                     results = _load_report(num, return_one=True)
@@ -466,7 +499,7 @@ def main():
                             if args.json_report and path_exists(args.json_report):
                                 report = args.json_report
                             else:
-                                sys.exit(f"File {report} doest exist")
+                                sys.exit(f"File {report} doesn't exist")
                         if report:
                             results = json.load(open(report))
                     if results is not None:
@@ -474,6 +507,9 @@ def main():
                         if "statistics" not in results:
                             results["statistics"] = {"signatures": []}
                         RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
+                        # If you are only running a single signature, print that output
+                        if args.signature_name and results["signatures"]:
+                            print(results["signatures"][0])
                 else:
                     process(
                         task=task,

@@ -266,8 +266,8 @@ def decrypt_memory(file):
         print("-" * 100)
         return -1
 
-    key_offset = key_offset[0].strings[0][0]
-    tag_offset = tag_offset[0].strings[0][0]
+    key_offset = key_offset[0].strings[0].instances[0].offset
+    tag_offset = tag_offset[0].strings[0].instances[0].offset
 
     key = data[key_offset + 20 : key_offset + 20 + 4]
     tag = data[tag_offset + 4 : tag_offset + 4 + 4]
@@ -308,10 +308,10 @@ def decrypt_memory(file):
     key_pattern_offset64 = key_pattern_rule64.match(data=decrypted_memory)
 
     if key_pattern_offset32:  # 32bit samples
-        key_pattern_offset = key_pattern_offset32[0].strings[0][0]
+        key_pattern_offset = key_pattern_offset32[0].strings[0].instances[0].offset
         key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     elif key_pattern_offset64:  # 64bit samples
-        key_pattern_offset = key_pattern_offset64[0].strings[0][0]
+        key_pattern_offset = key_pattern_offset64[0].strings[0].instances[0].offset
         key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     else:
         print("[-] key_pattern_rule Error signature not found")
@@ -421,6 +421,7 @@ def main():
 if __name__ == "__main__":
     main()
 
+
 # CAPE: Derived from decrypt_memory()
 def extract_config(data):
     try:
@@ -456,8 +457,8 @@ def extract_config(data):
         log.info("Error: signature not found")
         return -1
 
-    key_offset = key_offset[0].strings[0][0]
-    tag_offset = tag_offset[0].strings[0][0]
+    key_offset = key_offset[0].strings[0].instances[0].offset
+    tag_offset = tag_offset[0].strings[0].instances[0].offset
 
     key = data[key_offset + 20 : key_offset + 20 + 4]
     tag = data[tag_offset + 4 : tag_offset + 4 + 4]
@@ -495,10 +496,10 @@ def extract_config(data):
     key_pattern_offset64 = key_pattern_rule64.match(data=decrypted_memory)
 
     if key_pattern_offset32:  # 32bit samples
-        key_pattern_offset = key_pattern_offset32[0].strings[0][0]
+        key_pattern_offset = key_pattern_offset32[0].strings[0].instances[0].offset
         key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     elif key_pattern_offset64:  # 64bit samples
-        key_pattern_offset = key_pattern_offset64[0].strings[0][0]
+        key_pattern_offset = key_pattern_offset64[0].strings[0].instances[0].offset
         key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     else:
         log.info("key_pattern_rule: Error signature not found")

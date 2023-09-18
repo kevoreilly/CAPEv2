@@ -34,10 +34,11 @@ aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
 api_cfg = Config("api")
 
+REPROCESS_TASKS = web_cfg.general.reprocess_tasks
 # CSRF TRUSTED ORIGINS
-# For requests that include the Origin header, Django’s CSRF protection
+# For requests that include the Origin header, Django's CSRF protection
 # requires that header match the origin present in the Host header.
-CSRF_TRUSTED_ORIGINS = [f"http://{web_cfg.general.hostname}"]
+CSRF_TRUSTED_ORIGINS = [f"http://{web_cfg.general.hostname}", f"https://{web_cfg.general.hostname}"]
 # CSRF_COOKIE_SECURE = "True"
 
 # If reporting is enabled via the web GUI, then require one of these to be enabled

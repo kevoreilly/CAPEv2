@@ -43,6 +43,8 @@ def main():
     )
     parser.add_argument("--user", type=str, action="store", default=None, help="Username for Basic Auth", required=False)
     parser.add_argument("--password", type=str, action="store", default=None, help="Password for Basic Auth", required=False)
+    parser.add_argument("--token", type=str, action="store", default=None, help="Token for Token Auth", required=False)
+    parser.add_argument("--route", type=str, action="store", default=None, help="Specify an analysis route", required=False)
     parser.add_argument("--sslnoverify", action="store_true", default=False, help="Do not validate SSL cert", required=False)
     parser.add_argument("--ssl", action="store_true", default=False, help="Use SSL/TLS for remote", required=False)
     parser.add_argument("--url", action="store_true", default=False, help="Specify whether the target is an URL", required=False)
@@ -144,13 +146,13 @@ def main():
     if args.url:
         if args.remote:
             if not HAVE_REQUESTS:
-                print((bold(red("Error")) + ": you need to install python-requests (`pip3 install requests`)"))
+                print((bold(red("Error")) + ": you need to install python-requests (`poetry run pip install requests`)"))
                 return False
 
             if args.ssl:
-                url = "https://{0}/tasks/create/url".format(args.remote)
+                url = "https://{0}/apiv2/tasks/create/url/".format(args.remote)
             else:
-                url = "http://{0}/tasks/create/url".format(args.remote)
+                url = "http://{0}/apiv2/tasks/create/url/".format(args.remote)
 
             data = dict(
                 url=target,
@@ -164,6 +166,7 @@ def main():
                 enforce_timeout=args.enforce_timeout,
                 custom=args.custom,
                 tags=args.tags,
+                route=args.route,
             )
 
             try:
@@ -176,6 +179,15 @@ def main():
                         response = requests.post(url, auth=(args.user, args.password), data=data, verify=verify)
                     else:
                         response = requests.post(url, auth=(args.user, args.password), data=data)
+                elif args.token:
+                    if args.ssl:
+                        if args.sslnoverify:
+                            verify = False
+                        else:
+                            verify = True
+                        response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, data=data, verify=verify)
+                    else:
+                        response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, data=data)
                 else:
                     if args.ssl:
                         if args.sslnoverify:
@@ -206,6 +218,7 @@ def main():
                 enforce_timeout=args.enforce_timeout,
                 clock=args.clock,
                 tags=args.tags,
+                route=args.route,
             )
 
         if task_id:
@@ -256,12 +269,12 @@ def main():
 
             if args.remote:
                 if not HAVE_REQUESTS:
-                    print((bold(red("Error")) + ": you need to install python-requests (`pip3 install requests`)"))
+                    print((bold(red("Error")) + ": you need to install python-requests (`poetry run pip install requests`)"))
                     return False
                 if args.ssl:
-                    url = "https://{0}/tasks/create/file".format(args.remote)
+                    url = "https://{0}/apiv2/tasks/create/file/".format(args.remote)
                 else:
-                    url = "http://{0}/tasks/create/file".format(args.remote)
+                    url = "http://{0}/apiv2/tasks/create/file/".format(args.remote)
 
                 files = dict(file=open(file_path, "rb"), filename=os.path.basename(file_path))
 
@@ -276,6 +289,7 @@ def main():
                     enforce_timeout=args.enforce_timeout,
                     custom=args.custom,
                     tags=args.tags,
+                    route=args.route,
                 )
 
                 try:
@@ -288,6 +302,17 @@ def main():
                             response = requests.post(url, auth=(args.user, args.password), files=files, data=data, verify=verify)
                         else:
                             response = requests.post(url, auth=(args.user, args.password), files=files, data=data)
+                    elif args.token:
+                        if args.ssl:
+                            if args.sslnoverify:
+                                verify = False
+                            else:
+                                verify = True
+                            response = requests.post(
+                                url, headers={"Authorization": f"Token {args.token}"}, files=files, data=data, verify=verify
+                            )
+                        else:
+                            response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, files=files, data=data)
                     else:
                         if args.ssl:
                             if args.sslnoverify:
@@ -303,7 +328,7 @@ def main():
                     return False
 
                 json = response.json()
-                task_ids = [json.get("task_ids")]
+                task_ids = json["data"].get("task_ids")
 
             else:
                 if args.unique and db.check_file_uniq(File(file_path).get_sha256()):
@@ -327,6 +352,7 @@ def main():
                         enforce_timeout=args.enforce_timeout,
                         clock=args.clock,
                         tags=args.tags,
+                        route=args.route,
                     )
                 except CuckooDemuxError as e:
                     task_ids = []

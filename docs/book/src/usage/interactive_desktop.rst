@@ -4,8 +4,8 @@
 Interactive session
 ===================
 
-Instalation
-===========
+Installation
+============
 
 .. warning::
 
@@ -27,57 +27,13 @@ Enable and configure ``guacamole`` in ``conf/web.conf`` and restart ``cape-web.s
 
     $ systemctl restart cape-web guacd.service
 
-In case you using ``NGINX``, you need to configure it, to be able to use interactive mode, Example config.
+Then configure NGINX. See :ref:`best_practices_for_production` for details.
 
-.. code-block:: python
-
-    map $http_upgrade $connection_upgrade {
-        default upgrade;
-        ''      close;
-    }
-    upstream nodeserver1 {
-        # CAPE
-        server 127.0.0.1:8000;
-    }
-    upstream nodeserver2 {
-        # guac-session
-        server 127.0.0.1:8008;
-    }
-    server {
-        listen <YOUR_DESIRED_IP>;
-        client_max_body_size 101M;
-        location / {
-            proxy_pass http://nodeserver1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Remote-User $remote_user;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        }
-        location /static/ {
-            alias /opt/CAPEv2/web/static/;
-        }
-        location /guac {
-            proxy_pass http://nodeserver2;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_buffering off;
-            proxy_http_version 1.1;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $http_connection;
-        }
-        location /guac/playback/recfile {
-            alias /var/www/guacrecordings/;
-            autoindex on;
-            autoindex_exact_size off;
-            autoindex_localtime on;
-        }
-    }
 
 Virtual machine configuration
 =============================
 * At the moment we support only KVM and we don't have plans to support any other hypervisor.
-* To enable support for remote session you need to configure your VM to use ``VNC`` display, otherwise it won't work.
+* To enable support for remote session you need to add a ``VNC`` display to your VM, otherwise it won't work.
 
 
 Having troubles?
@@ -108,3 +64,12 @@ To test if your ``guacamole`` working correctly you can use this code
 
     $ systemctl status guacd or journalctl -u guacd
     $ cat /opt/CAPEv2/web/guac-server.log
+
+* Known problems and solution steps:
+
+1. Ensure that CAPE loads on ``port 80`` (later you can enable TLS/SSL). Sometime config instead of `sites-enabled/cape.conf` should be `conf.d/default.conf`.
+2. Once verified that it works with http, move to https.
+3. You can try `websocket test client`_.
+4. Try another browser.
+
+.. _websocket test client: https://chrome.google.com/webstore/detail/websocket-test-client/fgponpodhbmadfljofbimhhlengambbn/related

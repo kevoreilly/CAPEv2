@@ -19,7 +19,7 @@ down_revision = "f111620bb8"
 try:
     from alembic import op
 except ImportError:
-    print("Unable to import alembic (install with `pip3 install alembic`)")
+    print("Unable to import alembic (install with `poetry run pip install alembic`)")
     sys.exit()
 
 

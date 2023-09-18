@@ -19,7 +19,7 @@ DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
 
 
-def is_pe_image(path):
+def is_pe_image(path) -> bool:
     if not path:
         return False
 
@@ -71,7 +71,7 @@ def is_pe_image(path):
     return True
 
 
-def pe_trimmed_size(path):
+def pe_trimmed_size(path) -> int:
     if not HAVE_PEFILE:
         return 0
 
@@ -86,3 +86,21 @@ def pe_trimmed_size(path):
                 + pe.sections[pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
             )
     return 0
+
+
+def choose_dll_export(path) -> str:
+    if not HAVE_PEFILE:
+        return ""
+
+    if not is_pe_image(path):
+        return ""
+
+    pe = pefile.PE(path)
+
+    if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
+        for exp in pe.DIRECTORY_ENTRY_EXPORT.symbols:
+            with suppress(Exception):
+                if not exp.name:
+                    continue
+                if exp.name.decode() in ("DllInstall", "DllRegisterServer", "xlAutoOpen"):
+                    return exp.name.decode()

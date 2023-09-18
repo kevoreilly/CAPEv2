@@ -2,6 +2,7 @@ import logging
 
 try:
     import dnfile
+
     HAVE_DNFILE = True
 except ImportError:
     HAVE_DNFILE = False

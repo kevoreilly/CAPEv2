@@ -16,5 +16,11 @@ class Generic(Package):
 
     def start(self, path):
         cmd_path = self.get_path("cmd.exe")
+        # For context behind this command:
+        # /C          Carries out the command specified by string and then terminates
+        # START       Starts a separate window to run a specified program or command.
+        # WAIT        Start application and wait for it to terminate.
+        # ""          The name of the separate window
+        # "{path}"    The name of the specific program
         cmd_args = f'/c start /wait "" "{path}"'
         return self.execute(cmd_path, cmd_args, path)

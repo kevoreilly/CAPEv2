@@ -11,10 +11,12 @@ import subprocess
 import time
 from contextlib import suppress
 
+from data.safelist.domains import domain_passlist_re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_write_file
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_read_file, path_write_file
 from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
 from lib.cuckoo.common.utils import add_family_detection, convert_to_printable_and_truncate
 
@@ -26,6 +28,11 @@ try:
     HAVE_ORJSON = True
 except ImportError:
     HAVE_ORJSON = False
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 log = logging.getLogger(__name__)
 
@@ -217,6 +224,19 @@ class Suricata(Processing):
         if not datalist:
             log.warning("Suricata: Failed to find usable Suricata log file")
 
+        enabled_passlist = processing_cfg.network.dnswhitelist
+        passlist_file = processing_cfg.network.dnswhitelist_file
+        comment_re = re.compile(r"\s*#.*")
+
+        if enabled_passlist and passlist_file:
+            f = path_read_file(os.path.join(CUCKOO_ROOT, passlist_file), mode="text")
+            for domain in f.splitlines():
+                domain = comment_re.sub("", domain).strip()
+                if domain:
+                    domain_passlist_re.append(domain)
+
+        filter_event_types = {"alert": "", "http": "hostname", "tls": "sni", "dns": "rrname", "ssh": "hostname", "fileinfo": ""}
+
         parsed_files = []
         for data in datalist:
             for line in data.splitlines():
@@ -226,7 +246,22 @@ class Suricata(Processing):
                     log.warning("Suricata: Failed to parse line %s as json", line)
                     continue
 
+                skip_event = False
                 if "event_type" in parsed:
+                    event_key = parsed["event_type"]
+                    filter_key = event_key
+                    if enabled_passlist and event_key in filter_event_types:
+                        if event_key in ("alert", "fileinfo"):
+                            filter_key = "http"
+                        search_value = parsed[event_key].get(filter_event_types[filter_key], "")
+
+                        for reject in domain_passlist_re:
+                            if re.search(reject, search_value):
+                                skip_event = True
+
+                    if skip_event:
+                        continue
+
                     if (
                         parsed["event_type"] == "alert"
                         and parsed["alert"]["signature_id"] not in sid_blacklist

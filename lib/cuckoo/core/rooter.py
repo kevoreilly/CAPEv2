@@ -4,6 +4,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
+from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.socket_utils import send_socket_command
@@ -17,7 +18,6 @@ socks5s = {}
 
 
 def _load_socks5_operational():
-
     socks5s = {}
 
     if not router_cfg.socks5.enabled:
@@ -42,6 +42,12 @@ def _load_socks5_operational():
                 continue
 
             socks5s[name] = socks5.to_dict()
+
+            # decode utf-8 socks5man database data
+            for k, v in socks5s[name].items():
+                if isinstance(v, (bytes, bytearray)):
+                    with suppress(UnicodeDecodeError, AttributeError):
+                        socks5s[name][k] = v.decode()
     except Socks5manDatabaseError as e:
         print(e, "you migth have an outdated database at $HOME/.socks5man")
 

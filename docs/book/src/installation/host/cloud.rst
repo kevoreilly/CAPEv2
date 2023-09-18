@@ -35,7 +35,7 @@ submitted files in an isolated network.
         iv. Allow ALL outbound traffic from port 8000 from VNET2_SUB1 -> VNET1_SUB1
         v. Allow ALL outbound traffic from VNET2_SUB2 -> VNET2_SUB2
         vi. Allow ALL outbound traffic from VNET2_SUB2 -> 0.0.0.0/0
-        vii. Allow SOME inbound traffic from the Internet -> VNET2_SUB1 to allow the Azure machinery to comunicate with Azure.
+        vii. Allow SOME inbound traffic from the Internet -> VNET2_SUB1 to allow the Azure machinery to communicate with Azure.
         viii. Allow SOME outbound traffic from VNET2_SUB1 -> Internet to allow the Azure machinery to communicate with Azure.
         ix. If you want to debug or watch the detonation in the guest from a machine in the same subnet as your REST client, you will need to open up ports 3389 (RDP for Windows guests) and 5900 (VNC for Linux guests) in both VNET1_NSG1 and VNET2_NSG1.
 

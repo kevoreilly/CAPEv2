@@ -10,7 +10,7 @@
 
     <div class="panel panel-primary">
         <div class="panel-heading">
-            <h4 class="panel-title">Analysis</h4>
+            <h4 class="panel-title">Analysis {% if settings.REPROCESS_TASKS %} <a class="btn btn-secondary btn-sm" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess the task"><span class="fa-solid fa-rotate"></span></a>{% endif %}</h4>
         </div>
         <table class="table table-striped">
             <thead>

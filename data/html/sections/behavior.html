@@ -105,6 +105,7 @@
                     {% endif %}
                 </small>
             </h4>
+            {% if results.local_conf.apicalls %}
             <div id="process_{{process.process_id}}" style="display: none;">
                 <table class="table table-bordered table-condensed" style="width: 100%; word-wrap:break-word;table-layout: fixed;">
                     <tr>
@@ -150,6 +151,7 @@
                     {% endfor %}
                 </table>
             </div>
+            {% endif %}
         </div>
         {% endfor %}
     {% else %}

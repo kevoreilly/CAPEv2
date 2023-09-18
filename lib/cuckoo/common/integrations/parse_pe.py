@@ -5,13 +5,13 @@
 import array
 import base64
 import binascii
-import contextlib
 import hashlib
 import itertools
 import json
 import logging
 import math
 import struct
+from contextlib import suppress
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -32,7 +32,7 @@ try:
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
-    print("Missed cryptography library: pip3 install -U cryptography")
+    print("Missed cryptography library: poetry install")
 
 try:
     import magic
@@ -301,7 +301,7 @@ class PortableExecutable:
             except Exception:
                 return None
         finally:
-            with contextlib.suppress(Exception):
+            with suppress(Exception):
                 ms.close()
         return file_type
 
@@ -545,7 +545,7 @@ class PortableExecutable:
 
     def generate_icon_dhash(self, image: Image.Image, hash_size: int = 8) -> str:
         # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
-        image = image.convert("L").resize((hash_size + 1, hash_size), Image.ANTIALIAS)
+        image = image.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
 
         difference = []
 
@@ -727,9 +727,7 @@ class PortableExecutable:
             return []
 
         if not HAVE_CRYPTO:
-            log.critical(
-                "You do not have the cryptography library installed preventing certificate extraction. pip3 install cryptography"
-            )
+            log.critical("You do not have the cryptography library installed preventing certificate extraction. poetry install")
             return []
 
         dir_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]
@@ -748,15 +746,18 @@ class PortableExecutable:
         if address == 0:
             return retlist
 
-        signatures = pe.write()[address + 8 :]
-
-        if isinstance(signatures, bytearray):
-            signatures = bytes(signatures)
-
+        certs = []
         try:
-            certs = backend.load_der_pkcs7_certificates(signatures)
-        except Exception:
-            certs = []
+            signatures = pe.write()[address + 8 :]
+
+            if isinstance(signatures, bytearray):
+                signatures = bytes(signatures)
+
+            with suppress(Exception):
+                certs = backend.load_der_pkcs7_certificates(signatures)
+
+        except AttributeError:
+            log.error("Can't get PE signatures")
 
         for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()

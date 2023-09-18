@@ -5,7 +5,7 @@ It was derived from Cuckoo with the goal of adding automated malware unpacking a
 
 There is a free community instance online that anyone can use:
 
-https://capesandbox.com
+https://capesandbox.com - For account activation reach to https://twitter.com/capesandbox.
 
 Although config and payload extraction was the original stated goal, it was the development of the debugger in CAPE that first inspired the project: in order to extract configs or unpacked payloads from arbitrary malware families without relying on process dumps (which sooner or later the bad guys will thwart), instruction-level monitoring and control is necessary. The novel debugger in CAPE follows the principle of maximising the use of processor hardware and minimising (almost completely) the use of Windows debugging interfaces, allowing malware to be stealthily instrumented and manipulated from the entry point with hardware breakpoints programmatically set during detonation by Yara signatures or API calls. This allows instruction traces to be captured, or actions to be performed such as control flow manipulation or dumping of a memory region.
 
@@ -88,7 +88,8 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 1. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/) and __do read ALL__ config files inside of `conf` folder!
 2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download)
-3. [KVM](https://github.com/kevoreilly/CAPEv2/blob/master/installer/kvm-qemu.sh) is recommended as the hypervisor.
+3. `kvm-qemu.sh` and `cape2.sh` __SHOULD BE__ executed from `tmux` session to prevent any OS problems if ``ssh`` connections breaks.
+4. [KVM](https://github.com/kevoreilly/CAPEv2/blob/master/installer/kvm-qemu.sh) is recommended as the hypervisor.
  * Replace `<username>` with a real pattern.
  * You need to replace all `<WOOT>` inside!
  * Read it! You must understand what it does! It has configuration in header of the script.
@@ -117,7 +118,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 * [step by step](https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html)
 
 ## Virtual machine core dependency
-* [choco.bat](https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat)
+* [choco.bat](https://github.com/kevoreilly/CAPEv2/blob/master/installer/choco.bat)
 
 ## How to update
 * CAPE: `git pull`
@@ -149,9 +150,14 @@ git merge kevoreilly/master
 git push
 ```
 
+### How to cite this work
+If you use CAPEv2 in your work, please cite it as specified in the "Cite this repository" GitHub menu.
+
 ### Special note about 3rd part dependencies:
 * They becoming a headache, specially those that using `pefile` as each pins version that they want.
     * Our suggestion is clone/fork them, remove `pefile` dependency as you already have it installed. Volia no more pain.
 
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
+
+

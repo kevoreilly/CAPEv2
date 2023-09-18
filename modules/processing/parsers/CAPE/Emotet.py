@@ -115,10 +115,11 @@ MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 
 
 def first_match(matches, pattern):
-    for match in matches:
-        for item in match.strings:
-            if pattern == item[1]:
-                return int(item[0])
+    if not matches:
+        return 0
+    for item in matches[0].strings:
+        if pattern == item.identifier:
+            return item.instances[0].offset
     return 0
 
 
@@ -126,14 +127,15 @@ def addresses_from_matches(matches, pattern):
     addresses = []
     for match in matches:
         for item in match.strings:
-            if item[1] == pattern:
-                addresses.append(item[0])
+            if item.identifier == pattern:
+                addresses.append(item.instances[0].offset)
     return addresses
 
 
 def c2_funcs_from_match(matches, pattern, data):
     addresses = []
-    hit = first_match(matches, pattern) + data[first_match(matches, pattern) :].find(b"\x48\x8D\x05")
+    addr = first_match(matches, pattern)
+    hit = addr + data[addr:].find(b"\x48\x8D\x05")
     next = 1
     while next > 0:
         addresses.append(struct.unpack("i", data[hit + 3 : hit + 7])[0] + hit + 7)

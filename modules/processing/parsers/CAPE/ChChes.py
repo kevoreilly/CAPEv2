@@ -41,9 +41,12 @@ def yara_scan(raw_data):
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == "ChChes":
-            for item in match.strings:
-                addresses[item[1]] = item[0]
+        if match.rule != "ChChes":
+            continue
+
+        for block in match.strings:
+            for instance in block.instances:
+                addresses[block.identifier] = instance.offset
     return addresses
 
 

@@ -4,16 +4,19 @@
 
 import copy
 import getpass as gt
+import grp
 import logging
 import logging.handlers
 import os
 import platform
-import re
 import socket
+import subprocess
 import sys
 from contextlib import suppress
 from pathlib import Path
 
+# Private
+import custom.signatures
 import modules.auxiliary
 import modules.feeds
 import modules.processing
@@ -23,7 +26,6 @@ from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import create_folders
 from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
@@ -31,22 +33,13 @@ from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns
 
-try:
-    import yara
-
-    HAVE_YARA = True
-    if not int(yara.__version__[0]) >= 4:
-        raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
-except ImportError:
-    print("Missed library: pip3 install yara-python>=4.0.0 -U")
-    HAVE_YARA = False
-
 log = logging.getLogger()
 
 cuckoo = Config()
 logconf = Config("logging")
 routing = Config("routing")
 repconf = Config("reporting")
+auxconf = Config("auxiliary")
 dist_conf = Config("distributed")
 
 
@@ -63,7 +56,7 @@ def check_user_permissions(as_root: bool = False):
     if as_root:
         log.warning("You running part of CAPE as non 'cape' user! That breaks permissions on temp folder and log folder.")
         return
-    if gt.getuser() != "cape":
+    if gt.getuser() != cuckoo.cuckoo.get("username", "cape"):
         raise CuckooStartupError(
             f"Running as not 'cape' user breaks permissions! Run with cape user! Also fix permission on tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}"
         )
@@ -224,6 +217,14 @@ def init_console_logging():
     """Initializes logging only to console."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
+    # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
+    # If basicConfig was already called by something and had a StreamHandler added,
+    # replace it with a ConsoleHandler.
+    for h in log.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log.removeHandler(h)
+            h.close()
+
     ch = ConsoleHandler()
     ch.setFormatter(formatter)
     log.addHandler(ch)
@@ -258,8 +259,10 @@ def init_modules():
     import_package(modules.processing)
     # Import all signatures.
     import_package(modules.signatures)
+    # Import all private signatures
+    import_package(custom.signatures)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
-        log.warning("Suggestion: looks like you didn't install community, execute: python3 utils/community.py -h")
+        log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
     # Import all reporting modules.
     import_package(modules.reporting)
     # Import all feeds modules.
@@ -276,78 +279,6 @@ def init_modules():
                 log.debug("\t `-- %s", entry.__name__)
             else:
                 log.debug("\t |-- %s", entry.__name__)
-
-
-def init_yara():
-    """Generates index for yara signatures."""
-
-    if not HAVE_YARA:
-        return
-
-    categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
-
-    log.debug("Initializing Yara...")
-
-    # Generate root directory for yara rules.
-    yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
-    # Loop through all categories.
-    for category in categories:
-        # Check if there is a directory for the given category.
-        category_root = os.path.join(yara_root, category)
-        if not path_exists(category_root):
-            log.warning("Missing Yara directory: %s?", category_root)
-            continue
-
-        rules, indexed = {}, []
-        for category_root, _, filenames in os.walk(category_root, followlinks=True):
-            for filename in filenames:
-                if not filename.endswith((".yar", ".yara")):
-                    continue
-                filepath = os.path.join(category_root, filename)
-                rules[f"rule_{category}_{len(rules)}"] = filepath
-                indexed.append(filename)
-
-            # Need to define each external variable that will be used in the
-        # future. Otherwise Yara will complain.
-        externals = {"filename": ""}
-
-        while True:
-            try:
-                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-                break
-            except yara.SyntaxError as e:
-                bad_rule = re.match(r"(.+)\(\d+\):", str(e))[1]
-                log.debug("Trying to delete bad rule: %s", bad_rule)
-                if os.path.basename(bad_rule) in indexed:
-                    for k, v in rules.items():
-                        if v == bad_rule:
-                            del rules[k]
-                            indexed.remove(os.path.basename(bad_rule))
-                            print(f"Deleted broken yara rule: {bad_rule}")
-                            break
-                else:
-                    break
-            except yara.Error as e:
-                log.error("There was a syntax error in one or more Yara rules: %s", e)
-                break
-
-        if category == "memory":
-            try:
-                mem_rules = yara.compile(filepaths=rules, externals=externals)
-                mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
-            except yara.Error as e:
-                if "could not open file" in str(e):
-                    log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
-                else:
-                    log.error(e)
-
-        indexed = sorted(indexed)
-        for entry in indexed:
-            if (category, entry) == indexed[-1]:
-                log.debug("\t `-- %s %s", category, entry)
-            else:
-                log.debug("\t |-- %s %s", category, entry)
 
 
 def init_rooter():
@@ -385,7 +316,12 @@ def init_rooter():
             )
 
         if e.strerror == "Permission denied":
+            extra_msg = ""
+            if gt.getuser() != cuckoo.cuckoo.get("username", "cape"):
+                extra_msg = 'You have executed this process with WRONG user! Run with "cape" user\n'
+
             raise CuckooStartupError(
+                f"{extra_msg} "
                 "The rooter is required but we can't connect to it due to "
                 "incorrect permissions. Did you assign it the correct group? "
                 "(In order to disable the use of rooter, please set route "
@@ -430,15 +366,10 @@ def init_routing():
                 raise CuckooStartupError(f"Could not find VPN configuration for {name}")
 
             entry = routing.get(name)
-            # add = 1
-            # if not rooter("nic_available", entry.interface):
-            # raise CuckooStartupError(
-            #   f"The network interface that has been configured for VPN {entry.name} is not available"
-            # )
-            #    add = 0
-            is_rt_available = rooter("rt_available", entry.rt_table)["output"]
-            if not is_rt_available:
-                raise CuckooStartupError(f"The routing table that has been configured for VPN {entry.name} is not available")
+            if routing.routing.verify_rt_table:
+                is_rt_available = rooter("rt_available", entry.rt_table)["output"]
+                if not is_rt_available:
+                    raise CuckooStartupError(f"The routing table that has been configured for VPN {entry.name} is not available")
             vpns[entry.name] = entry
 
             # Disable & enable NAT on this network interface. Disable it just
@@ -473,9 +404,10 @@ def init_routing():
         if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as dirty line is not available")
 
-        is_rt_available = rooter("rt_available", routing.routing.rt_table)["output"]
-        if not is_rt_available:
-            raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
+        if routing.routing.verify_rt_table:
+            is_rt_available = rooter("rt_available", routing.routing.rt_table)["output"]
+            if not is_rt_available:
+                raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -520,3 +452,39 @@ def init_routing():
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
             rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)
+
+
+def check_tcpdump_permissions():
+
+    tcpdump = auxconf.sniffer.get("tcpdump", "/usr/sbin/tcpdump")
+
+    user = False
+    with suppress(Exception):
+        user = gt.getuser()
+
+    pcap_permissions_error = False
+    if user:
+        try:
+            subprocess.check_call(["/usr/bin/sudo", "--list", "--non-interactive", tcpdump], stderr=subprocess.DEVNULL)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            try:
+                if user not in grp.getgrnam("pcap").gr_mem:
+                    pcap_permissions_error = True
+            except KeyError:
+                log.error("Group pcap does not exist.")
+                pcap_permissions_error = True
+
+    if pcap_permissions_error:
+        print(
+            f"""\nPcap generation wan't work till you fix the permission problems. Please run following command to fix it!
+
+            groupadd pcap
+            usermod -a -G pcap {user}
+            chgrp pcap {tcpdump}
+            setcap cap_net_raw,cap_net_admin=eip {tcpdump}
+
+            OR add the following line to /etc/sudoers:
+
+            {user} ALL=NOPASSWD: {tcpdump}
+            """
+        )

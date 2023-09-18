@@ -18,7 +18,6 @@ class ONE(Package):
         self.config = config
         self.options = options
         # self.options["exclude-apis"] = "memcpy"
-        self.options["disable_hook_content"] = 4
         self.options["office"] = 1
         self.options["yarascan"] = 0
         self.options["no-iat"] = 1
@@ -30,7 +29,7 @@ class ONE(Package):
     ]
 
     def start(self, path):
-        onenote = self.get_path_glob("Microsoft Office OneNote")
+        onenote = self.get_path_glob("ONENOTE.EXE")
         if "." not in os.path.basename(path):
             new_path = f"{path}.one"
             os.rename(path, new_path)

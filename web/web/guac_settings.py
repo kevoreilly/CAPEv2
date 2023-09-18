@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sessions",
     "django_extensions",
 ]
 
@@ -74,6 +75,9 @@ TEMPLATES = [
         },
     },
 ]
+
+# Database settings. We don't need it.
+DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "siteauth.sqlite"}}
 
 ASGI_APPLICATION = "web.asgi.application"
 

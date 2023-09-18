@@ -60,5 +60,5 @@ the physical machines.  However, any re-imaging platform can be used
 .. _`http://www.fogproject.org/`: http://www.fogproject.org/
 
 Some extras by doomedraven:
-.. _`choco.bat`: https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat
-.. _`disablewin7noise.bat`: https://github.com/doomedraven/Tools/blob/master/Windows/disable_win7noise.bat
+.. _`choco.bat`: https://github.com/kevoreilly/CAPEv2/raw/master/installer/choco.bat
+.. _`disablewin7noise.bat`: https://github.com/kevoreilly/CAPEv2/blob/master/installer/disable_win7noise.bat

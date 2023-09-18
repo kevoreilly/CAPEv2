@@ -20,6 +20,6 @@ class DOC2016(Package):
     ]
 
     def start(self, path):
-        word = self.get_path_glob("Microsoft Office Word")
+        word = self.get_path_glob("WINWORD.EXE")
         path = check_file_extension(path, ".doc")
         return self.execute(word, f'"{path}" /q /dde /n', path)

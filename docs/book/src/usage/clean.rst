@@ -6,7 +6,7 @@ Clean all Tasks and Samples
 
 To clean your setup, run `-h` to see available options::
 
-    $ ./utils/cleaners.py -h
+    $ poetry run python utils/cleaners.py -h
 
 To sum up, this command does the following:
 
@@ -21,7 +21,7 @@ To sum up, this command does the following:
    storages: file system, SQL database, and MongoDB/ElasticSearch database. Use it only
    if you are sure you would clean up all the data.
 
-After executing the ``cleaners.py --clean`` utility, you must restart CAPE service as it destroys the database.::
+After executing the ``poetry run python cleaners.py --clean`` utility, you must restart CAPE service as it destroys the database.::
 
    $ sudo systemctl restart cape
 

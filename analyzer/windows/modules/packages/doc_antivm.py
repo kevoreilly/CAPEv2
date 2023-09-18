@@ -3,6 +3,7 @@ import time
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.exceptions import CuckooPackageError
 
 
 class DOC_ANTIVM(Package):
@@ -53,6 +54,11 @@ class DOC_ANTIVM(Package):
             self.options["free"] = 0
 
         time.sleep(5)
-        word = self.get_path_glob("Microsoft Office Word")
+        # Try getting winword or wordview as a backup
+        try:
+            word = self.get_path_glob("WINWORD.EXE")
+        except CuckooPackageError:
+            word = self.get_path_glob("WORDVIEW.EXE")
+
         path = check_file_extension(path, ".doc")
         return self.execute(word, f'"{path}" /q', path)

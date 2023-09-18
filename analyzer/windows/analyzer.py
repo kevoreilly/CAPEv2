@@ -14,7 +14,7 @@ import subprocess
 import sys
 import timeit
 import traceback
-from ctypes import POINTER, byref, c_int, c_ulong, c_void_p, cast, create_string_buffer, create_unicode_buffer, sizeof
+from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
 from threading import Lock
@@ -34,7 +34,7 @@ from lib.common.constants import (
     SHUTDOWN_MUTEX,
     TERMINATE_EVENT,
 )
-from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, NTDLL, SYSTEM_PROCESS_INFORMATION
+from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, MAX_PATH, PROCESS_QUERY_LIMITED_INFORMATION, PSAPI, SHELL32
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -47,9 +47,6 @@ from lib.core.startup import create_folders, disconnect_logger, init_logging, se
 from modules import auxiliary
 
 log = logging.getLogger()
-
-INJECT_CREATEREMOTETHREAD = 0
-INJECT_QUEUEUSERAPC = 1
 
 BUFSIZE = 512
 FILES_LIST_LOCK = Lock()
@@ -83,6 +80,43 @@ def pid_from_service_name(servicename):
     ADVAPI32.CloseServiceHandle(serv_handle)
     ADVAPI32.CloseServiceHandle(sc_handle)
     return thepid
+
+
+def pids_from_image_names(suffixlist):
+    """Get PIDs for processes whose image name ends with one of the given suffixes.
+
+    Matches are not sensitive to casing; both the suffixes and process
+    image names are normalized prior to comparison.
+    """
+    retpids = []
+    arr = wintypes.DWORD * 10000  # arbitrary - is this enough?
+    lpid_process_ptr = arr()
+    num_bytes = wintypes.DWORD()
+    image_name = c_buffer(MAX_PATH)
+    ok = PSAPI.EnumProcesses(byref(lpid_process_ptr), sizeof(lpid_process_ptr), byref(num_bytes))
+    if not ok:
+        log.debug("psapi.EnumProcesses failed")
+        return retpids
+
+    suffixlist = tuple([x.lower() for x in suffixlist])
+    num_processes = int(num_bytes.value / sizeof(wintypes.DWORD))
+    pids = lpid_process_ptr[:num_processes]
+
+    for pid in pids:
+        h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not h_process:
+            log.debug("kernel.OpenProcess failed for PID: %d", pid)
+            continue
+        n = PSAPI.GetProcessImageFileNameA(h_process, image_name, MAX_PATH)
+        KERNEL32.CloseHandle(h_process)
+        if not n:
+            log.debug("psapi.GetProcessImageFileNameA failed for PID: %d", pid)
+            continue
+        image_name_pystr = image_name.value.decode().lower()
+        # e.g., image name: "\device\harddiskvolume4\windows\system32\services.exe"
+        if image_name_pystr.endswith(suffixlist):
+            retpids.append(pid)
+    return retpids
 
 
 def in_protected_path(fname):
@@ -189,30 +223,6 @@ class Analyzer:
             return f"\\\\.\\PIPE\\{name}"
         return f"\\??\\PIPE\\{name}"
 
-    def pids_from_process_name_list(self, namelist):
-        proclist = []
-        pidlist = []
-        buf = create_unicode_buffer(1024 * 1024)
-        p = cast(buf, c_void_p)
-        retlen = c_ulong(0)
-        retval = NTDLL.NtQuerySystemInformation(5, buf, 1024 * 1024, byref(retlen))
-        if retval:
-            return []
-        proc = cast(p, POINTER(SYSTEM_PROCESS_INFORMATION)).contents
-        while proc.NextEntryOffset:
-            p.value += proc.NextEntryOffset
-            proc = cast(p, POINTER(SYSTEM_PROCESS_INFORMATION)).contents
-            # proclist.append((proc.ImageName.Buffer[:proc.ImageName.Length // 2], proc.UniqueProcessId))
-            proclist.append((proc.ImageName.Buffer, proc.UniqueProcessId))
-
-        for proc in proclist:
-            lowerproc = proc[0].lower()
-            for name in namelist:
-                if lowerproc == name:
-                    pidlist.append(proc[1])
-                    break
-        return pidlist
-
     def prepare(self):
         """Prepare env for analysis."""
         global MONITOR_DLL, MONITOR_DLL_64, HIDE_PIDS
@@ -258,13 +268,15 @@ class Analyzer:
         MONITOR_DLL_64 = self.options.get("dll_64")
 
         # get PID for services.exe for monitoring services
-        svcpid = self.pids_from_process_name_list(["services.exe"])
+        svcpid = pids_from_image_names(["services.exe"])
         if svcpid:
+            if len(svcpid) > 1:
+                log.debug("found %d services.exe processes", len(svcpid))
             self.SERVICES_PID = svcpid[0]
             self.config.services_pid = svcpid[0]
             self.CRITICAL_PROCESS_LIST.append(int(svcpid[0]))
 
-        HIDE_PIDS = set(self.pids_from_process_name_list(self.files.PROTECTED_NAMES))
+        HIDE_PIDS = set(pids_from_image_names(self.files.PROTECTED_NAMES))
 
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.
@@ -333,6 +345,11 @@ class Analyzer:
         log.debug("Pipe server name: %s", PIPE)
         log.debug("Python path: %s", os.path.dirname(sys.executable))
 
+        if SHELL32.IsUserAnAdmin():
+            log.info("analysis running as an admin")
+        else:
+            log.info("analysis running as a normal user")
+
         # If no analysis package was specified at submission, we try to select one automatically.
         if not self.config.package:
             log.debug("No analysis package specified, trying to detect it automagically")
@@ -349,10 +366,11 @@ class Analyzer:
                 raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
 
             log.info('Automatically selected analysis package "%s"', package)
-        # Otherwise just select the specified package.
+            # Otherwise just select the specified package.
         else:
             package = self.config.package
             log.info('Analysis package "%s" has been specified', package)
+
         # Generate the package path.
         package_name = f"modules.packages.{package}"
         # Try to import the analysis package.
@@ -973,7 +991,7 @@ class CommandPipeHandler:
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -988,7 +1006,7 @@ class CommandPipeHandler:
                     servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(2000)
@@ -998,7 +1016,7 @@ class CommandPipeHandler:
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=wmi_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(wmi_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1025,7 +1043,7 @@ class CommandPipeHandler:
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=sched_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(sched_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1052,7 +1070,7 @@ class CommandPipeHandler:
 
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(2000)
@@ -1065,7 +1083,7 @@ class CommandPipeHandler:
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=bits_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(bits_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1090,7 +1108,7 @@ class CommandPipeHandler:
                     servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(1000)
@@ -1113,9 +1131,6 @@ class CommandPipeHandler:
             if event_handle:
                 KERNEL32.SetEvent(event_handle)
                 KERNEL32.CloseHandle(event_handle)
-                if self.analyzer.options.get("procmemdump"):
-                    p = Process(pid=process_id)
-                    p.dump_memory()
                 self.files.dump_files()
         self.analyzer.process_lock.release()
 
@@ -1182,12 +1197,7 @@ class CommandPipeHandler:
             # release the lock. Let the injection do its thing.
             self.analyzer.process_lock.release()
 
-            # If we have both pid and tid, then we can use APC to inject.
-            if process_id and thread_id:
-                proc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-            else:
-                proc.inject(injectmode=INJECT_CREATEREMOTETHREAD, interest=filepath, nosleepskip=True)
-
+            proc.inject(interest=filepath, nosleepskip=True)
             log.info("Injected into process with pid %s and name %s", proc.pid, filename)
 
     def _handle_process(self, data):
@@ -1238,7 +1248,7 @@ class CommandPipeHandler:
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
                     if not in_protected_path(filename):
-                        _ = proc.inject(INJECT_QUEUEUSERAPC, interest)
+                        _ = proc.inject(interest)
                         self.LASTINJECT_TIME = timeit.default_timer()
                         self.analyzer.NUM_INJECTED += 1
                     proc.close()

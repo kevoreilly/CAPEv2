@@ -190,8 +190,8 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("unpacker"):
             options += "unpacker=2,"
 
-        if request.POST.get("syscall"):
-            options += "syscall=1,"
+        if not request.POST.get("syscall"):
+            options += "syscall=0,"
 
         if request.POST.get("kernel_analysis"):
             options += "kernel_analysis=yes,"
@@ -364,10 +364,11 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["errors"].append({os.path.basename(filename): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
-                    if web_conf.general.get("existent_tasks", False):
+                    if web_conf.web_reporting.get("enabled", False) and web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", hash, search_limit=5)
-                        for record in records or []:
-                            existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
+                        if records:
+                            for record in records or []:
+                                existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
 
         elif task_category == "sample":
             details["service"] = "WebGUI"
@@ -393,9 +394,10 @@ def index(request, task_id=None, resubmit_hash=None):
                 else:
                     if web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", sha256, search_limit=5)
-                        for record in records:
-                            if record.get("target").get("file", {}).get("sha256"):
-                                existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
+                        if records:
+                            for record in records:
+                                if record.get("target").get("file", {}).get("sha256"):
+                                    existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "static":
@@ -548,15 +550,10 @@ def index(request, task_id=None, resubmit_hash=None):
         vpn_random = ""
 
         if routing.socks5.random_socks5 and socks5s:
-            socks5s_random = random.choice(socks5s.values()).get("name", False)
+            socks5s_random = socks5s[random.choice(list(socks5s.keys()))]
 
-        if routing.vpn.random_vpn:
-            vpn = list(vpns.values())
-            if vpn:
-                vpn_random = random.choice(vpn).get("name", False)
-
-        if socks5s:
-            socks5s_random = random.choice(list(socks5s.values())).get("name", False)
+        if routing.vpn.random_vpn and vpns:
+            vpn_random = vpns[random.choice(list(vpns.keys()))]
 
         random_route = False
         if vpn_random and socks5s_random:
@@ -566,13 +563,37 @@ def index(request, task_id=None, resubmit_hash=None):
         elif socks5s_random:
             random_route = socks5s_random
 
+        # prepare data for the gui rendering
+        if random_route:
+            if random_route is vpn_random:
+                random_route = {
+                    "name": random_route["name"],
+                    "description": random_route["description"],
+                    "interface": random_route["interface"],
+                    "type": "VPN",
+                }
+            else:
+                random_route = {
+                    "name": random_route["description"],
+                    "host": random_route["host"],
+                    "port": random_route["port"],
+                    "type": "SOCKS5",
+                }
+        socks5s_data = [
+            {"name": v["description"], "host": v["host"], "port": v["port"], "type": "socks5"} for k, v in socks5s.items()
+        ]
+        vpns_data = [
+            {"name": v["name"], "description": v["description"], "interface": v["interface"], "type": "vpn"} for v in vpns.values()
+        ]
+
         existent_tasks = {}
         if resubmit_hash:
             if web_conf.general.get("existent_tasks", False):
                 records = perform_search("target_sha256", resubmit_hash, search_limit=5)
-                for record in records:
-                    existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
-                    existent_tasks[record["target"]["file"]["sha256"]].append(record)
+                if records:
+                    for record in records:
+                        existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
+                        existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         return render(
             request,
@@ -580,9 +601,9 @@ def index(request, task_id=None, resubmit_hash=None):
             {
                 "packages": sorted(packages),
                 "machines": machines,
-                "vpns": list(vpns.values()),
+                "vpns": vpns_data,
                 "random_route": random_route,
-                "socks5s": list(socks5s.values()),
+                "socks5s": socks5s_data,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,
@@ -620,16 +641,14 @@ def remote_session(request, task_id):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     machine_status = False
-    label = ""
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine(task.machine)
-        label = machine.label
+        machine = db.view_machine_by_label(task.machine)
         guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-        session_data = urlsafe_b64encode(f"{session_id}|{label}|{guest_ip}".encode("utf8")).decode("utf8")
+        session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
 
     return render(
         request,

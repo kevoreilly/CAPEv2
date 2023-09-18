@@ -62,7 +62,7 @@ jobs:
               - 'modules/processing/parsers/CAPE/*.py'
 
       - if: steps.changes.outputs.src == 'true'
-        un: poetry run python -m pytest tests_parsers -s --import-mode=append
+        run: poetry run python -m pytest tests_parsers -s --import-mode=append
 
   # Todo unify in future
   format:

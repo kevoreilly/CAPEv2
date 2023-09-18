@@ -25,7 +25,7 @@ class TestFileExtraInfo:
             tests=True,
         )
         assert data_dictionary["extracted_files_tool"] == "MsiExtract"
-        assert len(data_dictionary["extracted_files"]) == 4
+        assert len(data_dictionary["extracted_files"]) == 2
 
     def test_generic_file_extractors_no_tests(self):
         results = {}

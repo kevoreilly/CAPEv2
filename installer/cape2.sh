@@ -831,6 +831,10 @@ EOF
 		systemctl enable mongodb.service
 		systemctl restart mongodb.service
 
+		if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
+			crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u cape poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+		fi
+
 		echo -n "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
 	else
 		echo "[+] Skipping MongoDB"

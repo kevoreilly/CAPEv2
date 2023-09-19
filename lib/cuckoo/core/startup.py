@@ -22,6 +22,7 @@ import modules.feeds
 import modules.processing
 import modules.reporting
 import modules.signatures
+from dev_utils.mongodb import mongo_create_index
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -52,7 +53,6 @@ def check_python_version():
 
 
 def check_user_permissions(as_root: bool = False):
-
     if as_root:
         log.warning("You running part of CAPE as non 'cape' user! That breaks permissions on temp folder and log folder.")
         return
@@ -88,11 +88,24 @@ def check_webgui_mongo():
     if repconf.mongodb.enabled:
         from dev_utils.mongodb import connect_to_mongo
 
-        good = connect_to_mongo
-        if not good:
+        client = connect_to_mongo()
+        if not client:
             sys.exit(
                 "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration\nrun `systemctl status mongodb` for more info"
             )
+
+        # Create an index based on the info.id dict key. Increases overall scalability
+        # with large amounts of data.
+        # Note: Silently ignores the creation if the index already exists.
+        mongo_create_index("analysis", "info.id", name="info.id_1")
+        # mongo_create_index([("target.file.sha256", TEXT)], name="target_sha256")
+        # We performs a lot of SHA256 hash lookup so we need this index
+        # mongo_create_index(
+        #     "analysis",
+        #     [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
+        #     name="ALL_SHA256",
+        # )
+        mongo_create_index("files", [("_task_ids", 1)])
 
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check
@@ -455,7 +468,6 @@ def init_routing():
 
 
 def check_tcpdump_permissions():
-
     tcpdump = auxconf.sniffer.get("tcpdump", "/usr/sbin/tcpdump")
 
     user = False

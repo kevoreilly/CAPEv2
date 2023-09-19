@@ -213,4 +213,4 @@ def mongo_is_cluster():
 
 # Mongodb hooks are registered by importing this module.
 # Import it down here because mongo_hooks import this module.
-from . import mongo_hooks
+from . import mongo_hooks  # noqa: F401

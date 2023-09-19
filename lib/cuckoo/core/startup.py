@@ -22,7 +22,6 @@ import modules.feeds
 import modules.processing
 import modules.reporting
 import modules.signatures
-from dev_utils.mongodb import mongo_create_index
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -86,7 +85,7 @@ def check_working_directory():
 
 def check_webgui_mongo():
     if repconf.mongodb.enabled:
-        from dev_utils.mongodb import connect_to_mongo
+        from dev_utils.mongodb import connect_to_mongo, mongo_create_index
 
         client = connect_to_mongo()
         if not client:

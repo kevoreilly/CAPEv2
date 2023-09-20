@@ -37,7 +37,8 @@ The following is a list of the existing packages in alphabetical order:
             * ``password``: specify the password of the archive. If none is specified, CAPE will try to extract the archive without password or use the password "*infected*".
 
     * ``chm``: used to run and analyze **Microsoft Compiled HTML Help files** via ``hh.exe``.
-    * ``chrome``: used to open **the given URL** via chrome.exe.
+    * ``chrome``: used to open **the given URL** via ``chrome.exe``.
+    * ``chromium``: used to open **the given URL** via the Chromium version of ``chrome.exe``.
     * ``cpl``: used to run and analyze **Control Panel Applets** via ``control.exe``.
     * ``dll``: used to run and analyze **Dynamically Linked Libraries** via ``rundll32.exe``.
 

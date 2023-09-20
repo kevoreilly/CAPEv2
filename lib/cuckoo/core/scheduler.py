@@ -51,6 +51,7 @@ enable_trim = int(Config("web").general.enable_trim)
 
 active_analysis_count = 0
 
+
 class ScalingBoundedSemaphore(threading.Semaphore):
     """Implements a dynamic bounded semaphore.
 
@@ -69,10 +70,10 @@ class ScalingBoundedSemaphore(threading.Semaphore):
     In this version of semaphore there is a upper limit where it's limit value
     can never reach when it is changed. The idea behind it is that in machinery
     documentation there is a limit of machines that can be available so there is
-    no point having it higher than that.  
+    no point having it higher than that.
     """
 
-    def __init__(self, value=1,upper_limit=1):
+    def __init__(self, value=1, upper_limit=1):
         threading.Semaphore.__init__(self, value)
         self._limit_value = value
         self._upper_limit = upper_limit
@@ -96,10 +97,11 @@ class ScalingBoundedSemaphore(threading.Semaphore):
                 return
             self._value += 1
             self._cond.notify()
-    
+
     def update_limit(self, value):
         if value < self._upper_limit:
             self._limit_value = value
+
 
 class CuckooDeadMachine(Exception):
     """Exception thrown when a machine turns dead.
@@ -358,7 +360,9 @@ class AnalysisManager(threading.Thread):
         # Acquire analysis machine.
         try:
             self.acquire_machine()
-            guest_log = self.db.set_task_vm_and_guest_start(self.task.id, self.machine.name, self.machine.label, self.machine.id, machinery.__class__.__name__)
+            guest_log = self.db.set_task_vm_and_guest_start(
+                self.task.id, self.machine.name, self.machine.label, self.machine.id, machinery.__class__.__name__
+            )
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
@@ -754,7 +758,6 @@ class Scheduler:
         # machine manager instance.
         machinery.set_options(Config(machinery_name))
 
-
         # Initialize the machine manager.
         try:
             machinery.initialize(machinery_name)
@@ -772,8 +775,8 @@ class Scheduler:
             # machine_lock = threading.Semaphore(max_vmstartup_count)
             machine_lock = threading.BoundedSemaphore(max_vmstartup_count)
         elif self.cfg.cuckoo.scaling_semaphore and machines_limit:
-            #machine_lock = threading.BoundedSemaphore(machines_limit)
-            machine_lock = ScalingBoundedSemaphore(len(machinery.machines()),machines_limit)
+            # machine_lock = threading.BoundedSemaphore(machines_limit)
+            machine_lock = ScalingBoundedSemaphore(len(machinery.machines()), machines_limit)
         else:
             machine_lock = threading.Lock()
 
@@ -846,7 +849,7 @@ class Scheduler:
         # Start the logger which grabs database information
         if self.cfg.cuckoo.periodic_log:
             self._thr_periodic_log()
-        #Update timer for semaphore limit value if enabled
+        # Update timer for semaphore limit value if enabled
         if self.cfg.cuckoo.scaling_semaphore:
             scaling_semaphore_timer = time.time()
         # This loop runs forever.
@@ -857,9 +860,9 @@ class Scheduler:
             # with finding out there are no available machines in the analysis
             # manager or having two analyses pick the same machine.
 
-            #Update semaphore limit value if enabled based on the number of machines
+            # Update semaphore limit value if enabled based on the number of machines
             if self.cfg.cuckoo.scaling_semaphore:
-                if scaling_semaphore_timer + 10 <time.time():
+                if scaling_semaphore_timer + 10 < time.time():
                     machine_lock.update_limit(len(machinery.machines()))
                     scaling_semaphore_timer = time.time()
 

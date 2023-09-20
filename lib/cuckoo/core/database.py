@@ -194,10 +194,12 @@ def _get_linux_vm_tag(mgtype):
         return "x64"
     return "x64"
 
+
 def get_count(q):
     count_q = q.statement.with_only_columns([func.count()]).order_by(None)
     count = q.session.execute(count_q).scalar()
     return count
+
 
 class Machine(Base):
     """Configured virtual machines to be used as guests."""

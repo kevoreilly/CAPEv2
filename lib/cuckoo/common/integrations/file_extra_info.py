@@ -30,11 +30,10 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
-
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_is_file, path_mkdir, path_read_file, path_write_file
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_is_file, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.utils import get_options, is_text_file
 
 try:
@@ -662,15 +661,19 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
                     "e",
                     f"-o{tempdir}",
                     "-y",
-                    file,
-                    "Binary.*",
+                    file
                 ],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )
+            valid_msi_filetypes = ["PE32", "text", "Microsoft Cabinet archive"]
             for root, _, filenames in os.walk(tempdir):
                 for filename in filenames:
-                    os.rename(os.path.join(root, filename), os.path.join(root, filename.split("Binary.")[-1]))
+                    path = os.path.join(root, filename)
+                    if any([x in File(path).get_type() for x in valid_msi_filetypes]):
+                        os.rename(path, os.path.join(root, filename.split(".")[-1].strip("'").strip("!")))
+                    else:
+                        path_delete(path)
             extracted_files = collect_extracted_filenames(tempdir)
 
         ctx["extracted_files"] = extracted_files

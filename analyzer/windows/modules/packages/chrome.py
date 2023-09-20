@@ -17,7 +17,7 @@ class Chrome(Package):
         chrome = self.get_path("chrome.exe")
         args = [
             "--disable-features=RendererCodeIntegrity",
-    ]
+        ]
         args.append('"{}"'.format(url))
         args = " ".join(args)
         return self.execute(chrome, args)

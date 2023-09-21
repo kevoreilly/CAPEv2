@@ -2,13 +2,15 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import copy
 import logging
 import tempfile
 
 import pytest
 import yara
 
-from lib.cuckoo.common.objects import Dictionary, File  # ,ProcDump
+from lib.cuckoo.common.dictionary import Dictionary  # ,ProcDump
+from lib.cuckoo.common.objects import File  # ,ProcDump
 from lib.cuckoo.common.path_utils import path_delete, path_write_file
 
 # from tcr_misc import get_sample, random_string
@@ -25,6 +27,12 @@ class TestDictionary:
         assert "foo" == dict_cfg.a
         dict_cfg.a = "bar"
         assert "bar" == dict_cfg.a
+
+    def test_deepcopy(self, dict_cfg):
+        dict_cfg.foo = "bar"
+        dict_cfg2 = copy.deepcopy(dict_cfg)
+        assert dict_cfg2 is not dict_cfg
+        assert dict_cfg2 == dict_cfg
 
     def test_exception(self, dict_cfg):
         with pytest.raises(AttributeError):

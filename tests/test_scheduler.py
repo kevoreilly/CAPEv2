@@ -128,6 +128,7 @@ class TestAnalysisManager:
             "sanitize_len": 32,
             "sanitize_to_len": 24,
             "scaling_semaphore": False,
+            "scaling_semaphore_update_timer": 10,
             "freespace_processing": 15000,
             "periodic_log": False,
             "fail_unserviceable": True,

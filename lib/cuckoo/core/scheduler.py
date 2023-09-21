@@ -67,8 +67,8 @@ class ScalingBoundedSemaphore(threading.Semaphore):
     limit value. The acquire() method blocks if necessary until it can return
     without making the counter negative. If not given, value defaults to 1.
 
-    In this version of semaphore there is a upper limit where it's limit value
-    can never reach when it is changed. The idea behind it is that in machinery
+    In this version of semaphore there is an upper limit that its limit value
+    can never reach when it is changed. The idea behind this is that in machinery
     documentation there is a limit of machines that can be available so there is
     no point having it higher than that.
     """
@@ -91,14 +91,22 @@ class ScalingBoundedSemaphore(threading.Semaphore):
         with self._cond:
             if self._value > self._upper_limit:
                 raise ValueError("Semaphore released too many times")
+
             if self._value >= self._limit_value:
                 self._value = self._limit_value
                 self._cond.notify()
                 return
+
             self._value += 1
             self._cond.notify()
 
     def update_limit(self, value):
+        """ Update the limit value for the semaphore
+
+        This limit value is the bounded limit, and proposed limit values
+        are validated against the upper limit.
+
+        """
         if value < self._upper_limit:
             self._limit_value = value
 
@@ -764,19 +772,24 @@ class Scheduler:
         except CuckooMachineError as e:
             raise CuckooCriticalError(f"Error initializing machines: {e}")
 
-        max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
+        # If the user wants to use the scaling bounded semaphore, check what machinery is specified, and then
+        # grab the required configuration key for setting the upper limit
         if self.cfg.cuckoo.scaling_semaphore:
             machinery_opts = machinery.options.get(machinery_name)
             if machinery_name == "az":
                 machines_limit = machinery_opts.get("total_machines_limit")
             elif machinery_name == "aws":
                 machines_limit = machinery_opts.get("dynamic_machines_limit")
+
+        # You set this value if you are using a machinery that is NOT auto-scaling
+        max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
         if max_vmstartup_count:
-            # machine_lock = threading.Semaphore(max_vmstartup_count)
-            machine_lock = threading.BoundedSemaphore(max_vmstartup_count)
+            # The BoundedSemaphore is used to prevent CPU starvation when starting up multiple VMs
+            machine_lock = threading.BoundedSemaphore(value=max_vmstartup_count)
+        # You set this value if you are using a machinery that IS auto-scaling
         elif self.cfg.cuckoo.scaling_semaphore and machines_limit:
-            # machine_lock = threading.BoundedSemaphore(machines_limit)
-            machine_lock = ScalingBoundedSemaphore(len(machinery.machines()), machines_limit)
+            # The ScalingBoundedSemaphore is used to keep feeding available machines from the pending tasks queue
+            machine_lock = ScalingBoundedSemaphore(value=len(machinery.machines()), upper_limit=machines_limit)
         else:
             machine_lock = threading.Lock()
 
@@ -851,21 +864,25 @@ class Scheduler:
             self._thr_periodic_log()
         # Update timer for semaphore limit value if enabled
         if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
+            # Note that this variable only exists under these conditions
             scaling_semaphore_timer = time.time()
+
         # This loop runs forever.
         while self.running:
+            # Update scaling bounded semaphore limit value, if enabled, based on the number of machines
+            if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
+                # Every x seconds, update the semaphore limit. This requires a database call to machinery.availables(),
+                # hence waiting a bit between calls
+                if scaling_semaphore_timer + int(self.cfg.cuckoo.scaling_semaphore_update_timer) < time.time():
+                    machine_lock.update_limit(machinery.availables())
+                    # Note that this variable only exists under these conditions
+                    scaling_semaphore_timer = time.time()
+
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather that about to start
             # or still busy starting. This way we won't have race conditions
             # with finding out there are no available machines in the analysis
             # manager or having two analyses pick the same machine.
-
-            # Update semaphore limit value if enabled based on the number of machines
-            if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
-                if scaling_semaphore_timer + int(self.cfg.cuckoo.scaling_semaphore_update_timer) < time.time():
-                    machine_lock.update_limit(machinery.availables())
-                    scaling_semaphore_timer = time.time()
-
             if self.categories_need_VM:
                 if not machine_lock.acquire(False):
                     continue

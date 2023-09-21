@@ -862,7 +862,7 @@ class Scheduler:
 
             # Update semaphore limit value if enabled based on the number of machines
             if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
-                if scaling_semaphore_timer + int(self.cfg.cuckoo.scaling_semaphore_update_timer) <time.time():
+                if scaling_semaphore_timer + int(self.cfg.cuckoo.scaling_semaphore_update_timer) < time.time():
                     machine_lock.update_limit(machinery.availables())
                     scaling_semaphore_timer = time.time()
 

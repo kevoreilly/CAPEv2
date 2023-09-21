@@ -850,7 +850,7 @@ class Scheduler:
         if self.cfg.cuckoo.periodic_log:
             self._thr_periodic_log()
         # Update timer for semaphore limit value if enabled
-        if self.cfg.cuckoo.scaling_semaphore:
+        if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
             scaling_semaphore_timer = time.time()
         # This loop runs forever.
         while self.running:
@@ -861,9 +861,9 @@ class Scheduler:
             # manager or having two analyses pick the same machine.
 
             # Update semaphore limit value if enabled based on the number of machines
-            if self.cfg.cuckoo.scaling_semaphore:
-                if scaling_semaphore_timer + 10 < time.time():
-                    machine_lock.update_limit(len(machinery.machines()))
+            if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
+                if scaling_semaphore_timer + int(self.cfg.cuckoo.scaling_semaphore_update_timer) <time.time():
+                    machine_lock.update_limit(machinery.availables())
                     scaling_semaphore_timer = time.time()
 
             if self.categories_need_VM:

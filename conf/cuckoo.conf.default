@@ -24,6 +24,7 @@ machinery = kvm
 # Specify if the use of scaling bounded semaphore shoud be used by the scheduler for tasking the vms.
 # This is only applicable to scaling machinery like azure and AWS. Bounded to respective total_machines_limit and dynamic_machines_limit.
 scaling_semaphore = off
+scaling_semaphore_update_timer = 10
 
 # Enable creation of memory dump of the analysis machine before shutting
 # down. Even if turned off, this functionality can also be enabled at

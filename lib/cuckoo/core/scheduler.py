@@ -101,7 +101,7 @@ class ScalingBoundedSemaphore(threading.Semaphore):
             self._cond.notify()
 
     def update_limit(self, value):
-        """ Update the limit value for the semaphore
+        """Update the limit value for the semaphore
 
         This limit value is the bounded limit, and proposed limit values
         are validated against the upper limit.

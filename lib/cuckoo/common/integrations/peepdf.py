@@ -131,36 +131,34 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                         ret_data += tmp
                     obj_data["Data"] = ret_data
                     retobjects.append(obj_data)
-            elif details.type == "dictionary" and details.hasElement("/OpenAction"):
-                open_action = details.getElementByName("/OpenAction")
-                if open_action.hasElement("/JS"):
-                    js_elem = open_action.getElementByName("/JS")
+            elif details.type == "dictionary" and details.containsJScode:
+                js_elem = details.getElementByName("/JS")
+                if js_elem:
                     jsdata = None
-                    if js_elem:
-                        try:
-                            jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(js_elem.value)
-                            jsdata = jslist[0]
-                        except Exception as e:
-                            log.error(e, exc_info=True)
-                            continue
-                        if errors or not jsdata:
-                            continue
+                    try:
+                        jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(js_elem.value)
+                        jsdata = jslist[0]
+                    except Exception as e:
+                        log.error(e, exc_info=True)
+                        continue
+                    if errors or not jsdata:
+                        continue
 
-                        urlset.update(urlsfound)
-                        # The following loop is required to "JSONify" the strings returned from PyV8.
-                        # As PyV8 returns byte strings, we must parse out bytecode and
-                        # replace it with an escape '\'. We can't use encode("string_escape")
-                        # as this would mess up the new line representation which is used for
-                        # beautifying the javascript code for Django's web interface.
-                        ret_data = ""
-                        for char in jsdata:
-                            if ord(char) > 127:
-                                tmp = f"\\x{char.encode().hex()}"
-                            else:
-                                tmp = char
-                            ret_data += tmp
-                        obj_data["Data"] = ret_data
-                        retobjects.append(obj_data)
+                    urlset.update(urlsfound)
+                    # The following loop is required to "JSONify" the strings returned from PyV8.
+                    # As PyV8 returns byte strings, we must parse out bytecode and
+                    # replace it with an escape '\'. We can't use encode("string_escape")
+                    # as this would mess up the new line representation which is used for
+                    # beautifying the javascript code for Django's web interface.
+                    ret_data = ""
+                    for char in jsdata:
+                        if ord(char) > 127:
+                            tmp = f"\\x{char.encode().hex()}"
+                        else:
+                            tmp = char
+                        ret_data += tmp
+                    obj_data["Data"] = ret_data
+                    retobjects.append(obj_data)
             elif details.type == "dictionary" and details.hasElement("/A"):
                 # verify it to be a link type annotation
                 subtype_elem = details.getElementByName("/Subtype")

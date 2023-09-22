@@ -41,7 +41,7 @@ REPROCESS_TASKS = web_cfg.general.reprocess_tasks
 
 csfr_list = []
 if web_cfg.security.csrf_trusted_origins:
-    for host in  web_cfg.security.csrf_trusted_origins.split(","):
+    for host in web_cfg.security.csrf_trusted_origins.split(","):
         csfr_list.extend([f"http://{host}", f"https://{host}"])
 
 CSRF_TRUSTED_ORIGINS = csfr_list

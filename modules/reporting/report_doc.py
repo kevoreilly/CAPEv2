@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import copy
 import logging
 import os
 import re
@@ -56,7 +57,7 @@ def get_json_document(results, analysis_path):
     # Create a copy of the dictionary. This is done in order to not modify
     # the original dictionary and possibly
     # compromise the following reporting modules.
-    report = dict(results)
+    report = copy.deepcopy(results)
 
     if "network" not in report:
         report["network"] = {}

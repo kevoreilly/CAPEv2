@@ -94,10 +94,11 @@ def load_plugins(module):
                 register_plugin("feeds", value)
 
 
-def register_plugin(group, name):
+def register_plugin(group, cls):
     global _modules
     group = _modules.setdefault(group, [])
-    group.append(name)
+    if cls not in group:
+        group.append(cls)
 
 
 def list_plugins(group=None):

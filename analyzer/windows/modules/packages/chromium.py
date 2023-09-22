@@ -1,16 +1,16 @@
-# Copyright (C) 2014 Optiv, Inc. (brad.spengler@optiv.com)
-# This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
+# Copyright (C) 2023 Sean Whalen
+# This file is part of CAPE Sandbox -https://github.com/kevoreilly/CAPEv2
 # See the file 'docs/LICENSE' for copying permission.
 
 from lib.common.abstracts import Package
 
 
-class Chrome(Package):
-    """Chrome analysis package."""
+class Chromium(Package):
+    """Chromium analysis package."""
 
     PATHS = [
-        ("ProgramFiles", "Google", "Chrome", "Application", "chrome.exe"),
         ("LOCALAPPDATA", "Chromium", "Application", "chrome.exe"),
+        ("ProgramFiles", "Google", "Chrome", "Application", "chrome.exe"),
     ]
 
     def start(self, url):

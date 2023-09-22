@@ -200,3 +200,5 @@ msix = win10,win11
 [security]
 # When using mounted folder you might want to set to no
 check_path_safe = yes
+# Can be multiple domains. Ex: domain.com,domain.net,domain.org
+csrf_trusted_origins =

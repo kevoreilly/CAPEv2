@@ -90,6 +90,7 @@ def get_suricata_family(signature):
     """
     # ToDo Trojan-Proxy
     family = False
+    signature = re.sub(r"\s+\[[^\]]+\]\s+", " ", signature)
     words = re.findall(r"[A-Za-z0-9/\-]+", signature)
     famcheck = words[2]
     if "/" in famcheck:

@@ -2128,6 +2128,7 @@ class Database(object, metaclass=Singleton):
                 if category:
                     search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
                 if details:
+                    # ToDo this probably outdated, should be Class instead of string
                     search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
                 if sample_id is not None:
                     search = search.filter(Task.sample_id == sample_id)
@@ -2410,7 +2411,7 @@ class Database(object, metaclass=Singleton):
         with self.Session() as session:
             db_sample = (
                 session.query(Sample)
-                .options(joinedload("tasks"))
+                .options(joinedload(Task.sample))
                 .filter(Sample.sha256 == sample_hash)
                 .filter(Task.id != task_id)
                 .filter(Sample.id == Task.sample_id)
@@ -2458,7 +2459,7 @@ class Database(object, metaclass=Singleton):
             session = self.Session()
             db_sample = (
                 session.query(Sample)
-                .options(joinedload("tasks"))
+                .options(joinedload(Task.sample))
                 .filter(Task.id == task_id)
                 .filter(Sample.id == Task.sample_id)
                 .first()

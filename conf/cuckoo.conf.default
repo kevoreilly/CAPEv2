@@ -21,6 +21,16 @@ delete_bin_copy = off
 # of choice.
 machinery = kvm
 
+# Specify if a scaling bounded semaphore should be used by the scheduler for tasking the VMs.
+# This is only applicable to auto-scaling machineries such as Azure and AWS.
+# There is a specific configuration key in each machinery that is used to initialize the semaphore.
+# For Azure, this configuration key is "total_machines_limit"
+# For AWS, this configuration key is "dynamic_machines_limit"
+scaling_semaphore = off
+
+# A configurable wait time between updating the limit value of the scaling bounded semaphore
+scaling_semaphore_update_timer = 10
+
 # Enable creation of memory dump of the analysis machine before shutting
 # down. Even if turned off, this functionality can also be enabled at
 # submission. Currently available for: VirtualBox and libvirt modules (KVM).
@@ -52,6 +62,10 @@ max_machines_count = 10
 # Limit the amount of VMs that are allowed to start in parallel. Generally
 # speaking starting the VMs is one of the more CPU intensive parts of the
 # actual analysis. This option tries to avoid maxing out the CPU completely.
+# This configuration option is only relevant for machineries that have a set
+# amount of VMs and are restricted by CPU usage.
+# If you are using an auto-scaling machinery such as Azure or AWS,
+# set this value to 0.
 max_vmstartup_count = 5
 
 # Minimum amount of free space (in MB) available before starting a new task.

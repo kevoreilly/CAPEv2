@@ -138,16 +138,6 @@ type_list = [
 ]
 
 
-class Dictionary(dict):
-    """Cuckoo custom dict."""
-
-    def __getattr__(self, key):
-        return self.get(key)
-
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-
 class PCAP:
     """PCAP base object."""
 

@@ -752,6 +752,7 @@ def ext_tasks_search(request):
 
     return Response(resp)
 
+
 # Return Task ID's and data within a range of Task ID's
 @csrf_exempt
 @api_view(["GET"])
@@ -830,7 +831,6 @@ def tasks_list(request, offset=None, limit=None, window=None):
             resp["data"].append(task)
 
     return Response(resp)
-
 
 
 @csrf_exempt

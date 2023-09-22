@@ -2115,7 +2115,8 @@ class Database(object, metaclass=Singleton):
             try:
                 # Can we remove "options(joinedload)" it is here due to next error
                 # sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <Task at X> is not bound to a Session; lazy load operation of attribute 'tags' cannot proceed
-                search = session.query(Task).options(joinedload(Task.tags))
+                # ToDo this is inefficient but it fails if we don't join. Need to fix this
+                search = session.query(Task).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
                 if include_hashes:
                     search = search.join(Sample, Task.sample_id == Sample.id)
                 if status:
@@ -2128,8 +2129,7 @@ class Database(object, metaclass=Singleton):
                 if category:
                     search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
                 if details:
-                    # ToDo this probably outdated, should be Class instead of string
-                    search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
+                    search = search.options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
                 if sample_id is not None:
                     search = search.filter(Task.sample_id == sample_id)
                 if id_before is not None:
@@ -2411,7 +2411,7 @@ class Database(object, metaclass=Singleton):
         with self.Session() as session:
             db_sample = (
                 session.query(Sample)
-                .options(joinedload(Task.sample))
+                # .options(joinedload(Task.sample))
                 .filter(Sample.sha256 == sample_hash)
                 .filter(Task.id != task_id)
                 .filter(Sample.id == Task.sample_id)
@@ -2459,7 +2459,7 @@ class Database(object, metaclass=Singleton):
             session = self.Session()
             db_sample = (
                 session.query(Sample)
-                .options(joinedload(Task.sample))
+                # .options(joinedload(Task.sample))
                 .filter(Task.id == task_id)
                 .filter(Sample.id == Task.sample_id)
                 .first()

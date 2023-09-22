@@ -1,4 +1,2 @@
 [hosts]
 # All your private hosts goes here to not have them hardcoded all over CAPE
-# List of hostname, example domain.com,domain2.net
-csrf_trusted_origins =

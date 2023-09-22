@@ -33,16 +33,15 @@ cfg = Config("reporting")
 aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
 api_cfg = Config("api")
-hosts = Config("hosts").hosts
 
 REPROCESS_TASKS = web_cfg.general.reprocess_tasks
 # CSRF TRUSTED ORIGINS
 # For requests that include the Origin header, Django's CSRF protection
 # requires that header match the origin present in the Host header.
 
-csfr_list = [f"http://{web_cfg.general.hostname}", f"https://{web_cfg.general.hostname}"]
-if hosts.csrf_trusted_origins:
-    for host in hosts.csrf_trusted_origins.split(","):
+csfr_list = []
+if web_cfg.security.csrf_trusted_origins:
+    for host in  web_cfg.security.csrf_trusted_origins.split(","):
         csfr_list.extend([f"http://{host}", f"https://{host}"])
 
 CSRF_TRUSTED_ORIGINS = csfr_list

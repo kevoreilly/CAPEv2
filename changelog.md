@@ -1,3 +1,8 @@
+### [22.9.2023] CSRF changes
+* __IMPORTANT__. If you using __https__ please update config to use new field for __CSRF__ in `conf/web.conf`.
+    * Before: `[general]` -> `hostname`.
+    * Now: `[security]` -> `csrf_trusted_origins`
+
 ### [19.9.2023]
 * Storage of file data in MongoDB
     * Store the parts of a report's file data that is independent of a detonation in a separate collection

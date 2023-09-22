@@ -170,7 +170,10 @@ def cuckoo_clean():
     db.drop()
 
     if repconf.mongodb.enabled:
-        mongo_drop_database(mdb)
+        try:
+            mongo_drop_database(mdb)
+        except Exception as e:
+            log.error("Can't drop MongoDB. Error %s", str(e))
 
     elif repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         analyses = all_docs(index=get_analysis_index(), query={"query": {"match_all": {}}}, _source=["info.id"])

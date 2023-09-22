@@ -752,7 +752,6 @@ def ext_tasks_search(request):
 
     return Response(resp)
 
-
 # Return Task ID's and data within a range of Task ID's
 @csrf_exempt
 @api_view(["GET"])
@@ -770,6 +769,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
         limit = int(apiconf.tasklist.get("maxlimit"))
 
     completed_after = request.query_params.get("completed_after")
+    ids_only = request.query_params.get("ids")
     if completed_after:
         completed_after = datetime.fromtimestamp(int(completed_after))
 
@@ -790,7 +790,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
     resp["config"] = "Limit: {0}, Offset: {1}".format(limit, offset)
     resp["buf"] = 0
 
-    for row in db.list_tasks(
+    tasks = db.list_tasks(
         limit=limit,
         details=True,
         offset=offset,
@@ -798,29 +798,39 @@ def tasks_list(request, offset=None, limit=None, window=None):
         status=status,
         options_like=option,
         order_by=Task.completed_on.desc(),
-    ):
-        resp["buf"] += 1
-        task = row.to_dict()
-        task["guest"] = {}
-        if row.guest:
-            task["guest"] = row.guest.to_dict()
+    )
 
-        task["errors"] = []
-        for error in row.errors:
-            task["errors"].append(error.message)
+    if not tasks:
+        return Response(resp)
 
-        task["sample"] = {}
-        if row.sample_id:
-            sample = db.view_sample(row.sample_id)
-            if sample:
-                task["sample"] = sample.to_dict()
+    # Dist.py fetches only ids
+    if ids_only:
+        resp["data"] = [{"id": task.id} for task in tasks]
+    else:
+        for row in tasks:
+            resp["buf"] += 1
+            task = row.to_dict()
+            task["guest"] = {}
+            if row.guest:
+                task["guest"] = row.guest.to_dict()
 
-        if task.get("target"):
-            task["target"] = convert_to_printable(task["target"])
+            task["errors"] = []
+            for error in row.errors:
+                task["errors"].append(error.message)
 
-        resp["data"].append(task)
+            task["sample"] = {}
+            if row.sample_id:
+                sample = db.view_sample(row.sample_id)
+                if sample:
+                    task["sample"] = sample.to_dict()
+
+            if task.get("target"):
+                task["target"] = convert_to_printable(task["target"])
+
+            resp["data"].append(task)
 
     return Response(resp)
+
 
 
 @csrf_exempt

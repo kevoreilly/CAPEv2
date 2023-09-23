@@ -33,7 +33,14 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder
-from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
+from lib.cuckoo.common.web_utils import (
+    category_all_files,
+    my_rate_minutes,
+    my_rate_seconds,
+    perform_search,
+    rateblock,
+    statistics,
+)
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 
@@ -1412,7 +1419,16 @@ def report(request, task_id):
                         "analysis",
                         [
                             {"$match": {"info.id": int(task_id)}},
-                            {"$project": {"_id": 0, f"{value}_size": {"$size": {"$ifNull": [f"${key}.sha256", []]}}}},
+                            {
+                                "$project": {
+                                    "_id": 0,
+                                    f"{value}_size": {
+                                        "$add": [
+                                            {"$size": {"$ifNull": [f"${key}.{subkey}", []]}} for subkey in ("sha256", "file_ref")
+                                        ]
+                                    },
+                                },
+                            },
                         ],
                     )
                 )[0][f"{value}_size"]
@@ -1635,6 +1651,8 @@ zip_categories = (
     "droppedzipall",
     "procdumpzipall",
     "CAPEzipall",
+    "capeyarazipall",
+    "capetypezipall",
 )
 category_map = {
     "CAPE": "CAPE",
@@ -1660,7 +1678,7 @@ def file(request, category, task_id, dlfile):
     }
 
     if category in zip_categories and not HAVE_PYZIPPER:
-        return render(request, "error.html", {"error": "Missed pyzipper library"})
+        return render(request, "error.html", {"error": "Missed pyzipper library: poetry install"})
 
     if category in ("sample", "static", "staticzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
@@ -1760,7 +1778,7 @@ def file(request, category, task_id, dlfile):
                 # ToDo maybe use search func?
                 # records = mongo_find("analysis", {category: dlfile}, projection, sort=[("_id", -1)])
                 records = perform_search(category, dlfile, projection=projection)
-                # path = [block["path"] for block in records if block.get("path") and path_exists(block["path"])]
+                path = [block["path"] for block in records if block.get("path") and path_exists(block["path"])]
                 # need to walk all the keys and check path inside
             except ValueError as e:
                 print("mongodb load", e)

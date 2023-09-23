@@ -30,10 +30,19 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
+
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_is_file, path_mkdir, path_read_file, path_write_file
+from lib.cuckoo.common.path_utils import (
+    path_delete,
+    path_exists,
+    path_get_size,
+    path_is_file,
+    path_mkdir,
+    path_read_file,
+    path_write_file,
+)
 from lib.cuckoo.common.utils import get_options, is_text_file
 
 try:
@@ -656,13 +665,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
             ]
         else:
             output = run_tool(
-                [
-                    "7z",
-                    "e",
-                    f"-o{tempdir}",
-                    "-y",
-                    file
-                ],
+                ["7z", "e", f"-o{tempdir}", "-y", file],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )

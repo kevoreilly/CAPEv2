@@ -283,7 +283,7 @@
         <div class="panel panel-primary">
             <div class="panel-heading">
                 <h3 class="panel-title">Search Results</h3>
-                {% if settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
+                {% if settings.ZIPPED_DOWNLOAD_ALL and term in 'capetype,capeyara' %}
                     <center><a href="{% url 'file' {{term}}|add:'zipall' id '1' %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive with all files"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> Download All Files</a></center>
                     </br>
                 {% endif %}

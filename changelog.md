@@ -1,3 +1,7 @@
+### Download files matched by YARA
+* When doing search by `capetype` or `capeyara` we expose button to download files that only matches that search criteria.
+    * For [@fumik0_](https://twitter.com/fumik0_) with love.
+
 ### [22.9.2023] CSRF changes
 * __IMPORTANT__. If you using __https__ please update config to use new field for __CSRF__ in `conf/web.conf`.
     * Before: `[general]` -> `hostname`.

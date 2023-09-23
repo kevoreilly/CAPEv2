@@ -1739,6 +1739,31 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "evtx", "evtx.zip")
         file_name = f"{task_id}_evtx.zip"
         cd = "application/zip"
+    elif category in ("capeyarazipall", "capetypezipall"):
+        # search in mongo and get the path
+        if enabledconf["mongodb"] and web_cfg.zipped_download.download_all:
+            try:
+                projection = {
+                    "info.parent_sample.path": 1,
+                    "target.file.path": 1,
+                    "dropped.path": 1,
+                    "procdump.path": 1,
+                    "CAPE.payloads.path": 1,
+                    # file_extra_info
+                    "info.parent_sample.extracted_files_tool.path": 1,
+                    "target.file.extracted_files_tool.path": 1,
+                    "dropped.extracted_files_tool.path": 1,
+                    "procdump.extracted_files_tool.path": 1,
+                    "CAPE.payloads.extracted_files_tool.path": 1,
+                }
+                category = category.replace("zipall", "")
+                # ToDo maybe use search func?
+                # records = mongo_find("analysis", {category: dlfile}, projection, sort=[("_id", -1)])
+                records = perform_search(category, dlfile, projection=projection)
+                # path = [block["path"] for block in records if block.get("path") and path_exists(block["path"])]
+                # need to walk all the keys and check path inside
+            except ValueError as e:
+                print("mongodb load", e)
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
@@ -2026,10 +2051,18 @@ def search(request, searched=""):
             if not new:
                 continue
             analyses.append(new)
+        term_only, value_only = searched.split(":")
         return render(
             request,
             "analysis/search.html",
-            {"analyses": analyses, "config": enabledconf, "term": searched, "error": None},
+            {
+                "analyses": analyses,
+                "config": enabledconf,
+                "term": searched,
+                "error": None,
+                "term_only": term_only,
+                "value_only": value_only,
+            },
         )
     return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": None})
 

@@ -1069,6 +1069,39 @@ search_term_map = {
     ),
 }
 
+search_term_map_repetetive_blocks = {
+    "ssdeep": "ssdeep",
+    "clamav": "clamav",
+    "yaraname": "yara.name",
+    "capeyara": "cape_yara.name",
+    "capetype": "cape_type.name",
+    "md5": "md5",
+    "sha1": "sha1",
+    "sha256": "sha256",
+    "sha3": "sha3_384",
+    "sha512": "sha512",
+    "die": "die",
+    "trid": "trid",
+    "imphash": "imphash",
+}
+
+search_term_map_base_naming = (
+    "info.parent_sample",
+    "target.file",
+    "dropped",
+    "procdump",
+    "CAPE.payloads"
+    # file_extra_info
+    "info.parent_sample.extracted_files_tool",
+    "target.file.extracted_files_tool",
+    "dropped.extracted_files_tool",
+    "procdump.extracted_files_tool",
+    "CAPE.payloads.extracted_files_tool",
+)
+
+for key, value in search_term_map_repetetive_blocks.items():
+    search_term_map.update({key: [f"{path}.{value}" for path in search_term_map_base_naming]})
+
 # search terms that will be forwarded to mongodb in a lowered normalized form
 normalized_lower_terms = (
     "target_sha256",

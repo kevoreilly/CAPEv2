@@ -276,7 +276,11 @@
     </div>
 </div>
 {% if term %}
-    <h3>Term <span class="text-danger"><i>{{term}}</i></span></h3>
+    <h3>Term <span class="text-danger"><i>{{term}}</i></span>
+    {% if settings.ZIPPED_DOWNLOAD_ALL and term_only in 'capetype,capeyara' %}
+        <center><a href="{% url 'file' term_only|add:'zipall' '1' value_only %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive with all files that matches searched term. All, not only initial target."><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> Download All Files</a></center>
+    {% endif %}
+    </h3>
 {% endif %}
 {% if analyses != None %}
     {% if analyses|length > 0 %}

@@ -973,9 +973,6 @@ search_term_map = {
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
-    "ssdeep": ("info.parent_sample.ssdeep", "target.file.ssdeep", "dropped.ssdeep", "procdump.ssdeep", "CAPE.payloads.ssdeep"),
-    "trid": "trid",
-    "crc32": ("info.parent_sample.crc32", "target.file.crc32", "dropped.crc32", "procdump.crc32", "CAPE.payloads.crc32"),
     "file": "behavior.summary.files",
     "command": "behavior.summary.executed_commands",
     "configs": "CAPE.configs",
@@ -990,8 +987,6 @@ search_term_map = {
     "url": "target.url",
     "iconhash": "static.pe.icon_hash",
     "iconfuzzy": "static.pe.icon_fuzzy",
-    # probably needs extend
-    "imphash": "static.pe.imphash",
     "surihttp": "suricata.http",
     "suritls": "suricata.tls",
     "surisid": "suricata.alerts.sid",
@@ -1015,34 +1010,6 @@ search_term_map = {
     "custom": "info.custom",
     # initial binary
     "target_sha256": "target.file.sha256",
-    # should be on all
-    "clamav": ("info.parent_sample.clamav", "target.file.clamav", "dropped.clamav", "procdump.clamav", "CAPE.payloads.clamav"),
-    "yaraname": (
-        "info.parent_sample.yara.name",
-        "target.file.yara.name",
-        "dropped.yara.name",
-        "procdump.yara.name",
-        "CAPE.payloads.yara.name",
-    ),
-    "capeyara": (
-        "info.parent_sample.cape_yara.name",
-        "target.file.cape_yara.name",
-        "dropped.cape_yara.name",
-        "procdump.cape_yara.name",
-        "CAPE.payloads.cape_yara.name",
-    ),
-    "capetype": (
-        "info.parent_sample.cape_type",
-        "target.file.cape_type",
-        "dropped.cape_type",
-        "procdump.cape_type",
-        "CAPE.payloads.cape_type",
-    ),
-    "md5": ("info.parent_sample.md5", "target.file.md5", "dropped.md5", "procdump.md5", "CAPE.payloads.md5"),
-    "sha1": ("info.parent_sample.sha1", "target.file.sha1", "dropped.sha1", "procdump.sha1", "CAPE.payloads.sha1"),
-    "sha3": ("info.parent_sample.sha3", "target.file.sha3_384", "dropped.sha3_384", "procdump.sha3_384", "CAPE.payloads.sha3_384"),
-    "sha256": ("info.parent_sample.sha256", "target.file.sha256", "dropped.sha256", "procdump.sha256", "CAPE.payloads.sha256"),
-    "sha512": ("info.parent_sample.sha512", "target.file.sha512", "dropped.sha512", "procdump.sha512", "CAPE.payloads.sha512"),
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
@@ -1058,7 +1025,6 @@ search_term_map = {
         "network.udp.dport",
         "network.smtp_ex.dport",
     ),
-    "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
     # File_extra_info
     "extracted_tool": (
         "info.parent_sample.extracted_files_tool",
@@ -1068,6 +1034,39 @@ search_term_map = {
         "CAPE.payloads.extracted_files_tool",
     ),
 }
+
+search_term_map_repetetive_blocks = {
+    "ssdeep": "ssdeep",
+    "clamav": "clamav",
+    "yaraname": "yara.name",
+    "capeyara": "capeyara.name",
+    "capetype": "cape_type.name",
+    "md5": "md5",
+    "sha1": "sha1",
+    "sha256": "sha256",
+    "sha3": "sha3_384",
+    "sha512": "sha512",
+    "die": "die",
+    "trid": "trid",
+    "imphash": "imphash",
+}
+
+search_term_map_base_naming = (
+    "info.parent_sample",
+    "target.file",
+    "dropped",
+    "procdump",
+    "CAPE.payloade"
+    # file_extra_info
+    "info.parent_sample.extracted_files_tool",
+    "target.file.extracted_files_tool",
+    "dropped.extracted_files_tool",
+    "procdump.extracted_files_tool",
+    "CAPE.payloads.extracted_files_tool",
+)
+
+for key, value in search_term_map_repetetive_blocks.items():
+    search_term_map.update({key: [f"{value}.{key}" for path in search_term_map_base_naming]})
 
 # search terms that will be forwarded to mongodb in a lowered normalized form
 normalized_lower_terms = (
@@ -1093,7 +1092,7 @@ normalized_int_terms = (
 )
 
 
-def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True):
+def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True, projection={}):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
@@ -1171,7 +1170,11 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
             mongo_search_query = {search_term_map[term]: query_val}
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
-        return mongo_find("analysis", mongo_search_query, perform_search_filters).sort([["_id", -1]]).limit(search_limit)
+
+        # Allow to overwrite perform_search_filters for custom results
+        if not projection:
+            projection = perform_search_filters
+        return mongo_find("analysis", mongo_search_query, projection).sort([["_id", -1]]).limit(search_limit)
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
         if isinstance(search_term_map[term], str):

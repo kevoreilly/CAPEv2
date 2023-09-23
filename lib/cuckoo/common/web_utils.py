@@ -1290,7 +1290,7 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
 
-        # Allow to overwrite perform_search_filters for cutom results
+        # Allow to overwrite perform_search_filters for custom results
         if not projection:
             projection = perform_search_filters
         return mongo_find("analysis", mongo_search_query, projection).sort([["_id", -1]]).limit(search_limit)

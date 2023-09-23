@@ -46,6 +46,5 @@ def get_clamav(file_path):
             log.warning("failed to connect to clamd socket")
         except Exception as e:
             log.warning("failed to scan file with clamav %s", e)
-        finally:
-            return matches
+
     return matches

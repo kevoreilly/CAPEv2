@@ -40,7 +40,6 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     rateblock,
     statistics,
-    search_term_map,
 )
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE

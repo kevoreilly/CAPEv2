@@ -973,9 +973,7 @@ search_term_map = {
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
-    "ssdeep": ("info.parent_sample.ssdeep", "target.file.ssdeep", "dropped.ssdeep", "procdump.ssdeep", "CAPE.payloads.ssdeep"),
     "trid": "trid",
-    "crc32": ("info.parent_sample.crc32", "target.file.crc32", "dropped.crc32", "procdump.crc32", "CAPE.payloads.crc32"),
     "file": "behavior.summary.files",
     "command": "behavior.summary.executed_commands",
     "configs": "CAPE.configs",
@@ -1015,34 +1013,6 @@ search_term_map = {
     "custom": "info.custom",
     # initial binary
     "target_sha256": "target.file.sha256",
-    # should be on all
-    "clamav": ("info.parent_sample.clamav", "target.file.clamav", "dropped.clamav", "procdump.clamav", "CAPE.payloads.clamav"),
-    "yaraname": (
-        "info.parent_sample.yara.name",
-        "target.file.yara.name",
-        "dropped.yara.name",
-        "procdump.yara.name",
-        "CAPE.payloads.yara.name",
-    ),
-    "capeyara": (
-        "info.parent_sample.cape_yara.name",
-        "target.file.cape_yara.name",
-        "dropped.cape_yara.name",
-        "procdump.cape_yara.name",
-        "CAPE.payloads.cape_yara.name",
-    ),
-    "capetype": (
-        "info.parent_sample.cape_type",
-        "target.file.cape_type",
-        "dropped.cape_type",
-        "procdump.cape_type",
-        "CAPE.payloads.cape_type",
-    ),
-    "md5": ("info.parent_sample.md5", "target.file.md5", "dropped.md5", "procdump.md5", "CAPE.payloads.md5"),
-    "sha1": ("info.parent_sample.sha1", "target.file.sha1", "dropped.sha1", "procdump.sha1", "CAPE.payloads.sha1"),
-    "sha3": ("info.parent_sample.sha3", "target.file.sha3_384", "dropped.sha3_384", "procdump.sha3_384", "CAPE.payloads.sha3_384"),
-    "sha256": ("info.parent_sample.sha256", "target.file.sha256", "dropped.sha256", "procdump.sha256", "CAPE.payloads.sha256"),
-    "sha512": ("info.parent_sample.sha512", "target.file.sha512", "dropped.sha512", "procdump.sha512", "CAPE.payloads.sha512"),
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
@@ -1058,7 +1028,6 @@ search_term_map = {
         "network.udp.dport",
         "network.smtp_ex.dport",
     ),
-    "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
     # File_extra_info
     "extracted_tool": (
         "info.parent_sample.extracted_files_tool",
@@ -1066,6 +1035,155 @@ search_term_map = {
         "dropped.extracted_files_tool",
         "procdump.extracted_files_tool",
         "CAPE.payloads.extracted_files_tool",
+    ),
+    # ToDo consider this to be generated in a loop
+    "ssdeep": (
+        "info.parent_sample.ssdeep",
+        "target.file.ssdeep",
+        "dropped.ssdeep",
+        "procdump.ssdeep",
+        "CAPE.payloads.ssdeep"
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.ssdeep",
+        "target.file.extracted_files_tool.ssdeep",
+        "dropped.extracted_files_tool.ssdeep",
+        "procdump.extracted_files_tool.ssdeep",
+        "CAPE.payloads.extracted_files_tool.ssdeep",
+    ),
+    "clamav": (
+        "info.parent_sample.clamav",
+        "target.file.clamav",
+        "dropped.clamav",
+        "procdump.clamav",
+        "CAPE.payloads.clamav"
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.clamav",
+        "target.file.extracted_files_tool.clamav",
+        "dropped.extracted_files_tool.clamav",
+        "procdump.extracted_files_tool.clamav",
+        "CAPE.payloads.extracted_files_tool.clamav",
+    ),
+    "yaraname": (
+        "info.parent_sample.yara.name",
+        "target.file.yara.name",
+        "dropped.yara.name",
+        "procdump.yara.name",
+        "CAPE.payloads.yara.name",
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.yara.name",
+        "target.file.extracted_files_tool.yara.name",
+        "dropped.extracted_files_tool.yara.name",
+        "procdump.extracted_files_tool.yara.name",
+        "CAPE.payloads.extracted_files_tool.yara.name",
+    ),
+    "capeyara": (
+        "info.parent_sample.cape_yara.name",
+        "target.file.cape_yara.name",
+        "dropped.cape_yara.name",
+        "procdump.cape_yara.name",
+        "CAPE.payloads.cape_yara.name",
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.capeyara.name",
+        "target.file.extracted_files_tool.capeyara.name",
+        "dropped.extracted_files_tool.capeyara.name",
+        "procdump.extracted_files_tool.capeyara.name",
+        "CAPE.payloads.extracted_files_tool.capeyara.name",
+    ),
+    "capetype": (
+        "info.parent_sample.cape_type",
+        "target.file.cape_type",
+        "dropped.cape_type",
+        "procdump.cape_type",
+        "CAPE.payloads.cape_type",
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.cape_type",
+        "target.file.extracted_files_tool.cape_type",
+        "dropped.extracted_files_tool.cape_type",
+        "procdump.extracted_files_tool.cape_type",
+        "CAPE.payloads.extracted_files_tool.cape_type",
+    ),
+    "md5": (
+        "info.parent_sample.md5",
+        "target.file.md5",
+        "dropped.md5",
+        "procdump.md5",
+        "CAPE.payloads.md5",
+        "file.extracted_files.md5",
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.md5",
+        "target.file.extracted_files_tool.md5",
+        "dropped.extracted_files_tool.md5",
+        "procdump.extracted_files_tool.md5",
+        "CAPE.payloads.extracted_files_tool.md5",
+    ),
+    "sha1": (
+        "info.parent_sample.sha1",
+        "target.file.sha1",
+        "dropped.sha1",
+        "procdump.sha1",
+        "CAPE.payloads.sha1",
+        "file.extracted_files.sha1",
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.sha1",
+        "target.file.extracted_files_tool.sha1",
+        "dropped.extracted_files_tool.sha1",
+        "procdump.extracted_files_tool.sha1",
+        "CAPE.payloads.extracted_files_tool.sha1",
+    ),
+    "sha3": (
+        "info.parent_sample.sha3",
+        "target.file.sha3_384",
+        "dropped.sha3_384",
+        "procdump.sha3_384",
+        "CAPE.payloads.sha3_384",
+        "file.extracted_files.sha3_384",
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.sha3_384",
+        "target.file.extracted_files_tool.sha3_384",
+        "dropped.extracted_files_tool.sha3_384",
+        "procdump.extracted_files_tool.sha3_384",
+        "CAPE.payloads.extracted_files_tool.sha3_384",
+    ),
+    "sha256": (
+        "info.parent_sample.sha256",
+        "target.file.sha256",
+        "dropped.sha256",
+        "procdump.sha256",
+        "CAPE.payloads.sha256",
+        "file.extracted_files.sha256",
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.sha256",
+        "target.file.extracted_files_tool.sha256",
+        "dropped.extracted_files_tool.sha256",
+        "procdump.extracted_files_tool.sha256",
+        "CAPE.payloads.extracted_files_tool.sha256",
+    ),
+    "sha512": (
+        "info.parent_sample.sha512",
+        "target.file.sha512",
+        "dropped.sha512",
+        "procdump.sha512",
+        "CAPE.payloads.sha512",
+        "file.extracted_files.sha512",
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.sha512",
+        "target.file.extracted_files_tool.sha512",
+        "dropped.extracted_files_tool.sha512",
+        "procdump.extracted_files_tool.sha512",
+        "CAPE.payloads.extracted_files_tool.sha512",
+    ),
+    "die": (
+        "info.parent_sample.die",
+        "target.file.die",
+        "dropped.die",
+        "procdump.die",
+        "CAPE.payloads.die"
+        # file_extra_info
+        "info.parent_sample.extracted_files_tool.die",
+        "target.file.extracted_files_tool.die",
+        "dropped.extracted_files_tool.die",
+        "procdump.extracted_files_tool.die",
+        "CAPE.payloads.extracted_files_tool.die",
     ),
 }
 
@@ -1093,7 +1211,7 @@ normalized_int_terms = (
 )
 
 
-def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True):
+def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True, projection={}):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
@@ -1171,7 +1289,11 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
             mongo_search_query = {search_term_map[term]: query_val}
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
-        return mongo_find("analysis", mongo_search_query, perform_search_filters).sort([["_id", -1]]).limit(search_limit)
+
+        # Allow to overwrite perform_search_filters for cutom results
+        if not projection:
+            projection = perform_search_filters
+        return mongo_find("analysis", mongo_search_query, projection).sort([["_id", -1]]).limit(search_limit)
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
         if isinstance(search_term_map[term], str):

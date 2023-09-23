@@ -1412,7 +1412,16 @@ def report(request, task_id):
                         "analysis",
                         [
                             {"$match": {"info.id": int(task_id)}},
-                            {"$project": {"_id": 0, f"{value}_size": {"$size": {"$ifNull": [f"${key}.sha256", []]}}}},
+                            {
+                                "$project": {
+                                    "_id": 0,
+                                    f"{value}_size": {
+                                        "$add": [
+                                            {"$size": {"$ifNull": [f"${key}.{subkey}", []]}} for subkey in ("sha256", "file_ref")
+                                        ]
+                                    },
+                                },
+                            },
                         ],
                     )
                 )[0][f"{value}_size"]

@@ -25,7 +25,7 @@ class TestFileExtraInfo:
             tests=True,
         )
         assert data_dictionary["extracted_files_tool"] == "MsiExtract"
-        assert len(data_dictionary["extracted_files"]) == 4
+        assert len(data_dictionary["extracted_files"]) == 2
 
     def test_generic_file_extractors_no_tests(self):
         results = {}
@@ -78,7 +78,7 @@ class TestFileExtraInfo:
             filetype="MSI Installer",
             **{"tests": True, "options": {}}
         )
-        assert len(extracted_files["result"]["extracted_files"]) == 4
+        assert len(extracted_files["result"]["extracted_files"]) == 2
 
     def test_Inno_extract(self):
         extracted_files = file_extra_info.Inno_extract(

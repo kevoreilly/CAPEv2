@@ -923,8 +923,6 @@ def validate_task(tid, status=TASK_REPORTED):
     elif status == task.status:
         if tid != task_id:
             return {"error": False, "rtid": task_id}
-        else:
-            return {"error": False}
         return {"error": False}
     elif task.status in {TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING}:
         return {"error": True, "error_value": "Task failed"}

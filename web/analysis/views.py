@@ -1661,6 +1661,90 @@ category_map = {
 }
 
 
+def _file_search_all_files(search_category: str, search_term: str) -> list:
+    path = []
+    try:
+        projection = {
+            "info.parent_sample.path": 1,
+            "info.parent_sample.cape_yara.name": 1,
+            "info.parent_sample.cape_type": 1,
+            "target.file.path": 1,
+            "target.file.cape_yara.name": 1,
+            "target.file.cape_type": 1,
+            "dropped.path": 1,
+            "dropped.cape_yara.name": 1,
+            "dropped.cape_type": 1,
+            "procdump.path": 1,
+            "procdump.cape_yara.name": 1,
+            "procdump.cape_type": 1,
+            "CAPE.payloads.path": 1,
+            "CAPE.payloads.cape_yara.name": 1,
+            "CAPE.payloads.cape_type": 1,
+            # file_extra_info # file_ecape_name_info # file_.cape_type_info
+            "info.parent_sample.extracted_files_tool.path": 1,
+            "info.parent_sample.extracted_files_tool.cape_yara.name": 1,
+            "info.parent_sample.extracted_files_tool.cape_type": 1,
+            "target.file.extracted_files_tool.path": 1,
+            "target.file.extracted_files_tool.cape_yara.name": 1,
+            "target.file.extracted_files_tool.cape_type": 1,
+            "dropped.extracted_files_tool.path": 1,
+            "dropped.extracted_files_tool.cape_yara.name": 1,
+            "dropped.extracted_files_tool.cape_type": 1,
+            "procdump.extracted_files_tool.path": 1,
+            "procdump.extracted_files_tool.cape_yara.name": 1,
+            "procdump.extracted_files_tool.cape_type": 1,
+            "CAPE.payloads.extracted_files_tool.path": 1,
+            "CAPE.payloads.extracted_files_tool.cape_yara.name": 1,
+            "CAPE.payloads.extracted_files_tool.cape_type": 1,
+        }
+        records = perform_search(search_category, search_term, projection=projection)
+        search_term = search_term.lower()
+        # ToDo move this all to aux func
+        for block in records:
+            if search_term in block.get("target", {}).get("file", {}).get("cape_type", "").lower() or any(
+                [
+                    search_term in subblock.get("name", "").lower()
+                    for subblock in block.get("target", {}).get("file", {}).get("cape_yara", [])
+                ]
+            ):
+                path.append(block["target"]["file"]["path"])
+            elif search_term in block.get("info", {}).get("parent_sample", {}).get("cape_type", "").lower() or any(
+                [
+                    search_term in subblock.get("name", "").lower()
+                    for subblock in block.get("info", {}).get("parent_sample", {}).get("cape_yara", [])
+                ]
+            ):
+                path.append(block["info"]["parent_sample"]["path"])
+            """ ToDo
+            elif search_term in block.get("target", {}).get("file", {}).get("extracted_files_tool", {}).get("cape_type").lower() or search_term in block.get("target", {}).get("file", {}).get("extracted_files_tool", {}).get("cape_yara", []):
+                path.append(block["target"]["file"]["path"])
+            elif search_term in block.get("info", {}).get("parent_sample", {}).get("extracted_files_tool", {}).get("cape_type").lower() or search_term in block.get("info", {}).get("parent_sample", {}).get("extracted_files_tool", {}).get("cape_yara", []):
+                path.append(block["info"]["parent_sample"]["path"])
+            """
+            for key in ("procdump", "dropped", "CAPE"):
+                if block.get(key):
+                    if key == "CAPE":
+                        data = block.get(key, {}).get("payloads", [])
+                    else:
+                        data = block.get(key, [])
+                    for subblock in data:
+                        if search_term in subblock.get("cape_type", "").lower() or any(
+                            [search_term in subsub.get("name", "").lower() for subsub in subblock.get("cape_yara", [])]
+                        ):
+                            path.append(subblock["path"])
+
+                    for subsub in data.get("extracted_files_tool", []):
+                        if search_term in subsub.get("cape_type", "").lower() or any(
+                            [search_term in subsubsub.get("name", "").lower() for subsubsub in subsub.get("cape_yara", [])]
+                        ):
+                            path.append(subsub["path"])
+    except ValueError as e:
+        print("mongodb load", e)
+
+    # remove any duplicated before return
+    return list(set(path))
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @csrf_exempt
@@ -1760,28 +1844,7 @@ def file(request, category, task_id, dlfile):
     elif category in ("capeyarazipall", "capetypezipall"):
         # search in mongo and get the path
         if enabledconf["mongodb"] and web_cfg.zipped_download.download_all:
-            try:
-                projection = {
-                    "info.parent_sample.path": 1,
-                    "target.file.path": 1,
-                    "dropped.path": 1,
-                    "procdump.path": 1,
-                    "CAPE.payloads.path": 1,
-                    # file_extra_info
-                    "info.parent_sample.extracted_files_tool.path": 1,
-                    "target.file.extracted_files_tool.path": 1,
-                    "dropped.extracted_files_tool.path": 1,
-                    "procdump.extracted_files_tool.path": 1,
-                    "CAPE.payloads.extracted_files_tool.path": 1,
-                }
-                category = category.replace("zipall", "")
-                # ToDo maybe use search func?
-                # records = mongo_find("analysis", {category: dlfile}, projection, sort=[("_id", -1)])
-                records = perform_search(category, dlfile, projection=projection)
-                path = [block["path"] for block in records if block.get("path") and path_exists(block["path"])]
-                # need to walk all the keys and check path inside
-            except ValueError as e:
-                print("mongodb load", e)
+            path = _file_search_all_files(category.replace("zipall", ""), dlfile)
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 

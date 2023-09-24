@@ -1662,6 +1662,7 @@ category_map = {
 
 
 def _file_search_all_files(search_category: str, search_term: str) -> list:
+    """ToDo find a way to unify with yara_detected from abstracts.py"""
     path = []
     try:
         projection = {
@@ -1680,7 +1681,6 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
             "CAPE.payloads.path": 1,
             "CAPE.payloads.cape_yara.name": 1,
             "CAPE.payloads.cape_type": 1,
-            # file_extra_info # file_ecape_name_info # file_.cape_type_info
             "info.parent_sample.extracted_files_tool.path": 1,
             "info.parent_sample.extracted_files_tool.cape_yara.name": 1,
             "info.parent_sample.extracted_files_tool.cape_type": 1,

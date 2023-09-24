@@ -1,5 +1,5 @@
 ### Download files matched by YARA
-* When doing search by `capetype` or `capeyara` we expose button to download files that only matches that search criteria.
+* When doing search by `capeyara` we expose button to download files that only matches that search criteria.
     * For [@fumik0_](https://twitter.com/fumik0_) with love.
 
 ### [22.9.2023] CSRF changes

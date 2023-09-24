@@ -886,3 +886,68 @@ def get_ip_address(ifname):
 def validate_ttp(ttp: str) -> bool:
     regex = r"^(O?[BCTFSU]\d{4}(\.\d{3})?)|(E\d{4}(\.m\d{2})?)$"
     return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))
+
+
+def yara_detected(name, results):
+    for result in results:
+        target = result.get("target", {})
+        if target.get("category") in ("file", "static") and target.get("file"):
+            for keyword in ("cape_yara", "yara"):
+                for yara_block in results["target"]["file"].get(keyword, []):
+                    if re.findall(name, yara_block["name"], re.I):
+                        yield "sample", results["target"]["file"]["path"], yara_block, results["target"]["file"]
+
+            for block in target["file"].get("extracted_files", []):
+                for keyword in ("cape_yara", "yara"):
+                    for yara_block in block[keyword]:
+                        if re.findall(name, yara_block["name"], re.I):
+                            # we can't use here values from set_path
+                            yield "sample", block["path"], yara_block, block
+
+        for block in result.get("CAPE", {}).get("payloads", []) or []:
+            for sub_keyword in ("cape_yara", "yara"):
+                for yara_block in block.get(sub_keyword, []):
+                    if re.findall(name, yara_block["name"], re.I):
+                        yield sub_keyword, block["path"], yara_block, block
+
+            for subblock in block.get("extracted_files", []):
+                for keyword in ("cape_yara", "yara"):
+                    for yara_block in subblock[keyword]:
+                        if re.findall(name, yara_block["name"], re.I):
+                            yield "sample", subblock["path"], yara_block, block
+
+        for keyword in ("procdump", "procmemory", "extracted", "dropped"):
+            for block in result.get(keyword, []):
+                if not isinstance(block, dict):
+                    continue
+                for sub_keyword in ("cape_yara", "yara"):
+                    for yara_block in block.get(sub_keyword, []):
+                        if re.findall(name, yara_block["name"], re.I):
+                            path = block["path"] if block.get("path", False) else ""
+                            yield keyword, path, yara_block, block
+                    if keyword == "procmemory":
+                        for pe in block.get("extracted_pe", []) or []:
+                            for yara_block in pe.get(sub_keyword, []) or []:
+                                if re.findall(name, yara_block["name"], re.I):
+                                    yield "extracted_pe", pe["path"], yara_block, block
+                for subblock in block.get("extracted_files", []):
+                    for keyword in ("cape_yara", "yara"):
+                        for yara_block in subblock[keyword]:
+                            if re.findall(name, yara_block["name"], re.I):
+                                yield "sample", subblock["path"], yara_block, block
+
+        """
+        macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(results["info"]["id"]), "macros")
+        for macroname in result.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
+            for yara_block in results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
+                for sub_block in results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
+                    if re.findall(name, sub_block["name"], re.I):
+                        yield "macro", os.path.join(macro_path, macroname), sub_block, results["static"]["office"]["Macro"]["info"]
+
+        if result.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
+            for yara_block in results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
+                if re.findall(name, yara_block["name"], re.I):
+                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, results["static"]["office"][
+                        "XLMMacroDeobfuscator"
+                    ]["info"]
+        """

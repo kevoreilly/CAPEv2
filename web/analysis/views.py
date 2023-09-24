@@ -32,7 +32,7 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
-from lib.cuckoo.common.utils import delete_folder
+from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import (
     category_all_files,
     my_rate_minutes,
@@ -1662,7 +1662,6 @@ category_map = {
 
 
 def _file_search_all_files(search_category: str, search_term: str) -> list:
-    """ToDo find a way to unify with yara_detected from abstracts.py"""
     path = []
     try:
         projection = {
@@ -1699,45 +1698,8 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
         }
         records = perform_search(search_category, search_term, projection=projection)
         search_term = search_term.lower()
-        # ToDo move this all to aux func
-        for block in records:
-            if search_term in block.get("target", {}).get("file", {}).get("cape_type", "").lower() or any(
-                [
-                    search_term in subblock.get("name", "").lower()
-                    for subblock in block.get("target", {}).get("file", {}).get("cape_yara", [])
-                ]
-            ):
-                path.append(block["target"]["file"]["path"])
-            elif search_term in block.get("info", {}).get("parent_sample", {}).get("cape_type", "").lower() or any(
-                [
-                    search_term in subblock.get("name", "").lower()
-                    for subblock in block.get("info", {}).get("parent_sample", {}).get("cape_yara", [])
-                ]
-            ):
-                path.append(block["info"]["parent_sample"]["path"])
-            """ ToDo
-            elif search_term in block.get("target", {}).get("file", {}).get("extracted_files_tool", {}).get("cape_type").lower() or search_term in block.get("target", {}).get("file", {}).get("extracted_files_tool", {}).get("cape_yara", []):
-                path.append(block["target"]["file"]["path"])
-            elif search_term in block.get("info", {}).get("parent_sample", {}).get("extracted_files_tool", {}).get("cape_type").lower() or search_term in block.get("info", {}).get("parent_sample", {}).get("extracted_files_tool", {}).get("cape_yara", []):
-                path.append(block["info"]["parent_sample"]["path"])
-            """
-            for key in ("procdump", "dropped", "CAPE"):
-                if block.get(key):
-                    if key == "CAPE":
-                        data = block.get(key, {}).get("payloads", [])
-                    else:
-                        data = block.get(key, [])
-                    for subblock in data:
-                        if search_term in subblock.get("cape_type", "").lower() or any(
-                            [search_term in subsub.get("name", "").lower() for subsub in subblock.get("cape_yara", [])]
-                        ):
-                            path.append(subblock["path"])
-
-                    for subsub in data.get("extracted_files_tool", []):
-                        if search_term in subsub.get("cape_type", "").lower() or any(
-                            [search_term in subsubsub.get("name", "").lower() for subsubsub in subsub.get("cape_yara", [])]
-                        ):
-                            path.append(subsub["path"])
+        for _, filepath, _, _ in yara_detected(search_term, records):
+            path.append(filepath)
     except ValueError as e:
         print("mongodb load", e)
 

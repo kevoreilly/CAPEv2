@@ -2050,6 +2050,8 @@ def search(request, searched=""):
         if isinstance(value, str):
             value = value.replace("\\", "\\\\")
 
+        term_only, value_only = term, value
+
         try:
             records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff)
         except ValueError:
@@ -2078,7 +2080,7 @@ def search(request, searched=""):
             if not new:
                 continue
             analyses.append(new)
-        term_only, value_only = searched.split(":")
+
         return render(
             request,
             "analysis/search.html",

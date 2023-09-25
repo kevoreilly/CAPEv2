@@ -17,7 +17,7 @@ if repconf.mongodb.enabled:
     from pymongo.errors import AutoReconnect, ConnectionFailure, OperationFailure, ServerSelectionTimeoutError
 
     if version_tuple[0] < 4:
-        log.warning("You using old version of PyMongo, upgrade: pip3 install pymongo -U")
+        log.warning("You using old version of PyMongo, upgrade: poetry install")
 
 MAX_AUTO_RECONNECT_ATTEMPTS = 5
 

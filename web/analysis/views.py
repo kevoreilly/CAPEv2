@@ -32,8 +32,15 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
-from lib.cuckoo.common.utils import delete_folder
-from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
+from lib.cuckoo.common.utils import delete_folder, yara_detected
+from lib.cuckoo.common.web_utils import (
+    category_all_files,
+    my_rate_minutes,
+    my_rate_seconds,
+    perform_search,
+    rateblock,
+    statistics,
+)
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 
@@ -1644,12 +1651,49 @@ zip_categories = (
     "droppedzipall",
     "procdumpzipall",
     "CAPEzipall",
+    "capeyarazipall",
 )
 category_map = {
     "CAPE": "CAPE",
     "procdump": "procdump",
     "dropped": "files",
 }
+
+
+def _file_search_all_files(search_category: str, search_term: str) -> list:
+    path = []
+    try:
+        projection = {
+            "info.parent_sample.path": 1,
+            "info.parent_sample.cape_yara.name": 1,
+            "target.file.path": 1,
+            "target.file.cape_yara.name": 1,
+            "dropped.path": 1,
+            "dropped.cape_yara.name": 1,
+            "procdump.path": 1,
+            "procdump.cape_yara.name": 1,
+            "CAPE.payloads.path": 1,
+            "CAPE.payloads.cape_yara.name": 1,
+            "info.parent_sample.extracted_files_tool.path": 1,
+            "info.parent_sample.extracted_files_tool.cape_yara.name": 1,
+            "target.file.extracted_files_tool.path": 1,
+            "target.file.extracted_files_tool.cape_yara.name": 1,
+            "dropped.extracted_files_tool.path": 1,
+            "dropped.extracted_files_tool.cape_yara.name": 1,
+            "procdump.extracted_files_tool.path": 1,
+            "procdump.extracted_files_tool.cape_yara.name": 1,
+            "CAPE.payloads.extracted_files_tool.path": 1,
+            "CAPE.payloads.extracted_files_tool.cape_yara.name": 1,
+        }
+        records = perform_search(search_category, search_term, projection=projection)
+        search_term = search_term.lower()
+        for _, filepath, _, _ in yara_detected(search_term, records):
+            path.append(filepath)
+    except ValueError as e:
+        print("mongodb load", e)
+
+    # remove any duplicated before return
+    return list(set(path))
 
 
 @require_safe
@@ -1669,7 +1713,7 @@ def file(request, category, task_id, dlfile):
     }
 
     if category in zip_categories and not HAVE_PYZIPPER:
-        return render(request, "error.html", {"error": "Missed pyzipper library"})
+        return render(request, "error.html", {"error": "Missed pyzipper library: poetry install"})
 
     if category in ("sample", "static", "staticzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
@@ -1748,6 +1792,10 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "evtx", "evtx.zip")
         file_name = f"{task_id}_evtx.zip"
         cd = "application/zip"
+    elif category in ("capeyarazipall", "capetypezipall"):
+        # search in mongo and get the path
+        if enabledconf["mongodb"] and web_cfg.zipped_download.download_all:
+            path = _file_search_all_files(category.replace("zipall", ""), dlfile)
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
@@ -2035,10 +2083,18 @@ def search(request, searched=""):
             if not new:
                 continue
             analyses.append(new)
+        term_only, value_only = searched.split(":")
         return render(
             request,
             "analysis/search.html",
-            {"analyses": analyses, "config": enabledconf, "term": searched, "error": None},
+            {
+                "analyses": analyses,
+                "config": enabledconf,
+                "term": searched,
+                "error": None,
+                "term_only": term_only,
+                "value_only": value_only,
+            },
         )
     return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": None})
 

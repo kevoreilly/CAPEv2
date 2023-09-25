@@ -30,13 +30,10 @@ def decode(data):
 
 
 def extract_config(data):
-    pe = pefile.PE(data=data)
-    for section in pe.sections:
-        if b"CODE" in section.Name:
-            return decode(section.get_data())
+    return decode(data)
 
 
 if __name__ == "__main__":
     with open(sys.argv[1], "rb") as infile:
-        t = extract_config(infile.read())
+        t = decode(infile.read())
         print(t)

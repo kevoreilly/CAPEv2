@@ -1681,6 +1681,8 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
         records = perform_search(search_category, search_term, projection=projection)
         search_term = search_term.lower()
         for _, filepath, _, _ in yara_detected(search_term, records):
+            if not path_exists(filepath):
+                continue
             path.append(filepath)
     except ValueError as e:
         print("mongodb load", e)

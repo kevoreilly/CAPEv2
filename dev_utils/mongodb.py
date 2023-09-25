@@ -19,6 +19,29 @@ if repconf.mongodb.enabled:
     if version_tuple[0] < 4:
         log.warning("You using old version of PyMongo, upgrade: poetry install")
 
+    def connect_to_mongo() -> MongoClient:
+        try:
+            return MongoClient(
+                host=repconf.mongodb.get("host", "127.0.0.1"),
+                port=repconf.mongodb.get("port", 27017),
+                username=repconf.mongodb.get("username"),
+                password=repconf.mongodb.get("password"),
+                authSource=repconf.mongodb.get("authsource", "cuckoo"),
+                tlsCAFile=repconf.mongodb.get("tlscafile", None),
+                connect=False,
+            )
+        except (ConnectionFailure, ServerSelectionTimeoutError):
+            log.error("Cannot connect to MongoDB")
+        except Exception as e:
+            log.warning("Unable to connect to MongoDB database: %s, %s", mdb, e)
+
+    # code.interact(local=dict(locals(), **globals()))
+    # q = results_db.analysis.find({"info.id": 26}, {"memory": 1})
+    # https://pymongo.readthedocs.io/en/stable/changelog.html
+
+    conn = connect_to_mongo()
+    results_db = conn[mdb]
+
 MAX_AUTO_RECONNECT_ATTEMPTS = 5
 
 
@@ -38,29 +61,6 @@ def graceful_auto_reconnect(mongo_op_func: Callable):
     return wrapper
 
 
-def connect_to_mongo() -> MongoClient:
-    try:
-        return MongoClient(
-            host=repconf.mongodb.get("host", "127.0.0.1"),
-            port=repconf.mongodb.get("port", 27017),
-            username=repconf.mongodb.get("username"),
-            password=repconf.mongodb.get("password"),
-            authSource=repconf.mongodb.get("authsource", "cuckoo"),
-            tlsCAFile=repconf.mongodb.get("tlscafile", None),
-            connect=False,
-        )
-    except (ConnectionFailure, ServerSelectionTimeoutError):
-        log.error("Cannot connect to MongoDB")
-    except Exception as e:
-        log.warning("Unable to connect to MongoDB database: %s, %s", mdb, e)
-
-
-# code.interact(local=dict(locals(), **globals()))
-# q = results_db.analysis.find({"info.id": 26}, {"memory": 1})
-# https://pymongo.readthedocs.io/en/stable/changelog.html
-
-conn = connect_to_mongo()
-results_db = conn[mdb]
 hooks = collections.defaultdict(lambda: collections.defaultdict(list))
 
 

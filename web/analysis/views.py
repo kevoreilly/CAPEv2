@@ -2001,10 +2001,13 @@ def full_memory_dump_strings(request, analysis_number):
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def search(request, searched=""):
-    if "search" in request.POST or searched:
+    if "search" in request.POST or "search" in request.GET or searched:
         term = ""
-        if not searched and request.POST.get("search"):
-            searched = str(request.POST["search"])
+        if not searched:
+            if request.POST.get("search"):
+                searched = str(request.POST["search"])
+            elif request.GET.get("search"):
+                searched = str(request.GET["search"])
 
         if ":" in searched:
             term, value = searched.strip().split(":", 1)

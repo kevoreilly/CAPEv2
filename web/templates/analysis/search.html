@@ -2,7 +2,7 @@
 {% block content %}
 <div class="row">
     <div class="col-md-0 mx-auto">
-        <form class="form-inline" role="form" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
+        <form class="form-inline" role="form" action="{% url "search" %}" method="get">
             <div class="form-group">
                 <label class="sr-only" for="form_search">Search term</label>
                 <input type="text" class="form-control" id="form_search" name="search" size=50 placeholder="Search term as regex" />
@@ -57,10 +57,6 @@
                     <tr>
                         <td><code>type:</code></td>
                         <td>File type/format</td>
-                    </tr>
-                    <tr>
-                        <td><code>string:</code></td>
-                        <td>String contained in the binary</td>
                     </tr>
                     <tr>
                         <td><code>ssdeep:</code></td>
@@ -253,10 +249,6 @@
                     <tr>
                         <td><code>ttp:</code></td>
                         <td>TTP id, ex: T1053</td>
-                    </tr>
-                    <tr>
-                        <td><code>payloads: to be depricated soon due to global search</code></td>
-                        <td>md5/sha1/sha3/sha256/sha512</td>
                     </tr>
                     <tr>
                         <td><code>dhash:</code></td>

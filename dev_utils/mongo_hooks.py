@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 FILES_COLL = "files"
 FILE_KEY = "sha256"
 TASK_IDS_KEY = "_task_ids"
+FILE_REF_KEY = "file_ref"
 
 
 def normalize_file(file_dict, task_id):
@@ -27,12 +28,12 @@ def normalize_file(file_dict, task_id):
     return an UpdateOne object usable by bulk_write to upsert a
     document into the FILES_COLL collection with its _id set to the FILE_KEY of
     the file. The given file_dict is updated in place to remove those
-    attributes and add a 'file_ref' key containing the FILE_KEY that can be
+    attributes and add a FILE_REF_KEY key containing the FILE_KEY that can be
     used as a lookup in the FILES_COLL collection.
     If the file has already been "normalized," then it is not modified and
     None is returned.
     """
-    if "file_ref" in file_dict:
+    if FILE_REF_KEY in file_dict:
         # This has already been normalized.
         return
     key = file_dict.get(FILE_KEY, None)
@@ -65,7 +66,7 @@ def normalize_file(file_dict, task_id):
             pass
 
     new_dict["_id"] = key
-    file_dict["file_ref"] = key
+    file_dict[FILE_REF_KEY] = key
     return UpdateOne({"_id": key}, {"$set": new_dict, "$addToSet": {TASK_IDS_KEY: task_id}}, upsert=True, hint=[("_id", 1)])
 
 
@@ -98,21 +99,21 @@ def denormalize_files(report):
         # part of the report) that does not include any file information.
         return report
 
-    if "file_ref" not in file_dicts[0]:
+    if FILE_REF_KEY not in file_dicts[0]:
         # This analysis uses the old-style of storing file information.
         # It includes the static file info in the analysis document
         # instead of in the FILES_COLL collection.
         return report
 
-    file_refs = {file_dict["file_ref"] for file_dict in file_dicts}
+    file_refs = {file_dict[FILE_REF_KEY] for file_dict in file_dicts}
     file_docs = {}
     for file_doc in mongo_find(FILES_COLL, {"_id": {"$in": list(file_refs)}}, {TASK_IDS_KEY: 0}):
         file_docs[file_doc.pop("_id")] = file_doc
     for file_dict in file_dicts:
-        if file_dict["file_ref"] not in file_docs:
-            log.warning("Failed to find %s in %s collection.", FILES_COLL, file_dict["file_ref"])
+        if file_dict[FILE_REF_KEY] not in file_docs:
+            log.warning("Failed to find %s in %s collection.", FILES_COLL, file_dict[FILE_REF_KEY])
             continue
-        file_doc = file_docs[file_dict.pop("file_ref")]
+        file_doc = file_docs[file_dict.pop(FILE_REF_KEY)]
         file_dict.update(file_doc)
 
     return report
@@ -136,6 +137,9 @@ def delete_unused_file_docs():
     via utils/cleaners.py in a cron job.
     """
     return mongo_delete_many(FILES_COLL, {TASK_IDS_KEY: {"$size": 0}})
+
+
+NORMALIZED_FILE_FIELDS = ("target.file", "dropped", "CAPE.payloads", "procdump")
 
 
 def collect_file_dicts(report) -> itertools.chain:

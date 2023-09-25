@@ -1652,7 +1652,6 @@ zip_categories = (
     "procdumpzipall",
     "CAPEzipall",
     "capeyarazipall",
-    "capetypezipall",
 )
 category_map = {
     "CAPE": "CAPE",
@@ -1667,34 +1666,24 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
         projection = {
             "info.parent_sample.path": 1,
             "info.parent_sample.cape_yara.name": 1,
-            "info.parent_sample.cape_type": 1,
             "target.file.path": 1,
             "target.file.cape_yara.name": 1,
-            "target.file.cape_type": 1,
             "dropped.path": 1,
             "dropped.cape_yara.name": 1,
-            "dropped.cape_type": 1,
             "procdump.path": 1,
             "procdump.cape_yara.name": 1,
-            "procdump.cape_type": 1,
             "CAPE.payloads.path": 1,
             "CAPE.payloads.cape_yara.name": 1,
-            "CAPE.payloads.cape_type": 1,
             "info.parent_sample.extracted_files_tool.path": 1,
             "info.parent_sample.extracted_files_tool.cape_yara.name": 1,
-            "info.parent_sample.extracted_files_tool.cape_type": 1,
             "target.file.extracted_files_tool.path": 1,
             "target.file.extracted_files_tool.cape_yara.name": 1,
-            "target.file.extracted_files_tool.cape_type": 1,
             "dropped.extracted_files_tool.path": 1,
             "dropped.extracted_files_tool.cape_yara.name": 1,
-            "dropped.extracted_files_tool.cape_type": 1,
             "procdump.extracted_files_tool.path": 1,
             "procdump.extracted_files_tool.cape_yara.name": 1,
-            "procdump.extracted_files_tool.cape_type": 1,
             "CAPE.payloads.extracted_files_tool.path": 1,
             "CAPE.payloads.extracted_files_tool.cape_yara.name": 1,
-            "CAPE.payloads.extracted_files_tool.cape_type": 1,
         }
         records = perform_search(search_category, search_term, projection=projection)
         search_term = search_term.lower()

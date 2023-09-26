@@ -218,6 +218,19 @@ def init_logging(auto=False, tid=0, debug=False):
             else:
                 path = os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % str(tid))
 
+
+            if logconf.log_rotation.enabled:
+                days = logconf.log_rotation.backup_count or 7
+                fh_proc = logging.handlers.TimedRotatingFileHandler(
+                    os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=int(days)
+                )
+            else:
+                fh_proc = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
+
+            fh_proc.setFormatter(FORMATTER)
+            log.addHandler(fh_proc)
+
+
             # We need to delete old log, otherwise it will append to existing one
             if path_exists(path):
                 path_delete(path)

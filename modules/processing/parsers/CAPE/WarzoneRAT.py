@@ -86,7 +86,7 @@ def extract_config(data):
             key[k] = key_bytes[k]
         etxt = bss_data[4 + key_size : 260 + key_size]
         dtxt = decrypt(ksa(key), bytearray(etxt))
-    
+
         offset = 4
         c2_size = struct.unpack("i", dtxt[:offset])[0]
         c2_host = dtxt[offset : offset + c2_size].decode("utf-16")

@@ -112,7 +112,10 @@ def extract_config(filebuf):
     else:
         return
 
-    c2_offset = pe.get_offset_from_rva(c2_rva)
+    try:
+        c2_offset = pe.get_offset_from_rva(c2_rva)
+    except pefile.PEFormatError:
+        return
 
     if num_ips_rva:
         num_ips_offset = pe.get_offset_from_rva(num_ips_rva)

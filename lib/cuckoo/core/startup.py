@@ -194,29 +194,31 @@ def init_logging(level: int):
     """Initializes logging.
     @param level: The logging level for the console logs
     """
+
+    # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
+    # If basicConfig was already called by something and had a StreamHandler added,
+    # replace it with a ConsoleHandler.
+    for h in log.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log.removeHandler(h)
+            h.close()
+
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     init_logger("console", level)
     init_logger("database")
-
-    # if logconf.logger.cape_per_task_log:
-    # if logconf.logger.cape_analysis_folder:
-    #    fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "cape.log"))
-    # else:
-    #    fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
 
     if logconf.logger.syslog_cape:
         fh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
         fh.setFormatter(formatter)
         log.addHandler(fh)
 
+    path = os.path.join(CUCKOO_ROOT, "log", "cuckoo.log")
     if logconf.log_rotation.enabled:
         days = logconf.log_rotation.backup_count or 7
-        fh = logging.handlers.TimedRotatingFileHandler(
-            os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days)
-        )
+        fh = logging.handlers.TimedRotatingFileHandler(path, when="midnight", backupCount=int(days))
     else:
-        fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
+        fh = logging.handlers.WatchedFileHandler(path)
     fh.setFormatter(formatter)
     log.addHandler(fh)
 

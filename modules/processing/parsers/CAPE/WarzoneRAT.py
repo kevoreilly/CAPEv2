@@ -75,36 +75,38 @@ def extract_config(data):
         pe = pefile.PE(data=data, fast_load=False)
     if not pe:
         return
-
-    key = bytearray(250)
-    bss_data = extract_bss_data(pe)
-    if not bss_data:
-        return cfg
-    key_size = struct.unpack("i", bss_data[:4])[0]
-    key_bytes = bss_data[4 : 4 + key_size]
-    for k in range(len(key_bytes)):
-        key[k] = key_bytes[k]
-    etxt = bss_data[4 + key_size : 260 + key_size]
-    dtxt = decrypt(ksa(key), bytearray(etxt))
-
-    offset = 4
-    c2_size = struct.unpack("i", dtxt[:offset])[0]
-    c2_host = dtxt[offset : offset + c2_size].decode("utf-16")
-    offset += c2_size
-    c2_port = struct.unpack("H", dtxt[offset : offset + 2])[0]
-    cfg["C2"] = f"{c2_host}:{c2_port}"
-    offset += 2
-    # unk1 = dtxt[offset : offset + 7]
-    offset += 7
-    unk2_size = struct.unpack("i", dtxt[offset : offset + 4])[0]
-    offset += 4
-    # unk2 = dtxt[offset : offset + unk2_size]
-    offset += unk2_size
-    # unk3 = dtxt[offset : offset + 2]
-    offset += 2
-    runkey_size = struct.unpack("i", dtxt[offset : offset + 4])[0]
-    offset += 4
-    cfg["Run Key Name"] = dtxt[offset : offset + runkey_size].decode("utf-16")
+    try:
+        key = bytearray(250)
+        bss_data = extract_bss_data(pe)
+        if not bss_data:
+            return cfg
+        key_size = struct.unpack("i", bss_data[:4])[0]
+        key_bytes = bss_data[4 : 4 + key_size]
+        for k in range(len(key_bytes)):
+            key[k] = key_bytes[k]
+        etxt = bss_data[4 + key_size : 260 + key_size]
+        dtxt = decrypt(ksa(key), bytearray(etxt))
+    
+        offset = 4
+        c2_size = struct.unpack("i", dtxt[:offset])[0]
+        c2_host = dtxt[offset : offset + c2_size].decode("utf-16")
+        offset += c2_size
+        c2_port = struct.unpack("H", dtxt[offset : offset + 2])[0]
+        cfg["C2"] = f"{c2_host}:{c2_port}"
+        offset += 2
+        # unk1 = dtxt[offset : offset + 7]
+        offset += 7
+        unk2_size = struct.unpack("i", dtxt[offset : offset + 4])[0]
+        offset += 4
+        # unk2 = dtxt[offset : offset + unk2_size]
+        offset += unk2_size
+        # unk3 = dtxt[offset : offset + 2]
+        offset += 2
+        runkey_size = struct.unpack("i", dtxt[offset : offset + 4])[0]
+        offset += 4
+        cfg["Run Key Name"] = dtxt[offset : offset + runkey_size].decode("utf-16")
+    except struct.error as e:
+        print(e)
 
     return cfg
 

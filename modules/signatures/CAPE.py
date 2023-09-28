@@ -592,7 +592,7 @@ class CAPE_TransactedHollowing(Signature):
 class CAPEDetectedThreat(Signature):
     name = "cape_detected_threat"
     description = "CAPE detected a specific malware threat"
-    severity = 3
+    severity = 6
     categories = ["malware"]
     authors = ["Kevin Ross"]
     minimum = "1.3"

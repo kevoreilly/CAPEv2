@@ -3372,12 +3372,12 @@ testing-integration = ["build[virtualenv]", "filelock (>=3.4.0)", "jaraco.envs (
 
 [[package]]
 name = "sflock2"
-version = "0.3.52"
+version = "0.3.53"
 description = "Sample staging and detonation utility"
 optional = false
 python-versions = "*"
 files = [
-    {file = "SFlock2-0.3.52.tar.gz", hash = "sha256:0571ede7eb04051cba5e6aa5ea1a4e1f62d54f33c592560e330a533396ff4355"},
+    {file = "SFlock2-0.3.53.tar.gz", hash = "sha256:8a1ac0c61cbbad287b87fa638f6532fb3979f09447032be10c91212cbb006788"},
 ]
 
 [package.dependencies]
@@ -4175,4 +4175,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "067158cac4d131c86eb0587290c1109410bebec62879a18d61101c7231322de1"
+content-hash = "34174f86e888537447ea600a943e419ed27c24255dc1c7b34bf4626416a8ab54"

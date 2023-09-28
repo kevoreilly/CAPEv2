@@ -421,7 +421,7 @@ def init_routing():
         if routing.routing.verify_rt_table:
             is_rt_available = rooter("rt_available", routing.routing.rt_table)["output"]
             if not is_rt_available:
-                raise CuckooStartupError(f"The routing table that has been configured ({routing.routing.rt_table}) for dirty line interface is not available"")
+                raise CuckooStartupError(f"The routing table that has been configured ({routing.routing.rt_table}) for dirty line interface is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.

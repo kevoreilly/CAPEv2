@@ -1526,7 +1526,7 @@ class Database(object, metaclass=Singleton):
             username=username,
         )
 
-    def _identify_aux_func(self, file: bytes, package: str) -> str:
+    def _identify_aux_func(self, file: bytes, package: str) -> tuple:
         # before demux we need to check as msix has zip mime and we don't want it to be extracted:
         tmp_package = False
         if not package:
@@ -1543,6 +1543,8 @@ class Database(object, metaclass=Singleton):
                 package = "archive"
             elif tmp_package in ("zip", "rar"):
                 package = ""
+            elif tmp_package in ("html"):
+                package = web_conf.url_analysis.package
             else:
                 package = tmp_package
 

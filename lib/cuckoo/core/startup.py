@@ -351,6 +351,8 @@ def init_rooter():
     rooter("state_disable")
     rooter("state_enable")
 
+    # ToDo check if ip_forward is on
+
 
 def init_routing():
     """Initialize and check whether the routing information is correct."""

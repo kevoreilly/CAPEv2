@@ -52,6 +52,9 @@ class Archive(Package):
         ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
+        ("ProgramFiles", "Microsoft Office", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office", "Office*", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
     ]
 
     def execute_interesting_file(self, root: str, file_name: str, file_path: str):
@@ -101,8 +104,11 @@ class Archive(Package):
                 word = self.get_path_glob("WINWORD.EXE")
             except CuckooPackageError:
                 word = self.get_path_glob("WORDVIEW.EXE")
-
             return self.execute(word, f'"{file_path}" /q', file_path)
+        elif file_name.lower().endswith(".xls"):
+            # Try getting excel
+            excel = self.get_path_glob("EXCEL.EXE")
+            return self.execute(excel, f'"{file_path}" /q', file_path)
         elif is_pe_image(file_path):
             file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)

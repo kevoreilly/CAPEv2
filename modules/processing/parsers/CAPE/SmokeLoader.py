@@ -76,7 +76,7 @@ def extract_config(filebuf):
             break
         c2list_offset += delta
     if c2list != []:
-        cfg["C2s"] = c2list
+        cfg["C2s"] = sorted(list(set(c2list)))
     return cfg
 
 

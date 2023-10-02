@@ -169,8 +169,12 @@ def _sf_children(child: sfFile) -> bytes:
     path_to_extract = ""
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
-    if ext in demux_extensions_list or is_valid_package(child.package) or is_valid_type(child.magic) or (
-            not ext and is_valid_type(child.magic)):
+    if (
+        ext in demux_extensions_list
+        or is_valid_package(child.package)
+        or is_valid_type(child.magic)
+        or (not ext and is_valid_type(child.magic))
+    ):
         target_path = os.path.join(tmp_path, "cuckoo-sflock")
         if not path_exists(target_path):
             path_mkdir(target_path)
@@ -214,9 +218,7 @@ def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     return list(filter(None, retlist))
 
 
-def demux_sample(
-        filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""
-):  # -> tuple[bytes, str]:
+def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""):  # -> tuple[bytes, str]:
     """
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
@@ -230,7 +232,7 @@ def demux_sample(
     # if a package was specified, trim if allowed and required
     if package:
         if File(filename).get_size() <= web_cfg.general.max_sample_size or (
-                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
             retlist.append((filename, platform))
         else:
@@ -260,15 +262,15 @@ def demux_sample(
 
     # don't try to extract from Java archives or executables
     if (
-            "Java Jar" in magic
-            or "Java archive data" in magic
-            or "PE32" in magic
-            or "MS-DOS executable" in magic
-            or any(x in magic for x in VALID_LINUX_TYPES)
+        "Java Jar" in magic
+        or "Java archive data" in magic
+        or "PE32" in magic
+        or "MS-DOS executable" in magic
+        or any(x in magic for x in VALID_LINUX_TYPES)
     ):
         retlist = []
         if File(filename).get_size() <= web_cfg.general.max_sample_size or (
-                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
             retlist.append((filename, platform))
         else:
@@ -292,7 +294,7 @@ def demux_sample(
                 continue
 
             if File(filename).get_size() > web_cfg.general.max_sample_size and not (
-                    web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
             ):
                 if web_cfg.general.enable_trim:
                     # maybe identify here

@@ -10,5 +10,5 @@ rule DarkGate
         $part3 = {8B 55 ?? 8A 4D ?? 80 E1 03 C1 E1 06 8A 5D ?? 80 E3 3F 02 CB 88 4C 10 FF FF 45}
         $alphabet = "zLAxuU0kQKf3sWE7ePRO2imyg9GSpVoYC6rhlX48ZHnvjJDBNFtMd1I5acwbqT+="
     condition:
-        uint16(0) == 0x5A4D and ($alphabet) and any of ($part*)
+        ($alphabet) and any of ($part*)
 }

@@ -3,8 +3,6 @@ import binascii
 import sys
 from contextlib import suppress
 
-import pefile
-
 from lib.cuckoo.common.integrations.strings import extract_strings
 
 

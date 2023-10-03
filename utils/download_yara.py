@@ -1,5 +1,6 @@
 import os
 import re
+import glob
 
 import requests
 
@@ -39,6 +40,11 @@ for line in page_content:
     if match:
         yara_file_names.add(match.group(0))
 
+
+# Delete current yara files to make sure to remove old rules
+yara_files = glob.glob('%s/*' % ANALYZER_YARA_PATH)
+for f in yara_files:
+    os.remove(f)
 # Now, get the content for each YARA rule and write it to disk
 for file_name in sorted(list(yara_file_names)):
     file_content = requests.get(ANALYZER_YARA_RAW_URL % file_name).text
@@ -66,6 +72,10 @@ for d in SERVER_SIDE_YARA_PATH_DIRS:
             yara_file_subpath = os.path.join(d, match.group(0))
             yara_file_names.add(yara_file_subpath)
 
+# Delete current yara files to make sure to remove old rules
+yara_files = glob.glob('%s/*' % SERVER_SIDE_YARA_PATH)
+for f in yara_files:
+    os.remove(f)
 # Now, get the content for each YARA rule and write it to disk
 for file_name in sorted(list(yara_file_names)):
     file_content = requests.get(SERVER_SIDE_YARA_RAW_URL % file_name).text

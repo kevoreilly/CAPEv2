@@ -3,10 +3,9 @@ import binascii
 import re
 import sys
 import zlib
+from contextlib import suppress
 
 import pefile
-
-from contextlib import suppress
 
 alphabet = "zLAxuU0kQKf3sWE7ePRO2imyg9GSpVoYC6rhlX48ZHnvjJDBNFtMd1I5acwbqT+="
 config_re = rb"[A-Za-z0-9+=]{8,}"

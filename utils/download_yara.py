@@ -1,6 +1,6 @@
+import glob
 import os
 import re
-import glob
 
 import requests
 
@@ -42,7 +42,7 @@ for line in page_content:
 
 
 # Delete current yara files to make sure to remove old rules
-yara_files = glob.glob('%s/*' % ANALYZER_YARA_PATH)
+yara_files = glob.glob("%s/*" % ANALYZER_YARA_PATH)
 for f in yara_files:
     os.remove(f)
 # Now, get the content for each YARA rule and write it to disk
@@ -73,7 +73,7 @@ for d in SERVER_SIDE_YARA_PATH_DIRS:
             yara_file_names.add(yara_file_subpath)
 
 # Delete current yara files to make sure to remove old rules
-yara_files = glob.glob('%s/*' % SERVER_SIDE_YARA_PATH)
+yara_files = glob.glob("%s/*" % SERVER_SIDE_YARA_PATH)
 for f in yara_files:
     os.remove(f)
 # Now, get the content for each YARA rule and write it to disk

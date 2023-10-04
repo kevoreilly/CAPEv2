@@ -43,9 +43,13 @@ class Package:
         """Check."""
         return True
 
+    def get_paths(self):
+        """Get the default list of paths."""
+        return self.PATHS
+
     def enum_paths(self):
         """Enumerate available paths."""
-        for path in self.PATHS:
+        for path in self.get_paths():
             basedir = path[0]
             sys32 = len(path) > 1 and path[1].lower() == "system32"
             if basedir == "SystemRoot":

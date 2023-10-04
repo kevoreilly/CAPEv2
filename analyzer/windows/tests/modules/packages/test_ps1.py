@@ -1,9 +1,9 @@
 import unittest
+
 from modules.packages.ps1 import PS1
 
 
 class TestPS1(unittest.TestCase):
-
     def test_get_paths(self):
         """By default, the first path should be powershell.exe"""
         ps1_module = PS1()

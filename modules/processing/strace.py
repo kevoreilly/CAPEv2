@@ -1,6 +1,7 @@
 import logging
 import re
 import os
+import strace_process_tree as stp
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
@@ -56,6 +57,60 @@ def parse_log(strace_logs):
                     })
     return results
 
+class ProcessTree():
+    """ Generates process tree. """
+    
+    key = "processtree"
+    
+    def __init__(self, path):
+        self.tree = []
+        self.path = path
+
+    def add_node(self, node, tree):
+        ret = False
+        for process in tree:
+            if process["pid"] == node.parent.pid:
+                process["children"].append({
+                    "name": node.name,
+                    "pid": node.pid,
+                    "parent_id": node.parent.pid,
+                    "children": [],
+                })
+                ret = True
+                break
+            else:
+                if self.add_node(node, process["children"]):
+                    ret = True
+                    break
+        return ret
+
+    def run(self):
+        children = []
+
+        stptree = stp.parse_stream(stp.events(open(self.path,"r")), stp.simplify_syscall)
+        
+        for pid, process in stptree.processes.items():
+            if process.parent is None:
+                self.tree.append({
+                    "name": process.name,
+                    "pid": process.pid,
+                    "parent_id": None,
+                    "children": [],
+                })
+            else:
+                children.append(process)
+        
+        for process in children:
+            if not self.add_node(process, self.tree):
+                self.tree.append({
+                    "name": process.name,
+                    "pid": process.pid,
+                    "parent_id": process.parent.pid,
+                    "children": []
+                })
+                
+        return self.tree
+
 class StraceAnalysis(Processing):
     """ Strace Analyzer. """
 
@@ -71,5 +126,7 @@ class StraceAnalysis(Processing):
         strace_logs = open(strace_data_path, "r").read()
 
         strace_behavior["processes"] = parse_log(strace_logs)
+        strace_behavior["processtree"] = ProcessTree(strace_data_path).run()
 
         return strace_behavior
+    

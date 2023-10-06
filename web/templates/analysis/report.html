@@ -75,6 +75,9 @@ $(function() {
     {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
         <li class="nav-item"><a class="nav-link" href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
     {% endif %}
+    {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
+        <li class="nav-item"><a class="nav-link" href="#strace" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/strace/" data-toggle="tab">Strace Analysis</a></li>
+    {% endif %}
     {% if analysis.info.category != "static" %}
         <li class="nav-item"><a class="nav-link" href="#network" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/network/" data-toggle="tab">Network Analysis</a></li>
     {% endif %}
@@ -120,7 +123,12 @@ $(function() {
     <div class="tab-pane fade show active" id="overview">
         {% include "analysis/overview/index.html" %}
     </div>
-    <div class="tab-pane fade" id="behavior">{% include "analysis/behavior/index.html" %}</div>
+    <div class="tab-pane fade" id="behavior">
+        {% include "analysis/behavior/index.html" %}
+    </div>
+    <div class="tab-pane fade" id="strace">
+        {% include "analysis/strace/index.html" %}
+    </div>
     <div class="tab-pane fade" id="network">
         {% include "analysis/network/index.html" %}
     </div>

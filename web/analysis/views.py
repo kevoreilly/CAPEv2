@@ -568,7 +568,7 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
-    if is_ajax and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "procmemory", "memory"):
+    if is_ajax and category in ("CAPE", "dropped", "behavior", "strace", "debugger", "network", "procdump", "procmemory", "memory", "heatmap"):
         data = {}
         debugger_logs = {}
         bingraph_dict_content = {}
@@ -583,6 +583,12 @@ def load_files(request, task_id, category):
                 )
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
+            elif category == "strace":
+                data = mongo_find_one(
+                    "analysis", 
+                    {"info.id": int(task_id)},
+                    {"strace.processes": 1, "strace.processtree": 1, "info.tlp": 1, "_id": 0},
+                )
             elif category == "network":
                 data = mongo_find_one(
                     "analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}
@@ -599,6 +605,12 @@ def load_files(request, task_id, category):
 
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
+            elif category == "strace":
+                data = elastic_handler.search(
+                    index=get_analysis_index(),
+                    query=get_query_by_info_id(task_id),
+                    _source=["strace.processes", "strace.processtree"],
+                )["hits"]["hits"][0]["_source"]
             elif category == "network":
                 data = elastic_handler.search(
                     index=get_analysis_index(),

@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 import queue
@@ -10,21 +9,24 @@ import shutil
 import signal
 import threading
 import time
+from collections import defaultdict
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import (
     CuckooCriticalError,
+    CuckooGuestCriticalTimeout,
     CuckooGuestError,
     CuckooMachineError,
-    CuckooNetworkError,
     CuckooOperationalError,
 )
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path
-from lib.cuckoo.core.database import TASK_COMPLETED, Database
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
+from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Task
 from lib.cuckoo.core.guest import GuestManager
+from lib.cuckoo.core.log import task_log_stop
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
@@ -37,7 +39,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missde dependency: pip3 install psutil")
+    print("Missed dependency: pip3 install psutil")
 
 log = logging.getLogger(__name__)
 
@@ -45,8 +47,68 @@ machinery = None
 machine_lock = None
 latest_symlink_lock = threading.Lock()
 routing = Config("routing")
+enable_trim = int(Config("web").general.enable_trim)
 
 active_analysis_count = 0
+
+
+class ScalingBoundedSemaphore(threading.Semaphore):
+    """Implements a dynamic bounded semaphore.
+
+    A bounded semaphore checks to make sure its current value doesn't exceed its
+    limit value. If it does, ValueError is raised. In most situations
+    semaphores are used to guard resources with limited capacity.
+
+    If the semaphore is released too many times it's a sign of a bug. If not
+    given, value defaults to 1.
+
+    Like regular semaphores, bounded semaphores manage a counter representing
+    the number of release() calls minus the number of acquire() calls, plus a
+    limit value. The acquire() method blocks if necessary until it can return
+    without making the counter negative. If not given, value defaults to 1.
+
+    In this version of semaphore there is an upper limit that its limit value
+    can never reach when it is changed. The idea behind this is that in machinery
+    documentation there is a limit of machines that can be available so there is
+    no point having it higher than that.
+    """
+
+    def __init__(self, value=1, upper_limit=1):
+        threading.Semaphore.__init__(self, value)
+        self._limit_value = value
+        self._upper_limit = upper_limit
+
+    def release(self):
+        """Release a semaphore, incrementing the internal counter by one.
+
+        When the counter is zero on entry and another thread is waiting for it
+        to become larger than zero again, wake up that thread.
+
+        If the number of releases exceeds the number of acquires,
+        raise a ValueError.
+
+        """
+        with self._cond:
+            if self._value > self._upper_limit:
+                raise ValueError("Semaphore released too many times")
+
+            if self._value >= self._limit_value:
+                self._value = self._limit_value
+                self._cond.notify()
+                return
+
+            self._value += 1
+            self._cond.notify()
+
+    def update_limit(self, value):
+        """Update the limit value for the semaphore
+
+        This limit value is the bounded limit, and proposed limit values
+        are validated against the upper limit.
+
+        """
+        if value < self._upper_limit:
+            self._limit_value = value
 
 
 class CuckooDeadMachine(Exception):
@@ -84,6 +146,8 @@ class AnalysisManager(threading.Thread):
         self.rt_table = None
         self.route = None
         self.rooter_response = ""
+        self.reject_segments = None
+        self.reject_hostports = None
 
     def init_storage(self):
         """Initialize analysis storage folder."""
@@ -91,7 +155,7 @@ class AnalysisManager(threading.Thread):
 
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
-        if os.path.exists(self.storage):
+        if path_exists(self.storage):
             log.error("Task #%s: Analysis results folder already exists at path '%s', analysis aborted", self.task.id, self.storage)
             return False
 
@@ -109,7 +173,7 @@ class AnalysisManager(threading.Thread):
         """Checks the integrity of the file to be analyzed."""
         sample = self.db.view_sample(self.task.sample_id)
 
-        if sha256 != sample.sha256:
+        if sample and sha256 != sample.sha256:
             log.error(
                 "Task #%s: Target file has been modified after submission: '%s'",
                 self.task.id,
@@ -121,7 +185,7 @@ class AnalysisManager(threading.Thread):
 
     def store_file(self, sha256):
         """Store a copy of the file being analyzed."""
-        if not os.path.exists(self.task.target):
+        if not path_exists(self.task.target):
             log.error(
                 "Task #%s: The file to analyze does not exist at path '%s', analysis aborted",
                 self.task.id,
@@ -129,17 +193,15 @@ class AnalysisManager(threading.Thread):
             )
             return False
 
-        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id), sha256)
-        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
+        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
 
-        if os.path.exists(self.binary):
+        if path_exists(self.binary):
             log.info("Task #%s: File already exists at '%s'", self.task.id, self.binary)
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
-                create_folder(folder=os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id)))
                 shutil.copy(self.task.target, self.binary)
-            except (IOError, shutil.Error) as e:
+            except (IOError, shutil.Error):
                 log.error(
                     "Task #%s: Unable to store file from '%s' to '%s', analysis aborted",
                     self.task.id,
@@ -148,21 +210,8 @@ class AnalysisManager(threading.Thread):
                 )
                 return False
 
-        if os.path.exists(copy_path):
-            log.info("Task #%s: File already exists at '%s'", self.task.id, copy_path)
-        else:
-            # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
-            try:
-                shutil.copy(self.task.target, copy_path)
-            except (IOError, shutil.Error) as e:
-                log.error(
-                    "Task #%s: Unable to store file from '%s' to '%s', analysis aborted", self.task.id, self.task.target, copy_path
-                )
-                return False
-
         try:
             new_binary_path = os.path.join(self.storage, "binary")
-
             if hasattr(os, "symlink"):
                 os.symlink(self.binary, new_binary_path)
             else:
@@ -180,22 +229,41 @@ class AnalysisManager(threading.Thread):
         while True:
             machine_lock.acquire()
 
-            # In some cases it's possible that we enter this loop without
-            # having any available machines. We should make sure this is not
+            # If the user specified a specific machine ID, a platform to be
+            # used or machine tags acquire the machine accordingly.
+            task_archs, task_tags = self.db._task_arch_tags_helper(self.task)
+            os_version = self.db._package_vm_requires_check(self.task.package)
+
+            # In some cases it's possible that we enter this loop without having any available machines. We should make sure this is not
             # such case, or the analysis task will fail completely.
-            if not machinery.availables():
+            if not machinery.availables(
+                label=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version
+            ):
                 machine_lock.release()
+                log.debug(
+                    "Task #%s: no machine available yet for machine '%s', platform '%s' or tags '%s'.",
+                    self.task.id,
+                    self.task.machine,
+                    self.task.platform,
+                    self.task.tags,
+                )
                 time.sleep(1)
                 continue
 
-            # If the user specified a specific machine ID, a platform to be
-            # used or machine tags acquire the machine accordingly.
-            machine = machinery.acquire(machine_id=self.task.machine, platform=self.task.platform, tags=self.task.tags)
+            machine = machinery.acquire(
+                machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version
+            )
 
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug("Task #%s: no machine available yet. Verify that arch value is set in hypervisor config", self.task.id)
+                log.debug(
+                    "Task #%s: no machine available yet for machine '%s', platform '%s' or tags '%s'.",
+                    self.task.id,
+                    self.task.machine,
+                    self.task.platform,
+                    self.task.tags,
+                )
                 time.sleep(1)
             else:
                 log.info(
@@ -214,25 +282,22 @@ class AnalysisManager(threading.Thread):
         """Generate analysis options.
         @return: options dict.
         """
-        options = {}
-
-        options["id"] = self.task.id
-        options["ip"] = self.machine.resultserver_ip
-        options["port"] = self.machine.resultserver_port
-        options["category"] = self.task.category
-        options["target"] = self.task.target
-        options["package"] = self.task.package
-        options["options"] = self.task.options
-        options["enforce_timeout"] = self.task.enforce_timeout
-        options["clock"] = self.task.clock
-        options["terminate_processes"] = self.cfg.cuckoo.terminate_processes
-        options["upload_max_size"] = self.cfg.resultserver.upload_max_size
-        options["do_upload_max_size"] = int(self.cfg.resultserver.do_upload_max_size)
-
-        if not self.task.timeout or self.task.timeout == 0:
-            options["timeout"] = self.cfg.timeouts.default
-        else:
-            options["timeout"] = self.task.timeout
+        options = {
+            "id": self.task.id,
+            "ip": self.machine.resultserver_ip,
+            "port": self.machine.resultserver_port,
+            "category": self.task.category,
+            "target": self.task.target,
+            "package": self.task.package,
+            "options": self.task.options,
+            "enforce_timeout": self.task.enforce_timeout,
+            "clock": self.task.clock,
+            "terminate_processes": self.cfg.cuckoo.terminate_processes,
+            "upload_max_size": self.cfg.resultserver.upload_max_size,
+            "do_upload_max_size": int(self.cfg.resultserver.do_upload_max_size),
+            "enable_trim": enable_trim,
+            "timeout": self.task.timeout or self.cfg.timeouts.default,
+        }
 
         if self.task.category == "file":
             file_obj = File(self.task.target)
@@ -242,14 +307,14 @@ class AnalysisManager(threading.Thread):
             options["exports"] = PortableExecutable(self.task.target).get_dll_exports()
             del file_obj
 
-        # options from auxiliar.conf
-        for plugin in self.aux_cfg.auxiliar_modules.keys():
-            options[plugin] = self.aux_cfg.auxiliar_modules[plugin]
+        # options from auxiliary.conf
+        for plugin in self.aux_cfg.auxiliary_modules.keys():
+            options[plugin] = self.aux_cfg.auxiliary_modules[plugin]
 
         return options
 
     def category_checks(self):
-        if self.task.category in ["file", "pcap", "static"]:
+        if self.task.category in ("file", "pcap", "static"):
             sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
@@ -273,9 +338,9 @@ class AnalysisManager(threading.Thread):
             dirnames = ["logs", "files", "aux"]
             for dirname in dirnames:
                 try:
-                    os.makedirs(os.path.join(self.storage, dirname))
+                    path_mkdir(os.path.join(self.storage, dirname))
                 except Exception:
-                    pass
+                    log.debug("Failed to create folder %s", dirname)
             return True
 
     def launch_analysis(self):
@@ -283,13 +348,6 @@ class AnalysisManager(threading.Thread):
         succeeded = False
         dead_machine = False
         self.socks5s = _load_socks5_operational()
-
-        log.info(
-            "Task #%s: Starting analysis of %s '%s'",
-            self.task.id,
-            self.task.category.upper(),
-            convert_to_printable(self.task.target),
-        )
 
         # Initialize the analysis folders.
         if not self.init_storage():
@@ -300,43 +358,51 @@ class AnalysisManager(threading.Thread):
         if isinstance(category_early_escape, bool):
             return category_early_escape
 
+        log.info(
+            "Task #%s: Starting analysis of %s '%s'",
+            self.task.id,
+            self.task.category.upper(),
+            convert_to_printable(self.task.target),
+        )
+
         # Acquire analysis machine.
         try:
             self.acquire_machine()
-            self.db.set_task_vm(self.task.id, self.machine.label, self.machine.id)
+            guest_log = self.db.set_task_vm_and_guest_start(
+                self.task.id, self.machine.name, self.machine.label, self.machine.id, machinery.__class__.__name__
+            )
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
             log.error("Task #%s: Cannot acquire machine: %s", self.task.id, e, exc_info=True)
             return False
 
-        # Generate the analysis configuration file.
-        options = self.build_options()
-
-        try:
-            ResultServer().add_task(self.task, self.machine)
-        except Exception as e:
-            machinery.release(self.machine.label)
-            log.exception(e, exc_info=True)
-            self.errors.put(e)
-
-        aux = RunAuxiliary(task=self.task, machine=self.machine)
-
         try:
             unlocked = False
 
             # Mark the selected analysis machine in the database as started.
-            guest_log = self.db.guest_start(self.task.id, self.machine.name, self.machine.label, machinery.__class__.__name__)
             # Start the machine.
             machinery.start(self.machine.label)
-
-            # Enable network routing.
-            self.route_network()
 
             # By the time start returns it will have fully started the Virtual
             # Machine. We can now safely release the machine lock.
             machine_lock.release()
             unlocked = True
+
+            # Generate the analysis configuration file.
+            options = self.build_options()
+
+            try:
+                ResultServer().add_task(self.task, self.machine)
+            except Exception as e:
+                machinery.release(self.machine.label)
+                log.exception(e, exc_info=True)
+                self.errors.put(e)
+
+            aux = RunAuxiliary(task=self.task, machine=self.machine)
+
+            # Enable network routing.
+            self.route_network()
 
             aux.start()
 
@@ -353,7 +419,12 @@ class AnalysisManager(threading.Thread):
 
             self.db.guest_set_status(self.task.id, "stopping")
             succeeded = True
-        except (CuckooMachineError, CuckooNetworkError) as e:
+        except CuckooMachineError as e:
+            if not unlocked:
+                machine_lock.release()
+            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
+            dead_machine = True
+        except CuckooGuestCriticalTimeout as e:
             if not unlocked:
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
@@ -405,6 +476,7 @@ class AnalysisManager(threading.Thread):
                 # new guest when the task is being analyzed with another
                 # machine.
                 self.db.guest_remove(guest_log)
+                machinery.delete_machine(self.machine.name)
 
                 # Remove the analysis directory that has been created so
                 # far, as launch_analysis() is going to be doing that again.
@@ -465,10 +537,9 @@ class AnalysisManager(threading.Thread):
                 # Deal with race conditions using a lock.
                 latest_symlink_lock.acquire()
                 try:
-                    # As per documentation, lexists() returns True for dead
-                    # symbolic links.
+                    # As per documentation, lexists() returns True for dead symbolic links.
                     if os.path.lexists(latest):
-                        os.remove(latest)
+                        path_delete(latest)
 
                     os.symlink(self.storage, latest)
                 except OSError as e:
@@ -479,8 +550,10 @@ class AnalysisManager(threading.Thread):
             log.info("Task #%s: analysis procedure completed", self.task.id)
         except Exception as e:
             log.exception("Task #%s: Failure in AnalysisManager.run: %s", self.task.id, e)
-
-        active_analysis_count -= 1
+        finally:
+            self.db.set_status(self.task.id, TASK_COMPLETED)
+            task_log_stop(self.task.id)
+            active_analysis_count -= 1
 
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:
@@ -504,6 +577,10 @@ class AnalysisManager(threading.Thread):
         elif self.route == "internet" and routing.routing.internet != "none":
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
+            if routing.routing.reject_segments != "none":
+                self.reject_segments = routing.routing.reject_segments
+            if routing.routing.reject_hostports != "none":
+                self.reject_hostports = str(routing.routing.reject_hostports)
         elif self.route in vpns:
             self.interface = vpns[self.route].interface
             self.rt_table = vpns[self.route].rt_table
@@ -561,13 +638,26 @@ class AnalysisManager(threading.Thread):
 
         # check if the interface is up
         if HAVE_NETWORKIFACES and routing.routing.verify_interface and self.interface and self.interface not in network_interfaces:
-            raise CuckooNetworkError(f"Network interface {self.interface} not found")
+            log.info("Network interface {} not found, falling back to dropping network traffic", self.interface)
+            self.interface = None
+            self.rt_table = None
+            self.route = "drop"
 
         if self.interface:
             self.rooter_response = rooter("forward_enable", self.machine.interface, self.interface, self.machine.ip)
             self._rooter_response_check()
+            if self.reject_segments:
+                self.rooter_response = rooter(
+                    "forward_reject_enable", self.machine.interface, self.interface, self.machine.ip, self.reject_segments
+                )
+                self._rooter_response_check()
+            if self.reject_hostports:
+                self.rooter_response = rooter(
+                    "hostports_reject_enable", self.machine.interface, self.machine.ip, self.reject_hostports
+                )
+                self._rooter_response_check()
 
-        log.info("Enabled route '%s'", self.route)
+        log.info("Enabled route '%s'.", self.route)
 
         if self.rt_table:
             self.rooter_response = rooter("srcroute_enable", self.rt_table, self.machine.ip)
@@ -576,8 +666,18 @@ class AnalysisManager(threading.Thread):
     def unroute_network(self):
         if self.interface:
             self.rooter_response = rooter("forward_disable", self.machine.interface, self.interface, self.machine.ip)
-            log.info("Disabled route '%s'", self.route)
             self._rooter_response_check()
+            if self.reject_segments:
+                self.rooter_response = rooter(
+                    "forward_reject_disable", self.machine.interface, self.interface, self.machine.ip, self.reject_segments
+                )
+                self._rooter_response_check()
+            if self.reject_hostports:
+                self.rooter_response = rooter(
+                    "hostports_reject_disable", self.machine.interface, self.machine.ip, self.reject_hostports
+                )
+                self._rooter_response_check()
+            log.info("Disabled route '%s'", self.route)
 
         if self.rt_table:
             self.rooter_response = rooter("srcroute_disable", self.rt_table, self.machine.ip)
@@ -634,6 +734,7 @@ class Scheduler:
         self.db = Database()
         self.maxcount = maxcount
         self.total_analysis_count = 0
+        self.analyzing_categories, self.categories_need_VM = load_categories()
 
     def set_stop_analyzing(self, signum, stack):
         self.running = False
@@ -644,21 +745,8 @@ class Scheduler:
         global machinery, machine_lock
 
         machinery_name = self.cfg.cuckoo.machinery
-
-        max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
-        if max_vmstartup_count:
-            # machine_lock = threading.Semaphore(max_vmstartup_count)
-            machine_lock = threading.BoundedSemaphore(max_vmstartup_count)
-        else:
-            machine_lock = threading.Lock()
-
-        log.info(
-            'Using "%s" machine manager with max_analysis_count=%d, max_machines_count=%d, and max_vmstartup_count=%d',
-            machinery_name,
-            self.cfg.cuckoo.max_analysis_count,
-            self.cfg.cuckoo.max_machines_count,
-            self.cfg.cuckoo.max_vmstartup_count,
-        )
+        if not self.categories_need_VM:
+            return
 
         # Get registered class name. Only one machine manager is imported,
         # therefore there should be only one class in the list.
@@ -669,7 +757,7 @@ class Scheduler:
         # Find its configuration file.
         conf = os.path.join(CUCKOO_ROOT, "conf", f"{machinery_name}.conf")
 
-        if not os.path.exists(conf):
+        if not path_exists(conf):
             raise CuckooCriticalError(
                 f'The configuration file for machine manager "{machinery_name}" does not exist at path: {conf}'
             )
@@ -684,9 +772,39 @@ class Scheduler:
         except CuckooMachineError as e:
             raise CuckooCriticalError(f"Error initializing machines: {e}")
 
+        # If the user wants to use the scaling bounded semaphore, check what machinery is specified, and then
+        # grab the required configuration key for setting the upper limit
+        if self.cfg.cuckoo.scaling_semaphore:
+            machinery_opts = machinery.options.get(machinery_name)
+            if machinery_name == "az":
+                machines_limit = machinery_opts.get("total_machines_limit")
+            elif machinery_name == "aws":
+                machines_limit = machinery_opts.get("dynamic_machines_limit")
+
+        # You set this value if you are using a machinery that is NOT auto-scaling
+        max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
+        if max_vmstartup_count:
+            # The BoundedSemaphore is used to prevent CPU starvation when starting up multiple VMs
+            machine_lock = threading.BoundedSemaphore(value=max_vmstartup_count)
+        # You set this value if you are using a machinery that IS auto-scaling
+        elif self.cfg.cuckoo.scaling_semaphore and machines_limit:
+            # The ScalingBoundedSemaphore is used to keep feeding available machines from the pending tasks queue
+            machine_lock = ScalingBoundedSemaphore(value=len(machinery.machines()), upper_limit=machines_limit)
+        else:
+            machine_lock = threading.Lock()
+
+        log.info(
+            'Using "%s" machine manager with max_analysis_count=%d, max_machines_count=%d, and max_vmstartup_count=%d',
+            machinery_name,
+            self.cfg.cuckoo.max_analysis_count,
+            self.cfg.cuckoo.max_machines_count,
+            self.cfg.cuckoo.max_vmstartup_count,
+        )
+
         # At this point all the available machines should have been identified
         # and added to the list. If none were found, Cuckoo needs to abort the
         # execution.
+
         if not len(machinery.machines()):
             raise CuckooCriticalError("No machines available")
         else:
@@ -694,10 +812,7 @@ class Scheduler:
 
         if len(machinery.machines()) > 1 and self.db.engine.name == "sqlite":
             log.warning(
-                "As you've configured Cuckoo to execute parallel "
-                "analyses, we recommend you to switch to a MySQL "
-                "a PostgreSQL database as SQLite might cause some "
-                "issues"
+                "As you've configured CAPE to execute parallelanalyses, we recommend you to switch to a PostgreSQL database as SQLite might cause some issues"
             )
 
         # Drop all existing packet forwarding rules for each VM. Just in case
@@ -706,12 +821,9 @@ class Scheduler:
         for machine in machinery.machines():
             if not machine.interface:
                 log.info(
-                    "Unable to determine the network interface for VM "
-                    "with name %s, Cuckoo will not be able to give it "
-                    "full internet access or route it through a VPN! "
-                    "Please define a default network interface for the "
-                    "machinery or define a network interface for each "
-                    "VM",
+                    "Unable to determine the network interface for VM with name %s, Cuckoo will not be able to give it "
+                    "full internet access or route it through a VPN! Please define a default network interface for the "
+                    "machinery or define a network interface for each VM",
                     machine.name,
                 )
                 continue
@@ -728,7 +840,8 @@ class Scheduler:
         """Stop scheduler."""
         self.running = False
         # Shutdown machine manager (used to kill machines that still alive).
-        machinery.shutdown()
+        if self.categories_need_VM:
+            machinery.shutdown()
 
     def start(self):
         """Start scheduler."""
@@ -746,17 +859,34 @@ class Scheduler:
         if self.maxcount is None:
             self.maxcount = self.cfg.cuckoo.max_analysis_count
 
+        # Start the logger which grabs database information
+        if self.cfg.cuckoo.periodic_log:
+            self._thr_periodic_log()
+        # Update timer for semaphore limit value if enabled
+        if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
+            # Note that this variable only exists under these conditions
+            scaling_semaphore_timer = time.time()
+
         # This loop runs forever.
         while self.running:
-            time.sleep(1)
+            # Update scaling bounded semaphore limit value, if enabled, based on the number of machines
+            if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
+                # Every x seconds, update the semaphore limit. This requires a database call to machinery.availables(),
+                # hence waiting a bit between calls
+                if scaling_semaphore_timer + int(self.cfg.cuckoo.scaling_semaphore_update_timer) < time.time():
+                    machine_lock.update_limit(machinery.availables())
+                    # Note that this variable only exists under these conditions
+                    scaling_semaphore_timer = time.time()
+
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather that about to start
             # or still busy starting. This way we won't have race conditions
             # with finding out there are no available machines in the analysis
             # manager or having two analyses pick the same machine.
-            if not machine_lock.acquire(False):
-                continue
-            machine_lock.release()
+            if self.categories_need_VM:
+                if not machine_lock.acquire(False):
+                    continue
+                machine_lock.release()
 
             # If not enough free disk space is available, then we print an
             # error message and wait another round (this check is ignored
@@ -774,14 +904,15 @@ class Scheduler:
                     continue
 
             # Have we limited the number of concurrently executing machines?
-            if self.cfg.cuckoo.max_machines_count > 0:
+            if self.cfg.cuckoo.max_machines_count > 0 and self.categories_need_VM:
                 # Are too many running?
                 if len(machinery.running()) >= self.cfg.cuckoo.max_machines_count:
                     continue
 
-            # If no machines are available, it's pointless to fetch for
-            # pending tasks. Loop over.
-            if not machinery.availables():
+            # If no machines are available, it's pointless to fetch for pending tasks. Loop over.
+            # But if we analyze pcaps/static only it's fine
+            # ToDo verify that it works with static and file/url
+            if self.categories_need_VM and not machinery.availables(include_reserved=True):
                 continue
             # Exits if max_analysis_count is defined in the configuration
             # file and has been reached.
@@ -789,12 +920,31 @@ class Scheduler:
                 if active_analysis_count <= 0:
                     self.stop()
             else:
-                # Fetch a pending analysis task.
-                # TODO: this fixes only submissions by --machine, need to add other attributes (tags etc.)
-                for machine in self.db.get_available_machines():
-                    task = self.db.fetch(machine)
-                    if task:
-                        break
+                if self.categories_need_VM:
+                    # First things first, are there pending tasks?
+                    if not self.db.count_tasks(status=TASK_PENDING):
+                        continue
+                    relevant_machine_is_available = False
+                    # There are? Great, let's get them, ordered by priority and then oldest to newest
+                    for task in self.db.list_tasks(
+                        status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
+                    ):
+                        # Can this task ever be serviced?
+                        if not self.db.is_serviceable(task):
+                            if self.cfg.cuckoo.fail_unserviceable:
+                                log.debug("Task #%s: Failing unserviceable task", task.id)
+                                self.db.set_status(task.id, TASK_FAILED_ANALYSIS)
+                                continue
+                            log.debug("Task #%s: Unserviceable task", task.id)
+                        relevant_machine_is_available = self.db.is_relevant_machine_available(task)
+                        if relevant_machine_is_available:
+                            break
+                    if not relevant_machine_is_available:
+                        task = None
+                    else:
+                        task = self.db.view_task(task.id)
+                else:
+                    task = self.db.fetch_task(self.analyzing_categories)
                 if task:
                     log.debug("Task #%s: Processing task", task.id)
                     self.total_analysis_count += 1
@@ -808,3 +958,40 @@ class Scheduler:
                 raise errors.get(block=False)
             except queue.Empty:
                 pass
+
+    def _thr_periodic_log(self):
+        specific_available_machine_counts = defaultdict(int)
+        for machine in self.db.get_available_machines():
+            for tag in machine.tags:
+                if tag:
+                    specific_available_machine_counts[tag.name] += 1
+            if machine.platform:
+                specific_available_machine_counts[machine.platform] += 1
+        specific_pending_task_counts = defaultdict(int)
+        for task in self.db.list_tasks(status=TASK_PENDING):
+            for tag in task.tags:
+                if tag:
+                    specific_pending_task_counts[tag.name] += 1
+            if task.platform:
+                specific_pending_task_counts[task.platform] += 1
+            if task.machine:
+                specific_pending_task_counts[task.machine] += 1
+        specific_locked_machine_counts = defaultdict(int)
+        for machine in self.db.list_machines(locked=True):
+            for tag in machine.tags:
+                if tag:
+                    specific_locked_machine_counts[tag.name] += 1
+            if machine.platform:
+                specific_locked_machine_counts[machine.platform] += 1
+
+        log.debug(
+            "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Specific Locked Machines: %s; # Total Machines: %d;",
+            self.db.count_tasks(status=TASK_PENDING),
+            dict(specific_pending_task_counts),
+            self.db.count_machines_available(),
+            dict(specific_available_machine_counts),
+            len(self.db.list_machines(locked=True)),
+            dict(specific_locked_machine_counts),
+            len(self.db.list_machines()),
+        )
+        threading.Timer(10, self._thr_periodic_log).start()

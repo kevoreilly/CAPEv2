@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import glob
 import logging
 import os
@@ -11,19 +10,18 @@ import shutil
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
 
-INJECT_CREATEREMOTETHREAD = 0
-INJECT_QUEUEUSERAPC = 1
-
 log = logging.getLogger(__name__)
 
 
-class Package(object):
+class Package:
     """Base abstract analysis package."""
 
     PATHS = []
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
         """@param options: options dict."""
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
         self.pids = []
@@ -45,18 +43,19 @@ class Package(object):
         """Check."""
         return True
 
+    def get_paths(self):
+        """Get the default list of paths."""
+        return self.PATHS
+
     def enum_paths(self):
         """Enumerate available paths."""
-        for path in self.PATHS:
+        for path in self.get_paths():
             basedir = path[0]
-            sys32 = False
-            if len(path) > 1 and path[1].lower() == "system32":
-                sys32 = True
+            sys32 = len(path) > 1 and path[1].lower() == "system32"
             if basedir == "SystemRoot":
                 if not sys32 or "PE32+" not in self.config.file_type:
                     yield os.path.join(os.getenv("SystemRoot"), *path[1:])
-                elif sys32:
-                    yield os.path.join(os.getenv("SystemRoot"), "sysnative", *path[2:])
+                yield os.path.join(os.getenv("SystemRoot"), "sysnative", *path[2:])
             elif basedir == "ProgramFiles":
                 if os.getenv("ProgramFiles(x86)"):
                     yield os.path.join(os.getenv("ProgramFiles(x86)"), *path[1:])
@@ -64,8 +63,10 @@ class Package(object):
             elif basedir == "HomeDrive":
                 # os.path.join() does not work well when giving just C:
                 # instead of C:\\, so we manually add the backslash.
-                homedrive = f"{os.getenv('HomeDrive')}\\"
+                homedrive = "{}\\".format(os.getenv("HomeDrive"))
                 yield os.path.join(homedrive, *path[1:])
+            elif os.getenv(basedir):
+                yield os.path.join(os.getenv(basedir), *path[1:])
             else:
                 yield os.path.join(*path)
 
@@ -75,7 +76,7 @@ class Package(object):
         @return: executable path
         """
         for path in self.enum_paths():
-            if os.path.isfile(path):
+            if application in path and os.path.isfile(path):
                 return path
 
         raise CuckooPackageError(f"Unable to find any {application} executable")
@@ -87,7 +88,7 @@ class Package(object):
         """
         for path in self.enum_paths():
             for path in glob.iglob(path):
-                if os.path.isfile(path):
+                if os.path.isfile(path) and (not application or application.lower() in path.lower()):
                     return path
 
         raise CuckooPackageError(f"Unable to find any {application} executable")
@@ -98,11 +99,8 @@ class Package(object):
         @return: executable path
         """
         for path in self.enum_paths():
-            if os.path.isfile(path):
-                if application and application.lower() not in path.lower():
-                    continue
-                else:
-                    return path
+            if os.path.isfile(path) and (not application or application.lower() in path.lower()):
+                return path
 
         raise CuckooPackageError(f"Unable to find any {application} executable")
 
@@ -126,33 +124,8 @@ class Package(object):
             return None
 
         if not kernel_analysis:
-            p.inject(INJECT_QUEUEUSERAPC, interest)
+            p.inject(interest)
 
-        p.resume()
-        p.close()
-
-        return p.pid
-
-    def debug(self, path, args, interest):
-        """Starts an executable for analysis.
-        @param path: executable path
-        @param args: executable arguments
-        @param interest: file of interest, passed to the cuckoomon config
-        @return: process pid
-        """
-
-        suspended = True
-
-        p = Process(options=self.options, config=self.config)
-        if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=False):
-            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
-
-        is_64bit = p.is_64bit()
-
-        if is_64bit:
-            p.debug_inject(interest, childprocess=False)
-        else:
-            p.debug_inject(interest, childprocess=False)
         p.resume()
         p.close()
 
@@ -188,9 +161,15 @@ class Package(object):
         return newpath
 
 
-class Auxiliary(object):
-    def __init__(self, options={}, config=None):
+class Auxiliary:
+    # Setting all Auxiliary to have a default priority of 0
+    start_priority = 0
+    stop_priority = 0
+
+    def __init__(self, options=None, config=None):
         """@param options: options dict."""
+        if options is None:
+            options = {}
         self.options = options
         self.config = config
 

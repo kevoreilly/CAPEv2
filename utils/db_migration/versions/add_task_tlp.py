@@ -9,8 +9,6 @@ Revises: 30d0230de7cd
 Create Date: 2020-04-10 12:17:18.530901
 
 """
-from __future__ import absolute_import, print_function
-
 # revision identifiers, used by Alembic.
 revision = "7331c4d994fd"
 down_revision = "30d0230de7cd"
@@ -22,7 +20,7 @@ import sqlalchemy as sa
 try:
     from alembic import op
 except ImportError:
-    print("Unable to import alembic (install with `pip3 install alembic`)")
+    print("Unable to import alembic (install with `poetry run pip install alembic`)")
     sys.exit()
 
 

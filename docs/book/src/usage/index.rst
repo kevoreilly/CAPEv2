@@ -8,14 +8,18 @@ This chapter explains how to use CAPE.
 .. toctree::
 
     start
+    internals
     submit
     web
     api
     dist
+    cluster_administration
     packages
     results
     clean
     rooter
-    utilities - processing generated data by Virtual Machine(s)
+    utilities
     performance
     monitor
+    interactive_desktop
+    patterns_replacement

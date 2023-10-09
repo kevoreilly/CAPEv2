@@ -2,13 +2,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
+import contextlib
 import errno
 import fcntl
 import inspect
 import logging
 import multiprocessing
-import ntpath
 import os
 import random
 import shutil
@@ -23,13 +22,15 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from typing import Tuple
+from typing import Tuple, Union
 
+from data.family_detection_names import family_detection_names
 from lib.cuckoo.common import utils_dicts
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_is_dir, path_mkdir, path_read_file
 
 try:
     import re2 as re
@@ -84,6 +85,16 @@ zippwd = web_cfg.zipped_download.get("zip_pwd", b"infected")
 if not isinstance(zippwd, bytes):
     zippwd = zippwd.encode()
 
+max_len = config.cuckoo.get("max_len", 100)
+sanitize_len = config.cuckoo.get("sanitize_len", 32)
+sanitize_to_len = config.cuckoo.get("sanitize_to_len", 24)
+
+
+def load_categories():
+    analyzing_categories = [category.strip() for category in config.cuckoo.categories.split(",")]
+    needs_VM = any([category in analyzing_categories for category in ("file", "url")])
+    return analyzing_categories, needs_VM
+
 
 texttypes = [
     "ASCII",
@@ -92,15 +103,28 @@ texttypes = [
     "Unicode text",
 ]
 
+
+VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
+
+
+def get_platform(magic):
+    if magic and any(x in magic for x in VALID_LINUX_TYPES):
+        return "linux"
+    return "windows"
+
+
 # this doesn't work for bytes
 # textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
 
+def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
+    return value.encode(encoding) if isinstance(value, str) else value
+
+
 def is_text_file(file_info, destination_folder, buf, file_data=False):
 
-    # print(file_info, any([file_type in file_info.get("type", "") for file_type in texttypes]))
-    if any([file_type in file_info.get("type", "") for file_type in texttypes]):
+    if any(file_type in file_info.get("type", "") for file_type in texttypes):
 
         extracted_path = os.path.join(
             destination_folder,
@@ -108,21 +132,16 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
                 "sha256",
             ),
         )
-        if not file_data and not os.path.exists(extracted_path):
+        if not file_data and not path_exists(extracted_path):
             return
 
         if not file_data:
-            with open(extracted_path, "rb") as f:
-                file_data = f.read()
+            file_data = path_read_file(extracted_path)
 
         if len(file_data) > buf:
-            data = file_data[:buf] + b" <truncated>"
-            file_info.setdefault("data", data.decode("latin-1"))
-            # file_info.setdefault("data_file", file_info["sha256"])
-
+            return file_data[:buf].decode("latin-1") + " <truncated>"
         else:
-            file_info.setdefault("data", file_data.decode("latin-1"))
-            # file_info.setdefault("data_file", file_info["sha256"])
+            return file_data.decode("latin-1")
 
 
 def create_zip(files=False, folder=False, encrypted=False):
@@ -150,7 +169,7 @@ def create_zip(files=False, folder=False, encrypted=False):
         if encrypted:
             zf.setpassword(zippwd)
         for file in files:
-            if not os.path.exists(file):
+            if not path_exists(file):
                 log.error("File does't exist: %s", file)
                 continue
 
@@ -170,48 +189,51 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     @param analysis: check the main storage size
     """
     need_space, space_available = False, 0
+    # Calculate the free disk space in megabytes.
+    # Check main FS if processing
+    if processing:
+        free_space = config.cuckoo.freespace_processing
+    elif not analysis and HAVE_TMPFS and tmpfs.enabled:
+        path = tmpfs.path
+        free_space = tmpfs.freespace
+    else:
+        free_space = config.cuckoo.freespace
+
+    if path and not path_exists(path):
+        sys.exit("Restart daemon/process, happens after full cleanup")
+
     while True:
         try:
-            # Calculate the free disk space in megabytes.
-            # Check main FS if processing
-            if processing:
-                free_space = config.cuckoo.freespace_processing
-            elif not analysis and HAVE_TMPFS and tmpfs.enabled:
-                path = tmpfs.path
-                free_space = tmpfs.freespace
-            else:
-                free_space = config.cuckoo.freespace
-
-            if not os.path.exists(path):
-                sys.exit("Restart daemon/process, happens after full cleanup")
             space_available = shutil.disk_usage(path).free >> 20
             need_space = space_available < free_space
         except FileNotFoundError:
             log.error("Folder doesn't exist, maybe due to clean")
-            os.makedirs(path)
+            path_mkdir(path)
             continue
 
         if return_value:
             return need_space, space_available
 
         if need_space:
-            log.error("Not enough free disk space! (Only %d MB!)", space_available)
+            log.error(
+                "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
+            )
             time.sleep(5)
         else:
             break
 
 
-def get_memdump_path(id, analysis_folder=False):
+def get_memdump_path(memdump_id, analysis_folder=False):
     """
     Get the path of memdump to store
     analysis_folder: force to return default analysis folder
     """
-    id = str(id)
-    if HAVE_TMPFS and tmpfs.enabled and not analysis_folder:
-        memdump_path = os.path.join(tmpfs.path, f"{id}.dmp")
-    else:
-        memdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "memory.dmp")
-    return memdump_path
+    memdump_id = str(memdump_id)
+    return (
+        os.path.join(tmpfs.path, f"{memdump_id}.dmp")
+        if HAVE_TMPFS and tmpfs.enabled and not analysis_folder
+        else os.path.join(CUCKOO_ROOT, "storage", "analyses", memdump_id, "memory.dmp")
+    )
 
 
 def validate_referrer(url):
@@ -224,12 +246,15 @@ def validate_referrer(url):
     return url
 
 
-def create_folders(root=".", folders=[]):
+def create_folders(root=".", folders=None):
     """Create directories.
     @param root: root path.
     @param folders: folders list to be created.
     @raise CuckooOperationalError: if fails to create folder.
     """
+    if not folders:
+        return
+
     for folder in folders:
         create_folder(root, folder)
 
@@ -243,13 +268,12 @@ def create_folder(root=".", folder=None):
     if folder is None:
         raise CuckooOperationalError("Can not create None type folder")
     folder_path = os.path.join(root, folder)
-    if folder and not os.path.isdir(folder_path):
+    if folder and not path_is_dir(folder_path):
         try:
-            os.makedirs(folder_path)
+            path_mkdir(folder_path, parent=True)
         except OSError as e:
-            print(e)
             if e.errno != errno.EEXIST:
-                raise CuckooOperationalError(f"Unable to create folder: {folder_path}")
+                raise CuckooOperationalError(f"Unable to create folder: {folder_path}") from e
         except Exception as e:
             print(e)
 
@@ -259,11 +283,11 @@ def delete_folder(folder):
     @param folder: path to delete.
     @raise CuckooOperationalError: if fails to delete folder.
     """
-    if os.path.exists(folder):
+    if path_exists(folder):
         try:
             shutil.rmtree(folder)
-        except OSError:
-            raise CuckooOperationalError(f"Unable to delete folder: {folder}")
+        except OSError as e:
+            raise CuckooOperationalError(f"Unable to delete folder: {folder}") from e
 
 
 # Don't allow all characters in "string.printable", as newlines, carriage
@@ -281,10 +305,7 @@ def convert_char(c):
     """
     if isinstance(c, int):
         c = chr(c)
-    if c in PRINTABLE_CHARACTERS:
-        return c
-    else:
-        return f"\\x{ord(c):02x}"
+    return c if c in PRINTABLE_CHARACTERS else f"\\x{ord(c):02x}"
 
 
 def is_printable(s):
@@ -361,9 +382,13 @@ def convert_to_printable(s: str, cache=None):
 
     if cache is None:
         return "".join(convert_char(c) for c in s)
-    elif not s in cache:
+    elif s not in cache:
         cache[s] = "".join(convert_char(c) for c in s)
     return cache[s]
+
+
+def convert_to_printable_and_truncate(s: str, buf: int, cache=None):
+    return convert_to_printable(f"{s[:buf]} <truncated>" if len(s) > buf else s, cache=cache)
 
 
 def convert_filename_char(c):
@@ -373,10 +398,7 @@ def convert_filename_char(c):
     """
     if isinstance(c, int):
         c = chr(c)
-    if c in FILENAME_CHARACTERS:
-        return c
-    else:
-        return f"\\x{ord(c):02x}"
+    return c if c in FILENAME_CHARACTERS else f"\\x{ord(c):02x}"
 
 
 def is_sane_filename(s):
@@ -397,21 +419,16 @@ def wide2str(string: Tuple[str, bytes]):
         ccharted
     Do you have better solution?
     """
-    null_byte = "\x00"
-    if isinstance(string, bytes):
-        null_byte = 0
-
+    null_byte = 0 if isinstance(string, bytes) else "\x00"
     if (
-        len(string) >= 11
-        and all([string[char] == null_byte for char in (1, 3, 5, 7, 9, 11)])
-        and all([string[char] != null_byte for char in (0, 2, 4, 6, 8, 10)])
+        len(string) < 11
+        or any(string[char] != null_byte for char in (1, 3, 5, 7, 9, 11))
+        or any(string[char] == null_byte for char in (0, 2, 4, 6, 8, 10))
     ):
-        if isinstance(string, bytes):
-            return string.decode("utf-16")
-        else:
-            return string.encode().decode("utf-16")
-    else:
         return string
+    if isinstance(string, bytes):
+        return string.decode("utf-16")
+    return string.encode().decode("utf-16")
 
 
 def sanitize_pathname(s: str):
@@ -523,7 +540,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         return pp_funcs.systeminformationclass(arg_val)
     elif category == "registry" and arg_name == "Type":
         return pp_funcs.category_registry_arg_name_type(arg_val)
-    elif (api_name == "OpenSCManagerA" or api_name == "OpenSCManagerW") and arg_name == "DesiredAccess":
+    elif api_name in {"OpenSCManagerA", "OpenSCManagerW"} and arg_name == "DesiredAccess":
         return pp_funcs.api_name_opensc_arg_name_desiredaccess(arg_val)
     elif category == "services" and arg_name == "ControlCode":
         return pp_funcs.category_services_arg_name_controlcode(arg_val)
@@ -535,32 +552,24 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         return pp_funcs.category_services_arg_name_servicetype(arg_val)
     elif category == "services" and arg_name == "DesiredAccess":
         return pp_funcs.category_services_arg_name_desiredaccess(arg_val)
-    elif category == "registry" and (arg_name == "Access" or arg_name == "DesiredAccess"):
+    elif category == "registry" and arg_name in {"Access", "DesiredAccess"}:
         return pp_funcs.category_registry_arg_name_access_desired_access(arg_val)
     elif arg_name == "IoControlCode":
         return pp_funcs.arg_name_iocontrolcode(arg_val)
-    elif (
-        arg_name == "Protection"
-        or arg_name == "Win32Protect"
-        or arg_name == "NewAccessProtection"
-        or arg_name == "OldAccessProtection"
-        or arg_name == "OldProtection"
-    ):
+    elif arg_name in {"Protection", "Win32Protect", "NewAccessProtection", "OldAccessProtection", "OldProtection"}:
         return pp_funcs.arg_name_protection_and_others(arg_val)
     elif (
-        api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"] and arg_name == "CreationFlags"
+        api_name in ("CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW") and arg_name == "CreationFlags"
     ):
         return pp_funcs.api_name_in_creation(arg_val)
-    elif (api_name == "MoveFileWithProgressW" or api_name == "MoveFileWithProgressTransactedW") and arg_name == "Flags":
+    elif api_name in {"MoveFileWithProgressW", "MoveFileWithProgressTransactedW"} and arg_name == "Flags":
         return pp_funcs.api_name_move_arg_name_flags(arg_val)
     elif arg_name == "FileAttributes":
         return pp_funcs.arg_name_fileattributes(arg_val)
     elif (
-        api_name == "NtCreateFile"
-        or api_name == "NtOpenFile"
-        or api_name == "NtCreateDirectoryObject"
-        or api_name == "NtOpenDirectoryObject"
-    ) and arg_name == "DesiredAccess":
+        api_name in {"NtCreateFile", "NtOpenFile", "NtCreateDirectoryObject", "NtOpenDirectoryObject"}
+        and arg_name == "DesiredAccess"
+    ):
         return pp_funcs.api_name_nt_arg_name_desiredaccess(arg_val)
     elif api_name == "NtOpenProcess" and arg_name == "DesiredAccess":
         return pp_funcs.api_name_ntopenprocess_arg_name_desiredaccess(arg_val)
@@ -573,7 +582,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
 
     elif api_name == "InternetSetOptionA" and arg_name == "Option":
         return pp_funcs.api_name_internetsetoptiona_arg_name_option(arg_val)
-    elif api_name in ["socket", "WSASocketA", "WSASocketW"]:
+    elif api_name in ("socket", "WSASocketA", "WSASocketW"):
         return pp_funcs.api_name_socket(arg_val, arg_name)
     elif arg_name == "FileInformationClass":
         return pp_funcs.arg_name_fileinformationclass(arg_val)
@@ -599,15 +608,6 @@ def datetime_to_iso(timestamp):
     return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").isoformat()
 
 
-def get_filename_from_path(path):
-    """Cross-platform filename extraction from path.
-    @param path: file path.
-    @return: filename.
-    """
-    dirpath, filename = ntpath.split(path)
-    return filename if filename else ntpath.basename(dirpath)
-
-
 def store_temp_file(filedata, filename, path=None):
     """Store a temporary file.
     @param filedata: content of the original file.
@@ -615,10 +615,10 @@ def store_temp_file(filedata, filename, path=None):
     @param path: optional path for temp directory.
     @return: path to the temporary file.
     """
-    filename = get_filename_from_path(filename).encode("utf-8", "replace")
+    filename = path_get_filename(filename).encode("utf-8", "replace")
 
     # Reduce length (100 is arbitrary).
-    filename = filename[:100]
+    filename = filename[:max_len]
 
     # Create temporary directory path.
     if path:
@@ -626,8 +626,8 @@ def store_temp_file(filedata, filename, path=None):
     else:
         tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
-    if not os.path.exists(target_path):
-        os.mkdir(target_path)
+    if not path_exists(target_path.decode()):
+        path_mkdir(target_path)
 
     tmp_dir = tempfile.mkdtemp(prefix=b"upload_", dir=target_path)
     tmp_file_path = os.path.join(tmp_dir, filename)
@@ -647,6 +647,8 @@ def store_temp_file(filedata, filename, path=None):
 def add_family_detection(results: dict, family: str, detected_by: str, detected_on: str):
     results.setdefault("detections", [])
     detection = {detected_by: detected_on}
+    # Normalize family names
+    family = family_detection_names.get(family, family)
     for block in results["detections"]:
         if family == block.get("family", ""):
             if not any(map(lambda d: d == detection, block["details"])):
@@ -705,10 +707,10 @@ class Singleton(type):
 
     _instances = {}
 
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+    def __call__(self, *args, **kwargs):
+        if self not in self._instances:
+            self._instances[self] = super(Singleton, self).__call__(*args, **kwargs)
+        return self._instances[self]
 
 
 def logtime(dt):
@@ -718,8 +720,7 @@ def logtime(dt):
     @return: time string
     """
     t = time.strftime("%Y-%m-%d %H:%M:%S", dt.timetuple())
-    s = f"{t},{dt.microsecond // 1000:03d}"
-    return s
+    return f"{t},{dt.microsecond // 1000:03d}"
 
 
 def time_from_cuckoomon(s):
@@ -740,20 +741,16 @@ def to_unicode(s):
         """Trying to decode via simple brute forcing."""
         encodings = ("ascii", "utf8", "latin1")
         for enc in encodings:
-            try:
+            with contextlib.suppress(UnicodeDecodeError):
                 return s2.decode(enc)
-            except UnicodeDecodeError:
-                pass
         return None
 
     def chardet_enc(s2):
         """Guess encoding via chardet."""
         enc = chardet.detect(s2)["encoding"]
 
-        try:
+        with contextlib.suppress(UnicodeDecodeError):
             return s2.decode(enc)
-        except UnicodeDecodeError:
-            pass
         return None
 
     # If already in unicode, skip.
@@ -775,30 +772,22 @@ def to_unicode(s):
 
 
 def get_user_filename(options, customs):
-    opt_filename = ""
+    # parse options, check pattern
     for block in (options, customs):
         for pattern in ("filename=", "file_name=", "name="):
-            if pattern in block:
-                for option in block.split(","):
-                    if option.startswith(pattern):
-                        opt_filename = option.split(pattern, 2)[1]
-                        break
-                if opt_filename:
-                    break
-        if opt_filename:
-            break
-
-    return opt_filename
+            if pattern not in block:
+                continue
+            for option in block.split(","):
+                if not option.startswith(pattern):
+                    continue
+                return option.split(pattern, 2)[1]
+    return ""
 
 
 def generate_fake_name():
-    out = "".join(
-        random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(5, 15))
+    return "".join(
+        random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(random.randint(5, 15))
     )
-    return out
-
-
-MAX_FILENAME_LEN = 24
 
 
 def truncate_filename(x):
@@ -807,11 +796,11 @@ def truncate_filename(x):
     if len(parts) > 1:
         # filename has extension
         extension = parts[1]
-        name = parts[0][: (MAX_FILENAME_LEN - (len(extension) + 1))]
+        name = parts[0][: (sanitize_to_len - (len(extension) + 1))]
         truncated = f"{name}.{extension}"
     elif len(parts) == 1:
         # no extension
-        truncated = parts[0][:(MAX_FILENAME_LEN)]
+        truncated = parts[0][:(sanitize_to_len)]
     else:
         return None
     return truncated
@@ -820,16 +809,13 @@ def truncate_filename(x):
 def sanitize_filename(x):
     """Kind of awful but necessary sanitizing of filenames to
     get rid of unicode problems."""
-    out = ""
-    for c in x:
-        if c in string.ascii_letters + string.digits + " _-.":
-            out += c
-        else:
-            out += "_"
+    while x.startswith(" "):
+        x = x.lstrip()
+    out = "".join(c if c in string.ascii_letters + string.digits + " _-." else "_" for c in x)
 
     """Prevent long filenames such as files named by hash
     as some malware checks for this."""
-    if len(out) >= 32:
+    if len(out) >= sanitize_len:
         out = truncate_filename(out)
 
     return out
@@ -837,15 +823,10 @@ def sanitize_filename(x):
 
 def default_converter(v):
     # Fix signed ints (bson is kind of limited there).
-    if isinstance(v, int):
-        return v & 0xFFFFFFFF
     # Need to account for subclasses since pymongo's bson module
-    # uses 'bson.int64.Int64' class for 64-bit values.
-    elif issubclass(type(v), int):
-        if v & 0xFFFFFFFF00000000:
-            return v & 0xFFFFFFFFFFFFFFFF
-        else:
-            return v & 0xFFFFFFFF
+    # uses 'bson.int64.Int64' clwhat ass for 64-bit values.
+    if isinstance(v, int) or issubclass(type(v), int):
+        return v & 0xFFFFFFFFFFFFFFFF if v & 0xFFFFFFFF00000000 else v & 0xFFFFFFFF
     return v
 
 
@@ -867,7 +848,7 @@ def classlock(f):
     return inner
 
 
-class SuperLock(object):
+class SuperLock:
     def __init__(self):
         self.tlock = threading.Lock()
         self.mlock = multiprocessing.Lock()
@@ -881,7 +862,7 @@ class SuperLock(object):
         self.tlock.release()
 
 
-def get_options(optstring):
+def get_options(optstring: str):
     """Get analysis options.
     @return: options dict.
     """
@@ -889,13 +870,84 @@ def get_options(optstring):
     #   option1=value1,option2=value2,option3=value3
     #
     # Here we parse such options and provide a dictionary that will be made accessible to the analysis package.
-    if not optstring:
-        return {}
-
-    return dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
+    return (
+        dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
+        if optstring
+        else {}
+    )
 
 
 # get iface ip
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack("256s", ifname[:15].encode()))[20:24])  # SIOCGIFADDR
+
+
+def validate_ttp(ttp: str) -> bool:
+    regex = r"^(O?[BCTFSU]\d{4}(\.\d{3})?)|(E\d{4}(\.m\d{2})?)$"
+    return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))
+
+
+def yara_detected(name, results):
+    for result in results:
+        target = result.get("target", {})
+        if target.get("category") in ("file", "static") and target.get("file"):
+            for keyword in ("cape_yara", "yara"):
+                for yara_block in results["target"]["file"].get(keyword, []):
+                    if re.findall(name, yara_block["name"], re.I):
+                        yield "sample", results["target"]["file"]["path"], yara_block, results["target"]["file"]
+
+            for block in target["file"].get("extracted_files", []):
+                for keyword in ("cape_yara", "yara"):
+                    for yara_block in block[keyword]:
+                        if re.findall(name, yara_block["name"], re.I):
+                            # we can't use here values from set_path
+                            yield "sample", block["path"], yara_block, block
+
+        for block in result.get("CAPE", {}).get("payloads", []) or []:
+            for sub_keyword in ("cape_yara", "yara"):
+                for yara_block in block.get(sub_keyword, []):
+                    if re.findall(name, yara_block["name"], re.I):
+                        yield sub_keyword, block["path"], yara_block, block
+
+            for subblock in block.get("extracted_files", []):
+                for keyword in ("cape_yara", "yara"):
+                    for yara_block in subblock[keyword]:
+                        if re.findall(name, yara_block["name"], re.I):
+                            yield "sample", subblock["path"], yara_block, block
+
+        for keyword in ("procdump", "procmemory", "extracted", "dropped"):
+            for block in result.get(keyword, []):
+                if not isinstance(block, dict):
+                    continue
+                for sub_keyword in ("cape_yara", "yara"):
+                    for yara_block in block.get(sub_keyword, []):
+                        if re.findall(name, yara_block["name"], re.I):
+                            path = block["path"] if block.get("path", False) else ""
+                            yield keyword, path, yara_block, block
+                    if keyword == "procmemory":
+                        for pe in block.get("extracted_pe", []) or []:
+                            for yara_block in pe.get(sub_keyword, []) or []:
+                                if re.findall(name, yara_block["name"], re.I):
+                                    yield "extracted_pe", pe["path"], yara_block, block
+                for subblock in block.get("extracted_files", []):
+                    for keyword in ("cape_yara", "yara"):
+                        for yara_block in subblock[keyword]:
+                            if re.findall(name, yara_block["name"], re.I):
+                                yield "sample", subblock["path"], yara_block, block
+
+        """
+        macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(results["info"]["id"]), "macros")
+        for macroname in result.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
+            for yara_block in results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
+                for sub_block in results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
+                    if re.findall(name, sub_block["name"], re.I):
+                        yield "macro", os.path.join(macro_path, macroname), sub_block, results["static"]["office"]["Macro"]["info"]
+
+        if result.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
+            for yara_block in results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
+                if re.findall(name, yara_block["name"], re.I):
+                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, results["static"]["office"][
+                        "XLMMacroDeobfuscator"
+                    ]["info"]
+        """

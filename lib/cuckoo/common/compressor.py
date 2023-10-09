@@ -2,6 +2,7 @@ import binascii
 import logging
 import os
 import struct
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -14,11 +15,17 @@ except ImportError:
 else:
     # The BSON module provided by pymongo works through its "BSON" class.
     if hasattr(bson, "BSON"):
-        bson_decode = lambda d: bson.BSON(d).decode()
+
+        def bson_decode(d):
+            return bson.BSON(d).decode()
+
     # The BSON module provided by "pip3 install bson" works through the
     # "loads" function (just like pickle etc.)
     elif hasattr(bson, "loads"):
-        bson_decode = lambda d: bson.loads(d)
+
+        def bson_decode(d):
+            return bson.loads(d)
+
     else:
         HAVE_BSON = False
 
@@ -46,10 +53,10 @@ class NGram:
 
     def analyse(self):
         tmp = [c[0][0] for c in self.buffer]
-        if tmp[0 : self.order] == tmp[self.order :]:
+        if tmp[: self.order] == tmp[self.order :]:
             for i in range(self.order):
                 self.buffer[i][1] += self.buffer[i + self.order][1]
-            self.buffer = self.buffer[0 : self.order]
+            self.buffer = self.buffer[: self.order]
 
 
 class Compressor:
@@ -107,28 +114,26 @@ class CuckooBsonCompressor:
 
             if msg:
                 mtype = msg.get("type")  # message type [debug, new_process, info]
-                if mtype not in ["debug", "new_process", "info"]:
-                    _id = msg.get("I", -1)
-                    if not self.category.startswith("__"):
-                        tid = msg.get("T", -1)
-                        time = msg.get("t", 0)
-
-                        if tid not in self.threads:
-                            self.threads[tid] = Compressor(100)
-
-                        csum = self.checksum(msg)
-                        self.ccounter += 1
-                        v = (csum, self.ccounter, time)
-                        self.threads[tid].add(v)
-
-                        if csum not in self.callmap:
-                            self.callmap[csum] = msg
-                    else:
-                        self.head.append(data)
-                else:
+                if mtype in {"debug", "new_process", "info"}:
                     self.category = msg.get("category", "None")
                     self.head.append(data)
 
+                elif self.category.startswith("__"):
+                    self.head.append(data)
+                else:
+                    tid = msg.get("T", -1)
+                    time = msg.get("t", 0)
+
+                    if tid not in self.threads:
+                        self.threads[tid] = Compressor(100)
+
+                    csum = self.checksum(msg)
+                    self.ccounter += 1
+                    v = (csum, self.ccounter, time)
+                    self.threads[tid].add(v)
+
+                    if csum not in self.callmap:
+                        self.callmap[csum] = msg
         self.fd_in.close()
 
         return self.flush(file_path)
@@ -138,8 +143,9 @@ class CuckooBsonCompressor:
         # threads compressed call lists trying preserve original order
 
         compressed_path = f"{file_path}.compressed"
-        if os.path.isfile(compressed_path):
-            os.remove(compressed_path)
+        p = Path(compressed_path)
+        if p.is_file():
+            p.unlink()
 
         fd = open(compressed_path, "wb")
 
@@ -177,14 +183,8 @@ class CuckooBsonCompressor:
 
         index = msg.get("I", -1)
         args = "".join([str(c) for c in msg["args"]])
-        content = [
-            str(index),  # api call
-            str(msg["T"]),  # thread id
-            str(msg["R"]),  # caller
-            str(args),  # call args
-            str(self.category),  # category
-            str(msg["P"]),  # parentcaller
-        ]
+        content = [str(index), str(msg["T"]), str(msg["R"]), args, str(self.category), str(msg["P"])]
+
         content = "".join(content)
 
         return binascii.crc32(bytes(content, "utf8"))

@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 
@@ -10,6 +9,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File, ProcDump
+from lib.cuckoo.common.path_utils import path_exists, path_write_file
 from lib.cuckoo.common.utils import add_family_detection
 
 processing_conf = Config("processing")
@@ -17,7 +17,7 @@ processing_conf = Config("processing")
 log = logging.getLogger(__name__)
 
 try:
-    import re2 as re
+    import re2  # noqa: F401
 
     HAVE_RE2 = True
 except ImportError:
@@ -43,8 +43,7 @@ class ProcessMemory(Processing):
 
                 # save pe to disk
                 path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
-                with open(path, "wb") as f:
-                    f.write(data)
+                _ = path_write_file(path, data)
 
                 data, pefile_object = File(path).get_all()
                 if pefile_object:
@@ -66,7 +65,6 @@ class ProcessMemory(Processing):
                         return lastmemmap["start"]
                 lastoffset = offset
             lastmemmap = memmap
-        return
 
     def run(self):
         """Run analysis.
@@ -78,7 +76,7 @@ class ProcessMemory(Processing):
         nulltermonly = self.options.get("nullterminated_only", True)
         minchars = str(self.options.get("minchars", 5)).encode()
 
-        if os.path.exists(self.pmemory_path):
+        if path_exists(self.pmemory_path):
             for dmp in os.listdir(self.pmemory_path):
                 # if we're re-processing this task, this means if zips are enabled, we won't do any reprocessing on the
                 # process dumps (only matters for now for Yara)
@@ -93,7 +91,7 @@ class ProcessMemory(Processing):
                 process_name = ""
                 process_path = ""
                 process_id = int(os.path.splitext(os.path.basename(dmp_path))[0])
-                for process in self.results.get("behavior", {}).get("processes", []) or []:
+                for process in self.results.get("behavior", {}).get("processes", []):
                     if process_id == process["process_id"]:
                         process_name = process["process_name"]
                         process_path = process["module_path"]
@@ -121,10 +119,7 @@ class ProcessMemory(Processing):
                 # if self.options.get("extract_pe", False)
                 extracted_pes = self.get_procmemory_pe(proc)
 
-                endlimit = b""
-                if not HAVE_RE2:
-                    endlimit = b"8192"
-
+                endlimit = b"" if HAVE_RE2 else b"8192"
                 if do_strings:
                     if nulltermonly:
                         apat = b"([\x20-\x7e]{" + minchars + b"," + endlimit + b"})\x00"
@@ -142,10 +137,7 @@ class ProcessMemory(Processing):
 
                     proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
-                    f = open(proc["strings_path"], "wb")
-                    f.write(b"\n".join(strings))
-                    f.close()
-
+                    _ = path_write_file(proc["strings_path"], b"\n".join(strings))
                 procdump.close()
                 results.append(proc)
 

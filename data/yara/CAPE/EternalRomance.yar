@@ -10,11 +10,11 @@ rule EternalRomance
         $session7_32_1 = {2A 02 1C 00}
         $session7_64_1 = {2A 02 28 00}
         $session8_32_1 = {2A 02 24 00}
-        $session8_64_1 = {2A 02 38 00} 
+        $session8_64_1 = {2A 02 38 00}
         $session7_32_2 = {D5 FD E3 FF}
         $session7_64_2 = {D5 FD D7 FF}
         $session8_32_2 = {D5 FD DB FF}
-        $session8_64_2 = {D5 FD C7 FF} 
+        $session8_64_2 = {D5 FD C7 FF}
         $ipc = "IPC$"
         $pipe1 = "atsvc"
         $pipe2 = "browser"

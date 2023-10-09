@@ -1,4 +1,3 @@
-from __future__ import absolute_import, print_function
 import hashlib
 import json
 import logging
@@ -7,17 +6,43 @@ import sys
 import tempfile
 import time
 from collections import OrderedDict
+from contextlib import suppress
 from datetime import datetime, timedelta
+from pathlib import Path
 from random import choice
 
 import magic
 import requests
 from django.http import HttpResponse
 
+from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
-from lib.cuckoo.common.utils import bytes2str, get_ip_address, get_options, sanitize_filename, validate_referrer
-from lib.cuckoo.core.database import ALL_DB_STATUSES, TASK_REPORTED, Database, Sample, Task
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
+from lib.cuckoo.common.utils import (
+    bytes2str,
+    generate_fake_name,
+    get_ip_address,
+    get_options,
+    get_platform,
+    get_user_filename,
+    sanitize_filename,
+    store_temp_file,
+    validate_referrer,
+    validate_ttp,
+)
+from lib.cuckoo.core.database import (
+    ALL_DB_STATUSES,
+    TASK_FAILED_ANALYSIS,
+    TASK_FAILED_PROCESSING,
+    TASK_FAILED_REPORTING,
+    TASK_RECOVERED,
+    TASK_REPORTED,
+    Database,
+    Sample,
+    Task,
+)
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
@@ -27,6 +52,7 @@ sys.path.append(CUCKOO_ROOT)
 cfg = Config("cuckoo")
 web_cfg = Config("web")
 repconf = Config("reporting")
+dist_conf = Config("distributed")
 routing_conf = Config("routing")
 machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
@@ -40,9 +66,16 @@ rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
 
 db = Database()
 
+try:
+    import re2 as re
+except ImportError:
+    import re
+
+DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
+
 HAVE_DIST = False
 # Distributed CAPE
-if repconf.distributed.enabled:
+if dist_conf.distributed.enabled:
     try:
         # Tags
         from lib.cuckoo.common.dist_db import Machine, Node
@@ -50,7 +83,7 @@ if repconf.distributed.enabled:
         from lib.cuckoo.common.dist_db import create_session
 
         HAVE_DIST = True
-        dist_session = create_session(repconf.distributed.db)
+        dist_session = create_session(dist_conf.distributed.db)
     except Exception as e:
         print(e)
 
@@ -68,15 +101,6 @@ if repconf.elasticsearchdb.enabled:
         es_as_db = True
 
     es = elastic_handler
-
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
-
-hash_len = {
-    32: "md5",
-    40: "sha1",
-    64: "sha256",
-    128: "sha512",
-}
 
 hashes = {
     32: hashlib.md5,
@@ -127,8 +151,7 @@ def my_rate_seconds(group, request):
 
     if not rateblock or request.user.is_authenticated:
         return "99999999999999/s"
-    else:
-        return rps
+    return rps
 
 
 def my_rate_minutes(group, request):
@@ -144,13 +167,12 @@ def my_rate_minutes(group, request):
     """
     if not rateblock or request.user.is_authenticated:
         return "99999999999999/m"
-    else:
-        return rpm
+    return rpm
 
 
 def load_vms_exits():
     all_exits = {}
-    if HAVE_DIST and repconf.distributed.enabled:
+    if HAVE_DIST and dist_conf.distributed.enabled:
         try:
             db = dist_session()
             for node in db.query(Node).all():
@@ -166,7 +188,7 @@ def load_vms_exits():
 
 def load_vms_tags():
     all_tags = []
-    if HAVE_DIST and repconf.distributed.enabled:
+    if HAVE_DIST and dist_conf.distributed.enabled:
         try:
             db = dist_session()
             for vm in db.query(Machine).all():
@@ -190,6 +212,8 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
+    if web_cfg.general.get("top_detections", False) is False:
+        return False
 
     t = int(time.time())
 
@@ -246,33 +270,41 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
 
 
 # ToDo extend this to directly extract per day
-def get_stats_per_category(date_since, date_to, category):
+def get_stats_per_category(category: str, date_since):
     aggregation_command = [
         {
             "$match": {
                 "info.started": {
                     "$gte": date_since.isoformat(),
-                    "$lt": date_to.isoformat(),
                 },
-                f"statistics.{category}": {"$exists": True},
+                f"{category}": {"$exists": True},
             }
         },
-        {"$unwind": f"$statistics.{category}"},
+        {"$unwind": f"${category}"},
         {
             "$group": {
-                "_id": f"$statistics.{category}.name",
-                "total_time": {"$sum": f"$statistics.{category}.time"},
-                "total_run": {"$sum": 1},
+                "_id": f"${category}.name",
+                "total_time": {"$sum": {"$cond": [{"$eq": [f"${category}.time", 0]}, 0, {"$divide": [f"${category}.time", 60]}]}},
+                "successful": {"$sum": {"$cond": [{"$eq": [f"${category}.extracted", 0]}, 0, 1]}},
+                "runs": {"$sum": 1},
             }
         },
         {"$addFields": {"name": "$_id"}},
         {"$project": {"_id": 0}},
-        {"day": {"$dayOfMonth": "$info.started"}},
         {"$sort": {"total_time": -1}},
+        {
+            "$project": {
+                "name": 1,
+                "successful": 1,
+                "runs": 1,
+                # "average": 1,
+                "total": {"$round": ["$total_time", 2]},
+                "average": {"$round": [{"$divide": ["$total_time", "$runs"]}, 2]},
+            }
+        },
+        {"$limit": 20},
     ]
-    data = mongo_aggregate("analysis", aggregation_command)
-    if data:
-        return data
+    return mongo_aggregate("analysis", aggregation_command)
 
 
 def statistics(s_days: int) -> dict:
@@ -285,17 +317,16 @@ def statistics(s_days: int) -> dict:
         "reporting": {},
         "top_samples": {},
         "detections": {},
+        "custom_statistics": {},
     }
 
-    tmp_custom = {}
-    tmp_data = {}
     if repconf.mongodb.enabled:
-        data = mongo_find(
-            "analysis",
-            {"statistics": {"$exists": True}, "info.started": {"$gte": date_since.isoformat()}},
-            {"statistics": 1, "_id": 0},
-        )
+        data = True
+
     elif repconf.elasticsearchdb.enabled:
+        # ToDo need proper query upgrade as in mongo
+        data = False
+        """
         q = {
             "query": {
                 "bool": {
@@ -304,75 +335,18 @@ def statistics(s_days: int) -> dict:
             }
         }
         data = [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=["statistics"])["hits"]["hits"]]
+        """
     else:
         data = None
-
-    for analysis in data or []:
-        for type_entry in analysis.get("statistics", []) or []:
-            if type_entry not in tmp_data:
-                tmp_data.setdefault(type_entry, {})
-            for entry in analysis["statistics"][type_entry]:
-                if entry["name"] in analysis.get("custom_statistics", {}):
-                    if entry["name"] not in tmp_custom:
-                        tmp_custom.setdefault(entry["name"], {})
-                        if isinstance(analysis["custom_statistics"][entry["name"]], float):
-                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
-                            tmp_custom[entry["name"]]["successful"] = 0
-                        else:
-                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]["time"]
-                            tmp_custom[entry["name"]]["successful"] = analysis["custom_statistics"][entry["name"]].get(
-                                "extracted", 0
-                            )
-                        tmp_custom[entry["name"]]["runs"] = 1
-
-                    else:
-                        tmp_custom.setdefault(entry["name"], {})
-                        if isinstance(analysis["custom_statistics"][entry["name"]], float):
-                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
-                            tmp_custom[entry["name"]]["successful"] += 0
-                        else:
-                            tmp_custom[entry["name"]]["time"] += analysis["custom_statistics"][entry["name"]]["time"]
-                            tmp_custom[entry["name"]]["successful"] += analysis["custom_statistics"][entry["name"]].get(
-                                "extracted", 0
-                            )
-                        tmp_custom[entry["name"]]["runs"] += 1
-                if entry["name"] not in tmp_data[type_entry]:
-                    tmp_data[type_entry].setdefault(entry["name"], {})
-                    tmp_data[type_entry][entry["name"]]["time"] = entry["time"]
-                    tmp_data[type_entry][entry["name"]]["runs"] = 1
-                else:
-                    tmp_data[type_entry][entry["name"]]["time"] += entry["time"]
-                    tmp_data[type_entry][entry["name"]]["runs"] += 1
 
     if not data:
         return details
 
-    for module_name in ["signatures", "processing", "reporting"]:
-        if module_name not in tmp_data:
-            continue
-        # module_data = get_stats_per_category(module_name)
-        s = sorted(tmp_data[module_name].items(), key=lambda x: x[1].get("time"), reverse=True)[:20]
-
-        for entry in s:
-            entry = entry[0]
-            times_in_mins = tmp_data[module_name][entry]["time"] / 60
-            if not times_in_mins:
-                continue
-            details[module_name].setdefault(entry, {})
-            details[module_name][entry]["total"] = float(f"{round(times_in_mins, 2):.2f}")
-            details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
-            details[module_name][entry]["average"] = float(f"{round(times_in_mins / tmp_data[module_name][entry]['runs'], 2):.2f}")
-        details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
-
-    # custom average
-    for entry in tmp_custom:
-        times_in_mins = tmp_custom[entry]["time"] / 60
-        if not times_in_mins:
-            continue
-        tmp_custom[entry]["total"] = float(f"{round(times_in_mins, 2):.2f}")
-        tmp_custom[entry]["average"] = float(f"{round(times_in_mins / tmp_custom[entry]['runs'], 2):.2f}")
-
-    details["custom_signatures"] = OrderedDict(sorted(tmp_custom.items(), key=lambda x: x[1].get("total", "average"), reverse=True))
+    for module_name in ("statistics.signatures", "statistics.processing", "statistics.reporting", "custom_statistics"):
+        module_data = get_stats_per_category(module_name, date_since)
+        for entry in module_data or []:
+            name = entry["name"]
+            details[module_name.split(".")[-1]].setdefault(name, entry)
 
     top_samples = {}
     session = db.Session()
@@ -413,7 +387,7 @@ def statistics(s_days: int) -> dict:
         sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
     )
 
-    if HAVE_DIST and repconf.distributed.enabled:
+    if HAVE_DIST and dist_conf.distributed.enabled:
         details["distributed_tasks"] = {}
         dist_db = dist_session()
         dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()
@@ -446,7 +420,7 @@ def statistics(s_days: int) -> dict:
         sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
     )
 
-    details["detections"] = top_detections(date_since=date_since, results_limit=20)
+    details["detections"] = top_detections(date_since=date_since)
 
     session.close()
     return details
@@ -462,8 +436,7 @@ def jsonize(data, response=False):
     if response:
         jdata = json.dumps(data, sort_keys=False, indent=4)
         return HttpResponse(jdata, content_type="application/json; charset=UTF-8")
-    else:
-        return json.dumps(data, sort_keys=False, indent=4)
+    return json.dumps(data, sort_keys=False, indent=4)
 
 
 def get_file_content(paths):
@@ -471,10 +444,10 @@ def get_file_content(paths):
     if not isinstance(paths, list):
         paths = [paths]
     for path in paths:
-        if os.path.exists(path):
-            with open(path, "rb") as f:
-                content = f.read()
-            break
+        path = path.decode() if isinstance(path, bytes) else path
+        p = Path(path)
+        if p.exists():
+            return p.read_bytes()
     return content
 
 
@@ -485,7 +458,7 @@ def fix_section_permission(path):
     try:
         if not IsPEImage:
             return
-        pe = pefile.PE(path)
+        pe = pefile.PE(path, fast_load=True)
         if not pe:
             return
         for pe_section in pe.sections:
@@ -497,36 +470,84 @@ def fix_section_permission(path):
         log.info(e)
 
 
-# Submission hooks to set options based on some naming patterns
-def recon(filename, orig_options, timeout, enforce_timeout):
-    filename = filename.lower()
+# Submission hooks to manipulate arguments of tasks execution
+def recon(
+    filename,
+    orig_options,
+    timeout,
+    enforce_timeout,
+    package,
+    tags,
+    static,
+    priority,
+    machine,
+    platform,
+    custom,
+    memory,
+    clock,
+    unique,
+    referrer,
+    tlp,
+    tags_tasks,
+    route,
+    cape,
+):
     if not isinstance(filename, str):
         filename = bytes2str(filename)
-    if "name" in filename:
+
+    lowered_filename = filename.lower()
+
+    if web_cfg.general.yara_recon:
+        hits = File(filename).get_yara("binaries")
+        for hit in hits:
+            cape_name = hit["meta"].get("cape_type", "")
+            if not cape_name.endswith(("Crypter", "Packer", "Obfuscator", "Loader")):
+                continue
+
+            parsed_options = get_options(hit["meta"].get("cape_options", ""))
+            if "tags" in parsed_options:
+                tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
+            # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
+            if "package" in parsed_options:
+                package = parsed_options["package"]
+
+    if "name" in lowered_filename:
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
         timeout = 400
         enforce_timeout = True
 
-    return orig_options, timeout, enforce_timeout
+    return (
+        static,
+        priority,
+        machine,
+        platform,
+        custom,
+        memory,
+        clock,
+        unique,
+        referrer,
+        tlp,
+        tags_tasks,
+        route,
+        cape,
+        orig_options,
+        timeout,
+        enforce_timeout,
+        package,
+        tags,
+    )
 
 
 def get_magic_type(data):
     try:
-        if os.path.exists(data):
+        if path_exists(data):
             return magic.from_file(data)
         else:
             return magic.from_buffer(data)
     except Exception as e:
-        print(e)
+        print(e, "get_magic_type")
 
     return False
-
-
-def get_platform(magic):
-    if magic and any(x in magic for x in VALID_LINUX_TYPES):
-        return "linux"
-    else:
-        return "windows"
 
 
 def download_file(**kwargs):
@@ -589,10 +610,10 @@ def download_file(**kwargs):
         vpn_random = ""
 
         if routing_conf.socks5.random_socks5 and socks5s:
-            socks5s_random = choice(socks5s.values()).get("name", False)
+            socks5s_random = choice(list(socks5s.keys()))
 
-        if routing_conf.vpn.random_vpn:
-            vpn_random = choice(list(vpns.values())).get("name", False)
+        if routing_conf.vpn.random_vpn and vpns:
+            vpn_random = choice(list(vpns.keys()))
 
         if vpn_random and socks5s_random:
             route = choice((vpn_random, socks5s_random))
@@ -600,10 +621,6 @@ def download_file(**kwargs):
             route = vpn_random
         elif socks5s_random:
             route = socks5s_random
-
-    if package:
-        if package == "Emotet":
-            return "error", {"error": "Hey guy update your script, this package doesn't exist anymore"}
 
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
@@ -643,12 +660,12 @@ def download_file(**kwargs):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
-        if not os.path.exists(kwargs.get("path")):
-            f = open(kwargs["path"], "wb")
-            f.write(kwargs["content"])
-            f.close()
+
+        path = kwargs.get("path") if isinstance(kwargs.get("path", ""), str) else kwargs.get("path").decode()
+        if not path_exists(path):
+            _ = path_write_file(path, kwargs["content"])
     except Exception as e:
-        print(e)
+        print(e, sys.exc_info())
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
 
     # Distribute task based on route support by worker
@@ -663,10 +680,7 @@ def download_file(**kwargs):
 
         if not node:
             # get nodes that supports this exit
-            tmp_workers = []
-            for node, exitnodes in all_nodes_exits.items():
-                if route in exitnodes:
-                    tmp_workers.append(node)
+            tmp_workers = [node for node, exitnodes in all_nodes_exits.items() if route in exitnodes]
             if tmp_workers:
                 if kwargs["options"]:
                     kwargs["options"] += f",node={choice(tmp_workers)}"
@@ -683,19 +697,60 @@ def download_file(**kwargs):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
-    kwargs["options"], timeout, enforce_timeout = recon(kwargs["path"], kwargs["options"], timeout, enforce_timeout)
+    (
+        static,
+        priority,
+        machine,
+        platform,
+        custom,
+        memory,
+        clock,
+        unique,
+        referrer,
+        tlp,
+        tags_tasks,
+        route,
+        cape,
+        kwargs["options"],
+        timeout,
+        enforce_timeout,
+        package,
+        tags,
+    ) = recon(
+        kwargs["path"],
+        kwargs["options"],
+        timeout,
+        enforce_timeout,
+        package,
+        tags,
+        static,
+        priority,
+        machine,
+        platform,
+        custom,
+        memory,
+        clock,
+        unique,
+        referrer,
+        tlp,
+        tags_tasks,
+        route,
+        cape,
+    )
+
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 
-    platform = get_platform(magic_type)
+    if DYNAMIC_PLATFORM_DETERMINATION:
+        platform = get_platform(magic_type)
     if platform == "linux" and not linux_enabled and "Python" not in magic_type:
         return "error", {"error": "Linux binaries analysis isn't enabled"}
 
     if machine.lower() == "all":
-        kwargs["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
+        kwargs["task_machines"] = [vm.label for vm in db.list_machines(platform=platform)]
     elif machine:
         machine_details = db.view_machine(machine)
-        if hasattr(machine_details, "platform") and not machine_details.platform == platform:
+        if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
             return "error", {"error": f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"}
         else:
             kwargs["task_machines"] = [machine]
@@ -735,10 +790,16 @@ def download_file(**kwargs):
             cape=cape,
             user_id=kwargs.get("user_id"),
             username=username,
-            source_url=kwargs.get("source_url", False)
+            source_url=kwargs.get("source_url", False),
             # parent_id=kwargs.get("parent_id"),
-            # sample_parent_id=kwargs.get("sample_parent_id")
         )
+
+        try:
+            save_script_to_storage(task_ids_new, kwargs)
+        except Exception as e:
+            log.error("Error saving scripts to storage: %s", e)
+            return "error", {"error": "Error: Storing scripts to tempstorage"}
+
         if isinstance(kwargs.get("task_ids", False), list):
             kwargs["task_ids"].extend(task_ids_new)
         else:
@@ -749,6 +810,32 @@ def download_file(**kwargs):
         return "error", {"error": f"Provided hash not found on {kwargs['service']}"}
 
     return "ok", kwargs["task_ids"]
+
+
+def save_script_to_storage(task_ids, kwargs):
+    """
+    Parameters: task_ids, kwargs
+    Retrieve pre_script and during_script contents and save it to a temp storage
+    """
+    for task_id in task_ids:
+        # Temp Folder for storing scripts
+        script_temp_path = os.path.join("/tmp/cuckoo-tmp", str(task_id))
+        if "pre_script_name" in kwargs and "pre_script_content" in kwargs:
+            file_ext = os.path.splitext(kwargs["pre_script_name"])[-1]
+            if file_ext not in (".py", ".ps1", ".exe"):
+                raise ValueError(f"Unknown file_extention of {file_ext} to run for pre_script")
+
+            path_mkdir(script_temp_path, exist_ok=True)
+            log.info("Writing pre_script to temp folder %s", script_temp_path)
+            _ = Path(os.path.join(script_temp_path, f"pre_script{file_ext}")).write_bytes(kwargs["pre_script_content"])
+        if "during_script_name" in kwargs and "during_script_content" in kwargs:
+            file_ext = os.path.splitext(kwargs["during_script_name"])[-1]
+            if file_ext not in (".py", ".ps1", ".exe"):
+                raise ValueError(f"Unknown file_extention of {file_ext} to run for during_script")
+
+            path_mkdir(script_temp_path, exist_ok=True)
+            log.info("Writing during_script to temp folder %s", script_temp_path)
+            _ = Path(os.path.join(script_temp_path, f"during_script{file_ext}")).write_bytes(kwargs["during_script_content"])
 
 
 def url_defang(url):
@@ -814,18 +901,38 @@ def category_all_files(task_id, category, base_path):
 
 
 def validate_task(tid, status=TASK_REPORTED):
-    task = db.view_task(tid)
+    task = db.view_task(tid, details=True)
+    task_id = tid
     if not task:
         return {"error": True, "error_value": "Task does not exist"}
+
+    if task.status == TASK_RECOVERED and task.custom:
+        m = re.match(r"^Recovery_(?P<taskid>\d+)$", task.custom)
+        if m:
+            task_id = int(m.group("taskid"))
+            task = db.view_task(task_id, details=True)
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}
     elif status == task.status:
+        if tid != task_id:
+            return {"error": False, "rtid": task_id}
         return {"error": False}
+    elif task.status in {TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING}:
+        return {"error": True, "error_value": "Task failed"}
     elif task.status != TASK_REPORTED:
         return {"error": True, "error_value": "Task is still being analyzed"}
 
     return {"error": False}
+
+
+def validate_task_by_path(tid):
+    analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid))
+    # verify path with
+    # if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+    #    return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
+
+    return path_exists(analysis_path)
 
 
 perform_search_filters = {
@@ -844,20 +951,28 @@ perform_search_filters = {
     "suri_http_cnt": 1,
     "suri_file_cnt": 1,
     "trid": 1,
-    "CAPE_childrens": 1,
     "_id": 0,
+}
+
+hash_searches = {
+    "ssdeep": "ssdeep",
+    "crc32": "crc32",
+    "md5": "md5",
+    "sha1": "sha1",
+    "sha3": "sha3_384",
+    "sha256": "sha256",
+    "sha512": "sha512",
 }
 
 search_term_map = {
     "id": "info.id",
     "ids": "info.id",
     "tags_tasks": "info.id",
+    "package": "info.package",
+    "ttp": "ttps.ttp",
+    "malscore": "malscore",
     "name": "target.file.name",
     "type": "target.file.type",
-    "string": "strings",
-    "ssdeep": ("target.file.ssdeep", "dropped.ssdeep", "procdump.ssdeep", "CAPE.payloads.ssdeep"),
-    "trid": "trid",
-    "crc32": ("target.file.crc32", "dropped.crc32", "procdump.crc32", "CAPE.payloads.crc32"),
     "file": "behavior.summary.files",
     "command": "behavior.summary.executed_commands",
     "configs": "CAPE.configs",
@@ -872,8 +987,6 @@ search_term_map = {
     "url": "target.url",
     "iconhash": "static.pe.icon_hash",
     "iconfuzzy": "static.pe.icon_fuzzy",
-    # probably needs extend
-    "imphash": "static.pe.imphash",
     "surihttp": "suricata.http",
     "suritls": "suricata.tls",
     "surisid": "suricata.alerts.sid",
@@ -885,11 +998,10 @@ search_term_map = {
     "suritlssubject": "suricata.tls.subject",
     "suritlsissuerdn": "suricata.tls.issuer",
     "suritlsfingerprint": "suricata.tls.fingerprint",
-    "clamav": "target.file.clamav",
-    "yaraname": "target.file.yara.name",
-    "capeyara": "target.file.cape_yara.name",
     "procmemyara": "procmemory.yara.name",
     "virustotal": "virustotal.results.sig",
+    "machinename": "info.machine.name",
+    "machinelabel": "info.machine.label",
     "comment": "info.comments.Data",
     "shrikemsg": "info.shrike_msg",
     "shrikeurl": "info.shrike_url",
@@ -897,16 +1009,10 @@ search_term_map = {
     "shrikesid": "info.shrike_sid",
     "custom": "info.custom",
     # initial binary
-    "target_sha256": "target.file.sha256",
-    "md5": ("target.file.md5", "dropped.md5", "procdump.md5", "CAPE.payloads.md5"),
-    "sha1": ("target.file.sha1", "dropped.sha1", "procdump.sha1", "CAPE.payloads.sha1"),
-    "sha3": ("target.file.sha3_384", "dropped.sha3_384", "procdump.sha3_384", "CAPE.payloads.sha3_384"),
-    "sha256": ("target.file.sha256", "dropped.sha256", "procdump.sha256", "CAPE.payloads.sha256"),
-    "sha512": ("target.file.sha512", "dropped.sha512", "procdump.sha512", "CAPE.payloads.sha512"),
+    "target_sha256": ("target.file.sha256", f"target.file.{FILE_REF_KEY}"),
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
-    "payloads": "CAPE.payloads.",
     "dhash": "static.pe.icon_dhash",
     "dport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
     "sport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
@@ -918,8 +1024,37 @@ search_term_map = {
         "network.udp.dport",
         "network.smtp_ex.dport",
     ),
-    "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
+    # File_extra_info
+    "extracted_tool": (
+        "info.parent_sample.extracted_files_tool",
+        "target.file.extracted_files_tool",
+        "dropped.extracted_files_tool",
+        "procdump.extracted_files_tool",
+        "CAPE.payloads.extracted_files_tool",
+    ),
 }
+
+search_term_map_repetetive_blocks = {
+    "ssdeep": "ssdeep",
+    "clamav": "clamav",
+    "yaraname": "yara.name",
+    "capeyara": "cape_yara.name",
+    "capetype": "cape_type.name",
+    "md5": "md5",
+    "sha1": "sha1",
+    "sha256": "sha256",
+    "sha3": "sha3_384",
+    "sha512": "sha512",
+    "crc32": "crc32",
+    "die": "die",
+    "trid": "trid",
+    "imphash": "imphash",
+}
+
+search_term_map_base_naming = ("info.parent_sample",) + NORMALIZED_FILE_FIELDS
+
+for key, value in search_term_map_repetetive_blocks.items():
+    search_term_map.update({key: [f"{path}.{value}" for path in search_term_map_base_naming]})
 
 # search terms that will be forwarded to mongodb in a lowered normalized form
 normalized_lower_terms = (
@@ -935,6 +1070,7 @@ normalized_lower_terms = (
     "dhash",
     "iconhash",
     "imphash",
+    "package",
 )
 
 normalized_int_terms = (
@@ -944,26 +1080,7 @@ normalized_int_terms = (
 )
 
 
-# ToDo verify if still working
-def perform_ttps_search(value):
-    if len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
-        if repconf.mongodb.enabled:
-            return mongo_find("analysis", {f"ttps.{value.upper()}": {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
-        elif repconf.elasticsearchdb.enabled:
-            q = {"query": {"match": {"ttps.ttp": value.upper()}}}
-            return es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
-
-
-def perform_malscore_search(value):
-    if repconf.mongodb.enabled:
-        return mongo_find("analysis", {"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
-    elif repconf.elasticsearchdb.enabled:
-        q = {"query": {"range": {"malscore": {"gte": float(value)}}}}
-        _source_fields = list(perform_search_filters.keys())[:-1]
-        return es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]
-
-
-def perform_search(term, value, search_limit=False):
+def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True, projection=None):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
@@ -975,26 +1092,32 @@ def perform_search(term, value, search_limit=False):
         ]
 
     query_val = False
+    search_limit = web_cfg.general.get("search_limit", 50) if web else 0
     if term in normalized_lower_terms:
         query_val = value.lower()
     elif term in normalized_int_terms:
         query_val = int(value)
     elif term in ("surisid", "id"):
-        try:
+        with suppress(Exception):
             query_val = int(value)
-        except Exception:
-            pass
-    elif term in ("ids", "options", "tags_tasks"):
+    elif term in ("ids", "options", "tags_tasks", "user_tasks"):
         try:
             ids = []
             if term == "ids":
                 ids = value
             elif term == "tags_tasks":
-                ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value)]
+                ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=search_limit)]
+            elif term == "user_tasks":
+                if not user_id:
+                    ids = 0
+                else:
+                    # ToDo allow to admin search by user tasks
+                    ids = [int(v.id) for v in db.list_tasks(user_id=user_id, limit=search_limit)]
             else:
-                ids = [int(v.id) for v in db.list_tasks(options_like=value)]
+                ids = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
             if ids:
                 if len(ids) > 1:
+                    term = "ids"
                     query_val = {"$in": ids}
                 else:
                     term = "id"
@@ -1003,17 +1126,24 @@ def perform_search(term, value, search_limit=False):
                     query_val = int(value)
         except Exception as e:
             print(term, value, e)
+    elif term == "configs":
+        # check if family name is string only maybe?
+        query_val = {f"{search_term_map[term]}.{value}": {"$exist": True}, "$options": "i"}
+    elif term == "ttp":
+        if validate_ttp(value):
+            query_val = value.upper()
+        else:
+            raise ValueError("Invalid TTP enterred")
+    elif term == "malscore":
+        query_val = {"$gte": float(value)}
     else:
-        query_val = {"$regex": value, "$options": "-i"}
+        query_val = {"$regex": value, "$options": "i"}
 
     if term not in search_term_map:
         return None
 
     if not search_limit:
         search_limit = web_cfg.general.get("search_limit", 50)
-
-    if term == "payloads" and len(value) in (32, 40, 64, 128):
-        search_term_map[term] = f"CAPE.payloads.{hash_len.get(len(value))}"
 
     elif term == "configs":
         # check if family name is string only maybe?
@@ -1024,12 +1154,40 @@ def perform_search(term, value, search_limit=False):
         if isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         else:
-            mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
-        return (
-            mongo_find("analysis", mongo_search_query, perform_search_filters)
-            .sort([["_id", -1]])
-            .limit(web_cfg.general.get("search_limit", 50))
-        )
+            search_terms = [{search_term: query_val} for search_term in search_term_map[term]]
+            if term in hash_searches:
+                # For analyses where files have been stored in the "files" collection, search
+                # there for the _id (i.e. sha256) of documents matching the given hash. As a
+                # special case, we don't need to do that query if the requested hash type is
+                # "sha256" since that's what's stored in the "file_refs" key.
+                # We do all this in addition to search the old keys for backwards-compatibility
+                # with documents that do not use this mechanism for storing file data.
+                if term == "sha256":
+                    file_refs = [query_val]
+                else:
+                    file_docs = mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_id": 1})
+                    file_refs = [doc["_id"] for doc in file_docs]
+                if file_refs:
+                    if len(file_refs) > 1:
+                        query = {"$in": file_refs}
+                    else:
+                        query = file_refs[0]
+                    search_terms.extend([{f"{pfx}.{FILE_REF_KEY}": query} for pfx in NORMALIZED_FILE_FIELDS])
+            mongo_search_query = {"$or": search_terms}
+
+        # Allow to overwrite perform_search_filters for custom results
+        if not projection:
+            projection = perform_search_filters
+        if "target.file.sha256" in projection:
+            projection = dict(**projection)
+            projection[f"target.file.{FILE_REF_KEY}"] = 1
+        retval = list(mongo_find("analysis", mongo_search_query, projection).sort([["_id", -1]]).limit(search_limit))
+        for doc in retval:
+            target_file = doc.get("target", {}).get("file", {})
+            if FILE_REF_KEY in target_file and "sha256" not in target_file:
+                target_file["sha256"] = target_file.pop(FILE_REF_KEY)
+        return retval
+
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
         if isinstance(search_term_map[term], str):
@@ -1050,34 +1208,57 @@ def force_int(value):
         return value
 
 
-def parse_request_arguments(request):
-    static = request.POST.get("static", "")
-    referrer = validate_referrer(request.POST.get("referrer"))
-    package = request.POST.get("package", "")
-    timeout = force_int(request.POST.get("timeout"))
-    priority = force_int(request.POST.get("priority"))
-    options = request.POST.get("options", "")
-    machine = request.POST.get("machine", "")
-    platform = request.POST.get("platform", "")
-    tags_tasks = request.POST.get("tags_tasks")
-    tags = request.POST.get("tags")
-    custom = request.POST.get("custom", "")
-    memory = bool(request.POST.get("memory", False))
-    clock = request.POST.get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
+def force_bool(value):
+    if isinstance(value, bool):
+        return value
+
+    if not value:
+        return False
+
+    if value.lower() in ("false", "no", "off", "0"):
+        return False
+    elif value.lower() in ("true", "yes", "on", "1"):
+        return True
+    else:
+        log.warning("Value of %s cannot be converted from string to bool", value)
+        return False
+
+
+def parse_request_arguments(request, keyword="POST"):
+    # Django uses request.POST and API uses request.data
+    static = getattr(request, keyword).get("static", "")
+    referrer = validate_referrer(getattr(request, keyword).get("referrer"))
+    package = getattr(request, keyword).get("package", "")
+    timeout = force_int(getattr(request, keyword).get("timeout"))
+    priority = force_int(getattr(request, keyword).get("priority"))
+    options = getattr(request, keyword).get("options", "")
+    machine = getattr(request, keyword).get("machine", "")
+    platform = getattr(request, keyword).get("platform", "")
+    tags_tasks = getattr(request, keyword).get("tags_tasks")
+    tags = getattr(request, keyword).get("tags")
+    custom = getattr(request, keyword).get("custom", "")
+    memory = force_bool(getattr(request, keyword).get("memory", False))
+    clock = getattr(request, keyword).get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
     if not clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
     if "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-    enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-    shrike_url = request.POST.get("shrike_url")
-    shrike_msg = request.POST.get("shrike_msg")
-    shrike_sid = request.POST.get("shrike_sid")
-    shrike_refer = request.POST.get("shrike_refer")
-    unique = bool(request.POST.get("unique", False))
-    tlp = request.POST.get("tlp")
-    lin_options = request.POST.get("lin_options", "")
-    route = request.POST.get("route")
-    cape = request.POST.get("cape", "")
+    enforce_timeout = force_bool(getattr(request, keyword).get("enforce_timeout", False))
+    shrike_url = getattr(request, keyword).get("shrike_url")
+    shrike_msg = getattr(request, keyword).get("shrike_msg")
+    shrike_sid = getattr(request, keyword).get("shrike_sid")
+    shrike_refer = getattr(request, keyword).get("shrike_refer")
+    unique = force_bool(getattr(request, keyword).get("unique", False))
+    tlp = getattr(request, keyword).get("tlp")
+    lin_options = getattr(request, keyword).get("lin_options", "")
+    route = getattr(request, keyword).get("route", "")
+    cape = getattr(request, keyword).get("cape", "")
+
+    if referrer:
+        if options:
+            options += ","
+        options += f"referrer={referrer}"
+
     # Linux options
     if lin_options:
         options = lin_options
@@ -1121,8 +1302,8 @@ def get_hash_list(hashes):
 def download_from_vt(vtdl, details, opt_filename, settings):
     for h in get_hash_list(vtdl):
         folder = os.path.join(settings.VTDL_PATH, "cape-vt")
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        if not path_exists(folder):
+            path_mkdir(folder, exist_ok=True)
         base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
         if opt_filename:
             filename = f"{base_dir}/{opt_filename}"
@@ -1158,3 +1339,151 @@ def download_from_vt(vtdl, details, opt_filename, settings):
             details["task_ids"] = task_ids_tmp
 
     return details
+
+
+def process_new_task_files(request, samples, details, opt_filename, unique):
+    list_of_files = []
+    for sample in samples:
+        # Error if there was only one submitted sample, and it's empty.
+        # But if there are multiple and one was empty, just ignore it.
+        if not sample.size:
+            details["errors"].append({sample.name: "You uploaded an empty file."})
+            continue
+
+        size = sample.size
+        if size > web_cfg.general.max_sample_size and not (
+            web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
+        ):
+            if not web_cfg.general.enable_trim:
+                details["errors"].append(
+                    {
+                        sample.name: f"Uploaded file exceeds the maximum allowed size in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is: {web_cfg.general.max_sample_size / float(1 << 20):,.0f}"
+                    }
+                )
+                continue
+
+        data = sample.read()
+
+        if opt_filename:
+            filename = opt_filename
+        else:
+            filename = sanitize_filename(sample.name)
+
+        # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
+        try:
+            path = store_temp_file(data, filename)
+            target_file = File(path)
+            sha256 = target_file.get_sha256()
+        except OSError:
+            details["errors"].append(
+                {filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."}
+            )
+            continue
+
+        if (
+            not request.user.is_staff
+            and (web_cfg.uniq_submission.enabled or unique)
+            and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
+        ):
+            details["errors"].append(
+                {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
+            )
+            continue
+
+        list_of_files.append((data, path, sha256))
+
+    return list_of_files, details
+
+
+def process_new_dlnexec_task(url, route, options, custom):
+    url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
+    response = _download_file(route, url, options)
+    if not response:
+        return False, False, False
+
+    name = os.path.basename(url)
+    if "." not in name:
+        name = get_user_filename(options, custom) or generate_fake_name()
+
+    path = store_temp_file(response, name)
+
+    return path, response, ""
+
+
+def submit_task(
+    target: str,
+    package: str = "",
+    timeout: int = 0,
+    task_options: str = "",
+    priority: int = 1,
+    machine: str = "",
+    platform: str = "",
+    memory: bool = False,
+    enforce_timeout: bool = False,
+    clock: str = None,
+    tags: str = None,
+    parent_id: int = None,
+    tlp: bool = None,
+    distributed: bool = False,
+    filename: str = "",
+    server_url: str = "",
+):
+    """
+    ToDo add url support in future
+    """
+    if not path_exists(target):
+        log.info("File doesn't exist")
+        return
+
+    task_id = False
+    if distributed:
+        options = {
+            "package": package,
+            "timeout": timeout,
+            "options": task_options,
+            "priority": priority,
+            # "machine": machine,
+            "platform": platform,
+            "memory": memory,
+            "enforce_timeout": enforce_timeout,
+            "clock": clock,
+            "tags": tags,
+            "parent_id": parent_id,
+            "filename": filename,
+        }
+
+        multipart_file = [("file", (os.path.basename(target), open(target, "rb")))]
+        try:
+            res = requests.post(server_url, files=multipart_file, data=options)
+            if res and res.ok:
+                task_id = res.json()["data"]["task_ids"][0]
+        except Exception as e:
+            log.error(e)
+    else:
+        task_id = db.add_path(
+            file_path=target,
+            package=package,
+            timeout=timeout,
+            options=task_options,
+            priority=priority,
+            machine=machine,
+            platform=platform,
+            memory=memory,
+            enforce_timeout=enforce_timeout,
+            parent_id=parent_id,
+            tlp=tlp,
+            filename=filename,
+        )
+    if not task_id:
+        log.warn("Error adding CAPE task to database: %s", package)
+        return task_id
+
+    log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)
+    return task_id
+
+
+# https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
+def get_running_commit() -> str:
+    git_folder = Path(CUCKOO_ROOT, ".git")
+    head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
+    return Path(git_folder, head_name).read_text().replace("\n", "")

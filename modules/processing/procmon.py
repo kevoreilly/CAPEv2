@@ -6,6 +6,7 @@ import os
 import xml.etree.ElementTree
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.path_utils import path_exists
 
 
 class ProcmonLog(list):
@@ -21,10 +22,7 @@ class ProcmonLog(list):
             if element.tag != "event":
                 continue
 
-            entry = {}
-            for child in element.getchildren():
-                entry[child.tag] = child.text
-            yield entry
+            yield {child.tag: child.text for child in element.getchildren()}
 
     def __nonzero__(self):
         # For documentation on this please refer to MonitorProcessLog.
@@ -37,7 +35,7 @@ class Procmon(Processing):
     def run(self):
         self.key = "procmon"
         procmon_xml = os.path.join(self.analysis_path, "procmon.xml")
-        if not os.path.exists(procmon_xml):
+        if not path_exists(procmon_xml):
             return
 
         return ProcmonLog(procmon_xml)

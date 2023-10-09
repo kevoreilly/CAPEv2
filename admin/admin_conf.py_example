@@ -1,11 +1,56 @@
 #!/usr/bin/env python3
+# https://capev2.readthedocs.io/en/latest/usage/cluster_administration.html
+
+MASTER_NODE = ""
+CAPE_DIST_URL = f"http://{MASTER_NODE}:9003/node"
+# if not --static is set it will fetch from dist.py the data
+LOAD_SERVERS_LIST = False
+SERVERS_STATIC_LIST = ()
+
 
 REMOTE_SERVER_USER = "root"
 CAPE_PATH = "/opt/CAPEv2/"
 VOL_PATH = "/usr/local/lib/python3.8/dist-packages/volatility/plugins/"
-JUMP_BOX = "<ip/hostname>"
-MASTER_NODE = "<ip/hostname>"
-CAPE_DIST_URL = f"http://{MASTER_NODE}:9003/node"
+
+# Deploy over ssh pivoting
+JUMP_BOX = ""
 JUMP_BOX_USERNAME = ""
 JUMP_BOX_PORT = 22
-SERVERS_STATIC_LIST = []
+
+# Deploy over double ssh pivoting?
+JUMP_BOX_SECOND = ""
+JUMP_BOX_SECOND_USERNAME = ""
+JUMP_BOX_SECOND_PORT = 22
+
+NUM_THREADS = 5
+POSTPROCESS = "systemctl restart cape-processor; systemctl status cape-processor"
+
+EXCLUDE_DIRS = set(
+    [
+        "storage",
+        "workers",
+        ".github",
+        "log",
+        "logs",
+        "capa-rules",
+        "__pycache__",
+        "db",
+        "tests",
+        "vpn_monitor",
+        ".git",
+        ".ruff_cache",
+        ".mypy_cache",
+        ".pytest_cache",
+        "custom",
+        "black_formatter",
+        "conf",  # is not my job to ensure that you have proper config files
+    ]
+)
+EXCLUDE_FILENAMES = [".DS_Store", ".gitignore", "secret_key.py"]
+EXCLUDE_EXTENSIONS = (".pyc",)
+# this should be only between repos
+EXCLUDE_PREFIX = ()
+EXCLUDE_CAPE_FILES = ("file_extra_info.py", "family_detection_names.py")
+
+UPSTREAM_REPO_PATH = ""
+PRIVATE_REPO_PATH = ""

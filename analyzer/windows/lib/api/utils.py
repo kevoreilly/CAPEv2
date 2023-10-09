@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
 import logging
 import socket
 import subprocess
@@ -29,16 +28,12 @@ class Utils:
     """Various Utilities"""
 
     def is_valid_ipv4(self, ip):
-        if ip:
-            if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip) is None:
-                return False
-            else:
-                try:
-                    socket.inet_aton(ip)
-                    return True
-                except socket.error:
-                    return False
-        else:
+        if ip and re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip) is None:
+            return False
+        try:
+            socket.inet_aton(ip)
+            return True
+        except socket.error:
             return False
 
     def cmd_wrapper(self, cmd):

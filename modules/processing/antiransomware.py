@@ -12,18 +12,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
 import json
 import logging
-import os
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger()
 # ToDo store list of exclude files if conf enable to store them
-proc_cfg = Config("processing")
-skip_number = proc_cfg.antiransomware.skip_number
 do_not_skip = (
     "txt",
     "dll",
@@ -123,21 +119,21 @@ class AntiRansomware(Processing):
         extensions = {}
         tmp_ext_list = {}
         self.results["ransom_exclude_files"] = []
-        if not os.path.exists(self.files_metadata):
+        if not path_exists(self.files_metadata):
             return
         with open(self.files_metadata, "rb") as f:
-            for line in f.readlines():
-                filename = json.loads(line).get("filepath", "")
-                if filename and not "." in filename:
-                    continue
-                ext = filename.rsplit(".")
-                # do not count interesting extensions
-                if ext and ext[-1] not in do_not_skip:
-                    extensions.setdefault(ext[-1], 0)
-                    extensions[ext[-1]] += 1
-                    tmp_ext_list.setdefault(ext[-1], []).append(filename)
+            lines = f.readlines()
+        for line in lines:
+            filename = json.loads(line).get("filepath", "")
+            if filename and "." not in filename:
+                continue
+            ext = filename.rsplit(".")
+            # do not count interesting extensions
+            if ext and ext[-1] not in do_not_skip:
+                extensions[ext[-1]] = extensions.setdefault(ext[-1], 0) + 1
+                tmp_ext_list.setdefault(ext[-1], []).append(filename)
 
         for ext, count in extensions.items():
-            if count > skip_number:
+            if count > self.options.skip_number:
                 log.debug("Skipping all files with extension: %s", ext)
                 self.results["ransom_exclude_files"] += tmp_ext_list.get(ext, [])

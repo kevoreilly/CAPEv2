@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import datetime
 import logging
 import struct
@@ -16,15 +15,22 @@ except ImportError:
 else:
     # The BSON module provided by pymongo works through its "BSON" class.
     if hasattr(bson, "BSON"):
-        bson_decode = lambda d: bson.decode(d)
+
+        def bson_decode(d):
+            return bson.decode(d)
+
     # The BSON module provided by "pip3 install bson" works through the "loads" function (just like pickle etc.)
     elif hasattr(bson, "loads"):
-        bson_decode = lambda d: bson.loads(d)
+
+        def bson_decode(d):
+            return bson.loads(d)
+
     else:
         HAVE_BSON = False
 
 from lib.cuckoo.common.logtbl import table as LOGTBL
-from lib.cuckoo.common.utils import default_converter, get_filename_from_path
+from lib.cuckoo.common.path_utils import path_get_filename
+from lib.cuckoo.common.utils import default_converter
 
 log = logging.getLogger(__name__)
 
@@ -66,9 +72,7 @@ def default_converter_64bit(v):
     # return v % 2**64
 
     # Try to avoid various unicode issues through usage of latin-1 encoding.
-    if isinstance(v, str):
-        return v.decode("latin-1")
-    return v
+    return v.decode("latin-1") if isinstance(v, str) else v
 
 
 def check_names_for_typeinfo(arginfo):
@@ -88,7 +92,7 @@ def check_names_for_typeinfo(arginfo):
     return argnames, converters
 
 
-class BsonParser(object):
+class BsonParser:
     """Interprets .bson logs from the monitor.
     The monitor provides us with "info" messages that explain how the function
     arguments will come through later on. This class remembers these info
@@ -271,7 +275,7 @@ class BsonParser(object):
                     log.warning("Inconsistent arg count (compared to arg names) on %s: %s names %s", dec, argnames, apiname)
                     continue
 
-                argdict = dict((argnames[i], converters[i](arg)) for i, arg in enumerate(args))
+                argdict = {argnames[i]: converters[i](arg) for i, arg in enumerate(args)}
 
                 if apiname == "__process__":
                     # Special new process message from cuckoomon.
@@ -285,7 +289,7 @@ class BsonParser(object):
                     pid = argdict["ProcessIdentifier"]
                     ppid = argdict["ParentProcessIdentifier"]
                     modulepath = argdict["ModulePath"]
-                    procname = get_filename_from_path(modulepath)
+                    procname = path_get_filename(modulepath)
 
                     self.fd.log_process(context, vmtime, pid, ppid, modulepath, procname)
                     return True

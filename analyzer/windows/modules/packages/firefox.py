@@ -13,6 +13,6 @@ class Firefox(Package):
     ]
 
     def start(self, url):
-        firefox = self.get_path("Mozilla Firefox")
+        firefox = self.get_path("firefox.exe")
         # pass the URL instead of a filename in this case
         return self.execute(firefox, f'"{url}"', url)

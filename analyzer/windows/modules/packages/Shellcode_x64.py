@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import os
 import shutil
 
@@ -12,8 +11,10 @@ from lib.common.abstracts import Package
 class Shellcode_x64(Package):
     """64-bit Shellcode analysis package."""
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
         """@param options: options dict."""
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
         self.options["procdump"] = "0"

@@ -1,0 +1,41 @@
+<link href="{{ STATIC_URL }}css/guac-playback.css" rel="stylesheet" type="text/css"/>
+<script src="{{ STATIC_URL }}js/guac-playback.js"></script>
+<script src="{{ STATIC_URL }}js/guacamole-1.4.0-all.min.js"></script>
+<a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#playback" onclick="playit()"><h4>Session Playback</h4></a>
+<div id="playback" class="collapse" >
+   	{% if analysis.info.options.interactive_desktop %}
+	   	<div id="terminal" style="width: 100%; height: 100%;">
+			<!--
+				Guacamole recording player
+			    http://www.apache.org/licenses/LICENSE-2.0
+			-->
+			<div id="player">
+				<!-- Player display -->
+				<div id="display">
+					<div class="notification-container">
+						<div class="seek-notification">
+							<p>
+								Seek in progress...
+								<button id="cancel-seek">Cancel</button>
+							</p>
+						</div>
+					</div>
+				</div>
+				<!-- Player controls -->
+				<div class="controls">
+					<button id="play-pause">Play</button>
+					<input id="position-slider" type="range">
+					<span id="position">00:00</span>
+					<span>/</span>
+					<span id="duration">00:00</span>
+				</div>
+			</div>
+			<!-- -->
+			<script>
+            	function playit() {initExamplePlayer("{{analysis.info.id|playback_url}}")}
+            </script>
+		</div>
+    {% else %}
+    	No playback available.
+    {% endif %}
+</div>

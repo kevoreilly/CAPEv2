@@ -10,35 +10,29 @@ Create Date: 2015-03-29 08:43:11.468664
 
 """
 # revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
-
 revision = "f111620bb8"
 down_revision = "4b09c454108c"
 
 import os.path
 import sys
-from datetime import datetime
 
 import sqlalchemy as sa
-from alembic import op
 
 try:
-    from dateutil.parser import parse
+    pass
 except ImportError:
     print("Unable to import dateutil.parser", end=" ")
-    print("(install with `pip3 install python-dateutil`)")
+    print("(install with `poetry run pip install python-dateutil`)")
     sys.exit()
 
 try:
     from alembic import op
 except ImportError:
-    print("Unable to import alembic (install with `pip3 install alembic`)")
+    print("Unable to import alembic (install with `poetry run pip install alembic`)")
     sys.exit()
 
 curdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(curdir, "..", "..", ".."))
-
-import lib.cuckoo.core.database as db
 
 
 def upgrade():

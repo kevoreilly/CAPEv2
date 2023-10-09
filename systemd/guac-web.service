@@ -1,0 +1,13 @@
+[Unit]
+Description=Guacamole ASGI app
+
+[Service]
+WorkingDirectory=/opt/CAPEv2/web
+ExecStart=/usr/bin/poetry run gunicorn --bind 127.0.0.1:8008 web.asgi -t 180 -w 4 -k uvicorn.workers.UvicornWorker --capture-output --enable-stdio-inheritance
+User=cape
+Group=cape
+Restart=always
+RestartSec=5m
+
+[Install]
+WantedBy=multi-user.target

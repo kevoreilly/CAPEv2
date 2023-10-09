@@ -155,6 +155,9 @@ img.opaque:hover {
     margin: 0 auto !important;
     float: none !important;
 }
+.table-bordered tfoot th, .table-bordered tfoot td {
+    border-top: 4px solid #444;
+}
 a.tag-label {
     color: white;
 }
@@ -269,7 +272,7 @@ pre {
     /*background-color: white;*/
     color: #5bc0de;
 }
-#filter-toggle {
+.filter-toggle {
     display: inline-block;
     cursor: pointer;
 }

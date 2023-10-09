@@ -6,7 +6,7 @@ Machinery Modules
 your virtualization software (or potentially even with physical disk imaging
 solutions).
 Since we decided to not enforce any particular vendor, from release 0.4 you
-are able to use your preferred solution and, in case it's not supported by
+can use your preferred solution and, in case it's not supported by
 default, write a custom Python module that defines how to make CAPE use it.
 
 Every machinery module should be located inside
@@ -49,7 +49,7 @@ Configuration
 
 Every machinery module should come with a dedicated configuration file
 located in *conf/<machinery module name>.conf*.
-For example for *modules/machinery/kvm.py* we have a *conf/kvm.conf*.
+For example, for *modules/machinery/kvm.py* we have a *conf/kvm.conf*.
 
 The configuration file should follow the default structure::
 
@@ -73,17 +73,17 @@ The configuration file should follow the default structure::
     # will fail.
     ip = 192.168.122.105
 
-A main section called ``[<name of the module>]`` with a ``machines`` field
+The main section is called ``[<name of the module>]`` with a ``machines`` field
 containing a comma-separated list of machines IDs.
 
-For each machine you should specify a ``label``, a ``platform`` and its
+For each machine, you should specify a ``label``, a ``platform``, and its
 ``ip``.
 
-These fields are required by CAPE in order to use the already embedded ``initialize()``
+These fields are required by CAPE to use the already embedded ``initialize()``
 function that generates the list of available machines.
 
 If you plan to change the configuration structure you should override the ``initialize()``
-function (inside your own module, no need to modify CAPE's core code).
+function (inside your module, no need to modify CAPE's core code).
 You can find its original code in the ``Machinery`` abstract inside
 *lib/cuckoo/common/abstracts.py*.
 

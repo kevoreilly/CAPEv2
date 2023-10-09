@@ -18,7 +18,6 @@ AUTHOR = "kevoreilly"
 import string
 
 import pefile
-import yara
 from Cryptodome.Cipher import ARC4
 
 rule_source = """
@@ -31,7 +30,7 @@ rule DoppelPaymer
 
     strings:
         $getproc32 = {81 FB ?? ?? ?? ?? 74 2D 8B CB E8 ?? ?? ?? ?? 85 C0 74 0C 8B C8 8B D7 E8 ?? ?? ?? ?? 5B 5F C3}
-        $cmd_string = "Setup run\n" wide
+        $cmd_string = "Setup run\\n" wide
     condition:
         uint16(0) == 0x5A4D and all of them
 }
@@ -40,11 +39,12 @@ rule DoppelPaymer
 LEN_BLOB_KEY = 40
 
 
-def convert_char(c):
-    if c in (string.letters + string.digits + string.punctuation + " \t\r\n"):
+def convert_char(c) -> str:
+    if isinstance(c, int):
+        c = chr(c)
+    if c in string.printable:
         return c
-    else:
-        return f"\\x{ord(c):02x}"
+    return f"\\x{ord(c):02x}"
 
 
 def decrypt_rc4(key, data):
@@ -54,7 +54,7 @@ def decrypt_rc4(key, data):
 
 def extract_rdata(pe):
     for section in pe.sections:
-        if ".rdata" in section.Name:
+        if b".rdata" in section.Name:
             return section.get_data(section.VirtualAddress, section.SizeOfRawData)
     return None
 

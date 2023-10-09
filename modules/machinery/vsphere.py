@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import random
 import re
@@ -199,8 +198,9 @@ class vSphere(Machinery):
 
         for dc, dcpath in traverseDCFolders(conn, conn.content.rootFolder.childEntity):
             for vm in traverseVMFolders(conn, dc.vmFolder.childEntity):
-                self.VMtoDC[vm.summary.config.name] = dcpath
-                yield vm
+                if hasattr(vm.summary.config, "name"):
+                    self.VMtoDC[vm.summary.config.name] = dcpath
+                    yield vm
 
     def _get_virtual_machine_by_label(self, conn, label):
         """Return the named VirtualMachine managed object"""

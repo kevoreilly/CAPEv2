@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import ctypes
 import logging
 import sys
@@ -64,13 +63,13 @@ class Service(Package):
 
     def start(self, path):
         try:
-            servicename = self.options.get("servicename", "CAPEService")
-            servicedesc = self.options.get("servicedesc", "CAPE Service")
+            servicename = self.options.get("servicename", "CAPEService").encode("utf8")
+            servicedesc = self.options.get("servicedesc", "CAPE Service").encode("utf8")
             arguments = self.options.get("arguments")
             path = check_file_extension(path, ".exe")
-            binPath = f'"{path}"'
+            binpath = f'"{path}"'.encode("utf8")
             if arguments:
-                binPath += f" {arguments}"
+                binpath += f" {arguments}"
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
             if scm_handle == 0:
                 log.info("Failed to open SCManager")
@@ -84,7 +83,7 @@ class Service(Package):
                 SERVICE_WIN32_OWN_PROCESS,
                 SERVICE_DEMAND_START,
                 SERVICE_ERROR_IGNORE,
-                binPath,
+                binpath,
                 None,
                 None,
                 None,
@@ -95,10 +94,10 @@ class Service(Package):
                 log.info("Failed to create service")
                 log.info(ctypes.FormatError())
                 return
-            log.info("Created service (handle: 0x%x)", service_handle)
-            servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid, suspended=False)
+            log.info("Created service (handle: 0x%s)", service_handle)
+            servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid)
             filepath = servproc.get_filepath()
-            servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+            servproc.inject(interest=filepath, nosleepskip=True)
             servproc.close()
             KERNEL32.Sleep(500)
             service_launched = ADVAPI32.StartServiceA(service_handle, 0, None)

@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
 import shutil
@@ -26,8 +25,10 @@ class Unpacker_zip(Package):
         ("SystemRoot", "system32", "cmd.exe"),
     ]
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
         """@param options: options dict."""
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
         self.pids = []
@@ -54,13 +55,13 @@ class Unpacker_zip(Package):
         with ZipFile(zip_path, "r") as archive:
             try:
                 archive.extractall(path=extract_path, pwd=password)
-            except BadZipfile:
-                raise CuckooPackageError("Invalid Zip file")
+            except BadZipfile as e:
+                raise CuckooPackageError("Invalid Zip file") from e
             except RuntimeError:
                 try:
                     archive.extractall(path=extract_path, pwd="infected")
                 except RuntimeError as e:
-                    raise CuckooPackageError(f"Unable to extract Zip file: {e}")
+                    raise CuckooPackageError(f"Unable to extract Zip file: {e}") from e
             finally:
                 if recursion_depth < 4:
                     # Extract nested archives.
@@ -83,14 +84,11 @@ class Unpacker_zip(Package):
         @return: comparison boolean
         """
         with ZipFile(zip_path, "r") as archive:
+            # Test if zip file contains a file named as itself.
             try:
-                # Test if zip file contains a file named as itself.
-                for name in archive.namelist():
-                    if name == os.path.basename(zip_path):
-                        return True
-                return False
-            except BadZipfile:
-                raise CuckooPackageError("Invalid Zip file")
+                return any(name == os.path.basename(zip_path) for name in archive.namelist())
+            except BadZipfile as e:
+                raise CuckooPackageError("Invalid Zip file") from e
 
     def get_infos(self, zip_path):
         """Get information from ZIP file.
@@ -100,13 +98,13 @@ class Unpacker_zip(Package):
         try:
             with ZipFile(zip_path, "r") as archive:
                 return archive.infolist()
-        except BadZipfile:
-            raise CuckooPackageError("Invalid Zip file")
+        except BadZipfile as e:
+            raise CuckooPackageError("Invalid Zip file") from e
 
     def start(self, path):
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile(r"(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
+        exe_regex = re.compile(r"(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf\.ps1)$", flags=re.IGNORECASE)
         dll_regex = re.compile(r"(\.dll|\.ocx)$", flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
@@ -115,23 +113,22 @@ class Unpacker_zip(Package):
         # If no file name is provided via option, take the first file.
         if file_name is None:
             # No name provided try to find a better name.
-            if len(zipinfos):
-                # Attempt to find a valid exe extension in the archive
-                for f in zipinfos:
-                    if exe_regex.search(f.filename):
-                        file_name = f.filename
-                        break
-                if file_name is None:
-                    for f in zipinfos:
-                        if dll_regex.search(f.filename):
-                            file_name = f.filename
-                            break
-                # Default to the first one if none found
-                file_name = file_name or zipinfos[0].filename
-                log.debug("Missing file option, auto executing: %s", file_name)
-            else:
+            if not len(zipinfos):
                 raise CuckooPackageError("Empty ZIP archive")
 
+            # Attempt to find a valid exe extension in the archive
+            for f in zipinfos:
+                if exe_regex.search(f.filename):
+                    file_name = f.filename
+                    break
+            if file_name is None:
+                for f in zipinfos:
+                    if dll_regex.search(f.filename):
+                        file_name = f.filename
+                        break
+            # Default to the first one if none found
+            file_name = file_name or zipinfos[0].filename
+            log.debug("Missing file option, auto executing: %s", file_name)
         file_path = os.path.join(root, file_name)
         log.debug('file_name: "%s"', file_name)
         if file_name.lower().endswith(".lnk"):
@@ -163,5 +160,4 @@ class Unpacker_zip(Package):
             powershell = self.get_path_app_in_path("powershell.exe")
             args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
             return self.execute(powershell, args, file_path)
-        else:
-            return self.execute(file_path, self.options.get("arguments"), file_path)
+        return self.execute(file_path, self.options.get("arguments"), file_path)

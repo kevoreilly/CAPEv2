@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import os
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -13,10 +12,8 @@ except ImportError:
 _root = CUCKOO_ROOT
 
 
-def getuser():
-    if HAVE_PWD:
-        return pwd.getpwuid(os.getuid())[0]
-    return ""
+def getuser() -> str:
+    return pwd.getpwuid(os.getuid())[0] if HAVE_PWD else ""
 
 
 def cwd(*args, **kwargs):

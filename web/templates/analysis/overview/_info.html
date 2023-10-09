@@ -1,45 +1,16 @@
 <section id="information">
 
     {% if analysis.detections %}
-        <p  style="text-align:center; font-size: 16px;font-weight-bold";>Detection(s):
-        <!--ToDo remove soon-->
-        {% if analysis.detections|is_string %}
-            <a href="/analysis/search/detections:{{analysis.detections}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary">{{analysis.detections}}</span></a>
-        {% else %}
-            {% for block  in analysis.detections %}
-                <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary">{{block.family}}</span></a>
-            {% endfor %}
-            </p>
-        {% endif %}
+        <p  style="text-align:center; font-size: 18px;font-weight-bold";>Detection(s):
+        {% for block  in analysis.detections %}
+            <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge badge-danger"  title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}&#013;{% endif %}{% endfor %}{% endfor %}">{{block.family}}</span></a>
+        {% endfor %}
+        </p>
     {% endif %}
 
-    <div class="row">
-    {% if children|length > 0 %}
-    <div class="col-lg-1" style="padding-right: 0px;">
-        <div class="panel panel-primary" style="height: 114px;">
-            <div class="panel-heading">
-                <h4 class="panel-title" style="text-align: center;">Auto Tasks</h4>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                    {% for child in children %}
-                        <h4 style="text-align:center; font-size: 100%;font-weight-bold" ;><a href="/submit/status/{{ child.0 }}/">#{{ child.0 }}: {{ child.1 }}</a></h4>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    {% if analysis.detections and children|length > 0 %}
-        <div class="col-lg-11">
-    {% elif analysis.detections or children|length > 0 %}
-        <div class="col-lg-12">
-    {% else %}
-        <div class="col-lg-12">
-    {% endif %}
     <div class="panel panel-primary">
         <div class="panel-heading">
-            <h4 class="panel-title">Analysis</h4>
+            <h4 class="panel-title">Analysis {% if settings.REPROCESS_TASKS %} <a class="btn btn-secondary btn-sm" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess the task"><span class="fa-solid fa-rotate"></span></a>{% endif %}</h4>
         </div>
         <table class="table table-striped">
             <thead>
@@ -55,7 +26,13 @@
                     {% if user.is_staff and analysis.distributed %}
                         <th>Distributed</th>
                     {% endif %}
-                    <th>Log</th>
+                    <th>Log(s)</th>
+                    {% if analysis.debug.pre_script_log %}
+                        <th>Pre Script Logs</th>
+                    {% endif %}
+                    {% if analysis.debug.during_script_log %}
+                        <th>During Script Logs</th>
+                    {% endif %}
                     {% if config.malscore and analysis.malscore %}
                         <th>MalScore</th>
                     {% endif %}
@@ -74,7 +51,19 @@
                     {% if user.is_staff and analysis.distributed %}
                         <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
                     {% endif %}
-                    <td><a class="accordion-toggle" data-toggle="collapse" href="#info-log">Show Log</a></td>
+                    <td>
+                        Show <a class="accordion-toggle" data-toggle="collapse" href="#info-log">Analysis</a>
+                        {% if analysis.process_log %}
+                            | <a class="accordion-toggle" data-toggle="collapse" href="#process-log"> Process</a>
+                        {% endif %}
+                        Log
+                    </td>
+                    {% if analysis.debug.pre_script_log %}
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-pre-script-log">Show Pre Script</a></td>
+                    {% endif %}
+                    {% if analysis.debug.during_script_log %}
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-during-script-log">Show During Script</a></td>
+                    {% endif %}
                     {% if config.malscore and analysis.malscore %}
                     <td>
                         {% if analysis.malscore > 6.0 %}
@@ -106,6 +95,14 @@
     <div id="info-log" class="collapse">
         <pre>{{analysis.debug.log}}</pre>
     </div>
+    <div id="process-log" class="collapse">
+        <pre>{{analysis.process_log}}</pre>
+    </div>
+    <div id="info-pre-script-log" class="collapse">
+        <pre>{{analysis.debug.pre_script_log}}</pre>
+    </div>
+    <div id="info-during-script-log" class="collapse">
+        <pre>{{analysis.debug.during_script_log}}</pre>
     </div>
 </section>
 

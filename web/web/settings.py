@@ -1,27 +1,28 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-from __future__ import absolute_import
 import os
 import sys
+from contextlib import suppress
 from pathlib import Path
 
-try:
-    import re2 as re
-except ImportError:
-    import re
+if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
+    sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 
 # Cuckoo path.
-CUCKOO_PATH = os.path.join(os.getcwd(), "..")
+CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+RUNNING_TESTS = "test" in sys.argv
 
 from lib.cuckoo.common.config import Config
 
 # In case we have VPNs enabled we need to initialize through the following
 # two methods as they verify the interaction with VPNs as well as gather
 # which VPNs are available (for representation upon File/URL submission).
+# if not RUNNING_TESTS:
 from lib.cuckoo.core.startup import init_rooter, init_routing
 
 init_rooter()
@@ -33,12 +34,27 @@ aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
 api_cfg = Config("api")
 
-# Error handling for database backends
-if not cfg.mongodb.get("enabled") and not cfg.elasticsearchdb.get("enabled"):
-    raise Exception("No database backend reporting module is enabled! Please enable either ElasticSearch or MongoDB.")
+REPROCESS_TASKS = web_cfg.general.reprocess_tasks
+# CSRF TRUSTED ORIGINS
+# For requests that include the Origin header, Django's CSRF protection
+# requires that header match the origin present in the Host header.
 
-if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and not cfg.elasticsearchdb.get("searchonly"):
-    raise Exception("Both database backend reporting modules are enabled. Please only enable ElasticSearch or MongoDB.")
+csfr_list = []
+if web_cfg.security.csrf_trusted_origins:
+    for host in web_cfg.security.csrf_trusted_origins.split(","):
+        csfr_list.extend([f"http://{host}", f"https://{host}"])
+
+CSRF_TRUSTED_ORIGINS = csfr_list
+# CSRF_COOKIE_SECURE = "True"
+
+# If reporting is enabled via the web GUI, then require one of these to be enabled
+if web_cfg.web_reporting.get("enabled", True):
+    # Error handling for database backends
+    if not cfg.mongodb.get("enabled") and not cfg.elasticsearchdb.get("enabled"):
+        raise Exception("No database backend reporting module is enabled! Please enable either ElasticSearch or MongoDB.")
+
+    if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and not cfg.elasticsearchdb.get("searchonly"):
+        raise Exception("Both database backend reporting modules are enabled. Please only enable ElasticSearch or MongoDB.")
 
 WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
 WEB_OAUTH = web_cfg.oauth
@@ -79,15 +95,16 @@ VTDL_PATH = vtdl_cfg.get("dlpath")
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 
-# DEPRICATED - Enabled/Disable Zer0m0n tickbox on the submission page
+# DEPRECATED - Enabled/Disable Zer0m0n tickbox on the submission page
 OPT_ZER0M0N = False
 
 COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
+ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
 
 # If false run next command
-# python3 manage.py runserver 0.0.0.0:8000 --insecure
+# python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 DEBUG = True
 
 # Database settings. We don't need it.
@@ -99,19 +116,22 @@ SITE_ID = 1
 # to load the internationalization machinery.
 USE_I18N = True
 
+# Deprecated in Django 5.0
 # If you set this to False, Django will not format dates, numbers and
 # calendars according to the current locale.
 USE_L10N = True
 
 # Disabling time zone support and using local time for web interface and storage.
-# See: https://docs.djangoproject.com/en/1.5/ref/settings/#time-zone
-USE_TZ = True
+# https://docs.djangoproject.com/en/4.0/topics/i18n/
+LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
 
 # Unique secret key generator.
 # Secret key will be placed in secret_key.py file.
 try:
-    from .secret_key import *
+    from .secret_key import SECRET_KEY  # noqa: F401
 except ImportError:
     SETTINGS_DIR = os.path.abspath(os.path.dirname(__file__))
     # Using the same generation schema of Django startproject.
@@ -120,18 +140,10 @@ except ImportError:
     key = get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)")
 
     # Write secret_key.py
-    with open(os.path.join(SETTINGS_DIR, "secret_key.py"), "w") as key_file:
-        key_file.write('SECRET_KEY = "{0}"'.format(key))
+    _ = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
 
     # Reload key.
-    from .secret_key import *
-
-try:
-    from captcha.fields import ReCaptchaField
-    from captcha.widgets import ReCaptchaV2Checkbox
-except ImportError:
-    sys.exit("Missed dependency: pip3 install django-recaptcha==2.0.6")
-
+    from .secret_key import SECRET_KEY  # noqa: F401
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
@@ -153,7 +165,7 @@ STATIC_ROOT = ""
 STATIC_URL = "/static/"
 
 # Additional locations of static files
-STATICFILES_DIRS = (os.path.join(os.getcwd(), "static"),)
+STATICFILES_DIRS = (os.path.join(Path.cwd(), "static"),)
 
 # List of finder classes that know how to find static files in
 # various locations.
@@ -206,7 +218,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # 'django_otp.middleware.OTPMiddleware',
     # in case you want custom auth, place logic in web/web/middleware.py
-    # "web.middleware.CustoAuth",
+    # "web.middleware.CustomAuth",
 ]
 
 OTP_TOTP_ISSUER = "CAPE Sandbox"
@@ -217,7 +229,7 @@ X_FRAME_OPTIONS = "DENY"
 
 ROOT_URLCONF = "web.urls"
 
-# Python dotted path to the WSGI application used by Django's runserver.
+# Python dotted path to the WSGI application used by Django's runserver_plus.
 WSGI_APPLICATION = "web.wsgi.application"
 
 INSTALLED_APPS = [
@@ -357,10 +369,10 @@ if api_cfg.api.token_auth_enabled:
             "rest_framework.authentication.SessionAuthentication",
         ],
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-        "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle", "apiv2.throttling.SubscriptionRateThrottle"],
+        "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
         "DEFAULT_THROTTLE_RATES": {
-            "user": "5/m",
-            "subscription": "5/m",
+            "user": api_cfg.api.default_user_ratelimit,
+            "subscription": api_cfg.api.default_subscription_ratelimit,
         },
     }
 
@@ -443,6 +455,7 @@ TEST_RUNNER = "django.test.runner.DiscoverRunner"
 # the site admins on every HTTP 500 error when DEBUG=False.
 # See http://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
+# if not RUNNING_TESTS:
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -461,6 +474,7 @@ LOGGING = {
 
 SILENCED_SYSTEM_CHECKS = [
     "admin.E408",
+    "models.W042",
     #'captcha.recaptcha_test_key_error'
 ]
 
@@ -490,7 +504,5 @@ RATELIMIT_ERROR_MSG = "Too many request without auth! You have exceed your free 
 try:
     LOCAL_SETTINGS
 except NameError:
-    try:
-        from .local_settings import *
-    except ImportError:
-        pass
+    with suppress(ImportError):
+        from .local_settings import *  # noqa: F403

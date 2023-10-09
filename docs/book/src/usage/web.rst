@@ -6,87 +6,102 @@ CAPE provides a full-fledged web interface in the form of a Django application.
 This interface will allow you to submit files, browse through the reports as well
 as search across all the analysis results.
 
+``cape2.sh`` adds ``systemd`` daemon called ``cape-web.service`` which listen on all interfaces::
+
+    $ /lib/systemd/system/cape-web.service
+
+To modify that you need to edit that file and change from ``0.0.0.0`` to your IP.
+You need to restart daemon to reload after change it::
+
+    $ systemctl daemon-reload
+
+If you get migration-related WARNINGS when launching the cape-web service, you should execute::
+
+    $ poetry run python3 manage.py migrate
+
+.. note:: In order to improve performance, it is recommended to move from SQLite to PostgreSQL.
+
 Configuration
 =============
 
-The web interface pulls data from a Mongo database or from ElasticSearch, so having
+The web interface pulls data from a Mongo database or ElasticSearch, so having
 either the MongoDB or ElasticSearchDB reporting modules enabled in ``reporting.conf``
 is mandatory for this interface. If that's not the case, the application won't start
-and it will raise an exception. Also, currently Django only supports having one of
+and it will raise an exception. Also, currently, Django only supports having one of
 the database modules enabled at a time.
 
-The interface can be configured by editing ``local_settings.py`` under ``web/web/``::
+Enable web interface auth
+-------------------------
+To enable web authentication you need to edit `conf/web.conf` -> `web_auth` -> `enabled = yes`,
+after that you need to create your django admin user by running following command from `web` folder::
 
-    # If you want to customize your CAPE path set it here.
-    # CAPE_PATH = "/where/CAPE/is/placed/"
+    $ poetry run python manage.py createsuperuser
 
-    # Maximum upload size.
-    MAX_UPLOAD_SIZE = 26214400
+For more security tips see `Exposed to internet`_ section.
 
-    # Override default secret key stored in secret_key.py
-    # Make this unique, and don't share it with anybody.
-    # SECRET_KEY = "YOUR_RANDOM_KEY"
 
-    # Local time zone for this installation. Choices can be found here:
-    # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
-    # although not all choices may be available on all operating systems.
-    # On Unix systems, a value of None will cause Django to use the same
-    # timezone as the operating system.
-    # If running in a Windows environment this must be set to the same as your
-    # system time zone.
-    TIME_ZONE = "America/Chicago"
+Enable/Disable REST API Endpoints
+---------------------------------
+By default, there are multiple REST API endpoints that are disabled.
+To enable them, head to the `API configuration file`_
 
-    # Language code for this installation. All choices can be found here:
-    # http://www.i18nguy.com/unicode/language-identifiers.html
-    LANGUAGE_CODE = "en-us"
+For example, to enable the `machines/list` endpoint, you must find the `[machinelist]`
+header in the configuration file just mentioned and set the `enabled` field to `yes`.
 
-    ADMINS = (
-        # ("Your Name", "your_email@example.com"),
-    )
+Restart the CAPE web service for the changes to take effect::
 
-    MANAGERS = ADMINS
+    $ systemctl restart cape-web
 
-    # Allow verbose debug error message in case of application fault.
-    # It's strongly suggested to set it to False if you are serving the
-    # web application from a web server front-end (i.e. Apache).
-    DEBUG = True
+.. _`API configuration file`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/api.conf
 
-    # A list of strings representing the host/domain names that this Django site
-    # can serve.
-    # Values in this list can be fully qualified names (e.g. 'www.example.com').
-    # When DEBUG is True or when running tests, host validation is disabled; any
-    # host will be accepted. Thus it's usually only necessary to set it in production.
-    ALLOWED_HOSTS = ["*"]
 
 Usage
 =====
 
-In order to start the web interface, you can simply run the following command
+To start the web interface, you can simply run the following command
 from the ``web/`` directory::
 
-    $ python3 manage.py runserver
+    $ python3 manage.py runserver_plus --traceback --keep-meta-shutdown
 
 If you want to configure the web interface as listening for any IP on a
-specified port, you can start it with the following command (replace PORT
+specified port (by default the web interface is deployed at localhost:8000), you can start it with the following command (replace PORT
 with the desired port number)::
 
-    $ python3 manage.py runserver 0.0.0.0:PORT
+    $ python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
 You can serve CAPE's web interface using WSGI interface with common web servers:
-Apache, Nginx, Unicorn and so on.
+Apache, Nginx, Unicorn, and so on. Devs are using Nginx + Uwsgi.
 Please refer both to the documentation of the web server of your choice as well as `Django documentation`_.
 
 .. _`Django documentation`: https://docs.djangoproject.com/
 
+
+Subscription
+============
+
+Subscription allows you to control which users what can do what.
+
+Right now we support:
+
+    * Request - Limits per second/minute/hour using django-ratelimit extensions
+    * Reports - Allow or block downloading reports for specific users. Check conf/web.conf to enable this feature.
+
+To extend the capabilities of control what users can do check `Django migrations a primer`_.
+
+.. _`Django migrations a primer`: https://realpython.com/django-migrations-a-primer/
+
+In few works you need to add new fields to ``models.py`` and run ``python3 manage.py makemigrations``
+
+
 Exposed to internet
 ===================
 
-To get rid of many bots/scrappers so we suggest to deploy this amazing project `Nginx Ultimate bad bot blocker`_, follow readme for instalation steps
+To get rid of many bots/scrappers so we suggest deploying this amazing project `Nginx Ultimate bad bot blocker`_, follow the README for installation steps
 
-* Enable web auth with captcha in `conf/web.conf` preferly to avoid any bruteforce.
+* Enable web auth with captcha in `conf/web.conf` properly to avoid any brute force.
 * Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/settings.py``
-* You might need to "Verify" and set as "Stuff user" to your admin in Django admin panel and add your domain to Sites in Django admin too
-* `AllAuth`_ aka SSO autentification with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
+* You might need to "Verify" and set as "Stuff user" to your admin in the Django admin panel and add your domain to Sites in Django admin too
+* `AllAuth`_ aka SSO authentication with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
     * Note ``SITE_ID=1`` in django admin is ``example.com`` rename it to your domain to get it working
 
 .. _`AllAuth`: https://django-allauth.readthedocs.io/
@@ -96,8 +111,195 @@ To get rid of many bots/scrappers so we suggest to deploy this amazing project `
 .. _`ReCaptcha`: https://www.google.com/recaptcha/admin/
 
 
+.. _best_practices_for_production:
+
+Best practices for production
+=============================
+
+Gunicorn + NGINX is the recommended way of serving the CAPE web UI.
+
+First, configure the ``cape-web`` service to use Gunicorn
+
+Modify ``/lib/systemd/system/cape-web.service`` so the ``ExecStart``
+setting is set to
+``/usr/bin/python3 -m poetry run gunicorn web.wsgi -w 4 -t 200 --capture-output --enable-stdio-inheritance``.
+
+Run
+
+.. code:: bash
+
+   sudo systemctl daemon-reload
+   sudo service cape-web restart
+
+Next, install NGINX and configure it to be a reverse proxy to Gunicorn.
+
+.. code:: bash
+
+   sudo apt install nginx
+
+Create a configuration file at ``/etc/nginx/sites-available/cape``
+
+Replace ``www.capesandbox.com`` with your actual hostname.
+
+.. code-block:: nginx
+
+    server {
+        listen 80;
+        server_name www.capesandbox.com;
+        client_max_body_size 101M;
+        proxy_connect_timeout 75;
+        proxy_send_timeout 200;
+        proxy_read_timeout 200;
+
+
+        location ^~ /.well-known/acme-challenge/ {
+          default_type "text/plain";
+          root         /var/www/html;
+          break;
+      }
+
+      location = /.well-known/acme-challenge/ {
+        return 404;
+      }
+
+        location / {
+            proxy_pass http://127.0.0.1:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Remote-User $remote_user;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        location /static/ {
+            alias /opt/CAPEv2/web/static/;
+        }
+
+        location /static/admin/ {
+            proxy_pass http://127.0.0.1:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Remote-User $remote_user;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        location /guac {
+            proxy_pass http://127.0.0.1:8008;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_buffering off;
+            proxy_http_version 1.1;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $http_connection;
+        }
+
+        location /recordings/playback/recfile {
+            alias /opt/CAPEv2/storage/guacrecordings/;
+            autoindex off;
+        }
+    }
+
+If you want to block users from changing their own email addresses, add the following `location` directive inside of the `server` directive:
+
+.. code-block:: nginx
+
+    location /accounts/email/ {
+        return 403;
+    }
+
+If you want to block users from changing their own passwords, add the following `location` directive inside of the `server` directive:
+
+.. code-block:: nginx
+
+    location /accounts/email/ {
+        return 403;
+    }
+
+The recording files written by ``guacd`` are only readable by the ``cape`` user and other members of the ``cape`` group, so in order for NGINX to read and serve the recordings the ``www-data`` user must be added to the ``cape`` group.
+
+.. code-block:: bash
+
+    sudo usermod www-data -G cape
+
+Then restart NGINX
+
+.. code-block:: bash
+
+    sudo service nginx restart
+
+.. warning::
+
+    The CAPE Guacamole Django web application is currently separate from the main CAPE Django web application, and does not support any authentication. Anyone who can connect to the web server access can Guacamole consoles and recordings, if they know the CAPE analysis ID and Guacamole session GUID.
+    
+    NGINX can be configured to require HTTP basic authentication for all CAPE web applications, as an alternative to the Django authentication system.
+
+    Install the ``apache2-utils`` package, which contains the ``htpasswd`` utility.
+ 
+    .. code-block:: bash
+
+        sudo apt install apache2-utils
+
+    Use the ``htpasswd`` file to create a new password file and add a first user, such as ``cape``.
+
+    .. code-block:: bash
+
+        sudo htpasswd -c /opt/CAPEv2/web/.htpasswd cape
+
+    Use the same command without the `-c` option to add another user to an existing password file.
+
+    Set the proper file permissions.
+
+    .. code-block:: bash
+
+        sudo chown root:www-data /opt/CAPEv2/web/.htpasswd
+        sudo chmod u=rw,g=r,o= /opt/CAPEv2/web/.htpasswd
+
+    Add the following lines to the NGINX configuration, just below the ``client_max_body_size`` line.
+
+    .. code-block :: nginx
+
+        auth_basic           "Authentication required";
+        auth_basic_user_file /opt/CAPEv2/web/.htpasswd;
+
+    Then restart NGINX
+
+    .. code-block:: bash
+
+        sudo service nginx restart
+
+Let's Encrypt certificates
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you would like to install a free Let's Encrypt certificate on your NGINX
+server, follow these steps, replacing ``capesandbox.com`` with your actual
+hostname.
+
+Install `certbot`.
+
+.. code-block:: bash
+
+    sudo snap install core; sudo snap refresh core
+    sudo snap install --classic certbot
+    sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+Request the certificate
+
+.. code-block:: bash
+
+    sudo certbot certonly --webroot -w /var/www/html -d www.capesandbox.com -d capesandbox.com
+ 
+Install the certificate. When prompted, select the
+"Attempt to reinstall this existing certificate" option.
+
+.. code-block:: bash
+ 
+    sudo certbot --nginx -d www.capesandbox.com -d capesandbox.com
+
+
 Some extra security TIP(s)
 ==========================
+
 * `ModSecurity tutorial`_ - rejects requests
 * `Fail2ban tutorial`_ - ban hosts
 * `Fail2ban + CloudFlare`_ - how to ban on CloudFlare aka CDN firewall level
@@ -197,7 +399,7 @@ Some extra security TIP(s)
     action = iptables-multiport
              cloudflare
 
-    # This will ban any host that trying to access kinda bruteforce login or unauthorized requests for 5 times in 1 minute
+    # This will ban any host that trying to brute force login or unauthorized requests for 5 times in 1 minute
     # Goes to /etc/fail2ban/filters.d/filter.d/nginx-cape-login.conf
     [Definition]
     failregex = ^<HOST> -.*"(GET|POST|HEAD) /accounts/login/\?next=.*HTTP.*"
@@ -219,3 +421,42 @@ Some extra security TIP(s)
 * To check banned hosts::
 
     $ sudo fail2ban-client status cape-api
+
+Troubleshooting
+===============
+
+Login error: no such column: users_userprofile.reports
+------------------------------------------------------
+
+    .. image:: ../_images/screenshots/login_error_user_usersprofile.png
+        :align: center
+
+This error usually appears after updating CAPEv2 and one or more changes have been made to the database schema. To solve it, you must use the `web/manage` utility like so::
+
+$ sudo -u cape poetry run python3 manage.py migrate
+
+The output should be similar to::
+
+
+    $ sudo -u cape poetry run python3 manage.py migrate
+    CAPE parser: No module named Nighthawk - No module named 'Crypto'
+    Missed dependency flare-floss: poetry run pip install -U flare-floss
+    Operations to perform:
+      Apply all migrations: account, admin, auth, authtoken, contenttypes, openid, sessions, sites, socialaccount, users
+    Running migrations:
+      Applying users.0002_reports... OK
+
+
+After the OK, the web service should be back to normal (no need to restart ``cape-web.service``).
+
+No such table: auth_user
+-------------------------
+
+When executing::
+
+$ poetry run python manage.py createsuperuser
+
+an error like ``django.db.utils.OperationalError: no such table: auth_user``
+may be raised. In order to solve it just execute the ``web/manage.py`` utility with the ``migrate`` option::
+
+$ sudo -u cape poetry run python3 web/manage.py migrate

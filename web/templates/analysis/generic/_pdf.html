@@ -55,7 +55,7 @@
                     </tr>
                     <tr>
                         <th>File Size</th>
-                        <td><span class="mono">{{analysis.target.file.size}} bytes</span></td>
+                        <td><span class="mono">{{file.size}} bytes</span></td>
                     </tr>
                     {% if file.pdf.Keywords|getkey:"/Page" %}
                     <tr>
@@ -162,7 +162,7 @@
                 </tr>
                 <tr>
                     <td>Data</td>
-                    <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#JSStream_{{obj|getkey:'Object ID'}}_Data">Data Extracted</a></td>
+                    <td><a class="accordion-toggle" data-toggle="collapse" href="#JSStream_{{obj|getkey:'Object ID'}}_Data">Data Extracted</a></td>
                 </tr>
                 </table>
                 <div id="JSStream_{{obj|getkey:'Object ID'}}_Data" class="collapse">

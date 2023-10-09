@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import os
 from io import StringIO
 
@@ -8,6 +7,7 @@ except ImportError:
     import re
 
 from collections import OrderedDict
+from uuid import NAMESPACE_DNS, uuid3
 
 from django.template.defaultfilters import register
 from django.utils.html import escape
@@ -17,6 +17,11 @@ from django.utils.safestring import mark_safe
 @register.filter("is_string")
 def is_string(value):
     return isinstance(value, str)
+
+
+@register.filter("comma_join")
+def comma_join(value):
+    return ",".join(str(task) for task in value)
 
 
 @register.filter("network_rn")
@@ -131,7 +136,9 @@ def flare_capa_capabilities(obj, *args, **kwargs):
     _print(2, "</tbody>\n")
     _print(1, "</table>\n")
 
-    return mark_safe(result.getvalue())
+    ret_result = result.getvalue()
+    result.close()
+    return mark_safe(ret_result)
 
 
 @register.filter(name="flare_capa_attck")
@@ -161,7 +168,9 @@ def flare_capa_attck(obj, *args, **kwargs):
     _print(2, "</tbody>\n")
     _print(1, "</table>\n")
 
-    return mark_safe(result.getvalue())
+    ret_result = result.getvalue()
+    result.close()
+    return mark_safe(ret_result)
 
 
 @register.filter(name="flare_capa_mbc")
@@ -191,7 +200,9 @@ def flare_capa_mbc(obj, *args, **kwargs):
     _print(2, "</tbody>\n")
     _print(1, "</table>\n")
 
-    return mark_safe(result.getvalue())
+    ret_result = result.getvalue()
+    result.close()
+    return mark_safe(ret_result)
 
 
 # Thanks Sandor
@@ -233,4 +244,12 @@ def malware_config(obj, *args, **kwargs):
     else:
         result.write('<pre style="margin: 0">' + escape(str(obj)) + "</pre>")
 
-    return mark_safe(result.getvalue())
+    ret_result = result.getvalue()
+    result.close()
+    return mark_safe(ret_result)
+
+
+@register.filter(name="playback_url")
+def playback_url(task_id):
+    session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
+    return f"{task_id}_{session_id}"

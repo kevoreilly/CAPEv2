@@ -1,12 +1,12 @@
-from __future__ import absolute_import
+import itertools
 import logging
 import os
+import subprocess
 import zipfile
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -28,12 +28,14 @@ class Evtx(Thread, Auxiliary):
         "Microsoft-Windows-Sysmon/Operational",
     ]
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
         Thread.__init__(self)
         Auxiliary.__init__(self, options, config)
-        self.config = Config(cfg="analysis.conf")
-        self.enabled = self.config.evtx
-        self.do_run = self.enabled
+        self.enabled = config.evtx
+        self.startupinfo = subprocess.STARTUPINFO()
+        self.startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
     def enable_advanced_logging(self):
         """
@@ -172,10 +174,12 @@ class Evtx(Thread, Auxiliary):
                         f'auditpol /set /subcategory:"{subcategory}" /success:{settings["success"]} /failure:{settings["failure"]}'
                     )
                     log.debug("Enabling advanced logging -> %s", cmd)
-                    os.system(cmd)
+                    subprocess.call(
+                        cmd,
+                        startupinfo=self.startupinfo,
+                    )
                 except Exception as err:
                     log.error("Cannot enable advanced logging for subcategory %s - %s", subcategory, err)
-                    pass
 
     def collect_windows_logs(self):
         """
@@ -190,15 +194,14 @@ class Evtx(Thread, Auxiliary):
             logs_folder = "C:/Windows/System32/winevt/Logs"
 
         with zipfile.ZipFile(self.evtx_dump, "w", zipfile.ZIP_DEFLATED) as zip_obj:
-            for evtx_file_name in os.listdir(logs_folder):
-                for selected_evtx in self.windows_logs:
-                    _selected_evtx = f"{selected_evtx}.evtx"
-                    _selected_evtx = _selected_evtx.replace("/", "%4")
-                    if _selected_evtx == evtx_file_name:
-                        full_path = os.path.join(logs_folder, evtx_file_name)
-                        if os.path.exists(full_path):
-                            log.debug("Adding %s to zip dump", full_path)
-                            zip_obj.write(full_path, evtx_file_name)
+            for evtx_file_name, selected_evtx in itertools.product(os.listdir(logs_folder), self.windows_logs):
+                _selected_evtx = f"{selected_evtx}.evtx"
+                _selected_evtx = _selected_evtx.replace("/", "%4")
+                if _selected_evtx == evtx_file_name:
+                    full_path = os.path.join(logs_folder, evtx_file_name)
+                    if os.path.exists(full_path):
+                        log.debug("Adding %s to zip dump", full_path)
+                        zip_obj.write(full_path, evtx_file_name)
 
         log.debug("Uploading %s to host", self.evtx_dump)
         upload_to_host(self.evtx_dump, f"evtx/{self.evtx_dump}")
@@ -211,10 +214,12 @@ class Evtx(Thread, Auxiliary):
             for evtx_channel in self.windows_logs:
                 cmd = f"wevtutil cl {evtx_channel}"
                 log.debug("Wiping %s", evtx_channel)
-                os.system(cmd)
+                subprocess.call(
+                    cmd,
+                    startupinfo=self.startupinfo,
+                )
         except Exception as err:
             log.error("Module error - %s", err)
-            pass
 
     def run(self):
         if self.enabled:
@@ -226,5 +231,4 @@ class Evtx(Thread, Auxiliary):
     def stop(self):
         if self.enabled:
             self.collect_windows_logs()
-            return True
-        return False
+        return True

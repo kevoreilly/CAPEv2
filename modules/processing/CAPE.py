@@ -12,112 +12,180 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
-import hashlib
-import imp
+import collections
 import json
 import logging
 import os
-from datetime import datetime
+import timeit
+from contextlib import suppress
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import pe_map, plugx_parser, static_config_parsers
+from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.integrations.file_extra_info import static_file_info
+from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus
-
-try:
-    import pydeep
-
-    HAVE_PYDEEP = True
-except ImportError:
-    HAVE_PYDEEP = False
+from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.replace_patterns_utils import _clean_path
+from lib.cuckoo.common.utils import (
+    add_family_detection,
+    convert_to_printable_and_truncate,
+    get_clamav_consensus,
+    make_bytes,
+    texttypes,
+    wide2str,
+)
 
 processing_conf = Config("processing")
+externalservices_conf = Config("externalservices")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
-ssdeep_threshold = 95
+MISP_HASH_LOOKUP = False
+if externalservices_conf.misp.enabled:
+    with suppress(Exception):
+        from lib.cuckoo.common.integrations.misp import MISP_HASH_LOOKUP, misp_hash_lookup
 
-# CAPE output types
-# To correlate with cape\cape.h in monitor
-
-PROCDUMP = 0
-COMPRESSION = 1
-INJECTION_PE = 3
-INJECTION_SHELLCODE = 4
-UNPACKED_PE = 8
-UNPACKED_SHELLCODE = 9
-PLUGX_PAYLOAD = 0x10
-PLUGX_CONFIG = 0x11
-SCRIPT_DUMP = 0x65
-DATADUMP = 0x66
-REGDUMP = 0x67
-MOREEGGSJS_PAYLOAD = 0x68
-MOREEGGSBIN_PAYLOAD = 0x69
-AMSIBUFFER = 0x6A
-AMSISTREAM = 0x6B
+# CAPE output types. To correlate with cape\cape.h in monitor
+COMPRESSION = 2
 TYPE_STRING = 0x100
-UPX = 0x1000
 
 log = logging.getLogger(__name__)
 
 code_mapping = {
-    PLUGX_PAYLOAD: "PlugX Payload",
-    UPX: "Unpacked PE Image",
-    MOREEGGSBIN_PAYLOAD: "More_Eggs Binary Payload",
-    AMSIBUFFER: "AMSI Buffer",
-    AMSISTREAM: "AMSI Stream",
-}
-
-name_mapping = {
-    MOREEGGSBIN_PAYLOAD: "MoreEggs",
+    # UPX
+    0x1000: "Unpacked PE Image",
+    0x6A: "AMSI Buffer",
+    0x6B: "AMSI Stream",
 }
 
 inject_map = {
-    INJECTION_PE: "Injected PE Image",
-    INJECTION_SHELLCODE: "Injected Shellcode/Data",
+    3: "Injected PE Image",
+    4: "Injected Shellcode/Data",
 }
 
 unpack_map = {
-    UNPACKED_PE: "Unpacked PE Image",
-    UNPACKED_SHELLCODE: "Unpacked Shellcode",
+    8: "Unpacked PE Image",
+    9: "Unpacked Shellcode",
 }
-
-multi_block_config = ("SquirrelWaffle",)
 
 
 class CAPE(Processing):
     """CAPE output file processing."""
 
-    def detect2pid(self, pid, cape_name):
-        self.results.setdefault("detections2pid", {})
-        self.results["detections2pid"].setdefault(str(pid), [])
-        if cape_name not in self.results["detections2pid"][str(pid)]:
-            self.results["detections2pid"][str(pid)].append(cape_name)
+    key = "CAPE"
 
-    def process_file(self, file_path, append_file, metadata={}):
+    def add_family_detections(self, file_info, cape_names):
+        for cape_name in cape_names:
+            if cape_name != "UPX" and cape_name:
+                if processing_conf.detections.yara:
+                    add_family_detection(self.results, cape_name, "Yara", file_info["sha256"])
+            if file_info.get("pid"):
+                self.detect2pid(str(file_info["pid"]), cape_name)
+
+    def detect2pid(self, pid: str, cape_name: str):
+        self.results.setdefault("detections2pid", {}).setdefault(pid, [])
+        if cape_name not in self.results["detections2pid"][pid]:
+            self.results["detections2pid"][pid].append(cape_name)
+
+    @staticmethod
+    def ensure_config_key(cape_name, config):
+        """Make sure that the cape_name is the top-level key of the config.
+        Return the resulting config.
+        """
+        if cape_name not in config:
+            config = {cape_name: config}
+        return config
+
+    def _cape_type_string(self, type_strings, file_info, append_file):
+        if file_info["cape_type_code"] in code_mapping:
+            file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
+            append_file = True
+        if any(i in type_strings for i in ("PE32+", "PE32")):
+            if not file_info["cape_type"]:
+                return append_file
+            pe_type = "PE32+" if "PE32+" in type_strings else "PE32"
+            file_info["cape_type"] += pe_map[pe_type]
+            file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
+        elif type_strings[0] == "MS-DOS":
+            file_info["cape_type"] = "DOS MZ image: executable"
+        else:
+            file_info["cape_type"] = file_info["cape_type"] or "PE image"
+        return append_file
+
+    def _metadata_processing(self, metadata, file_info, append_file):
+        type_string = ""
+        file_info["cape_type_code"] = 0
+        file_info["cape_type"] = ""
+
+        metastrings = metadata.get("metadata", "").split(";?")
+        if len(metastrings) > 2:
+            file_info["process_path"] = _clean_path(metastrings[1], self.options.replace_patterns)
+            file_info["process_name"] = metastrings[1].rsplit("\\", 1)[-1]
+        if len(metastrings) > 3:
+            file_info["module_path"] = _clean_path(metastrings[2], self.options.replace_patterns)
+
+        if "pids" in metadata:
+            file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
+
+        if metastrings and metastrings[0] and metastrings[0].isdigit():
+            file_info["cape_type_code"] = int(metastrings[0])
+            if file_info["cape_type_code"] == TYPE_STRING:
+                if len(metastrings) > 4:
+                    type_string = metastrings[3]
+
+            elif file_info["cape_type_code"] == COMPRESSION:
+                file_info["cape_type"] = "Decompressed PE Image"
+
+            elif file_info["cape_type_code"] in inject_map:
+                file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
+                if len(metastrings) > 4:
+                    file_info["target_path"] = metastrings[3]
+                    file_info["target_process"] = metastrings[3].rsplit("\\", 1)[-1]
+                    file_info["target_pid"] = metastrings[4]
+
+            elif file_info["cape_type_code"] in unpack_map:
+                file_info["cape_type"] = unpack_map[file_info["cape_type_code"]]
+                if len(metastrings) > 4:
+                    file_info["virtual_address"] = metastrings[3]
+
+            type_strings = file_info["type"].split()
+            append_file = self._cape_type_string(type_strings, file_info, append_file)
+
+        return type_string, append_file
+
+    def process_file(self, file_path, append_file, metadata: dict, *, category: str, duplicated: DuplicatesType) -> dict:
         """Process file.
         @return: file_info
         """
 
-        config = {}
-        cape_name = ""
-        type_string = ""
-
-        if not os.path.exists(file_path):
+        if not path_exists(file_path):
             return
 
-        file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
+        cape_names = set()
+        buf_size = self.options.get("buffer", 8192)
+        # ToDo filename argument for procdump
+
+        # Optimize to not load all if duplicated, it stores sha256 in file object
+        f = File(file_path, metadata.get("metadata", ""))
+        sha256 = f.get_sha256()
+
+        if sha256 in duplicated["sha256"]:
+            log.debug("Skipping file that has already been processed: %s", sha256)
+            return
+        else:
+            duplicated["sha256"].add(sha256)
+
+        file_info, pefile_object = f.get_all()
+
+        if category in ("static", "file"):
+            file_info["name"] = Path(self.task["target"]).name
 
         if pefile_object:
-            self.results.setdefault("pefiles", {})
-            self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+            self.results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
 
         if file_info.get("clamav") and processing_conf.detections.clamav:
             clamav_detection = get_clamav_consensus(file_info["clamav"])
@@ -126,241 +194,148 @@ class CAPE(Processing):
 
         # should we use dropped path here?
         static_file_info(
-            file_info, file_path, self.task["id"], self.task.get("package", ""), self.task.get("options", ""), self.dropped_path
+            file_info,
+            file_path,
+            str(self.task["id"]),
+            self.task.get("package", ""),
+            self.task.get("options", ""),
+            self.self_extracted,
+            self.results,
+            duplicated,
         )
 
+        type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
+
+        if processing_conf.CAPE.targetinfo and category in ("static", "file"):
+            if MISP_HASH_LOOKUP:
+                misp_hash_lookup(file_info["sha256"], str(self.task["id"]), file_info)
+
+            self.results["target"] = {
+                "category": category,
+                "file": file_info,
+            }
+        elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
+            if category == "dropped":
+                file_info.update(metadata.get(file_info["path"][0], {}))
+                file_info["guest_paths"] = list(
+                    {_clean_path(path.get("filepath", ""), self.options.replace_patterns) for path in metadata.get(file_path, [])}
+                )
+                if not file_info["guest_paths"] and category == "dropped" and "CAPE" not in metadata.get("filepath", ""):
+                    file_info["guest_paths"] = [_clean_path(metadata.get("filepath", ""), self.options.replace_patterns)]
+                file_info["name"] = list(
+                    {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
+                ) or [metadata.get("filepath", "").rsplit("\\", 1)[-1]]
+                if category == "dropped":
+                    with suppress(UnicodeDecodeError):
+                        with open(file_info["path"], "r") as drop_open:
+                            filedata = drop_open.read(buf_size + 1)
+                        filedata = wide2str(filedata)
+                        file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
+
+            self.results.setdefault("dropped", []).append(file_info)
+        elif processing_conf.CAPE.procdump and category == "procdump":
+            if any(texttype in file_info["type"] for texttype in texttypes):
+                with open(file_info["path"], "r") as drop_open:
+                    filedata = drop_open.read(buf_size + 1)
+                file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
+            if file_info.get("pid"):
+                _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
+
+            if HAVE_FLARE_CAPA:
+                pretime = timeit.default_timer()
+                capa_details = flare_capa_details(file_path, "procdump")
+                if capa_details:
+                    file_info["flare_capa"] = capa_details
+                self.add_statistic_tmp("flare_capa", "time", pretime)
+
+            self.results.setdefault(category, []).append(file_info)
+
         # Get the file data
-        with open(file_info["path"], "rb") as file_open:
-            file_data = file_open.read()
-
-        if metadata.get("pids", False):
-            if len(metadata["pids"]) == 1:
-                file_info["pid"] = metadata["pids"][0]
-            else:
-                file_info["pid"] = ",".join(metadata["pids"])
-
-        metastrings = metadata.get("metadata", "").split(";?")
-        if len(metastrings) > 2:
-            file_info["process_path"] = metastrings[1]
-            file_info["process_name"] = metastrings[1].rsplit("\\", 1)[-1]
-        if len(metastrings) > 3:
-            file_info["module_path"] = metastrings[2]
-
-        file_info["cape_type_code"] = 0
-        file_info["cape_type"] = ""
-        if metastrings and metastrings[0] and metastrings[0].isdigit():
-            file_info["cape_type_code"] = int(metastrings[0])
-
-            if file_info["cape_type_code"] == TYPE_STRING:
-                if len(metastrings) > 4:
-                    type_string = metastrings[3]
-
-            if file_info["cape_type_code"] == COMPRESSION:
-                file_info["cape_type"] = "Decompressed PE Image"
-
-            if file_info["cape_type_code"] in inject_map:
-                file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
-                if len(metastrings) > 4:
-                    file_info["target_path"] = metastrings[3]
-                    file_info["target_process"] = metastrings[3].rsplit("\\", 1)[-1]
-                    file_info["target_pid"] = metastrings[4]
-
-            if file_info["cape_type_code"] in unpack_map:
-                file_info["cape_type"] = unpack_map[file_info["cape_type_code"]]
-                if len(metastrings) > 4:
-                    file_info["virtual_address"] = metastrings[3]
-
-            type_strings = file_info["type"].split()
-
-            if type_strings[0] in ("PE32+", "PE32"):
-                file_info["cape_type"] += pe_map[type_strings[0]]
-                if type_strings[2] == ("(DLL)"):
-                    file_info["cape_type"] += "DLL"
-                else:
-                    file_info["cape_type"] += "executable"
-
-            if file_info["cape_type_code"] in code_mapping:
-                file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
-                type_strings = file_info["type"].split()
-                if type_strings[0] in ("PE32+", "PE32"):
-                    file_info["cape_type"] += pe_map[type_strings[0]]
-                    if type_strings[2] == ("(DLL)"):
-                        file_info["cape_type"] += "DLL"
-                    else:
-                        file_info["cape_type"] += "executable"
-                if file_info["cape_type_code"] in name_mapping:
-                    cape_name = name_mapping[file_info["cape_type_code"]]
-                append_file = True
-
-                """
-                ConfigData = format(file_data)
-                if ConfigData:
-                    config[cape_name].update({ConfigItem: [ConfigData]})
-                """
-
-            # PlugX
-            if file_info["cape_type_code"] == PLUGX_CONFIG:
-                file_info["cape_type"] = "PlugX Config"
-                if plugx_parser:
-                    plugx_config = plugx_parser.parse_config(file_data, len(file_data))
-                    if plugx_config:
-                        cape_name = "PlugX"
-                        config[cape_name] = {}
-                        for key, value in plugx_config.items():
-                            config[cape_name].update({key: [value]})
-                    else:
-                        log.error("CAPE: PlugX config parsing failure - size many not be handled")
-                    append_file = False
-
-            # Attempt to decrypt script dump
-            if file_info["cape_type_code"] == SCRIPT_DUMP:
-                data = file_data.decode("utf-16").replace("\x00", "")
-                cape_name = "ScriptDump"
-                malwareconfig_loaded = False
-                try:
-                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
-                    file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
-                    module = imp.load_module(cape_name, file, pathname, description)
-                    malwareconfig_loaded = True
-                    log.debug("CAPE: Imported parser %s", cape_name)
-                except ImportError:
-                    log.debug("CAPE: parser: No module named %s", cape_name)
-                if malwareconfig_loaded:
-                    try:
-                        script_data = module.config(self, data)
-                        if script_data and "more_eggs" in script_data["type"]:
-                            bindata = script_data["data"]
-                            sha256 = hashlib.sha256(bindata).hexdigest()
-                            filepath = os.path.join(self.CAPE_path, sha256)
-                            tmpstr = file_info["pid"]
-                            tmpstr += f",{file_info['process_path']}"
-                            tmpstr += f",{file_info['module_path']}"
-                            if "text" in script_data["datatype"]:
-                                file_info["cape_type"] = "MoreEggsJS"
-                                outstr = f"{MOREEGGSJS_PAYLOAD},{tmpstr}\n"
-                                # with open(f"{filepath}_info.txt", "w") as infofd:
-                                #    infofd.write(outstr)
-                                with open(filepath, "w") as cfile:
-                                    cfile.write(bindata)
-                            elif "binary" in script_data["datatype"]:
-                                file_info["cape_type"] = "MoreEggsBin"
-                                outstr = f"{MOREEGGSBIN_PAYLOAD},{tmpstr}\n"
-                                # with open(f"{filepath}_info.txt", "w") as infofd:
-                                #    infofd.write(outstr)
-                                with open(filepath, "wb") as cfile:
-                                    cfile.write(bindata)
-                            if os.path.exists(filepath):
-                                self.script_dump_files.append(filepath)
-                        else:
-                            file_info["cape_type"] = "Script Dump"
-                            log.info("CAPE: Script Dump does not contain known encrypted payload")
-                    except Exception as e:
-                        log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
-                append_file = True
-
-            # More_Eggs
-            if file_info["cape_type_code"] == MOREEGGSJS_PAYLOAD:
-                file_info["cape_type"] = "More Eggs JS Payload"
-                cape_name = "MoreEggs"
-                append_file = True
+        file_data = Path(file_info["path"]).read_bytes()
 
         # Process CAPE Yara hits
-        for hit in file_info["cape_yara"]:
+        # Prefilter extracted data + beauty is better than oneliner:
+        all_files = []
+        for extracted_file in file_info.get("extracted_files", []):
+            if not extracted_file["cape_yara"]:
+                continue
+            if extracted_file.get("data", b""):
+                extracted_file_data = make_bytes(extracted_file["data"])
+            else:
+                extracted_file_data = Path(extracted_file["path"]).read_bytes()
+            for yara in extracted_file["cape_yara"]:
+                all_files.append(
+                    (
+                        f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
+                        extracted_file_data,
+                        yara,
+                    )
+                )
 
+        for yara in file_info["cape_yara"]:
+            all_files.append((file_info["path"], file_data, yara))
+
+        executed_config_parsers = collections.defaultdict(set)
+        for tmp_path, tmp_data, hit in all_files:
             # Check for a payload or config hit
-            extraction_types = ("payload", "config", "loader")
-
+            cape_name = None
             try:
-                if any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in extraction_types]):
+                if File.yara_hit_provides_detection(hit):
                     file_info["cape_type"] = hit["meta"]["cape_type"]
-                    cape_name = hit["name"].replace("_", " ")
+                    cape_name = File.get_cape_name_from_yara_hit(hit)
+                    cape_names.add(cape_name)
             except Exception as e:
-                print(f"Cape type error: {e}")
+                log.error("Cape type error: %s", str(e))
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
-                if type_strings[0] in ("PE32+", "PE32"):
-                    file_info["cape_type"] += pe_map[type_strings[0]]
-                    if type_strings[2] == ("(DLL)"):
-                        file_info["cape_type"] += "DLL"
-                    else:
-                        file_info["cape_type"] += "executable"
+                append_file = self._cape_type_string(type_strings, file_info, append_file)
 
-            if hit["name"] == "GuLoader":
-                self.detect2pid(file_info["pid"], "GuLoader")
-
-            cape_name = hit["name"].replace("_", " ")
-            tmp_config = static_config_parsers(hit["name"], file_data)
-            if tmp_config and tmp_config.get(cape_name):
-                config.update(tmp_config[cape_name])
+            if cape_name and cape_name not in executed_config_parsers[tmp_path]:
+                tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
+                self.update_cape_configs(cape_name, tmp_config, file_info)
+                executed_config_parsers[tmp_path].add(cape_name)
 
         if type_string:
-            log.info("CAPE: type_string: %s", type_string)
-            tmp_config = static_config_parsers(type_string.split(" ", 1)[0], file_data)
-            if tmp_config:
-                cape_name = type_string.split(" ", 1)[0]
-                log.info("CAPE: config returned for: %s", cape_name)
-                config.update(tmp_config)
+            file_info["cape_type"] = type_string
+            if "config" in type_string.lower():
+                append_file = False
+            cape_name = File.get_cape_name_from_cape_type(type_string)
+            if cape_name and cape_name not in executed_config_parsers:
+                tmp_config = static_config_parsers(cape_name, file_info["path"], file_data)
+                if tmp_config:
+                    cape_names.add(cape_name)
+                    log.info("CAPE: config returned for: %s", cape_name)
+                    self.update_cape_configs(cape_name, tmp_config, file_info)
 
-        if cape_name:
-            if cape_name != "UPX" and cape_name:
-                if processing_conf.detections.yara:
-                    add_family_detection(self.results, cape_name, "Yara", file_info["sha256"])
-            if file_info.get("pid"):
-                self.detect2pid(file_info["pid"], cape_name)
+        self.link_configs_to_analysis()
+        self.add_family_detections(file_info, cape_names)
 
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:
             if file_info["size"] == cape_file["size"]:
-                if HAVE_PYDEEP:
-                    ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode(), cape_file["ssdeep"].encode())
-                    if ssdeep_grade >= ssdeep_threshold:
-                        log.debug(
-                            "CAPE duplicate output file skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold
-                        )
-                        append_file = False
-                if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
-                    if (
-                        file_info["entrypoint"] == cape_file["entrypoint"]
-                        and file_info["cape_type_code"] == cape_file["cape_type_code"]
-                        and file_info["ep_bytes"] == cape_file["ep_bytes"]
-                    ):
-                        log.debug("CAPE duplicate output file skipped: matching entrypoint")
-                        append_file = False
+                append_file = is_duplicated_binary(file_info, cape_file, append_file)
 
         if append_file:
-            if HAVE_FLARE_CAPA:
-                pretime = datetime.now()
+            if HAVE_FLARE_CAPA and category == "CAPE":
+                pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:
                     file_info["flare_capa"] = capa_details
                 self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
-        if config and config not in self.cape["configs"]:
-            if cape_name in multi_block_config and self.cape["configs"]:
-                for conf in self.cape["configs"]:
-                    if cape_name in conf:
-                        conf[cape_name].update(config)
-            else:
-                # in case if malware name is missed it will break conf visualization
-                if cape_name not in config:
-                    config = {cape_name: config}
-                if config not in self.cape["configs"]:
-                    self.cape["configs"].append(config)
+    def _set_dict_keys(self):
+        self.cape = {"payloads": [], "configs": []}
 
     def run(self):
         """Run analysis.
         @return: list of CAPE output files with related information.
         """
-        self.key = "CAPE"
-        self.script_dump_files = []
-
-        self.cape = {}
-        self.cape["payloads"] = []
-        self.cape["configs"] = []
-
+        self._set_dict_keys()
         meta = {}
-        if os.path.exists(self.files_metadata):
+        # Required to control files extracted by selfextract.conf as we store them in dropped
+        duplicated: DuplicatesType = collections.defaultdict(set)
+        if path_exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
 
@@ -370,36 +345,77 @@ class CAPE(Processing):
 
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta[filepath] = {
-                    "pids": entry["pids"],
-                    "ppids": entry["ppids"],
-                    "filepath": entry["filepath"],
-                    "metadata": entry["metadata"],
+                    "pids": entry.get("pids"),
+                    "ppids": entry.get("ppids"),
+                    "filepath": entry.get("filepath", ""),
+                    "metadata": entry.get("metadata", {}),
                 }
 
-        for folder in ("CAPE_path", "procdump_path", "dropped_path"):
+        #  Static processing of submitted file
+        if self.task["category"] in ("file", "static"):
+            self.process_file(
+                self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
+            )
+
+        for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
+            category = folder.replace("_path", "").replace("_files", "")
             if hasattr(self, folder):
                 # Process dynamically dumped CAPE/procdumps files/dropped might
                 # be detected as payloads and trigger config parsing
                 for dir_name, _, file_names in os.walk(getattr(self, folder)):
                     for file_name in file_names:
-                        file_path = os.path.join(dir_name, file_name)
+                        filepath = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, True, meta.get(file_path, {}))
+                            self.process_file(filepath, True, meta.get(filepath, {}), category=category, duplicated=duplicated)
                         else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            self.process_file(file_path, False)
-
-                # Process files that may have been decrypted from ScriptDump
-                for file_path in self.script_dump_files:
-                    self.process_file(file_path, False, meta.get(file_path, {}))
-
-        # Finally static processing of submitted file
-        if self.task["category"] in ("file", "static"):
-            if not os.path.exists(self.file_path):
-                log.error('Sample file doesn\'t exist: "%s"', self.file_path)
-
-        self.process_file(self.file_path, False, meta.get(self.file_path, {}))
-
+                            self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
         return self.cape
+
+    def update_cape_configs(self, cape_name, config, file_obj):
+        """Add the given config to self.cape["configs"]."""
+        if not config:
+            return
+
+        # look for an existing config matching this cape_name; merge them if found
+        for existing_config in self.cape["configs"]:
+            if cape_name in existing_config:
+                log.warning("CAPE: data loss may occur, existing config found for: %s", cape_name)
+                existing_config[cape_name].update(config[cape_name])
+                config = existing_config
+                break
+        else:
+            # first time a config for this cape_name was seen
+            log.info("CAPE: new config found for: %s", cape_name)
+            self.cape["configs"].append(config)
+
+        # Link the config to the hashes it was generated from.
+        # Store it in a list so that the keys of the dict are fixed and not dynamic, which, if
+        # storing the report in ElasticSearch, could otherwise create tons of keys in the index.
+        sha256 = file_obj.get("sha256", "")
+        current_hashes = config.setdefault("_associated_config_hashes", [])
+        for hashes in current_hashes:
+            if sha256 == hashes["sha256"]:
+                # We've already stored this set of hashes for the config.
+                break
+        else:
+            current_hashes.append(
+                {hashtype: file_obj.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")}
+            )
+
+    def link_configs_to_analysis(self):
+        """Embed associated_analysis_hashes in each config.
+
+        This links the configs to the analysis hashes that generated it.
+        """
+        if self.results.get("target", {}).get("category", "") not in ("static", "file"):
+            return
+
+        target_file = self.results["target"]["file"]
+        associated_analysis_hashes = {
+            hashtype: target_file.get(hashtype, "") for hashtype in ("md5", "sha1", "sha256", "sha512", "sha3_384")
+        }
+        for config in self.cape["configs"]:
+            config["_associated_analysis_hashes"] = associated_analysis_hashes

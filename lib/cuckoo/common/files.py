@@ -2,18 +2,18 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import errno
 import hashlib
 import logging
-import ntpath
 import os
 import shutil
 import tempfile
+from pathlib import PureWindowsPath
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.misc import getuser
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 cuckoo_conf = Config()
 
@@ -31,27 +31,36 @@ def temppath():
     return tmppath
 
 
-def open_exclusive(path, mode="xb", bufsize=-1):
+def open_exclusive(path, mode="xb"):
     """Open a file with O_EXCL, failing if it already exists
     [In Python 3, use open with x]"""
     fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
     try:
-        return os.fdopen(fd, mode, bufsize)
+        return os.fdopen(fd, mode)
     except OSError as e:
-        log.error(e, "You migth need to add whitelist folder in resultserver.py")
+        log.error(e, "You might need to add whitelist folder in resultserver.py")
         os.close(fd)
         raise
 
 
-class Storage(object):
+def open_inclusive(path, mode="ab"):
+    fd = os.open(path, os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o644)
+    try:
+        return os.fdopen(fd, mode)
+    except OSError as e:
+        log.error(e, "You might need to add whitelist folder in resultserver.py")
+        os.close(fd)
+        raise
+
+
+class Storage:
     @staticmethod
     def get_filename_from_path(path):
         """Cross-platform filename extraction from path.
         @param path: file path.
         @return: filename.
         """
-        dirpath, filename = ntpath.split(path)
-        return filename if filename else ntpath.basename(dirpath)
+        return PureWindowsPath(path).name
 
 
 class Folders(Storage):
@@ -75,16 +84,16 @@ class Folders(Storage):
             folder_path = os.path.join(root, folder)
             if not os.path.isdir(folder_path):
                 try:
-                    os.makedirs(folder_path)
+                    path_mkdir(folder_path)
                 except OSError as e:
                     if e.errno == errno.EEXIST:
                         # Race condition, ignore
                         continue
-                    raise CuckooOperationalError(f"Unable to create folder: {folder_path}")
+                    raise CuckooOperationalError(f"Unable to create folder: {folder_path}") from e
 
     @staticmethod
     def copy(src, dest):
-        if os.path.exists(dest):
+        if path_exists(dest):
             shutil.rmtree(dest)
         shutil.copytree(src, dest)
 
@@ -99,11 +108,11 @@ class Folders(Storage):
         @raise CuckooOperationalError: if fails to delete folder.
         """
         folder = os.path.join(*folder)
-        if os.path.exists(folder):
+        if path_exists(folder):
             try:
                 shutil.rmtree(folder)
-            except OSError:
-                raise CuckooOperationalError(f"Unable to delete folder: {folder}")
+            except OSError as e:
+                raise CuckooOperationalError(f"Unable to delete folder: {folder}") from e
 
 
 class Files(Storage):
@@ -172,14 +181,12 @@ class Files(Storage):
         @param path: file path
         @return: computed hash string
         """
-        f = open(filepath, "rb")
-        h = method()
-        while True:
+        with open(filepath, "rb") as f:
+            h = method()
             buf = f.read(1024 * 1024)
-            if not buf:
-                break
-            h.update(buf)
-        f.close()
+            while buf:
+                h.update(buf)
+                buf = f.read(1024 * 1024)
         return h.hexdigest()
 
     @staticmethod

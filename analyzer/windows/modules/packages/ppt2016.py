@@ -8,7 +8,9 @@ from lib.common.abstracts import Package
 class PPT2007(Package):
     """PowerPoint analysis package."""
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
 
@@ -17,5 +19,5 @@ class PPT2007(Package):
     ]
 
     def start(self, path):
-        powerpoint = self.get_path_glob("Microsoft Office PowerPoint")
+        powerpoint = self.get_path_glob("POWERPNT.EXE")
         return self.execute(powerpoint, f'/s "{path}"', path)

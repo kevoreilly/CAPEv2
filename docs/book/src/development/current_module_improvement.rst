@@ -20,6 +20,6 @@ Suricata name detection
     CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
     sys.path.append(CUCKOO_ROOT)
 
-    from lib.cuckoo.core.plugins import get_suricata_family
+    from lib.cuckoo.common.suricata_detection import get_suricata_family
     # Signature example: "ET MALWARE Sharik/Smoke CnC Beacon 11"
     print(get_suricata_family(signature_string))

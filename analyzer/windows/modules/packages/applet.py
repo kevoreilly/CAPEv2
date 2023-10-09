@@ -2,10 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import tempfile
+from pathlib import Path
 
-from lib.common.abstracts import Package
+from lib.common.abstracts import CuckooPackageError, Package
 
 
 class Applet(Package):
@@ -27,13 +27,16 @@ class Applet(Package):
         """
 
         _, file_path = tempfile.mkstemp(suffix=".html")
-        with open(file_path, "w") as file_handle:
-            file_handle.write(html)
+        _ = Path(file_path).write_text(html)
 
         return file_path
 
     def start(self, path):
-        browser = self.get_path("browser")
+        try:
+            browser = self.get_path("firefox.exe")
+        except CuckooPackageError:
+            browser = self.get_path("iexplore.exe")
+
         class_name = self.options.get("class")
         html_path = self.make_html(path, class_name)
         return self.execute(browser, f'"{html_path}"', html_path)

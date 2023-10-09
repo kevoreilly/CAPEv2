@@ -14,7 +14,7 @@ Getting Started
 All reporting modules must be placed inside the directory *modules/reporting/*.
 
 Every module must also have a dedicated section in the file *conf/reporting.conf*: for
-example if you create a module *module/reporting/foobar.py* you will have to append
+example, if you create a module *module/reporting/foobar.py* you will have to append
 the following section to *conf/reporting.conf*::
 
     [foobar]
@@ -50,10 +50,10 @@ Following is an example of a working JSON reporting module:
                 except (UnicodeError, TypeError, IOError) as e:
                     raise CuckooReportError("Failed to generate JSON report: %s" % e)
 
-This code is very simple, it basically just receives the global container produced by the
-processing modules, converts it into JSON and writes it to a file.
+This code is very simple, it just receives the global container produced by the
+processing modules, converts it into JSON, and writes it to a file.
 
-There are few requirements for writing a valid reporting module:
+There are a few requirements for writing a valid reporting module:
 
     * Declare your class inheriting from ``Report``.
     * Have a ``run()`` function performing the main operations.

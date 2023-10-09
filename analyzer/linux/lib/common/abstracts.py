@@ -2,13 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
 
 
-class Package(object):
+class Package:
     """Base abstract analysis package."""
 
     PATHS = []
@@ -69,7 +67,7 @@ class Package(object):
         return []
 
 
-class Auxiliary(object):
+class Auxiliary:
     priority = 0
 
     def __init__(self, options={}, analyzer=None):

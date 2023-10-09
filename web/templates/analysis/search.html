@@ -2,7 +2,7 @@
 {% block content %}
 <div class="row">
     <div class="col-md-0 mx-auto">
-        <form class="form-inline" role="form" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
+        <form class="form-inline" role="form" action="{% url "search" %}" method="get">
             <div class="form-group">
                 <label class="sr-only" for="form_search">Search term</label>
                 <input type="text" class="form-control" id="form_search" name="search" size=50 placeholder="Search term as regex" />
@@ -22,9 +22,14 @@
                 </thead>
                 <tbody>
                     <tr>
+                        <td><code>target_sha256:</code></td>
+                        <td>sha256</td>
+                    </tr>
+                    <tr>
                         <td><code>configs:</code></td>
                         <td>Family name</td>
                     </tr>
+
                     <tr>
                         <td><code>id:</code></td>
                         <td>task_id, Example: id:1</td>
@@ -35,11 +40,15 @@
                     </tr>
                     <tr>
                         <td><code>options:</code></td>
-                        <td>x=y</td>
+                        <td>x=y, Example: options:function=DllMain</td>
                     </tr>
                     <tr>
                         <td><code>tags_tasks:</code></td>
                         <td>my_tag, Example: tags_tasks:mytag</td>
+                    </tr>
+                    <tr>
+                        <td><code>package:</code></td>
+                        <td>package, Example: package:ps1</td>
                     </tr>
                     <tr>
                         <td><code>name:</code></td>
@@ -48,10 +57,6 @@
                     <tr>
                         <td><code>type:</code></td>
                         <td>File type/format</td>
-                    </tr>
-                    <tr>
-                        <td><code>string:</code></td>
-                        <td>String contained in the binary</td>
                     </tr>
                     <tr>
                         <td><code>ssdeep:</code></td>
@@ -246,10 +251,6 @@
                         <td>TTP id, ex: T1053</td>
                     </tr>
                     <tr>
-                        <td><code>payloads: to be depricated soon due to global search</code></td>
-                        <td>md5/sha1/sha3/sha256/sha512</td>
-                    </tr>
-                    <tr>
                         <td><code>dhash:</code></td>
                         <td>hash</td>
                     </tr>
@@ -257,13 +258,21 @@
                         <td><code>die:</code></td>
                         <td>keyboard, ex die:obsidium</td>
                     </tr>
+                    <tr>
+                        <td><code>extracted_tool:</code></td>
+                        <td>keyboard, ex extracted_tool:InnoExtract. See file_extra_info.py for the rest of the tool names</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 {% if term %}
-    <h3>Term <span class="text-danger"><i>{{term}}</i></span></h3>
+    <h3>Term <span class="text-danger"><i>{{term}}</i></span>
+    {% if settings.ZIPPED_DOWNLOAD_ALL and term_only in 'capetype,capeyara' %}
+        <center><a href="{% url 'file' term_only|add:'zipall' '1' value_only %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive with all files that matches searched term. All, not only initial target."><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> Download All Files</a></center>
+    {% endif %}
+    </h3>
 {% endif %}
 {% if analyses != None %}
     {% if analyses|length > 0 %}
@@ -299,7 +308,9 @@
                     {% if config.virustotal %}
                     <th width="5%">VT</th>
                     {% endif %}
+                    {% if config.malscore %}
                     <th width="5%">MalScore</th>
+                    {% endif %}
                     {% if config.expanded_dashboard %}
                     <th width="4%">Detections</th>
                     <th width="3%">PCAP</th>
@@ -360,7 +371,7 @@
                                 {% elif analysis.detections|length == 1 %}
                                     <a href="/analysis/search/detections:{{analysis.detections.0.family}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections.0.family}}</span></a>
                                 {% elif analysis.detections|length > 1 %}
-                                    <span style="color:#EE1B2F;font-weight: bold;">Multiple</span>
+                                    <span style="color:#EE1B2F;font-weight: bold;" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple</span>
                                 {% endif %}
                             {% endif %}
                         </td>
@@ -444,6 +455,7 @@
                             {% endif %}
                         </td>
                         {% endif %}
+                        {% if config.malscore %}
                         <td>
                             {% if analysis.malscore != None %}
                                 <span
@@ -462,6 +474,7 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
+                        {% endif %}
                         {% if config.expanded_dashboard %}
                         <td>
                             <span class="mono">

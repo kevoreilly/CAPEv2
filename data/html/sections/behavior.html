@@ -98,7 +98,14 @@
     {% if results.behavior and results.behavior.processes %}
         {% for process in results.behavior.processes %}
         <div>
-            <h4><a href="javascript:showHide('process_{{process.process_id}}');">{{process.process_name}}</a> <small>PID: {{process.process_id}}, Parent PID: {{process.parent_id}}</small></h4>
+            <h4><a href="javascript:showHide('process_{{process.process_id}}');">{{process.process_name}}</a>
+                <small>PID: {{process.process_id}}, Parent PID: {{process.parent_id}}, Full Path: <b>{{process.module_path}}</b>
+                    {% if process.environ.CommandLine %}
+                    , Command Line: <b>{{ process.environ.CommandLine }}</b>
+                    {% endif %}
+                </small>
+            </h4>
+            {% if results.local_conf.apicalls %}
             <div id="process_{{process.process_id}}" style="display: none;">
                 <table class="table table-bordered table-condensed" style="width: 100%; word-wrap:break-word;table-layout: fixed;">
                     <tr>
@@ -144,6 +151,7 @@
                     {% endfor %}
                 </table>
             </div>
+            {% endif %}
         </div>
         {% endfor %}
     {% else %}

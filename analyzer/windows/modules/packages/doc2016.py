@@ -9,7 +9,9 @@ from lib.common.common import check_file_extension
 class DOC2016(Package):
     """Word analysis package."""
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
 
@@ -18,6 +20,6 @@ class DOC2016(Package):
     ]
 
     def start(self, path):
-        word = self.get_path_glob("Microsoft Office Word")
+        word = self.get_path_glob("WINWORD.EXE")
         path = check_file_extension(path, ".doc")
         return self.execute(word, f'"{path}" /q /dde /n', path)

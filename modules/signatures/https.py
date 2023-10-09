@@ -24,6 +24,8 @@ class NetworkHTTPS(Signature):
     authors = ["doomedraven"]
     minimum = "1.2"
     evented = True
+    ttps = ["T1071", "T1071.001"]  # MITRE v6,7,8
+    mbcs = ["OC0006", "C0002"]  # micro-behaviour
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -37,12 +39,11 @@ class NetworkHTTPS(Signature):
 
     def on_complete(self):
         ret = False
-        print(self.urls)
         urls = list(set(self.urls))
         if urls:
             ret = True
 
         for url in urls:
-            self.data.append({"URL": url})
+            self.data.append({"url": url})
 
         return ret

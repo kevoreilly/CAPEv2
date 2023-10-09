@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import socket
 import traceback
@@ -102,7 +101,7 @@ class LogServerThread(Thread):
             return True
 
 
-class LogServer(object):
+class LogServer:
     def __init__(self, result_ip, result_port, logserver_path):
         # Create the Named Pipe.
         sd = SECURITY_DESCRIPTOR()

@@ -16,9 +16,5 @@ class Jar(Package):
         java = self.get_path_glob("Java")
         class_path = self.options.get("class")
 
-        if class_path:
-            args = f'-cp "{path}" {class_path}'
-        else:
-            args = f'-jar "{path}"'
-
+        args = f'-cp "{path}" {class_path}' if class_path else f'-jar "{path}"'
         return self.execute(java, args, path)

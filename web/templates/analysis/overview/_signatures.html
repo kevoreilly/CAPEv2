@@ -16,8 +16,8 @@
     font-weight: bold;
 }
 </style>
-<section id="signatures">
-    <h4>Signatures</h4>
+<section id="signatures" style="overflow-wrap: break-word;">
+    <h4 style="padding-top: 5px;">Signatures</h4>
     {% if analysis.signatures %}
         {% for signature in analysis.signatures %}
             <a style="text-decoration: none;" href="#signature_{{signature.name}}" data-toggle="collapse">
@@ -70,6 +70,28 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            {% endif %}
+            {% if signature.calls %}
+                <div id="signature-calls_{{signature.name}}"></div>
+                {% with data_id="signature-calls-data_"|add:signature.name %}
+                    {{ signature.calls | json_script:data_id }}
+                    <script type="text/javascript">
+                        $("#signature_{{signature.name}}").on("show.bs.collapse", function() {
+                            $.ajax(
+                                "{% url "signature-calls" task_id=analysis.info.id %}",
+                                {
+                                    contentType: "application/json",
+                                    data: document.getElementById("{{data_id}}").textContent,
+                                    dataType: "html",
+                                    method: "POST",
+                                    success: function(responseText) {
+                                        $("#signature-calls_{{signature.name}}").html(responseText);
+                                    }
+                                }
+                            );
+                        });
+                    </script>
+                {% endwith %}
             {% endif %}
             </div>
         {% endfor %}

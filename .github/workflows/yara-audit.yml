@@ -1,0 +1,44 @@
+name: YARA tests
+
+on:
+  schedule:
+  - cron: '0 8 * * 1'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        python-version: ["3.8"]
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev
+
+      - name: Install poetry
+        run: pip install poetry
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          # check-latest: true
+          python-version: ${{ matrix.python-version }}
+          cache: 'poetry'
+      - name: Install requirements
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          poetry install --no-interaction --no-root
+
+      - name: Install dependencies
+        run: |
+          sudo bash ./installer/cape2.sh yara
+          cd $GITHUB_WORKSPACE
+          bash -c "poetry run ./extra/yara_installer.sh"
+
+      - name: Run unit tests
+        run: poetry run pytest tests/test_yara.py -s --import-mode=append

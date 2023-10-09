@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import math
 
@@ -90,7 +89,4 @@ class Screenshot:
         """Take a screenshot.
         @return: screenshot or None.
         """
-        if not HAVE_PIL:
-            return None
-
-        return ImageGrab.grab()
+        return ImageGrab.grab() if HAVE_PIL else None

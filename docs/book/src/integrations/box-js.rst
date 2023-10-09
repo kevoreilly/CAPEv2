@@ -2,14 +2,17 @@
 Box-js
 ======
 
-* :ref:`instalation`
-* :ref:`preparation`
-* :ref:`starting`
-* :ref:`restapi`
+* :ref:`box_installation`
+* :ref:`box_preparation`
+* :ref:`box_starting`
+* :ref:`box_restapi`
 
-.. _instalation:
+.. _box_installation:
 
-* Quick and dirty notes how to integrate box-js to CAPE::
+Installation
+============
+
+* Quick and dirty notes on how to integrate box-js to CAPE::
 
     $ curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
     $ sudo apt install docker.io nodejs git
@@ -21,11 +24,11 @@ Box-js
     $ cd /opt/box-js
     $ sudo npm audit fix --force
 
-.. _preparation:
+.. _box_preparation:
 
 Preparation
 ===========
-* We will leave ``fixing and hardening of box-js for you``, here are just few examples::
+* We will leave ``fixing and hardening of box-js for you``, here are just a few examples::
 
     USERNAME="CAPE"
     IP="0.0.0.0"
@@ -46,7 +49,7 @@ Preparation
 
     $ cd integrations/api/
 
-* replace Dockerfile with this content, required to run fixed/patched box-js inside of th docker::
+* replace Dockerfile with this content, required to run fixed/patched box-js inside of the Docker::
 
     FROM node:10-alpine
     #ENV http_proxy http://PROXY_IP:PORT
@@ -61,15 +64,15 @@ Preparation
     WORKDIR /samples
     CMD box-js /samples --output-dir=/samples --loglevel=debug
 
-.. _starting:
+.. _box_starting:
 
 Starting box-js rest-api
 ========================
-* Default port is ``9000`` you can change it inside of api.py
+* The default port is ``9000`` you can change it inside of api.py
 
     $ node api.js
 
-.. _restapi:
+.. _box_restapi:
 
 Box-js rest-api endpoints
 =========================

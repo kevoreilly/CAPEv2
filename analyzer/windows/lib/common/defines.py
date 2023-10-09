@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 from ctypes import (
     POINTER,
     WINFUNCTYPE,
@@ -25,7 +24,9 @@ NTDLL = windll.ntdll
 KERNEL32 = windll.kernel32
 ADVAPI32 = windll.advapi32
 USER32 = windll.user32
+SHELL32 = windll.shell32
 PDH = windll.pdh
+PSAPI = windll.psapi
 
 BYTE = c_ubyte
 USHORT = c_ushort
@@ -37,6 +38,7 @@ ULONG = c_uint
 UINT64 = c_ulonglong
 LPBYTE = POINTER(c_ubyte)
 LPTSTR = POINTER(c_char)
+PWSTR = c_wchar_p
 HANDLE = c_void_p
 PVOID = c_void_p
 LPVOID = c_void_p
@@ -55,6 +57,7 @@ INFINITE = 0xFFFFFFFF
 PROCESS_ALL_ACCESS = 0x001F0FFF
 THREAD_ALL_ACCESS = 0x001F03FF
 TOKEN_ALL_ACCESS = 0x000F01FF
+PROCESS_QUERY_LIMITED_INFORMATION = 0x00001000
 SE_PRIVILEGE_ENABLED = 0x00000002
 STILL_ACTIVE = 0x00000103
 
@@ -131,6 +134,8 @@ OPEN_EXISTING = 3
 OPEN_ALWAYS = 4
 TRUNCATE_EXISTING = 5
 CREATE_NO_WINDOW = 0x08000000
+
+MAX_PATH = 260
 
 
 class STARTUPINFO(Structure):
@@ -248,22 +253,6 @@ class UNICODE_STRING(Structure):
         ("Length", USHORT),
         ("MaximumLength", USHORT),
         ("Buffer", PWCHAR),
-    ]
-
-
-class SYSTEM_PROCESS_INFORMATION(Structure):
-    _fields_ = [
-        ("NextEntryOffset", ULONG),
-        ("NumberOfThreads", ULONG),
-        ("Reserved0", UINT64),
-        ("Reserved1", UINT64),
-        ("Reserved2", UINT64),
-        ("CreateTime", UINT64),
-        ("UserTime", UINT64),
-        ("KernelTime", UINT64),
-        ("ImageName", UNICODE_STRING),
-        ("BasePriority", ULONG),
-        ("UniqueProcessId", PVOID),
     ]
 
 

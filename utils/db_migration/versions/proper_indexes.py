@@ -11,7 +11,6 @@ Create Date: 2016-05-13 11:04:41.685468
 """
 
 # revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
 import sys
 
 revision = "3c8bf4133b44"
@@ -20,7 +19,7 @@ down_revision = "f111620bb8"
 try:
     from alembic import op
 except ImportError:
-    print("Unable to import alembic (install with `pip3 install alembic`)")
+    print("Unable to import alembic (install with `poetry run pip install alembic`)")
     sys.exit()
 
 

@@ -9,6 +9,7 @@
 DESCRIPTION = "Remcos config extractor."
 AUTHOR = "threathive,sysopfb,kevoreilly"
 
+import base64
 import logging
 import re
 import string
@@ -78,9 +79,9 @@ idx_list = {
     53: "Unknown53",
     54: "Keylog file max size",
     55: "Unknown55",
-    56: "Unknown56",
-    57: "Unknown57",
-    58: "Unknown58",
+    56: "TLS client certificate",
+    57: "TLS client private key",
+    58: "TLS server certificate",
     59: "Unknown59",
     60: "Unknown60",
     61: "Unknown61",
@@ -135,15 +136,13 @@ def get_strings(data, min=4):
 
 
 def check_version(filedata):
-    printable = set(string.printable)
-
     s = ""
     # find strings in binary file
     slist = get_strings(filedata)
 
     # find and extract version string e.g. "2.0.5 Pro", "1.7 Free" or "1.7 Light"
     for s in slist:
-        if bool(re.search("^\d+\.\d+\.\d+\s+\w+$", s)):
+        if bool(re.search(r"^\d+\.\d+\.\d+\s+\w+$", s)):
             return s
     return ""
 
@@ -173,9 +172,17 @@ def extract_config(filebuf):
                 if cont in (b"\x00", b"\x01"):
                     p_data[idx_list[i]] = FLAG[cont]
                 elif i in (9, 16, 25, 37):
-                    p_data[idx_list[i]] = setup_list[int(cont)]
+                    # observed config values in bytes instead of ascii
+                    if cont[0] > 8:
+                        p_data[idx_list[i]] = setup_list[int(chr(cont[0]))]
+                    else:
+                        p_data[idx_list[i]] = setup_list[cont[0]]
+                elif i in (56, 57, 58):
+                    p_data[idx_list[i]] = base64.b64encode(cont)
                 elif i == 0:
-                    host, port, password = cont.split(b"|", 1)[0].split(b":")
+                    # various separators have been observed
+                    separator = next((x for x in (b"|", b"\x1e", b"\xff\xff\xff\xff") if x in cont))
+                    host, port, password = cont.split(separator, 1)[0].split(b":")
                     p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"
                 else:
                     p_data[idx_list[i]] = cont

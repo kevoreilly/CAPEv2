@@ -1,0 +1,46 @@
+<section id="static_floss">
+    {% if file.floss %}
+        {% if file.floss.decoded_strings %}
+        <h4>Decoded Strings</h4>
+            <div class="well" style="font-family: monospace;">
+                {% for string in file.floss.decoded_strings %}
+                    <div>{{string}}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if file.floss.stack_strings %}
+        <h4>Stack Strings</h4>
+            <div class="well" style="font-family: monospace;">
+                {% for string in file.floss.stack_strings %}
+                    <div>{{string}}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if file.floss.tight_strings %}
+        <h4>Tight Strings</h4>
+            <div class="well" style="font-family: monospace;">
+                {% for string in file.floss.tight_strings %}
+                    <div>{{string}}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if file.floss.static_strings %}
+        <h4>Static Strings</h4>
+            <div class="well" style="font-family: monospace;">
+                {% for string in file.floss.static_strings %}
+                    <div>{{string}}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if file.floss.msg %}
+        <div class="well" style="font-family: monospace;">
+            <div>{{file.floss.msg}}</div>
+        </div>
+        {% endif %}
+
+    {% endif %}
+</section>

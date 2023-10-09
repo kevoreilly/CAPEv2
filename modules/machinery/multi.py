@@ -8,7 +8,6 @@
 Pseudo-machinery for using multiple machinery.
 """
 
-from __future__ import absolute_import
 import inspect
 import types
 

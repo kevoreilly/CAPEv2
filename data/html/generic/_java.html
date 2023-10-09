@@ -1,0 +1,7 @@
+<section id="static_java">
+    <div class="well" style="font-family: monospace;">
+        {% if file.java and file.java.decompiled %}
+            <div><pre>{{file.java.decompiled}}</pre></div>
+        {% endif %}
+    </div>
+</section>

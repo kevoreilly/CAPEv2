@@ -44,8 +44,7 @@ def convert_char(c):
     if c in (string.letters + string.digits + string.punctuation + " \t\r\n"):
         # ToDo gonna break as its int
         return c
-    else:
-        return f"\\x{ord(c):02x}"
+    return f"\\x{ord(c):02x}"
 
 
 def decrypt_rc4(key, data):
@@ -57,10 +56,13 @@ def yara_scan(raw_data, rule_name):
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == "BitPaymer":
-            for item in match.strings:
-                if item[1] == rule_name:
-                    return {item[1]: item[0]}
+        if match.rule != "BitPaymer":
+            continue
+
+        for block in match.strings:
+            for instance in block.instances:
+                if block.identifier == rule_name:
+                    return {block.identifier: instance.offset}
 
 
 def extract_rdata(pe):

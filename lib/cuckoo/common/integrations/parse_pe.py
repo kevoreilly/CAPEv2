@@ -1,35 +1,38 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation, Optiv, Inc. (brad.spengler@optiv.com)
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 import array
 import base64
 import binascii
 import hashlib
+import itertools
 import json
 import logging
 import math
-import os
 import struct
-import time
+from contextlib import suppress
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
+from typing import Dict, List, Tuple
 
 from PIL import Image
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
+from lib.cuckoo.common.path_utils import path_exists, path_read_file
 
 try:
     import cryptography
-    from cryptography.hazmat.backends.openssl import x509
     from cryptography.hazmat.backends.openssl.backend import backend
     from cryptography.hazmat.primitives import hashes
 
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
-    print("Missed cryptography library: pip3 install -U cryptography")
+    print("Missed cryptography library: poetry install")
 
 try:
     import magic
@@ -51,26 +54,23 @@ try:
 except ImportError:
     import re
 
+process_cfg = Config("processing")
 
 HAVE_USERDB = False
-import peutils
+if process_cfg.CAPE.userdb_signature:
+    try:
+        import peutils
 
-userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
-userdb_signatures = peutils.SignatureDatabase()
-if os.path.exists(userdb_path):
-    userdb_signatures.load(userdb_path)
-    HAVE_USERDB = True
+        userdb_path = Path(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
+        userdb_signatures = peutils.SignatureDatabase()
+        if userdb_path.exists():
+            userdb_signatures.load(userdb_path)
+            HAVE_USERDB = True
+    except (ImportError, AttributeError) as e:
+        print(f"Failed to initialize peutils: {e}")
 
 
 log = logging.getLogger(__name__)
-
-processing_conf = Config("processing")
-
-HAVE_FLARE_CAPA = False
-# required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
-    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
-
 
 IMAGE_DOS_SIGNATURE = 0x5A4D
 IMAGE_NT_SIGNATURE = 0x00004550
@@ -83,32 +83,29 @@ DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
 
 
-def IsPEImage(buf, size=False):
+def IsPEImage(buf: bytes, size: int = False) -> bool:
     if not buf:
         return False
     if not size:
         size = len(buf)
     if size < DOS_HEADER_LIMIT:
         return False
-    if isinstance(buf, str):
-        buf = buf.encode()
     dos_header = buf[:DOS_HEADER_LIMIT]
     nt_headers = None
 
-    if size < PE_HEADER_LIMIT:
-        return False
-
-    # Check for sane value in e_lfanew
-    (e_lfanew,) = struct.unpack("<L", dos_header[60:64])
+    e_lfanew = False
+    if len(dos_header[:64]) == 64:
+        # Check for sane value in e_lfanew
+        e_lfanew = struct.unpack("<L", dos_header[60:64])[0]
     if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
         offset = 0
         while offset < PE_HEADER_LIMIT - 86:
-            # ToDo
+            # TODO
             try:
                 machine_probe = struct.unpack("<H", buf[offset : offset + 2])[0]
             except struct.error:
                 machine_probe = ""
-            if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
+            if machine_probe and machine_probe in {IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64}:
                 nt_headers = buf[offset - 4 : offset + 252]
                 break
             offset += 2
@@ -120,15 +117,15 @@ def IsPEImage(buf, size=False):
 
     try:
         # if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
-        if (
-            struct.unpack("<H", nt_headers[4:6]) == 0
-            or struct.unpack("<H", nt_headers[20:22]) == 0
-            or struct.unpack("<H", nt_headers[84:86]) == 0
+        if 0 in (
+            struct.unpack("<H", nt_headers[4:6])[0],
+            struct.unpack("<H", nt_headers[20:22])[0],
+            struct.unpack("<H", nt_headers[84:86])[0],
         ):
             return False
 
         # if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
-        if (struct.unpack("<H", nt_headers[22:24])[0] & IMAGE_FILE_EXECUTABLE_IMAGE) == 0:
+        if struct.unpack("<H", nt_headers[22:24])[0] & IMAGE_FILE_EXECUTABLE_IMAGE == 0:
             return False
 
         # if (pNtHeader->FileHeader.SizeOfOptionalHeader & (sizeof (ULONG_PTR) - 1))
@@ -136,49 +133,66 @@ def IsPEImage(buf, size=False):
             return False
 
         # if ((pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC) && (pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC))
-        if (
-            struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE
-            and struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE_PLUS
-        ):
+        if struct.unpack("<H", nt_headers[24:26])[0] not in {OPTIONAL_HEADER_MAGIC_PE, OPTIONAL_HEADER_MAGIC_PE_PLUS}:
             return False
 
     except struct.error:
         return False
 
-    # To pass the above tests it should now be safe to assume it's a PE image
+    # After passing the above tests it should be safe to assume it's a PE image
 
     return True
 
 
-class PortableExecutable(object):
+class PortableExecutable:
     """PE analysis."""
 
-    def __init__(self, file_path):
+    def __init__(self, file_path: str = False, data: bytes = False):
         """@param file_path: file path."""
-        self.file_path = file_path
+        if file_path:
+            self.file_path = file_path if isinstance(file_path, str) else file_path.decode()
         self._file_data = None
-        # pe = None
+        self.pe = None
+        self.HAVE_PE = False
+        try:
+            if data:
+                self.pe = pefile.PE(data=data)
+            else:
+                self.pe = pefile.PE(self.file_path)
+            self.HAVE_PE = True
+        except Exception as e:
+            log.error("PE type not recognised: %s", e)
         # self.results = results
 
     @property
     def file_data(self):
-        if not self._file_data:
-            self._file_data = open(self.file_path, "rb").read()
+        if not self._file_data and path_exists(self.file_path):
+            self._file_data = path_read_file(self.file_path)
         return self._file_data
+
+    def is_64bit(self) -> bool:
+        """Determines if a PE is 64bit.
+        @return: True if 64bit, False if not
+        """
+        if not self.pe:
+            return None
+        if self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64:
+            return True
+        return False
 
     # Obtained from
     # https://github.com/erocarrera/pefile/blob/master/pefile.py
     # Copyright Ero Carrera and released under the MIT License:
     # https://github.com/erocarrera/pefile/blob/master/LICENSE
 
-    def get_entropy(self, data):
+    def get_entropy(self, data: bytes) -> float:
         """Computes the entropy value for the provided data
         @param data: data to be analyzed.
         @return: entropy value as float.
         """
         entropy = 0.0
 
-        if len(data) == 0:
+        if not data:
             return entropy
 
         occurrences = array.array("L", [0] * 256)
@@ -193,7 +207,7 @@ class PortableExecutable(object):
 
         return entropy
 
-    def get_peid_signatures(self, pe):
+    def get_peid_signatures(self, pe: pefile.PE) -> list:
         """Gets PEID signatures.
         @return: matched signatures or None.
         """
@@ -209,7 +223,19 @@ class PortableExecutable(object):
 
         return None
 
-    def get_overlay(self, pe):
+    def get_overlay_raw(self) -> int:
+        """Get information on the PE overlay
+        @return: overlay offset or None.
+        """
+        if not self.pe:
+            return None
+
+        return (
+            self.pe.sections[self.pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
+            + self.pe.sections[self.pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
+        )
+
+    def get_overlay(self, pe: pefile.PE) -> dict:
         """Get information on the PE overlay
         @return: overlay dict or None.
         """
@@ -227,22 +253,15 @@ class PortableExecutable(object):
 
         if off is None:
             return None
-        overlay = {}
-        overlay["offset"] = f"0x{off:08x}"
-        overlay["size"] = f"0x{len(pe.__data__) - off:08x}"
+        return {"offset": f"0x{off:08x}", "size": f"0x{len(pe.__data__) - off:08x}"}
 
-        return overlay
-
-    def get_reported_checksum(self, pe):
+    def get_reported_checksum(self, pe: pefile.PE) -> str:
         """Get checksum from optional header
         @return: checksum or None.
         """
-        if not pe:
-            return None
+        return f"0x{pe.OPTIONAL_HEADER.CheckSum:08x}" if pe else None
 
-        return f"0x{pe.OPTIONAL_HEADER.CheckSum:08x}"
-
-    def get_actual_checksum(self, pe):
+    def get_actual_checksum(self, pe: pefile.PE) -> str:
         """Get calculated checksum of PE
         @return: checksum or None.
         """
@@ -254,22 +273,22 @@ class PortableExecutable(object):
         except Exception:
             return None
 
-    def get_osversion(self, pe):
+    def get_osversion(self, pe: pefile.PE) -> str:
         """Get minimum required OS version for PE to execute
         @return: minimum OS version or None.
         """
-        if not pe:
-            return None
-
-        return f"{pe.OPTIONAL_HEADER.MajorOperatingSystemVersion}.{pe.OPTIONAL_HEADER.MinorOperatingSystemVersion}"
+        return f"{pe.OPTIONAL_HEADER.MajorOperatingSystemVersion}.{pe.OPTIONAL_HEADER.MinorOperatingSystemVersion}" if pe else None
 
     # This function is duplicated
-    def _get_filetype(self, data):
+    def _get_filetype(self, data: bytes) -> str:
         """Gets filetype, uses libmagic if available.
         @param data: data to be analyzed.
         @return: file type or None.
         """
         if not HAVE_MAGIC:
+            return None
+
+        if not data:
             return None
 
         try:
@@ -282,14 +301,11 @@ class PortableExecutable(object):
             except Exception:
                 return None
         finally:
-            try:
+            with suppress(Exception):
                 ms.close()
-            except Exception:
-                pass
-
         return file_type
 
-    def get_resources(self, pe):
+    def get_resources(self, pe: pefile.PE) -> List[Dict[str, str]]:
         """Get resources.
         @return: resources dict or None.
         """
@@ -303,7 +319,6 @@ class PortableExecutable(object):
 
         for resource_type in pe.DIRECTORY_ENTRY_RESOURCE.entries:
             try:
-                resource = {}
                 if resource_type.name is not None:
                     name = str(resource_type.name)
                 else:
@@ -313,48 +328,51 @@ class PortableExecutable(object):
                         if hasattr(resource_id, "directory"):
                             for resource_lang in resource_id.directory.entries:
                                 data = pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
-                                filetype = self._get_filetype(data)
-                                language = pefile.LANG.get(resource_lang.data.lang)
-                                sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang, resource_lang.data.sublang)
-                                resource["name"] = name
-                                resource["offset"] = f"0x{resource_lang.data.struct.OffsetToData:08x}"
-                                resource["size"] = f"0x{resource_lang.data.struct.Size:08x}"
-                                resource["filetype"] = filetype
-                                resource["language"] = language
-                                resource["sublanguage"] = sublanguage
-                                resource["entropy"] = f"{float(self.get_entropy(data)):.02f}"
-                                resources.append(resource)
+                                resources.append(
+                                    {
+                                        "name": name,
+                                        "offset": f"0x{resource_lang.data.struct.OffsetToData:08x}",
+                                        "size": f"0x{resource_lang.data.struct.Size:08x}",
+                                        "filetype": self._get_filetype(data),
+                                        "language": pefile.LANG.get(resource_lang.data.lang),
+                                        "sublanguage": pefile.get_sublang_name_for_lang(
+                                            resource_lang.data.lang, resource_lang.data.sublang
+                                        ),
+                                        "entropy": f"{float(self.get_entropy(data)):.02f}",
+                                    }
+                                )
+            except pefile.PEFormatError as e:
+                log.error("get_resources error: %s", str(e))
             except Exception as e:
                 log.error(e, exc_info=True)
                 continue
 
         return resources
 
-    def get_pdb_path(self, pe):
-        if not pe:
-            return None
-
-        if not hasattr(pe, "DIRECTORY_ENTRY_DEBUG"):
+    def get_pdb_path(self, pe: pefile.PE) -> str:
+        if not pe or not hasattr(pe, "DIRECTORY_ENTRY_DEBUG"):
             return None
 
         try:
             for dbg in pe.DIRECTORY_ENTRY_DEBUG:
                 dbgst = dbg.struct
                 dbgdata = pe.__data__[dbgst.PointerToRawData : dbgst.PointerToRawData + dbgst.SizeOfData]
-                if dbgst.Type == 4:  # MISC
-                    _, length, _ = struct.unpack_from("IIB", dbgdata)
-                    return dbgdata[12:length].decode("latin-1").rstrip("\0")
-                elif dbgst.Type == 2:  # CODEVIEW
+
+                if dbgst.Type == 2:  # CODEVIEW
                     if dbgdata[:4] == b"RSDS":
                         return dbgdata[24:].decode("latin-1").rstrip("\0")
                     elif dbgdata[:4] == b"NB10":
                         return dbgdata[16:].decode("latin-1").rstrip("\0")
+                elif dbgst.Type == 4:  # MISC
+                    if len(dbgdata) == 9:
+                        length = struct.unpack_from("IIB", dbgdata)[1]
+                        return dbgdata[12:length].decode("latin-1").rstrip("\0")
         except Exception as e:
             log.error(e, exc_info=True)
 
         return None
 
-    def get_imported_symbols(self, pe):
+    def get_imported_symbols(self, pe: pefile.PE) -> Dict[str, dict]:
         """Gets imported symbols.
         @return: imported symbols dict or None.
         """
@@ -368,17 +386,16 @@ class PortableExecutable(object):
 
         for entry in pe.DIRECTORY_ENTRY_IMPORT:
             try:
-                symbols = []
-
-                for imported_symbol in entry.imports:
-                    if imported_symbol.name and imported_symbol.address:
-                        symbols.append({"address": hex(imported_symbol.address), "name": imported_symbol.name.decode("latin-1")})
+                symbols = [
+                    {"address": hex(imported_symbol.address), "name": imported_symbol.name.decode("latin-1")}
+                    for imported_symbol in entry.imports
+                    if imported_symbol.name and imported_symbol.address
+                ]
 
                 dll_name = entry.dll.decode("latin-1").split(".", 1)[0]
                 if dll_name in imports:
-                    imports[dll_name]["imports"] += symbols
+                    imports[dll_name]["imports"].extend(symbols)
                 else:
-                    imports.setdefault(dll_name, {})
                     imports[dll_name] = {
                         "dll": entry.dll.decode("latin-1"),
                         "imports": symbols,
@@ -386,10 +403,9 @@ class PortableExecutable(object):
             except Exception as e:
                 log.error(e, exc_info=True)
                 continue
-
         return imports
 
-    def get_exported_dll_name(self, pe):
+    def get_exported_dll_name(self, pe: pefile.PE) -> str:
         """Gets exported DLL name, if any
         @return: exported DLL name as string or None.
         """
@@ -398,17 +414,10 @@ class PortableExecutable(object):
 
         if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
             dllname = pe.get_string_at_rva(pe.DIRECTORY_ENTRY_EXPORT.struct.Name)
-            # In recent versions of pefile, get_string_at_rva returns a Python3-style bytes object.
-            # Convert it to a Python2-style string to ensure expected behavior when iterating through it character by character.
-            # ToDo maybe decode latin-1
-            # if not isinstance(dllname, str):
-            #    dllname = "".join([chr(c) for c in dllname])
-
-            # return convert_to_printable(dllname)
             return dllname.decode("latin-1")
         return None
 
-    def get_exported_symbols(self, pe):
+    def get_exported_symbols(self, pe: pefile.PE) -> List[dict]:
         """Gets exported symbols.
         @return: list of dicts of exported symbols or None.
         """
@@ -418,38 +427,32 @@ class PortableExecutable(object):
         exports = []
 
         if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
-            for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                symbol = {}
-                symbol["address"] = hex(pe.OPTIONAL_HEADER.ImageBase + exported_symbol.address)
-                if exported_symbol.name:
-                    symbol["name"] = exported_symbol.name.decode("latin-1")  # convert_to_printable(exported_symbol.name)
-                else:
-                    symbol["name"] = ""
-                symbol["ordinal"] = exported_symbol.ordinal
-                exports.append(symbol)
+            exports.extend(
+                {
+                    "address": hex(pe.OPTIONAL_HEADER.ImageBase + exported_symbol.address),
+                    "name": exported_symbol.name.decode("latin-1") if exported_symbol.name else "",
+                    "ordinal": exported_symbol.ordinal,
+                }
+                for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols
+            )
 
         return exports
 
-    def get_directory_entries(self, pe):
+    def get_directory_entries(self, pe: pefile.PE) -> List[Dict[str, str]]:
         """Gets image directory entries.
         @return: directory entries dict or None.
         """
-        if not pe:
-            return None
+        return (
+            [
+                {"name": entry.name, "virtual_address": f"0x{entry.VirtualAddress:08x}", "size": f"0x{entry.Size:08x}"}
+                for entry in pe.OPTIONAL_HEADER.DATA_DIRECTORY
+            ]
+            if pe
+            else None
+        )
 
-        dirents = []
-
-        for entry in pe.OPTIONAL_HEADER.DATA_DIRECTORY:
-            dirent = {}
-            dirent["name"] = entry.name
-            dirent["virtual_address"] = f"0x{entry.VirtualAddress:08x}"
-            dirent["size"] = f"0x{entry.Size:08x}"
-            dirents.append(dirent)
-
-        return dirents
-
-    def _convert_section_characteristics(self, val):
-        flags = [
+    def _convert_section_characteristics(self, val: int) -> str:
+        flags = (
             "",
             "",
             "",
@@ -483,8 +486,8 @@ class PortableExecutable(object):
             "IMAGE_SCN_MEM_EXECUTE",
             "IMAGE_SCN_MEM_READ",
             "IMAGE_SCN_MEM_WRITE",
-        ]
-        alignment = [
+        )
+        alignment = (
             "",
             "IMAGE_SCN_ALIGN_1BYTES",
             "IMAGE_SCN_ALIGN_2BYTES",
@@ -501,11 +504,8 @@ class PortableExecutable(object):
             "IMAGE_SCN_ALIGN_4096BYTES",
             "IMAGE_SCN_ALIGN_8192BYTES",
             "",
-        ]
-        tags = []
-        for idx, flagstr in enumerate(flags):
-            if flags[idx] and (val & (1 << idx)):
-                tags.append(flagstr)
+        )
+        tags = [flagstr for idx, flagstr in enumerate(flags) if flags[idx] and (val & (1 << idx))]
 
         if val & 0x00F00000:
             alignval = (val >> 20) & 0xF
@@ -514,7 +514,7 @@ class PortableExecutable(object):
 
         return "|".join(tags)
 
-    def get_sections(self, pe):
+    def get_sections(self, pe: pefile.PE) -> List[Dict[str, str]]:
         """Gets sections.
         @return: sections dict or None.
         """
@@ -525,34 +525,34 @@ class PortableExecutable(object):
 
         for entry in pe.sections:
             try:
-                section = {}
-                # section["name"] = convert_to_printable(entry.Name.strip(b"\x00"))
-                section["name"] = entry.Name.strip(b"\x00").decode("latin-1")
-                section["raw_address"] = f"0x{entry.PointerToRawData:08x}"
-                section["virtual_address"] = f"0x{entry.VirtualAddress:08x}"
-                section["virtual_size"] = f"0x{entry.Misc_VirtualSize:08x}"
-                section["size_of_data"] = f"0x{entry.SizeOfRawData:08x}"
-                section["characteristics"] = self._convert_section_characteristics(entry.Characteristics)
-                section["characteristics_raw"] = f"0x{entry.Characteristics:08x}"
-                section["entropy"] = f"{float(entry.get_entropy()):.02f}"
-                sections.append(section)
+                sections.append(
+                    {
+                        "name": entry.Name.strip(b"\x00").decode("latin-1"),
+                        "raw_address": f"0x{entry.PointerToRawData:08x}",
+                        "virtual_address": f"0x{entry.VirtualAddress:08x}",
+                        "virtual_size": f"0x{entry.Misc_VirtualSize:08x}",
+                        "size_of_data": f"0x{entry.SizeOfRawData:08x}",
+                        "characteristics": self._convert_section_characteristics(entry.Characteristics),
+                        "characteristics_raw": f"0x{entry.Characteristics:08x}",
+                        "entropy": f"{float(entry.get_entropy()):.02f}",
+                    }
+                )
             except Exception as e:
                 log.error(e, exc_info=True)
                 continue
 
         return sections
 
-    def generate_icon_dhash(self, image, hash_size=8):
+    def generate_icon_dhash(self, image: Image.Image, hash_size: int = 8) -> str:
         # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
-        image = image.convert("L").resize((hash_size + 1, hash_size), Image.ANTIALIAS)
+        image = image.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
 
         difference = []
 
-        for row in range(hash_size):
-            for col in range(hash_size):
-                pixel_left = image.getpixel((col, row))
-                pixel_right = image.getpixel((col + 1, row))
-                difference.append(pixel_left > pixel_right)
+        for row, col in itertools.product(range(hash_size), range(hash_size)):
+            pixel_left = image.getpixel((col, row))
+            pixel_right = image.getpixel((col + 1, row))
+            difference.append(pixel_left > pixel_right)
 
         decimal_value = 0
         hex_string = []
@@ -560,13 +560,13 @@ class PortableExecutable(object):
         for index, value in enumerate(difference):
             if value:
                 decimal_value += 2 ** (index % 8)
-            if (index % 8) == 7:
-                hex_string.append(hex(decimal_value)[2:].rjust(2, "0"))
+            if index % 8 == 7:
+                hex_string.append(f"{hex(decimal_value):2}"[2:].rjust(2, "0"))
                 decimal_value = 0
 
         return "".join(hex_string)
 
-    def get_icon_info(self, pe):
+    def get_icon_info(self, pe: pefile.PE) -> Tuple[str, str, str, str]:
         """Get icon in PNG format and information for searching for similar icons
         @return: tuple of (image data in PNG format encoded as base64, md5 hash of image data, md5 hash of "simplified"
          image for fuzzy matching)
@@ -591,7 +591,6 @@ class PortableExecutable(object):
             bigidx = -1
             iconidx = 0
             if hasattr(peicon, "icons") and peicon.icons:
-                # TypeError: 'NoneType' object is not iterable
                 for idx, icon in enumerate(peicon.icons):
                     if icon.bWidth >= bigwidth and icon.bHeight >= bigheight and icon.wBitCount >= bigbpp:
                         bigwidth = icon.bWidth
@@ -613,44 +612,46 @@ class PortableExecutable(object):
                     size = entry.directory.entries[0].data.struct.Size
                     icon = peicon.get_icon_file(iconidx, pe.get_memory_mapped_image()[offset : offset + size])
 
-                    byteio = BytesIO()
-                    byteio.write(icon)
-                    byteio.seek(0)
-                    try:
-                        img = Image.open(byteio)
-                    except OSError as e:
-                        byteio.close()
-                        log.error(e)
-                        return None, None, None, None
+                    with BytesIO() as byteio:
+                        byteio.write(icon)
+                        byteio.seek(0)
+                        try:
+                            with Image.open(byteio) as img, BytesIO() as output:
+                                img.save(output, format="PNG")
 
-                    output = BytesIO()
-                    img.save(output, format="PNG")
+                                dhash = self.generate_icon_dhash(img)
 
-                    dhash = self.generate_icon_dhash(img)
+                                img = (
+                                    img.resize((8, 8), Image.BILINEAR)
+                                    .convert("RGB")
+                                    .convert("P", palette=Image.ADAPTIVE, colors=2)
+                                    .convert("L")
+                                )
+                                lowval = img.getextrema()[0]
+                                img = img.point(lambda i: 255 if i > lowval else 0).convert("1")
+                                simplified = bytearray(img.getdata())
 
-                    img = img.resize((8, 8), Image.BILINEAR)
-                    img = img.convert("RGB").convert("P", palette=Image.ADAPTIVE, colors=2).convert("L")
-                    lowval = img.getextrema()[0]
-                    img = img.point(lambda i: 255 if i > lowval else 0)
-                    img = img.convert("1")
-                    simplified = bytearray(img.getdata())
+                                m = hashlib.md5()
+                                m.update(output.getvalue())
+                                fullhash = m.hexdigest()
 
-                    m = hashlib.md5()
-                    m.update(output.getvalue())
-                    fullhash = m.hexdigest()
-                    m = hashlib.md5()
-                    m.update(simplified)
-                    simphash = m.hexdigest()
-                    icon = base64.b64encode(output.getvalue()).decode()
-                    output.close()
-                    img.close()
+                                m = hashlib.md5()
+                                m.update(simplified)
+                                simphash = m.hexdigest()
+                                icon = base64.b64encode(output.getvalue()).decode()
+                        except ValueError:
+                            log.error("parse_pe.py -> get_incon_info -> buffer is not large enough")
+                            return None, None, None, None
+                        except OSError as e:
+                            log.error(e)
+                            return None, None, None, None
                     return icon, fullhash, simphash, dhash
         except Exception as e:
             log.error(e, exc_info=True)
 
         return None, None, None, None
 
-    def get_versioninfo(self, pe):
+    def get_versioninfo(self, pe: pefile.PE) -> List[dict]:
         """Get version info.
         @return: info dict or None.
         """
@@ -668,23 +669,24 @@ class PortableExecutable(object):
                     if hasattr(entry, "StringTable"):
                         for st_entry in entry.StringTable:
                             for str_entry in st_entry.entries.items():
-                                entry = {}
-                                # entry["name"] = convert_to_printable(str_entry[0])
-                                # entry["value"] = convert_to_printable(str_entry[1])
-                                entry["name"] = str_entry[0].decode("latin-1")
-                                entry["value"] = str_entry[1].decode("latin-1")
-                                if entry["name"] == b"Translation" and len(entry["value"]) == 10:
+                                entry = {"name": str_entry[0].decode("latin-1"), "value": str_entry[1].decode("latin-1")}
+                                if entry["name"] == "Translation" and len(entry["value"]) == 10:
                                     entry["value"] = f"0x0{entry['value'][2:5]} 0x0{entry['value'][7:10]}"
                                 peresults.append(entry)
                     elif hasattr(entry, "Var"):
                         for var_entry in entry.Var:
                             if hasattr(var_entry, "entry"):
-                                entry = {}
-                                # entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
-                                # entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
-                                entry["name"] = list(var_entry.entry.keys())[0]  # .decode("latin-1")
-                                entry["value"] = list(var_entry.entry.values())[0]  # .decode("latin-1")
-                                if entry["name"] == b"Translation" and len(entry["value"]) == 10:
+                                name = list(var_entry.entry.keys())[0]
+                                value = list(var_entry.entry.values())[0]
+                                if isinstance(name, bytes):
+                                    name = name.decode("latin-1")
+                                if isinstance(value, bytes):
+                                    value = value.decode("latin-1")
+                                entry = {
+                                    "name": name,
+                                    "value": value,
+                                }
+                                if entry["name"] == "Translation" and len(entry["value"]) == 10:
                                     entry["value"] = f"0x0{entry['value'][2:5]} 0x0{entry['value'][7:10]}"
                                 peresults.append(entry)
                 except Exception as e:
@@ -693,7 +695,7 @@ class PortableExecutable(object):
 
         return peresults
 
-    def get_imphash(self, pe):
+    def get_imphash(self, pe: pefile.PE) -> str:
         """Gets imphash.
         @return: imphash string or None.
         """
@@ -705,7 +707,7 @@ class PortableExecutable(object):
         except AttributeError:
             return None
 
-    def get_timestamp(self, pe):
+    def get_timestamp(self, pe: pefile.PE) -> str:
         """Get compilation timestamp.
         @return: timestamp or None.
         """
@@ -719,9 +721,13 @@ class PortableExecutable(object):
 
         return datetime.fromtimestamp(pe_timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
-    def get_digital_signers(self, pe):
+    def get_digital_signers(self, pe: pefile.PE) -> List[dict]:
         """If this executable is signed, get its signature(s)."""
         if not pe:
+            return []
+
+        if not HAVE_CRYPTO:
+            log.critical("You do not have the cryptography library installed preventing certificate extraction. poetry install")
             return []
 
         dir_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]
@@ -733,12 +739,6 @@ class PortableExecutable(object):
         if not dir_entry or not dir_entry.VirtualAddress or not dir_entry.Size:
             return []
 
-        if not HAVE_CRYPTO:
-            log.critical(
-                "You do not have the cryptography library installed preventing certificate extraction. pip3 install cryptography"
-            )
-            return []
-
         retlist = []
         address = pe.OPTIONAL_HEADER.DATA_DIRECTORY[dir_index].VirtualAddress
 
@@ -746,15 +746,18 @@ class PortableExecutable(object):
         if address == 0:
             return retlist
 
-        signatures = pe.write()[address + 8 :]
-
-        if isinstance(signatures, bytearray):
-            signatures = bytes(signatures)
-
+        certs = []
         try:
-            certs = backend.load_der_pkcs7_certificates(signatures)
-        except Exception as e:
-            certs = []
+            signatures = pe.write()[address + 8 :]
+
+            if isinstance(signatures, bytearray):
+                signatures = bytes(signatures)
+
+            with suppress(Exception):
+                certs = backend.load_der_pkcs7_certificates(signatures)
+
+        except AttributeError:
+            log.error("Can't get PE signatures")
 
         for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()
@@ -805,10 +808,9 @@ class PortableExecutable(object):
                             if isinstance(name.value, bytes):
                                 cert_data[f"extensions_{extension.oid._name}_{index}"] = base64.b64encode(name.value).decode()
                             else:
-                                if hasattr(name.value, "rfc4514_string"):
-                                    cert_data[f"extensions_{extension.oid._name}_{index}"] = name.value.rfc4514_string()
-                                else:
-                                    cert_data[f"extensions_{extension.oid._name}_{index}"] = name.value
+                                cert_data[f"extensions_{extension.oid._name}_{index}"] = (
+                                    name.value.rfc4514_string() if hasattr(name.value, "rfc4514_string") else name.value
+                                )
             except ValueError:
                 continue
 
@@ -816,39 +818,30 @@ class PortableExecutable(object):
 
         return retlist
 
-    def get_guest_digital_signers(self, task_id: str = False):
-        retdata = {}
-        cert_data = {}
+    def get_guest_digital_signers(self, task_id: str = False) -> dict:
         if not task_id:
-            return retdata
-        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "aux", "DigiSig.json")
+            return {}
+        cert_info_path = Path(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "DigiSig.json")
+        if cert_info_path.exists():
+            cert_data = json.loads(cert_info_path.read_text())
+            if cert_data:
+                return {
+                    "aux_sha1": cert_data["sha1"],
+                    "aux_timestamp": cert_data["timestamp"],
+                    "aux_valid": cert_data["valid"],
+                    "aux_error": cert_data["error"],
+                    "aux_error_desc": cert_data["error_desc"],
+                    "aux_signers": cert_data["signers"],
+                }
+        return {}
 
-        if os.path.exists(cert_info):
-            with open(cert_info, "r") as cert_file:
-                buf = cert_file.read()
-            if buf:
-                cert_data = json.loads(buf)
-
-        if cert_data:
-            retdata = {
-                "aux_sha1": cert_data["sha1"],
-                "aux_timestamp": cert_data["timestamp"],
-                "aux_valid": cert_data["valid"],
-                "aux_error": cert_data["error"],
-                "aux_error_desc": cert_data["error_desc"],
-                "aux_signers": cert_data["signers"],
-            }
-
-        return retdata
-
-    def get_dll_exports(self):
+    def get_dll_exports(self) -> str:
         file_type = self._get_filetype(self.file_data)
-        if HAVE_PEFILE and ("PE32" in file_type or "MS-DOS executable" in file_type):
+        if HAVE_PEFILE and file_type and ("PE32" in file_type or "MS-DOS executable" in file_type) and self.HAVE_PE:
             try:
-                pe = pefile.PE(self.file_path)
-                if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
+                if hasattr(self.pe, "DIRECTORY_ENTRY_EXPORT"):
                     exports = []
-                    for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
+                    for exported_symbol in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
                         try:
                             if not exported_symbol.name:
                                 continue
@@ -866,17 +859,31 @@ class PortableExecutable(object):
 
         return ""
 
-    def get_entrypoint(self, pe):
+    def choose_dll_export(self) -> str:
+        if not self.pe:
+            return None
+        if hasattr(self.pe, "DIRECTORY_ENTRY_EXPORT"):
+            for exp in self.pe.DIRECTORY_ENTRY_EXPORT.symbols:
+                try:
+                    if not exp.name:
+                        continue
+                    if exp.name.decode() in ("DllInstall", "DllRegisterServer", "xlAutoOpen"):
+                        return exp.name.decode()
+                except Exception as e:
+                    log.error(e, exc_info=True)
+        return None
+
+    def get_entrypoint(self, pe: pefile.PE) -> str:
         """Get entry point (PE).
         @return: entry point.
         """
 
         try:
-            return f"0x{pe.OPTIONAL_HEADER.ImageBase + pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}"
+            return f"0x{pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}"
         except Exception:
             return None
 
-    def get_imagebase(self, pe):
+    def get_imagebase(self, pe: pefile.PE) -> str:
         """Get information on the Image Base
         @return: image base or None.
         """
@@ -885,7 +892,7 @@ class PortableExecutable(object):
         except Exception:
             return None
 
-    def get_ep_bytes(self, pe):
+    def get_ep_bytes(self, pe: pefile.PE) -> str:
         """Get entry point bytes (PE).
         @return: entry point bytes (16).
         """
@@ -894,60 +901,53 @@ class PortableExecutable(object):
         except Exception:
             return None
 
-    def run(self, task_id: str = False):
+    def run(self, task_id: str = False) -> dict:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not os.path.exists(self.file_path):
+        if not path_exists(self.file_path):
             log.debug("File doesn't exist anymore")
             return {}
 
         # Advanced check if is real PE
-        with open(self.file_path, "rb") as f:
-            if not IsPEImage(f.read()):
-                return {}
-
-        try:
-            pe = pefile.PE(self.file_path)
-        except Exception as e:
-            log.error("PE type not recognised")
-            log.error(e, exc_info=True)
+        contents = path_read_file(self.file_path)
+        if not IsPEImage(contents):
             return {}
-        peresults = {}
-        peresults["guest_signers"] = self.get_guest_digital_signers(task_id)
-        peresults["digital_signers"] = self.get_digital_signers(pe)
-        peresults["imagebase"] = self.get_imagebase(pe)
-        peresults["entrypoint"] = self.get_entrypoint(pe)
-        peresults["ep_bytes"] = self.get_ep_bytes(pe)
-        peresults["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(pe.FILE_HEADER.TimeDateStamp))
-        peresults["peid_signatures"] = self.get_peid_signatures(pe)
-        peresults["reported_checksum"] = self.get_reported_checksum(pe)
-        peresults["actual_checksum"] = self.get_actual_checksum(pe)
-        peresults["osversion"] = self.get_osversion(pe)
-        peresults["pdbpath"] = self.get_pdb_path(pe)
-        peresults["imports"] = self.get_imported_symbols(pe)
-        peresults["exported_dll_name"] = self.get_exported_dll_name(pe)
-        peresults["exports"] = self.get_exported_symbols(pe)
-        peresults["dirents"] = self.get_directory_entries(pe)
-        peresults["sections"] = self.get_sections(pe)
-        peresults["overlay"] = self.get_overlay(pe)
-        peresults["resources"] = self.get_resources(pe)
+
+        if not self.HAVE_PE:
+            return {}
+
+        peresults = {
+            "guest_signers": self.get_guest_digital_signers(task_id),
+            "digital_signers": self.get_digital_signers(self.pe),
+            "imagebase": self.get_imagebase(self.pe),
+            "entrypoint": self.get_entrypoint(self.pe),
+            "ep_bytes": self.get_ep_bytes(self.pe),
+            "peid_signatures": self.get_peid_signatures(self.pe),
+            "reported_checksum": self.get_reported_checksum(self.pe),
+            "actual_checksum": self.get_actual_checksum(self.pe),
+            "osversion": self.get_osversion(self.pe),
+            "pdbpath": self.get_pdb_path(self.pe),
+            "imports": self.get_imported_symbols(self.pe),
+            "exported_dll_name": self.get_exported_dll_name(self.pe),
+            "exports": self.get_exported_symbols(self.pe),
+            "dirents": self.get_directory_entries(self.pe),
+            "sections": self.get_sections(self.pe),
+            "overlay": self.get_overlay(self.pe),
+            "resources": self.get_resources(self.pe),
+            "versioninfo": self.get_versioninfo(self.pe),
+            "imphash": self.get_imphash(self.pe),
+            "timestamp": self.get_timestamp(self.pe),
+        }
         (
             peresults["icon"],
             peresults["icon_hash"],
             peresults["icon_fuzzy"],
             peresults["icon_dhash"],
-        ) = self.get_icon_info(pe)
+        ) = self.get_icon_info(self.pe)
 
-        peresults["versioninfo"] = self.get_versioninfo(pe)
-        peresults["imphash"] = self.get_imphash(pe)
-        peresults["timestamp"] = self.get_timestamp(pe)
         if peresults.get("imports", False):
-            peresults["imported_dll_count"] = len(peresults["imports"].keys())
+            peresults["imported_dll_count"] = len(peresults["imports"])
 
-        if HAVE_FLARE_CAPA:
-            capa_details = flare_capa_details(self.file_path, "static")
-            if capa_details:
-                peresults["flare_capa"] = capa_details
-        del pe
+        self.pe.close()
         return peresults

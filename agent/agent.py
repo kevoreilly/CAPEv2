@@ -2,10 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
 import argparse
 import cgi
 import http.server
+import ipaddress
 import json
 import os
 import platform
@@ -18,6 +18,7 @@ import sys
 import tempfile
 import traceback
 from io import StringIO
+from typing import Iterable
 from zipfile import ZipFile
 
 try:
@@ -29,10 +30,13 @@ if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 # You must run x86 version not x64
-if sys.maxsize > 2**32:
+# The analysis process interacts with low-level Windows libraries that need a
+# x86 Python to be running.
+# (see https://github.com/kevoreilly/CAPEv2/issues/1680)
+if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.11"
+AGENT_VERSION = "0.12"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -48,8 +52,7 @@ STATUS_COMPLETED = 0x0003
 STATUS_FAILED = 0x0004
 
 ANALYZER_FOLDER = ""
-state = {}
-state["status"] = STATUS_INIT
+state = {"status": STATUS_INIT}
 
 # To send output to stdin comment out this 2 lines
 sys.stdout = StringIO()
@@ -90,7 +93,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.httpd.handle(self)
 
 
-class MiniHTTPServer(object):
+class MiniHTTPServer:
     def __init__(self):
         self.handler = MiniHTTPRequestHandler
 
@@ -102,15 +105,15 @@ class MiniHTTPServer(object):
             "POST": [],
         }
 
-    def run(self, host="0.0.0.0", port=8000):
+    def run(self, host: ipaddress.IPv4Address = "0.0.0.0", port: int = 8000):
         self.s = socketserver.TCPServer((host, port), self.handler)
         self.s.allow_reuse_address = True
         self.s.serve_forever()
 
-    def route(self, path, methods=["GET"]):
+    def route(self, path: str, methods: Iterable[str] = ["GET"]):
         def register(fn):
             for method in methods:
-                self.routes[method].append((re.compile(path + "$"), fn))
+                self.routes[method].append((re.compile(f"{path}$"), fn))
             return fn
 
         return register
@@ -145,7 +148,7 @@ class MiniHTTPServer(object):
         self.s._BaseServer__shutdown_request = True
 
 
-class jsonify(object):
+class jsonify:
     """Wrapper that represents Flask.jsonify functionality."""
 
     def __init__(self, **kwargs):
@@ -162,7 +165,7 @@ class jsonify(object):
         pass
 
 
-class send_file(object):
+class send_file:
     """Wrapper that represents Flask.send_file functionality."""
 
     def __init__(self, path):
@@ -190,7 +193,7 @@ class send_file(object):
         obj.send_header("Content-Length", self.length)
 
 
-class request(object):
+class request:
     form = {}
     files = {}
     client_ip = None
@@ -204,25 +207,41 @@ class request(object):
 app = MiniHTTPServer()
 
 
-def json_error(error_code, message):
+def isAdmin():
+    is_admin = None
+    try:
+        if sys.platform == "win32":
+            import ctypes
+
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+        else:
+            is_admin = os.getuid() == 0
+    except Exception as e:
+        print(e)
+
+    return is_admin
+
+
+def json_error(error_code: int, message: str) -> jsonify:
     r = jsonify(message=message, error_code=error_code)
     r.status_code = error_code
     return r
 
 
-def json_exception(message):
+def json_exception(message: str) -> jsonify:
     r = jsonify(message=message, error_code=500, traceback=traceback.format_exc())
     r.status_code = 500
     return r
 
 
-def json_success(message, **kwargs):
+def json_success(message: str, **kwargs) -> jsonify:
     return jsonify(message=message, **kwargs)
 
 
 @app.route("/")
 def get_index():
-    return json_success("CAPE Agent!", version=AGENT_VERSION, features=AGENT_FEATURES)
+    is_admin = isAdmin()
+    return json_success("CAPE Agent!", version=AGENT_VERSION, features=AGENT_FEATURES, is_user_admin=bool(is_admin))
 
 
 @app.route("/status")
@@ -275,7 +294,7 @@ def do_mkdir():
     return json_success("Successfully created directory")
 
 
-@app.route("/mktemp", methods=["GET", "POST"])
+@app.route("/mktemp", methods=("GET", "POST"))
 def do_mktemp():
     suffix = request.form.get("suffix", "")
     prefix = request.form.get("prefix", "tmp")
@@ -291,7 +310,7 @@ def do_mktemp():
     return json_success("Successfully created temporary file", filepath=filepath)
 
 
-@app.route("/mkdtemp", methods=["GET", "POST"])
+@app.route("/mkdtemp", methods=("GET", "POST"))
 def do_mkdtemp():
     suffix = request.form.get("suffix", "")
     prefix = request.form.get("prefix", "tmp")
@@ -378,7 +397,7 @@ def do_execute():
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
 
-    if request.client_ip == "127.0.0.1" or request.client_ip == local_ip:
+    if request.client_ip in ("127.0.0.1", local_ip):
         return json_error(500, "Not allowed to execute commands")
     if "command" not in request.form:
         return json_error(400, "No command has been provided")
@@ -416,10 +435,10 @@ def do_execpy():
     cwd = request.form.get("cwd")
     stdout = stderr = None
 
-    args = [
+    args = (
         sys.executable,
         request.form["filepath"],
-    ]
+    )
 
     try:
         if async_exec:
@@ -458,7 +477,7 @@ def do_kill():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="0.0.0.0")
-    parser.add_argument("port", nargs="?", default="8000")
+    parser.add_argument("port", type=int, nargs="?", default=8000)
     # ToDo redir to stdout
     args = parser.parse_args()
-    app.run(host=args.host, port=int(args.port))
+    app.run(host=args.host, port=args.port)

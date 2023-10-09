@@ -1,4 +1,3 @@
-from __future__ import absolute_import, print_function
 from binascii import hexlify
 from hashlib import md5
 from struct import unpack_from

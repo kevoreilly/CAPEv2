@@ -10,7 +10,7 @@ tasks. You can find them under the "utils" folder. There more utilities than doc
 Cleanup utility
 ===============
 
-Use :ref:`./utils/cleaner.py -h` instead which *also* takes care of cleaning
+Use :ref:`CAPE-clean` instead which *also* takes care of cleaning
 sample and task information from MySQL and PostgreSQL databases. This utility
 will also delete all data from the configured MongoDB or ElasticSearch
 databases.
@@ -164,4 +164,3 @@ Following are the available options::
     --snapshot SNAPSHOT   Specific Virtual Machine Snapshot to use.
     --resultserver RESULTSERVER
                           IP:Port of the Result Server.
-

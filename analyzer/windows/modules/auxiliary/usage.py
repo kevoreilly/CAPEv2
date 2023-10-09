@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import time
 from ctypes import byref, create_string_buffer, sizeof
@@ -21,7 +20,8 @@ class Usage(Auxiliary, Thread):
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
-        self.do_run = True
+        self.enabled = config.usage
+        self.do_run = self.enabled
         self.pidlist = []
 
     def stop(self):

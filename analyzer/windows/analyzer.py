@@ -4,7 +4,6 @@
 # TODO
 #  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
 
-from __future__ import absolute_import
 import hashlib
 import logging
 import os
@@ -15,7 +14,8 @@ import subprocess
 import sys
 import timeit
 import traceback
-from ctypes import POINTER, byref, c_int, c_ulong, c_void_p, cast, create_string_buffer, create_unicode_buffer, sizeof
+from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
+from pathlib import Path
 from shutil import copy
 from threading import Lock
 from urllib.parse import urlencode
@@ -34,10 +34,11 @@ from lib.common.constants import (
     SHUTDOWN_MUTEX,
     TERMINATE_EVENT,
 )
-from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, NTDLL, SYSTEM_PROCESS_INFORMATION
+from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, MAX_PATH, PROCESS_QUERY_LIMITED_INFORMATION, PSAPI, SHELL32
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
+from lib.core.compound import create_custom_folders
 from lib.core.config import Config
 from lib.core.packages import choose_package
 from lib.core.pipe import PipeDispatcher, PipeForwarder, PipeServer, disconnect_pipes
@@ -46,9 +47,6 @@ from lib.core.startup import create_folders, disconnect_logger, init_logging, se
 from modules import auxiliary
 
 log = logging.getLogger()
-
-INJECT_CREATEREMOTETHREAD = 0
-INJECT_QUEUEUSERAPC = 1
 
 BUFSIZE = 512
 FILES_LIST_LOCK = Lock()
@@ -82,6 +80,43 @@ def pid_from_service_name(servicename):
     ADVAPI32.CloseServiceHandle(serv_handle)
     ADVAPI32.CloseServiceHandle(sc_handle)
     return thepid
+
+
+def pids_from_image_names(suffixlist):
+    """Get PIDs for processes whose image name ends with one of the given suffixes.
+
+    Matches are not sensitive to casing; both the suffixes and process
+    image names are normalized prior to comparison.
+    """
+    retpids = []
+    arr = wintypes.DWORD * 10000  # arbitrary - is this enough?
+    lpid_process_ptr = arr()
+    num_bytes = wintypes.DWORD()
+    image_name = c_buffer(MAX_PATH)
+    ok = PSAPI.EnumProcesses(byref(lpid_process_ptr), sizeof(lpid_process_ptr), byref(num_bytes))
+    if not ok:
+        log.debug("psapi.EnumProcesses failed")
+        return retpids
+
+    suffixlist = tuple([x.lower() for x in suffixlist])
+    num_processes = int(num_bytes.value / sizeof(wintypes.DWORD))
+    pids = lpid_process_ptr[:num_processes]
+
+    for pid in pids:
+        h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not h_process:
+            log.debug("kernel.OpenProcess failed for PID: %d", pid)
+            continue
+        n = PSAPI.GetProcessImageFileNameA(h_process, image_name, MAX_PATH)
+        KERNEL32.CloseHandle(h_process)
+        if not n:
+            log.debug("psapi.GetProcessImageFileNameA failed for PID: %d", pid)
+            continue
+        image_name_pystr = image_name.value.decode().lower()
+        # e.g., image name: "\device\harddiskvolume4\windows\system32\services.exe"
+        if image_name_pystr.endswith(suffixlist):
+            retpids.append(pid)
+    return retpids
 
 
 def in_protected_path(fname):
@@ -188,36 +223,10 @@ class Analyzer:
             return f"\\\\.\\PIPE\\{name}"
         return f"\\??\\PIPE\\{name}"
 
-    def pids_from_process_name_list(self, namelist):
-        proclist = []
-        pidlist = []
-        buf = create_unicode_buffer(1024 * 1024)
-        p = cast(buf, c_void_p)
-        retlen = c_ulong(0)
-        retval = NTDLL.NtQuerySystemInformation(5, buf, 1024 * 1024, byref(retlen))
-        if retval:
-            return []
-        proc = cast(p, POINTER(SYSTEM_PROCESS_INFORMATION)).contents
-        while proc.NextEntryOffset:
-            p.value += proc.NextEntryOffset
-            proc = cast(p, POINTER(SYSTEM_PROCESS_INFORMATION)).contents
-            # proclist.append((proc.ImageName.Buffer[:proc.ImageName.Length // 2], proc.UniqueProcessId))
-            proclist.append((proc.ImageName.Buffer, proc.UniqueProcessId))
-
-        for proc in proclist:
-            lowerproc = proc[0].lower()
-            for name in namelist:
-                if lowerproc == name:
-                    pidlist.append(proc[1])
-                    break
-        return pidlist
-
     def prepare(self):
         """Prepare env for analysis."""
-        global MONITOR_DLL
-        global MONITOR_DLL_64
+        global MONITOR_DLL, MONITOR_DLL_64, HIDE_PIDS
         # global SERVICES_PID
-        global HIDE_PIDS
 
         # Get SeDebugPrivilege for the Python process. It will be needed in
         # order to perform the injections.
@@ -227,7 +236,7 @@ class Analyzer:
         # Create the folders used for storing the results.
         create_folders()
 
-        add_protected_path(os.getcwd().encode())
+        add_protected_path(Path.cwd().__bytes__())
         add_protected_path(PATHS["root"].encode())
 
         # Initialize logging.
@@ -236,6 +245,12 @@ class Analyzer:
         # Parse the analysis configuration file generated by the agent.
         self.config = Config(cfg="analysis.conf")
         self.options = self.config.get_options()
+
+        # Resolve the paths first in case some other part of the code needs those (fullpath) parameters.
+        if "curdir" in self.options:
+            self.options["curdir"] = os.path.expandvars(self.options["curdir"])
+        if "executiondir" in self.options:
+            self.options["executiondir"] = os.path.expandvars(self.options["executiondir"])
 
         # Set the default DLL to be used for this analysis.
         self.default_dll = self.options.get("dll")
@@ -253,13 +268,15 @@ class Analyzer:
         MONITOR_DLL_64 = self.options.get("dll_64")
 
         # get PID for services.exe for monitoring services
-        svcpid = self.pids_from_process_name_list(["services.exe"])
+        svcpid = pids_from_image_names(["services.exe"])
         if svcpid:
+            if len(svcpid) > 1:
+                log.debug("found %d services.exe processes", len(svcpid))
             self.SERVICES_PID = svcpid[0]
             self.config.services_pid = svcpid[0]
             self.CRITICAL_PROCESS_LIST.append(int(svcpid[0]))
 
-        HIDE_PIDS = set(self.pids_from_process_name_list(self.files.PROTECTED_NAMES))
+        HIDE_PIDS = set(pids_from_image_names(self.files.PROTECTED_NAMES))
 
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.
@@ -321,16 +338,17 @@ class Analyzer:
         """Run analysis.
         @return: operation status.
         """
-        global MONITOR_DLL
-        global MONITOR_DLL_64
-        global LOADER32
-        global LOADER64
-        global ANALYSIS_TIMED_OUT
+        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64, ANALYSIS_TIMED_OUT
 
-        log.debug("Starting analyzer from: %s", os.getcwd())
+        log.debug("Starting analyzer from: %s", Path.cwd())
         log.debug("Storing results at: %s", PATHS["root"])
         log.debug("Pipe server name: %s", PIPE)
         log.debug("Python path: %s", os.path.dirname(sys.executable))
+
+        if SHELL32.IsUserAnAdmin():
+            log.info("analysis running as an admin")
+        else:
+            log.info("analysis running as a normal user")
 
         # If no analysis package was specified at submission, we try to select one automatically.
         if not self.config.package:
@@ -348,10 +366,11 @@ class Analyzer:
                 raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
 
             log.info('Automatically selected analysis package "%s"', package)
-        # Otherwise just select the specified package.
+            # Otherwise just select the specified package.
         else:
             package = self.config.package
             log.info('Analysis package "%s" has been specified', package)
+
         # Generate the package path.
         package_name = f"modules.packages.{package}"
         # Try to import the analysis package.
@@ -359,9 +378,8 @@ class Analyzer:
             log.debug('Importing analysis package "%s"...', package)
             __import__(package_name, globals(), locals(), ["dummy"])
             # log.debug('Imported analysis package "%s"', package)
-        # If it fails, we need to abort the analysis.
-        except ImportError:
-            raise CuckooError(f'Unable to import package "{package_name}", does not exist')
+        except ImportError as e:
+            raise CuckooError(f'Unable to import package "{package_name}", does not exist') from e
         except Exception as e:
             log.exception(e)
         # Initialize the package parent abstract.
@@ -370,7 +388,7 @@ class Analyzer:
         try:
             package_class = Package.__subclasses__()[0]
         except IndexError as e:
-            raise CuckooError(f"Unable to select package class (package={package_name}): {e}")
+            raise CuckooError(f"Unable to select package class (package={package_name}): {e}") from e
         except Exception as e:
             log.exception(e)
 
@@ -384,7 +402,11 @@ class Analyzer:
         # E.g., for some samples it might be useful to run from %APPDATA%
         # instead of %TEMP%.
         if self.config.category == "file":
+            # Try to create the folders for the cases of the custom paths other than %TEMP%
+            if "curdir" in self.options:
+                create_custom_folders(self.options["curdir"])
             self.target = self.package.move_curdir(self.target)
+        log.debug("New location of moved file: %s", self.target)
 
         # Set the DLL to that specified by package
         if self.package.options.get("dll") is not None:
@@ -453,19 +475,27 @@ class Analyzer:
         # Walk through the available auxiliary modules.
         aux_avail = []
 
-        for module in Auxiliary.__subclasses__():
+        for module in sorted(Auxiliary.__subclasses__(), key=lambda x: x.start_priority, reverse=True):
             # Try to start the auxiliary module.
             # if module.__name__ == "Screenshots" and disable_screens:
             #    continue
             try:
-                log.debug('Initializing auxiliary module "%s"...', module.__name__)
                 aux = module(self.options, self.config)
-                # log.debug('Initialized auxiliary module "%s"', module.__name__)
+                log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_avail.append(aux)
-                # log.debug('Trying to start auxiliary module "%s"...', module.__name__)
+
+                # The following commented out code causes the monitor to not upload logs.
+                # If the auxiliary module is not enabled, we shouldn't start it
+                # if hasattr(aux, "enabled") and not getattr(aux, "enabled", False):
+                #     log.debug('Auxiliary module "%s" is disabled.', module.__name__)
+                #     # We continue so that the module is not added to AUX_ENABLED
+                #     continue
+                # else:
+                log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
-            except (NotImplementedError, AttributeError):
-                log.warning("Auxiliary module %s was not implemented", module.__name__)
+                log.debug('Started auxiliary module "%s"', module.__name__)
+            except (NotImplementedError, AttributeError) as e:
+                log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
             except Exception as e:
                 log.warning("Cannot execute auxiliary module %s: %s", module.__name__, e)
             else:
@@ -509,12 +539,12 @@ class Analyzer:
         # analysis package fails, we have to abort the analysis.
         try:
             pids = self.package.start(self.target)
-        except NotImplementedError:
-            raise CuckooError('The package "{package_name}" doesn\'t contain a start function')
+        except NotImplementedError as e:
+            raise CuckooError('The package "{package_name}" doesn\'t contain a start function') from e
         except CuckooPackageError as e:
-            raise CuckooError(f'The package "{package_name}" start function raised an error: {e}')
+            raise CuckooError(f'The package "{package_name}" start function raised an error: {e}') from e
         except Exception as e:
-            raise CuckooError(f'The package "{package_name}" start function encountered an unhandled exception: {e}')
+            raise CuckooError(f'The package "{package_name}" start function encountered an unhandled exception: {e}') from e
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -622,21 +652,25 @@ class Analyzer:
                         log.error("Unable to set terminate event for process %d", proc.pid)
                         continue
                     log.info("Terminate event set for process %d", proc.pid)
-                if self.config.terminate_processes:
+                if (
+                    self.config.terminate_processes
+                    and proc.is_alive()
+                    and pid not in self.CRITICAL_PROCESS_LIST
+                    and not proc.is_critical()
+                ):
                     # Try to terminate remaining active processes.
                     # (This setting may render full system memory dumps less useful!)
-                    if proc.is_alive() and pid not in self.CRITICAL_PROCESS_LIST and not proc.is_critical():
-                        log.info("Terminating process %d before shutdown", proc.pid)
-                        proc_counter = 0
-                        while proc.is_alive():
-                            if proc_counter > 5:
-                                try:
-                                    proc.terminate()
-                                except Exception:
-                                    continue
-                            log.info("Waiting for process %d to exit", proc.pid)
-                            KERNEL32.Sleep(1000)
-                            proc_counter += 1
+                    log.info("Terminating process %d before shutdown", proc.pid)
+                    proc_counter = 0
+                    while proc.is_alive():
+                        if proc_counter > 5:
+                            try:
+                                proc.terminate()
+                            except Exception:
+                                continue
+                        log.info("Waiting for process %d to exit", proc.pid)
+                        KERNEL32.Sleep(1000)
+                        proc_counter += 1
 
         # Create the shutdown mutex.
         KERNEL32.CreateMutexA(None, False, SHUTDOWN_MUTEX)
@@ -663,10 +697,11 @@ class Analyzer:
 
         log.info("Stopping auxiliary modules")
         # Terminate the Auxiliary modules.
-        for aux in AUX_ENABLED:
+        for aux in sorted(AUX_ENABLED, key=lambda x: x.stop_priority, reverse=True):
             if not hasattr(aux, "stop"):
                 continue
             try:
+                log.info("Stopping auxiliary module: %s", aux.__class__.__name__)
                 aux.stop()
             except (NotImplementedError, AttributeError):
                 continue
@@ -688,7 +723,7 @@ class Analyzer:
         return True
 
 
-class Files(object):
+class Files:
     PROTECTED_NAMES = [
         "vmwareuser.exe",
         "vmwareservice.exe",
@@ -807,7 +842,7 @@ class Files(object):
             self.delete_file(list(self.files.keys())[0])
 
 
-class ProcessList(object):
+class ProcessList:
     def __init__(self):
         self.pids = []
         self.pids_notrack = []
@@ -828,7 +863,8 @@ class ProcessList(object):
         """Add one or more process identifiers to the process list."""
         if isinstance(pids, (tuple, list)):
             for pid in pids:
-                self.add_pid(pid)
+                if pid is not None:
+                    self.add_pid(pid)
         else:
             self.add_pid(pids)
 
@@ -852,7 +888,7 @@ class ProcessList(object):
             self.pids_notrack.remove(pid)
 
 
-class CommandPipeHandler(object):
+class CommandPipeHandler:
     """Pipe Handler.
     This class handles the notifications received through the Pipe Server and
     decides what to do with them.
@@ -952,10 +988,10 @@ class CommandPipeHandler(object):
             self.analyzer.MONITORED_DCOM = True
             dcom_pid = pid_from_service_name("DcomLaunch")
             if dcom_pid:
-                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False)
+                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -967,20 +1003,20 @@ class CommandPipeHandler(object):
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
                 if dcom_pid:
-                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False)
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(2000)
 
             wmi_pid = pid_from_service_name("winmgmt")
             if wmi_pid:
-                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=wmi_pid, suspended=False)
+                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=wmi_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(wmi_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1004,10 +1040,10 @@ class CommandPipeHandler(object):
 
             sched_pid = pid_from_service_name("schedule")
             if sched_pid:
-                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=sched_pid, suspended=False)
+                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=sched_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(sched_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1030,11 +1066,11 @@ class CommandPipeHandler(object):
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
                 if dcom_pid:
-                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False)
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
 
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(2000)
@@ -1044,10 +1080,10 @@ class CommandPipeHandler(object):
             log.info("Started BITS Service")
             bits_pid = pid_from_service_name("BITS")
             if bits_pid:
-                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=bits_pid, suspended=False)
+                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=bits_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(bits_pid))
                 filepath = servproc.get_filepath()
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                servproc.inject(interest=filepath, nosleepskip=True)
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
@@ -1069,12 +1105,10 @@ class CommandPipeHandler(object):
                 # if tasklist previously failed to get the services.exe PID we'll be
                 # unable to inject
                 if self.analyzer.SERVICES_PID:
-                    servproc = Process(
-                        options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID, suspended=False
-                    )
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     filepath = servproc.get_filepath()
-                    servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+                    servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(1000)
@@ -1097,9 +1131,6 @@ class CommandPipeHandler(object):
             if event_handle:
                 KERNEL32.SetEvent(event_handle)
                 KERNEL32.CloseHandle(event_handle)
-                if self.analyzer.options.get("procmemdump"):
-                    p = Process(pid=process_id)
-                    p.dump_memory()
                 self.files.dump_files()
         self.analyzer.process_lock.release()
 
@@ -1166,12 +1197,7 @@ class CommandPipeHandler(object):
             # release the lock. Let the injection do its thing.
             self.analyzer.process_lock.release()
 
-            # If we have both pid and tid, then we can use APC to inject.
-            if process_id and thread_id:
-                proc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-            else:
-                proc.inject(injectmode=INJECT_CREATEREMOTETHREAD, interest=filepath, nosleepskip=True)
-
+            proc.inject(interest=filepath, nosleepskip=True)
             log.info("Injected into process with pid %s and name %s", proc.pid, filename)
 
     def _handle_process(self, data):
@@ -1222,14 +1248,13 @@ class CommandPipeHandler(object):
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
                     if not in_protected_path(filename):
-                        _ = proc.inject(INJECT_QUEUEUSERAPC, interest)
+                        _ = proc.inject(interest)
                         self.LASTINJECT_TIME = timeit.default_timer()
                         self.analyzer.NUM_INJECTED += 1
                     proc.close()
             else:
                 log.warning("Received request to inject process with pid %d, skipped", process_id)
         # return self._inject_process(int(data), None, 0)
-        return
 
     def _handle_process2(self, data):
         """Request for injection into a process using APC."""

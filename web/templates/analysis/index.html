@@ -4,7 +4,9 @@
 <ul class="nav nav-tabs">
     <li class="nav-item"><a class="nav-link active" href="#files" data-toggle="tab">Files</a></li>
     <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static</a></li>
+    {% if config.url_analysis %}
     <li class="nav-item"><a class="nav-link" href="#urls" data-toggle="tab">URLs</a></li>
+    {% endif %}
     <li class="nav-item"><a class="nav-link" href="#pcaps" data-toggle="tab">PCAPs</a></li>
 </ul>
 
@@ -85,10 +87,16 @@
                 {% for analysis in files %}
                     <tr>
                         <td>
+                            {% if analysis.status in "reported,recovered" %}
+                            <a href="{% url "report" analysis.id %}">{{analysis.id}}</a>
+                            {% elif analysis.status in "running,completed,distributed" %}
+                            <a href="{% url "submission_status" analysis.id %}">{{analysis.id}}</a>
+                            {% else %}
                             {{analysis.id}}
+                            {% endif %}
                         </td>
                         <td>
-                        {% if analysis.status == "reported" %}
+                        {% if analysis.status in "reported,recovered" %}
                             {{analysis.completed_on}}
                         {% else %}
                             <span class="muted">{{analysis.added_on}} (added on)</span>
@@ -105,12 +113,18 @@
                             <span class="mono">{{analysis.package}}</span>
                         </td>
                         <td>
-                        {{analysis.filename}}
+                            {% if analysis.status in "reported,recovered" %}
+                            <a href="{% url "report" analysis.id %}">{{analysis.filename}}</a>
+                            {% elif analysis.status in "running,completed,distributed" %}
+                            <a href="{% url "submission_status" analysis.id %}">{{analysis.filename}}</a>
+                            {% else %}
+                            {{analysis.filename}}
+                            {% endif %}
                         </td>
                         <td style="word-wrap: break-word;">
-                            {% if analysis.status == "reported" %}
+                            {% if analysis.status in "reported,recovered" %}
                                 <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
-                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                            {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
                             {% else %}
                                 <span class="mono">{{analysis.sample.md5}}</span>
@@ -122,7 +136,7 @@
                             {% elif analysis.detections|length == 1 %}
                                 <a href="/analysis/search/detections:{{analysis.detections.0.family}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections.0.family}}</span></a>
                             {% elif analysis.detections|length > 1 %}
-                                <span style="color:#EE1B2F;font-weight: bold;" title="{% for block in analysis.detections %} {% if block.family %} {{block.family}} {% endif %} {% endfor %}">Multiple</span>
+                                <span style="color:#EE1B2F;font-weight: bold;" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple</span>
                             {% endif %}
                         </td>
                         {% if config.display_task_tags %}
@@ -374,7 +388,7 @@
                             {{analysis.id}}
                         </td>
                         <td>
-                        {% if analysis.status == "reported" %}
+                        {% if analysis.status in "reported,recovered" %}
                             {{analysis.completed_on}}
                         {% else %}
                             <span class="muted">{{analysis.added_on}} (added on)</span>
@@ -385,9 +399,9 @@
                         {{analysis.filename}}
                         </td>
                         <td style="word-wrap: break-word;">
-                            {% if analysis.status == "reported" %}
+                            {% if analysis.status in "reported,recovered" %}
                                 <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
-                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                            {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
                             {% else %}
                                 <span class="mono">{{analysis.sample.md5}}</span>
@@ -641,16 +655,16 @@
                             {{analysis.id}}
                         </td>
                         <td>
-                        {% if analysis.status == "reported" %}
+                        {% if analysis.status in "reported,recovered" %}
                             {{analysis.completed_on}}
                         {% else %}
                             <span class="muted">{{analysis.added_on}} (added on)</span>
                         {% endif %}
                         </td>
                         <td style="word-wrap: break-word;">
-                            {% if analysis.status == "reported" %}
+                            {% if analysis.status in "reported,recovered" %}
                                 <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.target}}</span></a>
-                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                            {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.target}}</span></a>
                             {% else %}
                                 <span class="mono">{{analysis.target}}</span>
@@ -897,7 +911,7 @@
                         {{analysis.id}}
                     </td>
                     <td>
-                        {% if analysis.status == "reported" %}
+                        {% if analysis.status in "reported,recovered" %}
                         {{analysis.completed_on}}
                         {% else %}
                         <span class="muted">{{analysis.added_on}} (added on)</span>
@@ -907,9 +921,9 @@
                         {{analysis.filename}}
                     </td>
                     <td style="word-wrap: break-word;">
-                        {% if analysis.status == "reported" %}
+                        {% if analysis.status in "reported,recovered" %}
                         <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
-                        {% elif analysis.status == "running" or analysis.status == "completed" %}
+                        {% elif analysis.status in "running,completed,distributed" %}
                         <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
                         {% else %}
                         <span class="mono">{{analysis.sample.md5}}</span>

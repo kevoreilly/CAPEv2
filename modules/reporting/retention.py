@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import json
 import logging
 import os
@@ -14,6 +13,7 @@ from multiprocessing import Lock
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_write_file
 from lib.cuckoo.core.database import TASK_REPORTED, Database, Task
 
 log = logging.getLogger(__name__)
@@ -31,10 +31,6 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     es = elastic_handler
 
 
-def delete_elastic_data(curtask, tid):
-    delete_analysis_and_related_calls(tid)
-
-
 def delete_files(curtask, delfiles, target_id):
     delfiles_list = delfiles
     if not isinstance(delfiles, list):
@@ -48,9 +44,9 @@ def delete_files(curtask, delfiles, target_id):
                 log.debug("Task #%s deleting %s due to retention quota", curtask, delent)
             except (IOError, OSError) as e:
                 log.warn("Error removing %s: %s", delent, e)
-        elif os.path.exists(delent):
+        elif path_exists(delent):
             try:
-                os.remove(delent)
+                path_delete(delent)
                 log.debug("Task #%s deleting %s due to retention quota", curtask, delent)
             except OSError as e:
                 log.warn("Error removing %s: %s", delent, e)
@@ -78,12 +74,11 @@ class Retention(Report):
         # process.py manually, the directiry structure is created in the
         # startup of cuckoo.py
         retPath = os.path.join(CUCKOO_ROOT, "storage", "retention")
-
         confPath = os.path.join(CUCKOO_ROOT, "conf", "reporting.conf")
 
         if not os.path.isdir(retPath):
             log.warn("Retention log directory doesn't exist, creating it now")
-            os.mkdir(retPath)
+            path_mkdir(retPath)
         else:
             try:
                 taskFile = os.path.join(retPath, "task_check.log")
@@ -138,21 +133,20 @@ class Retention(Report):
                     # We need to delete some data
                     for tid in buf:
                         lastTask = tid.to_dict()["id"]
-                        if item != "mongo" and item != "elastic":
+                        if item not in ("mongo", "elastic"):
                             delete_files(curtask, delLocations[item], lastTask)
                         elif item == "mongo":
                             if repconf.mongodb.enabled:
-                                mongo_delete_data(curtask, lastTask)
+                                mongo_delete_data([lastTask])
                         elif item == "elastic":
                             if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-                                delete_elastic_data(curtask, lastTask)
+                                delete_analysis_and_related_calls(lastTask)
                     saveTaskLogged[item] = int(lastTask)
                 else:
                     saveTaskLogged[item] = 0
 
             # Write the task log for future reporting, to avoid returning tasks
             # that we have already deleted data from.
-            with open(os.path.join(retPath, "task_check.log"), "w") as taskLog:
-                taskLog.write(json.dumps(saveTaskLogged))
+            _ = path_write_file(os.path.join(retPath, "task_check.log"), json.dumps(saveTaskLogged), mode="text")
         finally:
             lock.release()

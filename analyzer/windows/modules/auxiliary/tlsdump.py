@@ -16,9 +16,10 @@ log = logging.getLogger(__name__)
 class TLSDumpMasterSecrets(Auxiliary):
     """Dump TLS master secrets from lsass process"""
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options, config):
+        Auxiliary.__init__(self, options, config)
         self.config = config
-        self.options = options
+        self.enabled = self.config.tlsdump
         self.options["tlsdump"] = "1"
 
     def start(self):
@@ -39,7 +40,7 @@ class TLSDumpMasterSecrets(Auxiliary):
         try:
             p = Process(options=self.options, config=self.config, pid=pid)
             filepath = p.get_filepath()
-            p.inject(injectmode=0, interest=filepath, nosleepskip=True)
+            p.inject(interest=filepath, nosleepskip=True)
         except CuckooError as e:
             if "process access denied" in e.message:
                 log.warning("You're not running the Agent as Administrator")

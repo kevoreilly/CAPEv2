@@ -9,7 +9,6 @@ TODO:
     2. Dynamic size parsing
 """
 
-from __future__ import absolute_import, print_function
 import argparse
 import io
 import json
@@ -17,11 +16,18 @@ import logging
 import re
 from base64 import b64encode
 from collections import OrderedDict
+from pathlib import Path
 from socket import inet_ntoa
 from struct import unpack
 
 import pefile
-from netstruct import unpack as netunpack
+
+try:
+    from netstruct import unpack as netunpack
+
+    HAVE_NETSTRUCT = True
+except ImportError:
+    HAVE_NETSTRUCT = False
 
 log = logging.getLogger(__name__)
 
@@ -117,7 +123,7 @@ class packedSetting:
         conf_data = full_config_data[data_offset + repr_len : data_offset + repr_len + self.length]
         if self.datatype == confConsts.TYPE_SHORT:
             conf_data = unpack(">H", conf_data)[0]
-            if not conf_data:
+            if conf_data is None:
                 return
             if self.is_bool:
                 return str(conf_data != self.bool_false_value)
@@ -126,7 +132,7 @@ class packedSetting:
             elif self.mask:
                 ret_arr = []
                 for k, v in self.mask.items():
-                    if k == 0 and k == conf_data:
+                    if k == 0 == conf_data:
                         ret_arr.append(v)
                     if k & conf_data:
                         ret_arr.append(v)
@@ -160,10 +166,11 @@ class packedSetting:
 
                     # Only EXECUTE_TYPE for now
                     else:
-                        # Skipping unknown short value in the start
-                        string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
-                        string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
-                        ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
+                        if HAVE_NETSTRUCT:
+                            # Skipping unknown short value in the start
+                            string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
+                            string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
+                            ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
                         i += len(string1) + len(string2) + 11
 
             elif self.is_transform:
@@ -184,27 +191,27 @@ class packedSetting:
 
             elif self.is_malleable_stream:
                 prog = []
-                fh = io.BytesIO(conf_data)
-                op = read_dword_be(fh)
-                while op:
-                    if op == 1:
-                        bytes_len = read_dword_be(fh)
-                        prog.append(f"Remove {bytes_len} bytes from the end")
-                    elif op == 2:
-                        bytes_len = read_dword_be(fh)
-                        prog.append(f"Remove {bytes_len} bytes from the beginning")
-                    elif op == 3:
-                        prog.append("Base64 decode")
-                    elif op == 8:
-                        prog.append("NetBIOS decode 'a'")
-                    elif op == 11:
-                        prog.append("NetBIOS decode 'A'")
-                    elif op == 13:
-                        prog.append("Base64 URL-safe decode")
-                    elif op == 15:
-                        prog.append("XOR mask w/ random key")
+                with io.BytesIO(conf_data) as fh:
                     op = read_dword_be(fh)
-                conf_data = prog
+                    while op:
+                        if op == 1:
+                            bytes_len = read_dword_be(fh)
+                            prog.append(f"Remove {bytes_len} bytes from the end")
+                        elif op == 2:
+                            bytes_len = read_dword_be(fh)
+                            prog.append(f"Remove {bytes_len} bytes from the beginning")
+                        elif op == 3:
+                            prog.append("Base64 decode")
+                        elif op == 8:
+                            prog.append("NetBIOS decode 'a'")
+                        elif op == 11:
+                            prog.append("NetBIOS decode 'A'")
+                        elif op == 13:
+                            prog.append("Base64 URL-safe decode")
+                        elif op == 15:
+                            prog.append("XOR mask w/ random key")
+                        op = read_dword_be(fh)
+                    conf_data = prog
             else:
                 conf_data = conf_data.hex()
 
@@ -438,8 +445,7 @@ if __name__ == "__main__":
         type=int,
     )
     args = parser.parse_args()
-    with open(args.path, "rb") as f:
-        data = f.read()
+    data = Path(args.path).read_bytes()
     parsed_config = cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
     if parsed_config is None:
         parsed_config = cobaltstrikeConfig(data).parse_encrypted_config(quiet=args.quiet, as_json=args.json)
@@ -449,7 +455,7 @@ if __name__ == "__main__":
 
 # CAPE
 def extract_config(data):
-    output = cobaltstrikeConfig(data).parse_config(quiet=False, as_json=True)
+    output = cobaltstrikeConfig(data).parse_config(as_json=True)
     if output is None:
-        output = cobaltstrikeConfig(data).parse_encrypted_config(quiet=False, as_json=True)
+        output = cobaltstrikeConfig(data).parse_encrypted_config(as_json=True)
     return output

@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 from winreg import HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, CreateKeyEx, EnumKey, OpenKey, QueryInfoKey, SetValueEx
 
 from lib.common.abstracts import Package
@@ -12,7 +11,9 @@ from lib.common.common import check_file_extension
 class PUB(Package):
     """Word analysis package."""
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
 
@@ -51,6 +52,6 @@ class PUB(Package):
 
     def start(self, path):
         self.set_keys()
-        publisher = self.get_path_glob("Microsoft Office Publisher")
+        publisher = self.get_path_glob("MSPUB.EXE")
         path = check_file_extension(path, ".pub")
         return self.execute(publisher, f'"{path}"', path)

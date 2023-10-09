@@ -11,8 +11,6 @@ Create Date: 2014-03-23 23:30:36.756792
 """
 
 # Revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
-
 revision = "263a45963c72"
 mongo_revision = "1"
 down_revision = None
@@ -27,13 +25,13 @@ try:
     from dateutil.parser import parse
 except ImportError:
     print("Unable to import dateutil.parser", end=" ")
-    print("(install with `pip3 install python-dateutil`)")
+    print("(install with `poetry run pip install python-dateutil`)")
     sys.exit()
 
 try:
     from alembic import op
 except ImportError:
-    print("Unable to import alembic (install with `pip3 install alembic`)")
+    print("Unable to import alembic (install with `poetry run pip install alembic`)")
     sys.exit()
 
 sys.path.append(os.path.join("..", ".."))

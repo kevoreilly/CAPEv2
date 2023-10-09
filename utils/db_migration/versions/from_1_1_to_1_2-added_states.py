@@ -11,8 +11,6 @@ Create Date: 2015-02-28 19:08:29.284111
 # Spaghetti as a way of life.
 
 # Revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
-
 revision = "495d5a6edef3"
 down_revision = "18eee46c6f81"
 
@@ -26,13 +24,13 @@ try:
     from dateutil.parser import parse
 except ImportError:
     print("Unable to import dateutil.parser", end=" ")
-    print("(install with `pip3 install python-dateutil`)")
+    print("(install with `poetry run pip install python-dateutil`)")
     sys.exit()
 
 try:
     from alembic import op
 except ImportError:
-    print("Unable to import alembic (install with `pip3 install alembic`)")
+    print("Unable to import alembic (install with `poetry run pip install alembic`)")
     sys.exit()
 
 curdir = os.path.abspath(os.path.dirname(__file__))

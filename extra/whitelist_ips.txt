@@ -1,0 +1,6 @@
+# CloudFlare's DNS server
+1.1.1.1
+1.0.0.1
+# Google's DNS server
+8.8.8.8
+4.4.4.4

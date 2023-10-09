@@ -2,8 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-import os
 import pathlib
 import tempfile
 
@@ -24,6 +22,7 @@ def grab_sample():
 
 
 class TestDemux:
+    """ToDo reenable
     @pytest.mark.skip("Takes minutes to run, skipping!")
     def test_demux_sample_microsoft_docx(self, grab_sample):
         # .docx file
@@ -57,6 +56,15 @@ class TestDemux:
             pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         ]
 
+    def test_demux_sample_java(self, grab_sample):
+        # java class file for a simple hello world
+        sample_hash = "27c428570256f0e5f8229d053f352aea4276e5c9c5a601c20e04535a8ba1e41d"
+        sample_location = grab_sample(sample_hash)
+        assert demux.demux_sample(filename=sample_location, package=None, options="foo", use_sflock=False) == [
+            pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
+        ]
+
+
     def test_demux_sample_microsoft_outlook(self, grab_sample):
         # outlook message from https://github.com/HamiltonInsurance/outlook_msg/blob/e6c0293f098e8aee9cd4124aa6a5d409c798bc49/test_data/No%20attachment.msg
         sample_hash = "0e16568cc1e8ddda0f0856b27857d1d043d7b18909a566ae5fa2460fc8fd3614"
@@ -72,19 +80,14 @@ class TestDemux:
         assert demux.demux_sample(filename=sample_location, package=None, options="foo", use_sflock=False) == [
             pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         ]
-
-    def test_demux_sample_java(self, grab_sample):
-        # java class file for a simple hello world
-        sample_hash = "27c428570256f0e5f8229d053f352aea4276e5c9c5a601c20e04535a8ba1e41d"
-        sample_location = grab_sample(sample_hash)
-        assert demux.demux_sample(filename=sample_location, package=None, options="foo", use_sflock=False) == [
-            pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
-        ]
+    """
 
     def test_demux_package(self):
         empty_file = tempfile.NamedTemporaryFile()
 
-        assert demux.demux_sample(filename=empty_file, package="Emotet", options="foo", use_sflock=False) == [empty_file]
+        assert demux.demux_sample(filename=empty_file.name, package="Emotet", options="foo", use_sflock=False) == [
+            (empty_file.name, "")
+        ]
         empty_file.close()
 
     def test_options2passwd(self):

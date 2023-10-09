@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
 import errno
 import json
 import logging
@@ -20,14 +19,17 @@ from lib.cuckoo.common.abstracts import ProtocolHandler
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
-from lib.cuckoo.common.files import open_exclusive
+from lib.cuckoo.common.files import open_exclusive, open_inclusive
+from lib.cuckoo.common.path_utils import path_exists
 
 # from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.utils import Singleton, create_folder
+from lib.cuckoo.common.utils import Singleton, create_folder, load_categories
 from lib.cuckoo.core.log import task_log_start, task_log_stop
 
 log = logging.getLogger(__name__)
 cfg = Config()
+
+_, categories_need_VM = load_categories()
 
 # Maximum line length to read for netlog messages, to avoid memory exhaustion
 MAX_NETLOG_LINE = 4 * 1024
@@ -45,11 +47,9 @@ BANNED_PATH_CHARS = b"\x00:"
 RESULT_UPLOADABLE = (
     b"CAPE",
     b"aux",
-    b"buffer",
     b"curtain",
     b"debugger",
     b"tlsdump",
-    b"extracted",
     b"files",
     b"memory",
     b"procdump",
@@ -57,6 +57,7 @@ RESULT_UPLOADABLE = (
     b"sysmon",
     b"stap",
     b"evtx",
+    b"htmldump",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
@@ -78,7 +79,7 @@ class Disconnect(Exception):
     pass
 
 
-class HandlerContext(object):
+class HandlerContext:
     """Holds context for protocol handlers.
     Can safely be cancelled from another thread, though in practice this will
     not occur often -- usually the connection between VM and the ResultServer
@@ -106,9 +107,11 @@ class HandlerContext(object):
 
     def read(self):
         try:
+            # Test
+            self.sock.settimeout(None)
             return self.sock.recv(16384)
         except socket.timeout as e:
-            print("Do we need to fix it?", e)
+            print(f"Do we need to fix it?. <Context for {self.command}>", e)
             return b""
         except socket.error as e:
             if e.errno == errno.EBADF:
@@ -116,7 +119,7 @@ class HandlerContext(object):
 
             if e.errno != errno.ECONNRESET:
                 raise
-            log.debug("Task #%s had connection reset for %s, error: %s", self.task_id, self, e)
+            log.debug("Task #%s had %s for %s", self.task_id, e.strerror.lower(), self)
             return b""
         except Exception as e:
             print(e)
@@ -154,7 +157,7 @@ class HandlerContext(object):
         fd.flush()
 
 
-class WriteLimiter(object):
+class WriteLimiter:
     def __init__(self, fd, remain):
         self.fd = fd
         self.remain = remain
@@ -200,24 +203,28 @@ class FileUpload(ProtocolHandler):
         else:
             filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
-        log.debug("Task #%s: File upload for %s", self.task_id, dump_path)
+        log.debug("Task #%s: Trying to upload file %s", self.task_id, dump_path.decode())
         if not duplicated:
             file_path = os.path.join(self.storagepath, dump_path.decode())
 
             try:
-                # open_exclusive will failing if file_path already exists
-                if not os.path.exists(file_path):
+                if file_path.endswith("_script.log"):
+                    self.fd = open_inclusive(file_path)
+                elif not path_exists(file_path):
+                    # open_exclusive will fail if file_path already exists
                     self.fd = open_exclusive(file_path)
             except OSError as e:
                 log.debug("File upload error for %s (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
                     raise CuckooOperationalError(
-                        f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}"
+                        "Task #%s: Analyzer tried to overwrite an existing file: %s" % (self.task_id, file_path)
                     )
                 raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
-        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"tlsdump/", b"evtx")):
+        if not dump_path.startswith(
+            (b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"tlsdump/", b"evtx", b"htmldump/")
+        ):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
                 print(
@@ -240,7 +247,7 @@ class FileUpload(ProtocolHandler):
             try:
                 return self.handler.copy_to_fd(self.fd, self.upload_max_size)
             finally:
-                log.debug("Task #%s uploaded file length: %s", self.task_id, self.fd.tell())
+                log.debug("Task #%s: Uploaded file %s of length: %s", self.task_id, dump_path.decode(), self.fd.tell())
 
 
 class LogHandler(ProtocolHandler):
@@ -249,7 +256,7 @@ class LogHandler(ProtocolHandler):
     def init(self):
         self.logpath = os.path.join(self.handler.storagepath, "analysis.log")
         try:
-            self.fd = open_exclusive(self.logpath, bufsize=1)
+            self.fd = open_exclusive(self.logpath)
         except OSError:
             log.error("Task #%s: attempted to reopen live log analysis.log", self.task_id)
             return
@@ -273,7 +280,7 @@ class BsonStore(ProtocolHandler):
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
         log failures."""
-        log.debug("Task #%s is sending a BSON stream. For pid %d", self.task_id, self.version)
+        log.debug("Task #%s is sending a BSON stream for pid %d", self.task_id, self.version)
         if self.fd:
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)
@@ -314,7 +321,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
     def add_task(self, task_id, ipaddr):
         with self.task_mgmt_lock:
             self.tasks[ipaddr] = task_id
-            log.debug("Now tracking machine %s for task #%s", ipaddr, task_id)
+            log.debug("Task #%s: The associated machine IP is %s", task_id, ipaddr)
 
     def del_task(self, task_id, ipaddr):
         """Delete ResultServer state and abort pending RequestHandlers. Since
@@ -325,32 +332,16 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             if self.tasks.pop(ipaddr, None) is None:
                 log.warning("ResultServer did not have a task with ID %s and IP %s", task_id, ipaddr)
             else:
-                log.debug("Stopped tracking machine %s for task #%s", ipaddr, task_id)
+                log.debug("Task #%s: Stopped tracking machine %s", task_id, ipaddr)
             ctxs = self.handlers.pop(task_id, set())
             for ctx in ctxs:
-                log.debug("Cancel %s for task %s", ctx, task_id)
+                log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
 
     def create_folders(self):
-        folders = (
-            "CAPE",
-            "aux",
-            "curtain",
-            "files",
-            "logs",
-            "memory",
-            "shots",
-            "sysmon",
-            "stap",
-            "procdump",
-            "debugger",
-            "tlsdump",
-            "evtx",
-        )
-
-        for folder in folders:
+        for folder in list(RESULT_UPLOADABLE) + [b"logs"]:
             try:
-                create_folder(self.storagepath, folder=folder)
+                create_folder(self.storagepath, folder=folder.decode())
             except Exception as e:
                 log.error(e, exc_info=True)
             # ToDo
@@ -429,6 +420,9 @@ class ResultServer(metaclass=Singleton):
     """Manager for the ResultServer worker and task state."""
 
     def __init__(self):
+        if not categories_need_VM:
+            return
+
         ip = cfg.resultserver.ip
         port = cfg.resultserver.port
         pool_size = cfg.resultserver.pool_size

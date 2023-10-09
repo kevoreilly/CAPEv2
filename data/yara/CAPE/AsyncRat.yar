@@ -11,6 +11,7 @@ rule AsyncRat
         $string1 = "Pastebin" ascii wide nocase
         $string2 = "Pong" wide
         $string3 = "Stub.exe" ascii wide
+        $kitty = "StormKitty" ascii
     condition:
-        uint16(0) == 0x5A4D and ($salt and (2 of ($str*) or 1 of ($b*))) or (all of ($b*) and 2 of ($str*))
+        uint16(0) == 0x5A4D and not $kitty and ($salt and (2 of ($str*) or 1 of ($b*))) or (all of ($b*) and 2 of ($str*))
 }

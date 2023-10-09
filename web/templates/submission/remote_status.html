@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if running %}
+    <script>
+        window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_self");
+    </script>
+{% else %}
+    <script type="text/JavaScript">setTimeout("location.reload(true);",5000);</script>
+    <div class="alert alert-secondary">
+        <h4>Hang on...</h4>
+        <p>The task is not running yet. This page will refresh every 5 seconds.</p>
+        <div class="progress progress-striped active" style="margin-top: 10px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

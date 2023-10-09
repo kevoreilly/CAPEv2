@@ -2,14 +2,27 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import logging
 import os
+import re
 
-import imagehash
-from PIL import Image
+HAVE_IMAGEHASH = False
+try:
+    import imagehash
+
+    HAVE_IMAGEHASH = True
+except ImportError:
+    print("Missed dependency: poetry run pip install ImageHash")
+
+try:
+    from PIL import Image
+
+    Image.logger.setLevel(logging.WARNING)
+except ImportError:
+    print("Missed dependency: poetry install")
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger()
 
@@ -17,7 +30,7 @@ log = logging.getLogger()
 class Deduplicate(Processing):
     """Deduplicate screenshots."""
 
-    def deduplicate_images(self, userpath, hashfunc=imagehash.average_hash):
+    def deduplicate_images(self, userpath, hashfunc):
         """
         Remove duplicate images from a path
         :userpath: path of the image files
@@ -25,9 +38,8 @@ class Deduplicate(Processing):
         """
 
         def is_image(filename):
-            img_ext = [".jpg", ".png", ".gif", ".bmp", ".gif"]
-            f = filename.lower()
-            return any(f.endswith(ext) for ext in img_ext)
+            img_ext = (".jpg", ".png", ".gif", ".bmp", ".gif")
+            return filename.lower().endswith(img_ext)
 
         """
         Available hashs functions:
@@ -43,8 +55,8 @@ class Deduplicate(Processing):
         images = {}
         for img in sorted(image_filenames):
             hash = hashfunc(Image.open(img))
-            images[hash] = images.get(hash, []) + [img]
-        for k, img_list in images.items():
+            images.setdefault(hash, []).append(img)
+        for img_list in images.values():
             dd_img_set.append(os.path.basename(img_list[0]))
         # Found that we get slightly more complete images in most cases when getting rid of images with close bit distance.
         # We flip the list back around after prune.
@@ -57,6 +69,10 @@ class Deduplicate(Processing):
         """
         self.key = "deduplicated_shots"
         shots = []
+
+        if not HAVE_IMAGEHASH:
+            return shots
+
         hashmethod = self.options.get("hashmethod", "ahash")
         try:
             if hashmethod == "ahash":
@@ -68,14 +84,18 @@ class Deduplicate(Processing):
             elif hashmethod == "whash-haar":
                 hashfunc = imagehash.whash
             elif hashmethod == "whash-db4":
-                hashfunc = lambda img: imagehash.whash(img, mode="db4")
+
+                def hashfunc(img):
+                    return imagehash.whash(img, mode="db4")
+
+            else:
+                # Default
+                hashfunc = imagehash.average_hash
 
             shots_path = os.path.join(self.analysis_path, "shots")
-            if os.path.exists(shots_path):
-                screenshots = self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc)
-                screenshots.sort()
-                for screenshot in screenshots:
-                    shots.append(screenshot.replace(".jpg", ""))
+            if path_exists(shots_path):
+                screenshots = sorted(self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc))
+                shots = [re.sub(r"\.(png|jpg)$", "", screenshot) for screenshot in screenshots]
         except Exception as e:
             log.error(e)
 

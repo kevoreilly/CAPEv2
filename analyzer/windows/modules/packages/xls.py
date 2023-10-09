@@ -9,7 +9,9 @@ from lib.common.common import check_file_extension
 class XLS(Package):
     """Excel analysis package."""
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
 
@@ -20,6 +22,7 @@ class XLS(Package):
     ]
 
     def start(self, path):
-        path = check_file_extension(path, ".xls")
-        excel = self.get_path_glob("Microsoft Office Excel")
+        if not path.endswith((".xls", ".xlsx")):
+            path = check_file_extension(path, ".xls")
+        excel = self.get_path_glob("EXCEL.EXE")
         return self.execute(excel, f'"{path}" /dde', path)

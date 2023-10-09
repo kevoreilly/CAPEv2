@@ -5,7 +5,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 # ToDo
 # https://github.com/cuckoosandbox/cuckoo/pull/1694/files
-from __future__ import absolute_import, print_function
 import argparse
 import distutils.util
 import hashlib
@@ -17,12 +16,14 @@ import shutil
 import sys
 import threading
 import time
+import timeit
 import zipfile
+from contextlib import suppress
 from datetime import datetime, timedelta
 from io import BytesIO
 from itertools import combinations
 from logging import handlers
-from zipfile import ZipFile
+from urllib.parse import urlparse
 
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
@@ -30,16 +31,18 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 try:
     import pyzipper
 except ImportError:
-    sys.exti("Missed pyzipper dependency: pip3 install pyzipper -U")
-
+    sys.exti("Missed pyzipper dependency: poetry install")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
+from lib.cuckoo.common.socket_utils import send_socket_command
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import (
+    TASK_BANNED,
     TASK_DISTRIBUTED,
     TASK_DISTRIBUTED_COMPLETED,
     TASK_FAILED_REPORTING,
@@ -50,11 +53,23 @@ from lib.cuckoo.core.database import (
 )
 from lib.cuckoo.core.database import Task as MD_Task
 
+dist_conf = Config("distributed")
+main_server_name = dist_conf.distributed.get("main_server_name", "master")
+
+HAVE_GCP = False
+if dist_conf.GCP.enabled:
+    from lib.cuckoo.common.gcp import GCP, HAVE_GCP
+
+    cloud = GCP()
+
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
-reporting_conf = Config("reporting")
 
-zip_pwd = Config("web").zipped_download.zip_pwd
+cfg = Config()
+reporting_conf = Config("reporting")
+web_conf = Config("web")
+
+zip_pwd = web_conf.zipped_download.zip_pwd
 if not isinstance(zip_pwd, bytes):
     zip_pwd = zip_pwd.encode()
 
@@ -63,18 +78,19 @@ logging.getLogger("elasticsearch").setLevel(logging.WARNING)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-# Move to config
-dist_ignore_patterns = shutil.ignore_patterns("binary", "dump_sorted.pcap", "memory.dmp", "logs")
+dist_ignore_patterns = shutil.ignore_patterns(*[pattern.strip() for pattern in dist_conf.distributed.ignore_patterns.split(",")])
 STATUSES = {}
 ID2NAME = {}
 SERVER_TAGS = {}
 main_db = Database()
 
 dead_count = 5
-if reporting_conf.distributed.dead_count:
-    dead_count = reporting_conf.distributed.dead_count
+if dist_conf.distributed.dead_count:
+    dead_count = dist_conf.distributed.dead_count
 
-NFS_BASED_FETCH = reporting_conf.distributed.get("nfs")
+
+NFS_FETCH = dist_conf.distributed.get("nfs")
+RESTAPI_FETCH = dist_conf.distributed.get("restapi")
 
 INTERVAL = 10
 
@@ -84,7 +100,7 @@ failed_count = {}
 status_count = {}
 
 lock_retriever = threading.Lock()
-dist_lock = threading.BoundedSemaphore(int(reporting_conf.distributed.dist_threads))
+dist_lock = threading.BoundedSemaphore(int(dist_conf.distributed.dist_threads))
 fetch_lock = threading.BoundedSemaphore(1)
 
 delete_enabled = False
@@ -92,24 +108,21 @@ failed_clean_enabled = False
 
 
 def required(package):
-    sys.exit("The %s package is required: pip3 install %s" % (package, package))
+    sys.exit("The %s package is required: poetry run pip install %s" % (package, package))
 
 
 try:
-    from flask import Flask, jsonify, make_response, request
+    from flask import Flask, jsonify, make_response
 except ImportError:
     required("flask")
 
 try:
     import requests
-    from requests.auth import HTTPBasicAuth
 except ImportError:
     required("requests")
 
-try:
+with suppress(AttributeError):
     requests.packages.urllib3.disable_warnings()
-except AttributeError:
-    pass
 
 try:
     from flask_restful import Api as RestApi
@@ -118,17 +131,21 @@ try:
 except ImportError:
     required("flask-restful")
 
-session = create_session(reporting_conf.distributed.db, echo=False)
+session = create_session(dist_conf.distributed.db, echo=False)
+
+binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
+if not path_exists(binaries_folder):
+    path_mkdir(binaries_folder, mode=0o755)
 
 
-def node_status(url, name, apikey):
+def node_status(url: str, name: str, apikey: str) -> dict:
     try:
         r = requests.get(
             os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=300
         )
         return r.json().get("data", {})
     except Exception as e:
-        log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
+        log.critical("Possible invalid CAPE node (%s): %s", name, e)
     return {}
 
 
@@ -142,8 +159,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         if not r.ok:
             log.error(f"Error fetching task list. Status code: {r.status_code} - {r.url}")
             log.info("Saving error to /tmp/dist_error.html")
-            with open("/tmp/dist_error.html", "wb") as f:
-                f.write(r.content)
+            _ = path_write_file("/tmp/dist_error.html", r.content)
             return []
         return r.json().get("data", [])
     except Exception as e:
@@ -178,39 +194,26 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
 
-# For older systems as ubuntu 18.04 and lower than py3.8
-# ToDo remvoe in future
-def copytree(src, dst, symlinks=False, ignore=None):
-    for item in os.listdir(src):
-        if item in ("binary", "dump_sorted.pcap", "memory.dmp", "logs"):
-            continue
-        s = os.path.join(src, item)
-        d = os.path.join(dst, item)
-        if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore)
-        else:
-            shutil.copy2(s, d, follow_symlinks=False)
+def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
+    worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
 
-def node_get_report_nfs(task_id, worker_name, main_task_id):
+    if not path_mount_point(worker_path):
+        log.error(f"[-] Worker: {worker_name} is not mounted to: {worker_path}!")
+        return True
 
-    worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
-    if not os.path.exists(worker_path):
+    worker_path = os.path.join(worker_path, "storage", "analyses", str(task_id))
+
+    if not path_exists(worker_path):
         log.error(f"File on destiny doesn't exist: {worker_path}")
-        return False
+        return True
 
     analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(main_task_id))
-    if not os.path.exists(analyses_path):
-        os.makedirs(analyses_path, mode=0o755)
+    if not path_exists(analyses_path):
+        path_mkdir(analyses_path, mode=0o755, exist_ok=False)
 
     try:
-        # py 3.8
-        if sys.version_info[:2] >= (3, 8):
-            shutil.copytree(
-                worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True
-            )
-        else:
-            copytree(worker_path, analyses_path, True, dist_ignore_patterns)
+        shutil.copytree(worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True)
     except Exception as e:
         log.exception(e)
         return False
@@ -220,7 +223,7 @@ def node_get_report_nfs(task_id, worker_name, main_task_id):
 
 def _delete_many(node, ids, nodes, db):
 
-    if nodes[node].name == "master":
+    if nodes[node].name == main_server_name:
         return
     try:
         url = os.path.join(nodes[node].url, "tasks", "delete_many/")
@@ -241,14 +244,14 @@ def _delete_many(node, ids, nodes, db):
         db.rollback()
 
 
-def node_submit_task(task_id, node_id):
+def node_submit_task(task_id, node_id, main_task_id):
 
     db = session()
     node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
     task = db.query(Task).filter_by(id=task_id).first()
     check = False
     try:
-        if node.name == "master":
+        if node.name == main_server_name:
             return
 
         # Remove the earlier appended comma
@@ -278,7 +281,7 @@ def node_submit_task(task_id, node_id):
             url = os.path.join(node.url, "tasks", "create", "file/")
             # If the file does not exist anymore, ignore it and move on
             # to the next file.
-            if not os.path.exists(task.path):
+            if not path_exists(task.path):
                 task.finished = True
                 task.retrieved = True
                 main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
@@ -332,12 +335,19 @@ def node_submit_task(task_id, node_id):
                 task.task_id = r.json()["task_id"]
                 check = True
             else:
-                log.debug("Failed to submit task {} to node: {}, code: {}".format(task_id, node.name, r.status_code))
+                log.debug(
+                    "Failed to submit: main_task_id: {} task {} to node: {}, code: {}, msg: {}".format(
+                        task.main_task_id, task_id, node.name, r.status_code, r.content
+                    )
+                )
 
-            log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
+            if task.task_id:
+                log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
 
         elif r.status_code == 500:
-            log.debug((r.status_code, r.text))
+            log.info("Saving error to /tmp/dist_error.html")
+            _ = path_write_file("/tmp/dist_error.html", r.content)
+            log.info((r.status_code, r.text[:200]))
 
         elif r.status_code == 429:
             log.info((r.status_code, "see api auth for more details"))
@@ -373,7 +383,6 @@ class Retriever(threading.Thread):
     def run(self):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
-        self.cfg = Config()
         self.t_is_none = {}
         self.status_count = {}
         self.current_queue = {}
@@ -381,15 +390,23 @@ class Retriever(threading.Thread):
         self.stop_dist = threading.Event()
         self.threads = []
 
-        for x in range(int(reporting_conf.distributed.dist_threads)):
+        if dist_conf.GCP.enabled and HAVE_GCP:
+            # autodiscovery is generic name so in case if we have AWS or Azure it should implement the logic inside
+            thread = threading.Thread(target=cloud.autodiscovery, name="autodiscovery", args=())
+            thread.daemon = True
+            thread.start()
+            self.threads.append(thread)
+
+        for _ in range(int(dist_conf.distributed.dist_threads)):
             if dist_lock.acquire(blocking=False):
-                if NFS_BASED_FETCH:
+                if NFS_FETCH:
                     thread = threading.Thread(target=self.fetch_latest_reports_nfs, name="fetch_latest_reports_nfs", args=())
-                else:
+                elif RESTAPI_FETCH:
                     thread = threading.Thread(target=self.fetch_latest_reports, name="fetch_latest_reports", args=())
-                thread.daemon = True
-                thread.start()
-                self.threads.append(thread)
+                if RESTAPI_FETCH or NFS_FETCH:
+                    thread.daemon = True
+                    thread.start()
+                    self.threads.append(thread)
 
         if fetch_lock.acquire(blocking=False):
             thread = threading.Thread(target=self.fetcher, name="fetcher", args=())
@@ -399,13 +416,13 @@ class Retriever(threading.Thread):
 
         # Delete the task and all its associated files.
         # (It will still remain in the nodes" database, though.)
-        if reporting_conf.distributed.remove_task_on_worker or delete_enabled:
+        if dist_conf.distributed.remove_task_on_worker or delete_enabled:
             thread = threading.Thread(target=self.remove_from_worker, name="remove_from_worker", args=())
             thread.daemon = True
             thread.start()
             self.threads.append(thread)
 
-        if reporting_conf.distributed.failed_cleaner or failed_clean_enabled:
+        if dist_conf.distributed.failed_cleaner or failed_clean_enabled:
             thread = threading.Thread(target=self.failed_cleaner, name="failed_to_clean", args=())
             thread.daemon = True
             thread.start()
@@ -426,29 +443,30 @@ class Retriever(threading.Thread):
         for thr in self.threads:
             try:
                 thr.join(timeout=0.0)
-                log.info(f"Thread: {thr.getName()} - Alive: {thr.is_alive()}")
+                log.info(f"Thread: {thr.name} - Alive: {thr.is_alive()}")
             except Exception as e:
                 log.exception(e)
             time.sleep(60)
 
+    # import from utils
     def free_space_mon(self):
         # If not enough free disk space is available, then we print an
         # error message and wait another round (this check is ignored
         # when the freespace configuration variable is set to zero).
         while True:
-            if self.cfg.cuckoo.freespace:
+            if cfg.cuckoo.freespace:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
 
-                if hasattr(os, "statvfs") and os.path.exists(dir_path):
+                if hasattr(os, "statvfs") and path_exists(dir_path):
                     dir_stats = os.statvfs(dir_path)
 
                     # Calculate the free disk space in megabytes.
                     space_available = dir_stats.f_bavail * dir_stats.f_frsize
                     space_available /= 1024 * 1024
 
-                    if space_available < self.cfg.cuckoo.freespace:
+                    if space_available < cfg.cuckoo.freespace:
                         log.error("Not enough free disk space! (Only %d MB!)", space_available)
                         self.stop_dist.set()
                         continue
@@ -457,25 +475,9 @@ class Retriever(threading.Thread):
 
                 time.sleep(60)
 
-    def zip_files(self, files):
-        in_memory = BytesIO()
-        zf = ZipFile(in_memory, mode="w")
-
-        for file in files:
-            zf.writestr(os.path.basename(file), open(file, "rb").read())
-
-        zf.close()
-        in_memory.seek(0)
-
-        # read the data
-        data = in_memory.read()
-        in_memory.close()
-
-        return data
-
     def notification_loop(self):
         urls = reporting_conf.callback.url.split(",")
-        # headers = {"x-api-key": reporting_conf.callback.key}
+        headers = {"x-api-key": reporting_conf.callback.key}
 
         db = session()
         while True:
@@ -487,8 +489,7 @@ class Retriever(threading.Thread):
                     log.debug("reporting main_task_id: {}".format(task.main_task_id))
                     for url in urls:
                         try:
-                            #  headers=headers,
-                            res = requests.post(url, data=json.dumps({"task_id": int(task.main_task_id)}))
+                            res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(task.main_task_id)}))
                             if res and res.ok:
                                 # log.info(res.content)
                                 task.notificated = True
@@ -509,30 +510,25 @@ class Retriever(threading.Thread):
         while True:
             for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(enabled=True).all():
                 log.info("Checking for failed tasks on: {}".format(node.name))
-                for status in ("failed_analysis", "failed_processing"):
-                    for task in node_fetch_tasks(status, node.url, node.apikey, action="delete"):
-                        t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
-                        if t is not None:
-                            log.info(
-                                "Cleaning failed_analysis for id:{}, node:{}: main_task_id: {}".format(
-                                    t.id, t.node_id, t.main_task_id
-                                )
-                            )
-                            main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
-                            t.finished = True
-                            t.retrieved = True
-                            t.notificated = True
-                            lock_retriever.acquire()
-                            if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((t.node_id, t.task_id))
-                            lock_retriever.release()
-                        else:
-                            log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
-                            lock_retriever.acquire()
-                            if (node.id, task["id"]) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((node.id, task["id"]))
-                            lock_retriever.release()
-                    db.commit()
+                for task in node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete"):
+                    t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
+                    if t is not None:
+                        log.info("Cleaning failed for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
+                        main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
+                        t.finished = True
+                        t.retrieved = True
+                        t.notificated = True
+                        lock_retriever.acquire()
+                        if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
+                            self.cleaner_queue.put((t.node_id, t.task_id))
+                        lock_retriever.release()
+                    else:
+                        log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
+                        lock_retriever.acquire()
+                        if (node.id, task["id"]) not in self.cleaner_queue.queue:
+                            self.cleaner_queue.put((node.id, task["id"]))
+                        lock_retriever.release()
+                db.commit()
             time.sleep(600)
         db.close()
 
@@ -541,7 +537,7 @@ class Retriever(threading.Thread):
         last_checks = {}
         # to not exit till cleaner works
         db = session()
-        while not self.stop_dist.isSet():
+        while not self.stop_dist.is_set():
             # .with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.last_check)
             for node in db.query(Node).filter_by(enabled=True).all():
                 self.status_count.setdefault(node.name, 0)
@@ -594,20 +590,30 @@ class Retriever(threading.Thread):
             time.sleep(5)
         db.close()
 
+    def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
+        # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
+        if cfg.cuckoo.delete_original and target and path_exists(target):
+            path_delete(target)
+
+        if cfg.cuckoo.delete_bin_copy:
+            copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
+            if path_exists(copy_path) and not main_db.sample_still_used(sample_sha256, task_id):
+                path_delete(copy_path)
+
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports_nfs(self):
         db = session()
         # to not exit till cleaner works
-        while not self.stop_dist.isSet():
+        while not self.stop_dist.is_set():
             task, node_id = self.fetcher_queue.get()
 
             self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
-                # In the case that a Cuckoo node has been reset over time it"s
+                # In the case that a CAPE node has been reset over time it"s
                 # possible that there are multiple combinations of
                 # node-id/task-id, in this case we take the last one available.
-                # (This makes it possible to re-setup a Cuckoo node).
+                # (This makes it possible to re-setup a CAPE node).
                 t = (
                     db.query(Task)
                     .filter_by(node_id=node_id, task_id=task["id"], retrieved=False, finished=False)
@@ -625,7 +631,7 @@ class Retriever(threading.Thread):
                     continue
 
                 log.debug(
-                    "Fetching dist report for: id: {}, task_id: {}, main_task_id:{} from node: {}".format(
+                    "Fetching dist report for: id: {}, task_id: {}, main_task_id: {} from node: {}".format(
                         t.id, t.task_id, t.main_task_id, ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id
                     )
                 )
@@ -635,53 +641,52 @@ class Retriever(threading.Thread):
                 main_db.set_status(t.main_task_id, TASK_REPORTED)
 
                 # Fetch each requested report.
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
+                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
                 # ToDo option
                 node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
-                start_copy = datetime.now()
+                start_copy = timeit.default_timer()
                 copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
+                timediff = timeit.default_timer() - start_copy
                 log.info(
-                    f"It took {datetime.now()-start_copy} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
+                    f"It took {timediff:.2f} seconds to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
                 )
 
                 if not copied:
                     log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
                     continue
 
-                if os.path.exists(t.path):
-                    sample = open(t.path, "rb").read()
-                    sample_sha256 = hashlib.sha256(sample).hexdigest()
-                    destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")
-                    if not os.path.exists(destination):
-                        os.makedirs(destination, mode=0o755)
-                    destination = os.path.join(destination, sample_sha256)
-                    if not os.path.exists(destination) and os.path.exists(t.path):
+                # this doesn't exist for some reason
+                if path_exists(t.path):
+                    sample_sha256 = main_db.find_sample(task_id=t.main_task_id)
+                    if sample_sha256:
+                        sample_sha256 = sample_sha256[0].sample.sha256
+                    else:
+                        # keep fallback for now
+                        sample = open(t.path, "rb").read()
+                        sample_sha256 = hashlib.sha256(sample).hexdigest()
+
+                    destination = os.path.join(binaries_folder, sample_sha256)
+                    if not path_exists(destination) and path_exists(t.path):
                         try:
                             shutil.move(t.path, destination)
                         except FileNotFoundError as e:
+                            print(f"Failed to move: {t.path} - {e}")
                             pass
 
                     # creating link to analysis folder
-                    if os.path.exists(t.path):
+                    if path_exists(destination):
                         try:
                             os.symlink(destination, os.path.join(report_path, "binary"))
                         except Exception as e:
+                            print(f"Failed link binary: {e}")
                             pass
+
+                    self.delete_target_file(t.main_task_id, sample_sha256, t.path)
 
                 t.retrieved = True
                 t.finished = True
                 db.commit()
 
-                """
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
-                if not os.path.exists(report_path):
-                    os.makedirs(report_path, mode=0o755)
-
-                except Exception as e:
-                    log.exception("Exception: %s" % e)
-                    if os.path.exists(os.path.join(report_path, "reports", "report.json")):
-                        os.remove(os.path.join(report_path, "reports", "report.json"))
-                """
             except Exception as e:
                 log.exception(e)
             self.current_queue[node_id].remove(task["id"])
@@ -692,7 +697,7 @@ class Retriever(threading.Thread):
     def fetch_latest_reports(self):
         db = session()
         # to not exit till cleaner works
-        while not self.stop_dist.isSet():
+        while not self.stop_dist.is_set():
             task, node_id = self.fetcher_queue.get()
 
             self.current_queue.setdefault(node_id, []).append(task["id"])
@@ -750,8 +755,8 @@ class Retriever(threading.Thread):
                 log.info(f"Report size for task {t.task_id} is: {int(report.headers.get('Content-length', 1))/int(1<<20):,.0f} MB")
 
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
-                if not os.path.exists(report_path):
-                    os.makedirs(report_path, mode=0o777)
+                if not path_exists(report_path):
+                    path_mkdir(report_path, mode=0o755)
                 try:
                     if report.content:
                         # with pyzipper.AESZipFile(BytesIO(report.content)) as zf:
@@ -764,21 +769,29 @@ class Retriever(threading.Thread):
                             except OSError:
                                 log.error("Permission denied: {}".format(report_path))
 
-                        if os.path.exists(t.path):
-                            sample = open(t.path, "rb").read()
-                            sample_sha256 = hashlib.sha256(sample).hexdigest()
+                        if path_exists(t.path):
+                            sample_sha256 = main_db.find_sample(task_id=t.main_task_id)
+                            if sample_sha256:
+                                sample_sha256 = sample_sha256[0].sample.sha256
+                            else:
+                                # keep fallback for now
+                                sample = open(t.path, "rb").read()
+                                sample_sha256 = hashlib.sha256(sample).hexdigest()
+
                             destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")
-                            if not os.path.exists(destination):
-                                os.makedirs(destination, mode=0o755)
+                            if not path_exists(destination):
+                                path_mkdir(destination, mode=0o755)
+
                             destination = os.path.join(destination, sample_sha256)
-                            if not os.path.exists(destination) and os.path.exists(t.path):
+                            if not path_exists(destination) and path_exists(t.path):
                                 shutil.move(t.path, destination)
+
                             # creating link to analysis folder
-                            if os.path.exists(t.path):
-                                try:
+                            if path_exists(t.path):
+                                with suppress(Exception):
                                     os.symlink(destination, os.path.join(report_path, "binary"))
-                                except Exception as e:
-                                    pass
+
+                                self.delete_target_file(t.main_task_id, sample_sha256, t.path)
 
                         else:
                             log.debug(f"{t.path} doesn't exist")
@@ -793,8 +806,8 @@ class Retriever(threading.Thread):
                     log.error("File is not a zip file")
                 except Exception as e:
                     log.exception("Exception: %s" % e)
-                    if os.path.exists(os.path.join(report_path, "reports", "report.json")):
-                        os.remove(os.path.join(report_path, "reports", "report.json"))
+                    if path_exists(os.path.join(report_path, "reports", "report.json")):
+                        path_delete(os.path.join(report_path, "reports", "report.json"))
             except Exception as e:
                 log.exception(e)
             self.current_queue[node_id].remove(task["id"])
@@ -831,7 +844,7 @@ class StatusThread(threading.Thread):
         try:
             node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=node_id).first()
         except (OperationalError, SQLAlchemyError) as e:
-            log.warning(f"Got an operational Exception when trying to submit tasks: {str(e)}")
+            log.warning(f"Got an operational Exception when trying to submit tasks: {e}")
             return False
 
         if node.name not in SERVER_TAGS:
@@ -847,9 +860,10 @@ class StatusThread(threading.Thread):
                 db.commit()
                 main_db.set_status(task.main_task_id, TASK_PENDING)
 
-        if node.name != "master":
+        if node.name != main_server_name:
             # don"t do nothing if nothing in pending
             # Get tasks from main_db submitted through web interface
+            # Exclude category
             main_db_tasks = main_db.list_tasks(
                 status=TASK_PENDING, options_like=options_like, limit=pend_tasks_num, order_by=MD_Task.priority.desc()
             )
@@ -857,9 +871,25 @@ class StatusThread(threading.Thread):
                 return True
             if main_db_tasks:
                 for t in main_db_tasks:
+                    options = get_options(t.options)
+                    # Check if file exist, if no wipe from db and continue, rare cases
+                    if t.category in ("file", "pcap", "static"):
+
+                        if not path_exists(t.target):
+                            log.info(f"Task id: {t.id} - File doesn't exist: {t.target}")
+                            main_db.set_status(t.id, TASK_BANNED)
+                            continue
+
+                        if not web_conf.general.allow_ignore_size and "ignore_size_check" not in options:
+                            # We can't upload size bigger than X to our workers. In case we extract archive that contains bigger file.
+                            file_size = path_get_size(t.target)
+                            if file_size > web_conf.general.max_sample_size:
+                                log.warning(f"File size: {file_size} is bigger than allowed: {web_conf.general.max_sample_size}")
+                                main_db.set_status(t.id, TASK_BANNED)
+                                continue
+
                     force_push = False
                     try:
-                        options = get_options(t.options)
                         # check if node exist and its correct
                         if options.get("node"):
                             requested_node = options.get("node")
@@ -878,18 +908,12 @@ class StatusThread(threading.Thread):
                     if tasks:
                         for task in tasks:
                             # log.info("Deleting incorrectly uploaded file from dist db, main_task_id: {}".format(t.id))
-                            if node.name == "master":
+                            if node.name == main_server_name:
                                 main_db.set_status(t.id, TASK_RUNNING)
                             else:
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
                             # db.delete(task)
                         db.commit()
-                        continue
-
-                    # Check if file exist, if no wipe from db and continue, rare cases
-                    if t.category in ("file", "pcap", "static") and not os.path.exists(t.target):
-                        log.info(f"Task id: {t.id} - File doesn't exist: {t.target}")
-                        main_db.delete_task(t.id)
                         continue
 
                     # Convert array of tags into comma separated list
@@ -944,14 +968,14 @@ class StatusThread(threading.Thread):
 
                     if force_push or force_push_push:
                         # Submit appropriate tasks to node
-                        submitted = node_submit_task(task.id, node.id)
+                        submitted = node_submit_task(task.id, node.id, t.id)
                         if submitted:
-                            if node.name == "master":
+                            if node.name == main_server_name:
                                 main_db.set_status(t.id, TASK_RUNNING)
                             else:
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
                         limit += 1
-                        if limit == pend_tasks_num or limit == len(main_db_tasks):
+                        if limit in (pend_tasks_num, len(main_db_tasks)):
                             db.commit()
                             log.info("Pushed all tasks")
                             return True
@@ -964,7 +988,7 @@ class StatusThread(threading.Thread):
                 # Order by task priority and task id.
                 q = q.order_by(-Task.priority, Task.main_task_id)
                 # if we have node set in options push
-                if reporting_conf.distributed.enable_tags:
+                if dist_conf.distributed.enable_tags:
                     # Create filter query from tasks in ta
                     tags = [getattr(Task, "tags") == ""]
                     for tg in SERVER_TAGS[node.name]:
@@ -983,13 +1007,13 @@ class StatusThread(threading.Thread):
                 if not to_upload:
                     db.commit()
                     log.info("nothing to upload? How? o_O")
-                    return True
+                    return False
                 # Submit appropriate tasks to node
                 log.debug("going to upload {} tasks to node {}".format(pend_tasks_num, node.name))
                 for task in to_upload:
-                    submitted = node_submit_task(task.id, node.id)
+                    submitted = node_submit_task(task.id, node.id, task.main_task_id)
                     if submitted:
-                        if node.name == "master":
+                        if node.name == main_server_name:
                             main_db.set_status(task.main_task_id, TASK_RUNNING)
                         else:
                             main_db.set_status(task.main_task_id, TASK_DISTRIBUTED)
@@ -1018,9 +1042,7 @@ class StatusThread(threading.Thread):
         SERVER_TAGS[node_name] = list(ta)
 
     def run(self):
-        global main_db
-        global retrieve
-        global STATUSES
+        global main_db, retrieve, STATUSES
         MINIMUMQUEUE = {}
 
         # handle another user case,
@@ -1028,8 +1050,10 @@ class StatusThread(threading.Thread):
 
         db = session()
         master_storage_only = False
-        if not reporting_conf.distributed.master_storage_only:
-            master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name="master").first()
+        if not dist_conf.distributed.master_storage_only:
+            master = (
+                db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=main_server_name).first()
+            )
             if master is None:
                 master_storage_only = True
             elif db.query(Machine).filter_by(node_id=master.id).count() == 0:
@@ -1062,7 +1086,7 @@ class StatusThread(threading.Thread):
                     or []
                 ):
                     if node.name in STATUSES:
-                        del STATUSES[node.name]
+                        STATUSES.pop(node.name)
 
                 # Request a status update on all CAPE nodes.
                 for node in (
@@ -1081,7 +1105,7 @@ class StatusThread(threading.Thread):
                             # node.enabled = False
                             db.commit()
                             if node.name in STATUSES:
-                                del STATUSES[node.name]
+                                STATUSES.pop(node.name)
                         continue
                     failed_count[node.name] = 0
                     log.info("Status.. %s -> %s", node.name, status["tasks"])
@@ -1097,10 +1121,10 @@ class StatusThread(threading.Thread):
                             force_push_push=True,
                             db=db,
                         )
+                        # We return False if nothing uploaded to cicle the nodes in case we have tags related tasks
                         if not res:
                             continue
                         # Balance the tasks, works fine if no tags are set
-
                         node_name = min(
                             STATUSES,
                             key=lambda k: STATUSES[k]["tasks"]["completed"]
@@ -1114,7 +1138,6 @@ class StatusThread(threading.Thread):
                                 .filter_by(name=node_name)
                                 .first()
                             )
-
                         pend_tasks_num = MINIMUMQUEUE[node.name] - (
                             STATUSES[node.name]["tasks"]["pending"] + STATUSES[node.name]["tasks"]["running"]
                         )
@@ -1133,7 +1156,8 @@ class StatusThread(threading.Thread):
                             continue
 
                     elif (
-                        statuses.get("master", {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0)
+                        statuses.get(main_server_name, {}).get("tasks", {}).get("pending", 0)
+                        > MINIMUMQUEUE.get(main_server_name, 0)
                         and status["tasks"]["pending"] < MINIMUMQUEUE[node.name]
                     ):
                         res = self.submit_tasks(node.name, pend_tasks_num, db=db)
@@ -1161,11 +1185,11 @@ class NodeBaseApi(RestResource):
         RestResource.__init__(self, *args, **kwargs)
 
         self._parser = reqparse.RequestParser()
-        self._parser.add_argument("name", type=str)
-        self._parser.add_argument("url", type=str)
-        self._parser.add_argument("apikey", type=str, default="")
-        self._parser.add_argument("exitnodes", type=distutils.util.strtobool, default=None)
-        self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None)
+        self._parser.add_argument("name", type=str, location="form")
+        self._parser.add_argument("url", type=str, location="form")
+        self._parser.add_argument("apikey", type=str, default="", location="form")
+        self._parser.add_argument("exitnodes", type=distutils.util.strtobool, default=None, location="form")
+        self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None, location="form")
 
 
 class NodeRootApi(NodeBaseApi):
@@ -1173,15 +1197,14 @@ class NodeRootApi(NodeBaseApi):
         nodes = {}
         db = session()
         for node in db.query(Node).all():
-            machines = []
-            for machine in node.machines.all():
-                machines.append(
-                    dict(
-                        name=machine.name,
-                        platform=machine.platform,
-                        tags=machine.tags,
-                    )
+            machines = [
+                dict(
+                    name=machine.name,
+                    platform=machine.platform,
+                    tags=machine.tags,
                 )
+                for machine in node.machines.all()
+            ]
 
             nodes[node.name] = dict(
                 name=node.name,
@@ -1195,10 +1218,16 @@ class NodeRootApi(NodeBaseApi):
     def post(self):
         db = session()
         args = self._parser.parse_args()
-        node = Node(name=args["name"], url=args["url"], apikey=args["apikey"])
-
-        if db.query(Node).filter_by(name=args["name"]).first():
-            return dict(success=False, message="Node called %s already exists" % args["name"])
+        node_exist = False
+        # On autoscaling we might get the same name but different IP for server. Kinda PUT friendly POST
+        node = db.query(Node).filter_by(name=args["name"]).first()
+        if node:
+            if node.url == args["url"]:
+                return dict(success=False, message=f"Node called {args['name']} already exists")
+            else:
+                node.url = args["url"]
+        else:
+            node = Node(name=args["name"], url=args["url"], apikey=args["apikey"])
 
         machines = []
         for machine in node_list_machines(args["url"], args["apikey"]):
@@ -1217,9 +1246,20 @@ class NodeRootApi(NodeBaseApi):
             node.exitnodes.append(exitnode)
             db.add(exitnode)
 
-        db.add(node)
+        if args.get("enabled"):
+            node.enabled = bool(args["enabled"])
+
+        if not node_exist:
+            db.add(node)
         db.commit()
         db.close()
+
+        if NFS_FETCH:
+            # Add entry to /etc/fstab, create folder and mount server
+            hostname = urlparse(args["url"]).netloc.split(":")[0]
+            if hostname != main_server_name:
+                send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[hostname, args["name"]])
+
         return dict(name=args["name"], machines=machines, exitnodes=exitnodes)
 
 
@@ -1271,17 +1311,17 @@ class TaskBaseApi(RestResource):
         RestResource.__init__(self, *args, **kwargs)
 
         self._parser = reqparse.RequestParser()
-        self._parser.add_argument("package", type=str, default="")
-        self._parser.add_argument("timeout", type=int, default=0)
-        self._parser.add_argument("priority", type=int, default=1)
-        self._parser.add_argument("options", type=str, default="")
-        self._parser.add_argument("machine", type=str, default="")
-        self._parser.add_argument("platform", type=str, default="windows")
-        self._parser.add_argument("tags", type=str, default="")
-        self._parser.add_argument("custom", type=str, default="")
-        self._parser.add_argument("memory", type=str, default="0")
-        self._parser.add_argument("clock", type=int)
-        self._parser.add_argument("enforce_timeout", type=bool, default=False)
+        self._parser.add_argument("package", type=str, default="", location="form")
+        self._parser.add_argument("timeout", type=int, default=0, location="form")
+        self._parser.add_argument("priority", type=int, default=1, location="form")
+        self._parser.add_argument("options", type=str, default="", location="form")
+        self._parser.add_argument("machine", type=str, default="", location="form")
+        self._parser.add_argument("platform", type=str, default="windows", location="form")
+        self._parser.add_argument("tags", type=str, default="", location="form")
+        self._parser.add_argument("custom", type=str, default="", location="form")
+        self._parser.add_argument("memory", type=str, default="0", location="form")
+        self._parser.add_argument("clock", type=int, location="form")
+        self._parser.add_argument("enforce_timeout", type=bool, default=False, location="form")
 
 
 class TaskInfo(RestResource):
@@ -1378,7 +1418,7 @@ def cron_cleaner(clean_x_hours=False):
     """Method that runs forever"""
 
     # Check if we are not runned
-    if os.path.exists("/tmp/dist_cleaner.pid"):
+    if path_exists("/tmp/dist_cleaner.pid"):
         log.info("we running")
         sys.exit()
 
@@ -1419,7 +1459,7 @@ def cron_cleaner(clean_x_hours=False):
 
     db.commit()
     db.close()
-    os.remove("/tmp/dist_cleaner.pid")
+    path_delete("/tmp/dist_cleaner.pid")
 
 
 def create_app(database_connection):
@@ -1428,7 +1468,7 @@ def create_app(database_connection):
     app = Flask("Distributed CAPE")
     # app.config["SQLALCHEMY_DATABASE_URI"] = database_connection
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
-    app.config["SQLALCHEMY_POOL_SIZE"] = int(reporting_conf.distributed.dist_threads) + 5
+    app.config["SQLALCHEMY_POOL_SIZE"] = int(dist_conf.distributed.dist_threads) + 5
     app.config["SECRET_KEY"] = os.urandom(32)
     restapi = DistRestApi(app)
     restapi.add_resource(NodeRootApi, "/node")
@@ -1443,8 +1483,8 @@ def init_logging(debug=False):
     formatter = logging.Formatter("%(asctime)s %(levelname)s:%(module)s:%(threadName)s - %(message)s")
     log = logging.getLogger()
 
-    if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
-        os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
+    if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
+        path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
     fh = handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "dist.log"), when="midnight", backupCount=10)
     fh.setFormatter(formatter)
     log.addHandler(fh)
@@ -1523,7 +1563,7 @@ if __name__ == "__main__":
         sys.exit()
 
     else:
-        app = create_app(database_connection=reporting_conf.distributed.db)
+        app = create_app(database_connection=dist_conf.distributed.db)
 
         t = StatusThread(name="StatusThread")
         t.daemon = True
@@ -1538,7 +1578,7 @@ if __name__ == "__main__":
         app.run(host=args.host, port=args.port, debug=args.debug, use_reloader=False)
 
 else:
-    app = create_app(database_connection=reporting_conf.distributed.db)
+    app = create_app(database_connection=dist_conf.distributed.db)
 
     # this allows run it with gunicorn/uwsgi
     log = init_logging(True)

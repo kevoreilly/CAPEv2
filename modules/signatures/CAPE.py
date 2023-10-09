@@ -28,14 +28,16 @@ log = logging.getLogger(__name__)
 
 
 class CAPE_Compression(Signature):
-    name = "Compression"
+    name = "compression"
     description = "Behavioural detection: Decompression of executable module(s)."
     severity = 1
     categories = ["malware"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1027"]
+    ttps = ["T1027", "T1140"]  # MITRE v6,7,8
+    mbcs = ["OB0002", "OB0006", "E1027"]
+    mbcs += ["OC0004", "C0025"]  # micro-behaviour
 
     filter_apinames = set(["RtlDecompressBuffer"])
 
@@ -49,7 +51,7 @@ class CAPE_Compression(Signature):
             size = self.get_argument(call, "UncompressedBufferLength")
             if size:
                 size = int(size, 16)
-            self.compressed_binary = IsPEImage(buf, size)
+            self.compressed_binary = IsPEImage(buf.encode(), size)
 
     def on_complete(self):
         if self.compressed_binary:
@@ -57,14 +59,16 @@ class CAPE_Compression(Signature):
 
 
 class CAPE_RegBinary(Signature):
-    name = "RegBinary"
+    name = "reg_binary"
     description = "Behavioural detection: PE binary written to registry."
     severity = 3
     categories = ["malware"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1112"]
+    ttps = ["T1112"]  # MITRE v6,7,8
+    mbcs = ["OB0006", "E1112"]
+    mbcs += ["OC0008", "C0036"]  # micro-behaviour
 
     filter_apinames = set(["RegSetValueExA", "RegSetValueExW", "RegCreateKeyExA", "RegCreateKeyExW"])
 
@@ -73,13 +77,13 @@ class CAPE_RegBinary(Signature):
         self.reg_binary = False
 
     def on_call(self, call, process):
-        if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
+        if call["api"] in ("RegSetValueExA", "RegSetValueExW"):
             buf = self.get_argument(call, "Buffer")
             size = self.get_argument(call, "BufferLength")
             if buf:
                 if size:
                     size = int(size)
-                self.reg_binary = IsPEImage(buf, size)
+                self.reg_binary = IsPEImage(buf.encode(), size)
 
     def on_complete(self):
         if self.reg_binary:
@@ -87,14 +91,16 @@ class CAPE_RegBinary(Signature):
 
 
 class CAPE_Decryption(Signature):
-    name = "Decryption"
+    name = "decryption"
     description = "Behavioural detection: Decryption of executable module(s)."
     severity = 1
     categories = ["malware"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1027"]
+    ttps = ["T1027", "T1140"]  # MITRE v6,7,8
+    mbcs = ["OB0002", "OB0006", "E1027"]
+    mbcs += ["OC0005", "C0031"]  # micro-behaviour
 
     filter_apinames = set(["CryptDecrypt"])
 
@@ -108,7 +114,7 @@ class CAPE_Decryption(Signature):
             size = self.get_argument(call, "Length")
             if size:
                 size = int(size)
-            self.encrypted_binary = IsPEImage(buf, size)
+            self.encrypted_binary = IsPEImage(buf.encode(), size)
 
     def on_complete(self):
         if self.encrypted_binary:
@@ -123,7 +129,10 @@ class CAPE_Unpacker(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1027"]
+    ttps = ["T1027", "T1140"]  # MITRE v6,7,8
+    ttps += ["T1027.002"]  # MITRE v7,8
+    mbcs = ["OB0002", "OB0006", "E1027", "F0001"]
+    mbcs += ["OC0002", "C0007"]  # micro-behaviour
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -132,11 +141,7 @@ class CAPE_Unpacker(Signature):
 
     def on_call(self, call, process):
 
-        if (
-            process["process_name"] == "WINWORD.EXE"
-            or process["process_name"] == "EXCEL.EXE"
-            or process["process_name"] == "POWERPNT.EXE"
-        ):
+        if process["process_name"] in ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE"):
             return False
         if call["api"] == "NtAllocateVirtualMemory":
             protection = int(self.get_argument(call, "Protection"), 0)
@@ -152,21 +157,25 @@ class CAPE_Unpacker(Signature):
                 return True
         elif call["api"] == "NtProtectVirtualMemory":
             protection = int(self.get_argument(call, "NewAccessProtection"), 0)
-            size = self.get_argument(call, "NumberOfBytesProtected")
+            size = int(self.get_argument(call, "NumberOfBytesProtected"), 0)
             handle = self.get_argument(call, "ProcessHandle")
             if handle == 0xFFFFFFFF and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
 
 
 class CAPE_InjectionCreateRemoteThread(Signature):
-    name = "InjectionCreateRemoteThread"
+    name = "injection_create_remote_thread"
     description = "Behavioural detection: Injection with CreateRemoteThread in a remote process"
     severity = 3
     categories = ["injection"]
     authors = ["JoseMi Holguin", "nex", "Optiv", "kevoreilly", "KillerInstinct"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055"]
+    ttps = ["T1055"]  # MITRE v6,7,8
+    ttps += ["T1055.002"]  # MITRE v7,8
+    ttps += ["U1216"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
+    mbcs += ["OC0003", "C0038"]  # micro-behaviours
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -197,14 +206,10 @@ class CAPE_InjectionCreateRemoteThread(Signature):
         elif call["api"] == "NtMapViewOfSection":
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
-        elif call["api"] == "VirtualAllocEx" or call["api"] == "NtAllocateVirtualMemory":
+        elif call["api"] in ("VirtualAllocEx", "NtAllocateVirtualMemory"):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
-        elif (
-            call["api"] == "NtWriteVirtualMemory"
-            or call["api"] == "NtWow64WriteVirtualMemory64"
-            or call["api"] == "WriteProcessMemory"
-        ):
+        elif call["api"] in ("NtWriteVirtualMemory", "NtWow64WriteVirtualMemory64", "WriteProcessMemory"):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
                 addr = int(self.get_argument(call, "BaseAddress"), 16)
@@ -216,11 +221,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
                     #                                     procname, self.handle_map[handle])
                     # self.data.append({"Injection": desc})
                     return True
-        elif (
-            call["api"] == "CreateRemoteThread"
-            or call["api"].startswith("NtCreateThread")
-            or call["api"].startswith("NtCreateThreadEx")
-        ):
+        elif call["api"].startswith(("CreateRemoteThread", "NtCreateThread", "NtCreateThreadEx")):
             handle = self.get_argument(call, "ProcessHandle")
             if handle in self.process_handles:
                 # procname = self.get_name_from_pid(self.handle_map[handle])
@@ -242,15 +243,17 @@ class CAPE_InjectionCreateRemoteThread(Signature):
 
 
 class CAPE_InjectionProcessHollowing(Signature):
-    name = "InjectionProcessHollowing"
+    name = "injection_process_hollowing"
     description = "Behavioural detection: Injection (Process Hollowing)"
     severity = 3
     categories = ["injection"]
     authors = ["glysbaysb", "Optiv", "KillerInstinct"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055", "T1093"]
-    allow_list = ["acrord32.exe"]
+    ttps = ["T1055", "T1093"]  # MITRE v6
+    ttps += ["T1055.012"]  # MITRE v7,8
+    ttps += ["U1225"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -267,7 +270,7 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.thread_map = {}
             self.lastprocess = process
 
-        if process.get("process_name") in self.allow_list:
+        if process.get("process_name") in ("acrord32.exe",):
             return False
 
         if call["api"] == "CreateProcessInternalW":
@@ -278,24 +281,23 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.process_map[phandle] = pid
             self.thread_handles.add(thandle)
             self.thread_map[thandle] = pid
-        elif (call["api"] == "NtUnmapViewOfSection" or call["api"] == "NtAllocateVirtualMemory") and self.sequence == 0:
+        elif call["api"] in ("NtUnmapViewOfSection", "NtAllocateVirtualMemory") and self.sequence == 0:
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.sequence = 1
         elif call["api"] == "NtGetContextThread" and self.sequence == 0:
             if self.get_argument(call, "ThreadHandle") in self.thread_handles:
                 self.sequence = 1
         elif (
-            call["api"] == "NtWriteVirtualMemory"
-            or call["api"] == "NtWow64WriteVirtualMemory64"
-            or call["api"] == "WriteProcessMemory"
-            or call["api"] == "NtMapViewOfSection"
-        ) and (self.sequence == 1 or self.sequence == 2):
+            (call["api"] in ("NtWriteVirtualMemory", "NtWow64WriteVirtualMemory64", "WriteProcessMemory", "NtMapViewOfSection"))
+            and self.sequence == 1
+            or self.sequence == 2
+        ):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.sequence += 1
-        elif (call["api"] == "NtSetContextThread") and (self.sequence == 1 or self.sequence == 2):
+        elif call["api"] == "NtSetContextThread" and self.sequence in (1, 2):
             if self.get_argument(call, "ThreadHandle") in self.thread_handles:
                 self.sequence += 1
-        elif call["api"] == "NtResumeThread" and (self.sequence == 2 or self.sequence == 3):
+        elif call["api"] == "NtResumeThread" and self.sequence in (2, 3):
             handle = self.get_argument(call, "ThreadHandle")
             if handle in self.thread_handles:
                 desc = "{0}({1}) -> {2}({3})".format(
@@ -304,9 +306,9 @@ class CAPE_InjectionProcessHollowing(Signature):
                     self.get_name_from_pid(self.thread_map[handle]),
                     self.thread_map[handle],
                 )
-                self.data.append({"Injection": desc})
+                self.data.append({"injection": desc})
                 return True
-        elif call["api"] == "NtResumeProcess" and (self.sequence == 2 or self.sequence == 3):
+        elif call["api"] == "NtResumeProcess" and self.sequence in (2, 3):
             handle = self.get_argument(call, "ProcessHandle")
             if handle in self.process_handles:
                 desc = "{0}({1}) -> {2}({3})".format(
@@ -315,19 +317,22 @@ class CAPE_InjectionProcessHollowing(Signature):
                     self.get_name_from_pid(self.process_map[handle]),
                     self.process_map[handle],
                 )
-                self.data.append({"Injection": desc})
+                self.data.append({"injection": desc})
                 return True
 
 
 class CAPE_InjectionSetWindowLong(Signature):
-    name = "InjectionSetWindowLong"
+    name = "injection_set_window_long"
     description = "Behavioural detection: Injection with SetWindowLong in a remote process"
     severity = 3
     categories = ["injection"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055", "T1181"]
+    ttps = ["T1055", "T1181"]  # MITRE v6
+    ttps += ["T1055.011"]  # MITRE v7,8
+    ttps += ["U1319"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -372,7 +377,7 @@ class CAPE_InjectionSetWindowLong(Signature):
             handle = self.get_argument(call, "ProcessHandle")
             if handle != "0xffffffff":
                 self.sharedmap = True
-        elif call["api"] == "NtOpenSection" or call["api"] == "NtCreateSection":
+        elif call["api"] in ("NtOpenSection", "NtCreateSection"):
             name = self.get_argument(call, "ObjectAttributes")
             if name.lower() in self.sharedsections:
                 self.sharedmap = True
@@ -384,14 +389,15 @@ class CAPE_InjectionSetWindowLong(Signature):
 
 
 class CAPE_Injection(Signature):
-    name = "InjectionInterProcess"
+    name = "injection_inter_process"
     description = "Behavioural detection: Injection (inter-process)"
     severity = 3
     categories = ["injection"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055"]
+    ttps = ["T1055"]  # MITRE v6,7,8
+    mbcs = ["OB0006", "E1055"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -412,15 +418,10 @@ class CAPE_Injection(Signature):
             self.write_handles = set()
             self.lastprocess = process
 
-        if call["api"] == "CreateProcessInternalW" or call["api"] == "OpenProcess" or call["api"] == "NtOpenProcess":
+        if call["api"] in ("CreateProcessInternalW", "OpenProcess", "NtOpenProcess"):
             phandle = self.get_argument(call, "ProcessHandle")
             self.process_handles.add(phandle)
-        elif (
-            call["api"] == "NtWriteVirtualMemory"
-            or call["api"] == "NtWow64WriteVirtualMemory64"
-            or call["api"] == "WriteProcessMemory"
-            or call["api"] == "NtMapViewOfSection"
-        ):
+        elif call["api"] in ("NtWriteVirtualMemory", "NtWow64WriteVirtualMemory64", "WriteProcessMemory", "NtMapViewOfSection"):
             whandle = self.get_argument(call, "ProcessHandle")
             self.write_handles.add(whandle)
 
@@ -434,14 +435,16 @@ class CAPE_Injection(Signature):
 
 
 class CAPE_EvilGrab(Signature):
-    name = "EvilGrab"
+    name = "evil_grab"
     description = "Behavioural detection: EvilGrab"
     severity = 3
     categories = ["malware"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1219"]
+    ttps = ["T1219"]  # MITRE v6,7,8
+    mbcs = ["OB0008", "OB0012", "B0022"]
+    mbcs += ["OC0008", "C0036"]  # micro-behaviour
 
     filter_apinames = set(["RegSetValueExA", "RegSetValueExW", "RegCreateKeyExA", "RegCreateKeyExW"])
 
@@ -451,12 +454,12 @@ class CAPE_EvilGrab(Signature):
         self.reg_binary = False
 
     def on_call(self, call, process):
-        if call["api"] == "RegCreateKeyExA" or call["api"] == "RegCreateKeyExW":
+        if call["api"] in ("RegCreateKeyExA", "RegCreateKeyExW"):
             buf = self.get_argument(call, "SubKey")
             if buf == "Software\\rar":
                 self.reg_evilgrab_keyname = True
 
-        if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
+        if call["api"] in ("RegSetValueExA", "RegSetValueExW"):
             length = self.get_argument(call, "BufferLength")
             if length and int(length) > 0x10000 and self.reg_evilgrab_keyname:
                 self.reg_binary = True
@@ -464,8 +467,7 @@ class CAPE_EvilGrab(Signature):
     def on_complete(self):
         if self.reg_binary:
             return True
-        else:
-            return False
+        return False
 
 
 class CAPE_PlugX(Signature):
@@ -477,7 +479,9 @@ class CAPE_PlugX(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1219"]
+    ttps = ["T1219"]  # MITRE v6,7,8
+    mbcs = ["OB0008", "OB0012", "B0022"]
+    mbcs += ["OC0008", "C0036"]  # micro-behaviour
 
     filter_apinames = set(["RtlDecompressBuffer", "memcpy"])
 
@@ -504,14 +508,17 @@ class CAPE_PlugX(Signature):
 
 
 class CAPE_Doppelganging(Signature):
-    name = "Doppelganging"
+    name = "doppelganging"
     description = "Behavioural detection: Process Doppelganging"
     severity = 3
     categories = ["injection"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055", "T1186"]
+    ttps = ["T1055", "T1186"]  # MITRE v6
+    ttps += ["T1055.013"]  # MITRE v7,8
+    ttps += ["U1215"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -532,7 +539,7 @@ class CAPE_Doppelganging(Signature):
             self.filehandle = None
             self.sectionhandle = None
 
-        if call["api"] == "CreateFileTransactedA" or call["api"] == "CreateFileTransactedW":
+        if call["api"] in ("CreateFileTransactedA", "CreateFileTransactedW"):
             self.filehandle = self.get_argument(call, "FileHandle")
         elif call["api"] == "NtCreateSection":
             if self.filehandle and self.filehandle == self.get_argument(call, "FileHandle"):
@@ -543,14 +550,17 @@ class CAPE_Doppelganging(Signature):
 
 
 class CAPE_TransactedHollowing(Signature):
-    name = "TransactedHollowing"
+    name = "transacted_hollowing"
     description = "Behavioural detection: Transacted Hollowing"
     severity = 3
     categories = ["injection"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1055", "T1093"]
+    ttps = ["T1055", "T1093"]  # MITRE v6
+    ttps += ["T1055.012"]  # MITRE v7,8
+    ttps += ["U1225"]  # Unprotect
+    mbcs = ["OB0006", "E1055"]
 
     filter_apinames = set(["RtlSetCurrentTransaction", "NtRollbackTransaction", "NtMapViewOfSection"])
 
@@ -582,7 +592,7 @@ class CAPE_TransactedHollowing(Signature):
 class CAPEDetectedThreat(Signature):
     name = "cape_detected_threat"
     description = "CAPE detected a specific malware threat"
-    severity = 3
+    severity = 6
     categories = ["malware"]
     authors = ["Kevin Ross"]
     minimum = "1.3"

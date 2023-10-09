@@ -53,6 +53,8 @@ yara_rules = yara.compile(source=rule_source)
 
 
 def decrypt_rc4(key, data):
+    if not key:
+        return b""
     cipher = ARC4.new(key)
     return cipher.decrypt(data)
 
@@ -80,14 +82,15 @@ def extract_config(filebuf):
     for match in matches:
         if match.rule != "DridexLoader":
             continue
-        for item in match.strings:
-            if "$c2parse" in item[1]:
-                c2va_offset = int(item[0])
-                line = item[1]
-            elif "$botnet_id" in item[1]:
-                botnet_code = int(item[0])
-            elif "$rc4_key" in item[1] and not rc4_decode:
-                rc4_decode = int(item[0])
+        for block in match.strings:
+            for item in block.instances:
+                if "$c2parse" in block.identifier:
+                    c2va_offset = item.offset
+                    line = block.identifier
+                elif "$botnet_id" in block.identifier:
+                    botnet_code = item.offset
+                elif "$rc4_key" in block.identifier and not rc4_decode:
+                    rc4_decode = item.offset
     if line == "$c2parse_6":
         c2_rva = struct.unpack("i", filebuf[c2va_offset + 44 : c2va_offset + 48])[0] - image_base
         botnet_rva = struct.unpack("i", filebuf[c2va_offset - 7 : c2va_offset - 3])[0] - image_base
@@ -109,7 +112,10 @@ def extract_config(filebuf):
     else:
         return
 
-    c2_offset = pe.get_offset_from_rva(c2_rva)
+    try:
+        c2_offset = pe.get_offset_from_rva(c2_rva)
+    except pefile.PEFormatError:
+        return
 
     if num_ips_rva:
         num_ips_offset = pe.get_offset_from_rva(num_ips_rva)
@@ -158,8 +164,7 @@ def extract_config(filebuf):
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
-    with open(sys.argv[1], "rb") as f:
-        data = f.read()
-
+    data = Path(sys.argv[1]).read_bytes()
     print(extract_config(data))

@@ -1,0 +1,40 @@
+{% if file.virustotal and not file.virustotal.error == True %}
+<div class="card-header">
+    <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#virustotal_binary"><i class="fas fa-shield-virus"></i> VirusTotal ({{file.virustotal.positives}}/{{file.virustotal.total}}) {% if file.virustotal.detection %} - {{file.virustotal.detection}} {% endif %}</a></center>
+</div>
+
+<div class="collapse" id="virustotal_binary">
+    <div class="card card-body">
+        {% if file.virustotal.resource %}
+            <h4><a href="https://www.virustotal.com/en/file/{{file.virustotal.resource}}/analysis/">Full Results</a></h4>
+        {% endif %}
+
+        <table class="table table-striped table-bordered">
+            <tr>
+                <th>Engine</th><th>Result</th><th>Engine</th><th>Result</th><th>Engine</th><th>Result</th>
+            </tr>
+
+            {% for av, values in file.virustotal.scans.items() %}
+                <td>{{av}}</td>
+                <td>
+                    {% if not values.result %}
+                        <span class="text-muted">Clean</span>
+                    {% else %}
+                        <span class="text-danger">{{values.result}}
+                        {% if values.moloch %}
+                        <a href="{{values.moloch}}" target="_blank">[MLCH]</a>
+                        {% endif %}
+                        </span>
+                    {% endif %}
+                </td>
+            {% if loop.index %3 == 0 %}
+                </tr>
+            {% elif loop.last %}
+                </tr>
+            {% endif %}
+            {% endfor %}
+
+        </table>
+    </div>
+</div>
+{% endif %}

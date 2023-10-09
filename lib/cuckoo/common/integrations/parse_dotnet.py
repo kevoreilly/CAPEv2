@@ -3,30 +3,31 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-import os
-from subprocess import PIPE, Popen
+import subprocess
+from typing import Any, Dict, List
 
+from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 
+# Note universal_newlines should be False as some binaries fails to convert bytes to text
 
-class DotNETExecutable(object):
+
+class DotNETExecutable:
     """.NET analysis"""
 
     def __init__(self, file_path):
         self.file_path = file_path
 
-    def _get_custom_attrs(self):
+    def _get_custom_attrs(self) -> List[Dict[str, str]]:
         try:
             ret = []
-            output = (
-                Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True)
-                .stdout.read()
-                .split("\n")
+            output = subprocess.check_output(["/usr/bin/monodis", "--customattr", self.file_path], universal_newlines=False).split(
+                b"\n"
             )
             for line in output[1:]:
-                splitline = line.split()
+                splitline = line.decode("latin-1").split()
                 if not splitline or len(splitline) < 7:
                     continue
                 typeval = splitline[1].rstrip(":")
@@ -42,103 +43,110 @@ class DotNETExecutable(object):
                 if endidx <= 2:
                     continue
                 valueval = rem[startidx + 2 : endidx - 2]
-                item = {}
-                item["type"] = convert_to_printable(typeval)
-                item["name"] = convert_to_printable(nameval)
-                item["value"] = convert_to_printable(valueval)
-                ret.append(item)
+                ret.append(
+                    {
+                        "type": convert_to_printable(typeval),
+                        "name": convert_to_printable(nameval),
+                        "value": convert_to_printable(valueval),
+                    }
+                )
             return ret
         except UnicodeDecodeError:
             log.error("UnicodeDecodeError: /usr/bin/monodis --customattr %s", self.file_path)
+        except subprocess.CalledProcessError as e:
+            log.error("Monodis: %s", str(e))
         except Exception as e:
             log.error(e, exc_info=True)
             return None
 
-    def _get_assembly_refs(self):
+    def _get_assembly_refs(self) -> List[Dict[str, str]]:
         try:
             ret = []
-            output = (
-                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True)
-                .stdout.read()
-                .split("\n")
+            output = subprocess.check_output(["/usr/bin/monodis", "--assemblyref", self.file_path], universal_newlines=False).split(
+                b"\n"
             )
             for idx, line in enumerate(output):
-                splitline = line.split("Version=")
+                splitline = line.decode("latin-1").split("Version=")
                 if len(splitline) < 2:
                     continue
                 verval = splitline[1]
-                splitline = output[idx + 1].split("Name=")
+                splitline = output[idx + 1].split(b"Name=")
                 if len(splitline) < 2:
                     continue
                 nameval = splitline[1]
-                item = {}
-                item["name"] = convert_to_printable(nameval)
-                item["version"] = convert_to_printable(verval)
+                item = {
+                    "name": convert_to_printable(nameval.decode()),
+                    "version": convert_to_printable(verval),
+                }
                 ret.append(item)
             return ret
 
+        except subprocess.CalledProcessError as e:
+            log.error("Monodis: %s", str(e))
         except Exception as e:
             log.error(e, exc_info=True)
             return None
 
-    def _get_assembly_info(self):
+    def _get_assembly_info(self) -> Dict[str, str]:
         try:
             ret = {}
-            output = (
-                Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True)
-                .stdout.read()
-                .split("\n")
+            output = subprocess.check_output(["/usr/bin/monodis", "--assembly", self.file_path], universal_newlines=False).split(
+                b"\n"
             )
             for line in output:
+                line = line.decode("latin-1")
                 if line.startswith("Name:"):
                     ret["name"] = convert_to_printable(line[5:].strip())
-                if line.startswith("Version:"):
+                elif line.startswith("Version:"):
                     ret["version"] = convert_to_printable(line[8:].strip())
             return ret
+        except subprocess.CalledProcessError as e:
+            log.error("Monodis: %s", str(e))
         except Exception as e:
             log.error(e, exc_info=True)
             return None
 
-    def _get_type_refs(self):
+    def _get_type_refs(self) -> List[Dict[str, str]]:
         try:
             ret = []
-            output = (
-                Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True)
-                .stdout.read()
-                .split("\n")
+            output = subprocess.check_output(["/usr/bin/monodis", "--typeref", self.file_path], universal_newlines=False).split(
+                b"\n"
             )
             for line in output[1:]:
-                restline = "".join(line.split(":")[1:])
+                restline = "".join(line.decode("latin-1").split(":")[1:])
                 restsplit = restline.split("]")
                 asmname = restsplit[0][2:]
                 typename = "".join(restsplit[1:])
                 if asmname and typename:
-                    item = {}
-                    item["assembly"] = convert_to_printable(asmname)
-                    item["typename"] = convert_to_printable(typename)
+                    item = {
+                        "assembly": convert_to_printable(asmname),
+                        "typename": convert_to_printable(typename),
+                    }
                     ret.append(item)
             return ret
 
+        except subprocess.CalledProcessError as e:
+            log.error("Monodis: %s", str(e))
         except Exception as e:
             log.error(e, exc_info=True)
             return None
 
-    def run(self):
+    def run(self) -> Dict[str, Any]:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not os.path.exists(self.file_path):
+        if not path_exists(self.file_path):
             return None
 
-        results = {}
-
         try:
-            results["typerefs"] = self._get_type_refs()
-            results["assemblyrefs"] = self._get_assembly_refs()
-            results["assemblyinfo"] = self._get_assembly_info()
-            results["customattrs"] = self._get_custom_attrs()
+            results = {
+                "typerefs": self._get_type_refs(),
+                "assemblyrefs": self._get_assembly_refs(),
+                "assemblyinfo": self._get_assembly_info(),
+                "customattrs": self._get_custom_attrs(),
+            }
 
-            if results != {"typerefs": [], "assemblyrefs": [], "assemblyinfo": {}, "customattrs": []}:
+            if all(results):
                 return results
             else:
                 return

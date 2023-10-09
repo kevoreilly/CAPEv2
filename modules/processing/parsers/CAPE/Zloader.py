@@ -63,8 +63,8 @@ def extract_config(filebuf):
         if match.rule != "Zloader":
             continue
         for item in match.strings:
-            if "$decrypt_conf" in item[1]:
-                decrypt_conf = int(item[0]) + 21
+            if "$decrypt_conf" in item.identifier:
+                decrypt_conf = item.instances[0].offset + 21
     va = struct.unpack("I", filebuf[decrypt_conf : decrypt_conf + 4])[0]
     key = string_from_offset(filebuf, pe.get_offset_from_rva(va - image_base))
     data_offset = pe.get_offset_from_rva(struct.unpack("I", filebuf[decrypt_conf + 5 : decrypt_conf + 9])[0] - image_base)

@@ -8,7 +8,7 @@ This table is not automatically generated at the moment, but kept up-to-date
 by hand.
 
 """
-table = [
+table = (
     ("__process__", "__init__", ("",)),
     ("__thread__", "__init__", ("",)),
     ("NtDeleteFile", "filesystem", ("O", "FileName")),
@@ -367,4 +367,4 @@ table = [
             "CommandLine",
         ),
     ),
-]
+)

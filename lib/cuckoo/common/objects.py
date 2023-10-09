@@ -2,8 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import binascii
+import contextlib
 import copy
 import hashlib
 import logging
@@ -11,7 +11,10 @@ import mmap
 import os
 import struct
 import subprocess
+from pathlib import Path
+from typing import Any, Dict
 
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,
     PAGE_EXECUTE_READ,
@@ -23,7 +26,9 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
+from lib.cuckoo.common.integrations.clamav import get_clamav
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     import magic
@@ -38,20 +43,6 @@ try:
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
-
-try:
-    import yara
-
-    HAVE_YARA = True
-except ImportError:
-    HAVE_YARA = False
-
-try:
-    import pyclamd
-
-    HAVE_CLAMAV = True
-except ImportError:
-    HAVE_CLAMAV = False
 
 try:
     import re2 as re
@@ -70,12 +61,21 @@ try:
 
     HAVE_TLSH = True
 except ImportError:
-    print("Missed dependency: pip3 install python-tlsh")
+    print("Missed dependency: poetry run pip install -r extra/optiona_dependencies.txt")
     HAVE_TLSH = False
 
-log = logging.getLogger(__name__)
+try:
+    import yara
 
-FILE_CHUNK_SIZE = 16 * 1024
+    HAVE_YARA = True
+    if not int(yara.__version__[0]) >= 4:
+        raise ImportError("Missed library. Run: poetry install")
+except ImportError:
+    print("Missed library. Run: poetry install")
+    HAVE_YARA = False
+
+
+log = logging.getLogger(__name__)
 
 yara_error = {
     "1": "ERROR_INSUFFICIENT_MEMORY",
@@ -128,15 +128,14 @@ yara_error = {
     "49": "ERROR_REGULAR_EXPRESSION_TOO_COMPLEX",
 }
 
-
-class Dictionary(dict):
-    """Cuckoo custom dict."""
-
-    def __getattr__(self, key):
-        return self.get(key)
-
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
+type_list = [
+    "RAR self-extracting archive",
+    "Nullsoft Installer self-extracting archive",
+    "7-zip Installer data",
+    "Inno Setup",
+    "MSI Installer",
+    "Microsoft Cabinet",  # ToDo add die support here
+]
 
 
 class PCAP:
@@ -154,7 +153,7 @@ class URL:
         self.url = url
 
 
-class File(object):
+class File:
     """Basic file object class with all useful utilities."""
 
     # The yara rules should not change during one Cuckoo run and as such we're
@@ -170,7 +169,9 @@ class File(object):
         """@param file_path: file path."""
         self.file_name = file_name
         self.file_path = file_path
+        self.file_path_ansii = file_path if isinstance(file_path, str) else file_path.decode()
         self.guest_paths = guest_paths
+        self.path_object = Path(self.file_path_ansii)
 
         # these will be populated when first accessed
         self._file_data = None
@@ -187,13 +188,10 @@ class File(object):
         """Get file name.
         @return: file name.
         """
-        if self.file_name:
-            return self.file_name
-        file_name = os.path.basename(self.file_path)
-        return file_name
+        return self.file_name or Path(self.file_path).name
 
     def valid(self):
-        return os.path.exists(self.file_path) and os.path.isfile(self.file_path) and os.path.getsize(self.file_path) != 0
+        return self.path_object.exists() and self.path_object.is_file() and self.path_object.stat().st_size
 
     def get_data(self):
         """Read file contents.
@@ -201,12 +199,12 @@ class File(object):
         """
         return self.file_data
 
-    def get_chunks(self):
+    def get_chunks(self, size=16):
         """Read file contents in chunks (generator)."""
-
+        chunk_size = size * 1024
         with open(self.file_path, "rb") as fd:
             while True:
-                chunk = fd.read(FILE_CHUNK_SIZE)
+                chunk = fd.read(chunk_size)
                 if not chunk:
                     break
                 yield chunk
@@ -233,34 +231,29 @@ class File(object):
             if HAVE_TLSH:
                 tlsh_hash.update(chunk)
 
-        self._crc32 = "".join(f"{(crc >> i) & 0xFF:02X}" for i in [24, 16, 8, 0])
+        self._crc32 = "".join(f"{(crc >> i) & 0xFF:02X}" for i in (24, 16, 8, 0))
         self._md5 = md5.hexdigest()
         self._sha1 = sha1.hexdigest()
         self._sha256 = sha256.hexdigest()
         self._sha512 = sha512.hexdigest()
         self._sha3_384 = sha3_384.hexdigest()
         if HAVE_TLSH:
-            try:
+            with contextlib.suppress(ValueError):
                 tlsh_hash.final()
                 self._tlsh_hash = tlsh_hash.hexdigest()
-            except ValueError:
-                pass
-                # print("TLSH: less than 50 of input, ignoring")
 
     @property
     def file_data(self):
         if not self._file_data:
-            self._file_data = open(self.file_path, "rb").read()
+            if self.path_object.exists():
+                self._file_data = self.path_object.read_bytes()
         return self._file_data
 
     def get_size(self):
         """Get file size.
         @return: file size.
         """
-        if os.path.exists(self.file_path):
-            return os.path.getsize(self.file_path)
-        else:
-            return 0
+        return self.path_object.stat().st_size if self.path_object.exists() else 0
 
     def get_crc32(self):
         """Get CRC32.
@@ -332,13 +325,16 @@ class File(object):
         @return: file content type.
         """
         file_type = None
-        if os.path.exists(self.file_path):
+        if self.path_object.exists():
             if HAVE_MAGIC:
+                fn = False
+                if hasattr(magic, "detect_from_filename"):
+                    fn = magic.detect_from_filename
                 if hasattr(magic, "from_file"):
+                    fn = magic.from_file
+                if fn:
                     try:
                         file_type = fn(self.file_path_ansii)
-                    except magic.MagicException:
-                        log.error("Magic Exception for file: %s", self.file_path_ansii)
                     except Exception as e:
                         log.error(e, exc_info=True)
                 if not file_type and hasattr(magic, "open"):
@@ -371,42 +367,52 @@ class File(object):
             try:
                 if IsPEImage(self.file_data):
                     self._pefile = True
-                    if not HAVE_PEFILE:
-                        if not File.notified_pefile:
-                            File.notified_pefile = True
-                            log.warning("Unable to import pefile (install with `pip3 install pefile`)")
-                    else:
+                    if HAVE_PEFILE:
                         try:
                             self.pe = pefile.PE(data=self.file_data, fast_load=True)
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
-                            log.error("Unable to instantiate pefile on image")
+                            log.error("Unable to instantiate pefile on image: %s", self.file_path)
                         if self.pe:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
+                            dotnet_string = ""
+                            with contextlib.suppress(AttributeError, IndexError):
+                                dotnet_string = (
+                                    " Mono/.Net assembly"
+                                    if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                                        pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
+                                    ].VirtualAddress
+                                    != 0
+                                    else ""
+                                )
                             # Emulate magic for now
                             if is_dll and is_x64:
-                                self.file_type = "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
+                                self.file_type = f"PE32+ executable (DLL) (GUI) x86-64{dotnet_string}, for MS Windows"
                             elif is_dll:
-                                self.file_type = "PE32 executable (DLL) (GUI) Intel 80386, for MS Windows"
+                                self.file_type = f"PE32 executable (DLL) (GUI) Intel 80386{dotnet_string}, for MS Windows"
                             elif is_x64:
-                                self.file_type = f"PE32+ executable ({gui_type}) x86-64, for MS Windows"
+                                self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string}, for MS Windows"
                             else:
-                                self.file_type = f"PE32 executable ({gui_type}) Intel 80386, for MS Windows"
+                                self.file_type = f"PE32 executable ({gui_type}) Intel 80386{dotnet_string}, for MS Windows"
+                    elif not File.notified_pefile:
+                        File.notified_pefile = True
+                        log.warning("Unable to import pefile (install with `pip3 install pefile`)")
             except Exception as e:
                 log.error(e, exc_info=True)
-
-            if not self.file_type:
-                self.file_type = self.get_content_type()
+        if not self.file_type:
+            self.file_type = self.get_content_type()
 
         return self.file_type
 
     def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
+        if not isinstance(yara_string, bytes):
+            return yara_string
         try:
             new = yara_string.decode()
-        except UnicodeDecodeError as e:
+        except UnicodeDecodeError:
             # yara_string = binascii.hexlify(yara_string.lstrip("uU")).upper()
             yara_string = binascii.hexlify(yara_string).upper()
             yara_string = b" ".join(yara_string[i : i + 2] for i in range(0, len(yara_string), 2))
@@ -414,40 +420,105 @@ class File(object):
 
         return new
 
+    @classmethod
+    def init_yara(self):
+        """Generates index for yara signatures."""
+
+        categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
+        log.debug("Initializing Yara...")
+
+        # Generate root directory for yara rules.
+        yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
+        custom_yara_root = os.path.join(CUCKOO_ROOT, "custom", "yara")
+        # Loop through all categories.
+        for category in categories:
+            rules, indexed = {}, []
+            # Check if there is a directory for the given category.
+            for path in (yara_root, custom_yara_root):
+                category_root = os.path.join(path, category)
+                if not path_exists(category_root):
+                    log.warning("Missing Yara directory: %s?", category_root)
+                    continue
+
+                for category_root, _, filenames in os.walk(category_root, followlinks=True):
+                    for filename in filenames:
+                        if not filename.endswith((".yar", ".yara")):
+                            continue
+                        filepath = os.path.join(category_root, filename)
+                        rules[f"rule_{category}_{len(rules)}"] = filepath
+                        indexed.append(filename)
+
+                # Need to define each external variable that will be used in the
+            # future. Otherwise Yara will complain.
+            externals = {"filename": ""}
+
+            while True:
+                try:
+                    File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                    File.yara_initialized = True
+                    break
+                except yara.SyntaxError as e:
+                    bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
+                    log.debug(
+                        "Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule
+                    )
+                    if os.path.basename(bad_rule) not in indexed:
+                        break
+                    for k, v in rules.items():
+                        if v == bad_rule:
+                            del rules[k]
+                            indexed.remove(os.path.basename(bad_rule))
+                            log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule)
+                            break
+                except yara.Error as e:
+                    log.error("There was a syntax error in one or more Yara rules: %s", e)
+                    break
+            if category == "memory":
+                try:
+                    mem_rules = yara.compile(filepaths=rules, externals=externals)
+                    mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+                except yara.Error as e:
+                    if "could not open file" in str(e):
+                        log.inf("Can't write index_memory.yarc. Did you starting it with correct user?")
+                    else:
+                        log.error(e)
+
+            indexed = sorted(indexed)
+            for entry in indexed:
+                if (category, entry) == indexed[-1]:
+                    log.debug("\t `-- %s %s", category, entry)
+                else:
+                    log.debug("\t |-- %s %s", category, entry)
+
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
-        results = []
-        if not HAVE_YARA:
-            if not File.notified_yara:
-                File.notified_yara = True
-                log.warning("Unable to import yara (please compile from sources)")
-            return results
+        if float(yara.__version__[:-2]) < 4.3:
+            log.error("You using outdated YARA version. run: poetry install")
+            return []
 
+        if not File.yara_initialized:
+            File.init_yara()
+
+        results = []
         if not os.path.getsize(self.file_path):
             return results
 
         try:
             results, rule = [], File.yara_rules[category]
-            if isinstance(self.file_path, bytes):
-                path = self.file_path.decode()
-            else:
-                path = self.file_path
-            for match in rule.match(path, externals=externals):
-                strings = set()
-                for s in match.strings:
-                    strings.add(self._yara_encode_string(s[2]))
-
+            for match in rule.match(self.file_path_ansii, externals=externals):
+                strings = []
                 addresses = {}
-                for s in match.strings:
-                    addresses[s[1].strip("$")] = s[0]
-
+                for yara_string in match.strings:
+                    for x in yara_string.instances:
+                        strings.extend({self._yara_encode_string(x.matched_data)})
+                        addresses.update({yara_string.identifier.strip("$"): x.offset})
                 results.append(
                     {
                         "name": match.rule,
                         "meta": match.meta,
-                        "strings": list(strings),
+                        "strings": strings,
                         "addresses": addresses,
                     }
                 )
@@ -455,51 +526,44 @@ class File(object):
             errcode = str(e).rsplit(maxsplit=1)[-1]
             if errcode in yara_error:
                 log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
+
             else:
                 log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
 
         return results
 
-    def get_clamav(self):
-        """Get ClamAV signatures matches.
-        Requires pyclamd module. Additionally if running with apparmor, an exception must be made.
-        apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
-        pip3 install -U pyclamd
-        systemctl enable clamav-daemon
-        systemctl start clamav-daemon
-        usermod -a -G cuckoo clamav
-        echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
-        @return: matched ClamAV signatures.
-        """
-        matches = []
+    cape_name_regex = re.compile(r" (?:payload|config|loader)$", re.I)
 
-        if HAVE_CLAMAV and os.path.getsize(self.file_path) > 0:
-            try:
-                cd = pyclamd.ClamdUnixSocket()
-                results = cd.allmatchscan(self.file_path)
-                if results:
-                    for entry in results[self.file_path]:
-                        if entry[0] == "FOUND" and entry[1] not in matches:
-                            matches.append(entry[1])
-            except ConnectionError as e:
-                log.warning("failed to connect to clamd socket")
-            except Exception as e:
-                log.warning("failed to scan file with clamav %s", e)
-            finally:
-                return matches
-        return matches
+    @classmethod
+    def yara_hit_provides_detection(cls, hit: Dict[str, Any]) -> bool:
+        cape_type = hit["meta"].get("cape_type", "")
+        return bool(cls.cape_name_regex.search(cape_type))
+
+    @classmethod
+    def get_cape_name_from_yara_hit(cls, hit: Dict[str, Any]) -> str:
+        """Use the cape_type as defined in the metadata for the yara hit
+        (e.g. "SocGholish Payload") and return the part before
+        "Loader", "Payload", or "Config".
+        """
+        return cls.get_cape_name_from_cape_type(hit["meta"].get("cape_type", ""))
+
+    @classmethod
+    def get_cape_name_from_cape_type(cls, cape_type: str) -> str:
+        """Return the part of the cape_type (e.g. "SocGholish Payload") preceding
+        " Payload", " Config", or " Loader".
+        """
+        return cls.cape_name_regex.sub("", cape_type)
 
     def get_tlsh(self):
         """
         Get TLSH.
         @return: TLSH.
         """
-        if hasattr(self, "_tlsh_hash"):
-            if not self._tlsh_hash:
-                self.calc_hashes()
-            return self._tlsh_hash
-        else:
-            return False
+        if not hasattr(self, "_tlsh_hash"):
+            return None
+        if not self._tlsh_hash:
+            self.calc_hashes()
+        return self._tlsh_hash
 
     def get_rh_hash(self):
         if not self.pe:
@@ -546,29 +610,47 @@ class File(object):
         # Close PE file and return RichPE hash digest
         return md5.hexdigest()
 
+    def is_sfx(self):
+        filetype = self.get_content_type()
+        return any([ftype in filetype for ftype in type_list])
+
+    def get_all_hashes(self):
+        return {
+            "crc32": self.get_crc32(),
+            "md5": self.get_md5(),
+            "sha1": self.get_sha1(),
+            "sha256": self.get_sha256(),
+            "sha512": self.get_sha512(),
+            "rh_hash": self.get_rh_hash(),
+            "ssdeep": self.get_ssdeep(),
+            "tlsh": self.get_tlsh(),
+            "sha3_384": self.get_sha3_384(),
+        }
+
     def get_all(self):
         """Get all information available.
         @return: information dict.
         """
 
-        infos = {}
-        infos["name"] = self.get_name()
-        infos["path"] = self.file_path
-        infos["guest_paths"] = self.guest_paths
-        infos["size"] = self.get_size()
-        infos["crc32"] = self.get_crc32()
-        infos["md5"] = self.get_md5()
-        infos["sha1"] = self.get_sha1()
-        infos["sha256"] = self.get_sha256()
-        infos["sha512"] = self.get_sha512()
-        infos["rh_hash"] = self.get_rh_hash()
-        infos["ssdeep"] = self.get_ssdeep()
-        infos["type"] = self.get_content_type()
-        infos["yara"] = self.get_yara()
-        infos["cape_yara"] = self.get_yara(category="CAPE")
-        infos["clamav"] = self.get_clamav()
-        infos["tlsh"] = self.get_tlsh()
-        infos["sha3_384"] = self.get_sha3_384()
+        infos = {
+            "name": self.get_name(),
+            "path": self.file_path,
+            "guest_paths": self.guest_paths,
+            "size": self.get_size(),
+            "crc32": self.get_crc32(),
+            "md5": self.get_md5(),
+            "sha1": self.get_sha1(),
+            "sha256": self.get_sha256(),
+            "sha512": self.get_sha512(),
+            "rh_hash": self.get_rh_hash(),
+            "ssdeep": self.get_ssdeep(),
+            "type": self.get_type(),
+            "yara": self.get_yara(),
+            "cape_yara": self.get_yara(category="CAPE"),
+            "clamav": get_clamav(self.file_path),
+            "tlsh": self.get_tlsh(),
+            "sha3_384": self.get_sha3_384(),
+        }
 
         return infos, self.pe
 
@@ -577,7 +659,7 @@ class Static(File):
     pass
 
 
-class ProcDump(object):
+class ProcDump:
     def __init__(self, dump_file, pretty=False):
         self._dumpfile = open(dump_file, "rb")
         self.dumpfile = mmap.mmap(self._dumpfile.fileno(), 0, access=mmap.ACCESS_READ)
@@ -646,21 +728,23 @@ class ProcDump(object):
             data = f.read(24)
             if data == b"":
                 break
-            alloc = {}
             addr, size, mem_state, mem_type, mem_prot = struct.unpack("QIIII", data)
             offset = f.tell()
             if addr != lastend and len(curchunk):
                 address_space.append(self._coalesce_chunks(curchunk))
                 curchunk = []
             lastend = addr + size
-            alloc["start"] = addr
-            alloc["end"] = addr + size
-            alloc["size"] = size
-            alloc["prot"] = mem_prot
-            alloc["state"] = mem_state
-            alloc["type"] = mem_type
-            alloc["offset"] = offset
-            alloc["PE"] = False
+            alloc = {
+                "start": addr,
+                "end": addr + size,
+                "size": size,
+                "prot": mem_prot,
+                "state": mem_state,
+                "type": mem_type,
+                "offset": offset,
+                "PE": False,
+            }
+
             try:
                 if f.read(2) == b"MZ":
                     alloc["PE"] = True
@@ -690,21 +774,18 @@ class ProcDump(object):
 
     def search(self, regex, flags=0, all=False):
         if all:
-            result = {}
-            result["detail"] = []
+            result = {"detail": []}
             matches = []
             for map in self.address_space:
                 for chunk in map["chunks"]:
                     self.dumpfile.seek(chunk["offset"])
                     match = re.finditer(regex, self.dumpfile.read(chunk["end"] - chunk["start"]), flags)
                     thismatch = []
-                    try:
+                    with contextlib.suppress(StopIteration):
                         while True:
                             m = next(match)
                             thismatch.append(m)
                             matches.append(m.group(0))
-                    except StopIteration:
-                        pass
                     if thismatch:
                         result["detail"].append({"match": thismatch, "chunk": chunk})
             result["matches"] = matches
@@ -715,7 +796,4 @@ class ProcDump(object):
                     self.dumpfile.seek(chunk["offset"])
                     match = re.search(regex, self.dumpfile.read(chunk["end"] - chunk["start"]), flags)
                     if match:
-                        result = {}
-                        result["match"] = match
-                        result["chunk"] = chunk
-                        return result
+                        return {"match": match, "chunk": chunk}

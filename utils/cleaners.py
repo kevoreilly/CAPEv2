@@ -2,23 +2,23 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
 import argparse
+import atexit
 import logging
 import os
 import shutil
 import sys
+from contextlib import suppress
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from bson.objectid import ObjectId
-
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
@@ -33,23 +33,26 @@ from lib.cuckoo.core.database import (
 )
 from lib.cuckoo.core.startup import create_structure, init_console_logging
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 cuckoo = Config()
 repconf = Config("reporting")
+webconf = Config("web")
 resolver_pool = ThreadPool(50)
+atexit.register(resolver_pool.close)
 
 # Initialize the database connection.
 db = Database()
 if repconf.mongodb.enabled:
     mdb = repconf.mongodb.get("db", "cuckoo")
+    from dev_utils.mongo_hooks import delete_unused_file_docs
     from dev_utils.mongodb import (
         connect_to_mongo,
         mdb,
         mongo_delete_data,
-        mongo_delete_many,
         mongo_drop_database,
         mongo_find,
+        mongo_is_cluster,
         mongo_update_one,
     )
 elif repconf.elasticsearchdb.enabled:
@@ -66,9 +69,12 @@ def connect_to_es():
 
 def is_reporting_db_connected():
     try:
+        if not webconf.web_reporting.enabled:
+            return True
         if repconf.mongodb.enabled:
             results_db = connect_to_mongo()[mdb]
-            if not results_db:
+            # Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+            if results_db is None:
                 log.info("Can't connect to mongo")
                 return False
             return True
@@ -85,13 +91,17 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
     for i in range(0, len(ids), 10):
         ids_tmp = ids[i : i + 10]
         if delete_mongo:
+            if mongo_is_cluster():
+                response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
+                if response.lower() in ("n", "not"):
+                    sys.exit()
             mongo_delete_data(ids_tmp)
 
             for id in ids_tmp:
                 if db.delete_task(id):
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
-                        if os.path.isdir(path):
+                        if path_is_dir(path):
                             delete_folder(path)
                     except Exception as e:
                         log.error(e)
@@ -100,7 +110,7 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             for id in ids_tmp:
                 try:
                     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
-                    if os.path.isdir(path):
+                    if path_is_dir(path):
                         delete_folder(path)
                 except Exception as e:
                     log.error(e)
@@ -131,9 +141,9 @@ def delete_data(tid):
 def dist_delete_data(data, dist_db):
     for id, file in data:
         try:
-            if os.path.exists(file):
+            if path_exists(file):
                 try:
-                    os.remove(file)
+                    path_delete(file)
                 except Exception as e:
                     log.info(e)
             db.delete_task(id)
@@ -160,7 +170,10 @@ def cuckoo_clean():
     db.drop()
 
     if repconf.mongodb.enabled:
-        mongo_drop_database(mdb)
+        try:
+            mongo_drop_database(mdb)
+        except Exception as e:
+            log.error("Can't drop MongoDB. Error %s", str(e))
 
     elif repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         analyses = all_docs(index=get_analysis_index(), query={"query": {"match_all": {}}}, _source=["info.id"])
@@ -177,7 +190,7 @@ def cuckoo_clean():
 
     # Delete various directories.
     for path in paths:
-        if os.path.isdir(path):
+        if path_is_dir(path):
             try:
                 shutil.rmtree(path)
             except (IOError, OSError) as e:
@@ -192,7 +205,7 @@ def cuckoo_clean():
             path = os.path.join(CUCKOO_ROOT, dirpath, fname)
 
             try:
-                os.unlink(path)
+                path_delete(path)
             except (IOError, OSError) as e:
                 log.warning("Error removing file %s: %s", path, e)
 
@@ -237,7 +250,7 @@ def cuckoo_clean_bson_suri_logs():
             new = el2.to_dict()
             id = new["id"]
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % id)
-            if os.path.exists(path):
+            if path_exists(path):
                 jsonlogs = glob("%s/logs/*json*" % (path))
                 bsondata = glob("%s/logs/*.bson" % (path))
                 filesmeta = glob("%s/logs/files/*.meta" % (path))
@@ -245,7 +258,7 @@ def cuckoo_clean_bson_suri_logs():
                     for fe in f:
                         try:
                             log.info(("removing %s" % (fe)))
-                            os.remove(fe)
+                            path_delete(fe)
                         except Exception as Err:
                             log.info(("failed to remove sorted_pcap from disk %s" % (Err)))
 
@@ -337,13 +350,13 @@ def tmp_clean_before_day(args):
 
             if file_time.days > days:
                 try:
-                    if os.path.isdir(path):
+                    if path_is_dir(path):
                         log.info("Delete folder: {0}".format(path))
                         delete_folder(path)
                     else:
-                        if os.path.exists(path):
+                        if path_exists(path):
                             log.info("Delete file: {0}".format(path))
-                            os.remove(path)
+                            path_delete(path)
                 except Exception as e:
                     log.error(e)
 
@@ -448,7 +461,7 @@ def cuckoo_clean_sorted_pcap_dump():
                         log.info(("failed to remove sorted pcap from db for id %s" % (e["info"]["id"])))
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % (e["info"]["id"]), "dump_sorted.pcap")
-                        os.remove(path)
+                        path_delete(path)
                     except Exception as e:
                         log.info(("failed to remove sorted_pcap from disk %s" % (e)))
                 else:
@@ -489,8 +502,17 @@ def cuckoo_clean_range_tasks(start, end):
     resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), pending_tasks)
 
 
-def cuckoo_dedup_cluster_queue():
+def delete_unused_file_data_in_mongo():
+    """Cleans the entries in the 'files' collection that no longer have any analysis
+    tasks associated with them.
+    """
+    init_console_logging()
+    log.info("Removing file entries in Mongo that are no longer referenced.")
+    result = delete_unused_file_docs()
+    log.info("Removed %s file %s.", result.deleted_count, "entry" if result.deleted_count == 1 else "entries")
 
+
+def cuckoo_dedup_cluster_queue():
     """
     Cleans duplicated pending tasks from cluster queue
     """
@@ -504,17 +526,14 @@ def cuckoo_dedup_cluster_queue():
     )
 
     for sample, task in duplicated:
-        try:
+        with suppress(UnicodeDecodeError):
             # hash -> [[id, file]]
             hash_dict.setdefault(sample.sha256, []).append((task.id, task.target))
-        except UnicodeDecodeError:
-            pass
 
     resolver_pool.map(lambda sha256: dist_delete_data(hash_dict[sha256][1:], dist_db), hash_dict)
 
 
 def cape_clean_tlp():
-
     create_structure()
     init_console_logging()
 
@@ -523,6 +542,28 @@ def cape_clean_tlp():
 
     tlp_tasks = db.get_tlp_tasks()
     resolver_pool.map(lambda tid: delete_data(tid), tlp_tasks)
+
+
+def binaries_clean_before_day(args):
+    # In case if "delete_bin_copy = off" we might need to clean binaries
+    # find storage/binaries/ -name "*" -type f -mtime 5 -delete
+
+    days = args.delete_binaries_items_older_than_days
+    today = datetime.today()
+    binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
+    if not path_exists(binaries_folder):
+        log.error("Binaries folder doesn't exist")
+        return
+
+    for _, _, filenames in os.walk(binaries_folder):
+        for sha256 in filenames:
+            bin_path = os.path.join(binaries_folder, sha256)
+            st_ctime = path_get_date(bin_path)
+            file_time = today - datetime.fromtimestamp(st_ctime)
+            if file_time.days > days:
+                # ToDo check database here to ensure that file is not used
+                if path_exists(bin_path) and not db.sample_still_used(sha256, 0):
+                    path_delete(bin_path)
 
 
 if __name__ == "__main__":
@@ -562,12 +603,24 @@ if __name__ == "__main__":
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
     parser.add_argument(
         "--delete-tmp-items-older-than-days",
-        help="Remove all items in tmp folder older than X number of days",
+        help="Remove all items in tmp folder older than X days",
+        type=int,
+        required=False,
+    )
+    parser.add_argument(
+        "--delete-binaries-items-older-than-days",
+        help="Remove all items in binaries folder older than X days",
         type=int,
         required=False,
     )
     parser.add_argument(
         "-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true"
+    )
+    parser.add_argument(
+        "-duf",
+        "--delete-unused-file-data-in-mongo",
+        help="Delete data from the 'files' collection in mongo that is no longer needed.",
+        action="store_true",
     )
     parser.add_argument(
         "-drs",
@@ -640,4 +693,12 @@ if __name__ == "__main__":
 
     if args.delete_tmp_items_older_than_days:
         tmp_clean_before_day(args)
+        sys.exit(0)
+
+    if args.delete_binaries_items_older_than_days:
+        binaries_clean_before_day(args)
+        sys.exit(0)
+
+    if args.delete_unused_file_data_in_mongo:
+        delete_unused_file_data_in_mongo()
         sys.exit(0)

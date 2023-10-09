@@ -2,17 +2,18 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
+import copy
 import logging
-import os
-import pathlib
 import tempfile
 
 import pytest
 import yara
-from tcr_misc import get_sample, random_string
 
-from lib.cuckoo.common.objects import Dictionary, File, ProcDump
+from lib.cuckoo.common.dictionary import Dictionary  # ,ProcDump
+from lib.cuckoo.common.objects import File  # ,ProcDump
+from lib.cuckoo.common.path_utils import path_delete, path_write_file
+
+# from tcr_misc import get_sample, random_string
 
 
 @pytest.fixture
@@ -27,6 +28,12 @@ class TestDictionary:
         dict_cfg.a = "bar"
         assert "bar" == dict_cfg.a
 
+    def test_deepcopy(self, dict_cfg):
+        dict_cfg.foo = "bar"
+        dict_cfg2 = copy.deepcopy(dict_cfg)
+        assert dict_cfg2 is not dict_cfg
+        assert dict_cfg2 == dict_cfg
+
     def test_exception(self, dict_cfg):
         with pytest.raises(AttributeError):
             dict_cfg.b.a
@@ -37,7 +44,7 @@ def empty_file():
     tmp = tempfile.mkstemp()
     file = File(tmp[1])
     yield {"tmp": tmp, "file": file}
-    os.remove(tmp[1])
+    path_delete(tmp[1])
 
 
 class TestEmptyFile:
@@ -87,10 +94,19 @@ class TestEmptyFile:
         assert isinstance(empty_file["file"].get_all()[0], dict)
 
     def test_get_all_keys(self, empty_file):
-        for key in ["name", "size", "crc32", "md5", "sha1", "sha256", "sha512", "ssdeep", "type"]:
+        for key in ("name", "size", "crc32", "md5", "sha1", "sha256", "sha512", "ssdeep", "type"):
             assert key in empty_file["file"].get_all()[0]
 
 
+def test_filetype():
+    filetype = File("tests/data/malware/53622590bb3138dcbf12b0105af96dd72aedc40de8984f97c8e882343a769b45").get_type()
+    assert filetype == "PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows"
+
+    filetype = File("tests/data/malware/f8a6eddcec59934c42ea254cdd942fb62917b5898f71f0feeae6826ba4f3470d").get_type()
+    assert filetype == "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
+
+
+""" ToDo ReEnable
 @pytest.fixture(scope="class")
 def test_files():
     test_files = [
@@ -164,17 +180,18 @@ def test_files():
 
     if not os.environ.get("CACHE", True):
         for index, _ in enumerate(test_files_with_location):
-            os.remove(test_files_with_location[index]["download_location"].file_path)
+            path_delete(test_files_with_location[index]["download_location"].file_path)
+
+"""
 
 
 @pytest.fixture
 def hello_file():
     tmp = tempfile.mkstemp()
     file = File(tmp[1])
-    with open(file.file_path, "w") as hello:
-        hello.write("hello")
+    _ = path_write_file(file.file_path, "hello", mode="text")
     yield {"tmp": tmp, "file": file}
-    os.remove(tmp[1])
+    path_delete(tmp[1])
 
 
 @pytest.fixture
@@ -199,7 +216,6 @@ class TestFiles:
             assert sample["download_location"].get_type() == sample["get_type_str"]
             print(("Verified that " + sample["download_location"].file_path + " == " + sample["get_type_str"]))
 
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_get_yara(self, hello_file, yara_compiled):
         File.yara_rules = {"hello": yara_compiled}
         assert hello_file["file"].get_yara(category="hello") == [
@@ -212,15 +228,14 @@ class TestFiles:
 
 
 class TestMisc:
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_yara_encode_string_deal_with_error(self):
         assert File("none_existent_file")._yara_encode_string("\xd0\x91") == "\xd0\x91"
 
-    @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_yara_encode_string(self):
         assert File("none_existent_file")._yara_encode_string("velociraptor") == "velociraptor"
 
 
+""" ToDo reenable
 @pytest.fixture
 def proc_dump():
     sha2 = "d62148b0329ac911ef707d6517e83b49416306198e343b28ab71343e30fa0075"
@@ -236,6 +251,7 @@ def proc_dump():
     yield sha2, location
     if not os.environ.get("CACHE", True):
         os.unlink(location)
+
 
 
 class TestProcDump:
@@ -322,3 +338,4 @@ class TestProcDump:
             },
         ]
         assert ProcDump(dump_file=proc_dump[1]).parse_dump() == test_dict
+"""

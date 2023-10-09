@@ -2,82 +2,19 @@
     <div class="section-title">
         <h4>Dropped Files</h4>
     </div>
+    {% set tab_name = 'dropped' %}
     {% if results.dropped %}
-        {% set counter = 1 %}
-        {% for dropped_file in results.dropped %}
+        {% for file in results.dropped %}
             <div>
                 {% if summary_report %}
-                <h4>{{dropped_file.name}}</h4>
-                <div id="dropped_{{counter}}">
+                    <h4>{% for name in file.name%} {{name}} {% endfor %}</h4>
+                    <div id="dropped_{{loop.index}}">
                 {% else %}
-                <h4><a href="javascript:showHide('dropped_{{counter}}');">{{dropped_file.name}}</a></h4>
-                <div id="dropped_{{counter}}" style="display: none;">
+                    <h4><a href="javascript:showHide('dropped_{{loop.index}}');">{% for name in file.name%} {{name}} {% endfor %}</a></h4>
+                    <div id="dropped_{{loop.index}}" style="display: none;">
+                    {% include "generic/_file_info.html" %}
                 {% endif %}
-                    <table class="table table-striped table-bordered" style="table-layout: fixed;">
-                        <tr>
-                            <th style="width: 15%;">File name</th>
-                            <td style="word-wrap: break-word;"><span class="mono">{{dropped_file.name}}</span></td>
-                        </tr>
-                        <tr>
-                            <th>Associated Filenames</th>
-                            <td style="word-wrap: break-word;">
-                                <ul style="margin-top: 0;margin-bottom: 0;">
-                                    {% for path in dropped_file.guest_paths %}
-                                    <li>{{path}}</li>
-                                    {% endfor %}
-                                </ul>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>File size</th>
-                            <td><span class="mono">{{dropped_file.size}} bytes</span></td>
-                        </tr>
-                        <tr>
-                            <th>File type</th>
-                            <td style="word-wrap: break-word;"><span class="mono">{{dropped_file.type}}</span></td>
-                        </tr>
-                        <tr>
-                            <th>MD5</th>
-                            <td style="word-wrap: break-word;"><span class="mono">{{dropped_file.md5}}</span></td>
-                        </tr>
-                        <tr>
-                            <th>SHA1</th>
-                            <td style="word-wrap: break-word;"><span class="mono">{{dropped_file.sha1}}</span></td>
-                        </tr>
-                        <tr>
-                            <th>SHA256</th>
-                            <td style="word-wrap: break-word;"><span class="mono">{{dropped_file.sha256}}</span></td>
-                        </tr>
-                        <tr>
-                            <th>SHA512</th>
-                            <td style="word-wrap: break-word;"><span class="mono">{{dropped_file.sha512}}</span></td>
-                        </tr>
-                        <tr>
-                            <th>Ssdeep</th>
-                            <td style="word-wrap: break-word;"><span class="mono">{{dropped_file.ssdeep}}</span></td>
-                        </tr>
-                        <tr>
-                            <th>Yara</th>
-                            <td>
-                                {% if dropped_file.yara|length == 0 %}
-                                    None matched
-                                {% else %}
-                                    <ul style="margin-top: 0;margin-bottom: 0;">
-                                        {% for sign in dropped_file.yara %}
-                                        <li>{{sign.name}} ({{sign.meta.description}})</li>
-                                        {% endfor %}
-                                    </ul>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>VirusTotal</th>
-                            <td><span class="mono"><a href="https://www.virustotal.com/en/file/{{dropped_file.sha256}}/analysis/">Search for Analysis</a></span></td>
-                        </tr>
-                    </table>
-                </div>
             </div>
-            {% set counter = counter + 1 %}
         {% endfor %}
     {% else %}
         Nothing to display.

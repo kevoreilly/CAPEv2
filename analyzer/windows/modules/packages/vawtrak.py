@@ -1,6 +1,5 @@
 # Andriy :P
 
-from __future__ import absolute_import
 import os
 import shutil
 from subprocess import call
@@ -17,7 +16,7 @@ class IE(Package):
     ]
 
     def start(self, path):
-        iexplore = self.get_path("Internet Explorer")
+        iexplore = self.get_path("iexplore.exe")
         # pass the URL instead of a filename in this case
         self.execute(iexplore, '"about:blank"', "about:blank")
 

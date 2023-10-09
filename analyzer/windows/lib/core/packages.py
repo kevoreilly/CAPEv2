@@ -36,6 +36,8 @@ def choose_package(file_type, file_name, exports, target):
         return "msi"
     elif file_name.endswith(".pub"):
         return "pub"
+    elif file_name.endswith(".one"):
+        return "one"
     elif (
         "Rich Text Format" in file_type
         or "Microsoft Word" in file_type
@@ -57,7 +59,7 @@ def choose_package(file_type, file_name, exports, target):
         (".ppt", ".ppa", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
     ):
         return "ppt"
-    elif "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
+    elif b"MANIFEST" in file_content or "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
         return "jar"
     elif "Zip" in file_type:
         return "zip"
@@ -85,14 +87,17 @@ def choose_package(file_type, file_name, exports, target):
         return "eml"
     elif file_name.endswith((".js", ".jse")):
         return "js"
-    elif file_name.endswith((".htm", ".html")):
-        return "html"
     elif file_name.endswith(".hta"):
         return "hta"
     elif file_name.endswith(".xps"):
         return "xps"
     elif "HTML" in file_type:
-        return "html"
+        if file_name.endswith(".wsf") or file_name.endswith(".wsc"):
+            return "wsf"
+        elif re.search(b'(?:<hta\\:application|<script\\s+language\\s*=\\s*"(J|VB|Perl)Script")', file_content, re.I):
+            return "html"
+        else:
+            return "chrome"
     elif file_name.endswith(".mht"):
         return "mht"
     elif file_name.endswith(".url") or "MS Windows 95 Internet shortcut" in file_type or "Windows URL shortcut" in file_type:
@@ -120,7 +125,11 @@ def choose_package(file_type, file_name, exports, target):
         return "pdf"
     elif re.search(b'<script\\s+language="(J|VB|Perl)Script"', file_content, re.I):
         return "wsf"
-    elif file_name.endswith((".vbs", ".vbe")) or re.findall(rb"\s?Dim\s", file_content, re.I):
+    elif (
+        file_name.endswith((".vbs", ".vbe"))
+        or re.findall(rb"\s?Dim\s", file_content, re.I)
+        or re.findall(b"\s?\x00D\x00i\x00m\x00\s", file_content, re.I)
+    ):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"
@@ -130,5 +139,7 @@ def choose_package(file_type, file_name, exports, target):
         return "ichitaro"
     elif file_name.endswith(".reg"):
         return "reg"
+    elif "ISO 9660" in file_type or file_name.endswith((".iso", ".udf", ".vhd")):
+        return "archive"
     else:
         return "generic"

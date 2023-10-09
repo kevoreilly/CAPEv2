@@ -401,7 +401,10 @@ class cobaltstrikeConfig:
         """
 
         THRESHOLD = 1100
-        pe = pefile.PE(data=self.data)
+        try:
+            pe = pefile.PE(data=self.data)
+        except pefile.PEFormatError:
+            return {}
         data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
         if not data_sections:
             return None

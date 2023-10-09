@@ -59,6 +59,8 @@ def cape_load_decoders(CUCKOO_ROOT: str):
                 cape_modules[name.replace("_", " ")] = importlib.import_module(f"{versions[version]}.{name}")
             except (ImportError, IndexError) as e:
                 print(f"CAPE parser: No module named {name} - {e}")
+            except SyntaxError as e:
+                print(f"CAPE parser: Fix your code in {name} - {e}")
 
     return cape_modules
 

@@ -301,31 +301,20 @@ class Office(object):
                             iocs = vbadeobf.parse_macro(vba_code)
                         except Exception as e:
                             log.error(e, exc_info=True)
-                        hex_strs = detect_hex_strings(vba_code)
-                        if autoexec:
-                            for keyword, description in autoexec:
-                                macrores["Analysis"]["AutoExec"].append((keyword.replace(".", "_"), description))
-                        if suspicious:
-                            for keyword, description in suspicious:
-                                macrores["Analysis"]["Suspicious"].append((keyword.replace(".", "_"), description))
-                        if iocs:
-                            for pattern, match in iocs:
-                                macrores["Analysis"]["IOCs"].append((pattern, match))
-                        if hex_strs:
-                            for encoded, decoded in hex_strs:
-                                macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
-            except (AssertionError, UnexpectedDataError) as e:
-                log.warning(("Macros in static.py", e))
-            # Delete and keys which had no results. Otherwise we pollute the
-            # Django interface with null data.
-            if macrores["Analysis"]["AutoExec"] == []:
-                del macrores["Analysis"]["AutoExec"]
-            if macrores["Analysis"]["Suspicious"] == []:
-                del macrores["Analysis"]["Suspicious"]
-            if macrores["Analysis"]["IOCs"] == []:
-                del macrores["Analysis"]["IOCs"]
-            if macrores["Analysis"]["HexStrings"] == []:
-                del macrores["Analysis"]["HexStrings"]
+                        for keyword, description in detect_autoexec(vba_code):
+                            officeresults["Macro"]["Analysis"].setdefault("AutoExec", []).append(
+                                (keyword.replace(".", "_"), description)
+                            )
+                        for keyword, description in detect_suspicious(vba_code):
+                            officeresults["Macro"]["Analysis"].setdefault("Suspicious", []).append(
+                                (keyword.replace(".", "_"), description)
+                            )
+                        for encoded, decoded in detect_hex_strings(vba_code):
+                            officeresults["Macro"]["Analysis"].setdefault("HexStrings", []).append(
+                                (encoded, convert_to_printable(decoded))
+                            )
+            except (AssertionError, UnexpectedDataError, ValueError) as e:
+                log.warning("Macros in static.py", e)
 
             if HAVE_VBA2GRAPH:
                 vba2graph_func(filepath, self.task_id, self.sha256)

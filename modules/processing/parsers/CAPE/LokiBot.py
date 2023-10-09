@@ -144,6 +144,23 @@ def decoder(data):
             temp_urls = re.findall(rb"""[a-zA-Z0-9\/\.:\-_]{6,}""", temp)
             urls += temp_urls
 
+        temp = re.findall(url_re, x)
+        for url in temp:
+            urls.append(url)
+
+    # Try to decrypt onboard config
+    key = find_key(img)
+    iv = find_iv(img)
+    confs = find_conf(img)
+    if iv not in (b"", -1) and confs != []:
+        for conf in confs:
+            try:
+                dec = DES3.new(key, DES3.MODE_CBC, iv)
+                temp = dec.decrypt(conf)
+                temp = unpad(temp, 8)
+                urls.append(b"http://" + temp)
+            except ValueError:
+                continue
     return urls
 
 

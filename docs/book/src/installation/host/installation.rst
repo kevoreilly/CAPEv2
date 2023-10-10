@@ -112,7 +112,7 @@ Optional dependencies
 
 .. code:: bash
 
-   sudo -u cape poetry run pip install -r extras/optional_dependencies.txt
+   sudo -u cape poetry run pip install -r extra/optional_dependencies.txt
 
 
 ============================

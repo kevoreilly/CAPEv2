@@ -61,7 +61,7 @@ try:
 
     HAVE_TLSH = True
 except ImportError:
-    print("Missed dependency: poetry run pip install -r extra/optiona_dependencies.txt")
+    print("Missed dependency: poetry run pip install -r extra/optional_dependencies.txt")
     HAVE_TLSH = False
 
 try:

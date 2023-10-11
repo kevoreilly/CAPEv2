@@ -377,6 +377,8 @@ class AnalysisManager(threading.Thread):
             log.error("Task #%s: Cannot acquire machine: %s", self.task.id, e, exc_info=True)
             return False
 
+        aux = RunAuxiliary(task=self.task, machine=self.machine)
+
         try:
             unlocked = False
 
@@ -398,8 +400,6 @@ class AnalysisManager(threading.Thread):
                 machinery.release(self.machine.label)
                 log.exception(e, exc_info=True)
                 self.errors.put(e)
-
-            aux = RunAuxiliary(task=self.task, machine=self.machine)
 
             # Enable network routing.
             self.route_network()

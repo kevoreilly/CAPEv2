@@ -448,6 +448,8 @@ class ResultServer(metaclass=Singleton):
                     "the ResultServer IP address. Please refer to "
                     "https://cuckoo.sh/docs/faq/#troubles-problem "
                     "for more information"
+                    "One more reason this might happen is if you don't correctly set the IP of the resultserver in cuckoo.conf."
+                    "Make sure the resultserver IP is set to the host IP"
                 )
             else:
                 raise CuckooCriticalError(f"Unable to bind ResultServer on {ip}:{port} {e}")

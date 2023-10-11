@@ -143,6 +143,8 @@ class ProcessTree():
 class StraceAnalysis(Processing):
     """ Strace Analyzer. """
 
+    os = "linux"
+
     def run(self):
         self.key = "strace"
         log.info("Processing strace logs")

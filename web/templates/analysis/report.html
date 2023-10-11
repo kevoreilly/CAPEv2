@@ -75,7 +75,7 @@ $(function() {
     {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
         <li class="nav-item"><a class="nav-link" href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
     {% endif %}
-    {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
+    {% if analysis.strace %}
         <li class="nav-item"><a class="nav-link" href="#strace" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/strace/" data-toggle="tab">Strace Analysis</a></li>
     {% endif %}
     {% if analysis.info.category != "static" %}

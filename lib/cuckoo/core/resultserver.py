@@ -434,7 +434,12 @@ class ResultServer(metaclass=Singleton):
             sock.bind((ip, port))
         except (OSError, socket.error) as e:
             if e.errno == errno.EADDRINUSE:
-                raise CuckooCriticalError(f"Cannot bind ResultServer on port {port} because it was in use, bailing")
+                raise CuckooCriticalError(
+                    f"Cannot bind ResultServer on port {port} because it was in use, bailing"
+                    "This might happen because CAPE is already running in the background as cape.service"
+                    "sudo systemctl stop cape.service"
+                    "to stop the background service. You can also run the just use the background service without starting it again here in the terminal."
+                    )
             elif e.errno == errno.EADDRNOTAVAIL:
                 raise CuckooCriticalError(
                     f"Unable to bind ResultServer on {ip}:{port} {e}. This "
@@ -443,6 +448,8 @@ class ResultServer(metaclass=Singleton):
                     "the ResultServer IP address. Please refer to "
                     "https://cuckoo.sh/docs/faq/#troubles-problem "
                     "for more information"
+                    "One more reason this might happen is if you don't correctly set the IP of the resultserver in cuckoo.conf."
+                    "Make sure the resultserver IP is set to the host IP"
                 )
             else:
                 raise CuckooCriticalError(f"Unable to bind ResultServer on {ip}:{port} {e}")

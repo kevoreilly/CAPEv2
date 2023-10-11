@@ -116,6 +116,19 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
                     log.error(e)
 
 
+def fail_job(tid):
+    if isinstance(tid, dict):
+        if "info.id" in tid:
+            tid = tid["info.id"]
+        elif tid.get("info", {}).get("id", 0):
+            tid = tid["info"]["id"]
+        elif "id" in tid:
+            tid = tid["id"]
+    log.info("set %s job to failed" % (tid))
+
+    db.set_status(tid, TASK_FAILED_ANALYSIS)
+
+
 def delete_data(tid):
     if isinstance(tid, dict):
         if "info.id" in tid:
@@ -470,11 +483,14 @@ def cuckoo_clean_sorted_pcap_dump():
             done = True
 
 
-def cuckoo_clean_pending_tasks():
+def cuckoo_clean_pending_tasks(before_time: int = None, delete: bool = False):
     """Clean up pending tasks
     It deletes all stored data from file system and configured databases (SQL
     and MongoDB for pending tasks.
     """
+
+    from datetime import timedelta
+
     # Init logging.
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
@@ -483,9 +499,12 @@ def cuckoo_clean_pending_tasks():
 
     if not is_reporting_db_connected():
         return
+    if before_time:
+        before_time = datetime.now() - timedelta(hours=before_time)
 
-    pending_tasks = db.list_tasks(status=TASK_PENDING)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), pending_tasks)
+    pending_tasks = db.list_tasks(status=TASK_PENDING, added_before=before_time)
+    clean_handler = delete_data if delete else fail_job
+    resolver_pool.map(lambda tid: clean_handler(tid.to_dict()["id"]), pending_tasks)
 
 
 def cuckoo_clean_range_tasks(start, end):
@@ -645,6 +664,9 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
+    parser.add_argument(
+        "-bt", "--before-time", help="Manage all pending jobs before N hours.", action="store", required=False, type=int
+    )
     args = parser.parse_args()
 
     if args.clean:
@@ -676,7 +698,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.pending_clean:
-        cuckoo_clean_pending_tasks()
+        cuckoo_clean_pending_tasks(args.before_time)
         sys.exit(0)
 
     if args.malscore:

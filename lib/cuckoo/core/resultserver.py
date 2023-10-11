@@ -439,7 +439,7 @@ class ResultServer(metaclass=Singleton):
                     "This might happen because CAPE is already running in the background as cape.service"
                     "sudo systemctl stop cape.service"
                     "to stop the background service. You can also run the just use the background service without starting it again here in the terminal."
-                    )
+                )
             elif e.errno == errno.EADDRNOTAVAIL:
                 raise CuckooCriticalError(
                     f"Unable to bind ResultServer on {ip}:{port} {e}. This "

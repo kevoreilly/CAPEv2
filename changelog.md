@@ -1,4 +1,5 @@
 ### [11.10.2023]
+* Formbook config extraction
 * Monitor updates:
     * GetComputerNameExW hook added, PostThreadMessage hook enhancement
     * Debugger action enhancements

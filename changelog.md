@@ -1,3 +1,9 @@
+### [11.10.2023]
+* Monitor updates:
+    * GetComputerNameExW hook added, PostThreadMessage hook enhancement
+    * Debugger action enhancements
+    * Misc fixes
+
 ### Download files matched by YARA
 * When doing search by `capeyara` we expose button to download files that only matches that search criteria.
     * For [@fumik0_](https://twitter.com/fumik0_) with love.

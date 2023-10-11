@@ -348,7 +348,7 @@ class AnalysisManager(threading.Thread):
         succeeded = False
         dead_machine = False
         self.socks5s = _load_socks5_operational()
-
+        aux = False
         # Initialize the analysis folders.
         if not self.init_storage():
             log.debug("Failed to initialize the analysis folder")
@@ -419,12 +419,7 @@ class AnalysisManager(threading.Thread):
 
             self.db.guest_set_status(self.task.id, "stopping")
             succeeded = True
-        except CuckooMachineError as e:
-            if not unlocked:
-                machine_lock.release()
-            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
-            dead_machine = True
-        except CuckooGuestCriticalTimeout as e:
+        except (CuckooMachineError, CuckooGuestCriticalTimeout) as e:
             if not unlocked:
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
@@ -435,7 +430,8 @@ class AnalysisManager(threading.Thread):
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
         finally:
             # Stop Auxiliary modules.
-            aux.stop()
+            if aux:
+                aux.stop()
 
             # Take a memory dump of the machine before shutting it off.
             if self.cfg.cuckoo.memory_dump or self.task.memory:
@@ -473,8 +469,7 @@ class AnalysisManager(threading.Thread):
 
             if dead_machine:
                 # Remove the guest from the database, so that we can assign a
-                # new guest when the task is being analyzed with another
-                # machine.
+                # new guest when the task is being analyzed with another machine.
                 self.db.guest_remove(guest_log)
                 machinery.delete_machine(self.machine.name)
 
@@ -488,8 +483,7 @@ class AnalysisManager(threading.Thread):
                 raise CuckooDeadMachine()
 
             try:
-                # Release the analysis machine. But only if the machine has
-                # not turned dead yet.
+                # Release the analysis machine. But only if the machine has not turned dead yet.
                 machinery.release(self.machine.label)
 
             except CuckooMachineError as e:
@@ -532,8 +526,7 @@ class AnalysisManager(threading.Thread):
             if hasattr(os, "symlink"):
                 latest = os.path.join(CUCKOO_ROOT, "storage", "analyses", "latest")
 
-                # First we have to remove the existing symbolic link, then we
-                # have to create the new one.
+                # First we have to remove the existing symbolic link, then we have to create the new one.
                 # Deal with race conditions using a lock.
                 latest_symlink_lock.acquire()
                 try:

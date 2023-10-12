@@ -1830,7 +1830,7 @@ def file(request, stype, value):
         resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
         return Response(resp)
 
-    paths = db.sample_path_by_hash(sample_hash = file_hash)
+    paths = db.sample_path_by_hash(sample_hash=file_hash)
 
     if not paths:
         resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}

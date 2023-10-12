@@ -162,7 +162,7 @@ At CAPE startup if you get an error message like this one::
     2014-01-07 18:42:12,686 [root] CRITICAL: CuckooCriticalError: Unable to bind result server on 192.168.56.1:2042: [Errno 99] Cannot assign requested address
 
 It means that CAPE is unable to start the result server on the IP address written
-in cuckoo.conf (or in machinery.conf if you are using the resultserver_ip option inside).
+in cuckoo.conf (or in :ref:`machinery_conf` if you are using the resultserver_ip option inside).
 This usually happen when you start CAPE without bringing up the virtual interface associated
 with the result server IP address.
 You can bring it up manually, it depends from one virtualization software to another, but

@@ -534,3 +534,72 @@ Example::
     description = CC_socks
     proxyport = 5000
     dnsport = 10000
+
+===============
+Troubleshooting
+===============
+
+Configuring the Internet connection in the Hosts (VMs) can become a tedious task given the elements involved in the correct functioning. Here you can find several ways of debugging the connections from and to the Hosts besides ``cuckoo.py -d``.
+
+Manually testing Internet connection
+====================================
+You can manually test the Internet connection from inside the VMs without the need of performing any analysis. To do so, you have to use the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility. This utility allows you to enable or disable specific **routes** and debug them. It is a "Standalone script to debug VM problems that allows to enable routing on VM".
+
+First, **stop** the ``cape-rooter`` service with::
+
+    $ sudo systemctl stop cape-rooter.service
+
+Assuming you already have any VM running, to test the internet connection using ``router_manager.py`` you have to execute the following commands::
+
+    $ sudo python3 router_manager.py -r internet -e --vm-name win1 --verbose
+    $ sudo python3 router_manager.py -r internet -d --vm-name win1 --verbose
+
+The ``-e`` flag is used to enable a route and ``-d`` is used to disable it. You can read more about all the options the utility has by running:: 
+
+    $ sudo python3 router_manager.py -h
+
+Whenever you 
+
+For instance, this is how it looks **BEFORE** enabling any route::
+
+
+    $ ip rule
+    0:  from all lookup local
+    32766:  from all lookup main
+    32767:  from all lookup default
+
+
+And this is how it looks **AFTER** executing the following commands::
+
+    $ sudo python3 router_manager.py -r internet -e --vm-name win1 --verbose
+    internet eno1 eno1 {'label': 'win10', 'platform': 'windows', 'ip': 'X.X.X.133', 'arch': 'x64'} None None
+    $ sudo python3 router_manager.py -r internet -e --vm-name win2 --verbose
+    internet eno1 eno1 {'label': 'win10-clone', 'platform': 'windows', 'ip': 'X.X.X.134', 'arch': 'x64'} None None
+
+    $ ip rule
+    0:  from all lookup local
+    32764:  from X.X.X.134 lookup eno1
+    32765:  from X.X.X.133 lookup eno1
+    32766:  from all lookup main
+    32767:  from all lookup default
+
+Then again, if everything is configured as expected, when executing the utility with the ``-d`` option the IP rules should disappear, reverting them to their original state.
+
+If your routing configuration is correct, you should now be able to successfully ``ping 8.8.8.8``. If you disable the route you shouldn't be able to ping anything on the Internet.
+
+Debugging ``iptables`` rules
+=============================
+
+Every single time the :ref:`rooter` brings up or down any route (assuming it works as expected) or you do so by using the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility, your iptables set of rules is modified in one way or another.
+
+To inspect the changes being made and verify them, you can use the ``watch`` utility preinstalled in the vast majority of *nix systems. For example, to view rules created by CAPE-rooter or the utility you can run the following command::
+
+    $ sudo watch -n 1 iptables -L -n -v
+
+You can also leverage ``watch`` to inspect the connections being made from the Guest to the Host or viceversa::
+
+    $ sudo watch -n 1 'netstat -peanut | grep $IP'
+where $IP is the IP of your Guest.
+
+
+

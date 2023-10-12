@@ -232,7 +232,7 @@ your server.
 
 .. code:: bash
 
-   sudo ufw allow in virbr1 to 192.168.42.1 port 2042 proto tcp
+   sudo ufw allow in on virbr1 to 192.168.42.1 port 2042 proto tcp
 
 Enable the firewall after all of the rules have ben configured.
 

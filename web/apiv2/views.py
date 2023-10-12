@@ -1813,7 +1813,7 @@ def file(request, stype, value):
         resp = {"error": True, "error_value": "Sample download API is disabled"}
         return Response(resp)
 
-    # This Func is not Synced with views "def file()"
+    # This Func is not Synced with views.py "def file()"
 
     file_hash = False
     if stype in ("md5", "sha1", "sha256"):
@@ -1853,9 +1853,6 @@ def file(request, stype, value):
             resp["Content-Length"] = os.path.getsize(sample)
             resp["Content-Disposition"] = f"attachment; filename={file_hash}.bin"
         return resp
-    else:
-        resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
-        return Response(resp)
 
 
 @csrf_exempt

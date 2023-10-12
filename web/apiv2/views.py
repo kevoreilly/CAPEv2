@@ -1813,12 +1813,10 @@ def file(request, stype, value):
         resp = {"error": True, "error_value": "Sample download API is disabled"}
         return Response(resp)
 
+    # This Func is not Synced with views.py "def file()"
+
     file_hash = False
-    if stype == "md5":
-        file_hash = db.find_sample(md5=value).to_dict()["sha256"]
-    elif stype == "sha1":
-        file_hash = db.find_sample(sha1=value).to_dict()["sha256"]
-    elif stype == "sha256":
+    if stype in ("md5", "sha1", "sha256"):
         file_hash = value
     elif stype == "task":
         check = validate_task(value)
@@ -1828,8 +1826,17 @@ def file(request, stype, value):
         sid = db.view_task(value).to_dict()["sample_id"]
         file_hash = db.view_sample(sid).to_dict()["sha256"]
 
-    sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
-    if path_exists(sample):
+    if not file_hash:
+        resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
+        return Response(resp)
+
+    paths = db.sample_path_by_hash(sample_hash = file_hash)
+
+    if not paths:
+        resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
+        return Response(resp)
+
+    for sample in paths:
         if request.GET.get("encrypted"):
             # Check if file exists in temp folder
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
@@ -1846,9 +1853,6 @@ def file(request, stype, value):
             resp["Content-Length"] = os.path.getsize(sample)
             resp["Content-Disposition"] = f"attachment; filename={file_hash}.bin"
         return resp
-    else:
-        resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
-        return Response(resp)
 
 
 @csrf_exempt

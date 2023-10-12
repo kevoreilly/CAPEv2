@@ -102,6 +102,9 @@ Both global routing and per-analysis routing require ip forwarding to be enabled
     $ echo 1 | sudo tee -a /proc/sys/net/ipv4/ip_forward
     $ sudo sysctl -w net.ipv4.ip_forward=1
 
+.. warning::
+    Please be aware by default these changes do not persist and will be reset after a system restart.
+
 .. _routing_netplan:
 
 Configuring netplan
@@ -184,7 +187,18 @@ arbitrary but unique ``table`` integer value.
                    - from: 10.23.6.0/24
                      table: 102
 
-Run ``sudo netplan apply`` to apply the new ``netplan`` configuration.
+Run ``sudo netplan apply`` to apply the new ``netplan`` configuration. You can verify the new routing rules and tables have been created with:
+
+* ``ip r``. To show 'main' table.
+* ``ip r show table X``. To show 'X' table, where X is either the number or the name you specified in the netplan file.
+* ``ip r show table all``. To show all routing rules form all tables.
+
+.. note::
+    There are some considerations you should take into account when configuring and setting netplan and others components necessary so as to provide the Hosts with Internet connection:
+
+        * IP forwarding **MUST** be enabled.
+        * The routing table **NUMBER** specified in the netplan config file should be the **SAME** as the one specified in ``/etc/iproute2/rt_tables``.
+        * The routing table **NAME** specified in ``/etc/iproute2/rt_tables`` (next to its number) should be the **SAME** as the one specified specified in ``routing.conf`` (with the ``rt_table`` field).
 
 .. _routing_firewall:
 
@@ -232,7 +246,7 @@ your server.
 
 .. code:: bash
 
-   sudo ufw allow in virbr1 to 192.168.42.1 port 2042 proto tcp
+   sudo ufw allow in on virbr1 to 192.168.42.1 port 2042 proto tcp
 
 Enable the firewall after all of the rules have ben configured.
 
@@ -534,3 +548,78 @@ Example::
     description = CC_socks
     proxyport = 5000
     dnsport = 10000
+
+===============
+Troubleshooting
+===============
+
+Configuring the Internet connection in the Hosts (VMs) can become a tedious task given the elements involved in the correct functioning. Here you can find several ways of debugging the connections from and to the Hosts besides ``cuckoo.py -d``.
+
+Manually testing Internet connection
+====================================
+You can manually test the Internet connection from inside the VMs without the need of performing any analysis. To do so, you have to use the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility. This utility allows you to enable or disable specific **routes** and debug them. It is a "Standalone script to debug VM problems that allows to enable routing on VM".
+
+First, **stop** the ``cape-rooter`` service with::
+
+    $ sudo systemctl stop cape-rooter.service
+
+Assuming you already have any VM running, to test the internet connection using ``router_manager.py`` you have to execute the following commands::
+
+    $ sudo python3 router_manager.py -r internet -e --vm-name win1 --verbose
+    $ sudo python3 router_manager.py -r internet -d --vm-name win1 --verbose
+
+The ``-e`` flag is used to enable a route and ``-d`` is used to disable it. You can read more about all the options the utility has by running:: 
+
+.. note:: The `--vm-name` parameters expects any ID from the ones in <machinery>.conf, not the label you named each VM with. To see the available options you can execute ``$ sudo python3 router_manager.py --show-vm-names``.
+
+    $ sudo python3 router_manager.py -h
+
+Whenever you 
+
+For instance, this is how it looks **BEFORE** enabling any route::
+
+
+    $ ip rule
+    0:  from all lookup local
+    32766:  from all lookup main
+    32767:  from all lookup default
+
+
+And this is how it looks **AFTER** executing the following commands::
+
+    $ sudo python3 router_manager.py -r internet -e --vm-name win1 --verbose
+    internet eno1 eno1 {'label': 'win10', 'platform': 'windows', 'ip': 'X.X.X.133', 'arch': 'x64'} None None
+    $ sudo python3 router_manager.py -r internet -e --vm-name win2 --verbose
+    internet eno1 eno1 {'label': 'win10-clone', 'platform': 'windows', 'ip': 'X.X.X.134', 'arch': 'x64'} None None
+
+    $ ip rule
+    0:  from all lookup local
+    32764:  from X.X.X.134 lookup eno1
+    32765:  from X.X.X.133 lookup eno1
+    32766:  from all lookup main
+    32767:  from all lookup default
+
+Then again, if everything is configured as expected, when executing the utility with the ``-d`` option the IP rules should disappear, reverting them to their original state.
+
+If your routing configuration is correct, you should now be able to successfully ``ping 8.8.8.8``. If you disable the route you shouldn't be able to ping anything on the Internet.
+
+.. note::
+    Sometimes ip rules may remain undeleted for several reasons. You can manually delete them with ``$ sudo ip rule delete from $IP``, where $IP is the IP the rule refers to.
+
+Debugging ``iptables`` rules
+=============================
+
+Every single time the :ref:`rooter` brings up or down any route (assuming it works as expected) or you do so by using the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility, your iptables set of rules is modified in one way or another.
+
+To inspect the changes being made and verify them, you can use the ``watch`` utility preinstalled in the vast majority of *nix systems. For example, to view rules created by CAPE-rooter or the utility you can run the following command::
+
+    $ sudo watch -n 1 iptables -L -n -v
+
+You can also leverage ``watch`` to inspect the connections being made from the Guest to the Host or viceversa::
+
+    $ sudo watch -n 1 'netstat -peanut | grep $IP'
+
+where $IP is the IP of your Guest.
+
+
+

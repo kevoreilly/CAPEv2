@@ -28,14 +28,18 @@ If you are facing problems related to either tcpdump or the PCAP generation, tak
 
 .. note::
 
-    Make sure the ``pcap`` group exists in your system and that the user you use to launch CAPE (presumably the `cape` user) belongs to it as well as the ``tcpdump`` binary (lines 775-778 of the `installer <https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh#L775>`_)
- 
+    Make sure the ``pcap`` group exists in your system and that the user you use to launch CAPE (presumably the `cape` user) belongs to it as well as the ``tcpdump`` binary.
 
 Make sure the correct path is specified in ``auxiliary.conf`` for ``tcpdump``. Check the path of your local installation of tcpdump with::
 
     $ whereis tcpdump
 
 Check permissions of ``tcpdump`` binary. ``cape`` user must be able to run it. Also check whether you specified the correct interface in ``auxiliary.conf``.
+
+If you are still facing problems and the PCAP is not generating, verify the ``tcpdump`` binary belongs to the ``pcap`` group and it has the neede capabilities::
+
+    $ sudo chgrp pcap /usr/bin/tcpdump
+    $ sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/tcpdump
 
 Other issues about this problem:
 

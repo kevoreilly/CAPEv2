@@ -570,9 +570,9 @@ Assuming you already have any VM running, to test the internet connection using 
 
 The ``-e`` flag is used to enable a route and ``-d`` is used to disable it. You can read more about all the options the utility has by running:: 
 
-.. note:: The `--vm-name` parameters expects any ID from the ones in <machinery>.conf, not the label you named each VM with. To see the available options you can execute ``$ sudo python3 router_manager.py --show-vm-names``.
-
     $ sudo python3 router_manager.py -h
+
+.. note:: The `--vm-name` parameters expects any ID from the ones in <machinery>.conf, not the label you named each VM with. To see the available options you can execute ``$ sudo python3 router_manager.py --show-vm-names``.
 
 Whenever you 
 

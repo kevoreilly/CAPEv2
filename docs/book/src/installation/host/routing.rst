@@ -557,7 +557,7 @@ Configuring the Internet connection in the Hosts (VMs) can become a tedious task
 
 Manually testing Internet connection
 ====================================
-You can manually test the Internet connection from inside the VMs without the need of performing any analysis. To do so, you have to use the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility. This utility allows you to enable or disable specific **routes** and debug them. It is a "Standalone script to debug VM problems that allows to enable routing on VM".
+You can manually test the Internet connection from inside the VMs without the need of performing any analysis. To do so, you have to use the . This utility allows you to enable or disable specific **routes** and debug them. It is a "Standalone script to debug VM problems that allows to enable routing on VM".
 
 First, **stop** the ``cape-rooter`` service with::
 
@@ -574,7 +574,7 @@ The ``-e`` flag is used to enable a route and ``-d`` is used to disable it. You 
 
 .. note:: The `--vm-name` parameters expects any ID from the ones in <machinery>.conf, not the label you named each VM with. To see the available options you can execute ``$ sudo python3 router_manager.py --show-vm-names``.
 
-Whenever you 
+Whenever you use the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility to either enable or disable any given route, there are changes made to ``iptables`` are you should be able to see them take place.
 
 For instance, this is how it looks **BEFORE** enabling any route::
 

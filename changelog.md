@@ -1,4 +1,5 @@
 ### [13.10.2023]
+* Formbook updates
 * Monitor updates:
     * NtContinueEx hook
     * Debugger action enhancements: setptr, patch, sleep, exit

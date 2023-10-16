@@ -195,7 +195,6 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
 
 
 def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
-
     worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
 
     if not path_mount_point(worker_path):
@@ -222,7 +221,6 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
 
 def _delete_many(node, ids, nodes, db):
-
     if nodes[node].name == main_server_name:
         return
     try:
@@ -245,7 +243,6 @@ def _delete_many(node, ids, nodes, db):
 
 
 def node_submit_task(task_id, node_id, main_task_id):
-
     db = session()
     node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
     task = db.query(Task).filter_by(id=task_id).first()
@@ -453,8 +450,8 @@ class Retriever(threading.Thread):
         # If not enough free disk space is available, then we print an
         # error message and wait another round (this check is ignored
         # when the freespace configuration variable is set to zero).
-        while True:
-            if cfg.cuckoo.freespace:
+        if cfg.cuckoo.freespace:
+            while True:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
@@ -479,31 +476,26 @@ class Retriever(threading.Thread):
         urls = reporting_conf.callback.url.split(",")
         headers = {"x-api-key": reporting_conf.callback.key}
 
-        db = session()
-        while True:
-
-            tasks = db.query(Task).filter_by(finished=True, retrieved=True, notificated=False).order_by(Task.id.desc()).all()
-            if tasks is not None:
-                for task in tasks:
-                    main_db.set_status(task.main_task_id, TASK_REPORTED)
-                    log.debug("reporting main_task_id: {}".format(task.main_task_id))
-                    for url in urls:
-                        try:
-                            res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(task.main_task_id)}))
-                            if res and res.ok:
-                                # log.info(res.content)
-                                task.notificated = True
-                                # db.commit()
-                                # db.refresh(task)
-                            else:
-                                log.info("failed to report: {} - {}".format(task.main_task_id, res.status_code))
-                        except requests.exceptions.ConnectionError:
-                            log.info("Can't report to callback")
-                        except Exception as e:
-                            log.info("failed to report: {} - {}".format(task.main_task_id, e))
-            db.commit()
-            time.sleep(20)
-        db.close()
+        with session() as db:
+            while True:
+                tasks = db.query(Task).filter_by(finished=True, retrieved=True, notificated=False).order_by(Task.id.desc()).all()
+                if tasks is not None:
+                    for task in tasks:
+                        main_db.set_status(task.main_task_id, TASK_REPORTED)
+                        log.debug("reporting main_task_id: {}".format(task.main_task_id))
+                        for url in urls:
+                            try:
+                                res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(task.main_task_id)}))
+                                if res and res.ok:
+                                    task.notificated = True
+                                else:
+                                    log.info("failed to report: {} - {}".format(task.main_task_id, res.status_code))
+                            except requests.exceptions.ConnectionError:
+                                log.info("Can't report to callback")
+                            except Exception as e:
+                                log.info("failed to report: {} - {}".format(task.main_task_id, e))
+                db.commit()
+                time.sleep(20)
 
     def failed_cleaner(self):
         db = session()
@@ -536,59 +528,72 @@ class Retriever(threading.Thread):
         """Method that runs forever"""
         last_checks = {}
         # to not exit till cleaner works
-        db = session()
-        while not self.stop_dist.is_set():
-            # .with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.last_check)
-            for node in db.query(Node).filter_by(enabled=True).all():
-                self.status_count.setdefault(node.name, 0)
-                last_checks.setdefault(node.name, 0)
-                last_checks[node.name] += 1
-                # reset it every 10 calls
-                if hasattr(node, "last_check") and node.last_check:
-                    last_check = int(node.last_check.strftime("%s"))
-                else:
-                    last_check = 0
-                if last_checks[node.name] == 3:
-                    last_check = 0
-                    last_checks[node.name] = 0
-                limit = 0
-                for task in node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check):
-                    tasker = (
-                        db.query(Task)
-                        .filter_by(finished=False, retrieved=False, task_id=task["id"], node_id=node.id, deleted=False)
-                        .order_by(Task.id.desc())
-                        .first()
-                    )
-                    if tasker is None:
-                        # log.debug(f"Node ID: {node.id} - Task ID: {task['id']} - adding to cleaner")
-                        self.cleaner_queue.put((node.id, task["id"]))
-                        continue
-                    try:
-                        if (
-                            task["id"] not in self.current_queue.get(node.id, [])
-                            and (task["id"], node.id) not in self.fetcher_queue.queue
-                        ):
-                            limit += 1
-                            self.fetcher_queue.put((task, node.id))
-                            # log.debug("{} - {}".format(task, node.id))
-                            completed_on = datetime.strptime(task["completed_on"], "%Y-%m-%d %H:%M:%S")
-                            if node.last_check is None or completed_on > node.last_check:
-                                node.last_check = completed_on
-                                db.commit()
-                                db.refresh(node)
-                            if limit == 50:
-                                break
-                    except Exception as e:
-                        self.status_count[node.name] += 1
-                        log.info(e)
-                        if self.status_count[node.name] == dead_count:
-                            log.info("[-] {} dead".format(node.name))
-                            # node_data = db.query(Node).filter_by(name=node.name).first()
-                            # node_data.enabled = False
-                            # db.commit()
-            db.commit()
-            time.sleep(5)
-        db.close()
+        with session() as db:
+            while True:
+                if self.stop_dist.is_set():
+                    time.sleep(60)
+                    continue
+                # .with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.last_check)
+                for node in db.query(Node).filter_by(enabled=True).all():
+                    self.status_count.setdefault(node.name, 0)
+                    last_checks.setdefault(node.name, 0)
+                    last_checks[node.name] += 1
+                    # reset it every 10 calls
+                    if hasattr(node, "last_check") and node.last_check:
+                        last_check = int(node.last_check.strftime("%s"))
+                    else:
+                        last_check = 0
+                    if last_checks[node.name] == 3:
+                        last_check = 0
+                        last_checks[node.name] = 0
+                    limit = 0
+                    task_ids = []
+                    for task in node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check):
+                        task_ids.append(task["id"])
+
+                    if True:
+                        tasker = (
+                            db.query(Task)
+                            # .filter_by(finished=False, retrieved=False, task_id=task["id"], node_id=node.id, deleted=False)
+                            .filter_by(finished=False, retrieved=False, node_id=node.id, deleted=False)
+                            .filter(Task.task_id.in_(tuple(task_ids)))
+                            .order_by(Task.id.desc())
+                            .all()
+                        )
+
+                        if tasker is None:
+                            # log.debug(f"Node ID: {node.id} - Task ID: {task['id']} - adding to cleaner")
+                            self.cleaner_queue.put((node.id, task["id"]))
+                            continue
+
+                        for task in tasker:
+                            try:
+                                if (
+                                    task.task_id not in self.current_queue.get(node.id, [])
+                                    and (task.task_id, node.id) not in self.fetcher_queue.queue
+                                ):
+                                    limit += 1
+                                    self.fetcher_queue.put(({"id": task.task_id}, node.id))
+                                    # log.debug("{} - {}".format(task, node.id))
+                                    """
+                                    completed_on = datetime.strptime(task["completed_on"], "%Y-%m-%d %H:%M:%S")
+                                    if node.last_check is None or completed_on > node.last_check:
+                                        node.last_check = completed_on
+                                        db.commit()
+                                        db.refresh(node)
+                                    #if limit == 50:
+                                    #    break
+                                    """
+                            except Exception as e:
+                                self.status_count[node.name] += 1
+                                log.error(e, exc_info=True)
+                                if self.status_count[node.name] == dead_count:
+                                    log.info("[-] {} dead".format(node.name))
+                                    # node_data = db.query(Node).filter_by(name=node.name).first()
+                                    # node_data.enabled = False
+                                    # db.commit()
+                db.commit()
+                # time.sleep(5)
 
     def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
         # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
@@ -602,102 +607,107 @@ class Retriever(threading.Thread):
 
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports_nfs(self):
-        db = session()
-        # to not exit till cleaner works
-        while not self.stop_dist.is_set():
-            task, node_id = self.fetcher_queue.get()
-
-            self.current_queue.setdefault(node_id, []).append(task["id"])
-
-            try:
-                # In the case that a CAPE node has been reset over time it"s
-                # possible that there are multiple combinations of
-                # node-id/task-id, in this case we take the last one available.
-                # (This makes it possible to re-setup a CAPE node).
-                t = (
-                    db.query(Task)
-                    .filter_by(node_id=node_id, task_id=task["id"], retrieved=False, finished=False)
-                    .order_by(Task.id.desc())
-                    .first()
-                )
-                if t is None:
-                    self.t_is_none.setdefault(node_id, []).append(task["id"])
-
-                    # sometime it not deletes tasks in workers of some fails or something
-                    # this will do the trick
-                    # log.debug("tf else,")
-                    if (node_id, task.get("id")) not in self.cleaner_queue.queue:
-                        self.cleaner_queue.put((node_id, task.get("id")))
+        # db = session()
+        with session() as db:
+            # to not exit till cleaner works
+            while True:
+                if self.stop_dist.is_set():
+                    time.sleep(60)
                     continue
+                task, node_id = self.fetcher_queue.get()
 
-                log.debug(
-                    "Fetching dist report for: id: {}, task_id: {}, main_task_id: {} from node: {}".format(
-                        t.id, t.task_id, t.main_task_id, ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id
+                self.current_queue.setdefault(node_id, []).append(task["id"])
+                try:
+                    # In the case that a Cuckoo node has been reset over time it"s
+                    # possible that there are multiple combinations of
+                    # node-id/task-id, in this case we take the last one available.
+                    # (This makes it possible to re-setup a Cuckoo node).
+                    t = (
+                        db.query(Task)
+                        .filter_by(node_id=node_id, task_id=task["id"], retrieved=False, finished=False)
+                        .order_by(Task.id.desc())
+                        .first()
                     )
-                )
-                # set completed_on time
-                main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
-                # set reported time
-                main_db.set_status(t.main_task_id, TASK_REPORTED)
+                    if t is None:
+                        self.t_is_none.setdefault(node_id, []).append(task["id"])
 
-                # Fetch each requested report.
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
-                # ToDo option
-                node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
-                start_copy = timeit.default_timer()
-                copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
-                timediff = timeit.default_timer() - start_copy
-                log.info(
-                    f"It took {timediff:.2f} seconds to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
-                )
+                        # sometime it not deletes tasks in workers of some fails or something
+                        # this will do the trick
+                        log.debug("tf else,")
+                        if (node_id, task.get("id")) not in self.cleaner_queue.queue:
+                            self.cleaner_queue.put((node_id, task.get("id")))
+                        continue
 
-                if not copied:
-                    log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
-                    continue
+                    log.debug(
+                        "Fetching dist report for: id: {}, task_id: {}, main_task_id: {} from node: {}".format(
+                            t.id, t.task_id, t.main_task_id, ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id
+                        )
+                    )
+                    # set completed_on time
+                    main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
+                    # set reported time
+                    main_db.set_status(t.main_task_id, TASK_REPORTED)
 
-                # this doesn't exist for some reason
-                if path_exists(t.path):
-                    sample_sha256 = main_db.find_sample(task_id=t.main_task_id)
-                    if sample_sha256:
-                        sample_sha256 = sample_sha256[0].sample.sha256
-                    else:
-                        # keep fallback for now
-                        sample = open(t.path, "rb").read()
-                        sample_sha256 = hashlib.sha256(sample).hexdigest()
+                    # Fetch each requested report.
+                    report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
+                    # ToDo option
+                    node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
+                    start_copy = timeit.default_timer()
+                    copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
+                    timediff = timeit.default_timer() - start_copy
+                    log.info(
+                        f"It took {timediff:.2f} seconds to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
+                    )
 
-                    destination = os.path.join(binaries_folder, sample_sha256)
-                    if not path_exists(destination) and path_exists(t.path):
-                        try:
-                            shutil.move(t.path, destination)
-                        except FileNotFoundError as e:
-                            print(f"Failed to move: {t.path} - {e}")
-                            pass
+                    if not copied:
+                        log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
+                        continue
 
-                    # creating link to analysis folder
-                    if path_exists(destination):
-                        try:
-                            os.symlink(destination, os.path.join(report_path, "binary"))
-                        except Exception as e:
-                            print(f"Failed link binary: {e}")
-                            pass
+                    # this doesn't exist for some reason
+                    if path_exists(t.path):
+                        sample_sha256 = main_db.find_sample(task_id=t.main_task_id)
+                        if sample_sha256:
+                            sample_sha256 = sample_sha256[0].sample.sha256
+                        else:
+                            # keep fallback for now
+                            sample = open(t.path, "rb").read()
+                            sample_sha256 = hashlib.sha256(sample).hexdigest()
 
-                    self.delete_target_file(t.main_task_id, sample_sha256, t.path)
+                        destination = os.path.join(binaries_folder, sample_sha256)
+                        if not path_exists(destination) and path_exists(t.path):
+                            try:
+                                shutil.move(t.path, destination)
+                            except FileNotFoundError as e:
+                                print(f"Failed to move: {t.path} - {e}")
+                                pass
 
-                t.retrieved = True
-                t.finished = True
+                        # creating link to analysis folder
+                        if path_exists(destination):
+                            try:
+                                os.symlink(destination, os.path.join(report_path, "binary"))
+                            except Exception as e:
+                                # print(f"Failed link binary: {e}")
+                                pass
+
+                        self.delete_target_file(t.main_task_id, sample_sha256, t.path)
+
+                    t.retrieved = True
+                    t.finished = True
+                    db.commit()
+
+                except Exception as e:
+                    log.exception(e)
+                self.current_queue[node_id].remove(task["id"])
                 db.commit()
-
-            except Exception as e:
-                log.exception(e)
-            self.current_queue[node_id].remove(task["id"])
-            db.commit()
-        db.close()
 
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports(self):
         db = session()
         # to not exit till cleaner works
-        while not self.stop_dist.is_set():
+        while True:
+            if self.stop_dist.is_set():
+                time.sleep(60)
+                continue
             task, node_id = self.fetcher_queue.get()
 
             self.current_queue.setdefault(node_id, []).append(task["id"])
@@ -815,27 +825,34 @@ class Retriever(threading.Thread):
         db.close()
 
     def remove_from_worker(self):
-        db = session()
         nodes = {}
-        for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).all():
-            nodes.setdefault(node.id, node)
+        with session() as db:
+            for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).all():
+                nodes.setdefault(node.id, node)
 
         while True:
             details = {}
+            print("cleaner size is ", self.cleaner_queue.qsize())
             for _ in range(self.cleaner_queue.qsize()):
                 node_id, task_id = self.cleaner_queue.get()
                 details.setdefault(node_id, []).append(str(task_id))
                 if task_id in self.t_is_none.get(node_id, []):
                     self.t_is_none[node_id].remove(task_id)
 
+                    if len(self.t_is_none[node_id]) > 50:
+                        break
+
+                    # ToDo Do we need to do something here?
+
             for node_id in details:
                 node = nodes[node_id]
                 if node and details[node_id]:
                     ids = ",".join(list(set(details[node_id])))
+                    print(ids)
                     _delete_many(node_id, ids, nodes, db)
 
-            db.commit()
-            time.sleep(20)
+                db.commit()
+                time.sleep(20)
 
 
 class StatusThread(threading.Thread):
@@ -874,7 +891,6 @@ class StatusThread(threading.Thread):
                     options = get_options(t.options)
                     # Check if file exist, if no wipe from db and continue, rare cases
                     if t.category in ("file", "pcap", "static"):
-
                         if not path_exists(t.target):
                             log.info(f"Task id: {t.id} - File doesn't exist: {t.target}")
                             main_db.set_status(t.id, TASK_BANNED)
@@ -1073,7 +1089,6 @@ class StatusThread(threading.Thread):
         db.commit()
         statuses = {}
         while True:
-
             # HACK: This exception handling here is a big hack as well as db should check if the
             # there is any issue with the current session (expired or database is down.).
             try:

@@ -202,3 +202,8 @@ msix = win10,win11
 check_path_safe = yes
 # Can be multiple domains. Ex: domain.com,domain.net,domain.org
 csrf_trusted_origins =
+
+[package_exclusion]
+# Remove packages from submission page. Useful when the package application is not availabe
+# Example: chrome,chromium,firefox
+packages =

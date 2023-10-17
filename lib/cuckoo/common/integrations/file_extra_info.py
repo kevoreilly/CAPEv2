@@ -733,7 +733,7 @@ def kixtart_extract(file: str, **_) -> ExtractorReturnType:
 
 @time_tracker
 def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
-    if all(block.get("name") not in "AutoIT_Compiled, AutoIt_Script" for block in data_dictionary.get("yara", {})):
+    if all(block.get("name") not in ("AutoIT_Compiled", "AutoIT_Script") for block in data_dictionary.get("yara", {})):
         return
 
     if not path_exists(unautoit_binary):

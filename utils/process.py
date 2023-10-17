@@ -342,20 +342,16 @@ def autoprocess(
             pool.join()
 
 
-def _load_report(task_id: int, return_one: bool = False):
+def _load_report(task_id: int):
 
     if repconf.mongodb.enabled:
-        if return_one:
-            analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
-            for process in analysis.get("behavior", {}).get("processes", []):
-                calls = [ObjectId(call) for call in process["calls"]]
-                process["calls"] = []
-                for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
-                    process["calls"] += call["calls"]
-            return analysis
-
-        else:
-            return mongo_find("analysis", {"info.id": task_id})
+        analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
+        for process in analysis.get("behavior", {}).get("processes", []):
+            calls = [ObjectId(call) for call in process["calls"]]
+            process["calls"] = []
+            for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
+                process["calls"] += call["calls"]
+        return analysis
 
     if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         try:
@@ -365,10 +361,7 @@ def _load_report(task_id: int, return_one: bool = False):
                 .get("hits", [])
             )
             if analyses:
-                if return_one:
-                    return analyses[0]
-                else:
-                    return analyses
+                return analyses[0]
         except ESRequestError as e:
             print(e)
 
@@ -486,7 +479,7 @@ def main():
 
                 if args.signatures:
                     report = False
-                    results = _load_report(num, return_one=True)
+                    results = _load_report(num)
                     if not results:
                         # fallback to json
                         report = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num), "reports", "report.json")

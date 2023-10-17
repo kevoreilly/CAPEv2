@@ -2601,7 +2601,7 @@ class Database(object, metaclass=Singleton):
                     if tasks:
                         for task in tasks:
                             for item in task["suricata"]["files"] or []:
-                                file_path = item["file_info"]["path"]
+                                file_path = item.get("file_info", {}).get("path", "")
                                 if sample_hash in file_path:
                                     if path_exists(file_path):
                                         sample = [file_path]

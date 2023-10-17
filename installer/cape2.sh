@@ -340,10 +340,10 @@ function install_nginx() {
     fi
 
     # PCRE version 8.42
-    wget https://ftp.pcre.org/pub/pcre/pcre-8.42.tar.gz && tar xzvf pcre-8.42.tar.gz
+    wget https://ftp.exim.org/pub/pcre/pcre-8.42.tar.gz && tar xzvf pcre-8.42.tar.gz
 
     # zlib version 1.2.11
-    wget https://www.zlib.net/zlib-1.2.11.tar.gz && tar xzvf zlib-1.2.11.tar.gz
+    wget https://www.zlib.net/zlib-1.3.tar.gz && tar xzvf zlib-1.3.tar.gz
 
     # OpenSSL version 1.1.0h
     wget https://www.openssl.org/source/openssl-1.1.0h.tar.gz && tar xzvf openssl-1.1.0h.tar.gz
@@ -381,7 +381,7 @@ function install_nginx() {
                 --with-openssl-opt=no-ssl3 \
                 --with-pcre=../pcre-8.42 \
                 --with-pcre-jit \
-                --with-zlib=../zlib-1.2.11 \
+                --with-zlib=../zlib-1.3 \
                 --with-compat \
                 --with-file-aio \
                 --with-threads \

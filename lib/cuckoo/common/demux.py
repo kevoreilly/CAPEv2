@@ -174,6 +174,8 @@ def _sf_children(child: sfFile) -> bytes:
         or is_valid_package(child.package)
         or is_valid_type(child.magic)
         or (not ext and is_valid_type(child.magic))
+        # msix
+        or all([pattern in child.contents for pattern in (b"Registry.dat", b"AppxManifest.xml")])
     ):
         target_path = os.path.join(tmp_path, "cuckoo-sflock")
         if not path_exists(target_path):

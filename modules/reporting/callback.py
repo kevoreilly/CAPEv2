@@ -31,5 +31,7 @@ class CALLBACKHOME(Report):
                         log.debug("reported id: %d", task_id)
                     else:
                         log.error("failed to report %d", task_id)
+            except requests.exceptions.ConnectTimeout:
+                log.error("Timeout when calling to callback: %s", url)
             except Exception as e:
                 log.exception(e)

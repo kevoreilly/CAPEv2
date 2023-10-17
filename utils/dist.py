@@ -685,7 +685,7 @@ class Retriever(threading.Thread):
                         if path_exists(destination):
                             try:
                                 os.symlink(destination, os.path.join(report_path, "binary"))
-                            except Exception as e:
+                            except Exception:
                                 # print(f"Failed link binary: {e}")
                                 pass
 

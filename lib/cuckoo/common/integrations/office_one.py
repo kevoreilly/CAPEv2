@@ -122,7 +122,6 @@ class OneNoteExtractor:
                 return
         else:
             logger.debug("No embedded files found.")
-        return
 
     def extract_meta(self) -> Iterator[OneNoteMetadataObject]:
         """Extract metadata from embedded objects in .one files.

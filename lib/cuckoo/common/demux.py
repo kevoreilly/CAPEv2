@@ -231,13 +231,17 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     retlist = []
     # if a package was specified, trim if allowed and required
     if package:
-        if File(filename).get_size() <= web_cfg.general.max_sample_size or (
-            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
-        ):
-            retlist.append((filename, platform))
+
+        if package in ("msix",):
+            retlist.append((filename, "windows"))
         else:
-            if web_cfg.general.enable_trim and trim_file(filename):
-                retlist.append((trimmed_path(filename), platform))
+            if File(filename).get_size() <= web_cfg.general.max_sample_size or (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+            ):
+                retlist.append((filename, platform))
+            else:
+                if web_cfg.general.enable_trim and trim_file(filename):
+                    retlist.append((trimmed_path(filename), platform))
         return retlist
 
     # handle quarantine files

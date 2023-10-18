@@ -57,9 +57,11 @@ def cape_load_decoders(CUCKOO_ROOT: str):
                 # hits with the " Config", " Payload", or " Loader" ending removed and with  spaces replaced with underscores.
                 # For example, a cape_type of "Emotet Payload" would trigger a config parser named "Emotet.py".
                 cape_modules[name.replace("_", " ")] = importlib.import_module(f"{versions[version]}.{name}")
-            except (ImportError, IndexError) as e:
+            except (ImportError, IndexError, AttributeError) as e:
                 print(f"CAPE parser: No module named {name} - {e}")
             except SyntaxError as e:
+                print(f"CAPE parser: Fix your code in {name} - {e}")
+            except Exception as e:
                 print(f"CAPE parser: Fix your code in {name} - {e}")
 
     return cape_modules
@@ -94,7 +96,7 @@ def file_extra_info_load_modules(CUCKOO_ROOT: str):
             if not getattr(module, "enabled", False):
                 continue
             file_extra_modules.append(module)
-        except (ImportError, IndexError) as e:
+        except (ImportError, IndexError, AttributeError) as e:
             print(f"file_extra_info module: No module named {name} - {e}")
 
     return file_extra_modules

@@ -290,6 +290,8 @@ def trid_info(file_path: dict):
             "You need to configure your server to make TrID work properly. Run trid by hand on file as example to ensure that it works properly."
         )
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
+    except PermissionError:
+        log.error("You have permission error. FIX IT! sudo chown cape:cape /opt/CAPEv2/data/trid -R")
     except Exception as e:
         log.error("Trid error: %s", str(e))
 

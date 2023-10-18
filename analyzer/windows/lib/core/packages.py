@@ -141,5 +141,7 @@ def choose_package(file_type, file_name, exports, target):
         return "reg"
     elif "ISO 9660" in file_type or file_name.endswith((".iso", ".udf", ".vhd")):
         return "archive"
+    elif file_name.endswith(".a3x"):
+        return "autoit"
     else:
         return "generic"

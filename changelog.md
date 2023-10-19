@@ -1,3 +1,7 @@
+### [19.10.2023]
+* Monitor update:
+    * Unpacker: reduce/filter unwanted .NET payloads
+    
 ### [13.10.2023]
 * Formbook updates
 * Monitor updates:

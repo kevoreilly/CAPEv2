@@ -5,6 +5,7 @@
 
 import datetime
 import logging
+import io
 import os
 import socket
 import threading
@@ -19,6 +20,7 @@ try:
 except ImportError:
     print("Missed dependency -> pip3 install dnspython")
 import requests
+import PIL
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -268,6 +270,14 @@ class Machinery:
         """
         return self.db.list_machines(locked=True)
 
+    def screenshot(self, label, path):
+        """Screenshot a running virtual machine.
+        @param label: machine name
+        @param path: where to store the screenshot
+        @raise NotImplementedError
+        """
+        raise NotImplementedError
+
     def shutdown(self):
         """Shutdown the machine manager. Kills all alive machines.
         @raise CuckooMachineError: if unable to stop machine.
@@ -468,6 +478,32 @@ class LibVirtMachinery(Machinery):
 
         # Free handlers.
         self.vms = None
+
+    def screenshot(self, label, path):
+        """Screenshot a running virtual machine.
+        @param label: machine name
+        @param path: where to store the screenshot
+        """
+        log.debug("getting screenshot for %s", label)
+        conn = self._connect()
+        try:
+            vm = conn.lookupByName(label)
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError(f"Error screenshotting virtual machine {label}: {e}") from e
+        stream0, screen = conn.newStream(), 0
+        mime = vm.screenshot(stream0, screen)
+        log.debug("got screenshot of type %s", mime)
+
+        buffer = io.BytesIO()
+
+        def stream_handler(_, data, buffer):
+            buffer.write(data)
+
+        stream0.recvAll(stream_handler, buffer)
+        stream0.finish()
+        log.debug("took screenshot, got %d bytes of %s", buffer.tell(), mime)
+        streamed_img = PIL.Image.open(buffer)
+        streamed_img.convert(mode="RGB").save(path)
 
     def dump_memory(self, label, path):
         """Takes a memory dump.

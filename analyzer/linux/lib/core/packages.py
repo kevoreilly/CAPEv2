@@ -167,7 +167,7 @@ class Package:
         if "args" in kwargs:
             target_cmd += f' {" ".join(kwargs["args"])}'
 
-        cmd = f"sudo strace -ttf -o {self.strace_output}/strace.log {target_cmd}"
+        cmd = f"sudo strace -ttfn -o {self.strace_output}/strace.log {target_cmd}"
         log.info(cmd)
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True

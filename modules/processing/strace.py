@@ -2,6 +2,7 @@ import logging
 import re
 import json
 import os
+import tempfile
 import strace_process_tree as stp
 
 from lib.cuckoo.common.abstracts import Processing
@@ -20,13 +21,13 @@ class Processes():
     def __init__(self, logs_path):
         """@param  logs_path: logs path."""
         self._logs_path = logs_path
-        self.syscall_args = {}
+        self.syscalls_info = {}
         self.load_syscalls_args()
 
     def load_syscalls_args(self):
         syscalls_json = open("/opt/CAPEv2/data/linux/linux-syscalls.json", "r")
         syscalls_dict = json.load(syscalls_json)
-        self.syscall_args = {syscall["name"]: {"signature": syscall["signature"], "file": syscall["file"]} for syscall in syscalls_dict["syscalls"]}
+        self.syscalls_info = {syscall["index"]: {"signature": syscall["signature"], "category": syscall["file"].split("/")[0]} for syscall in syscalls_dict["syscalls"]}
 
     def log_concat(self, unfinished, resumed):
         """
@@ -37,21 +38,37 @@ class Processes():
         data = ""
         for head in unfinished:
             for tail in resumed:
-                if head.group("pid") != tail.group("pid") or head.group("syscall") != tail.group("syscall"):
+                if head.group("pid") != tail.group("pid") or head.group("syscall_number") != tail.group("syscall_number"):
                     continue
-                data += tail.group("pid") + ' ' + tail.group("time") + ' ' + head.group("unfinished") + tail.group("resumed") + '\n'
+                data += " ".join([tail.group("pid"), tail.group("time"), head.group("unfinished") + tail.group("resumed"), "\n"])
                 resumed.remove(tail)
                 unfinished.remove(head)
                 break
         return data
     
+    def split_string_by_commas_ignore_braces(self, args_str):
+        args = []
+        current = ''
+        brace_level = 0
+        for char in args_str:
+            if char == ',' and brace_level == 0:
+                args.append(current)
+                current = ''
+            else:
+                current += char
+                if char in ['{', '[']:
+                    brace_level += 1
+                elif char in ['}', ']']:
+                    brace_level = max(brace_level - 1, 0)
+        args.append(current)
+        return [x.strip() for x in args if x.strip() != '']
+    
     def run(self):
         results = []
-        log_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+(?P<syscall>\w+)\((?P<args>.*)\)\s+=\s(?P<retval>.+)\n')
-        unfinished_pattern = re.compile(r'(?P<pid>\d+)\s+\d+:\d+:\d+\.\d+\s+(?P<unfinished>(?P<syscall>\w+)\(.*)<unfinished\s...>\n')
-        resumed_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+<\.\.\.\s(?P<syscall>\w+)\sresumed>(?P<resumed>.*)\n')
+        log_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+(?P<syscall_number>\d+)\]\s+(?P<syscall>\w+)\((?P<args>.*)\)\s+=\s(?P<retval>.+)\n')
+        unfinished_pattern = re.compile(r'(?P<pid>\d+)\s+\d+:\d+:\d+\.\d+\s+(?P<unfinished>\[\s+(?P<syscall_number>\d+)\]\s+(?P<syscall>\w+)\(.*)<unfinished\s...>\n')
+        resumed_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+(?P<syscall_number>\d+)\]\s+<\.\.\.\s(?P<syscall>\w+)\sresumed>(?P<resumed>.*)\n')
         # exited_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+\+\+\+ exited with 0 \+\+\+')
-        arguments_pattern = re.compile(r',\s*(?![^{}]*\})')
 
         unfinished_logs = [x for x in unfinished_pattern.finditer(self._logs_path)]
         resumed_logs = [x for x in resumed_pattern.finditer(self._logs_path)]
@@ -63,12 +80,13 @@ class Processes():
         for event in normal_logs:
             pid = event.group("pid")
             time = event.group("time")
+            category = None
             syscall = event.group("syscall")
             arguments = []
-            args = arguments_pattern.split(event.group("args"))
-
-            if self.syscall_args.get(syscall, None):
-                arg_names = self.syscall_args.get(syscall).get("signature", None)
+            args = self.split_string_by_commas_ignore_braces(event.group("args"))
+            if syscall_info := self.syscalls_info.get(int(event.group("syscall_number")), None):
+                category = syscall_info.get("category", None)
+                arg_names = syscall_info.get("signature", None)
                 for arg_name, arg in zip(arg_names, args):
                     arguments.append({
                         "name": arg_name,
@@ -80,6 +98,7 @@ class Processes():
             results.append({
                 "pid":pid,
                 "time": time,
+                "category": category,
                 "syscall": syscall,
                 "arguments": arguments,
                 "retval": retval
@@ -115,10 +134,16 @@ class ProcessTree():
 
     def run(self):
         children = []
+        stptree = None
 
-        stptree = stp.parse_stream(stp.events(open(self.path,"r")), stp.simplify_syscall)
+        t = tempfile.NamedTemporaryFile(mode="r+")
+        with open(self.path, "r") as f:
+            t.write(re.sub(r"\s\[\s+\d+\]", "", "".join(f.readlines())))
+            t.seek(0)
+            stptree = stp.parse_stream(stp.events(t), stp.simplify_syscall)
+            t.close()
         
-        for pid, process in stptree.processes.items():
+        for _, process in stptree.processes.items():
             if process.parent is None:
                 self.tree.append({
                     "name": process.name,
@@ -137,7 +162,7 @@ class ProcessTree():
                     "parent_id": process.parent.pid,
                     "children": []
                 })
-                
+                log.info("Processing strace logs")
         return self.tree
 
 class StraceAnalysis(Processing):

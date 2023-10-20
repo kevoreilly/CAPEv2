@@ -1,3 +1,6 @@
+### [20.10.2023]
+* Monitor fixes: address new issue affecting procdump and add check in compileMethod hook
+    
 ### [19.10.2023]
 * Monitor update:
     * Unpacker: reduce/filter unwanted .NET payloads

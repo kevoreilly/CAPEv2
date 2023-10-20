@@ -139,6 +139,8 @@ class AnalysisManager(threading.Thread):
         self.cfg = Config()
         self.aux_cfg = Config("auxiliary")
         self.storage = ""
+        self.screenshot_path = ""
+        self.num_screenshots = 0
         self.binary = ""
         self.machine = None
         self.db = Database()
@@ -152,6 +154,7 @@ class AnalysisManager(threading.Thread):
     def init_storage(self):
         """Initialize analysis storage folder."""
         self.storage = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id))
+        self.screenshot_path = os.path.join(self.storage, "shots")
 
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
@@ -220,6 +223,19 @@ class AnalysisManager(threading.Thread):
             log.error("Task #%s: Unable to create symlink/copy from '%s' to '%s': %s", self.task.id, self.binary, self.storage, e)
 
         return True
+
+    def screenshot_machine(self):
+        if not self.cfg.cuckoo.machinery_screenshots:
+            return
+        if self.machine is None:
+            log.error("Task #%s: screenshot not possible, no machine acquired yet", self.task.id)
+            return
+
+        # same format and indexing approach here as VM-based screenshots
+        self.num_screenshots += 1
+        screenshot_filename = f"{str(self.num_screenshots).rjust(4, '0')}.jpg"
+        screenshot_path = os.path.join(self.screenshot_path, screenshot_filename)
+        machinery.screenshot(self.machine.label, screenshot_path)
 
     def acquire_machine(self):
         """Acquire an analysis machine from the pool of available ones."""

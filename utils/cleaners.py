@@ -290,9 +290,8 @@ def cuckoo_clean_failed_url_tasks():
         return
 
     if repconf.mongodb.enabled:
-        rtmp = mongo_find(
-            "analysis", {"info.category": "url", "network.http.0": {"$exists": False}}, {"info.id": 1}, sort=[("_id", -1)]
-        ).limit(100)
+        query = {"info.category": "url", "network.http.0": {"$exists": False}}
+        rtmp = mongo_find("analysis", query, projection={"info.id": 1}, sort=[("_id", -1)], limit=100)
     elif repconf.elasticsearchdb.enabled:
         rtmp = [
             d["_source"]
@@ -444,9 +443,8 @@ def cuckoo_clean_sorted_pcap_dump():
 
     while not done:
         if repconf.mongodb.enabled:
-            rtmp = mongo_find("analysis", {"network.sorted_pcap_id": {"$exists": True}}, {"info.id": 1}, sort=[("_id", -1)]).limit(
-                100
-            )
+            query = {"network.sorted_pcap_id": {"$exists": True}}
+            rtmp = mongo_find("analysis", query, projection={"info.id": 1}, sort=[("_id", -1)], limit=100)
         elif repconf.elasticsearchdb.enabled:
             rtmp = [
                 d["_source"]

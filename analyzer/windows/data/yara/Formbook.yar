@@ -3,7 +3,7 @@ rule Formbook
     meta:
         author = "kevoreilly"
         description = "Formbook Anti-hook Bypass"
-        cape_options = "bp0=$remap_ntdll_0,action0=setedx:ntdll,count0=1,bp1=$remap_ntdll_1,action1=setptr:esi+12::ntdll,count1=1"
+        cape_options = "bp0=$remap_ntdll_0,action0=setedx:ntdll,count0=1,bp1=$remap_ntdll_1,action1=setptr:esi+12::ntdll,count1=1,force-sleepskip=1"
         packed = "9e38c0c3c516583da526016c4c6a671c53333d3d156562717db79eac63587522"
         packed = "b8e44f4a0d92297c5bb5b217c121f0d032850b38749044face2b0014e789adfb"
     strings:

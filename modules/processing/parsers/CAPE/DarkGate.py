@@ -85,6 +85,7 @@ def extract_config(data):
                 return decode(section.get_data())
     return ""
 
+
 if __name__ == "__main__":
     with open(sys.argv[1], "rb") as infile:
         t = extract_config(infile.read())

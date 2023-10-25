@@ -12,3 +12,6 @@ python setup.py build --enable-cuckoo --enable-magic --enable-profiling
 cd ..
 # for root
 pip install ./yara-python
+if [ -d yara-python ]; then
+    rm -r yara-python
+fi

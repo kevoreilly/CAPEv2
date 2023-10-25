@@ -12,6 +12,8 @@ import threading
 import time
 import timeit
 import xml.etree.ElementTree as ET
+import inspect
+from builtins import NotImplementedError
 from pathlib import Path
 from typing import Dict, List
 
@@ -208,6 +210,20 @@ class Machinery:
             configured_vms = self._list()
         except NotImplementedError:
             return
+
+        # If machinery_screenshots are enabled, check the machinery supports it.
+        if cfg.cuckoo.machinery_screenshots:
+            # inspect function members available on the machinery class
+            cls_members = inspect.getmembers(self.__class__, predicate=inspect.isfunction)
+            for name, function in cls_members:
+                if name != Machinery.screenshot.__name__:
+                    continue
+                if Machinery.screenshot == function:
+                    msg = f"machinery {self.module_name} does not support machinery screenshots"
+                    raise CuckooCriticalError(msg)
+                break
+            else:
+                raise NotImplementedError(f"missing machinery method: {Machinery.screenshot.__name__}")
 
         for machine in self.machines():
             # If this machine is already in the "correct" state, then we

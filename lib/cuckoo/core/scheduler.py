@@ -231,7 +231,7 @@ class AnalysisManager(threading.Thread):
             log.error("Task #%s: screenshot not possible, no machine acquired yet", self.task.id)
             return
 
-        # same format and indexing approach here as VM-based screenshots
+        # same format and filename approach here as VM-based screenshots
         self.num_screenshots += 1
         screenshot_filename = f"{str(self.num_screenshots).rjust(4, '0')}.jpg"
         screenshot_path = os.path.join(self.screenshot_path, screenshot_filename)

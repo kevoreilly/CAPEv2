@@ -160,9 +160,8 @@ class HandlerContext:
 
     def discard(self):
         self.drain_buffer()
-        while buf := self.read():
-            if buf == b"":
-                break
+        while _ := self.read():
+            pass
 
 
 class WriteLimiter:

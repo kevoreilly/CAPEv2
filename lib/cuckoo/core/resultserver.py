@@ -44,7 +44,7 @@ BANNED_PATH_CHARS = b"\x00:"
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (
+RESULT_UPLOADABLE = [
     b"CAPE",
     b"aux",
     b"curtain",
@@ -53,13 +53,15 @@ RESULT_UPLOADABLE = (
     b"files",
     b"memory",
     b"procdump",
-    b"shots",
     b"sysmon",
     b"stap",
     b"evtx",
     b"htmldump",
-)
-RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
+]
+if cfg.cuckoo.machinery_screenshots:
+    RESULT_UPLOADABLE.append(b"shots")
+RESULT_DIRECTORIES = RESULT_UPLOADABLE + [b"reports", b"logs"]
+
 
 
 def netlog_sanitize_fname(path):
@@ -339,7 +341,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        for folder in list(RESULT_UPLOADABLE) + [b"logs"]:
+        for folder in RESULT_UPLOADABLE + [b"logs"]:
             try:
                 create_folder(self.storagepath, folder=folder.decode())
             except Exception as e:

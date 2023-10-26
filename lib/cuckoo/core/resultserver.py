@@ -200,7 +200,7 @@ class FileUpload(ProtocolHandler):
         dump_path = netlog_sanitize_fname(self.handler.read_newline())
         if cfg.cuckoo.machinery_screenshots and dump_path.startswith(b"shots/"):
             log.debug("Task #%s: discarding screenshot; machinery screenshots enabled", self.task_id)
-            self.discard()
+            self.handler.discard()
             return
 
         if self.version and self.version >= 2:

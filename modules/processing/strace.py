@@ -18,16 +18,28 @@ class Processes():
 
     key = "processes"
 
-    def __init__(self, logs_path):
-        """@param  logs_path: logs path."""
-        self._logs_path = logs_path
-        self.syscalls_info = {}
-        self.load_syscalls_args()
+    def __init__(self, raw_strace_logs):
+        """
+        @param  _raw_strace_logs: path of the strace logs
+        @param syscalls_info: information of indexed syscalls
+        """
+        self._raw_strace_logs = raw_strace_logs
+        self.syscalls_info = self.load_syscalls_args()
+        
 
     def load_syscalls_args(self):
+        """
+        Returns dictionary with syscall information indexed by syscall index.
+        The values include the signature of the syscall and the category
+        extracted from the definition location.
+        """
         syscalls_json = open("/opt/CAPEv2/data/linux/linux-syscalls.json", "r")
         syscalls_dict = json.load(syscalls_json)
-        self.syscalls_info = {syscall["index"]: {"signature": syscall["signature"], "category": syscall["file"].split("/")[0]} for syscall in syscalls_dict["syscalls"]}
+        return { syscall["index"]: {
+                    "signature": syscall["signature"],
+                    "category": syscall["file"].split("/")[0]
+                    } for syscall in syscalls_dict["syscalls"]
+                }
 
     def log_concat(self, unfinished, resumed):
         """
@@ -40,44 +52,32 @@ class Processes():
             for tail in resumed:
                 if head.group("pid") != tail.group("pid") or head.group("syscall_number") != tail.group("syscall_number"):
                     continue
-                data += " ".join([tail.group("pid"), tail.group("time"), head.group("unfinished") + tail.group("resumed"), "\n"])
+                data += " ".join([tail.group("pid"), tail.group("time"), head.group("unfinished") + tail.group("resumed") + "\n"])
                 resumed.remove(tail)
-                unfinished.remove(head)
                 break
         return data
     
-    def split_string_by_commas_ignore_braces(self, args_str):
-        args = []
-        current = ''
-        brace_level = 0
-        for char in args_str:
-            if char == ',' and brace_level == 0:
-                args.append(current)
-                current = ''
-            else:
-                current += char
-                if char in ['{', '[']:
-                    brace_level += 1
-                elif char in ['}', ']']:
-                    brace_level = max(brace_level - 1, 0)
-        args.append(current)
-        return [x.strip() for x in args if x.strip() != '']
-    
-    def run(self):
-        results = []
+    def normalize_logs(self):
         log_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+(?P<syscall_number>\d+)\]\s+(?P<syscall>\w+)\((?P<args>.*)\)\s+=\s(?P<retval>.+)\n')
         unfinished_pattern = re.compile(r'(?P<pid>\d+)\s+\d+:\d+:\d+\.\d+\s+(?P<unfinished>\[\s+(?P<syscall_number>\d+)\]\s+(?P<syscall>\w+)\(.*)<unfinished\s...>\n')
         resumed_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+(?P<syscall_number>\d+)\]\s+<\.\.\.\s(?P<syscall>\w+)\sresumed>(?P<resumed>.*)\n')
         # exited_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+\+\+\+ exited with 0 \+\+\+')
 
-        unfinished_logs = [x for x in unfinished_pattern.finditer(self._logs_path)]
-        resumed_logs = [x for x in resumed_pattern.finditer(self._logs_path)]
+        unfinished_logs = [x for x in unfinished_pattern.finditer(self._raw_strace_logs)]
+        resumed_logs = [x for x in resumed_pattern.finditer(self._raw_strace_logs)]
         concat_logs = self.log_concat(unfinished_logs, resumed_logs)
 
-        normal_logs = [x for x in log_pattern.finditer(self._logs_path)]
+        normal_logs = [x for x in log_pattern.finditer(self._raw_strace_logs)]
         normal_logs.extend([x for x in log_pattern.finditer(concat_logs)])
 
-        for event in normal_logs:
+        return normal_logs
+    
+    def parse_events(self):
+        logs = self.normalize_logs()
+        processes = {}
+        parent_relations = []
+
+        for event in logs:
             pid = event.group("pid")
             time = event.group("time")
             category = None
@@ -95,15 +95,52 @@ class Processes():
             else:
                 arguments.append(event.group("args"))
             retval = event.group("retval")
-            results.append({
-                "pid":pid,
-                "time": time,
+
+            if pid not in processes:
+                processes[pid] = {
+                    "process_id": pid,
+                    "parent_id": None,
+                    "first_seen": time,
+                    "calls": [],
+                }
+
+            if syscall in ["vfork", "clone", "clone3"]:
+                parent_relations.append((processes[retval]["parent_id"], pid))
+
+            processes[pid]["calls"].append({
+                "timestamp": time,
                 "category": category,
                 "syscall": syscall,
-                "arguments": arguments,
-                "retval": retval
-                        })
-        return results
+                "return": retval,
+                "arguments": arguments
+            })
+
+        # Update the parent_id after the loop
+        for pid, ppid in parent_relations:
+            processes[pid]["parent_id"] = ppid
+
+        return list(processes.values())
+    
+    def split_string_by_commas_ignore_braces(self, args_str):
+        args = []
+        current = ''
+        brace_level = 0
+        for char in args_str:
+            if char == ',' and brace_level == 0:
+                args.append(current)
+                current = ''
+            else:
+                current += char
+                if char in ['{', '[']:
+                    brace_level += 1
+                elif char in ['}', ']']:
+                    brace_level = max(brace_level - 1, 0)
+        args.append(current)
+
+        return [x.strip() for x in args if x.strip() != '']
+    
+    def run(self):
+        return self.parse_events()
 
 class ProcessTree():
     """ Generates process tree. """
@@ -162,7 +199,6 @@ class ProcessTree():
                     "parent_id": process.parent.pid,
                     "children": []
                 })
-                log.info("Processing strace logs")
         return self.tree
 
 class StraceAnalysis(Processing):

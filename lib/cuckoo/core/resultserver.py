@@ -158,6 +158,12 @@ class HandlerContext:
             fd.write(buf)
         fd.flush()
 
+    def discard(self):
+        self.drain_buffer()
+        while buf := self.read():
+            if buf == b"":
+                break
+
 
 class WriteLimiter:
     def __init__(self, fd, remain):
@@ -193,6 +199,10 @@ class FileUpload(ProtocolHandler):
         # shots/0001.jpg or files/9498687557/libcurl-4.dll.bin
         self.handler.sock.settimeout(30)
         dump_path = netlog_sanitize_fname(self.handler.read_newline())
+        if cfg.cuckoo.machinery_screenshots and dump_path.startswith(b"shots/"):
+            log.debug("Task #%s: discarding screenshot; machinery screenshots enabled", self.task_id)
+            self.discard()
+            return
 
         if self.version and self.version >= 2:
             # NB: filepath is only used as metadata

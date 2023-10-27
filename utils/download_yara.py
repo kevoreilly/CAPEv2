@@ -32,11 +32,11 @@ yara_file_names = set()
 
 # First, grab all of the YARA rules available at the analyzer subpath on GitHub
 resp = requests.get(ANALYZER_YARA_URL)
-page_content = resp.text.split("\n")
+page_content = resp.json().get("payload", {}).get("tree", {}).get("items", [])
 for line in page_content:
     if not line:
         continue
-    match = re.search(YARA_REGEX, line)
+    match = re.search(YARA_REGEX, line["name"])
     if match:
         yara_file_names.add(match.group(0))
 
@@ -63,11 +63,11 @@ yara_file_names = set()
 for d in SERVER_SIDE_YARA_PATH_DIRS:
 
     resp = requests.get(SERVER_SIDE_YARA_URL % d)
-    page_content = resp.text.split("\n")
+    page_content = resp.json().get("payload", {}).get("tree", {}).get("items", [])
     for line in page_content:
         if not line:
             continue
-        match = re.search(YARA_REGEX, line)
+        match = re.search(YARA_REGEX, line["name"])
         if match:
             yara_file_subpath = os.path.join(d, match.group(0))
             yara_file_names.add(yara_file_subpath)

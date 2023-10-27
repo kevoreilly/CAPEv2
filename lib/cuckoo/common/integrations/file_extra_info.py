@@ -921,10 +921,10 @@ def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
     with extractor_ctx(file, "MSIX", prefix="msixdump_") as ctx:
         tempdir = ctx["tempdir"]
         _ = run_tool(
-                ["unzip", file, "-d", tempdir],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
+            ["unzip", file, "-d", tempdir],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

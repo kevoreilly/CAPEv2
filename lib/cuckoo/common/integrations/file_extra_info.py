@@ -913,24 +913,15 @@ def office_one(file, **_) -> ExtractorReturnType:
 def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     """Work on MSIX Package"""
 
-    if not all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or not any(
+    if not all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) and not any(
         "MSIX Windows app" in string for string in data_dictionary.get("trid", [])
     ):
         return
 
     with extractor_ctx(file, "MSIX", prefix="msixdump_") as ctx:
         tempdir = ctx["tempdir"]
-        if HAVE_SFLOCK:
-            unpacked = unpack(file.encode())
-            for child in unpacked.children:
-                _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
-        else:
-            _ = run_tool(
-                [
-                    "unzip",
-                    file,
-                    f"-d {tempdir}",
-                ],
+        _ = run_tool(
+                ["unzip", file, "-d", tempdir],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )

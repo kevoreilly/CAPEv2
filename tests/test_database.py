@@ -100,7 +100,7 @@ class TestDatabaseEngine:
         t2_tag_list.sort()
 
         assert t1_tag_list == ["bar", "foo", "x86"]
-        assert t2_tag_list == ["far", "boo", "x86"]
+        assert t2_tag_list == ["boo", "far", "x86"]
 
     def test_reschedule_file(self):
         count = self.session.query(Task).count()

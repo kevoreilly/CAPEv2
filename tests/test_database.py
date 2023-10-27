@@ -90,9 +90,17 @@ class TestDatabaseEngine:
         assert self.d.view_task(t1).options == "foo=bar"
 
     def test_task_tags_str(self):
-        task = self.d.add_path(self.temp_filename, tags="foo,,bar")
-        tag_list = list(self.d.view_task(task).tags)
-        assert [str(x.name) for x in tag_list].sort() == ["foo", "bar"].sort()
+        t1 = self.d.add_path(self.temp_filename, tags="foo,,bar")
+        t2 = self.d.add_path(self.temp_filename, tags="boo,,far")
+
+        t1_tag_list = [str(x.name) for x in list(self.d.view_task(t1).tags)]
+        t2_tag_list = [str(x.name) for x in list(self.d.view_task(t2).tags)]
+
+        t1_tag_list.sort()
+        t1_tag_list.sort()
+
+        assert t1_tag_list == ["bar", "foo", "x86"]
+        assert t2_tag_list == ["boo", "far", "x86"]
 
     def test_reschedule_file(self):
         count = self.session.query(Task).count()

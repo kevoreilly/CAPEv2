@@ -3,6 +3,7 @@ import time
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import MSOFFICE_TRUSTED_PATH
 from lib.common.exceptions import CuckooPackageError
 
 
@@ -16,6 +17,7 @@ class DOC_ANTIVM(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
     ]
+    default_curdir = MSOFFICE_TRUSTED_PATH
 
     def start(self, path):
         # Determine if the submitter wants the sample to be monitored

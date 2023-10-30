@@ -15,6 +15,7 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
 from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename
 
+sfFile = False
 sf_version = ""
 try:
     from sflock import __version__ as sf_version
@@ -25,7 +26,7 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\nsudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\npoetry install")
+    print("\n\n[!] Missde dependencies. Run: poetry install\n\n")
     HAS_SFLOCK = False
 
 if sf_version and int(sf_version.split(".")[-1]) < 42:

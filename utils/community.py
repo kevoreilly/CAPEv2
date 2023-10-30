@@ -220,7 +220,7 @@ def main():
             "mitre",
             "common",
         ]
-        flare_capa()
+        flare_capa(args.proxy)
     else:
         if args.feeds:
             enabled.append("feeds")

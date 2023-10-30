@@ -120,6 +120,7 @@ class TestAnalysisManager:
             "reschedule": False,
             "rooter": "/tmp/cuckoo-rooter",
             "machinery": "kvm",
+            "machinery_screenshots": False,
             "delete_archive": True,
             "max_vmstartup_count": 5,
             "daydelta": 0,

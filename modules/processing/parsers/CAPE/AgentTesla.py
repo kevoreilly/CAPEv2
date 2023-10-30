@@ -1,6 +1,24 @@
+from contextlib import suppress
+from lib.cuckoo.common.integrations.strings import extract_strings
+
 def extract_config(data):
     config_dict = {}
     if data[:2] == b"MZ":
+        lines = extract_strings(data=data, on_demand=True, minchars=3)
+        if not lines:
+            return
+        with suppress(Exception):
+            base = next(i for i, line in enumerate(lines) if "Mozilla/5.0" in line)
+            if base:
+                if "ftp" in lines[base + 3]:
+                    config_dict["Protocol"] = "FTP"
+                elif "@" in lines[base + 4]:
+                    config_dict["Protocol"] = "SMTP"
+                config_dict["Port"] = lines[base + 2]
+                config_dict["C2"] = lines[base + 3]
+                config_dict["Username"] = lines[base + 4]
+                config_dict["Password"] = lines[base + 5]
+                return config_dict
         return
     try:
         lines = data.decode().split("\n")

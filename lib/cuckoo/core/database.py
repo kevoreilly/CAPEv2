@@ -45,6 +45,7 @@ try:
         func,
         not_,
         select,
+        or_
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.orm import backref, declarative_base, joinedload, relationship, sessionmaker
@@ -133,6 +134,9 @@ TASK_FAILED_ANALYSIS = "failed_analysis"
 TASK_FAILED_PROCESSING = "failed_processing"
 TASK_FAILED_REPORTING = "failed_reporting"
 TASK_DISTRIBUTED_COMPLETED = "distributed_completed"
+
+MACHINE_RUNNING = "running"
+MACHINE_SCHEDULED = "scheduled"
 
 ALL_DB_STATUSES = (
     TASK_BANNED,
@@ -835,9 +839,27 @@ class Database(object, metaclass=Singleton):
 
         return task_archs, task_tags
 
+    def validate_task_parameters(self, label: str, platform: str, tags: list) -> bool:
+        """Checks if a task is invalid based on parameters mismatch
+        @param label: label of the machine asked for by the task
+        @param platform: platform of the machine asked for by the task
+        @param tags: tags of task
+        @return: boolean indicating if a task is valid
+        """
+        # Preventive checks.
+        if label and platform:
+            # Wrong usage.
+            return False
+        elif label and tags:
+            # Also wrong usage.
+            return False
+        return True
+
     @classlock
-    def is_relevant_machine_available(self, task: Task) -> bool:
+    def is_relevant_machine_available(self, task: Task, set_status: bool = True) -> bool:
         """Checks if a machine that is relevant to the given task is available
+        @param task: task to validate
+        @param set_status: boolean which indicate if the status of the task should be changed to TASK_RUNNING in the DB.
         @return: boolean indicating if a relevant machine is available
         """
         task_archs, task_tags = self._task_arch_tags_helper(task)
@@ -847,9 +869,53 @@ class Database(object, metaclass=Singleton):
         )
         if len(vms) > 0:
             # There are? Awesome!
-            self.set_status(task_id=task.id, status=TASK_RUNNING)
+            if set_status:
+                self.set_status(task_id=task.id, status=TASK_RUNNING)
             return True
         return False
+
+    @classlock
+    def map_tasks_to_available_machines(self, tasks: list) -> list:
+        """Map tasks to available_machines to schedule in batch and prevent double spending of machines 
+        @param tasks: List of tasks to filter
+        @return: list of tasks that should be started by the scheduler
+        """
+        results = []
+        assigned_machines = []
+        for task in tasks:
+            task_archs, task_tags = self._task_arch_tags_helper(task)
+            os_version = self._package_vm_requires_check(task.package)
+            machine = None
+            if not self.validate_task_parameters(label=task.machine, platform=task.platform, tags=task_tags):
+                continue
+            with self.Session() as session:
+                try:
+                    machines = session.query(Machine).options(joinedload(Machine.tags))
+                    machines = self.filter_machines_to_task(
+                        machines=machines,
+                        label=task.machine,
+                        platform=task.platform,
+                        tags=task_tags,
+                        archs=task_archs,
+                        os_version=os_version
+                    )
+                    # This loop is there in order to prevent double spending of machines by filtering
+                    # out already mapped machines
+                    for assigned in assigned_machines:
+                        machines = machines.filter(Machine.label.notlike(assigned.label))
+                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
+                    # Get the first free machine.
+                    machine = machines.first()
+                    if machine:
+                        assigned_machines.append(machine)
+                        self.set_status(task_id=task.id, status=TASK_RUNNING)
+                        results.append(task)
+                except SQLAlchemyError as e:
+                    log.debug("Database error batch scheduling machines: %s", e)
+                    return []
+        for assigned in assigned_machines:
+            self.set_machine_status(assigned.label, MACHINE_SCHEDULED)
+        return results
 
     @classlock
     def is_serviceable(self, task: Task) -> bool:
@@ -977,6 +1043,40 @@ class Database(object, metaclass=Singleton):
                 machines = machines.filter(Machine.arch.in_(arch))
         return machines
 
+    def filter_machines_to_task(
+            self,
+            machines: list,
+            label=None,
+            platform=None,
+            tags=None,
+            archs=None,
+            os_version=[],
+            include_reserved=False
+        ) -> list:
+        """ Add filters to the given list of machines based on the task
+        @param machines: List of machines where the filter will be applied
+        @param label: label of the machine(s) expected for the task
+        @param platform: platform of the machine(s) expected for the task
+        @param tags: tags of the machine(s) expected for the task
+        @param archs: architectures of the machine(s) expected for the task
+        @param os_version: Version of the OSs of the machine(s) expected for the task
+        @param include_reserved: Flag to indicate if the list of machines returned should include reserved machines
+        @return: list of machines after filtering the inputed one
+        """
+        if label:
+            machines = machines.filter_by(label=label)
+        elif not include_reserved:
+            machines = machines.filter_by(reserved=False)
+        if platform:
+            machines = machines.filter_by(platform=platform)
+        machines = self.filter_machines_by_arch(machines, archs)
+        if tags:
+            for tag in tags:
+                machines = machines.filter(Machine.tags.any(name=tag))
+        if os_version:
+            machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
+        return machines
+
     @classlock
     def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None, include_reserved=False, os_version=[]):
         """Lists virtual machines.
@@ -993,20 +1093,15 @@ class Database(object, metaclass=Singleton):
                 machines = session.query(Machine).options(joinedload(Machine.tags))
                 if locked is not None and isinstance(locked, bool):
                     machines = machines.filter_by(locked=locked)
-                if label:
-                    machines = machines.filter_by(label=label)
-                elif not include_reserved:
-                    machines = machines.filter_by(reserved=False)
-                if platform:
-                    machines = machines.filter_by(platform=platform)
-                machines = self.filter_machines_by_arch(machines, arch)
-                if os_version:
-                    machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
-                # We can't check os version in tags due to that all tags should be satisfied
-                if tags:
-                    # machines = machines.filter(Machine.tags.all(Tag.name.in_(tags)))
-                    for tag in tags:
-                        machines = machines.filter(Machine.tags.any(name=tag))
+                machines = self.filter_machines_to_task(
+                    machines=machines,
+                    label=label,
+                    platform=platform,
+                    tags=tags,
+                    archs=arch,
+                    os_version=os_version,
+                    include_reserved=include_reserved
+                )
                 return machines.all()
             except SQLAlchemyError as e:
                 print(e)
@@ -1014,44 +1109,31 @@ class Database(object, metaclass=Singleton):
                 return []
 
     @classlock
-    def lock_machine(self, label=None, platform=None, tags=None, arch=None, os_version=[]):
+    def lock_machine(self, label=None, platform=None, tags=None, arch=None, os_version=[], need_scheduled=False):
         """Places a lock on a free virtual machine.
         @param label: optional virtual machine label
         @param platform: optional virtual machine platform
         @param tags: optional tags required (list)
         @param arch: optional virtual machine arch
-        @os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
+        @param os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
+        @param need_scheduled: should the result be filtered on 'scheduled' machine status
         @return: locked machine
         """
-        with self.Session() as session:
+        if not self.validate_task_parameters(label=label, platform=platform, tags=tags):
+            return None
 
-            # Preventive checks.
-            if label and platform:
-                # Wrong usage.
-                log.error("You can select machine only by label or by platform")
-                session.close()
-                return None
-            elif label and tags:
-                # Also wrong usage.
-                log.error("You can select machine only by label or by tags")
-                session.close()
-                return None
+        with self.Session() as session:
 
             try:
                 machines = session.query(Machine)
-                if label:
-                    machines = machines.filter_by(label=label)
-                else:
-                    machines = machines.filter_by(reserved=False)
-                if platform:
-                    machines = machines.filter_by(platform=platform)
-                machines = self.filter_machines_by_arch(machines, arch)
-                if tags:
-                    # machines = machines.filter(Machine.tags.all(Tag.name.in_(tags)))
-                    for tag in tags:
-                        machines = machines.filter(Machine.tags.any(name=tag))
-                if os_version:
-                    machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
+                machines = self.filter_machines_to_task(
+                    machines=machines,
+                    label=label,
+                    platform=platform,
+                    tags=tags,
+                    archs=arch,
+                    os_version=os_version
+                )
                 # Check if there are any machines that satisfy the
                 # selection requirements.
                 if not machines.count():
@@ -1059,7 +1141,8 @@ class Database(object, metaclass=Singleton):
                         "No machines match selection criteria of label: '%s', platform: '%s', arch: '%s', tags: '%s'"
                         % (label, platform, arch, tags)
                     )
-
+                if need_scheduled:
+                    machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
                 # Get the first free machine.
                 machine = machines.filter_by(locked=False).first()
             except SQLAlchemyError as e:
@@ -1118,19 +1201,15 @@ class Database(object, metaclass=Singleton):
         with self.Session() as session:
             try:
                 machines = session.query(Machine).filter_by(locked=False)
-                if label:
-                    machines = machines.filter_by(label=label)
-                elif not include_reserved:
-                    machines = machines.filter_by(reserved=False)
-                if platform:
-                    machines = machines.filter_by(platform=platform)
-                machines = self.filter_machines_by_arch(machines, arch)
-                if tags:
-                    # machines = machines.filter(Machine.tags.all(Tag.name.in_(tags)))
-                    for tag in tags:
-                        machines = machines.filter(Machine.tags.any(name=tag))
-                if os_version:
-                    machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
+                machines = self.filter_machines_to_task(
+                    machines=machines,
+                    label=label,
+                    platform=platform,
+                    tags=tags,
+                    archs=arch,
+                    os_version=os_version,
+                    include_reserved=include_reserved
+                )
                 return machines.count()
             except SQLAlchemyError as e:
                 log.debug("Database error counting machines: %s", e)

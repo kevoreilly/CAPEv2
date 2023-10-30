@@ -483,7 +483,7 @@ class Azure(Machinery):
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[]):
+    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[], need_scheduled=False):
         """
         Overloading abstracts.py:acquire() to utilize the auto-scale option.
         @param machine_id: the name of the machine to be acquired
@@ -493,7 +493,7 @@ class Azure(Machinery):
         @return: dict representing machine object from DB
         """
         base_class_return_value = super(Azure, self).acquire(
-            machine_id=machine_id, platform=platform, tags=tags, arch=arch, os_version=os_version
+            machine_id=machine_id, platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled
         )
         if base_class_return_value and base_class_return_value.name:
             vmss_name, _ = base_class_return_value.name.split("_")

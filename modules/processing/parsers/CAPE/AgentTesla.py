@@ -12,7 +12,22 @@ def extract_config(data):
         with suppress(Exception):
             base = next(i for i, line in enumerate(lines) if "Mozilla/5.0" in line)
             if base:
-                if "ftp" in lines[base + 3]:
+                if "telegram.org" in lines[base + 2]:
+                    config_dict["Protocol"] = "Telegram"
+                    config_dict["C2"] = lines[base + 2]
+                    config_dict["Password"] = lines[base + 3]
+                    return config_dict
+                if "discord.com" in lines[base + 2]:
+                    config_dict["Protocol"] = "Discord"
+                    config_dict["C2"] = lines[base + 2]
+                    return config_dict
+                elif ".exe" in lines[base + 4]:
+                    config_dict["Filename"] = lines[base + 4]
+                    return config_dict
+                elif ".exe" in lines[base + 5]:
+                    config_dict["Filename"] = lines[base + 5]
+                    return config_dict
+                elif "ftp" in lines[base + 3]:
                     config_dict["Protocol"] = "FTP"
                 elif "@" in lines[base + 4]:
                     config_dict["Protocol"] = "SMTP"

@@ -1,10 +1,15 @@
+### [1.11.2023] ZPAQ Support
+* __ACTION REQUIRED__
+    * `sudo apt install zpaq`
+    * as cape user: `poetry install`
+
 ### [20.10.2023]
 * Monitor fixes: address new issue affecting procdump and add check in compileMethod hook
-    
+
 ### [19.10.2023]
 * Monitor update:
     * Unpacker: reduce/filter unwanted .NET payloads
-    
+
 ### [13.10.2023]
 * Formbook updates
 * Monitor updates:
@@ -12,7 +17,7 @@
     * Debugger action enhancements: setptr, patch, sleep, exit
     * Software breakpoint handler enhancement
     * Misc fixes/improvements
-    
+
 ### [11.10.2023]
 * Formbook config extraction
 * Monitor updates:

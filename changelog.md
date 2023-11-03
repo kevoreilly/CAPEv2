@@ -1,3 +1,9 @@
+### [3.11.2023]
+* Monitor updates:
+    * New debugger actions: 'setsrc' & 'setdst' to set values pointed at by instruction operands
+    * Improve filtering of uninteresting process dumps
+    * Misc fixes/improvements
+
 ### [1.11.2023] ZPAQ Support
 * __ACTION REQUIRED__
     * `sudo apt install zpaq`

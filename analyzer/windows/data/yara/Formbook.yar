@@ -3,12 +3,14 @@ rule Formbook
     meta:
         author = "kevoreilly"
         description = "Formbook Anti-hook Bypass"
-        cape_options = "bp0=$remap_ntdll_0,action0=setedx:ntdll,count0=1,bp1=$remap_ntdll_1,action1=setptr:esi+12::ntdll,count1=1,force-sleepskip=1"
+        cape_options = "bp0=$remap_ntdll_0,action0=setedx:ntdll,count0=1,bp1=$remap_ntdll_1,bp1=$remap_ntdll_2,action1=setdst:ntdll,count1=1,force-sleepskip=1"
         packed = "9e38c0c3c516583da526016c4c6a671c53333d3d156562717db79eac63587522"
         packed = "b8e44f4a0d92297c5bb5b217c121f0d032850b38749044face2b0014e789adfb"
+        packed = "08c5f44d57f5ccc285596b3d9921bf7fbbbf7f9a827bb3285a800e4c9faf6731"
     strings:
         $remap_ntdll_0 = {33 56 04 8D 86 [2] 00 00 68 F0 00 00 00 50 89 56 ?? E8 [4] 8B [1-5] 6A 00 6A 04 8D 4D ?? 51 6A 07 52 56 E8 [4] 8B 45 ?? 83 C4 20 3B}
         $remap_ntdll_1 = {33 56 0C 8D 86 [2] 00 00 68 F0 00 00 00 50 89 56 ?? E8 [4] 8B [1-5] 6A 00 6A 04 8D 4D ?? 51 6A 07 52 56 E8 [4] 8B 45 ?? 83 C4 20 3B}
+        $remap_ntdll_2 = {33 96 [2] 00 00 8D 86 [2] 00 00 68 F0 00 00 00 50 89 [2-5] E8 [4] 8B 96 [2] 00 00 6A 00 6A 04 8D 4D ?? 51 6A 07 52 56 E8}
     condition:
         any of them
 }
@@ -32,11 +34,13 @@ rule FormconfB
     meta:
         author = "kevoreilly"
         description = "Formbook Config Extraction"
-        cape_options = "clear,bp0=$c2,action0=string:rcx+1,bp1=$decoy,action1=string:rcx+1,bp2=$config,action2=scan,count=0,typestring=Formbook Config"
+        cape_options = "clear,bp0=$c2_a,bp0=$c2_b,action0=string:rcx+1,bp1=$decoy,action1=string:rcx+1,bp2=$config,action2=scan,count=0,typestring=Formbook Config"
         packed = "ad81131f4f7e0ca1b4b89f17e63d766b1b4c18d1cb873db08de57ed86f9bb140"
+        packed = "0270016f451f9ba630f2ea4e2ea006fb89356627835b560bb2f4551a735ba0e1"
     strings:
-        $c2 = {44 0F B6 5D ?? 45 84 DB 74 ?? 48 8D 4D [1-5] 41 80 FB 2F 74 11 0F B6 41 01 48 FF C1 FF C3 44 0F B6 D8 84 C0 75}
-        $decoy = {45 3B B5 [2] 00 00 44 8D 1C 33 48 8D 7D ?? 42 C6 44 [2] 00 49 0F 44 FF 48 8B CF E8}
+        $c2_a = {41 80 FB 2F 74 11 0F B6 41 01 48 FF C1 FF C3 44 0F B6 D8 84 C0 75}
+        $c2_b = {49 8D 95 [2] 00 00 49 8D 8D [2] 00 00 41 B8 07 00 00 00 E8 [4] 49 8B CD 45 88 B5 [2] 00 00 E8 [4] 33 C0}
+        $decoy = {45 3B B5 [2] 00 00 [0-7] 44 8D 1C 33 48 8D 7D [1-5] 42 C6 44 [2] 00 [0-4] 48 8B CF E8}
         $config = {40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 [4] 48 81 EC [2] 00 00 45 33 F6 33 C0 4C 8B E9 4C 89 75}
     condition:
         any of them

@@ -335,6 +335,8 @@ class File:
                 if fn:
                     try:
                         file_type = fn(self.file_path_ansii)
+                    except magic.MagicException as e:
+                        log.error("Magic error: %s", str(e))
                     except Exception as e:
                         log.error(e, exc_info=True)
                 if not file_type and hasattr(magic, "open"):

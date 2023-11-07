@@ -578,13 +578,16 @@ class PortableExecutable:
             idx = [entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries]
             if pefile.RESOURCE_TYPE["RT_GROUP_ICON"] not in idx:
                 return None, None, None, None
-
-            rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE["RT_GROUP_ICON"])
-            rt_group_icon_dir = pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
-            entry = rt_group_icon_dir.directory.entries[0]
-            offset = entry.directory.entries[0].data.struct.OffsetToData
-            size = entry.directory.entries[0].data.struct.Size
-            peicon = PEGroupIconDir(pe.get_memory_mapped_image()[offset : offset + size])
+            try:
+                rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE["RT_GROUP_ICON"])
+                rt_group_icon_dir = pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
+                entry = rt_group_icon_dir.directory.entries[0]
+                offset = entry.directory.entries[0].data.struct.OffsetToData
+                size = entry.directory.entries[0].data.struct.Size
+                peicon = PEGroupIconDir(pe.get_memory_mapped_image()[offset : offset + size])
+            except Exception as e:
+                log.error(e)
+                return None, None, None, None
             bigwidth = 0
             bigheight = 0
             bigbpp = 0

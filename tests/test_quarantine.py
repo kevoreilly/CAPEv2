@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import pathlib
 import tempfile
 
 import pytest
@@ -68,6 +69,9 @@ class TestUnquarantine:
         filename = tmp_path
     """
 
+    @pytest.mark.skipif(
+        not (pathlib.Path(__file__).parent / "data" / "quarantine").exists(), reason="Required data file is not present"
+    )
     def test_mbam(self):
         assert (
             mbam_unquarantine("tests/data/quarantine/d0f51ff313ede61e1c4d7d57b644507a4bd46455e3e617e66c922c8c0c07024b.mbam").rsplit(
@@ -76,6 +80,9 @@ class TestUnquarantine:
             == b"MBAMDequarantineFile"
         )
 
+    @pytest.mark.skipif(
+        not (pathlib.Path(__file__).parent / "data" / "quarantine").exists(), reason="Required data file is not present"
+    )
     def test_mse(self):
         assert (
             mse_unquarantine("tests/data/quarantine/70dbb01654db5a1518091377f27f9a382657c5e32ecdec5074680215dc3a7f65.mse").rsplit(

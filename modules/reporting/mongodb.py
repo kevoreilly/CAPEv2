@@ -176,3 +176,12 @@ class MongoDB(Report):
                     except Exception as e:
                         log.error("Failed to delete child key: %s", e)
                         error_saved = False
+        except Exception as e:
+            log.error("Deleting behavior process tree children from results.")
+            del report["behavior"]["processtree"][0]["children"]
+            try:
+                mongo_insert_one("analysis", report)
+            except:
+                log.error("Deleting behavior process tree parent from results.")
+                del report["behavior"]["processtree"][0]
+                mongo_insert_one("analysis", report)

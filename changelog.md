@@ -1,5 +1,6 @@
 ### [7.11.2023]
 * Monitor updates: Misc debugger tweaks
+* XWorm config extraction
 
 ### [3.11.2023]
 * Monitor updates:

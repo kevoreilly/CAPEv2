@@ -354,11 +354,12 @@ def _load_report(task_id: int):
 
     if repconf.mongodb.enabled:
         analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
-        for process in analysis.get("behavior", {}).get("processes", []):
-            calls = [ObjectId(call) for call in process["calls"]]
-            process["calls"] = []
-            for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
-                process["calls"] += call["calls"]
+        if analysis_info := analysis.get("strace", analysis.get("behavior", {})):
+            for process in analysis_info.get("processes", []):
+                calls = [ObjectId(call) for call in process["calls"]]
+                process["calls"] = []
+                for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
+                    process["calls"] += call["calls"]
         return analysis
 
     if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:

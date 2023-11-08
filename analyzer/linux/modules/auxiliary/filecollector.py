@@ -132,7 +132,7 @@ class FileCollector(Auxiliary, Thread):
                 if os.path.basename(event.pathname) == "stap.log":
                     return
 
-                if os.path.basename(event.pathname) == "strace.log":
+                if "strace.log" in os.path.basename(event.pathname):
                     return
 
                 try:

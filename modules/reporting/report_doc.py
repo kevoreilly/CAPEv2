@@ -58,7 +58,6 @@ def get_json_document(results, analysis_path):
     # the original dictionary and possibly
     # compromise the following reporting modules.
     report = copy.deepcopy(results)
-
     if "network" not in report:
         report["network"] = {}
 
@@ -107,7 +106,8 @@ def insert_calls(report, elastic_db=None, mongodb=False):
     # issue with the oversized reports exceeding MongoDB's boundaries.
     # Also allows paging of the reports.
     new_processes = []
-    for process in report.get("behavior", {}).get("processes", []) or []:
+    report_info = report.get("strace", report.get("behavior", {}))
+    for process in report_info.get("processes", []):
         new_process = dict(process)
         chunk = []
         chunks_ids = []

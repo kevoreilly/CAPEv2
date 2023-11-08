@@ -308,7 +308,8 @@ class Analyzer:
             log.warning('The package "%s" package_files function raised an exception: %s', package_class, e)
         try:
             # Upload the strace logs to host
-            upload_to_host(os.path.join(PATHS["strace"], "strace.log"), "strace/strace.log")
+            for file in os.listdir(PATHS["strace"]):
+                upload_to_host(os.path.join(PATHS["strace"], file), os.path.join("strace", file))
         except Exception as e:
             log.warning('The strace log failed to transfer')
 

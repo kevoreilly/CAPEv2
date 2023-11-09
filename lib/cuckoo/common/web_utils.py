@@ -16,7 +16,7 @@ import requests
 from django.http import HttpResponse
 
 HAVE_PYZIPPER = False
-with supress(ImportError):
+with suppress(ImportError):
     import pyzipper
     HAVE_PYZIPPER = True
 
@@ -1304,8 +1304,8 @@ def get_hash_list(hashes):
     return hashlist
 
 
-def download_from_vt(vtdl, details, opt_filename, settings):
-    for h in get_hash_list(vtdl):
+def download_from_vt(samples, details, opt_filename, settings):
+    for h in get_hash_list(samples):
         folder = os.path.join(settings.VTDL_PATH, "cape-vt")
         if not path_exists(folder):
             path_mkdir(folder, exist_ok=True)
@@ -1345,30 +1345,16 @@ def download_from_vt(vtdl, details, opt_filename, settings):
 
     return details
 
-def _malwarebazaar_helper(hash):
-    try:
-        #ToDo add suppport for md5 and sha1
-        data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", "sha256_hash": hash})
-        if data.ok and b"file_not_found" not in data.content:
-            try:
-                with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
-                    zf.setpassword(b"infected")
-                    data = zf.read(zf.namelist()[0])
-            except pyzipper.zipfile.BadZipFile:
-                print(data.content)
-            return data
-    except Exception as e:
-        logging.error(e, exc_info=True)
-    return False
 
-# ToDo  most of the code should be generic between VT/MB/etc
-def dl_from_malwarebazaar(mbdl, details, opt_filename, settings):
-
-    for h in get_hash_list(mbdl):
-        folder = os.path.join(settings.MBDL_PATH, "cape-mbdl")
+def download_from_bazaar(samples, details, opt_filename, settings):
+    if not HAVE_PYZIPPER:
+        print("Malware Bazaar download: Missed pyzipper dependency: pip3 install pyzipper -U")
+        return
+    for h in get_hash_list(samples):
+        folder = os.path.join(settings.BAZAAR_PATH, "cape-bazaar")
         if not path_exists(folder):
             path_mkdir(folder, exist_ok=True)
-        base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
+        base_dir = tempfile.mkdtemp(prefix="bazaar", dir=folder)
         if opt_filename:
             filename = f"{base_dir}/{opt_filename}"
         else:
@@ -1382,7 +1368,20 @@ def dl_from_malwarebazaar(mbdl, details, opt_filename, settings):
         if paths:
             details["content"] = get_file_content(paths)
 
-        sample = _malwarebazaar_helper(h)
+        sample = None
+        try:
+            #ToDo add suppport for md5 and sha1
+            data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", "sha256_hash": hash})
+            if data.ok and b"file_not_found" not in data.content:
+                try:
+                    with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
+                        zf.setpassword(b"infected")
+                        sample = zf.read(zf.namelist()[0])
+                except pyzipper.zipfile.BadZipFile:
+                    print(data.content)
+        except Exception as e:
+            logging.error(e, exc_info=True)
+
         if not sample:
             continue
         details["content"] = sample
@@ -1400,7 +1399,6 @@ def dl_from_malwarebazaar(mbdl, details, opt_filename, settings):
             details["task_ids"] = task_ids_tmp
 
     return details
-
 
 
 def process_new_task_files(request, samples, details, opt_filename, unique):

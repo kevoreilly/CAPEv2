@@ -27,6 +27,7 @@ from lib.cuckoo.common.web_utils import (
     all_vms_tags,
     download_file,
     download_from_vt,
+    download_from_bazaar,
     get_file_content,
     parse_request_arguments,
     perform_search,
@@ -343,7 +344,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
-        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl"):
+        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl", "bazaar"):
             task_category = job_category
 
         if task_category == "resubmit":
@@ -491,6 +492,10 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["apikey"] = opt_apikey
                 details = download_from_vt(samples, details, opt_filename, settings)
 
+        elif task_category == "bazaar":
+            if not settings.BAZAAR_PATH:
+                details = download_from_bazaar(samples, details, opt_filename, settings)
+
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])
         else:
@@ -509,6 +514,7 @@ def index(request, task_id=None, resubmit_hash=None):
     else:
         enabledconf = {}
         enabledconf["vt"] = settings.VTDL_ENABLED
+        enabledconf["bazaar"] = settings.BAZAAR_ENABLED
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")
         enabledconf["procmemory"] = processing.procmemory.get("enabled")

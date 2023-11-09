@@ -98,12 +98,12 @@ class ParseProcessLog(list):
     def fetch_calls(self, syscalls_info):
         for event in self.normalize_logs():
             time = event.group("time")
-            category = None
+            category = "misc"
             syscall = event.group("syscall")
             arguments = []
             args = self.split_arguments(event.group("args"))
             if syscall_info := syscalls_info.get(int(event.group("syscall_number")), None):
-                category = syscall_info.get("category", None)
+                category = syscall_info.get("category", "misc")
                 arg_names = syscall_info.get("signature", None)
                 for arg_name, arg in zip(arg_names, args):
                     arguments.append({
@@ -114,7 +114,7 @@ class ParseProcessLog(list):
                 arguments.append(event.group("args"))
             retval = event.group("retval")
 
-            if len(self) == 0:
+            if len(self.calls) == 0:
                     self.first_seen = time
 
             if syscall in ["vfork", "clone", "clone3"]:
@@ -123,7 +123,7 @@ class ParseProcessLog(list):
             self.calls.append({
                 "timestamp": time,
                 "category": category,
-                "syscall": syscall,
+                "api": syscall,
                 "return": retval,
                 "arguments": arguments
             })
@@ -153,7 +153,7 @@ class Processes():
         syscalls_dict = json.load(syscalls_json)
         return { syscall["index"]: {
                     "signature": syscall["signature"],
-                    "category": syscall["file"].split("/")[0]
+                    "category": "kernel" if "kernel" in syscall["file"] else syscall["file"].split("/")[0]
                     } for syscall in syscalls_dict["syscalls"]
                 }
 
@@ -211,7 +211,6 @@ class Processes():
         # Sort the items in the results list chronologically. In this way we
         # can have a sequential order of spawned processes.
         results.sort(key=lambda process: process["first_seen"])
-        print(results)
 
         return results
 

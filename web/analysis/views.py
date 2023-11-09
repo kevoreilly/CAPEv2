@@ -781,6 +781,13 @@ def chunk(request, task_id, pid, pagenum):
                 {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
 
+            if record is None:
+                record = mongo_find_one(
+                    "analysis",
+                    {"info.id": int(task_id), "strace.processes.process_id": pid},
+                    {"strace.processes.process_id": 1, "strace.processes.calls": 1, "_id": 0},
+                )
+
         if es_as_db:
             record = es.search(
                 index=get_analysis_index(),
@@ -792,11 +799,23 @@ def chunk(request, task_id, pid, pagenum):
                 _source=["behavior.processes.process_id", "behavior.processes.calls"],
             )["hits"]["hits"][0]["_source"]
 
+            if record is None:
+                record = es.search(
+                index=get_analysis_index(),
+                body={
+                    "query": {
+                        "bool": {"must": [{"match": {"strace.processes.process_id": pid}}, {"match": {"info.id": task_id}}]}
+                    }
+                },
+                _source=["strace.processes.process_id", "strace.processes.calls"],
+            )["hits"]["hits"][0]["_source"]
+
         if not record:
             raise PermissionDenied
 
         process = None
-        for pdict in record["behavior"]["processes"]:
+        behavior_records = record.get("strace", record.get("behavior", {}))
+        for pdict in behavior_records.get("processes", None):
             if pdict["process_id"] == pid:
                 process = pdict
                 break
@@ -816,7 +835,10 @@ def chunk(request, task_id, pid, pagenum):
         else:
             chunk = dict(calls=[])
 
-        return render(request, "analysis/behavior/_chunk.html", {"chunk": chunk})
+        if record.get("strace", None):
+            return render(request, "analysis/strace/_chunk.html", {"chunk": chunk})
+        else:
+            return render(request, "analysis/behavior/_chunk.html", {"chunk": chunk})
     else:
         raise PermissionDenied
 
@@ -839,6 +861,14 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                 {"info.id": int(task_id), "behavior.processes.process_id": int(pid)},
                 {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
+
+            if record is None:
+                record = mongo_find_one(
+                    "analysis",
+                    {"info.id": int(task_id), "strace.processes.process_id": int(pid)},
+                    {"strace.processes.process_id": 1, "strace.processes.calls": 1, "_id": 0},
+                )
+
         if es_as_db:
             record = es.search(
                 index=get_analysis_index(),
@@ -850,12 +880,24 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                 _source=["behavior.processes.process_id", "behavior.processes.calls"],
             )["hits"]["hits"][0]["_source"]
 
+            if record is None:
+                record = es.search(
+                index=get_analysis_index(),
+                body={
+                    "query": {
+                        "bool": {"must": [{"match": {"strace.processes.process_id": pid}}, {"match": {"info.id": task_id}}]}
+                    }
+                },
+                _source=["strace.processes.process_id", "strace.processes.calls"],
+            )["hits"]["hits"][0]["_source"]
+
         if not record:
             raise PermissionDenied
 
         # Extract embedded document related to your process from response collection.
         process = None
-        for pdict in record["behavior"]["processes"]:
+        behavior_records = record.get("strace", record.get("behavior", {}))
+        for pdict in behavior_records.get("processes", None):
             if pdict["process_id"] == int(pid):
                 process = pdict
 
@@ -899,7 +941,10 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                     else:
                         filtered_process["calls"].append(call)
 
-        return render(request, "analysis/behavior/_chunk.html", {"chunk": filtered_process})
+        if record.get("strace", None):
+            return render(request, "analysis/strace/_chunk.html", {"chunk": filtered_process})
+        else:
+            return render(request, "analysis/behavior/_chunk.html", {"chunk": filtered_process})
     else:
         raise PermissionDenied
 

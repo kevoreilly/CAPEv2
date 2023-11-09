@@ -1,0 +1,18 @@
+<table class="table table-bordered table-responsive-lg" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <td width="12%"><strong>Timestamp</strong></td>
+            <td width="15%"><strong>Syscall</strong></td>
+            <td width="48%"><strong>Arguments</strong></td>
+            <!-- <td width="12%"><strong>Status</strong></td> -->
+            <td width="13%"><strong>Return Value</strong></td>
+        </tr>
+    </thead>
+    <tbody>
+    {% for call in chunk.calls %}
+        <tr class="{{call.category}}" id="call_{{call.id}}">
+            {% include "analysis/strace/_api_call.html" %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

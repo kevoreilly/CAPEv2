@@ -1,21 +1,7 @@
 {% if strace %}
     {% include "analysis/strace/_tree.html" %}
-    <table class="table table-bordered" style="table-layout: fixed;">
-        <tbody>
-            <tr>
-                <td width=60px><strong>Timestamp</strong></td>
-                <td width=20px><strong>PID</strong></td>
-                <td width=100px><strong>Syscall</strong></td>
-                <td width=100px><strong>Arguments</strong></td>
-                <td width=100px><strong>Return Value</strong></td>
-            </tr>
-            {% for process in strace.processes %}
-            <tr>
-                {% include "analysis/strace/_syscall.html" %}
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <hr />
+    {% include "analysis/strace/_processes.html" %}
 {% else %}
     <div class="alert alert-primary"><b>Sorry!</b> No strace.</div>
 {% endif %}

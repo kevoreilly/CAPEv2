@@ -15,6 +15,11 @@ import magic
 import requests
 from django.http import HttpResponse
 
+HAVE_PYZIPPER = False
+with supress(ImportError):
+    import pyzipper
+    HAVE_PYZIPPER = True
+
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
@@ -1339,6 +1344,63 @@ def download_from_vt(vtdl, details, opt_filename, settings):
             details["task_ids"] = task_ids_tmp
 
     return details
+
+def _malwarebazaar_helper(hash):
+    try:
+        #ToDo add suppport for md5 and sha1
+        data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", "sha256_hash": hash})
+        if data.ok and b"file_not_found" not in data.content:
+            try:
+                with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
+                    zf.setpassword(b"infected")
+                    data = zf.read(zf.namelist()[0])
+            except pyzipper.zipfile.BadZipFile:
+                print(data.content)
+            return data
+    except Exception as e:
+        logging.error(e, exc_info=True)
+    return False
+
+# ToDo  most of the code should be generic between VT/MB/etc
+def dl_from_malwarebazaar(mbdl, details, opt_filename, settings):
+
+    for h in get_hash_list(mbdl):
+        folder = os.path.join(settings.MBDL_PATH, "cape-mbdl")
+        if not path_exists(folder):
+            path_mkdir(folder, exist_ok=True)
+        base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
+        if opt_filename:
+            filename = f"{base_dir}/{opt_filename}"
+        else:
+            filename = f"{base_dir}/{sanitize_filename(h)}"
+        paths = db.sample_path_by_hash(h)
+
+        # clean old content
+        if "content" in details:
+            del details["content"]
+
+        if paths:
+            details["content"] = get_file_content(paths)
+
+        sample = _malwarebazaar_helper(h)
+        if not sample:
+            continue
+        details["content"] = sample
+        details["fhash"] = h
+        details["path"] = filename
+        details["service"] = "MalwareBazaar"
+        if not details.get("content", False):
+            status, task_ids_tmp = download_file(**details)
+        else:
+            details["service"] = "Local"
+            status, task_ids_tmp = download_file(**details)
+        if status == "error":
+            details["errors"].append({h: task_ids_tmp})
+        else:
+            details["task_ids"] = task_ids_tmp
+
+    return details
+
 
 
 def process_new_task_files(request, samples, details, opt_filename, unique):

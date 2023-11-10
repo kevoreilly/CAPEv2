@@ -2,9 +2,8 @@ domain_passlist_re = [
     # Certificate Trust Update domains
     r"^ocsp\.usertrust\.com$",
     r"\.windows\.com$",
+    r"\.windowsupdate\.com$",
     r"^ocsp\.comodoca\.com$",
-    r"^ctldl\.windowsupdate\.com$",
-    r"^www\.download\.windowsupdate\.com$",
     r"^crl\.microsoft\.com$",
     r"^urs\.microsoft\.com$",
     r"\.microsoft\.com$",

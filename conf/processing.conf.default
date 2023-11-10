@@ -69,6 +69,8 @@ replace_patterns = no
 
 [strace]
 enabled = no
+# Toggle specific modules within the StraceAnalysis class
+processtree = no
 
 [debug]
 enabled = yes

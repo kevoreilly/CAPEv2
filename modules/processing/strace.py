@@ -4,7 +4,6 @@ import json
 import os
 import tempfile
 from contextlib import suppress
-import strace_process_tree as stp
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.path_utils import path_exists
@@ -24,6 +23,7 @@ class ParseProcessLog(list):
         self.process_id = int(log_path.split(".")[-1])
         self.children_ids = []
         self.first_seen = None
+        self.process_name = None
         self.calls = list()
 
         self.options = options
@@ -116,9 +116,10 @@ class ParseProcessLog(list):
 
             if len(self.calls) == 0:
                     self.first_seen = time
+                    self.process_name = syscall + "(" + event.group("args") + ")"
 
-            if syscall in ["vfork", "clone", "clone3"]:
-                self.children_ids.append(int(retval))
+            if syscall in ["fork", "vfork", "clone", "clone3"]:
+                self.children_ids.append((int(retval), syscall + "(" + event.group("args") +")"))
 
             self.calls.append({
                 "timestamp": time,
@@ -141,7 +142,6 @@ class Processes():
         self._logs_path = logs_path
         self.syscalls_info = self.load_syscalls_args()
         self.options = options
-        
 
     def load_syscalls_args(self):
         """
@@ -166,9 +166,10 @@ class Processes():
             # Check if the parent_id exists in the process_dict
             if parent_id in process_dict:
                 # Update the parent_id for each child
-                for child_id in children:
+                for child_id, name in children:
                     if child_id in process_dict:
                         process_dict[child_id]['parent_id'] = parent_id
+                        process_dict[child_id]["process_name"] = name
 
         # Convert the dictionary back to a list of entries
         updated_process_list = list(process_dict.values())
@@ -201,6 +202,7 @@ class Processes():
 
             results.append({
                 "process_id": current_log.process_id,
+                "process_name": current_log.process_name,
                 "parent_id": None,
                 "first_seen": current_log.first_seen,
                 "calls": current_log.calls,
@@ -219,78 +221,108 @@ class ProcessTree():
     
     key = "processtree"
     
-    def __init__(self, path):
+    def __init__(self):
+        self.processes = []
         self.tree = []
-        self.path = path
 
     def add_node(self, node, tree):
+        """Add a node to a process tree.
+        @param node: node to add.
+        @param tree: processes tree.
+        @return: boolean with operation success status.
+        """
+        # Walk through the existing tree.
         ret = False
         for process in tree:
-            if process["pid"] == node.parent.pid:
-                process["children"].append({
-                    "name": node.name,
-                    "pid": node.pid,
-                    "parent_id": node.parent.pid,
-                    "children": [],
-                })
+            # If the current process has the same ID of the parent process of
+            # the provided one, append it the children.
+            if process["pid"] == node["parent_id"]:
+                process["children"].append(node)
                 ret = True
                 break
+            # Otherwise try with the children of the current process.
             else:
                 if self.add_node(node, process["children"]):
                     ret = True
                     break
         return ret
+    
+    def event_apicall(self, call, process):
+        for entry in self.processes:
+            if entry["pid"] == process["process_id"]:
+                return
+
+        self.processes.append(
+            {
+                "name": process["process_name"],
+                "pid": process["process_id"],
+                "parent_id": process["parent_id"],
+                "children": [],
+            }
+        )
 
     def run(self):
         children = []
-        stptree = None
 
-        t = tempfile.NamedTemporaryFile(mode="r+")
-        with open(self.path, "r") as f:
-            t.write(re.sub(r"\s\[\s+\d+\]", "", "".join(f.readlines())))
-            t.seek(0)
-            stptree = stp.parse_stream(stp.events(t), stp.simplify_syscall)
-            t.close()
-        
-        for _, process in stptree.processes.items():
-            if process.parent is None:
-                self.tree.append({
-                    "name": process.name,
-                    "pid": process.pid,
-                    "parent_id": None,
-                    "children": [],
-                })
-            else:
+        # Walk through the generated list of processes.
+        for process in self.processes:
+            has_parent = False
+            # Walk through the list again.
+            for process_again in self.processes:
+                if process_again == process:
+                    continue
+                # If we find a parent for the first process, we mark it as
+                # as a child.
+                if process_again["pid"] == process["parent_id"]:
+                    has_parent = True
+                    break
+
+            # If the process has a parent, add it to the children list.
+            if has_parent:
                 children.append(process)
-        
+            # Otherwise it's an orphan and we add it to the tree root.
+            else:
+                self.tree.append(process)
+
+        # Now we loop over the remaining child processes.
         for process in children:
             if not self.add_node(process, self.tree):
-                self.tree.append({
-                    "name": process.name,
-                    "pid": process.pid,
-                    "parent_id": process.parent.pid,
-                    "children": []
-                })
+                self.tree.append(process)
+
         return self.tree
 
 class StraceAnalysis(Processing):
     """ Strace Analyzer. """
 
+    key = "strace"
     os = "linux"
 
     def run(self):
-        self.key = "strace"
-        log.info("Processing strace logs")
-        
-        strace_behavior = {}
+        """
+        Run analysis on strace logs
+        @return: results dict.
+        """
+        strace = {"processes": Processes(self.logs_path, self.options).run()}
 
-        strace_dir = os.path.join(self.analysis_path, "strace")
-        strace_data_path = os.path.join(strace_dir, "strace.log")
+        instances = [
+            ProcessTree(),
+        ]
+        enabled_instances = [instance for instance in instances if getattr(self.options, instance.key, True)]
 
-        #strace_logs = open(strace_data_path, "r").read()
+        if enabled_instances:
+            # Iterate calls and tell interested signatures about them
+            for process in strace["processes"]:
+                for call in process["calls"]:
+                    for instance in enabled_instances:
+                        try:
+                            instance.event_apicall(call, process)
+                        except Exception:
+                            log.exception('Failure in partial behavior "%s"', instance.key)
 
-        strace_behavior["processes"] = Processes(strace_dir, self.options).run()
-        #trace_behavior["processtree"] = ProcessTree(strace_data_path).run()
+        for instance in instances:
+            try:
+                strace[instance.key] = instance.run()
+            except Exception as e:
+                log.exception('Failed to run partial behavior class "%s" due to "%s"', instance.key, e)
 
-        return strace_behavior
-    
+        return strace

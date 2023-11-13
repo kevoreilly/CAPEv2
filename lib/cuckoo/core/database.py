@@ -571,7 +571,7 @@ class Database(object, metaclass=Singleton):
             self._connect_database(f"sqlite:///{file_path}")
 
         # Disable SQL logging. Turn it on for debugging.
-        self.engine.echo = False
+        self.engine.echo = self.cfg.database.log_statements
         # Connection timeout.
         if self.cfg.database.timeout:
             self.engine.pool_timeout = self.cfg.database.timeout

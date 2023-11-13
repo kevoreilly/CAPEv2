@@ -269,6 +269,9 @@ def index(request, task_id=None, resubmit_hash=None):
         ):
             task_category = "vtdl"
             samples = request.POST.get("vtdl").strip()
+        elif "bazaar" in request.POST and request.POST.get("bazaar").strip():
+            task_category = "bazaar"
+            samples = request.POST.get("bazaar").strip()
 
         list_of_tasks = []
         if task_category in ("url", "dlnexec"):

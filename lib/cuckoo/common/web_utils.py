@@ -1303,17 +1303,44 @@ def get_hash_list(hashes):
 
     return hashlist
 
+_bazaar_map = {
+    32: "md5_hash",
+    40: "sha1_hash",
+    64: "sha256_hash",
+}
 
-def download_from_vt(samples, details, opt_filename, settings):
+
+def _malwarebazaar_dl(hash):
+    sample = None
+    if len(hash) not in _bazaar_map:
+        return False
+
+    try:
+        #ToDo add suppport for md5 and sha1
+        data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", _bazaar_map[len(hash)]: hash})
+        if data.ok and b"file_not_found" not in data.content:
+            try:
+                with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
+                    zf.setpassword(b"infected")
+                    sample = zf.read(zf.namelist()[0])
+            except pyzipper.zipfile.BadZipFile:
+                print(data.content)
+    except Exception as e:
+        logging.error(e, exc_info=True)
+
+    return sample
+
+def thirdpart_aux(samples, prefix, folder, opt_filename, details):
     for h in get_hash_list(samples):
-        folder = os.path.join(settings.VTDL_PATH, "cape-vt")
         if not path_exists(folder):
             path_mkdir(folder, exist_ok=True)
-        base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
+        base_dir = tempfile.mkdtemp(prefix=prefix, dir=folder)
         if opt_filename:
             filename = f"{base_dir}/{opt_filename}"
         else:
             filename = f"{base_dir}/{sanitize_filename(h)}"
+        details["path"] = filename
+        details["fhash"] = h
         paths = db.sample_path_by_hash(h)
 
         # clean old content
@@ -1322,17 +1349,14 @@ def download_from_vt(samples, details, opt_filename, settings):
 
         if paths:
             details["content"] = get_file_content(paths)
-        if settings.VTDL_KEY:
-            details["headers"] = {"x-apikey": settings.VTDL_KEY}
-        elif details.get("apikey", False):
-            details["headers"] = {"x-apikey": details["apikey"]}
-        else:
-            details["errors"].append({"error": "Apikey not configured, neither passed as opt_apikey"})
-            return details
-        details["url"] = f"https://www.virustotal.com/api/v3/files/{h.lower()}/download"
-        details["fhash"] = h
-        details["path"] = filename
-        details["service"] = "VirusTotal"
+
+        if prefix == "vt":
+            details["url"] = f"https://www.virustotal.com/api/v3/files/{h.lower()}/download"
+        elif prefix == "bazaar":
+            content = _malwarebazaar_dl(h)
+            if content:
+                details["content"] = content
+
         if not details.get("content", False):
             status, task_ids_tmp = download_file(**details)
         else:
@@ -1344,61 +1368,30 @@ def download_from_vt(samples, details, opt_filename, settings):
             details["task_ids"] = task_ids_tmp
 
     return details
+
+def download_from_vt(samples, details, opt_filename, settings):
+    folder = os.path.join(settings.VTDL_PATH, "cape-vt")
+    if settings.VTDL_KEY:
+        details["headers"] = {"x-apikey": settings.VTDL_KEY}
+    elif details.get("apikey", False):
+        details["headers"] = {"x-apikey": details["apikey"]}
+    else:
+        details["errors"].append({"error": "Apikey not configured, neither passed as opt_apikey"})
+        return details
+
+    details["service"] = "VirusTotal"
+    return thirdpart_aux(samples, "vt", folder, opt_filename, details)
 
 
 def download_from_bazaar(samples, details, opt_filename, settings):
     if not HAVE_PYZIPPER:
         print("Malware Bazaar download: Missed pyzipper dependency: pip3 install pyzipper -U")
         return
-    for h in get_hash_list(samples):
-        folder = os.path.join(settings.BAZAAR_PATH, "cape-bazaar")
-        if not path_exists(folder):
-            path_mkdir(folder, exist_ok=True)
-        base_dir = tempfile.mkdtemp(prefix="bazaar", dir=folder)
-        if opt_filename:
-            filename = f"{base_dir}/{opt_filename}"
-        else:
-            filename = f"{base_dir}/{sanitize_filename(h)}"
-        paths = db.sample_path_by_hash(h)
 
-        # clean old content
-        if "content" in details:
-            del details["content"]
+    details["service"] = "MalwareBazaar"
+    folder = os.path.join(settings.BAZAAR_PATH, "cape-bazaar")
+    return thirdpart_aux(samples, "bazaar", folder, opt_filename, details)
 
-        if paths:
-            details["content"] = get_file_content(paths)
-
-        sample = None
-        try:
-            #ToDo add suppport for md5 and sha1
-            data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", "sha256_hash": hash})
-            if data.ok and b"file_not_found" not in data.content:
-                try:
-                    with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
-                        zf.setpassword(b"infected")
-                        sample = zf.read(zf.namelist()[0])
-                except pyzipper.zipfile.BadZipFile:
-                    print(data.content)
-        except Exception as e:
-            logging.error(e, exc_info=True)
-
-        if not sample:
-            continue
-        details["content"] = sample
-        details["fhash"] = h
-        details["path"] = filename
-        details["service"] = "MalwareBazaar"
-        if not details.get("content", False):
-            status, task_ids_tmp = download_file(**details)
-        else:
-            details["service"] = "Local"
-            status, task_ids_tmp = download_file(**details)
-        if status == "error":
-            details["errors"].append({h: task_ids_tmp})
-        else:
-            details["task_ids"] = task_ids_tmp
-
-    return details
 
 
 def process_new_task_files(request, samples, details, opt_filename, unique):

@@ -1,3 +1,6 @@
+### [14.11.2023]
+* Monitor update: Small detonation fix
+
 ### [7.11.2023]
 * Monitor updates: Misc debugger tweaks
 * XWorm config extraction

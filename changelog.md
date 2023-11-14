@@ -1,5 +1,6 @@
 ### [14.11.2023]
 * Monitor update: Small detonation fix
+* Formbook detonation & config tweaks
 
 ### [7.11.2023]
 * Monitor updates: Misc debugger tweaks

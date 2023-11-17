@@ -1,3 +1,6 @@
+### [17.11.2023]
+* Monitor update: Debugger fixes & enhancements (action target registers can be pointers when within [], e.g. action2=string:[esp])
+
 ### [14.11.2023]
 * Monitor update: Small detonation fix
 * Formbook detonation & config tweaks

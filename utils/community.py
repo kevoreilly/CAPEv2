@@ -158,9 +158,13 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
             if install:
                 if not path_exists(os.path.dirname(filepath)):
                     path_mkdir(os.path.dirname(filepath))
-
-                print(f'File "{filepath}" {colors.green("installed")}')
-                open(filepath, "wb").write(t.extractfile(member).read())
+            
+                try:
+                    with open(filepath, "wb") as f:
+                        f.write(t.extractfile(member).read())
+                    print(f'File "{filepath}" {colors.green("installed")}')
+                except PermissionError:
+                    print(colors.red(f"Fix permission on: {filepath}"))
 
 
 def main():

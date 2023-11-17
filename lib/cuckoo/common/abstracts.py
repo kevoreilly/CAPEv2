@@ -500,15 +500,14 @@ class LibVirtMachinery(Machinery):
         @param label: machine name
         @param path: where to store the screenshot
         """
-        log.debug("getting screenshot for %s", label)
         conn = self._connect()
         try:
             vm = conn.lookupByName(label)
         except libvirt.libvirtError as e:
             raise CuckooMachineError(f"Error screenshotting virtual machine {label}: {e}") from e
         stream0, screen = conn.newStream(), 0
-        mime = vm.screenshot(stream0, screen)
-        log.debug("got screenshot of type %s", mime)
+        # ignore the mime type returned by the call to screenshot()
+        _ = vm.screenshot(stream0, screen)
 
         buffer = io.BytesIO()
 
@@ -517,7 +516,6 @@ class LibVirtMachinery(Machinery):
 
         stream0.recvAll(stream_handler, buffer)
         stream0.finish()
-        log.debug("took screenshot, got %d bytes of %s", buffer.tell(), mime)
         streamed_img = PIL.Image.open(buffer)
         streamed_img.convert(mode="RGB").save(path)
 

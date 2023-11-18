@@ -813,7 +813,7 @@ function replace_seabios_clues_public() {
         #src/fw/paravirt.c
     )
     for file in "${FILES[@]}"; do
-        _sed_aux 's/"QEMU/"'"$BOCHS_BLOCK_REPLACER2"'"/g' "$file" "QEMU was not replaced in $file"
+        _sed_aux 's/"QEMU"/"'"$BOCHS_BLOCK_REPLACER2"'"/g' "$file" "QEMU was not replaced in $file"
     done
 
     _sed_aux 's/"QEMU"/"'"$BOCHS_BLOCK_REPLACER3"'"/g' src/hw/blockcmd.c '"QEMU" was not replaced in  src/hw/blockcmd.c'

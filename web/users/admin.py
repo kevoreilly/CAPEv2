@@ -30,15 +30,15 @@ class ProfileInline(admin.StackedInline):
 
 class CustomUserAdmin(UserAdmin):
     inlines = (ProfileInline,)
-    list_display = ("username", "email", "first_name", "last_name", "is_staff", "get_suscription")
+    list_display = ("username", "email", "first_name", "last_name", "is_staff", "get_subscription")
     list_select_related = ("userprofile",)
     list_filter = ("is_staff", "is_superuser", "is_active", "groups", "emailaddress__verified")
     actions = (make_active, make_deactivated)
 
-    def get_suscription(self, instance):
-        return instance.userprofile.suscription
+    def get_subscription(self, instance):
+        return instance.userprofile.subscription
 
-    get_suscription.short_description = "Suscription"
+    get_subscription.short_description = "Subscription"
 
     def get_inline_instances(self, request, obj=None):
         if not obj:

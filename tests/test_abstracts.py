@@ -4,13 +4,13 @@
 
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 import lib.cuckoo.common.abstracts as abstracts
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.exceptions import CuckooCriticalError
+from lib.cuckoo.common.path_utils import path_exists
 
 
 @pytest.fixture
@@ -71,12 +71,13 @@ class TestScreenshotMachinery:
         class MockMachinery(abstracts.Machinery):
             def _list(self):
                 pass
+
         tm = MockMachinery()
         mock_cuckoo_cfg = MagicMock()
         mock_cuckoo_cfg.machinery_screenshots = True
 
-        with patch.object(abstracts.cfg, 'cuckoo', mock_cuckoo_cfg):
-            with patch('lib.cuckoo.common.abstracts.inspect.getmembers', return_value=[]):
+        with patch.object(abstracts.cfg, "cuckoo", mock_cuckoo_cfg):
+            with patch("lib.cuckoo.common.abstracts.inspect.getmembers", return_value=[]):
                 # calling _initialize_check() raises without any methods
                 with pytest.raises(NotImplementedError):
                     tm._initialize_check()
@@ -85,11 +86,12 @@ class TestScreenshotMachinery:
         class MockMachinery(abstracts.Machinery):
             def _list(self):
                 pass
+
         tm = MockMachinery()
         mock_cuckoo_cfg = MagicMock()
         mock_cuckoo_cfg.machinery_screenshots = True
 
-        with patch.object(abstracts.cfg, 'cuckoo', mock_cuckoo_cfg):
+        with patch.object(abstracts.cfg, "cuckoo", mock_cuckoo_cfg):
             # calling _initialize_check() raises without providing a screenshot() impl
             with pytest.raises(CuckooCriticalError):
                 tm._initialize_check()
@@ -105,7 +107,7 @@ class TestScreenshotMachinery:
         tm = MockMachinery()
         mock_cuckoo_cfg = MagicMock()
         mock_cuckoo_cfg.machinery_screenshots = True
-        with patch.object(abstracts.cfg, 'cuckoo', mock_cuckoo_cfg):
+        with patch.object(abstracts.cfg, "cuckoo", mock_cuckoo_cfg):
             # calling _initialize_check() succeeds, a screenshot() impl is provided
             tm._initialize_check()
         assert tm.screenshot()

@@ -4,15 +4,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
-import logging
+import inspect
 import io
+import logging
 import os
 import socket
 import threading
 import time
 import timeit
 import xml.etree.ElementTree as ET
-import inspect
 from builtins import NotImplementedError
 from pathlib import Path
 from typing import Dict, List
@@ -21,8 +21,8 @@ try:
     import dns.resolver
 except ImportError:
     print("Missed dependency -> pip3 install dnspython")
-import requests
 import PIL
+import requests
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

@@ -30,8 +30,8 @@ class SubscriptionRateThrottle(UserRateThrottle):
             return True
 
         if request.user.is_authenticated:
-            if request.user.userprofile.suscription:
-                requests, duration = self.parse_rate(request.user.userprofile.suscription)
+            if request.user.userprofile.subscription:
+                requests, duration = self.parse_rate(request.user.userprofile.subscription)
                 # Override the default from settings.py
                 self.duration = duration
                 self.num_requests = int(requests)

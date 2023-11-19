@@ -815,10 +815,10 @@ db.createUser(
     * __REQUIRED ACTION:__ -> `poetry run pip install ujson -U`
 
 
-### [23-03-2021] API Suscription
+### [23-03-2021] API Subscription
 * Default 5/m, it can be changed using Django Admin in user profile. ratelimit is deprecated
 * This was done with huge help from those writeups
-    - [How to add susctiption based throtting to django](https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0)
+    - [How to add subscription based throtting to django](https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0)
     - [How to add custom fields to user profile](https://simpleisbetterthancomplex.com/tutorial/2016/11/23/how-to-add-user-profile-to-django-admin.html)
 
 * __REQUIRED ACTION:__ -> `cd web && python3 manage.py migrate`

@@ -5,12 +5,15 @@
 
 import datetime
 import logging
+import io
 import os
 import socket
 import threading
 import time
 import timeit
 import xml.etree.ElementTree as ET
+import inspect
+from builtins import NotImplementedError
 from pathlib import Path
 from typing import Dict, List
 
@@ -19,6 +22,7 @@ try:
 except ImportError:
     print("Missed dependency -> pip3 install dnspython")
 import requests
+import PIL
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -207,6 +211,20 @@ class Machinery:
         except NotImplementedError:
             return
 
+        # If machinery_screenshots are enabled, check the machinery supports it.
+        if cfg.cuckoo.machinery_screenshots:
+            # inspect function members available on the machinery class
+            cls_members = inspect.getmembers(self.__class__, predicate=inspect.isfunction)
+            for name, function in cls_members:
+                if name != Machinery.screenshot.__name__:
+                    continue
+                if Machinery.screenshot == function:
+                    msg = f"machinery {self.module_name} does not support machinery screenshots"
+                    raise CuckooCriticalError(msg)
+                break
+            else:
+                raise NotImplementedError(f"missing machinery method: {Machinery.screenshot.__name__}")
+
         for machine in self.machines():
             # If this machine is already in the "correct" state, then we
             # go on to the next machine.
@@ -267,6 +285,14 @@ class Machinery:
         @return: running virtual machines list.
         """
         return self.db.list_machines(locked=True)
+
+    def screenshot(self, label, path):
+        """Screenshot a running virtual machine.
+        @param label: machine name
+        @param path: where to store the screenshot
+        @raise NotImplementedError
+        """
+        raise NotImplementedError
 
     def shutdown(self):
         """Shutdown the machine manager. Kills all alive machines.
@@ -468,6 +494,30 @@ class LibVirtMachinery(Machinery):
 
         # Free handlers.
         self.vms = None
+
+    def screenshot(self, label, path):
+        """Screenshot a running virtual machine.
+        @param label: machine name
+        @param path: where to store the screenshot
+        """
+        conn = self._connect()
+        try:
+            vm = conn.lookupByName(label)
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError(f"Error screenshotting virtual machine {label}: {e}") from e
+        stream0, screen = conn.newStream(), 0
+        # ignore the mime type returned by the call to screenshot()
+        _ = vm.screenshot(stream0, screen)
+
+        buffer = io.BytesIO()
+
+        def stream_handler(_, data, buffer):
+            buffer.write(data)
+
+        stream0.recvAll(stream_handler, buffer)
+        stream0.finish()
+        streamed_img = PIL.Image.open(buffer)
+        streamed_img.convert(mode="RGB").save(path)
 
     def dump_memory(self, label, path):
         """Takes a memory dump.

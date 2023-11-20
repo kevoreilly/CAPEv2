@@ -38,6 +38,5 @@ rule Origin {
         $m2 = "UpdateBotRequest" ascii
         $m3 = "<Deserialize>b__0" ascii
     condition:
-        //(uint16(0) == 0x5a4d and (8 of ($s*) or (6 of ($s*) and 4 of ($g*)))) or (2 of ($m*))
-        any of them
+        (uint16(0) == 0x5a4d and (8 of ($s*) or (6 of ($s*) and 4 of ($g*)))) or (2 of ($m*))
 }

@@ -100,7 +100,10 @@ def extract_config(filebuf):
     strings_size = struct.unpack("<I", filebuf[addr + 0x44 : addr + 0x48])[0]
     data = filebuf[addr + strings_offset : addr + strings_offset + strings_size]
     data = data.split(b"\x00\x00")
-    key = base64.b64decode(get_string(data, 7))
+    if len(data) >= 7:
+        key = base64.b64decode(get_string(data, 7))
+    else:
+        return {}
     # log.debug("extracted key: " + str(key))
     try:
         config = {

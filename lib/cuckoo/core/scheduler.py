@@ -160,10 +160,6 @@ class ScalingBoundedSemaphore(threading.Semaphore):
             self._limit_value = value
         if self._value > value:
             self._value = value
-        # Add a check to ensure there is no more task thread created if the number of active analysis is greater 
-        # than the total number of machines
-        if machine_lock._limit_value <= active_analysis_count:
-            machine_lock._value = 0
 
     def check_for_starvation(self, available_count: int):
         """Check for preventing starvation from coming up after updating the limit.
@@ -201,9 +197,7 @@ class AnalysisManager(threading.Thread):
 
     def __init__(self, task, error_queue):
         """@param task: task object containing the details for the analysis."""
-        global active_analysis_count
         threading.Thread.__init__(self)
-        active_analysis_count += 1
         self.task = task
         self.errors = error_queue
         self.cfg = Config()
@@ -560,7 +554,6 @@ class AnalysisManager(threading.Thread):
             try:
                 # Release the analysis machine. But only if the machine has not turned dead yet.
                 machinery.release(self.machine.label)
-                machinery.set_status(self.machine.label, MACHINE_RUNNING)
 
             except CuckooMachineError as e:
                 log.error(
@@ -909,6 +902,7 @@ class Scheduler:
 
     def start(self):
         """Start scheduler."""
+        global active_analysis_count
         self.initialize()
 
         log.info("Waiting for analysis tasks")
@@ -1063,6 +1057,7 @@ class Scheduler:
                         self.total_analysis_count += 1
                         # Initialize and start the analysis manager.
                         analysis = AnalysisManager(task, errors)
+                        active_analysis_count += 1
                         analysis.daemon = True
                         analysis.start()
 

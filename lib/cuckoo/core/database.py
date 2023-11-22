@@ -1152,6 +1152,7 @@ class Database(object, metaclass=Singleton):
             if machine:
                 machine.locked = True
                 machine.locked_changed_on = datetime.now()
+                self.set_status(machine.label, MACHINE_RUNNING)
                 try:
                     session.commit()
                     session.refresh(machine)

@@ -900,7 +900,7 @@ class Pcap2:
             path_mkdir(self.network_path, exist_ok=True)
 
         if not path_exists(self.pcap_path):
-            log.warning('The PCAP file does not exist at path "%s"', self.pcap_path)
+            log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
         r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))

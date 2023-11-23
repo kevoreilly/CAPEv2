@@ -39,8 +39,8 @@ except ImportError:
     print("Missed oletools dependency: poetry run pip install olefile")
     HAVE_OLETOOLS = False
 
-logging.getLogger("msodde").setLevel(logging.CRITICAL)
-logging.getLogger("olevba").setLevel(logging.CRITICAL)
+logging.getLogger("msodde").setLevel(logging.WARNING)
+logging.getLogger("olevba").setLevel(logging.WARNING)
 
 processing_conf = Config("processing")
 

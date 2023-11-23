@@ -304,7 +304,7 @@ class CAPE(Processing):
                 tmp_config = static_config_parsers(cape_name, file_info["path"], file_data)
                 if tmp_config:
                     cape_names.add(cape_name)
-                    log.info("CAPE: config returned for: %s", cape_name)
+                    log.debug("CAPE: config returned for: %s", cape_name)
                     self.update_cape_configs(cape_name, tmp_config, file_info)
 
         self.link_configs_to_analysis()
@@ -388,7 +388,7 @@ class CAPE(Processing):
                 break
         else:
             # first time a config for this cape_name was seen
-            log.info("CAPE: new config found for: %s", cape_name)
+            log.debug("CAPE: new config found for: %s", cape_name)
             self.cape["configs"].append(config)
 
         # Link the config to the hashes it was generated from.

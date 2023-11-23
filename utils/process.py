@@ -109,11 +109,8 @@ def process(
 
     # ToDo new logger here
     handlers = init_logging(tid=str(task_id), debug=debug)
-    set_formatter_fmt(task_id)
-    if main_task_id:
-        setproctitle(f"{original_proctitle} [Main Task ID {main_task_id} - Worker Task {task_id}]")
-    else:
-        setproctitle(f"{original_proctitle} [Task {task_id}]")
+    set_formatter_fmt(task_id, main_task_id)
+    setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     if memory_debugging:
         gc.collect()
@@ -166,16 +163,19 @@ def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def get_formatter_fmt(task_id=None):
-    task_info = f"[Task {task_id}] " if task_id is not None else ""
+def get_formatter_fmt(task_id=None, main_task_id=None):
+    task_info = f"[Task {task_id}" if task_id is not None else ""
+    task_id += f" - Main Task {main_task_id}" if main_task_id is not None else ""
+    if task_id or main_task_id:
+        task_id += "] "
     return f"%(asctime)s {task_info}[%(name)s] %(levelname)s: %(message)s"
 
 
 FORMATTER = logging.Formatter(get_formatter_fmt())
 
 
-def set_formatter_fmt(task_id=None):
-    FORMATTER._style._fmt = get_formatter_fmt(task_id)
+def set_formatter_fmt(task_id=None, main_task_id=None):
+    FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
 
 
 def init_logging(tid=0, debug=False):

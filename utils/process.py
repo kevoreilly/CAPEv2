@@ -165,9 +165,9 @@ def init_worker():
 
 def get_formatter_fmt(task_id=None, main_task_id=None):
     task_info = f"[Task {task_id}" if task_id is not None else ""
-    task_id += f" - Main Task {main_task_id}" if main_task_id is not None else ""
+    task_info += f" - Main Task {main_task_id}" if main_task_id is not None else ""
     if task_id or main_task_id:
-        task_id += "] "
+        task_info += "] "
     return f"%(asctime)s {task_info}[%(name)s] %(levelname)s: %(message)s"
 
 

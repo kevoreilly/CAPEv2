@@ -9,34 +9,22 @@ rule Origin {
         $s2 = "set_IsCreated" fullword ascii
         $s3 = "set_AllowAutoRedirect" fullword ascii
         $s4 = "set_Antivirus" fullword ascii
-        $s5 = "set_Timeout" fullword ascii
-        $s6 = "set_Method" fullword ascii
-        $s7 = "set_Username" fullword ascii
-        $s8 = "set_ContentLength" fullword ascii
-        $s9 = "set_Nation" fullword ascii
-        $s10 = "set_MaximumAutomaticRedirections" fullword ascii
-        $s11 = "set_ClientId" fullword ascii
-        $s12 = "set_SysInfo" fullword ascii
-        $s13 = "set_Padding" fullword ascii
-        $s14 = "set_Success" fullword ascii
-        $s15 = "set_Item" fullword ascii
-        $s16 = "set_ServerCertificateValidationCallback" fullword ascii
-        $s17 = "set_Params" fullword ascii
-        $s18 = "set_LocalTime" fullword ascii
-        $s19 = "set_CommandType" fullword ascii
-        $s20 = "set_TenantId" fullword ascii
-        $s21 = "set_KeepAlive" fullword ascii
+        $s5 = "set_MaximumAutomaticRedirections" fullword ascii
+        $s6 = "set_ClientId" fullword ascii
+        $s7 = "set_SysInfo" fullword ascii
+        $s8 = "set_ServerCertificateValidationCallback" fullword ascii
+        $s9 = "set_CommandType" fullword ascii
+        $s10 = "set_TenantId" fullword ascii
+        $s11 = "set_KeepAlive" fullword ascii
 
-        $g1 = "get_InvariantCulture" fullword ascii
-        $g2 = "get_Value" fullword ascii
-        $g3 = "get_Status" fullword ascii
-        $g4 = "get_Antivirus" fullword ascii
-        $g5 = "get_ComputerName" fullword ascii
-        $g6 = "get_RequestPluginName" fullword ascii
+        $c1 = {03 16 32 0B 03 2C 08 02 6F 49 00 00 0A 2D 06}
+        $c2 = {20 F0 0F 00 00 28 ?? 00 00 0A 7E ?? 00 00 04 2D 11 14 FE}
+        $c3 = {06 20 20 4E 00 00 6F ?? 00 00 0A 06 17 6F ?? 00 00 0A 06 1F 32 6F}
+        $c4 = {20 00 01 00 00 28 ?? 00 00 06 28 ?? 00 00 06 28 ?? 00 00 0A 72 ?? 05 00 70 28 ?? 00 00 0A 0A 12 00 28}
 
         $m1 = "OriginBotnet" ascii
         $m2 = "UpdateBotRequest" ascii
         $m3 = "<Deserialize>b__0" ascii
     condition:
-        (uint16(0) == 0x5a4d and (8 of ($s*) or (6 of ($s*) and 4 of ($g*)))) or (2 of ($m*))
+        (uint16(0) == 0x5a4d and ((6 of ($s*) and 2 of ($c*)))) or (2 of ($m*))
 }

@@ -4,6 +4,8 @@ import base64
 import logging
 import string
 import struct
+import binascii
+from contextlib import suppress
 
 import yara
 from Cryptodome.Cipher import AES
@@ -85,7 +87,7 @@ def get_wide_string(data, index):
 def extract_config(filebuf):
     config = {}
     addr = False
-
+    key = False
     matches = yara_rules.match(data=filebuf)
     if not matches:
         return config
@@ -101,8 +103,10 @@ def extract_config(filebuf):
     data = filebuf[addr + strings_offset : addr + strings_offset + strings_size]
     data = data.split(b"\x00\x00")
     if len(data) >= 7:
-        key = base64.b64decode(get_string(data, 7))
-    else:
+        with suppress(binascii.Error):
+            key = base64.b64decode(get_string(data, 7))
+
+    if not key:
         return {}
     # log.debug("extracted key: " + str(key))
     try:

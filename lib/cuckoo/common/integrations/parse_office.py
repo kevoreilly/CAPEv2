@@ -28,11 +28,11 @@ except ImportError:
 try:
     from csv import Error as csv_error
 
+    import oletools.olevba
     from oletools import oleobj
     from oletools.msodde import process_file as extract_dde
     from oletools.oleid import OleID
     from oletools.olevba import UnexpectedDataError, VBA_Parser, detect_autoexec, detect_hex_strings, detect_suspicious, filter_vba
-    import oletools.olevba
     from oletools.rtfobj import RtfObjParser, is_rtf
 
     # disable this noisy logging

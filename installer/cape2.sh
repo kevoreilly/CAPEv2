@@ -658,10 +658,10 @@ function install_suricata() {
         crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/suricatasc -c reload-rules /tmp/suricata-command.socket &>/dev/null"; } | crontab -
     fi
     if [ -d /usr/share/suricata/rules/ ]; then
-        cp "/usr/share/suricata/rules/*" "/etc/suricata/rules/"
+        cp "/usr/share/suricata/rules/"* "/etc/suricata/rules/"
     fi
     if [ -d /var/lib/suricata/rules/ ]; then
-        cp "/var/lib/suricata/rules/*" "/etc/suricata/rules/"
+        cp "/var/lib/suricata/rules/"* "/etc/suricata/rules/"
     fi
 
     # ToDo this is not the best solution but i don't have time now to investigate proper one
@@ -887,7 +887,7 @@ function dependencies() {
     # deps
     apt install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common -y
     apt install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
-    apt install upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
+    apt install zpaq upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
     apt install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
     apt install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt install openvpn wireguard -y
@@ -1176,7 +1176,10 @@ function install_CAPE() {
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
+    #packages are needed for build options in extra/yara_installer.sh
+    apt install libjansson-dev libmagic1 libmagic-dev -y
     sudo -u ${USER} bash -c 'poetry run extra/yara_installer.sh'
+    sudo rm -r yara-python
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}

@@ -407,8 +407,11 @@ def vba2graph_from_vba_object(filepath):
     if HAVE_OLETOOLS:
         try:
             vba = VBA_Parser(filepath)
+        except ValueError as e:
+            log.error("VBA_Parser in vba2graph: %s", str(e))
+            return False
         except Exception as e:
-            log.info(e)
+            log.error(e)
             return False
     full_vba_code = ""
     for (subfilename, stream_path, vba_filename, vba_code) in vba.extract_macros():

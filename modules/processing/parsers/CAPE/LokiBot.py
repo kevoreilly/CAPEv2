@@ -143,14 +143,19 @@ def decoder(data):
     confs = find_conf(img)
     if iv not in (b"", -1) and confs != []:
         for conf in confs:
-            dec = DES3.new(key, DES3.MODE_CBC, iv)
-            temp = dec.decrypt(conf)
-            temp = unpad(temp, 8)
-            urls.append(b"http://" + temp)
+            try:
+                dec = DES3.new(key, DES3.MODE_CBC, iv)
+                temp = dec.decrypt(conf)
+                temp = unpad(temp, 8)
+                urls.append(b"http://" + temp)
+            except ValueError:
+                # wrong padding
+                pass
     return urls
 
 
 def extract_config(filebuf):
+
     urls = decoder(filebuf)
     return {"address": [url.decode() for url in urls]}
 

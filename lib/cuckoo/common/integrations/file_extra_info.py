@@ -25,8 +25,6 @@ from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
 from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
-
-# ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
@@ -290,6 +288,8 @@ def trid_info(file_path: dict):
             "You need to configure your server to make TrID work properly. Run trid by hand on file as example to ensure that it works properly."
         )
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
+    except PermissionError:
+        log.error("You have permission error. FIX IT! sudo chown cape:cape /opt/CAPEv2/data/trid -R")
     except Exception as e:
         log.error("Trid error: %s", str(e))
 
@@ -733,7 +733,7 @@ def kixtart_extract(file: str, **_) -> ExtractorReturnType:
 
 @time_tracker
 def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
-    if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
+    if all(block.get("name") not in ("AutoIT_Compiled", "AutoIT_Script") for block in data_dictionary.get("yara", {})):
         return
 
     if not path_exists(unautoit_binary):
@@ -911,27 +911,18 @@ def office_one(file, **_) -> ExtractorReturnType:
 def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     """Work on MSIX Package"""
 
-    if not all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or not any(
+    if not all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) and not any(
         "MSIX Windows app" in string for string in data_dictionary.get("trid", [])
     ):
         return
 
     with extractor_ctx(file, "MSIX", prefix="msixdump_") as ctx:
         tempdir = ctx["tempdir"]
-        if HAVE_SFLOCK:
-            unpacked = unpack(file.encode())
-            for child in unpacked.children:
-                _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
-        else:
-            _ = run_tool(
-                [
-                    "unzip",
-                    file,
-                    f"-d {tempdir}",
-                ],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
+        _ = run_tool(
+            ["unzip", file, "-d", tempdir],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

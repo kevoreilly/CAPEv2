@@ -28,7 +28,7 @@ requests-file = "1.5.1"
 orjson = "3.8.5"
 # maec = "4.1.0.17"
 regex = "2021.7.6"
-SFlock2 = {version = "0.3.55", extras = ["shellcode"]}
+SFlock2 = {version = "0.3.56", extras = ["shellcode"]}
 pyattck = "7.1.1"
 # volatility3 = "2.0.0"
 # XLMMacroDeobfuscator = "0.2.7"
@@ -36,7 +36,7 @@ pyzipper = "0.3.5"
 flare-capa = "6.0.0"
 Cython = "0.29.24"
 # pyre2 = "0.3.6" # Dead for python3.11
-Django = "4.2.5"
+Django = "4.2.7"
 SQLAlchemy = "1.4.22"
 SQLAlchemy-Utils = "0.37.8"
 Jinja2 = "^3.1.2"
@@ -74,7 +74,7 @@ psycopg2-binary = "^2.9.5"
 ruff = "0.0.290"
 paramiko = "3.3.1"
 
-Werkzeug = "2.2.3"
+Werkzeug = "3.0.1"
 packaging = "23.1"
 setuptools = "68.0.0"
 # command line config manipulation

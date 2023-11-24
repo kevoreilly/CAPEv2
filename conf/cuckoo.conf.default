@@ -21,6 +21,9 @@ delete_bin_copy = off
 # of choice.
 machinery = kvm
 
+# Enable screenshots of analysis machines while running.
+machinery_screenshots = off
+
 # Specify if a scaling bounded semaphore should be used by the scheduler for tasking the VMs.
 # This is only applicable to auto-scaling machineries such as Azure and AWS.
 # There is a specific configuration key in each machinery that is used to initialize the semaphore.

@@ -63,53 +63,53 @@ The concept of analysis packages will be dealt with later in this documentation 
 
 *Example*: Submit a local binary::
 
-    $ ./utils/submit.py /path/to/binary
+    $ poetry run python utils/submit.py /path/to/binary
 
 *Example*: Submit an URL::
 
-    $ ./utils/submit.py --url http://www.example.com
+    $ poetry run python utils/submit.py --url http://www.example.com
 
 *Example*: Submit a local binary and specify a higher priority::
 
-    $ ./utils/submit.py --priority 5 /path/to/binary
+    $ poetry run python utils/submit.py --priority 5 /path/to/binary
 
 *Example*: Submit a local binary and specify a custom analysis timeout of
 60 seconds::
 
-    $ ./utils/submit.py --timeout 60 /path/to/binary
+    $ poetry run python utils/submit.py --timeout 60 /path/to/binary
 
 *Example*: Submit a local binary and specify a custom analysis package::
 
-    $ ./utils/submit.py --package <name of package> /path/to/binary
+    $ poetry run python utils/submit.py --package <name of package> /path/to/binary
 
 *Example*: Submit a local binary and specify a custom analysis package and
 some options (in this case a command line argument for the malware)::
 
-    $ ./utils/submit.py --package exe --options arguments=--dosomething /path/to/binary.exe
+    $ poetry run python utils/submit.py --package exe --options arguments=--dosomething /path/to/binary.exe
 
 *Example*: Submit a local binary to be run on the virtual machine *cape1*::
 
-    $ ./utils/submit.py --machine cape1 /path/to/binary
+    $ poetry run python utils/submit.py --machine cape1 /path/to/binary
 
 *Example*: Submit a local binary to be run on a Windows machine::
 
-    $ ./utils/submit.py --platform windows /path/to/binary
+    $ poetry run python utils/submit.py --platform windows /path/to/binary
 
 *Example*: Submit a local binary and take a full memory dump of the analysis machine once the analysis is complete::
 
-    $ ./utils/submit.py --memory /path/to/binary
+    $ poetry run python utils/submit.py --memory /path/to/binary
 
 *Example*: Submit a local binary and force the analysis to be executed for the full timeout (disregarding the internal mechanism that CAPE uses to decide when to terminate the analysis)::
 
-    $ ./utils/submit.py --enforce-timeout /path/to/binary
+    $ poetry run python utils/submit.py --enforce-timeout /path/to/binary
 
 *Example*: Submit a local binary and set the virtual machine clock. The format is %m-%d-%Y %H:%M:%S. If not specified, the current time is used. For example, if we want to run a sample on January 24th, 2001, at 14:41:20::
 
-    $ ./utils/submit.py --clock "01-24-2001 14:41:20" /path/to/binary
+    $ poetry run python utils/submit.py --clock "01-24-2001 14:41:20" /path/to/binary
 
 *Example*: Submit a sample for Volatility analysis (to reduce side effects of the CAPE hooking, switch it off with *options free=True*)::
 
-    $ ./utils/submit.py --memory --options free=True /path/to/binary
+    $ poetry run python utils/submit.py --memory --options free=True /path/to/binary
 
 ``--options`` Options Available
 -------------------------------
@@ -160,7 +160,7 @@ some options (in this case a command line argument for the malware)::
 - ``Dl&Exec add headers``: Example: dnl_user_agent: "CAPE Sandbox", dnl_referrer: google
 - ``servicedesc`` - for service package: Service description
 - ``arguments`` - for service package: Service arguments
-- ``store_memdump``: Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this 
+- ``store_memdump``: Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this
 - ``pre_script_args``: Command line arguments for pre_script. Example: pre_script_args=file1 file2 file3
 - ``pre_script_timeout``: pre_script_timeout will default to 60 seconds. Script will stop after timeout Example: pre_script_timeout=30
 - ``during_script_args``: Command line arguments for during_script. Example: during_script_args=file1 file2 file3
@@ -290,7 +290,7 @@ submit.py
 
 If you try to submit an analysis using ``submit.py`` and your output looks like::
 
-    $ sudo -u cape poetry run python3 submit.py /path/to/binary/test.exe
+    $ sudo -u cape poetry run python submit.py /path/to/binary/test.exe
     Error: adding task to database
 
 It could be due to errors while trying to communicate with the PostgreSQL instance. PostgreSQL is installed and configured by default when executing ``cape2.sh``. Make sure your PostgreSQL instance is active and running. To check it out execute the following command::
@@ -299,7 +299,7 @@ It could be due to errors while trying to communicate with the PostgreSQL instan
 
 If the status is other than **Active** (it can be in exited status, as long as it is Active), there is something that needs to be fixed.
 
-The logs for PostgreSQL can be found under */var/log/postgresql/\*.log*. 
+The logs for PostgreSQL can be found under */var/log/postgresql/\*.log*.
 
 If everything is working regarding PostgreSQL, **make sure** the ``cape`` user is able to access (both read and write) the directories involved in the analysis. For example, ``cape`` must be able to read and write in */tmp*.
 

@@ -1,3 +1,36 @@
+### [24.11.2023]
+* AsyncRAT config parser overhaul
+* Monitor update: Debugger tweaks
+
+### [17.11.2023]
+* Monitor update: Debugger fixes & enhancements (action target registers can be pointers when within [], e.g. action2=string:[esp])
+
+### [14.11.2023]
+* Monitor update: Small detonation fix
+* Formbook detonation & config tweaks
+
+### [7.11.2023]
+* Monitor updates: Misc debugger tweaks
+* XWorm config extraction
+
+### [3.11.2023]
+* Monitor updates:
+    * New debugger actions: 'setsrc' & 'setdst' to set values pointed at by instruction operands
+    * Improve filtering of uninteresting process dumps
+    * Misc fixes/improvements
+
+### [1.11.2023] ZPAQ Support
+* __ACTION REQUIRED__
+    * `sudo apt install zpaq`
+    * as cape user: `poetry install`
+
+### [20.10.2023]
+* Monitor fixes: address new issue affecting procdump and add check in compileMethod hook
+
+### [19.10.2023]
+* Monitor update:
+    * Unpacker: reduce/filter unwanted .NET payloads
+
 ### [13.10.2023]
 * Formbook updates
 * Monitor updates:
@@ -5,7 +38,7 @@
     * Debugger action enhancements: setptr, patch, sleep, exit
     * Software breakpoint handler enhancement
     * Misc fixes/improvements
-    
+
 ### [11.10.2023]
 * Formbook config extraction
 * Monitor updates:
@@ -786,10 +819,10 @@ db.createUser(
     * __REQUIRED ACTION:__ -> `poetry run pip install ujson -U`
 
 
-### [23-03-2021] API Suscription
+### [23-03-2021] API Subscription
 * Default 5/m, it can be changed using Django Admin in user profile. ratelimit is deprecated
 * This was done with huge help from those writeups
-    - [How to add susctiption based throtting to django](https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0)
+    - [How to add subscription based throtting to django](https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0)
     - [How to add custom fields to user profile](https://simpleisbetterthancomplex.com/tutorial/2016/11/23/how-to-add-user-profile-to-django-admin.html)
 
 * __REQUIRED ACTION:__ -> `cd web && python3 manage.py migrate`

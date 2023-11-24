@@ -105,8 +105,11 @@ def extract_config(data):
         runkey_size = struct.unpack("i", dtxt[offset : offset + 4])[0]
         offset += 4
         cfg["Run Key Name"] = dtxt[offset : offset + runkey_size].decode("utf-16")
-    except struct.error as e:
-        print(e)
+    except struct.error:
+        # there is a lot of failed data validation muting it
+        return
+    except Exception as e:
+        print("warzone", e)
 
     return cfg
 

@@ -161,6 +161,7 @@ class AWS(Machinery):
                     snapshot=None,
                     resultserver_ip=resultserver_ip,
                     resultserver_port=resultserver_port,
+                    reserved=False,
                 )
                 break
             except Exception as e:

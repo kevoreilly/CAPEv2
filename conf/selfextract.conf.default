@@ -32,6 +32,7 @@ timeout = 60
 enabled = yes
 timeout = 60
 
+# REPO DOESN'T EXIST ANYMORE!
 # cd /opt/CAPEv2/data/
 # snap install go --classic
 # git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt

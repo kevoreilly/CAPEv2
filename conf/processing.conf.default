@@ -215,7 +215,6 @@ max_file_size = 90
 userdb_signature = no
 # https://capev2.readthedocs.io/en/latest/usage/patterns_replacement.html
 replace_patterns = no
-clamav = no
 
 # Deduplicate screenshots
 # You need to install dependency ImageHash>=4.2.1

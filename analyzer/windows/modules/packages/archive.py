@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 
 EXE_REGEX = re.compile(
-    r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp|\.doc)$",
+    r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp|\.doc|\.xls)$",
     flags=re.IGNORECASE,
 )
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]

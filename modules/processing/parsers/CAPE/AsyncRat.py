@@ -1,55 +1,22 @@
-# based on work of https://github.com/c3rb3ru5d3d53c/mwcfg-modules/blob/master/asyncrat/asyncrat.py
+# based on https://github.com/c3rb3ru5d3d53c/mwcfg-modules/blob/master/asyncrat/asyncrat.py
 
 import base64
-import logging
+import binascii
+import re
 import string
 import struct
+from contextlib import suppress
 
-import yara
 from Cryptodome.Cipher import AES
 from Cryptodome.Protocol.KDF import PBKDF2
 
-log = logging.getLogger(__name__)
 
-DESCRIPTION = "AsyncRat configuration parser."
-AUTHOR = "Based on work of c3rb3ru5"
+def get_string(data, index, offset):
+    return data[index][offset:].decode("utf-8", "ignore")
 
-rule_source = """
-rule asyncrat {
-    meta:
-        author      = "c3rb3ru5"
-        author      = "JPCERT/CC Incident Response Group"
-        description = "ASyncRAT"
-        reference   = "https://malpedia.caad.fkie.fraunhofer.de/details/win.asyncrat"
-        hash        = "330493a1ba3c3903040c9542e6348fab"
-        type        = "malware.rat"
-        created     = "2021-05-29"
-        os          = "windows"
-        tlp         = "white"
-        rev         = 1
-    strings:
-        $magic_cslr_0 = "BSJB"
-        $salt         = {BF EB 1E 56 FB CD 97 3B B2 19 02 24 30 A5 78 43
-                         00 3D 56 44 D2 1E 62 B9 D4 F1 80 E7 E6 C3 39 41}
-        $b1           = {00 00 00 0D 53 00 48 00 41 00 32 00 35 00 36 00
-                         00}
-        $b2           = {09 50 00 6F 00 6E 00 67 00 00}
-        $s1           = "pastebin" ascii wide nocase
-        $s2           = "pong" wide
-        $s3           = "Stub.exe" ascii wide
-    condition:
-        uint16(0) == 0x5a4d and
-        uint32(uint32(0x3c)) == 0x00004550 and
-        filesize < 2605056 and
-        $magic_cslr_0 and
-        ($salt and
-         (2 of ($s*) or
-         1 of ($b*))) or
-        (all of ($b*) and
-         2 of ($s*))
-}
-"""
-yara_rules = yara.compile(source=rule_source)
+
+def get_wide_string(data, index, offset):
+    return (data[index][offset:] + b"\x00").decode("utf-16")
 
 
 def get_salt():
@@ -63,64 +30,53 @@ def decrypt(key, ciphertext):
     return plaintext
 
 
-def get_string(data, index):
-    return data[index][1:].decode("utf-8", "ignore")
+def decrypt_config_string(key, data, index):
+    return "".join(filter(lambda x: x in string.printable, decrypt(key, base64.b64decode(data[index][2:]))))
 
 
-def decrypt_config_item_list(key, data, index):
-    result = "".join(filter(lambda x: x in string.printable, decrypt(key, base64.b64decode(data[index][1:]))))
+def decrypt_config_list(key, data, index):
+    result = decrypt_config_string(key, data, index)
     if result == "null":
         return []
     return result.split(",")
 
 
-def decrypt_config_item_printable(key, data, index):
-    return "".join(filter(lambda x: x in string.printable, decrypt(key, base64.b64decode(data[index][1:]))))
-
-
-def get_wide_string(data, index):
-    return (data[index][1:] + b"\x00").decode("utf-16")
-
-
 def extract_config(filebuf):
     config = {}
-    addr = False
-
-    matches = yara_rules.match(data=filebuf)
-    if not matches:
-        return config
-
-    for block in matches[0].strings:
-        for instance in block.instances:
-            if block.identifier == "$magic_cslr_0":
-                addr = instance.offset
-                break
+    addr = re.search(b"BSJB", filebuf).start()
+    if not addr:
+        return
 
     strings_offset = struct.unpack("<I", filebuf[addr + 0x40 : addr + 0x44])[0]
     strings_size = struct.unpack("<I", filebuf[addr + 0x44 : addr + 0x48])[0]
-    data = filebuf[addr + strings_offset : addr + strings_offset + strings_size]
-    data = data.split(b"\x00\x00")
-    key = base64.b64decode(get_string(data, 7))
-    # log.debug("extracted key: " + str(key))
-    try:
+    data = filebuf[addr + strings_offset : addr + strings_offset + strings_size].split(b"\x00\x00")
+    if len(data) < 7:
+        return
+
+    key = None
+    offset = 3
+    with suppress(binascii.Error):
+        key = base64.b64decode(get_string(data, 6, offset))
+    if not key:
+        offset = 1
+        with suppress(binascii.Error):
+            key = base64.b64decode(get_string(data, 7, offset))
+        if not key:
+            return
+
+    with suppress(Exception):
         config = {
-            # "family": "asyncrat",
-            "C2s": decrypt_config_item_list(key, data, 2),
-            "Ports": decrypt_config_item_list(key, data, 1),
-            "Version": decrypt_config_item_printable(key, data, 3),
-            "Folder": get_wide_string(data, 5),
-            "Filename": get_wide_string(data, 6),
-            "Install": decrypt_config_item_printable(key, data, 4),
-            "Mutex": decrypt_config_item_printable(key, data, 8),
+            "C2s": decrypt_config_list(key, data, 2),
+            "Ports": decrypt_config_list(key, data, 1),
+            "Version": decrypt_config_string(key, data, 3),
+            "Folder": get_wide_string(data, 5, offset),
+            "Filename": get_wide_string(data, 6, offset),
+            "Install": decrypt_config_string(key, data, 4),
+            "Mutex": decrypt_config_string(key, data, 8),
             "Pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b"").decode(),
         }
-    except Exception as e:
-        print(e)
-        return {}
 
-    if config.get("version", "").startswith("0"):
-        return config
-    return {}
+    return config
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ processing_cfg = Config("processing")
 log = logging.getLogger(__name__)
 
 
-def extract_strings(filepath: str = False, data: bytes = False, on_demand: bool = False, dedup: bool = False):
+def extract_strings(filepath: str = False, data: bytes = False, on_demand: bool = False, dedup: bool = False, minchars: int = 0):
     """Extract strings from analyzed file.
     @return: list of printable strings.
     """
@@ -29,7 +29,8 @@ def extract_strings(filepath: str = False, data: bytes = False, on_demand: bool 
         return
 
     nulltermonly = processing_cfg.strings.nullterminated_only
-    minchars = processing_cfg.strings.minchars
+    if minchars == 0:
+        minchars = processing_cfg.strings.minchars
 
     if filepath:
         p = Path(filepath)

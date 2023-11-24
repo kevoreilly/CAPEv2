@@ -1181,7 +1181,7 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
         if "target.file.sha256" in projection:
             projection = dict(**projection)
             projection[f"target.file.{FILE_REF_KEY}"] = 1
-        retval = list(mongo_find("analysis", mongo_search_query, projection).sort([["_id", -1]]).limit(search_limit))
+        retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})
             if FILE_REF_KEY in target_file and "sha256" not in target_file:

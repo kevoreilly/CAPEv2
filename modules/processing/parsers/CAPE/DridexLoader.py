@@ -117,9 +117,12 @@ def extract_config(filebuf):
     except pefile.PEFormatError:
         return
 
+    num_ips = 0
     if num_ips_rva:
         num_ips_offset = pe.get_offset_from_rva(num_ips_rva)
-        num_ips = struct.unpack("B", filebuf[num_ips_offset : num_ips_offset + 1])[0]
+        ip_data = filebuf[num_ips_offset : num_ips_offset + 1]
+        if ip_data:
+            num_ips = struct.unpack("B", filebuf[num_ips_offset : num_ips_offset + 1])[0]
 
     for _ in range(num_ips):
         ip = struct.unpack(">I", filebuf[c2_offset : c2_offset + 4])[0]

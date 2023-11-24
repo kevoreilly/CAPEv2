@@ -1,10 +1,10 @@
 # based on work of https://github.com/c3rb3ru5d3d53c/mwcfg-modules/blob/master/asyncrat/asyncrat.py
 
 import base64
+import binascii
 import logging
 import string
 import struct
-import binascii
 from contextlib import suppress
 
 import yara

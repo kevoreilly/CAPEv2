@@ -382,7 +382,7 @@ class CAPE(Processing):
         # look for an existing config matching this cape_name; merge them if found
         for existing_config in self.cape["configs"]:
             if cape_name in existing_config:
-                log.warning("CAPE: data loss may occur, existing config found for: %s", cape_name)
+                log.debug("CAPE: data loss may occur, existing config found for: %s", cape_name)
                 existing_config[cape_name].update(config[cape_name])
                 config = existing_config
                 break

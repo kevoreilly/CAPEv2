@@ -135,9 +135,6 @@ TASK_FAILED_PROCESSING = "failed_processing"
 TASK_FAILED_REPORTING = "failed_reporting"
 TASK_DISTRIBUTED_COMPLETED = "distributed_completed"
 
-MACHINE_RUNNING = "running"
-MACHINE_SCHEDULED = "scheduled"
-
 ALL_DB_STATUSES = (
     TASK_BANNED,
     TASK_PENDING,
@@ -151,6 +148,9 @@ ALL_DB_STATUSES = (
     TASK_FAILED_REPORTING,
     TASK_DISTRIBUTED_COMPLETED,
 )
+
+MACHINE_RUNNING = "running"
+MACHINE_SCHEDULED = "scheduled"
 
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
@@ -865,7 +865,7 @@ class Database(object, metaclass=Singleton):
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
         vms = self.list_machines(
-            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version
+            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version, include_scheduled=False
         )
         if len(vms) > 0:
             # There are? Awesome!
@@ -1078,7 +1078,7 @@ class Database(object, metaclass=Singleton):
         return machines
 
     @classlock
-    def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None, include_reserved=False, os_version=[]):
+    def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None, include_reserved=False, os_version=[], include_scheduled=True):
         """Lists virtual machines.
         @return: list of virtual machines
         """
@@ -1102,6 +1102,8 @@ class Database(object, metaclass=Singleton):
                     os_version=os_version,
                     include_reserved=include_reserved
                 )
+                if not include_scheduled:
+                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED),Machine.status == None))
                 return machines.all()
             except SQLAlchemyError as e:
                 print(e)
@@ -1152,7 +1154,6 @@ class Database(object, metaclass=Singleton):
             if machine:
                 machine.locked = True
                 machine.locked_changed_on = datetime.now()
-                self.set_status(machine.label, MACHINE_RUNNING)
                 try:
                     session.commit()
                     session.refresh(machine)
@@ -1160,7 +1161,7 @@ class Database(object, metaclass=Singleton):
                     log.debug("Database error locking machine: %s", e)
                     session.rollback()
                     return None
-
+                self.set_machine_status(machine.label, MACHINE_RUNNING)
         return machine
 
     @classlock
@@ -1230,6 +1231,18 @@ class Database(object, metaclass=Singleton):
                 return []
 
     @classlock
+    def get_machines_scheduled(self):
+        with self.Session() as session:
+            try:
+                machines = session.query(Machine)
+                machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
+                result = machines.count()
+            except SQLAlchemyError as e:
+                log.debug("Database error getting machine scheduled: %s", e)
+                return 0
+            return result
+
+    @classlock
     def set_machine_status(self, label, status):
         """Set status for a virtual machine.
         @param label: virtual machine label
@@ -1253,6 +1266,21 @@ class Database(object, metaclass=Singleton):
                     log.debug("Database error setting machine status: %s", e)
                     session.rollback()
 
+    @classlock
+    def check_machines_scheduled_timeout(self):
+        with self.Session() as session:
+            try:
+                machines = session.query(Machine)
+                machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
+            except SQLAlchemyError as e:
+                log.debug("Database error setting machine status: %s", e)
+                session.close()
+                return
+
+            for machine in machines:
+                if machine.status_changed_on + timedelta(seconds=30) < datetime.now():
+                    self.set_machine_status(machine.label, MACHINE_RUNNING)
+        
     @classlock
     def add_error(self, message, task_id):
         """Add an error related to a task.

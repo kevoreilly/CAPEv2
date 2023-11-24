@@ -25,7 +25,7 @@ from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Task, MACHINE_RUNNING, MACHINE_SCHEDULED
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Task
 from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.log import task_log_stop
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
@@ -51,7 +51,7 @@ routing = Config("routing")
 enable_trim = int(Config("web").general.enable_trim)
 
 active_analysis_count = 0
-
+active_analysis_count_lock = threading.Lock()
 
 class ScalingBoundedSemaphore(threading.Semaphore):
     """Implements a dynamic bounded semaphore.
@@ -565,8 +565,7 @@ class AnalysisManager(threading.Thread):
                 # which informs the AnalysisManager that it should analyze
                 # this task again with another available machine.
                 raise CuckooDeadMachine()
-            if active_analysis_count >= 1:
-                active_analysis_count -= 1
+
             try:
                 # Release the analysis machine. But only if the machine has not turned dead yet.
                 machinery.release(self.machine.label)
@@ -583,6 +582,10 @@ class AnalysisManager(threading.Thread):
 
     def run(self):
         """Run manager thread."""
+        global active_analysis_count
+        active_analysis_count_lock.acquire()
+        active_analysis_count += 1
+        active_analysis_count_lock.release()
         try:
             while True:
                 try:
@@ -629,6 +632,10 @@ class AnalysisManager(threading.Thread):
         finally:
             self.db.set_status(self.task.id, TASK_COMPLETED)
             task_log_stop(self.task.id)
+            active_analysis_count_lock.acquire()
+            active_analysis_count -= 1
+            active_analysis_count_lock.release()
+
 
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:
@@ -918,7 +925,6 @@ class Scheduler:
 
     def start(self):
         """Start scheduler."""
-        global active_analysis_count
         self.initialize()
 
         log.info("Waiting for analysis tasks")
@@ -945,6 +951,7 @@ class Scheduler:
             max_batch_scheduling_count = self.cfg.cuckoo.max_batch_count if self.cfg.cuckoo.max_batch_count and self.cfg.cuckoo.max_batch_count > 1 else 5
         # This loop runs forever.
         while self.running:
+            time.sleep(1)
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather than "about to start"
             # or "still busy starting". This way we won't have race conditions
@@ -1073,7 +1080,6 @@ class Scheduler:
                         self.total_analysis_count += 1
                         # Initialize and start the analysis manager.
                         analysis = AnalysisManager(task, errors)
-                        active_analysis_count += 1
                         analysis.daemon = True
                         analysis.start()
 
@@ -1109,8 +1115,9 @@ class Scheduler:
             if machine.platform:
                 specific_locked_machine_counts[machine.platform] += 1
         if self.cfg.cuckoo.scaling_semaphore:
+            number_of_machine_scheduled = machinery.get_machines_scheduled()
             log.debug(
-                "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Specific Locked Machines: %s; # Total Machines: %d; Lock value: %d/%d; # Active analysis: %d",
+                "# Pending Tasks: %d; # Specific Pending Tasks: %s; # Available Machines: %d; # Available Specific Machines: %s; # Locked Machines: %d; # Specific Locked Machines: %s; # Total Machines: %d; Lock value: %d/%d; # Active analysis: %d; # Machines scheduled: %d",
                 self.db.count_tasks(status=TASK_PENDING),
                 dict(specific_pending_task_counts),
                 self.db.count_machines_available(),
@@ -1120,7 +1127,8 @@ class Scheduler:
                 len(self.db.list_machines()),
                 machine_lock._value,
                 machine_lock._limit_value,
-                active_analysis_count
+                active_analysis_count,
+                number_of_machine_scheduled
             )
         else:
             log.debug(

@@ -276,6 +276,9 @@ class Machinery:
             return self.db.lock_machine(platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
         return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
 
+    def get_machines_scheduled(self):
+        return self.db.get_machines_scheduled()
+
     def release(self, label=None):
         """Release a machine.
         @param label: machine name.

@@ -1,10 +1,10 @@
 # based on https://github.com/c3rb3ru5d3d53c/mwcfg-modules/blob/master/asyncrat/asyncrat.py
 
 import base64
+import binascii
+import re
 import string
 import struct
-import re
-import binascii
 from contextlib import suppress
 
 from Cryptodome.Cipher import AES
@@ -43,7 +43,7 @@ def decrypt_config_list(key, data, index):
 
 def extract_config(filebuf):
     config = {}
-    addr = re.search(b'BSJB', filebuf).start()
+    addr = re.search(b"BSJB", filebuf).start()
     if not addr:
         return
 

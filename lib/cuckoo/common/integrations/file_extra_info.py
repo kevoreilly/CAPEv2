@@ -25,8 +25,6 @@ from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
 from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
-
-# ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile

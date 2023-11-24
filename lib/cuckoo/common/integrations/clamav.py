@@ -10,7 +10,7 @@ from lib.cuckoo.common.config import Config
 log = logging.getLogger(__name__)
 
 HAVE_CLAMAV = False
-CLAMAV_ENABLED = Config("processing").CAPE.clamav
+CLAMAV_ENABLED = Config("processing").detections.clamav
 
 if CLAMAV_ENABLED:
     with suppress(ImportError):

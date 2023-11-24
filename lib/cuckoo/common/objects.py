@@ -374,7 +374,7 @@ class File:
                             self.pe = pefile.PE(data=self.file_data, fast_load=True)
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
-                            log.error("Unable to instantiate pefile on image: %s", self.file_path)
+                            log.debug("Unable to instantiate pefile on image: %s", self.file_path)
                         if self.pe:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64

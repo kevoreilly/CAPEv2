@@ -377,7 +377,7 @@ class Processes:
         # TODO: this should check the current analysis configuration and raise a warning
         # if injection is enabled and there is no logs folder.
         if len(os.listdir(self._logs_path)) == 0:
-            log.info("Analysis results folder does not contain any file or injection was disabled")
+            log.debug("Analysis results folder does not contain any file or injection was disabled")
             return results
 
         for file_name in os.listdir(self._logs_path):

@@ -8,6 +8,8 @@ import contextlib
 import logging
 import random
 import traceback
+from math import floor
+from datetime import datetime, timedelta
 from ctypes import POINTER, WINFUNCTYPE, byref, c_bool, c_int, create_unicode_buffer, memmove, sizeof, wintypes
 from threading import Thread
 
@@ -182,7 +184,7 @@ def getwindowlist(hwnd, lparam):
 
 
 def move_mouse():
-    # To avoid mousing over desktop icons, use 1/4 of the total resolution as tgestarting pixel
+    # To avoid mousing over desktop icons, use 1/4 of the total resolution as the starting pixel
     x = random.randint(RESOLUTION_WITHOUT_TASKBAR["x"] // 4, RESOLUTION_WITHOUT_TASKBAR["x"])
     y = random.randint(0, RESOLUTION_WITHOUT_TASKBAR["y"])
 
@@ -292,6 +294,33 @@ def get_document_window(hwnd, lparam):
     return True
 
 
+def realistic_human_cursor_movement():
+    random_dimension = random.randint(0, 1)
+    random_for_position_x = random.randint(2, 8)
+    factor_x = random.choice([1/random_for_position_x,random_for_position_x])
+    random_for_position_y = random.randint(2, 8)
+    factor_y = random.choice([1/random_for_position_y,random_for_position_y])
+    counter = 0
+    start_x = RESOLUTION_WITHOUT_TASKBAR["x"] // factor_x
+    start_y = RESOLUTION_WITHOUT_TASKBAR["y"] // factor_y
+    movements = []
+    start = datetime.now()
+    while datetime.now() - start < timedelta(milliseconds=1000):
+        fuzzy_x = random.randint(0,RESOLUTION_WITHOUT_TASKBAR["x"] // 128)
+        fuzzy_y = random.randint(0,RESOLUTION_WITHOUT_TASKBAR["y"] // 128)
+        if random_dimension == 0: 
+            counter = RESOLUTION_WITHOUT_TASKBAR["y"] // 64
+            x = floor(start_x + fuzzy_x)
+            y = floor(max(0, min(start_y  + counter + fuzzy_y, RESOLUTION_WITHOUT_TASKBAR["y"])))
+        else:
+            counter = RESOLUTION_WITHOUT_TASKBAR["x"] // 64
+            x =  floor(max(0, min(start_x  + counter +  + fuzzy_x, RESOLUTION_WITHOUT_TASKBAR["x"])))
+            y = floor(start_y + fuzzy_y)
+        movements.append((x,y))
+        USER32.SetCursorPos(x, y)
+        KERNEL32.Sleep(50)
+    return movements
+
 class Human(Auxiliary, Thread):
     """Human after all"""
 
@@ -368,13 +397,17 @@ class Human(Auxiliary, Thread):
                 if rng > 1:
                     if rng < 4:
                         USER32.SetCursorPos(RESOLUTION["x"] // 2, 0)
+                        click_mouse()
+                        move_mouse()
+                    elif rng >= 6:
+                        realistic_human_cursor_movement()
                     else:
                         USER32.SetCursorPos(
                             int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),
                             int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)),
                         )
-                    click_mouse()
-                    move_mouse()
+                        click_mouse()
+                        move_mouse()
 
                 if (seconds % (15 + randoff)) == 0:
                     # curwind = USER32.GetForegroundWindow()

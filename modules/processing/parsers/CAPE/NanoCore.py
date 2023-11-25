@@ -5,10 +5,14 @@ import pefile
 import zlib
 import uuid
 import datetime
-from Crypto.Cipher import DES
-from Crypto.Util.Padding import unpad
+import logging
+from contextlib import suppress
 from enum import Enum
 
+from Crypto.Cipher import DES
+from Crypto.Util.Padding import unpad
+
+log = logging.getLogger(__name__)
 
 DES_KEY = b'\x72\x20\x18\x78\x8c\x29\x48\x97'
 DES_IV = DES_KEY
@@ -43,7 +47,7 @@ class DataType(Enum):
 def des_decrypt(data):
     cipher = DES.new(key=DES_KEY, iv=DES_IV, mode=DES.MODE_CBC)
     dec_data = cipher.decrypt(data)
-    if len(dec_data) == 0:
+    if not dec_data:
         return b''
     return unpad(dec_data, DES.block_size)
 
@@ -100,15 +104,15 @@ def decode(payload):
         elif data_type == DataType.BYTEARRAY:
             data_len = int.from_bytes(f.read(4), 'little')
             value = f.read(data_len)
-        elif data_type == DataType.INT or data_type == DataType.UINT:
+        elif data_type in (DataType.INT, DataType.UINT):
             value = int.from_bytes(f.read(4), 'little')
-        elif data_type == DataType.LONG or data_type == DataType.ULONG:
+        elif data_type in (DataType.LONG, DataType.ULONG):
             value = int.from_bytes(f.read(8), 'little')
-        elif data_type == DataType.SHORT or data_type == DataType.USHORT:
+        elif data_type in (DataType.SHORT, DataType.USHORT):
             value = int.from_bytes(f.read(2), 'little')
         elif data_type == DataType.FLOAT:
             value = float(int.from_bytes(f.read(4), 'little'))
-        elif data_type == DataType.STRING or data_type == DataType.VERSION:
+        elif data_type in (DataType.STRING, DataType.VERSION):
             data_len = int.from_bytes(f.read(1), 'little')
             value = f.read(data_len).decode()
         elif data_type == DataType.DATETIME:
@@ -136,36 +140,42 @@ def decode(payload):
 
 
 def extract_config(filebuf):
-    try:
+    pe = False
+    with suppress(pefile.PEFormatError):
         pe = pefile.PE(data=filebuf)
         for section in pe.sections:
             if b'.rsrc' in section.Name:
                 break
-    except pefile.PEFormatError:
+
+    if not pe:
         return
 
-    with io.BytesIO(filebuf) as f:
-        offset = 0x58  # resource section header
-        f.seek(section.PointerToRawData + offset)
-        data_len = int.from_bytes(f.read(4), 'little')
-        _guid = f.read(data_len)
-        enc_data = f.read()
-    dec_data = decode(enc_data)
-
-    # dec_data to config format
     config_dict = {}
-    params = iter(dec_data['params'])
-    for param in params:
-        if DataType.STRING == param['type']:
-            item_name = param['value']
-            param = next(params)
-            if DataType.BYTEARRAY == param['type']:
-                pass
-            elif DataType.DATETIME == param['type']:
-                dt = param['value']
-                config_dict[item_name] = dt.strftime('%Y-%m-%d %H:%M:%S.%f')
-            else:
-                config_dict[item_name] = str(param['value'])
+    try:
+        with io.BytesIO(filebuf) as f:
+            offset = 0x58  # resource section header
+            f.seek(section.PointerToRawData + offset)
+            data_len = int.from_bytes(f.read(4), 'little')
+            _guid = f.read(data_len)
+            enc_data = f.read()
+        dec_data = decode(enc_data)
+
+        # dec_data to config format
+
+        params = iter(dec_data['params'])
+        for param in params:
+            if DataType.STRING == param['type']:
+                item_name = param['value']
+                param = next(params)
+                if DataType.BYTEARRAY == param['type']:
+                    pass
+                elif DataType.DATETIME == param['type']:
+                    dt = param['value']
+                    config_dict[item_name] = dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+                else:
+                    config_dict[item_name] = str(param['value'])
+    except Exception as e:
+        log.error("nanocore error: %s", e)
     return config_dict
 
 

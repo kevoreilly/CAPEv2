@@ -5,11 +5,11 @@
 from modules.processing.parsers.CAPE.NanoCore import extract_config
 
 
-def test_bumblebee():
+def test_nanocore():
     with open("tests/data/malware/f1bd511b69f95c26f489157272884a12225c1cf7a453207bfc46ce48a91eae96", "rb") as data:
         conf = extract_config(data.read())
         assert conf == {
-            "BuildTime": "2023-11-22 01:25:26.569697",
+            "BuildTime": "2023-11-22 00:25:26.569697",
             "Version": "1.2.2.0",
             "Mutex": "dc5ce709-95b6-4a26-9175-16a1a8446828",
             "DefaultGroup": "6coinc",

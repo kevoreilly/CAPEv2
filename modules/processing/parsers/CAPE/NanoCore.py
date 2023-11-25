@@ -9,8 +9,11 @@ import logging
 from contextlib import suppress
 from enum import Enum
 
-from Crypto.Cipher import DES
-from Crypto.Util.Padding import unpad
+HAVE_PYCYPTODOMEX = False
+with suppress(ImportError):
+    from Cryptodome.Cipher import DES
+    from Cryptodome.Util.Padding import unpad
+    HAVE_PYCYPTODOMEX = True
 
 log = logging.getLogger(__name__)
 
@@ -140,6 +143,9 @@ def decode(payload):
 
 
 def extract_config(filebuf):
+    if not HAVE_PYCYPTODOMEX:
+        log.error("Missed pycryptodomex. Run: poetry install")
+        return {}
     pe = False
     with suppress(pefile.PEFormatError):
         pe = pefile.PE(data=filebuf)

@@ -24,7 +24,7 @@ import yara
 from Cryptodome.PublicKey import ECC, RSA
 from Cryptodome.Util import asn1
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 try:

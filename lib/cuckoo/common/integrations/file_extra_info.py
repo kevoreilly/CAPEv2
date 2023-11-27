@@ -730,7 +730,10 @@ def kixtart_extract(file: str, **_) -> ExtractorReturnType:
 
     return ctx
 
+
 UN_AUTOIT_NOTIF = False
+
+
 @time_tracker
 def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     global UN_AUTOIT_NOTIF

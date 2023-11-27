@@ -791,9 +791,14 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         return
 
     # Check for msix file since it's a zip
+    file_data = File(file).file_data
+    if not file_data:
+        log.debug("sevenzip: No file data")
+        return
+
     if (
         ".msix" in data_dictionary.get("name", "")
-        or all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")])
+        or all([pattern in file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")])
         or any("MSIX Windows app" in string for string in data_dictionary.get("trid", []))
     ):
         return

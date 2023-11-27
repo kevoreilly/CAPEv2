@@ -250,9 +250,6 @@ class CAPE(Processing):
 
             self.results.setdefault(category, []).append(file_info)
 
-        # Get the file data
-        file_data = Path(file_info["path"]).read_bytes()
-
         # Process CAPE Yara hits
         # Prefilter extracted data + beauty is better than oneliner:
         all_files = []
@@ -272,8 +269,11 @@ class CAPE(Processing):
                     )
                 )
 
-        for yara in file_info["cape_yara"]:
-            all_files.append((file_info["path"], file_data, yara))
+        # Get the file data
+        if path_exists(file_info["path"]):
+            file_data = Path(file_info["path"]).read_bytes()
+            for yara in file_info["cape_yara"]:
+                all_files.append((file_info["path"], file_data, yara))
 
         executed_config_parsers = collections.defaultdict(set)
         for tmp_path, tmp_data, hit in all_files:
@@ -300,7 +300,7 @@ class CAPE(Processing):
             if "config" in type_string.lower():
                 append_file = False
             cape_name = File.get_cape_name_from_cape_type(type_string)
-            if cape_name and cape_name not in executed_config_parsers:
+            if cape_name and cape_name not in executed_config_parsers and file_data:
                 tmp_config = static_config_parsers(cape_name, file_info["path"], file_data)
                 if tmp_config:
                     cape_names.add(cape_name)

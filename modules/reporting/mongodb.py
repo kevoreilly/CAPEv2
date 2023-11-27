@@ -131,6 +131,7 @@ class MongoDB(Report):
         try:
             mongo_insert_one("analysis", report)
         except OperationFailure as e:
+            # ToDo rewrite how children are stored
             if str(e).startswith("BSONObj exceeds maximum nested object"):
                 log.debug("Deleting behavior process tree children from results.")
                 del report["behavior"]["processtree"][0]["children"]

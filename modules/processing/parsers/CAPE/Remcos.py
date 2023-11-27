@@ -189,7 +189,7 @@ def extract_config(filebuf):
 
             for k, v in p_data.items():
                 if k in utf_16_string_list:
-                    v = v.decode("utf16").strip("\00")
+                    v = v.decode("utf16").strip("\00") if isinstance(v, bytes) else v
                 config[k] = v
 
     except Exception as e:

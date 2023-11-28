@@ -688,7 +688,7 @@ function install_virt_manager() {
     automake --add-missing
     ./configure
     mkdir -p /tmp/libvirt-glib_builded/DEBIAN
-    echo -e "Package: libvirt-glib\nVersion: 1.0-0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom libvirt-glib-1.0-0" > /tmp/libvirt-glib-1.0-0_builded/DEBIAN/control
+    echo -e "Package: libvirt-glib-1.0-0\nVersion: 1.0.0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom libvirt-glib-1.0-0" > /tmp/libvirt-glib_builded/DEBIAN/control
     make -j"$(nproc)" install DESTDIR=/tmp/libvirt-glib_builded
     dpkg-deb --build --root-owner-group /tmp/libvirt-glib_builded
     apt -y -o Dpkg::Options::="--force-overwrite" install /tmp/libvirt-glib_builded.deb

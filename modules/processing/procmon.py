@@ -34,7 +34,7 @@ class Procmon(Processing):
 
     def run(self):
         self.key = "procmon"
-        procmon_xml = os.path.join(self.analysis_path, "procmon.xml")
+        procmon_xml = os.path.join(self.analysis_path, "aux/procmon.xml")
         if not path_exists(procmon_xml):
             return
 

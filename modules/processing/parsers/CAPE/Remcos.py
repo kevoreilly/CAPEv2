@@ -110,6 +110,9 @@ logger = logging.getLogger(__name__)
 
 def get_rsrc(pe):
     ret = []
+    if not hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
+        return ret
+
     for resource_type in pe.DIRECTORY_ENTRY_RESOURCE.entries:
         name = str(resource_type.name if resource_type.name is not None else pefile.RESOURCE_TYPE.get(resource_type.struct.Id))
         if hasattr(resource_type, "directory"):

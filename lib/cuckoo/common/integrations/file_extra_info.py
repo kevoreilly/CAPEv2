@@ -462,6 +462,8 @@ def generic_file_extractors(
             timeout = err.args[0]
             log.debug("Function: %s took longer than %d seconds", funcname, timeout)
             continue
+        except TypeError as err:
+            log.debug("TypeError on getting results: %s", str(err))
         except Exception as err:
             log.exception("file_extra_info: %s", err)
             continue

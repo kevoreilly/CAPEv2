@@ -1,8 +1,8 @@
 import hashlib
+import io
 import json
 import logging
 import os
-import io
 import sys
 import tempfile
 import time
@@ -19,6 +19,7 @@ from django.http import HttpResponse
 HAVE_PYZIPPER = False
 with suppress(ImportError):
     import pyzipper
+
     HAVE_PYZIPPER = True
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
@@ -1304,6 +1305,7 @@ def get_hash_list(hashes):
 
     return hashlist
 
+
 _bazaar_map = {
     32: "md5_hash",
     40: "sha1_hash",
@@ -1317,7 +1319,7 @@ def _malwarebazaar_dl(hash):
         return False
 
     try:
-        #ToDo add suppport for md5 and sha1
+        # ToDo add suppport for md5 and sha1
         data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", _bazaar_map[len(hash)]: hash})
         if data.ok and b"file_not_found" not in data.content:
             try:
@@ -1330,6 +1332,7 @@ def _malwarebazaar_dl(hash):
         logging.error(e, exc_info=True)
 
     return sample
+
 
 def thirdpart_aux(samples, prefix, folder, opt_filename, details):
     if not path_exists(folder):
@@ -1370,6 +1373,7 @@ def thirdpart_aux(samples, prefix, folder, opt_filename, details):
             details["task_ids"] = task_ids_tmp
 
     return details
+
 
 def download_from_vt(samples, details, opt_filename, settings):
     folder = os.path.join(settings.VTDL_PATH, "cape-external")

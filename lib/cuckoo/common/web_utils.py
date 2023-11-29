@@ -1319,7 +1319,6 @@ def _malwarebazaar_dl(hash):
         return False
 
     try:
-        # ToDo add suppport for md5 and sha1
         data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", _bazaar_map[len(hash)]: hash})
         if data.ok and b"file_not_found" not in data.content:
             try:

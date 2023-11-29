@@ -77,6 +77,7 @@ ELASTIC_VERIFY_CERTS = cfg.elasticsearchdb.get("verify_certs", None)
 
 moloch_cfg = cfg.moloch
 vtdl_cfg = aux_cfg.virustotaldl
+bazaar_cfg = aux_cfg.malwarebazaar
 zip_cfg = web_cfg.zipped_download
 
 URL_ANALYSIS = web_cfg.url_analysis.get("enabled", False)
@@ -92,6 +93,8 @@ MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
 VTDL_ENABLED = vtdl_cfg.get("enabled", False)
 VTDL_KEY = vtdl_cfg.get("dlintelkey")
 VTDL_PATH = vtdl_cfg.get("dlpath")
+
+BAZAAR_ENABLED = bazaar_cfg.get("enabled", False)
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 

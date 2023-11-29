@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import io
 import sys
 import tempfile
 import time
@@ -1331,9 +1332,10 @@ def _malwarebazaar_dl(hash):
     return sample
 
 def thirdpart_aux(samples, prefix, folder, opt_filename, details):
+    if not path_exists(folder):
+        path_mkdir(folder, exist_ok=True)
+
     for h in get_hash_list(samples):
-        if not path_exists(folder):
-            path_mkdir(folder, exist_ok=True)
         base_dir = tempfile.mkdtemp(prefix=prefix, dir=folder)
         if opt_filename:
             filename = f"{base_dir}/{opt_filename}"
@@ -1370,7 +1372,7 @@ def thirdpart_aux(samples, prefix, folder, opt_filename, details):
     return details
 
 def download_from_vt(samples, details, opt_filename, settings):
-    folder = os.path.join(settings.VTDL_PATH, "cape-vt")
+    folder = os.path.join(settings.VTDL_PATH, "cape-external")
     if settings.VTDL_KEY:
         details["headers"] = {"x-apikey": settings.VTDL_KEY}
     elif details.get("apikey", False):
@@ -1389,9 +1391,8 @@ def download_from_bazaar(samples, details, opt_filename, settings):
         return
 
     details["service"] = "MalwareBazaar"
-    folder = os.path.join(settings.BAZAAR_PATH, "cape-bazaar")
+    folder = os.path.join(settings.BAZAAR_PATH, "cape-external")
     return thirdpart_aux(samples, "bazaar", folder, opt_filename, details)
-
 
 
 def process_new_task_files(request, samples, details, opt_filename, unique):

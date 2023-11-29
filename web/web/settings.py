@@ -95,7 +95,6 @@ VTDL_KEY = vtdl_cfg.get("dlintelkey")
 VTDL_PATH = vtdl_cfg.get("dlpath")
 
 BAZAAR_ENABLED = bazaar_cfg.get("enabled", False)
-BAZAAR_PATH = bazaar_cfg.get("dlpath")
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 

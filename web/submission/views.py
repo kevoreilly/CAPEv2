@@ -496,8 +496,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 details = download_from_vt(samples, details, opt_filename, settings)
 
         elif task_category == "bazaar":
-            if not settings.BAZAAR_PATH:
-                details = download_from_bazaar(samples, details, opt_filename, settings)
+            details = download_from_bazaar(samples, details, opt_filename, settings)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])

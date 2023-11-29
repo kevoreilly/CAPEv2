@@ -486,9 +486,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 return render(
                     request,
                     "error.html",
-                    {
-                        "error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"
-                    },
+                    {"error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"},
                 )
             else:
                 if opt_apikey:

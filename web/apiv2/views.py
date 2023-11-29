@@ -2200,9 +2200,7 @@ def common_download_func(service, request):
         if not (settings.VTDL_KEY or opt_apikey):
             resp = {
                 "error": True,
-                "error_value": (
-                    "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"
-                ),
+                "error_value": ("You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"),
             }
             return Response(resp)
 

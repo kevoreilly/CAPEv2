@@ -89,7 +89,7 @@ MOLOCH_NODE = moloch_cfg.get("node")
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
 
 VTDL_ENABLED = web_cfg.download_services.get("virustotal", False)
-VTDL_KEY = web_cfg.download_services.vtkey
+VTDL_KEY = web_cfg.download_services.get("vtkey", False)
 
 BAZAAR_ENABLED = web_cfg.download_services.get("malwarebazaar", False)
 

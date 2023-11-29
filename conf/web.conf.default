@@ -215,5 +215,5 @@ packages =
 virustotal = no
 # note that unlike the VirusTotal processing module, the key required
 # here is a Intelligence API key, not a Public API key
-vtkey = SomeKeyWithDLAccess
+vtkey =
 malwarebazaar = no

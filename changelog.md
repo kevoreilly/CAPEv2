@@ -1,3 +1,6 @@
+### [29.11.2023] Unify download services
+* Virustotal config moved from `auxiliary.conf` to `web.conf` under `download_services`
+
 ### [24.11.2023]
 * AsyncRAT config parser overhaul
 * Monitor update: Debugger tweaks

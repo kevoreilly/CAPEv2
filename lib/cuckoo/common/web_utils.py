@@ -1334,7 +1334,8 @@ def _malwarebazaar_dl(hash):
     return sample
 
 
-def thirdpart_aux(samples, prefix, folder, opt_filename, details):
+def thirdpart_aux(samples, prefix, opt_filename, details, settings):
+    folder = os.path.join(settings.TEMP_PATH, "cape-external")
     if not path_exists(folder):
         path_mkdir(folder, exist_ok=True)
 
@@ -1376,7 +1377,6 @@ def thirdpart_aux(samples, prefix, folder, opt_filename, details):
 
 
 def download_from_vt(samples, details, opt_filename, settings):
-    folder = os.path.join(settings.VTDL_PATH, "cape-external")
     if settings.VTDL_KEY:
         details["headers"] = {"x-apikey": settings.VTDL_KEY}
     elif details.get("apikey", False):
@@ -1386,7 +1386,7 @@ def download_from_vt(samples, details, opt_filename, settings):
         return details
 
     details["service"] = "VirusTotal"
-    return thirdpart_aux(samples, "vt", folder, opt_filename, details)
+    return thirdpart_aux(samples, "vt", opt_filename, details, settings)
 
 
 def download_from_bazaar(samples, details, opt_filename, settings):
@@ -1395,8 +1395,7 @@ def download_from_bazaar(samples, details, opt_filename, settings):
         return
 
     details["service"] = "MalwareBazaar"
-    folder = os.path.join(settings.BAZAAR_PATH, "cape-external")
-    return thirdpart_aux(samples, "bazaar", folder, opt_filename, details)
+    return thirdpart_aux(samples, "bazaar", opt_filename, details, settings)
 
 
 def process_new_task_files(request, samples, details, opt_filename, unique):

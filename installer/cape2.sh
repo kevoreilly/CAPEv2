@@ -593,9 +593,7 @@ EOF
 
 function redsocks2() {
     cd /tmp || return
-    sudo apt install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev
-    sudo apt install -y libssl1.0-dev 2>/dev/null
-    sudo apt install -y libssl-dev 2>/dev/null
+    sudo apt install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev libssl1.0-dev libssl-dev
     git clone https://github.com/semigodking/redsocks redsocks2 && cd redsocks2 || return
     DISABLE_SHADOWSOCKS=true make -j"$(nproc)" #ENABLE_STATIC=true
     sudo cp redsocks2 /usr/bin/

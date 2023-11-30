@@ -96,7 +96,7 @@ def extract_config(filebuf):
     c2_domains = []
     cfg_strings = []
     for item in items:
-        try:
+        with suppress(IndexError, UnicodeDecodeError, ValueError):
             dec = decode_string(item, sbox).decode('utf8')
             if dec:
                 cfg_strings.append(dec)
@@ -106,10 +106,9 @@ def extract_config(filebuf):
                 ver = re.findall('^(\d+\.\d+)$', dec)[0]
                 if ver:
                     cfg["version"] = ver
-                print(dec)
-        except (IndexError, UnicodeDecodeError, ValueError) as e:
-            pass
-    cfg["c2_domains"] = c2_domains
+                # print(dec)
+    if c2_domains:
+        cfg["c2_domains"] = c2_domains
     #cfg["strings"] = cfg_strings
     return cfg
 

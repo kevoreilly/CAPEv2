@@ -1,15 +1,15 @@
 import logging
 import struct
-import pefile
-import re2 as re
 from contextlib import suppress
 
+import pefile
+import re2 as re
 import yara
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-rule_source = '''
+rule_source = """
 rule Carbanak
 {
     meta:
@@ -21,7 +21,7 @@ rule Carbanak
     condition:
         uint16(0) == 0x5A4D and any of them
 }
-'''
+"""
 
 yara_rules = yara.compile(source=rule_source)
 
@@ -38,7 +38,7 @@ def decode_string(src, sbox):
     n = 0
     i = 0
     while n < lenstr:
-        if rb == 0 :
+        if rb == 0:
             nb += 1
             if nb <= 4:
                 delta = src[i] - 97
@@ -80,35 +80,35 @@ def extract_config(filebuf):
             continue
         for item in match.strings:
             for instance in item.instances:
-                if '$sboxinit' in item.identifier:
+                if "$sboxinit" in item.identifier:
                     sbox_init_offset = int(instance.offset)
     if not sbox_init_offset:
         return
-    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 7: sbox_init_offset + 11])[0]
+    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 7 : sbox_init_offset + 11])[0]
     sbox_offset = pe.get_offset_from_rva(sbox_delta + pe.get_rva_from_offset(sbox_init_offset) + 11)
-    sbox = bytes(filebuf[sbox_offset: sbox_offset + 128])
-    data_sections = [s for s in pe.sections if s.Name.find(b'.rdata') != -1]
+    sbox = bytes(filebuf[sbox_offset : sbox_offset + 128])
+    data_sections = [s for s in pe.sections if s.Name.find(b".rdata") != -1]
     if not data_sections or not sbox:
         return None
     data = data_sections[0].get_data()
-    items = data.split(b'\x00')
+    items = data.split(b"\x00")
     c2_domains = []
     cfg_strings = []
     for item in items:
         with suppress(IndexError, UnicodeDecodeError, ValueError):
-            dec = decode_string(item, sbox).decode('utf8')
+            dec = decode_string(item, sbox).decode("utf8")
             if dec:
                 cfg_strings.append(dec)
                 tlds = (".com", ".net", ".org", ".edu")
                 if dec.endswith(tlds):
                     c2_domains.append(dec)
-                ver = re.findall('^(\d+\.\d+)$', dec)[0]
+                ver = re.findall("^(\d+\.\d+)$", dec)[0]
                 if ver:
                     cfg["version"] = ver
                 # print(dec)
     if c2_domains:
         cfg["c2_domains"] = c2_domains
-    #cfg["strings"] = cfg_strings
+    # cfg["strings"] = cfg_strings
     return cfg
 
 

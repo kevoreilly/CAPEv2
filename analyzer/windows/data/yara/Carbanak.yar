@@ -3,7 +3,7 @@ rule Carbanak
     meta:
         author = "enzok"
         description = "Carbanak Payload"
-        cape_options = "bp0=$sboxinit+28,count=0,action0=DumpImage,typestring0=Carbanak Payload"
+        cape_options = "bp0=$sboxinit+27,count=0,action0=DumpImage,typestring0=Carbanak Payload"
         packed = "9c9f7174d1c79569ac3464aa9a997d09d44c2094ce1b80a5e63c115edc140c56"
     strings:
         $sboxinit = {0F BE 02 4? 8D 05 [-] 4? 8D 4D ?? E8 [3] 00 33 F6 4? 8D 5D ?? 4? 63 F8 8B 45 ?? B? B1 E3 14 06}

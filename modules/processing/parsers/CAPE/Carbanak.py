@@ -5,7 +5,6 @@ import re2 as re
 from contextlib import suppress
 
 import yara
-from Cryptodome.Cipher import ARC4
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)

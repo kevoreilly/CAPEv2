@@ -1,3 +1,6 @@
+### [30.11.2023]
+* Monitor update: Fix bug affecting some process dumps
+
 ### [29.11.2023] Unify download services
 * Virustotal config moved from `auxiliary.conf` to `web.conf` under `download_services`
 

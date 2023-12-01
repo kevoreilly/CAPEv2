@@ -3,7 +3,7 @@ import struct
 from contextlib import suppress
 
 import pefile
-import re2 as re
+import re
 import yara
 
 log = logging.getLogger()

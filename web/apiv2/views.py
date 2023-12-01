@@ -1881,7 +1881,7 @@ def exit_nodes_list(request):
     resp = {}
     resp["data"] = []
     resp["error"] = False
-    resp["data"] += ["socks:" + sock5["name"] for sock5 in _load_socks5_operational() or []]
+    resp["data"] += ["socks:" + sock5 for sock5 in _load_socks5_operational() or []]
     resp["data"] += ["vpn:" + vpn for vpn in vpns.keys() or []]
     if routing_conf.tor.enabled:
         resp["data"].append("tor")

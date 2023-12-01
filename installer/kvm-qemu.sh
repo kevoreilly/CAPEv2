@@ -228,9 +228,9 @@ function _enable_tcp_bbr() {
     modprobe br_netfilter
     echo "br_netfilter" >> /etc/modules
     {
-        echo "net.bridge.bridge-nf-call-arptables = 1";
-        echo "net.bridge.bridge-nf-call-ip6tables = 1";
-        echo "net.bridge.bridge-nf-call-iptables = 1";
+        echo "net.bridge.bridge-nf-call-arptables = 0";
+        echo "net.bridge.bridge-nf-call-ip6tables = 0";
+        echo "net.bridge.bridge-nf-call-iptables = 0";
         echo "net.core.rmem_max = 16777216";
         echo "net.core.wmem_max = 16777216";
         echo "net.ipv4.tcp_rmem = 4096 87380 16777216";

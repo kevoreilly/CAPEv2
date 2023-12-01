@@ -6,8 +6,8 @@ from contextlib import suppress
 
 try:
     import requests
-    from socks5man.manager import Manager
     from socks5man.exceptions import Socks5CreationError
+    from socks5man.manager import Manager
 
     # first run socks5man to generate /home/cape/.socks5man on each server
     # You will need to distribute socks5man.db to all servers to /home/cape/.socks5man

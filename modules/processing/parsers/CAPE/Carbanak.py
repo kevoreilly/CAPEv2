@@ -1,9 +1,9 @@
 import logging
+import re
 import struct
 from contextlib import suppress
 
 import pefile
-import re
 import yara
 
 log = logging.getLogger()

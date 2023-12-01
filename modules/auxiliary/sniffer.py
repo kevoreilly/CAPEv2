@@ -38,7 +38,7 @@ class Sniffer(Auxiliary):
 
         # I got tired of Ubuntu's renaming
         tcpdump = self.options.get("tcpdump", "/usr/bin/tcpdump")
-        if not tcpdump.exists(tcpdump):
+        if not os.path.exists(tcpdump):
             for path in ["/usr/bin/tcpdump", "/usr/sbin/tcpdump"]:
                 if os.path.exists(path):
                     tcpdump = path

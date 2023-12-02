@@ -503,6 +503,7 @@ def generic_file_extractors(
             )
         finally:
             if tempdir:
+                # ToDo doesn't work
                 shutil.rmtree(tempdir, ignore_errors=True)
 
 

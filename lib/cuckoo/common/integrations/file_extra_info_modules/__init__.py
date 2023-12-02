@@ -9,7 +9,10 @@ import timeit
 from typing import List, Optional, TypedDict
 
 from lib.cuckoo.common.path_utils import path_object
+from lib.cuckoo.common.config import Config
 
+
+cfg = Config()
 log = logging.getLogger()
 
 
@@ -48,7 +51,8 @@ def time_tracker(func):
 
 @contextlib.contextmanager
 def extractor_ctx(filepath, tool_name, prefix=None):
-    tempdir = tempfile.mkdtemp(prefix=prefix)
+    folder = os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
+    tempdir = tempfile.mkdtemp(prefix=prefix, dir=folder)
     retval = {"tempdir": tempdir}
     try:
         yield retval

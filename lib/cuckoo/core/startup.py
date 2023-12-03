@@ -149,10 +149,6 @@ def create_structure():
             "Can't create folders. Ensure that you executed CAPE with proper USER! Maybe should be cape user?. %s", str(e)
         )
 
-    folder = os.path.join(cuckoo.cuckoo.get("tmppath", "/tmp"), "cape-external")
-    if not path_exists(folder):
-        path_mkdir(folder, exist_ok=True)
-
 
 class DatabaseHandler(logging.Handler):
     """Logging to database handler.

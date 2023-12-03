@@ -489,7 +489,7 @@ def generic_file_extractors(
             old_tool_name = data_dictionary.get("extracted_files_tool")
             new_tool_name = extraction_result["tool_name"]
             if old_tool_name:
-                log.warning("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
+                log.debug("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
                 continue
             metadata = _extracted_files_metadata(
                 tempdir, destination_folder, files=extracted_files, duplicated=duplicated, results=results

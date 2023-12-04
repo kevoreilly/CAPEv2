@@ -1337,7 +1337,6 @@ def thirdpart_aux(samples, prefix, opt_filename, details, settings):
     folder = os.path.join(settings.TEMP_PATH, "cape-external")
     if not path_exists(folder):
         path_mkdir(folder, exist_ok=True)
-
     for h in get_hash_list(samples):
         base_dir = tempfile.mkdtemp(prefix=prefix, dir=folder)
         if opt_filename:

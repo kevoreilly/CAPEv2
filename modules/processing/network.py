@@ -272,10 +272,15 @@ class Pcap:
             maxminddb_client = get_maxminddb_client()
             if maxminddb_client:
                 try:
-                    return maxminddb_client.get(ip).get("country", {}).get("names", {}).get("en", "unknown")
+                    ip_info = maxminddb_client.get(ip)
+                    # ipinfo db
+                    if "continent_name" in ip_info:
+                        return ip_info.get("country", "unknown").lower(), ip_info.get("asn", ""), ip_info.get("as_name", "")
+                    else:
+                        return ip_info.get("country", {}).get("names", {}).get("en", "unknown"), "", ""
                 except Exception:
                     log.error("Unable to resolve GEOIP for %s", ip)
-        return "unknown"
+        return "unknown", "", ""
 
     def _add_hosts(self, connection):
         """Add IPs to unique list.
@@ -319,8 +324,17 @@ class Pcap:
                         break
                 if hostname:
                     break
-
-            enriched_hosts.append({"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa})
+            country_name, asn, asn_name = self._get_cn(ip)
+            enriched_hosts.append(
+                {
+                    "ip": ip,
+                    "country_name": country_name,
+                    "asn": asn,
+                    "asn_name": asn_name,
+                    "hostname": hostname,
+                    "inaddrarpa": inaddrarpa,
+                }
+            )
         return enriched_hosts
 
     def _tcp_dissect(self, conn, data, ts):

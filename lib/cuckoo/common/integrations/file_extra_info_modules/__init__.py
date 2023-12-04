@@ -8,9 +8,8 @@ import tempfile
 import timeit
 from typing import List, Optional, TypedDict
 
-from lib.cuckoo.common.path_utils import path_object, path_mkdir
 from lib.cuckoo.common.config import Config
-
+from lib.cuckoo.common.path_utils import path_mkdir, path_object
 
 cfg = Config()
 log = logging.getLogger()

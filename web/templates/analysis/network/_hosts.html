@@ -17,13 +17,13 @@
                     {% else %}
                         <td>N/A</td>
                     {% endif %}
-                        <td>{{host.ip}} <a href="https://www.virustotal.com/gui/ip-address/{{host.ip}}/detection">[VT]</a>
-                    {% if config.display_et_portal %}
-                        <a href="https://threatintel.proofpoint.com/search?q={{host.ip}}" target="_blank">[ET]</a>
-                    {% endif %}
-                    {% if config.display_pt_portal %}
-                        <a href="https://www.passivetotal.org/passive/{{host.ip}}" target="_blank">[PT]</a>
-                    {% endif %}
+                    <td>{{host.ip}} <a href="https://www.virustotal.com/gui/ip-address/{{host.ip}}/">[VT]</a>
+                        {% if config.display_et_portal %}
+                            <a href="https://threatintel.proofpoint.com/search?q={{host.ip}}" target="_blank">[ET]</a>
+                        {% endif %}
+                        {% if config.display_pt_portal %}
+                            <a href="https://www.passivetotal.org/passive/{{host.ip}}" target="_blank">[PT]</a>
+                        {% endif %}
                     </td>
                     <td>{{host.country_name}}</td>
                     {% if host.asn %}

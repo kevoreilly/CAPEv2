@@ -125,11 +125,10 @@ if enabled_network_passlist and network_passlist_file and os.path.isfile(network
             network_passlist.append(ipaddress.ip_network(cidr.strip()))
 
 if HAVE_GEOIP and proc_cfg.network.maxmind_database:
-    # Reload the maxmind database when it has changed, but only check the file system
-    # every 5 minutes.
+    # Reload the maxmind database when it has changed, but only check the file system every 5 minutes.
     _MAXMINDDB_PATH = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
-    _MAXMINDDB_CLIENT = None
     _MAXMINDDB_MTIME = None
+    _MAXMINDDB_CLIENT = None
 
     @cachetools.func.ttl_cache(maxsize=None, ttl=5 * 60)
     def get_maxminddb_client():
@@ -143,6 +142,9 @@ if HAVE_GEOIP and proc_cfg.network.maxmind_database:
                 _MAXMINDDB_CLIENT = maxminddb.open_database(_MAXMINDDB_PATH)
             return _MAXMINDDB_CLIENT
         return None
+
+    # Do initial load
+    _MAXMINDDB_CLIENT = get_maxminddb_client()
 
 else:
 
@@ -279,7 +281,7 @@ class Pcap:
                     else:
                         return ip_info.get("country", {}).get("names", {}).get("en", "unknown"), "", ""
                 except Exception:
-                    log.error("Unable to resolve GEOIP for %s", ip)
+                    log.debug("Unable to resolve GEOIP for %s", ip)
         return "unknown", "", ""
 
     def _add_hosts(self, connection):

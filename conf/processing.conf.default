@@ -107,7 +107,10 @@ network_passlist_file = extra/whitelist_network.txt
 
 # Requires geoip2 and maxmind database
 country_lookup = no
-# Register and download for free from https://www.maxmind.com/
+# Register and download for free from
+# https://www.maxmind.com/ or https://ipinfo.io/
+# For maxmind use: GeoLite2 Country
+# For ipinfo use: Free IP to Country + IP to ASN
 maxmind_database = data/GeoLite2-Country.mmdb
 
 [url_analysis]

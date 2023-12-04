@@ -1,7 +1,7 @@
 ### [04.12.2023] IPinfo.io database integration
 * Introduce support for IPifo.io database. You can download database [here](https://ipinfo.io/account/data-downloads).
 * To enable it:
-    * `conf/processing.conf` -> `networking` -> `country_lookup = yes` and point `maxmind_database` to proper file.
+    * `conf/processing.conf` -> `network` -> `country_lookup = yes` and point `maxmind_database` to proper file.
 
 ### [30.11.2023]
 * Monitor update: Fix bug affecting some process dumps

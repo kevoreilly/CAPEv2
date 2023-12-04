@@ -988,6 +988,8 @@ search_term_map = {
     "mutex": "behavior.summary.mutexes",
     "domain": "network.domains.domain",
     "ip": "network.hosts.ip",
+    "asn": "network.hosts.asn",
+    "asn_name": "network.hosts.asn_name",
     "signature": "signatures.description",
     "signame": "signatures.name",
     "detections": "detections.family",

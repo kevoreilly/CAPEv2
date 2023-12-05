@@ -144,7 +144,7 @@ def extract_config(filebuf):
         log.error("Missed pycryptodomex. Run: poetry install")
         return {}
     pe = False
-    with suppress(pefile.PEFormatError):
+    with suppress(pefile.PEFormatError, ValueError):
         pe = pefile.PE(data=filebuf)
         for section in pe.sections:
             if b".rsrc" in section.Name:

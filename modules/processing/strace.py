@@ -25,7 +25,7 @@ class ParseProcessLog(list):
         self.first_seen = None
         self.process_name = None
         self.calls = list()
-
+        self.file_descriptors = []
         self.options = options
         # Limit of API calls per process
         # self.api_limit = self.options.analysis_call_limit
@@ -52,9 +52,9 @@ class ParseProcessLog(list):
         data = ""
         for head in unfinished:
             for tail in resumed:
-                if head.group("pid") != tail.group("pid") or head.group("syscall_number") != tail.group("syscall_number"):
+                if head.group("syscall_number") != tail.group("syscall_number"):
                     continue
-                data += " ".join([tail.group("pid"), tail.group("time"), head.group("unfinished") + tail.group("resumed") + "\n"])
+                data += " ".join([tail.group("time"), head.group("unfinished") + tail.group("resumed") + "\n"])
                 resumed.remove(tail)
                 break
         return data
@@ -129,6 +129,47 @@ class ParseProcessLog(list):
                 "arguments": arguments
             })
 
+            # Consider open/openat/dup syscalls for tracking opened file descriptors
+            if (syscall in ["open", "creat"] and 
+                retval > "0"):
+                self.file_descriptors.append({
+                    "time": time,
+                    "syscall": syscall,
+                    "fd": retval,
+                    "filename": args[0],
+                })
+                continue
+
+            if (syscall in ["openat", "openat2"] and 
+                retval > "0"):
+                self.file_descriptors.append({
+                    "time": time,
+                    "syscall": syscall,
+                    "fd": retval,
+                    "filename": args[1],
+                })
+                continue
+
+            if (syscall in ["dup", "dup2", "dup3"] and
+                retval > "0"):
+                self.file_descriptors.append({
+                    "time": time,
+                    "syscall": syscall,
+                    "oldfd": args[0],
+                    "fd": retval,
+                })
+                continue
+
+            # Consider close syscalls for tracking closed file descriptors
+            if (syscall == "close" and 
+                retval == "0"):
+                self.file_descriptors.append({
+                    "time": time,
+                    "syscall": syscall,
+                    "fd": args[0],
+                })
+                continue
+
 class Processes():
     """Processes analyzer."""
 
@@ -156,8 +197,67 @@ class Processes():
                     "category": "kernel" if "kernel" in syscall["file"] else syscall["file"].split("/")[0]
                     } for syscall in syscalls_dict["syscalls"]
                 }
+    
+    def update_file_descriptors(self, process_list, fd_calls):
+        """
+        Returns an updated process list where file-access related calls have
+        the matching file descriptor at the time of it being opened.
+        """
+        file_descriptors = []
+        sorted_fd_calls = sorted(fd_calls, key=lambda x: x["time"])
+
+        for fd_call in sorted_fd_calls:
+            if fd_call["syscall"] in ["open", "creat"]:
+                file_descriptors.append({
+                    "fd": fd_call["fd"],
+                    "filename": fd_call["filename"],
+                    "time_opened": fd_call["time"],
+                    "time_closed": None,
+                })
+            elif fd_call["syscall"] in ["openat", "openat2"]:
+                file_descriptors.append({
+                    "fd": fd_call["fd"],
+                    "filename": fd_call["filename"],
+                    "time_opened": fd_call["time"],
+                    "time_closed": None,
+                })
+            elif fd_call["syscall"] in ["dup", "dup2", "dup3"]:
+                for fd in reversed(file_descriptors):
+                    if (fd["time_closed"] is None and
+                        fd_call["oldfd"] == fd["fd"]):
+                        file_descriptors.append({
+                            "fd": fd_call["fd"],
+                            "filename": fd["filename"],
+                            "time_opened": fd_call["time"],
+                            "time_closed": None,
+                        })
+            elif fd_call["syscall"] == "close":
+                for fd in reversed(file_descriptors):
+                    if (fd["time_closed"] is None and
+                        fd_call["fd"] == fd["fd"]):
+                        fd["time_closed"] = fd_call["time"]
+
+        for process in process_list:
+            for call in process["calls"]:
+                if call["api"] in ["newfstatat", "newfstat", "lseek", "close",
+                                   "read", "write", "readv", "writev",
+                                    "pread", "pwrite", "preadv", "pwritev",
+                                    "preadv2", "pwritev2", "pread64", "pwrite64"]:
+                    # append filename to file descriptor according to relevant time that fd is opened
+                    for fd in file_descriptors:
+                        if (call["arguments"][0]["value"] == fd["fd"] and
+                            fd["time_opened"] < call["timestamp"] and 
+                            call["timestamp"] < fd["time_closed"]):
+                            if call["timestamp"] == "07:26:56.653085":
+                                print("here lmao")
+                            call["arguments"][0]["value"] += f' ({fd["filename"]})'
+        
+        return process_list
 
     def update_parent_ids(self, process_list, relations):
+        """
+        Returns an updated process list with the matched parent IDs
+        """
         # Create a dictionary to map process IDs to their respective entries
         process_dict = {entry['process_id']: entry for entry in process_list}
 
@@ -179,6 +279,7 @@ class Processes():
     def run(self):
         results = []
         parent_child_relation = {}
+        fd = []
 
         if not path_exists(self._logs_path):
             log.warning('Analysis results folder does not exist at path "%s"', self._logs_path)
@@ -208,7 +309,10 @@ class Processes():
                 "calls": current_log.calls,
             })
 
+            fd += current_log.file_descriptors
+            
         results = self.update_parent_ids(results, parent_child_relation)
+        results = self.update_file_descriptors(results, fd)
 
         # Sort the items in the results list chronologically. In this way we
         # can have a sequential order of spawned processes.

@@ -111,7 +111,7 @@ def _get_section_data(data, section_name, take_first=True):
         if section.Name.strip(b"\x00") == section_name:
             data = section.get_data()
             # if we care about first one, just break, otherwise keep looking for the next section with same name
-            if take_first:  
+            if take_first:
                 break
 
     return data

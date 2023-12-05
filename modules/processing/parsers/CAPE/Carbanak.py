@@ -17,7 +17,7 @@ rule Carbanak
         description = "Carnbanak sbox init"
         cape_type = "Carbanak Payload"
     strings:
-        $sboxinit = {48 0F BE 02 4? 8D 05 [-] 4? 8D 4D ?? E8 [3] 00 33 F6 4? 8D 5D ?? 4? 63 F8 8B 45 ?? B? B1 E3 14 06} 
+        $sboxinit = {48 0F BE 02 4? 8D 05 [-] 4? 8D 4D ?? E8 [3] 00 33 F6 4? 8D 5D ?? 4? 63 F8 8B 45 ?? B? B1 E3 14 06}
     condition:
         uint16(0) == 0x5A4D and any of them
 }
@@ -102,10 +102,10 @@ def extract_config(filebuf):
                 tlds = (".com", ".net", ".org", ".edu")
                 if dec.endswith(tlds):
                     c2_domains.append(dec)
-                ver = re.findall("^(\d+\.\d+)$", dec)[0]
+                ver = re.findall("^(\d+\.\d+)$", dec)
                 if ver:
-                    cfg["version"] = ver
-                # print(dec)
+                    cfg["version"] = ver[0]
+
     if c2_domains:
         cfg["c2_domains"] = c2_domains
     # cfg["strings"] = cfg_strings

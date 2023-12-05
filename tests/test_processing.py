@@ -1,10 +1,11 @@
 from tempfile import NamedTemporaryFile
-from unittest.mock import ANY, MagicMock
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
 from lib.cuckoo.common.objects import File
 from modules.processing.CAPE import CAPE
+from modules.processing.deduplication import reindex_screenshots
 
 
 @pytest.fixture
@@ -102,3 +103,16 @@ class TestAnalysisConfigLinks:
         cape_processor.cape["configs"] = [cfg]
         cape_processor.link_configs_to_analysis()
         assert "_associated_analysis_hashes" not in cfg
+
+
+class TestDeduplication:
+    @patch("os.rename")
+    @patch("os.listdir")
+    def test_reindex(self, os_listdir, os_rename):
+        dirlist = ["foo.jpg", "bar.jpg", "baz.jpg"]
+        os_listdir.return_value = dirlist
+        reindex_screenshots("shots")
+        assert os_rename.call_count == 3
+        os_rename.assert_any_call("shots/bar.jpg", "shots/0000.jpg")
+        os_rename.assert_any_call("shots/baz.jpg", "shots/0001.jpg")
+        os_rename.assert_any_call("shots/foo.jpg", "shots/0002.jpg")

@@ -1,3 +1,9 @@
+### [05.12.2023]
+* Monitor updates: 
+    * Process dump filter enhancements & fix
+    * Enhanced checks (parent process path) for service hookset assignment
+    * Misc fixes
+
 ### [04.12.2023] IPinfo.io database integration
 * Introduce support for IPinfo.io database. You can download database [here](https://ipinfo.io/account/data-downloads).
 * To enable it:

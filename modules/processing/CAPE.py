@@ -271,6 +271,7 @@ class CAPE(Processing):
                 )
 
         # Get the file data
+        file_data = None
         if path_exists(file_info["path"]):
             file_data = Path(file_info["path"]).read_bytes()
             for yara in file_info["cape_yara"]:

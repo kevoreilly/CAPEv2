@@ -2,10 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import collections
 import logging
 import os
 import re
-import collections
 
 HAVE_IMAGEHASH = False
 try:

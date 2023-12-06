@@ -106,6 +106,7 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
         "integrations": "lib/cuckoo/common/integrations",
         "mitre": "data/mitre",
         "yara": "data/yara",
+        "utils": "utils",
     }
 
     members = t.getmembers()

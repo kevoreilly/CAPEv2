@@ -218,6 +218,51 @@ all_vms_tags = load_vms_tags()
 all_vms_tags_str = ",".join(all_vms_tags)
 
 
+def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
+    if web_cfg.general.get("top_asn", False) is False:
+        return False
+
+    t = int(time.time())
+
+    # caches results for 10 minutes
+    if hasattr(top_asn, "cache"):
+        ct, data = top_asn.cache
+        if t - ct < 600:
+            return data
+
+    """function that gets detection: count
+    Original: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
+    New: https://stackoverflow.com/a/21509359/1294762
+    """
+
+    aggregation_command = [
+        {"$match": {"network.hosts.asn": {"$exists": True}}},
+        {"$project": {"_id": 0, "network.hosts.asn": 1}},
+        {"$unwind": "$network.hosts"},
+        {"$group": {"_id": "$network.hosts.asn", "total": {"$sum": 1}}},
+        {"$sort": {"total": -1}},
+        {"$addFields": {"asn": "$_id"}},
+        {"$project": {"_id": 0}},
+        {"$limit": results_limit},
+    ]
+
+    if date_since:
+        aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
+
+    if repconf.mongodb.enabled:
+        data = mongo_aggregate("analysis", aggregation_command)
+    else:
+        data = False
+
+    if data:
+        data = list(data)
+
+    # save to cache
+    top_asn.cache = (t, data)
+
+    return data
+
+
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
     if web_cfg.general.get("top_detections", False) is False:
         return False
@@ -428,6 +473,7 @@ def statistics(s_days: int) -> dict:
     )
 
     details["detections"] = top_detections(date_since=date_since)
+    details["asns"] = top_asn(date_since=date_since)
 
     session.close()
     return details

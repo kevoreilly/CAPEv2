@@ -1482,7 +1482,7 @@ def report(request, task_id):
     vba2graph = False
     vba2graph_dict_content = {}
     # we don't want to do this for urls but we might as well check that the target exists
-    if report.get("target", {}).get("file", {}):
+    if report.get("target", {}).get("file", {}).get("sha256"):
         vba2graph = processing_cfg.vba2graph.enabled
         vba2graph_svg_path = os.path.join(
             CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", report["target"]["file"]["sha256"] + ".svg"

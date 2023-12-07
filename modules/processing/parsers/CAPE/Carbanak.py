@@ -17,7 +17,7 @@ rule Carbanak
         description = "Carnbanak sbox init"
         cape_type = "Carbanak Payload"
     strings:
-        $sboxinit = {48 0F BE 02 4? 8D 05 [-] 4? 8D 4D ?? E8 [3] 00 33 F6 4? 8D 5D ?? 4? 63 F8 8B 45 ?? B? B1 E3 14 06}
+        $sboxinit = {0F BE 02 4? 8D 05 [-] 4? 8D 4D ?? E8 [3] 00 33 F6 4? 8D 5D ?? 4? 63 F8 8B 45 ?? B? B1 E3 14 06}
     condition:
         uint16(0) == 0x5A4D and any of them
 }
@@ -75,6 +75,7 @@ def extract_config(filebuf):
     matches = yara_rules.match(data=filebuf)
     if not matches:
         return
+
     for match in matches:
         if match.rule != "Carbanak":
             continue
@@ -82,33 +83,48 @@ def extract_config(filebuf):
             for instance in item.instances:
                 if "$sboxinit" in item.identifier:
                     sbox_init_offset = int(instance.offset)
+
     if not sbox_init_offset:
         return
-    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 7 : sbox_init_offset + 11])[0]
+
+    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 7: sbox_init_offset + 11])[0]
     sbox_offset = pe.get_offset_from_rva(sbox_delta + pe.get_rva_from_offset(sbox_init_offset) + 11)
-    sbox = bytes(filebuf[sbox_offset : sbox_offset + 128])
-    data_sections = [s for s in pe.sections if s.Name.find(b".rdata") != -1]
+    sbox = bytes(filebuf[sbox_offset: sbox_offset + 128])
+    data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
+
     if not data_sections or not sbox:
         return None
+
     data = data_sections[0].get_data()
     items = data.split(b"\x00")
-    c2_domains = []
-    cfg_strings = []
-    for item in items:
-        with suppress(IndexError, UnicodeDecodeError, ValueError):
-            dec = decode_string(item, sbox).decode("utf8")
-            if dec:
-                cfg_strings.append(dec)
-                tlds = (".com", ".net", ".org", ".edu")
-                if dec.endswith(tlds):
-                    c2_domains.append(dec)
-                ver = re.findall("^(\d+\.\d+)$", dec)
-                if ver:
-                    cfg["version"] = ver[0]
+    try:
+        cfg["Unknown 1"] = decode_string(items[0], sbox).decode("utf8")
+        cfg["Unknown 2"] = decode_string(items[8], sbox).decode("utf8")
+        c2_dec = decode_string(items[10], sbox).decode("utf8")
+        if "|" in c2_dec:
+            c2_dec = c2_dec.split("|")
+        cfg["C2"] = c2_dec
+        cfg["Campaign Id"] = decode_string(items[24], sbox).decode("utf8")
+    except Exception as e:
+        cfg["error"] = f"Config extraction failed: {e}\nIndexes may have changed."
 
-    if c2_domains:
-        cfg["c2_domains"] = c2_domains
-    # cfg["strings"] = cfg_strings
+    rdata_sections = [s for s in pe.sections if s.Name.find(b".rdata") != -1]
+    if rdata_sections:
+        cfg_strings = []
+        rdata = rdata_sections[0].get_data()
+        items = (rdata.split(b"\x00"))
+        items = [item for item in items if item != b'']
+        for item in items:
+            with suppress(IndexError, UnicodeDecodeError, ValueError):
+                dec = decode_string(item, sbox).decode("utf8")
+                if dec:
+                    ver = re.findall("^(\d+\.\d+)$", dec)
+                    if ver:
+                        cfg["version"] = ver[0]
+                    else:
+                        cfg_strings.append(dec)
+        cfg["strings"] = cfg_strings
+
     return cfg
 
 

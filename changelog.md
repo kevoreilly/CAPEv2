@@ -1,3 +1,6 @@
+### [07.12.2023]
+* Monitor update: fix bug in dumping malformed PEs
+
 ### [05.12.2023]
 * Monitor updates: 
     * Process dump filter enhancements & fix

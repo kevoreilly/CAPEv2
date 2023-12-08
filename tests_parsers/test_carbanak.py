@@ -1,5 +1,3 @@
-import pytest
-
 from modules.processing.parsers.CAPE.Carbanak import extract_config
 
 

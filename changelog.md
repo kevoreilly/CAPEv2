@@ -1,3 +1,6 @@
+### [08.12.2023]
+* Monitor update: Expand procdump config option to allow forced procdumps irrespective of code section changes (procdump=2)
+
 ### [07.12.2023]
 * Monitor update: fix bug in dumping malformed PEs
 

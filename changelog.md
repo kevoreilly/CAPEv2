@@ -1,5 +1,7 @@
 ### [08.12.2023]
-* Monitor update: Expand procdump config option to allow forced procdumps irrespective of code section changes (procdump=2)
+* Monitor updates:
+    * Expand procdump config option to allow forced procdumps irrespective of code section changes (procdump=2)
+    * Improve dumping of images with missing section addresses (e.g. VMP)
 
 ### [07.12.2023]
 * Monitor update: fix bug in dumping malformed PEs

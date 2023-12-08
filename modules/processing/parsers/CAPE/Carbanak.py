@@ -87,9 +87,9 @@ def extract_config(filebuf):
     if not sbox_init_offset:
         return
 
-    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 6: sbox_init_offset + 10])[0]
+    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 6 : sbox_init_offset + 10])[0]
     sbox_offset = pe.get_offset_from_rva(sbox_delta + pe.get_rva_from_offset(sbox_init_offset) + 10)
-    sbox = bytes(filebuf[sbox_offset: sbox_offset + 128])
+    sbox = bytes(filebuf[sbox_offset : sbox_offset + 128])
     data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
 
     if not data_sections or not sbox:
@@ -109,8 +109,8 @@ def extract_config(filebuf):
     rdata_sections = [s for s in pe.sections if s.Name.find(b".rdata") != -1]
     if rdata_sections:
         rdata = rdata_sections[0].get_data()
-        items = (rdata.split(b"\x00"))
-        items = [item for item in items if item != b'']
+        items = rdata.split(b"\x00")
+        items = [item for item in items if item != b""]
         for item in items:
             with suppress(IndexError, UnicodeDecodeError, ValueError):
                 dec = decode_string(item, sbox).decode("utf8")

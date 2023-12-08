@@ -120,7 +120,7 @@ def extract_config(filebuf):
                 if dec:
                     ver = re.findall("^(\d+\.\d+)$", dec)
                     if ver:
-                        cfg["version"] = ver[0]
+                        cfg["Version"] = ver[0]
                     else:
                         cfg_strings.append(dec)
         cfg["strings"] = cfg_strings

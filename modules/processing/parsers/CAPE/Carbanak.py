@@ -87,8 +87,8 @@ def extract_config(filebuf):
     if not sbox_init_offset:
         return
 
-    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 7: sbox_init_offset + 11])[0]
-    sbox_offset = pe.get_offset_from_rva(sbox_delta + pe.get_rva_from_offset(sbox_init_offset) + 11)
+    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 6: sbox_init_offset + 10])[0]
+    sbox_offset = pe.get_offset_from_rva(sbox_delta + pe.get_rva_from_offset(sbox_init_offset) + 10)
     sbox = bytes(filebuf[sbox_offset: sbox_offset + 128])
     data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
 
@@ -97,7 +97,7 @@ def extract_config(filebuf):
 
     data = data_sections[0].get_data()
     items = data.split(b"\x00")
-    try:
+    with suppress(IndexError, UnicodeDecodeError, ValueError):
         cfg["Unknown 1"] = decode_string(items[0], sbox).decode("utf8")
         cfg["Unknown 2"] = decode_string(items[8], sbox).decode("utf8")
         c2_dec = decode_string(items[10], sbox).decode("utf8")
@@ -105,12 +105,9 @@ def extract_config(filebuf):
             c2_dec = c2_dec.split("|")
         cfg["C2"] = c2_dec
         cfg["Campaign Id"] = decode_string(items[24], sbox).decode("utf8")
-    except Exception as e:
-        cfg["error"] = f"Config extraction failed: {e}\nIndexes may have changed."
 
     rdata_sections = [s for s in pe.sections if s.Name.find(b".rdata") != -1]
     if rdata_sections:
-        cfg_strings = []
         rdata = rdata_sections[0].get_data()
         items = (rdata.split(b"\x00"))
         items = [item for item in items if item != b'']
@@ -121,9 +118,6 @@ def extract_config(filebuf):
                     ver = re.findall("^(\d+\.\d+)$", dec)
                     if ver:
                         cfg["Version"] = ver[0]
-                    else:
-                        cfg_strings.append(dec)
-        cfg["strings"] = cfg_strings
 
     return cfg
 

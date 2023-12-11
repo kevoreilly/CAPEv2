@@ -1267,21 +1267,6 @@ class Database(object, metaclass=Singleton):
                     session.rollback()
 
     @classlock
-    def check_machines_scheduled_timeout(self):
-        with self.Session() as session:
-            try:
-                machines = session.query(Machine)
-                machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
-            except SQLAlchemyError as e:
-                log.debug("Database error setting machine status: %s", e)
-                session.close()
-                return
-
-            for machine in machines:
-                if machine.status_changed_on + timedelta(seconds=30) < datetime.now():
-                    self.set_machine_status(machine.label, MACHINE_RUNNING)
-        
-    @classlock
     def add_error(self, message, task_id):
         """Add an error related to a task.
         @param message: error message

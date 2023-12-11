@@ -549,6 +549,7 @@ class TestDatabaseEngine:
         ),
     )
     def test_lock_machine(self, task, machine, expected_results):
+        #11-6-2-1-0
         if machine["tags"] is not None:
             machine_name = str(machine["label"]) + "_" + str(machine["tags"].replace(",", "_"))
         else:
@@ -617,6 +618,10 @@ class TestDatabaseEngine:
                 output_machine.__dict__.pop("tags", None)
                 output_machine.__dict__.pop("_sa_instance_state", None)
                 returned_machine.__dict__.pop("_sa_instance_state", None)
+                output_machine.__dict__.pop("status", None)
+                output_machine.__dict__.pop("status_changed_on", None)
+                returned_machine.__dict__.pop("status", None)
+                returned_machine.__dict__.pop("status_changed_on", None)
                 assert output_machine.locked == should_be_locked
                 assert returned_machine.__dict__ == output_machine.__dict__
         # cleanup

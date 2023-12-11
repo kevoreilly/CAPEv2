@@ -903,7 +903,7 @@ class Database(object, metaclass=Singleton):
                     # out already mapped machines
                     for assigned in assigned_machines:
                         machines = machines.filter(Machine.label.notlike(assigned.label))
-                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED),Machine.status is None))
+                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
                      # Get the first free machine.
                     machine = machines.first()
                     if machine:

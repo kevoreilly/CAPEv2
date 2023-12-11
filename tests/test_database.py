@@ -340,10 +340,10 @@ class TestDatabaseEngine:
                     resultserver_port=2043,
                     arch=archs,
                     reserved=False,
-                    locked=False
                 )
                 machines.append((machine_name, tags))
-
+        for machine,machine_tag in machines:
+            self.d.set_machine_status(machine,"running")
         # Parsing tasks instructions
         for task_instruction in task_instructions:
             tags, num_of_tasks = task_instruction

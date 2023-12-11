@@ -212,12 +212,6 @@ enabled = no
 # can be coma separated urls
 url = http://IP/callback
 
-# Community
-# Compress results including CAPE output
-# to help avoid reaching the hard 16MB MongoDB limit.
-[compressresults]
-enabled = no
-
 [tmpfsclean]
 enabled = no
 key = tr_extractor

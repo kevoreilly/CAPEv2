@@ -260,7 +260,13 @@ class FileUpload(ProtocolHandler):
                 return self.handler.copy_to_fd(self.fd, self.upload_max_size)
             except Exception as e:
                 if self.fd:
-                    log.debug("Task #%s: Failed to uploaded file %s of length %s due to '%s'", self.task_id, dump_path.decode(), self.fd.tell(), e)
+                    log.debug(
+                        "Task #%s: Failed to uploaded file %s of length %s due to '%s'",
+                        self.task_id,
+                        dump_path.decode(),
+                        self.fd.tell(),
+                        e,
+                    )
                 else:
                     log.debug("Task #%s: Failed to uploaded file %s due to '%s'", self.task_id, dump_path.decode(), e)
             else:

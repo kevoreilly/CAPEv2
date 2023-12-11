@@ -549,7 +549,6 @@ class TestDatabaseEngine:
         ),
     )
     def test_lock_machine(self, task, machine, expected_results):
-        #11-6-2-1-0
         if machine["tags"] is not None:
             machine_name = str(machine["label"]) + "_" + str(machine["tags"].replace(",", "_"))
         else:

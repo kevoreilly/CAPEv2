@@ -340,6 +340,7 @@ class TestDatabaseEngine:
                     resultserver_port=2043,
                     arch=archs,
                     reserved=False,
+                    locked=False
                 )
                 machines.append((machine_name, tags))
 
@@ -363,8 +364,6 @@ class TestDatabaseEngine:
         results = []
         for tag in expected_results.keys():
             results.append([tag, 0])
-        print(tasks)
-        print(machines)
         relevant_tasks = self.d.map_tasks_to_available_machines(tasks)
         for task in relevant_tasks:
             tags = [tag.name for tag in task.tags]

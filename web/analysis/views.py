@@ -10,7 +10,6 @@ import os
 import sys
 import tempfile
 import zipfile
-import zlib
 from contextlib import suppress
 from io import BytesIO
 from pathlib import Path
@@ -1391,14 +1390,6 @@ def report(request, task_id):
 
     if isinstance(report.get("CAPE"), dict) and report.get("CAPE", {}).get("configs", {}):
         report["malware_conf"] = report["CAPE"]["configs"]
-    if enabledconf["compressresults"]:
-        for keyword in ("CAPE", "procdump", "enhanced", "summary"):
-            if report.get(keyword, False):
-                with suppress(Exception):
-                    report[keyword] = json.loads(zlib.decompress(report[keyword]))
-        if report.get("behavior", {}).get("summary", {}):
-            with suppress(Exception):
-                report["behavior"]["summary"] = json.loads(zlib.decompress(report["behavior"]["summary"]))
     report["CAPE"] = 0
     report["dropped"] = 0
     report["procdump"] = 0

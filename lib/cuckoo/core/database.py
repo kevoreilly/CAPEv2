@@ -1103,7 +1103,7 @@ class Database(object, metaclass=Singleton):
                     include_reserved=include_reserved
                 )
                 if not include_scheduled:
-                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED),Machine.status == None))
+                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
                 return machines.all()
             except SQLAlchemyError as e:
                 print(e)

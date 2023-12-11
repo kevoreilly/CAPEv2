@@ -1004,7 +1004,7 @@ class TestDatabaseEngine:
                 os_version=task["os_version"],
                 include_reserved=task["include_reserved"],
             )
-            if type(output_machines) is list:
+            if isinstance(output_machines, list):
                 assert len(output_machines) == expected_result
             else:
                 assert output_machines.count() == expected_result

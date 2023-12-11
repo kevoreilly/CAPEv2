@@ -904,7 +904,7 @@ class Database(object, metaclass=Singleton):
                     for assigned in assigned_machines:
                         machines = machines.filter(Machine.label.notlike(assigned.label))
                     machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
-                     # Get the first free machine.
+                    # Get the first free machine.
                     machine = machines.first()
                     if machine:
                         assigned_machines.append(machine)
@@ -1053,7 +1053,7 @@ class Database(object, metaclass=Singleton):
             os_version=[],
             include_reserved=False
         ) -> list:
-        """ Add filters to the given query based on the task
+        """ Add filters to the given list of machines based on the task
         @param machines: List of machines where the filter will be applied
         @param label: label of the machine(s) expected for the task
         @param platform: platform of the machine(s) expected for the task
@@ -1103,7 +1103,7 @@ class Database(object, metaclass=Singleton):
                     include_reserved=include_reserved
                 )
                 if not include_scheduled:
-                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED),Machine.status == None))
+                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
                 return machines.all()
             except SQLAlchemyError as e:
                 print(e)

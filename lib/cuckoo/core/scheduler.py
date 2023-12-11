@@ -951,7 +951,6 @@ class Scheduler:
             max_batch_scheduling_count = self.cfg.cuckoo.max_batch_count if self.cfg.cuckoo.max_batch_count and self.cfg.cuckoo.max_batch_count > 1 else 5
         # This loop runs forever.
         while self.running:
-            time.sleep(1)
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather than "about to start"
             # or "still busy starting". This way we won't have race conditions

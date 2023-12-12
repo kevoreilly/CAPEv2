@@ -304,7 +304,7 @@ class AnalysisManager(threading.Thread):
     def acquire_machine(self):
         """Acquire an analysis machine from the pool of available ones."""
         machine = None
-
+        orphan = False
         # Start a loop to acquire a machine to run the analysis on.
         while True:
             machine_lock.acquire()
@@ -317,7 +317,7 @@ class AnalysisManager(threading.Thread):
             # In some cases it's possible that we enter this loop without having any available machines. We should make sure this is not
             # such case, or the analysis task will fail completely.
             if not machinery.availables(
-                label=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version
+                label=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version, include_reserved = True
             ):
                 machine_lock.release()
                 log.debug(
@@ -329,7 +329,7 @@ class AnalysisManager(threading.Thread):
                 )
                 time.sleep(1)
                 continue
-            if self.cfg.cuckoo.batch_scheduling:
+            if self.cfg.cuckoo.batch_scheduling and not orphan:
                 machine = machinery.acquire(
                     machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version, need_scheduled=True
                 )
@@ -349,6 +349,7 @@ class AnalysisManager(threading.Thread):
                     self.task.tags,
                 )
                 time.sleep(1)
+                orphan = True
             else:
                 log.info(
                     "Task #%s: acquired machine %s (label=%s, arch=%s, platform=%s)",

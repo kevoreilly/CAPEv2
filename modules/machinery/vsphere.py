@@ -21,7 +21,7 @@ try:
     HAVE_PYVMOMI = True
 except ImportError:
     HAVE_PYVMOMI = False
-    sys.exit("Missed library: pip3 install pyvmomi")
+    sys.exit("Missed library: poetry run pip install pyvmomi")
 
 log = logging.getLogger(__name__)
 logging.getLogger("requests").setLevel(logging.WARNING)

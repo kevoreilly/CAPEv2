@@ -63,7 +63,7 @@ yara-python = "4.3.1"
 netstruct = "1.1.2"
 pymongo = ">=4.0.1"
 psutil = "5.8.0"
-# ImageHash = "4.2.1"
+# ImageHash = "4.3.1"
 LnkParse3 = "1.2.0"
 cachetools = "^5.3.0"
 django-allauth = "0.54.0"  # https://django-allauth.readthedocs.io/en/latest/configuration.html

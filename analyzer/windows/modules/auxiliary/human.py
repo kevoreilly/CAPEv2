@@ -309,13 +309,13 @@ def realistic_human_cursor_movement():
         fuzzy_x = random.randint(0,RESOLUTION_WITHOUT_TASKBAR["x"] // 128)
         fuzzy_y = random.randint(0,RESOLUTION_WITHOUT_TASKBAR["y"] // 128)
         if random_dimension == 0: 
-            counter = RESOLUTION_WITHOUT_TASKBAR["y"] // 64
-            x = floor(start_x + fuzzy_x)
+            counter += RESOLUTION_WITHOUT_TASKBAR["y"] // 64
+            x = start_x
             y = floor(max(0, min(start_y  + counter + fuzzy_y, RESOLUTION_WITHOUT_TASKBAR["y"])))
         else:
-            counter = RESOLUTION_WITHOUT_TASKBAR["x"] // 64
+            counter += RESOLUTION_WITHOUT_TASKBAR["x"] // 64
             x =  floor(max(0, min(start_x  + counter +  + fuzzy_x, RESOLUTION_WITHOUT_TASKBAR["x"])))
-            y = floor(start_y + fuzzy_y)
+            y = start_y
         movements.append((x,y))
         USER32.SetCursorPos(x, y)
         KERNEL32.Sleep(50)

@@ -781,7 +781,7 @@ function install_mongo(){
 			MONGO_VERSION="4.4"
 		fi
 
-		sudo curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
+		sudo curl -fsSL "https://pgp.mongodb.org/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
 		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
 		apt update 2>/dev/null

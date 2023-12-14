@@ -195,8 +195,8 @@ def _get_linux_vm_tag(mgtype):
     return "x64"
 
 
-def get_count(q):
-    count_q = q.statement.with_only_columns([func.count()]).order_by(None)
+def get_count(q, property):
+    count_q = q.statement.with_only_columns(func.count(property)).order_by(None)
     count = q.session.execute(count_q).scalar()
     return count
 
@@ -2254,7 +2254,7 @@ class Database(object, metaclass=Singleton):
                     unfiltered = unfiltered.filter_by(machine_id=mid)
                 if status:
                     unfiltered = unfiltered.filter_by(status=status)
-                tasks_count = get_count(unfiltered)
+                tasks_count = get_count(unfiltered, Task.id)
                 return tasks_count
             except SQLAlchemyError as e:
                 log.debug("Database error counting tasks: %s", e)

@@ -1443,7 +1443,7 @@ if __name__ == "__main__":
             complete_excp = traceback.format_exc()
             data["status"] = "exception"
             if "description" in data:
-                if isinstance(data["description"],str):
+                if isinstance(data["description"], str):
                     data["description"] = f"{data['description']}\n{complete_excp}"
                 else:
                     data["description"] = f"{str(data['description'])}\n{complete_excp}"

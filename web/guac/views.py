@@ -10,6 +10,7 @@ except ImportError:
 
 
 def index(request, task_id, session_data):
+    # ToDo read from config
     dsn = "qemu:///system"
     conn = libvirt.open(dsn)
     recording_name = ""

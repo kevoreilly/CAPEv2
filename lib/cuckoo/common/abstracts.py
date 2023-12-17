@@ -199,12 +199,9 @@ class Machinery:
                 continue
 
     def _initialize_check(self):
-        """Runs checks against virtualization software when a machine manager
-        is initialized.
-        @note: in machine manager modules you may override or superclass
-               his method.
-        @raise CuckooMachineError: if a misconfiguration or a unkown vm state
-                                   is found.
+        """Runs checks against virtualization software when a machine manager is initialized.
+        @note: in machine manager modules you may override or superclass his method.
+        @raise CuckooMachineError: if a misconfiguration or a unkown vm state is found.
         """
         try:
             configured_vms = self._list()

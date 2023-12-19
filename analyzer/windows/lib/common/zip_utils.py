@@ -11,10 +11,93 @@ except ImportError:
     import re
 
 from lib.common.exceptions import CuckooPackageError
+from lib.common.abstracts import Package
+from lib.common.parse_pe import choose_dll_export, is_pe_image
+from lib.common.common import check_file_extension
 
 log = logging.getLogger(__name__)
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+EXE_REGEX = re.compile(
+    r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp|\.doc|\.xls)$",
+    flags=re.IGNORECASE,
+)
+PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
+
+
+class ArchivePackage(Package):
+    def __init__(self):
+        super().__init__()
+
+    # Used by archive packages such as "zip" and "archive"
+    def execute_interesting_file(self, root: str, file_name: str, file_path: str):
+        log.debug('Interesting file_name: "%s"', file_name)
+        # File extensions that require cmd.exe to run
+        if file_name.lower().endswith((".lnk", ".bat", ".cmd")):
+            cmd_path = self.get_path("cmd.exe")
+            cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
+            return self.execute(cmd_path, cmd_args, file_path)
+        # File extensions that require msiexec.exe to run
+        elif file_name.lower().endswith(".msi"):
+            msi_path = self.get_path("msiexec.exe")
+            msi_args = f'/I "{file_path}"'
+            return self.execute(msi_path, msi_args, file_path)
+        # File extensions that require wscript.exe to run
+        elif file_name.lower().endswith((".js", ".jse", ".vbs", ".vbe", ".wsf")):
+            cmd_path = self.get_path("cmd.exe")
+            wscript = self.get_path_app_in_path("wscript.exe")
+            cmd_args = f'/c "cd ^"{root}^" && {wscript} ^"{file_path}^"'
+            return self.execute(cmd_path, cmd_args, file_path)
+        # File extensions that require rundll32.exe/regsvr32.exe to run
+        elif file_name.lower().endswith((".dll", ".db", ".dat", ".tmp", ".temp")):
+            # We are seeing techniques where dll files are named with the .db/.dat/.tmp/.temp extensions
+            if not file_name.lower().endswith(".dll"):
+                with open(file_path, "rb") as f:
+                    if not any(PE_indicator in f.read() for PE_indicator in PE_INDICATORS):
+                        return
+            dll_export = choose_dll_export(file_path)
+            if dll_export == "DllRegisterServer":
+                rundll32 = self.get_path("regsvr32.exe")
+            else:
+                rundll32 = self.get_path_app_in_path("rundll32.exe")
+                function = self.options.get("function", "#1")
+            arguments = self.options.get("arguments")
+            dllloader = self.options.get("dllloader")
+            dll_args = f'"{file_path}",{function}'
+            if arguments:
+                dll_args += f" {arguments}"
+            if dllloader:
+                newname = os.path.join(os.path.dirname(rundll32), dllloader)
+                shutil.copy(rundll32, newname)
+                rundll32 = newname
+            return self.execute(rundll32, dll_args, file_path)
+        # File extensions that require powershell.exe to run
+        elif file_name.lower().endswith(".ps1"):
+            powershell = self.get_path_app_in_path("powershell.exe")
+            args = f'-NoProfile -ExecutionPolicy bypass -File "{file_path}"'
+            return self.execute(powershell, args, file_path)
+        # File extensions that require winword.exe/wordview.exe to run
+        elif file_name.lower().endswith(".doc"):
+            # Try getting winword or wordview as a backup
+            try:
+                word = self.get_path_glob("WINWORD.EXE")
+            except CuckooPackageError:
+                word = self.get_path_glob("WORDVIEW.EXE")
+            return self.execute(word, f'"{file_path}" /q', file_path)
+        # File extensions that require excel.exe to run
+        elif file_name.lower().endswith(".xls"):
+            # Try getting excel
+            excel = self.get_path_glob("EXCEL.EXE")
+            return self.execute(excel, f'"{file_path}" /q', file_path)
+        # File extensions that are portable executables
+        elif is_pe_image(file_path):
+            file_path = check_file_extension(file_path, ".exe")
+            return self.execute(file_path, self.options.get("arguments"), file_path)
+        # Last ditch effort to attempt to execute this file
+        else:
+            cmd_path = self.get_path("cmd.exe")
+            cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
+            return self.execute(cmd_path, cmd_args, file_path)
 
 
 def extract_archive(seven_zip_path, archive_path, extract_path, password="infected"):
@@ -115,7 +198,6 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1)
 
     # Extraction.
     with ZipFile(zip_path, "r") as archive:
-
         # Check if the archive is encrypted
         for zip_info in archive.infolist():
             is_encrypted = zip_info.flag_bits & 0x1

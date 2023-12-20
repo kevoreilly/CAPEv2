@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from zipfile import BadZipfile, ZipFile
+import hashlib
 
 try:
     import re2 as re
@@ -14,6 +15,8 @@ from lib.common.exceptions import CuckooPackageError
 from lib.common.abstracts import Package
 from lib.common.parse_pe import choose_dll_export, is_pe_image
 from lib.common.common import check_file_extension
+from lib.common.results import upload_to_host
+from lib.common.hashing import hash_file
 
 log = logging.getLogger(__name__)
 
@@ -26,11 +29,17 @@ PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 
 class ArchivePackage(Package):
+    """
+    A superclass of the Package class that is for archive files, requiring similar methods
+    """
+
     def __init__(self):
         super().__init__()
 
-    # Used by archive packages such as "zip" and "archive"
     def execute_interesting_file(self, root: str, file_name: str, file_path: str):
+        """
+        Based on file extension or file contents, run relevant analysis package
+        """
         log.debug('Interesting file_name: "%s"', file_name)
         # File extensions that require cmd.exe to run
         if file_name.lower().endswith((".lnk", ".bat", ".cmd")):
@@ -275,3 +284,30 @@ def winrar_extractor(winrar_binary, extract_path, archive_path):
     log.debug(p.stdout + p.stderr)
 
     return os.listdir(extract_path)
+
+
+def get_interesting_files(file_names):
+    """
+    Using a regular expression that matches interesting file extensions, return interesting files
+    """
+    interesting_files = []
+
+    for f in file_names:
+        if re.search(EXE_REGEX, f):
+            interesting_files.append(f)
+
+    return interesting_files
+
+
+def upload_extracted_files(root, files_at_root):
+    """
+    Upload each file that was extracted, for further analysis
+    """
+    for entry in files_at_root:
+        try:
+            file_path = os.path.join(root, entry)
+            log.info("Uploading {0} to host".format(file_path))
+            filename = f"files/{hash_file(hashlib.sha256, file_path)}"
+            upload_to_host(file_path, filename, metadata=Path(entry).name, duplicated=False)
+        except Exception as e:
+            log.warning(f"Couldn't upload file {Path(entry).name} to host {e}")

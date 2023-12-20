@@ -13,14 +13,15 @@ try:
 except ImportError:
     HAS_RARFILE = False
 
+from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
-from lib.common.zip_utils import ArchivePackage, get_interesting_files, upload_extracted_files
+from lib.common.zip_utils import get_interesting_files, upload_extracted_files
 
 log = logging.getLogger(__name__)
 
 
-class Rar(ArchivePackage):
+class Rar(Package):
     """Rar analysis package."""
 
     PATHS = [

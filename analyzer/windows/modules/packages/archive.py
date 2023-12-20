@@ -8,9 +8,9 @@ import shutil
 
 from pathlib import Path
 
+from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
-    ArchivePackage,
     extract_archive,
     get_file_names,
     winrar_extractor,
@@ -21,12 +21,8 @@ from lib.common.zip_utils import (
 log = logging.getLogger(__name__)
 
 
-class Archive(ArchivePackage):
+class Archive(Package):
     """Archive analysis package."""
-
-    def __init__(self, options={}, config=None):
-        self.config = config
-        self.options = options
 
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),

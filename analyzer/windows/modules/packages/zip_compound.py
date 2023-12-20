@@ -7,14 +7,15 @@ import os
 import shutil
 from typing import Tuple
 
+from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
 from lib.core.compound import create_custom_folders, extract_json_data
-from lib.common.zip_utils import ArchivePackage, get_interesting_files
+from lib.common.zip_utils import get_interesting_files
 
 log = logging.getLogger(__name__)
 
 
-class ZipCompound(ArchivePackage):
+class ZipCompound(Package):
     """Extended functionality from the zip package to process compound samples"""
 
     PATHS = [

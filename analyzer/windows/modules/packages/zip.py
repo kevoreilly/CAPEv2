@@ -5,9 +5,9 @@
 import logging
 import os
 
+from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
-    ArchivePackage,
     extract_archive,
     extract_zip,
     get_file_names,
@@ -19,7 +19,7 @@ from lib.common.zip_utils import (
 log = logging.getLogger(__name__)
 
 
-class Zip(ArchivePackage):
+class Zip(Package):
     """Zip analysis package."""
 
     PATHS = [

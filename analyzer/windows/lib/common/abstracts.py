@@ -171,7 +171,6 @@ class Package:
         """
         Based on file extension or file contents, run relevant analysis package
         """
-        log.debug('Interesting file_name: "%s"', file_name)
         # File extensions that require cmd.exe to run
         if file_name.lower().endswith((".lnk", ".bat", ".cmd")):
             cmd_path = self.get_path("cmd.exe")

@@ -22,7 +22,16 @@ class ZipCompound(ArchivePackage):
         ("SystemRoot", "system32", "wscript.exe"),
         ("SystemRoot", "system32", "rundll32.exe"),
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
+        ("ProgramFiles", "7-Zip", "7z.exe"),
         ("SystemRoot", "system32", "xpsrchvw.exe"),
+        ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
+        ("ProgramFiles", "Microsoft Office", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office", "Office*", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
 
     def process_unzipped_contents(self, unzipped_directory: str, json_filename: str) -> Tuple[str, str]:

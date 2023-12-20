@@ -38,6 +38,7 @@ class Rar(ArchivePackage):
         ("ProgramFiles", "Microsoft Office", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft Office", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
 
     def extract_rar(self, rar_path, extract_path, password):

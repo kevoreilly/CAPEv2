@@ -29,6 +29,7 @@ FILE_EXT_OF_INTEREST = [
     ".dll",
     ".doc",
     ".exe",
+    ".html",
     ".js",
     ".jse",
     ".lnk",
@@ -116,6 +117,10 @@ class ArchivePackage(Package):
             # Try getting excel
             excel = self.get_path_glob("EXCEL.EXE")
             return self.execute(excel, f'"{file_path}" /q', file_path)
+        # File extensions that require iexplore.exe to run
+        elif file_name.lower().endswith(".html"):
+            edge = self.get_path("msedge.exe")
+            return self.execute(edge, f'"{file_path}"', file_path)
         # File extensions that are portable executables
         elif is_pe_image(file_path):
             file_path = check_file_extension(file_path, ".exe")

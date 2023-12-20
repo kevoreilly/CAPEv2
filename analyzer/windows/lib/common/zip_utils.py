@@ -40,7 +40,6 @@ FILE_EXT_OF_INTEREST = [
     ".wsf",
     ".xls",
 ]
-PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 
 def extract_archive(seven_zip_path, archive_path, extract_path, password="infected"):

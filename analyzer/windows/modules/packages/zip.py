@@ -4,15 +4,17 @@
 
 import logging
 import os
-import shutil
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 from lib.common.exceptions import CuckooPackageError
-from lib.common.zip_utils import ArchivePackage, extract_archive, extract_zip, get_file_names, get_infos, EXE_REGEX
+from lib.common.zip_utils import (
+    ArchivePackage,
+    extract_archive,
+    extract_zip,
+    get_file_names,
+    get_infos,
+    get_interesting_files,
+    upload_extracted_files,
+)
 
 log = logging.getLogger(__name__)
 
@@ -69,17 +71,15 @@ class Zip(ArchivePackage):
         file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.
         if not file_name:
-            # No name provided try to find a better name.
+            # If no file names to choose from, bail
             if not len(file_names):
                 raise CuckooPackageError("Empty ZIP archive")
 
-            # Attempt to find at least one valid exe extension in the archive
-            interesting_files = []
+            upload_extracted_files(root, file_names)
             ret_list = []
 
-            for f in file_names:
-                if re.search(EXE_REGEX, f):
-                    interesting_files.append(f)
+            # Attempt to find at least one valid exe extension in the archive
+            interesting_files = get_interesting_files(file_names)
 
             if not interesting_files:
                 log.debug("No interesting files found, auto executing the first file: %s", file_names[0])

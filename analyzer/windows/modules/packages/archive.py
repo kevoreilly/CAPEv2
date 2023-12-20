@@ -2,22 +2,21 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import hashlib
 import logging
 import os
 import shutil
 
-try:
-    import re2 as re
-except ImportError:
-    import re
-
 from pathlib import Path
 
 from lib.common.exceptions import CuckooPackageError
-from lib.common.hashing import hash_file
-from lib.common.results import upload_to_host
-from lib.common.zip_utils import ArchivePackage, extract_archive, get_file_names, winrar_extractor, EXE_REGEX
+from lib.common.zip_utils import (
+    ArchivePackage,
+    extract_archive,
+    get_file_names,
+    winrar_extractor,
+    get_interesting_files,
+    upload_extracted_files,
+)
 
 log = logging.getLogger(__name__)
 
@@ -80,8 +79,6 @@ class Archive(ArchivePackage):
         if not file_names:
             raise CuckooPackageError("Empty archive")
 
-        log.debug(file_names)
-
         # Handle special characters that 7ZIP cannot
         # We have the file names according to 7ZIP output (file_names)
         # We have the file names that were actually extracted (files at root)
@@ -92,15 +89,7 @@ class Archive(ArchivePackage):
             log.debug(f"Replacing {file_names} with {files_at_root}")
             file_names = files_at_root
 
-        # Upload each file that was extracted, for further analysis
-        for entry in files_at_root:
-            try:
-                file_path = os.path.join(root, entry)
-                log.info("Uploading {0} to host".format(file_path))
-                filename = f"files/{hash_file(hashlib.sha256, file_path)}"
-                upload_to_host(file_path, filename, metadata=Path(entry).name, duplicated=False)
-            except Exception as e:
-                log.warning(f"Couldn't upload file {Path(entry).name} to host {e}")
+        upload_extracted_files(root, files_at_root)
 
         # Copy these files to the root directory, just in case!
         dirs = []
@@ -122,12 +111,10 @@ class Archive(ArchivePackage):
         file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.
         if not file_name:
-            # Attempt to find at least one valid exe extension in the archive
-            interesting_files = []
             ret_list = []
-            for f in file_names:
-                if re.search(EXE_REGEX, f):
-                    interesting_files.append(f)
+
+            # Attempt to find at least one valid exe extension in the archive
+            interesting_files = get_interesting_files(file_names)
 
             if not interesting_files:
                 log.debug("No interesting files found, auto executing the first file: %s", file_names[0])

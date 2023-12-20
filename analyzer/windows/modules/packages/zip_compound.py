@@ -10,7 +10,7 @@ from typing import Tuple
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
 from lib.core.compound import create_custom_folders, extract_json_data
-from lib.common.zip_utils import get_interesting_files
+from lib.common.zip_utils import extract_zip, get_interesting_files
 
 log = logging.getLogger(__name__)
 
@@ -114,11 +114,7 @@ class ZipCompound(Package):
             root = os.environ["TEMP"]
         create_custom_folders(root)
 
-        # Have to shift this import here because of how analyzer's Package.__subclasses__ work
-        from modules.packages.zip import Zip
-
-        z = Zip()
-        z.extract_zip(path, root, password, 0)
+        extract_zip(path, root, password, 0)
 
         return root, self.process_unzipped_contents(root, json_filename)
 

@@ -11,8 +11,11 @@ from lib.api.process import Process
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
 from lib.common.parse_pe import choose_dll_export, is_pe_image
+from lib.core.compound import create_custom_folders
 
 log = logging.getLogger(__name__)
+
+PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 
 class Package:

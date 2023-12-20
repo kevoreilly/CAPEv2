@@ -21,10 +21,27 @@ from lib.common.hashing import hash_file
 log = logging.getLogger(__name__)
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
-EXE_REGEX = re.compile(
-    r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp|\.doc|\.xls)$",
-    flags=re.IGNORECASE,
-)
+FILE_EXT_OF_INTEREST = [
+    ".exe",
+    ".dll",
+    ".scr",
+    ".msi",
+    ".bat",
+    ".lnk",
+    ".js",
+    ".jse",
+    ".vbs",
+    ".vbe",
+    ".wsf",
+    ".ps1",
+    ".db",
+    ".cmd",
+    ".dat",
+    ".tmp",
+    ".temp",
+    ".doc",
+    ".xls",
+]
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 
@@ -61,6 +78,7 @@ class ArchivePackage(Package):
         elif file_name.lower().endswith((".dll", ".db", ".dat", ".tmp", ".temp")):
             # We are seeing techniques where dll files are named with the .db/.dat/.tmp/.temp extensions
             if not file_name.lower().endswith(".dll"):
+                # Let's confirm that at least this is a PE
                 with open(file_path, "rb") as f:
                     if not any(PE_indicator in f.read() for PE_indicator in PE_INDICATORS):
                         return
@@ -104,6 +122,11 @@ class ArchivePackage(Package):
             return self.execute(file_path, self.options.get("arguments"), file_path)
         # Last ditch effort to attempt to execute this file
         else:
+            # From zip_compound package
+            if "." not in os.path.basename(file_path):
+                new_path = f"{file_path}.exe"
+                os.rename(file_path, new_path)
+                file_path = new_path
             cmd_path = self.get_path("cmd.exe")
             cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
@@ -293,7 +316,7 @@ def get_interesting_files(file_names):
     interesting_files = []
 
     for f in file_names:
-        if re.search(EXE_REGEX, f):
+        if any(f.lower().endswith(file_ext) for file_ext in FILE_EXT_OF_INTEREST):
             interesting_files.append(f)
 
     return interesting_files

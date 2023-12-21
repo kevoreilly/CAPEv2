@@ -931,9 +931,10 @@ class Azure(Machinery):
                     if number_of_new_cpus_available < 0:
                         number_of_relevant_machines_required = machine_pools[vmss_name]["size"]
                     elif number_of_new_cpus_required > number_of_new_cpus_available:
+                        old_number_of_relevant_machines_required = number_of_relevant_machines_required
                         number_of_relevant_machines_required = number_of_relevant_machines + number_of_new_cpus_available / self.instance_type_cpus
                         log.debug(
-                            f"Quota could be exceeded with projected number of machines. Setting new limit to {number_of_relevant_machines_required}"
+                            f"Quota could be exceeded with projected number of machines ({old_number_of_relevant_machines_required}). Setting new limit to {number_of_relevant_machines_required}"
                         )
 
             if machine_pools[vmss_name]["size"] == number_of_relevant_machines_required:

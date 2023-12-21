@@ -20,7 +20,7 @@ from lib.common.exceptions import CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.parse_pe import choose_dll_export, is_pe_image
 from lib.common.results import upload_to_host
-from lib.common.zip_utils import extract_archive, get_file_names, winrar_extractor
+from lib.common.zip_utils import extract_archive, get_file_names, winrar_extractor, attempt_multiple_passwords
 
 log = logging.getLogger(__name__)
 
@@ -139,7 +139,8 @@ class Archive(Package):
 
         file_names = get_file_names(seven_zip_path, path)
         if len(file_names):
-            extract_archive(seven_zip_path, path, root, password)
+            try_multiple_passwords = attempt_multiple_passwords(self.options, password)
+            extract_archive(seven_zip_path, path, root, password, try_multiple_passwords)
 
         # Try extract with winrar, in some cases 7z-full fails with .Iso
         if not file_names:

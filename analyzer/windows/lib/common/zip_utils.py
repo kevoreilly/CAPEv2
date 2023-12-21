@@ -17,12 +17,14 @@ log = logging.getLogger(__name__)
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
 
 
-def extract_archive(seven_zip_path, archive_path, extract_path, password="infected"):
+def extract_archive(seven_zip_path, archive_path, extract_path, password="infected", try_multiple_passwords=False):
     """Extracts a nested archive file.
     @param seven_zip_path: path to 7z binary
     @param archive_path: archive path
     @param extract_path: where to extract
     @param password: archive password
+    @param try_multiple_passwords: we will be splitting the password on the ':' symbol,
+           and trying each one to extract the archive
     """
     log.debug([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path])
     p = subprocess.run(
@@ -33,20 +35,42 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
     )
     stdoutput, stderr = p.stdout, p.stderr
     log.debug(f"{p.stdout} {p.stderr}")
+
+    if try_multiple_passwords:
+        passwords = password.split(":")
+    else:
+        passwords = [password]
+
     if b"Wrong password" in stderr:
         if not Path(extract_path).match("local\\temp"):
             shutil.rmtree(extract_path, ignore_errors=True)
-        log.debug([seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path])
-        p = subprocess.run(
-            [seven_zip_path, "x", f"-p{password}", "-y", f"-o{extract_path}", archive_path],
-            stdin=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-        stdoutput, stderr = p.stdout, p.stderr
-        log.debug(f"{p.stdout} {p.stderr}")
+
+        # Default stderr, to be set at each iteration
+        stderr = b""
+
+        # Let's try every password in our password list until we get it right
+        for pword in passwords:
+            log.debug([seven_zip_path, "x", f"-p{pword}", "-y", f"-o{extract_path}", archive_path])
+            p = subprocess.run(
+                [seven_zip_path, "x", f"-p{pword}", "-y", f"-o{extract_path}", archive_path],
+                stdin=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+            )
+            stdoutput, stderr = p.stdout, p.stderr
+            log.debug(f"{p.stdout} {p.stderr}")
+            if b"Wrong password" in stderr:
+                log.debug(f"The provided password '{pword}' was incorrect")
+                continue
+            else:
+                # We did it!
+                break
+
+        # If we have run through the password list and are still receiving a "wrong password" message,
+        # we have failed to extract this archive
         if b"Wrong password" in stderr:
-            raise Exception("Wrong password provided")
+            raise Exception("Wrong password(s) provided")
+
     elif b"Can not open the file as archive" in stdoutput:
         raise TypeError("Unable to open the file as archive")
 
@@ -115,7 +139,6 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1)
 
     # Extraction.
     with ZipFile(zip_path, "r") as archive:
-
         # Check if the archive is encrypted
         for zip_info in archive.infolist():
             is_encrypted = zip_info.flag_bits & 0x1
@@ -193,3 +216,15 @@ def winrar_extractor(winrar_binary, extract_path, archive_path):
     log.debug(p.stdout + p.stderr)
 
     return os.listdir(extract_path)
+
+
+def attempt_multiple_passwords(options: dict, password: str) -> bool:
+    """Does the user want us to try multiple passwords?"""
+    enable_multi_password = options.get("enable_multi_password", "")
+    if enable_multi_password.lower() in ("on", "yes", "true"):
+        # .get("password") defaults to infected but could return an empty string too so we need this check
+        # If user has requested we use multiple passwords, separated by colon
+        if password and ":" in password:
+            return True
+
+    return False

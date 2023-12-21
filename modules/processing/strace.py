@@ -244,13 +244,14 @@ class Processes():
                                     "pread", "pwrite", "preadv", "pwritev",
                                     "preadv2", "pwritev2", "pread64", "pwrite64"]:
                     # append filename to file descriptor according to relevant time that fd is opened
+                    # if any unclosed file descriptor, assume that it is closed after process is finished 
                     for fd in file_descriptors:
-                        if (call["arguments"][0]["value"] == fd["fd"] and
-                            fd["time_opened"] < call["timestamp"] and 
-                            call["timestamp"] < fd["time_closed"]):
-                            if call["timestamp"] == "07:26:56.653085":
-                                print("here lmao")
-                            call["arguments"][0]["value"] += f' ({fd["filename"]})'
+                        if (call["arguments"][0]["value"] == fd["fd"] 
+                            and fd["time_opened"] < call["timestamp"]
+                            and (fd["time_closed"] is None
+                                 or call["timestamp"] <= fd["time_closed"])
+                            ):
+                                call["arguments"][0]["value"] += f' ({fd["filename"]})'
         
         return process_list
 

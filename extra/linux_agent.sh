@@ -6,6 +6,7 @@ sudo apt install build-essential curl net-tools python3-pip -y
 sudo pip3 install pyinotify
 
 # agent.py installation
+sudo mkdir /root/.cape
 sudo wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/master/agent/agent.py -O /root/.cape/agent.py 
 sudo sed -i '36,37 s/^/# /' /root/.cape/agent.py
 sudo crontab -l | { cat; echo "@reboot python3 /root/.cape/agent.py"; } | sudo crontab -

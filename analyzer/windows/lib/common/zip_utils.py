@@ -198,6 +198,9 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
                                 )
                             except RuntimeError as run_err:
                                 log.error("Error extracting nested Zip file %s with details: %s", name, run_err)
+                # If password_fail is False, then we either do not need a password, or we have used the correct password
+                if not password_fail:
+                    break
 
         if password_fail:
             raise CuckooPackageError(f"Unable to extract password-protected Zip file with the password(s): {passwords}")

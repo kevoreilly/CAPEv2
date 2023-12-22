@@ -163,6 +163,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
         for pword in passwords:
             try:
                 archive.extractall(path=extract_path, pwd=pword)
+                password_fail = False
             except BadZipfile as e:
                 raise CuckooPackageError("Invalid Zip file") from e
             except RuntimeError as e:
@@ -177,7 +178,6 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
                     except RuntimeError as e:
                         raise CuckooPackageError(f"Unable to extract Zip file: {e}") from e
             finally:
-                password_fail = False
                 if recursion_depth < 4:
                     # Extract nested archives.
                     for name in archive.namelist():

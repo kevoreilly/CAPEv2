@@ -109,7 +109,7 @@ class Zip(Package):
         file_names = []
         try:
             zipinfos = get_infos(path)
-            extract_zip(path, root, password, 0)
+            extract_zip(path, root, password, 0, try_multiple_passwords)
             for f in zipinfos:
                 file_names.append(f.filename)
         except CuckooPackageError as e:

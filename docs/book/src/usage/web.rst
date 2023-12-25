@@ -257,7 +257,7 @@ Then restart NGINX
 
     Add the following lines to the NGINX configuration, just below the ``client_max_body_size`` line.
 
-    .. code-block :: nginx
+    .. code-block:: nginx
 
         auth_basic           "Authentication required";
         auth_basic_user_file /opt/CAPEv2/web/.htpasswd;

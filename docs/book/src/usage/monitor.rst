@@ -121,9 +121,12 @@ br0, br1, br2, br3
 Fake-rdtsc
 ==========
 This advanced feature is there for interacting with the TSC register. To learn more on it and what it's used for see: https://en.wikipedia.org/wiki/Time_Stamp_Counter.
+
 * To 'emulate' (skip and fake) the rdtsc instruction, the option fake-rdtsc=1 may be set. This will only have an affect on rdtsc instructions that are traced over by the debugger. If the debugger is not tracing at the time the CPU executes the instruction, it cannot of course fake the return value.
 * The effect of this setting is to allow the first traced rdtsc instruction to execute normally, but thereafter to fake the return value with the original return value plus whatever value is specified in the option. For example:
-    * 'rdtsc=0x1000'
+
+  * 'rdtsc=0x1000'
+
 * This will result in each subsequent rdtsc instruction after the first being faked with a value that has incremented by 0x1000.
 
 Practical examples

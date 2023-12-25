@@ -112,4 +112,6 @@ See ``-h`` for all latest options, for better customization::
         -pt PROCESSING_TIMEOUT, --processing-timeout PROCESSING_TIMEOUT
                                 Max amount of time spent in processing before we fail a task
 
-$ python3 utils/process.py -p7 auto
+Command example::
+
+    $ python3 utils/process.py -p7 auto

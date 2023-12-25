@@ -22,6 +22,7 @@ Depth
 In single-step mode, the behaviour of a trace can be characterised in terms of whether it steps into a call, or over it. From this comes the concept of depth; the debugger will trace at the same depth in a trace by stepping-over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behaviour will be to step over all the subsequent calls (at least until a ret is encountered):
 
 * ``depth=0``
+
 If we set a depth of, say, three, then the debugger will step into calls into further levels of depth three times:
 
 * ``depth=3``
@@ -31,9 +32,11 @@ Count
 Another important characteristic of a trace is its length or count of instructions. This is set with the count option, for example:
 
 * ``count=10000``
+
 The count may also be specified as hexadecimal:
 
 * ``count=0xff00``
+
 The default count is 0x4000.
 
 Break-on-return

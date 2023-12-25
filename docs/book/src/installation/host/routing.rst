@@ -611,7 +611,7 @@ Debugging ``iptables`` rules
 
 Every single time the :ref:`rooter` brings up or down any route (assuming it works as expected) or you do so by using the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility, your iptables set of rules is modified in one way or another.
 
-To inspect the changes being made and verify them, you can use the ``watch`` utility preinstalled in the vast majority of *nix systems. For example, to view rules created by CAPE-rooter or the utility you can run the following command::
+To inspect the changes being made and verify them, you can use the ``watch`` utility preinstalled in the vast majority of \*nix systems. For example, to view rules created by CAPE-rooter or the utility you can run the following command::
 
     $ sudo watch -n 1 iptables -L -n -v
 

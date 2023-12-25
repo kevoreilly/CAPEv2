@@ -22,6 +22,7 @@ Depth
 In single-step mode, the behaviour of a trace can be characterised in terms of whether it steps into a call, or over it. From this comes the concept of depth; the debugger will trace at the same depth in a trace by stepping-over calls to deeper functions. Thus if we set a depth of zero (which is also the default) the behaviour will be to step over all the subsequent calls (at least until a ret is encountered):
 
 * ``depth=0``
+
 If we set a depth of, say, three, then the debugger will step into calls into further levels of depth three times:
 
 * ``depth=3``
@@ -31,9 +32,11 @@ Count
 Another important characteristic of a trace is its length or count of instructions. This is set with the count option, for example:
 
 * ``count=10000``
+
 The count may also be specified as hexadecimal:
 
 * ``count=0xff00``
+
 The default count is 0x4000.
 
 Break-on-return
@@ -118,9 +121,12 @@ br0, br1, br2, br3
 Fake-rdtsc
 ==========
 This advanced feature is there for interacting with the TSC register. To learn more on it and what it's used for see: https://en.wikipedia.org/wiki/Time_Stamp_Counter.
+
 * To 'emulate' (skip and fake) the rdtsc instruction, the option fake-rdtsc=1 may be set. This will only have an affect on rdtsc instructions that are traced over by the debugger. If the debugger is not tracing at the time the CPU executes the instruction, it cannot of course fake the return value.
 * The effect of this setting is to allow the first traced rdtsc instruction to execute normally, but thereafter to fake the return value with the original return value plus whatever value is specified in the option. For example:
-    * 'rdtsc=0x1000'
+
+  * 'rdtsc=0x1000'
+
 * This will result in each subsequent rdtsc instruction after the first being faked with a value that has incremented by 0x1000.
 
 Practical examples

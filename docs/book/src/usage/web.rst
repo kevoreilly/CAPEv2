@@ -115,14 +115,18 @@ To get rid of many bots/scrappers so we suggest deploying this amazing project `
 
 Best practices for production
 =============================
+**Gunicorn + NGINX** is the recommended way of serving the CAPE web UI.
 
-Gunicorn + NGINX is the recommended way of serving the CAPE web UI.
-
+Gunicorn
+--------
 First, configure the ``cape-web`` service to use Gunicorn
 
 Modify ``/lib/systemd/system/cape-web.service`` so the ``ExecStart``
-setting is set to
-``/usr/bin/python3 -m poetry run gunicorn web.wsgi -w 4 -t 200 --capture-output --enable-stdio-inheritance``.
+setting is set to:
+
+.. code:: systemd
+
+    ExecStart=/usr/bin/python3 -m poetry run gunicorn web.wsgi -w 4 -t 200 --capture-output --enable-stdio-inheritance
 
 Run
 
@@ -131,6 +135,8 @@ Run
    sudo systemctl daemon-reload
    sudo service cape-web restart
 
+NGINX
+-----
 Next, install NGINX and configure it to be a reverse proxy to Gunicorn.
 
 .. code:: bash

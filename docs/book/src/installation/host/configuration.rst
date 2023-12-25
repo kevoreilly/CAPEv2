@@ -201,6 +201,8 @@ The *conf/routing.conf* file contains information about how the guest VM is conn
 
 Please see the latest version of routing.conf here: `routing.conf`_.
 
+.. _`routing.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/routing.conf
+
 You can read more about the *routing.conf* file and its options in the :ref:`routing` chapter and more about the ``rooter.py`` utility in the :ref:`rooter` chapter.
 
 

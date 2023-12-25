@@ -4,11 +4,14 @@
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import MSOFFICE_TRUSTED_PATH
 from lib.common.exceptions import CuckooPackageError
 
 
 class DOC(Package):
     """Word analysis package."""
+
+    default_curdir = MSOFFICE_TRUSTED_PATH
 
     def __init__(self, options=None, config=None):
         if options is None:

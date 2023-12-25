@@ -3,10 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from lib.common.abstracts import Package
+from lib.common.constants import MSOFFICE_TRUSTED_PATH
 
 
 class PPT2007(Package):
     """PowerPoint analysis package."""
+
+    default_curdir = MSOFFICE_TRUSTED_PATH
 
     def __init__(self, options=None, config=None):
         if options is None:

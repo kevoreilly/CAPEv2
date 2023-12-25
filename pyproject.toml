@@ -106,7 +106,6 @@ tenacity = "8.1.0"
 httpretty = "^1.1.4"
 func-timeout = "^4.3.5"
 pre-commit = "^2.19.0"
-sphinx_rtd_theme = "2.0.0"
 
 [tool.ruff]
 select = ["E", "F"]

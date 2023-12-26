@@ -1,18 +1,20 @@
 from base64 import urlsafe_b64decode
-from xml.etree import ElementTree as ET
 
+from xml.etree import ElementTree as ET
 from django.shortcuts import render
+
+from lib.cuckoo.common.config import Config
 
 try:
     import libvirt
 except ImportError:
     print("Missed python-libvirt. Use extra/libvirt_installer.sh")
 
+machinery = Config().cuckoo.machinery
+machinery_dsn = getattr(Config(machinery), machinery).get("dsn", "qemu:///system")
 
 def index(request, task_id, session_data):
-    # ToDo read from config
-    dsn = "qemu:///system"
-    conn = libvirt.open(dsn)
+    conn = libvirt.open(machinery_dsn)
     recording_name = ""
     if conn:
         try:

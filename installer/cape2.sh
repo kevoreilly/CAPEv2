@@ -1202,9 +1202,8 @@ function install_CAPE() {
 
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
-	# default is enabled, so we only need to disable it
-	if [ "$MONGO_ENABLE" -lt 1 ]; then
-		crudini --set conf/reporting.conf mongodb enabled no
+	if [ "$MONGO_ENABLE" -ge 1 ]; then
+		crudini --set conf/reporting.conf mongodb enabled yes
 	fi
 
 	if [ "$librenms_enable" -ge 1 ]; then

@@ -162,6 +162,11 @@ class Package:
             self.curdir = os.getenv("TEMP")
         # Try to create the folders for the cases of the custom paths other than %TEMP%
         create_custom_folders(self.curdir)
+
+        # in some cases it has problems to create folder IDK why
+        if not os.path.exists(self.curdir):
+            return filepath
+
         newpath = os.path.join(self.curdir, os.path.basename(filepath))
         shutil.move(filepath, newpath)
         return newpath

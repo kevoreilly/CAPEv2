@@ -16,7 +16,7 @@ try:
 except ImportError:
     HAVE_DNFILE = False
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 

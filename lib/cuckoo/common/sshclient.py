@@ -1,4 +1,11 @@
-# find from where is file come and add here
+# Original Copyright: 2020, Andrew Blair Schenck
+# https://github.com/andrewschenck/paramiko-jump
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# A copy of the License is available at:
+# http://www.apache.org/licenses/LICENSE-2.0
+
 """
 
 Objects provided by this module:

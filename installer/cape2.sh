@@ -53,7 +53,7 @@ librenms_megaraid_enable=0
 # disabling this will result in the web interface being disabled
 MONGO_ENABLE=1
 
-DIE_VERSION="3.08"
+DIE_VERSION="3.09"
 
 TOR_SOCKET_TIMEOUT="60"
 

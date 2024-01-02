@@ -271,7 +271,7 @@ def detect_it_easy_info(file_path: str):
         if strings:
             return strings
     except Exception as e:
-        log.error("Trid error: %s", str(e))
+        log.error("DIE error: %s", str(e))
     return []
 
 

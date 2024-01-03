@@ -15,7 +15,7 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
 from lib.common.parse_pe import is_pe_image
-from lib.common.zip_utils import extract_archive, extract_zip, get_file_names, get_infos, attempt_multiple_passwords
+from lib.common.zip_utils import attempt_multiple_passwords, extract_archive, extract_zip, get_file_names, get_infos
 
 log = logging.getLogger(__name__)
 

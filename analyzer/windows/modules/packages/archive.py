@@ -20,7 +20,7 @@ from lib.common.exceptions import CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.parse_pe import choose_dll_export, is_pe_image
 from lib.common.results import upload_to_host
-from lib.common.zip_utils import extract_archive, get_file_names, winrar_extractor, attempt_multiple_passwords
+from lib.common.zip_utils import attempt_multiple_passwords, extract_archive, get_file_names, winrar_extractor
 
 log = logging.getLogger(__name__)
 

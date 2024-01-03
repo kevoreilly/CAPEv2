@@ -7,14 +7,8 @@ import os
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
-from lib.common.zip_utils import (
-    extract_archive,
-    extract_zip,
-    get_file_names,
-    get_infos,
-    get_interesting_files,
-    upload_extracted_files,
-)
+from lib.common.parse_pe import is_pe_image
+from lib.common.zip_utils import upload_extracted_files, attempt_multiple_passwords, extract_archive, extract_zip, get_file_names, get_infos, get_interesting_files
 
 log = logging.getLogger(__name__)
 
@@ -41,12 +35,13 @@ class Zip(Package):
 
     def start(self, path):
         password = self.options.get("password", "infected")
+        try_multiple_passwords = attempt_multiple_passwords(self.options, password)
         appdata = self.options.get("appdata")
         root = os.environ["APPDATA"] if appdata else os.environ["TEMP"]
         file_names = []
         try:
             zipinfos = get_infos(path)
-            extract_zip(path, root, password, 0)
+            extract_zip(path, root, password, 0, try_multiple_passwords)
             for f in zipinfos:
                 file_names.append(f.filename)
         except CuckooPackageError as e:
@@ -59,7 +54,7 @@ class Zip(Package):
             seven_zip_path = self.get_path_app_in_path("7z.exe")
             file_names = get_file_names(seven_zip_path, path)
             if len(file_names):
-                extract_archive(seven_zip_path, path, root, password)
+                extract_archive(seven_zip_path, path, root, password, try_multiple_passwords)
 
         # If the .zip only contains a 7zip file, then do:
         if len(file_names) == 1 and file_names[0].endswith(".7z"):
@@ -67,7 +62,7 @@ class Zip(Package):
             nested_7z = os.path.join(root, file_names[0])
             file_names = get_file_names(seven_zip_path, nested_7z)
             if len(file_names):
-                extract_archive(seven_zip_path, nested_7z, root, password)
+                extract_archive(seven_zip_path, nested_7z, root, password, try_multiple_passwords)
 
         file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.

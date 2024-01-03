@@ -16,7 +16,7 @@ try:
 except ImportError:
     HAVE_DNFILE = False
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
@@ -110,26 +110,27 @@ def extract_config(data):
 
     base_location = None
     with suppress(Exception):
-        base_location = user_strings.index("Authorization")
-        if base_location:
-            if not c2 or "." not in c2:
-                delta = base_location
-                while True:
-                    delta += 1
-                    if "==" in user_strings[delta]:
-                        c2 = user_strings[delta]
-                        if "=" in user_strings[delta + 1]:
-                            botnet = user_strings[delta + 1]
-                            key = user_strings[delta + 2]
-                            if "=" in key:
-                                key = user_strings[delta + 3]
-                        else:
-                            botnet = None
-                            key = user_strings[delta + 1]
-                        c2 = decrypt(c2, key)
-                        if botnet:
-                            botnet = decrypt(botnet, key)
-                        break
+        if "Authorization" in user_strings:
+            base_location = user_strings.index("Authorization")
+            if base_location:
+                if not c2 or "." not in c2:
+                    delta = base_location
+                    while True:
+                        delta += 1
+                        if "==" in user_strings[delta]:
+                            c2 = user_strings[delta]
+                            if "=" in user_strings[delta + 1]:
+                                botnet = user_strings[delta + 1]
+                                key = user_strings[delta + 2]
+                                if "=" in key:
+                                    key = user_strings[delta + 3]
+                            else:
+                                botnet = None
+                                key = user_strings[delta + 1]
+                            c2 = decrypt(c2, key)
+                            if botnet:
+                                botnet = decrypt(botnet, key)
+                            break
 
     if not c2 or "." not in c2 and HAVE_DNFILE:
         with suppress(Exception):

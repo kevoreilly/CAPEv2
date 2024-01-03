@@ -6,7 +6,7 @@ import json
 import logging
 import re
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 patterns = [

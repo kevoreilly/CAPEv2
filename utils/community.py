@@ -169,7 +169,6 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--all", help="Download everything", action="store_true", required=False)
     parser.add_argument("-cm", "--common", help="Download CAPE common modules", action="store_true", required=False)
@@ -208,6 +207,7 @@ def main():
     )
     parser.add_argument("--proxy", help="Proxy to use. Ex http://127.0.0.1:8080", action="store", required=False)
     parser.add_argument("-y", "--yara", help="Download YARA rules", action="store_true", required=False)
+    parser.add_argument("-ut", "--utils", help="Download community utilities", action="store_true", required=False)
     args = parser.parse_args()
 
     enabled = []
@@ -224,6 +224,7 @@ def main():
             "integrations",
             "mitre",
             "common",
+            "utils",
         ]
         flare_capa(args.proxy)
     else:
@@ -250,6 +251,8 @@ def main():
             enabled.append("integrations")
         if args.mitre_offline:
             enabled.append("mitre")
+        if args.utils:
+            enabled.append("utils")
 
     if args.capa_rules:
         flare_capa(args.proxy)

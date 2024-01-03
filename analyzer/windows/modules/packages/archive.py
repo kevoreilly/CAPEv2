@@ -10,12 +10,14 @@ from pathlib import Path
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
+
 from lib.common.zip_utils import (
     extract_archive,
     get_file_names,
     winrar_extractor,
     get_interesting_files,
     upload_extracted_files,
+    attempt_multiple_passwords
 )
 
 log = logging.getLogger(__name__)
@@ -65,7 +67,8 @@ class Archive(Package):
 
         file_names = get_file_names(seven_zip_path, path)
         if len(file_names):
-            extract_archive(seven_zip_path, path, root, password)
+            try_multiple_passwords = attempt_multiple_passwords(self.options, password)
+            extract_archive(seven_zip_path, path, root, password, try_multiple_passwords)
 
         # Try extract with winrar, in some cases 7z-full fails with .Iso
         if not file_names:

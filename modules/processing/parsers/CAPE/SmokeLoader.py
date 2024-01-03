@@ -5,7 +5,7 @@ from contextlib import suppress
 import yara
 from Cryptodome.Cipher import ARC4
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 rule_source = """

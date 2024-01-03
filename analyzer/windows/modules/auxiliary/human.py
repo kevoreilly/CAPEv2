@@ -23,7 +23,7 @@ EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 
 
-POINT = r"\((\d{0,}),(\d{0,})\)"
+POINT = r"\((\d+),(\d+)\)"
 
 SM_CXSCREEN = 0
 SM_CYSCREEN = 1
@@ -452,15 +452,15 @@ class Human(Auxiliary, Thread):
                             continue
                         elif instruction == "STOP":
                             return
-                        match = re.search(r'^\((\d{1,}):(\d{1,})\)$', instruction, flags=re.IGNORECASE)
+                        match = re.search(r'^\((\d+):(\d+)\)$', instruction, flags=re.IGNORECASE)
                         if match is not None:
                             USER32.SetCursorPos(int(match.group(1)),int(match.group(2)))
                             KERNEL32.Sleep(interval)
                             continue
-                        match = re.search(r'^WAIT(\d{1,})',instruction, flags=re.IGNORECASE)
+                        match = re.search(r'^WAIT(\d+)',instruction, flags=re.IGNORECASE)
                         if match is not None:
                             KERNEL32.Sleep(int(match.group(1)))
-                        match = re.search(r'INTERVAL(\d{1,})',instruction, flags=re.IGNORECASE)
+                        match = re.search(r'INTERVAL(\d+)',instruction, flags=re.IGNORECASE)
                         if match is not None:
                             interval = int(match.group(1))
                     except Exception as e:

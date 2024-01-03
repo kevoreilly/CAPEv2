@@ -270,6 +270,8 @@ def detect_it_easy_info(file_path: str):
 
         if strings:
             return strings
+    except json.decoder.JSONDecodeError as e:
+        log.debug("DIE results are not in json format: %s", str(e))
     except Exception as e:
         log.error("DIE error: %s", str(e))
     return []

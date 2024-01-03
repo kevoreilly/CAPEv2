@@ -5,6 +5,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import contextlib
+import re
 import logging
 import random
 import traceback
@@ -21,6 +22,9 @@ log = logging.getLogger(__name__)
 EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 
+
+POINT = r"\((\d{0,}),(\d{0,})\)"
+
 SM_CXSCREEN = 0
 SM_CYSCREEN = 1
 SM_CXFULLSCREEN = 16
@@ -29,6 +33,7 @@ RESOLUTION = {"x": USER32.GetSystemMetrics(SM_CXSCREEN), "y": USER32.GetSystemMe
 RESOLUTION_WITHOUT_TASKBAR = {"x": USER32.GetSystemMetrics(SM_CXFULLSCREEN), "y": USER32.GetSystemMetrics(SM_CYFULLSCREEN)}
 
 INITIAL_HWNDS = []
+GIVEN_INSTRUCTIONS = None
 CLOSED_DOCUMENT_WINDOW = False
 DOCUMENT_WINDOW_CLICK_AROUND = False
 
@@ -205,7 +210,64 @@ def click_mouse():
     USER32.mouse_event(4, 0, 0, 0, None)
 
 
+def click_around(hwnd,workable_range_x,workable_range_y):
+    USER32.SetForegroundWindow(hwnd)
+    # first click the middle
+    USER32.SetCursorPos(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
+    click_mouse()
+    KERNEL32.Sleep(50)
+    click_mouse()
+    KERNEL32.Sleep(500)
+    # click through the middle with offset for cell position on side and scroll bar
+    if GIVEN_INSTRUCTIONS is None:
+        x = workable_range_x[0]
+        while x < workable_range_x[1]:
+        # make sure the window still exists
+            if USER32.IsWindowVisible(hwnd):
+                USER32.SetForegroundWindow(hwnd)
+                USER32.SetCursorPos(x, RESOLUTION["y"] // 2)
+                click_mouse()
+                KERNEL32.Sleep(50)
+                click_mouse()
+                KERNEL32.Sleep(50)
+                if not USER32.IsWindowVisible(hwnd):
+                    break
+                USER32.SetForegroundWindow(hwnd)
+                USER32.SetCursorPos(x, random.randint(workable_range_y[0], workable_range_y[1]))
+                click_mouse()
+                KERNEL32.Sleep(50)
+                click_mouse()
+                KERNEL32.Sleep(50)
+                if not USER32.IsWindowVisible(hwnd):
+                    break
+                USER32.SetForegroundWindow(hwnd)
+                USER32.SetCursorPos(x, random.randint(workable_range_y[0], workable_range_y[1]))
+                click_mouse()
+                KERNEL32.Sleep(50)
+                click_mouse()
+                KERNEL32.Sleep(50)
+                x += random.randint(150, 200)
+                KERNEL32.Sleep(50)
+            else:
+                log.info("Breaking out of document window click loop as our window went away")
+                break
+    else:
+        for instruction in GIVEN_INSTRUCTIONS:
+            if USER32.IsWindowVisible(hwnd):
+                USER32.SetForegroundWindow(hwnd)
+                if instruction == "click":
+                    click_mouse()
+                elif re.match(POINT,instruction):
+                    point = re.match(POINT,instruction)
+                    USER32.SetCursorPos(point.group[1],point.group[2])
+                KERNEL32.Sleep(50)
+            else:
+                log.info("Breaking out of document window click loop as our window went away")
+                break
+    
+
 def get_document_window_click_around(hwnd, lparm):
+    #(0,0) left upper corner
     global DOCUMENT_WINDOW_CLICK_AROUND
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
@@ -213,9 +275,6 @@ def get_document_window_click_around(hwnd, lparm):
         if any(
             value in text.value
             for value in (
-                "Microsoft Word",
-                "Microsoft Excel",
-                "Microsoft PowerPoint",
                 "Adobe",
                 "Acrobat DC",
                 "Acrobat",
@@ -223,47 +282,31 @@ def get_document_window_click_around(hwnd, lparm):
                 "PDF",
             )
         ):
-            USER32.SetForegroundWindow(hwnd)
-            # first click the middle
-            USER32.SetCursorPos(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
-            click_mouse()
-            KERNEL32.Sleep(50)
-            click_mouse()
-            KERNEL32.Sleep(500)
-            # click through the middle with offset for cell position on side and scroll bar
-            x = 80
-            while x < RESOLUTION["x"] - 40:
-                # make sure the window still exists
-                if USER32.IsWindowVisible(hwnd):
-                    USER32.SetForegroundWindow(hwnd)
-                    USER32.SetCursorPos(x, RESOLUTION["y"] // 2)
-                    click_mouse()
-                    KERNEL32.Sleep(50)
-                    click_mouse()
-                    KERNEL32.Sleep(50)
-                    if not USER32.IsWindowVisible(hwnd):
-                        break
-                    USER32.SetForegroundWindow(hwnd)
-                    USER32.SetCursorPos(x, RESOLUTION["y"] // 2 + random.randint(80, 200))
-                    click_mouse()
-                    KERNEL32.Sleep(50)
-                    click_mouse()
-                    KERNEL32.Sleep(50)
-                    if not USER32.IsWindowVisible(hwnd):
-                        break
-                    USER32.SetForegroundWindow(hwnd)
-                    USER32.SetCursorPos(x, RESOLUTION["y"] // 2 - random.randint(80, 200))
-                    click_mouse()
-                    KERNEL32.Sleep(50)
-                    click_mouse()
-                    KERNEL32.Sleep(50)
-                    x += random.randint(150, 200)
-                    KERNEL32.Sleep(50)
-                else:
-                    log.info("Breaking out of document window click loop as our window went away")
-                    break
-            KERNEL32.Sleep(20000)
-            DOCUMENT_WINDOW_CLICK_AROUND = True
+            #2260 x 1325 PDF 0-160 y off limit x 460 last off limit
+            click_around(hwnd,(0, RESOLUTION["X"] - 460 ),(160,RESOLUTION_WITHOUT_TASKBAR["Y"]))
+        elif any(value in text.value
+                for value in (
+                "Microsoft Word",
+                )
+        ):
+            # Word 1632 x 1092 Doc 0-300 y off limit
+            click_around(hwnd,(0,RESOLUTION["X"]),(300,RESOLUTION_WITHOUT_TASKBAR["Y"]))
+        elif any(value in text.value
+                for value in (
+                "Microsoft Excel",
+                )
+        ):
+            # Excel 2624 x 1000 0-400 y off limit
+            click_around(hwnd,(0,RESOLUTION["X"]),(400,RESOLUTION_WITHOUT_TASKBAR["Y"]))
+        elif any(value in text.value
+                for value in (
+                "Microsoft PowerPoint",
+                )
+        ):
+            # Powerpoint 1300 x 974 0-300 y off limit 0-930 off limit
+            click_around(hwnd,(300,RESOLUTION["X"]),(930,RESOLUTION_WITHOUT_TASKBAR["Y"]))
+        KERNEL32.Sleep(20000)
+        DOCUMENT_WINDOW_CLICK_AROUND = True
     return True
 
 
@@ -305,37 +348,46 @@ def realistic_human_cursor_movement():
     start_y = RESOLUTION_WITHOUT_TASKBAR["y"] // factor_y
     movements = []
     start = datetime.now()
-    while datetime.now() - start < timedelta(milliseconds=1000):
+    while datetime.now() - start < timedelta(milliseconds=5000):
         fuzzy_x = random.randint(0,RESOLUTION_WITHOUT_TASKBAR["x"] // 128)
         fuzzy_y = random.randint(0,RESOLUTION_WITHOUT_TASKBAR["y"] // 128)
         if random_dimension == 0: 
             counter += RESOLUTION_WITHOUT_TASKBAR["y"] // 64
-            x = start_x
+            x = floor(start_x)
             y = floor(max(0, min(start_y  + counter + fuzzy_y, RESOLUTION_WITHOUT_TASKBAR["y"])))
         else:
             counter += RESOLUTION_WITHOUT_TASKBAR["x"] // 64
             x =  floor(max(0, min(start_x  + counter +  + fuzzy_x, RESOLUTION_WITHOUT_TASKBAR["x"])))
-            y = start_y
+            y = floor(start_y)
         movements.append((x,y))
         USER32.SetCursorPos(x, y)
         KERNEL32.Sleep(50)
     return movements
 
+
 class Human(Auxiliary, Thread):
     """Human after all"""
 
     def __init__(self, options, config):
+        global GIVEN_INSTRUCTIONS
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
         self.config = config
         self.enabled = self.config.human_windows
         self.do_run = self.enabled
-
+        instruction_arg = self.options.get("human_instructions", None)
+        try:
+            GIVEN_INSTRUCTIONS = instruction_arg.split(" ")
+            log.debug(GIVEN_INSTRUCTIONS)
+        except:
+            log.debug("Invalid instructions given: %s" % instruction_arg)
+            GIVEN_INSTRUCTIONS = None
     def stop(self):
         self.do_run = False
 
     def run(self):
         global DOCUMENT_WINDOW_CLICK_AROUND
+        global GIVEN_INSTRUCTIONS
         try:
             seconds = 0
             randoff = random.randint(0, 10)
@@ -386,6 +438,35 @@ class Human(Auxiliary, Thread):
                     doc = True
 
             USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
+            interval = 300
+            try:
+                iterator = iter(GIVEN_INSTRUCTIONS)
+            except TypeError:
+                pass
+            else:
+                for instruction in GIVEN_INSTRUCTIONS:
+                    log.debug("Instruction: %s" % instruction)
+                    try:
+                        if instruction == "CLICK":
+                            click_mouse()
+                            continue
+                        elif instruction == "STOP":
+                            return
+                        match = re.search(r'^\((\d{1,}):(\d{1,})\)$', instruction, flags=re.IGNORECASE)
+                        if match is not None:
+                            USER32.SetCursorPos(int(match.group(1)),int(match.group(2)))
+                            KERNEL32.Sleep(interval)
+                            continue
+                        match = re.search(r'^WAIT(\d{1,})',instruction, flags=re.IGNORECASE)
+                        if match is not None:
+                            KERNEL32.Sleep(int(match.group(1)))
+                        match = re.search(r'INTERVAL(\d{1,})',instruction, flags=re.IGNORECASE)
+                        if match is not None:
+                            interval = int(match.group(1))
+                    except Exception as e:
+                        log.debug("One of the instruction given is invalid:%s" % instruction)
+                        continue
+                    
 
             while self.do_run:
                 if doc and seconds > 45 and (seconds % 30) == 0 and not DOCUMENT_WINDOW_CLICK_AROUND and not CLOSED_DOCUMENT_WINDOW:
@@ -400,7 +481,8 @@ class Human(Auxiliary, Thread):
                         click_mouse()
                         move_mouse()
                     elif rng >= 6:
-                        realistic_human_cursor_movement()
+                        movements = realistic_human_cursor_movement()
+                        log.debug(movements)
                     else:
                         USER32.SetCursorPos(
                             int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),

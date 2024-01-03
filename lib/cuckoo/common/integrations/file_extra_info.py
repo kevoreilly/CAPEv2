@@ -266,6 +266,11 @@ def detect_it_easy_info(file_path: str):
         if "detects" not in output:
             return []
 
+        if "Invalid signature" in output and "{" in output:
+            start = output.find("{")
+            if start != -1:
+                output = output[start:]
+        
         strings = [sub["string"] for block in json.loads(output).get("detects", []) for sub in block.get("values", [])]
 
         if strings:

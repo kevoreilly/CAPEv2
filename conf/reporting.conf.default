@@ -122,24 +122,6 @@ index = cuckoo
 # use_ssl =
 # verify_certs =
 
-# Community
-[retention]
-enabled = no
-# run at most once every this many hours (unless reporting.conf is modified)
-run_every = 6
-# The amount of days old a task needs to be before deleting data
-# Set a value to no to never delete it
-memory = 14
-procmemory = 62
-pcap = 62
-sortedpcap = 14
-bsonlogs = 62
-dropped = 62
-screencaps = 62
-reports = 62
-mongo = 731
-elastic = no
-
 [syslog]
 enabled = no
 # IP of your syslog server/listener
@@ -211,12 +193,6 @@ enabled = no
 # will send as post data {"task_id":X}
 # can be coma separated urls
 url = http://IP/callback
-
-# Community
-# Compress results including CAPE output
-# to help avoid reaching the hard 16MB MongoDB limit.
-[compressresults]
-enabled = no
 
 [tmpfsclean]
 enabled = no

@@ -1881,7 +1881,7 @@ def exit_nodes_list(request):
     resp = {}
     resp["data"] = []
     resp["error"] = False
-    resp["data"] += ["socks:" + sock5["name"] for sock5 in _load_socks5_operational() or []]
+    resp["data"] += ["socks:" + sock5 for sock5 in _load_socks5_operational() or []]
     resp["data"] += ["vpn:" + vpn for vpn in vpns.keys() or []]
     if routing_conf.tor.enabled:
         resp["data"].append("tor")
@@ -2197,13 +2197,10 @@ def common_download_func(service, request):
         if opts:
             opt_apikey = opts.get("apikey", False)
 
-        if not (settings.VTDL_KEY or opt_apikey) or not settings.VTDL_PATH:
+        if not (settings.VTDL_KEY or opt_apikey):
             resp = {
                 "error": True,
-                "error_value": (
-                    "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH"
-                    " base directory"
-                ),
+                "error_value": ("You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"),
             }
             return Response(resp)
 

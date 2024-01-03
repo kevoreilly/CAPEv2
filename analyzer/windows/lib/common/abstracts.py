@@ -9,6 +9,7 @@ import shutil
 
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
+from lib.core.compound import create_custom_folders
 
 log = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class Package:
     """Base abstract analysis package."""
 
     PATHS = []
+    default_curdir = None
 
     def __init__(self, options=None, config=None):
         """@param options: options dict."""
@@ -154,8 +156,17 @@ class Package:
         """
         if "curdir" in self.options:
             self.curdir = os.path.expandvars(self.options["curdir"])
+        elif self.default_curdir:
+            self.curdir = os.path.expandvars(self.default_curdir)
         else:
             self.curdir = os.getenv("TEMP")
+        # Try to create the folders for the cases of the custom paths other than %TEMP%
+        create_custom_folders(self.curdir)
+
+        # in some cases it has problems to create folder IDK why
+        if not os.path.exists(self.curdir):
+            return filepath
+
         newpath = os.path.join(self.curdir, os.path.basename(filepath))
         shutil.move(filepath, newpath)
         return newpath

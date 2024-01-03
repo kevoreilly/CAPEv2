@@ -163,6 +163,8 @@ def is_valid_type(magic: str) -> bool:
 
 def is_valid_package(package: str) -> bool:
     # check if the file has a valid package type
+    if not package:
+        return False
     return any(ptype in package for ptype in VALID_PACKAGES)
 
 

@@ -245,7 +245,7 @@ class BeaconSettings:
 
     def __init__(self, version):
         if version not in SUPPORTED_VERSIONS:
-            log.info("Error: Only supports version 3 and 4, not %d", version)
+            log.debug("Error: Only supports version 3 and 4, not %d", version)
         self.version = version
         self.settings = OrderedDict()
         self.init()
@@ -358,13 +358,13 @@ class cobaltstrikeConfig:
             if parsed_setting == "Not Found" and quiet:
                 continue
             if not isinstance(parsed_setting, list):
-                log.info("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting))
+                log.debug("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting))
             elif parsed_setting == []:
-                log.info("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val="Empty"))
+                log.debug("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val="Empty"))
             else:
-                log.info("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting[0]))
+                log.debug("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting[0]))
                 for val in parsed_setting[1:]:
-                    log.info(" " * COLUMN_WIDTH, end="")
+                    log.debug(" " * COLUMN_WIDTH, end="")
                     print(val)
 
         if as_json:
@@ -390,7 +390,7 @@ class cobaltstrikeConfig:
                 return conf
 
         if __name__ == "__main__":
-            log.info("Configuration not found. Are you sure this is a beacon?")
+            log.debug("Configuration not found. Are you sure this is a beacon?")
         return None
 
     def parse_encrypted_config(self, version=None, quiet=False, as_json=False):
@@ -423,7 +423,7 @@ class cobaltstrikeConfig:
             offset += 4
 
         if not key_found:
-            log.info("Failed to find encrypted data (try to lower the threshold constant)")
+            log.debug("Failed to find encrypted data (try to lower the threshold constant)")
             return None
 
         # decrypt and parse

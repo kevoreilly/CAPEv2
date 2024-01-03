@@ -1,14 +1,6 @@
 <section id="screenshots">
     <h4>Screenshots</h4>
-    {% if analysis.deduplicated_shots %}
-        <div>
-        {% for shot in analysis.deduplicated_shots %}
-            <a data-lightbox="screenshot" href="{% url "file_nl" "screenshot" analysis.info.id shot %}">
-                <img class="opaque" src="{% url "file_nl" "screenshot" analysis.info.id shot %}" style="height: 120px;" />
-            </a>
-        {% endfor %}
-        </div>
-    {% elif analysis.shots %}
+    {% if analysis.shots %}
         <div>
         {% for shot in analysis.shots %}
             <a data-lightbox="screenshot" href="{% url "file_nl" "screenshot" analysis.info.id shot %}">

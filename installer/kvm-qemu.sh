@@ -228,9 +228,9 @@ function _enable_tcp_bbr() {
     modprobe br_netfilter
     echo "br_netfilter" >> /etc/modules
     {
-        echo "net.bridge.bridge-nf-call-arptables = 1";
-        echo "net.bridge.bridge-nf-call-ip6tables = 1";
-        echo "net.bridge.bridge-nf-call-iptables = 1";
+        echo "net.bridge.bridge-nf-call-arptables = 0";
+        echo "net.bridge.bridge-nf-call-ip6tables = 0";
+        echo "net.bridge.bridge-nf-call-iptables = 0";
         echo "net.core.rmem_max = 16777216";
         echo "net.core.wmem_max = 16777216";
         echo "net.ipv4.tcp_rmem = 4096 87380 16777216";
@@ -688,7 +688,7 @@ function install_virt_manager() {
     automake --add-missing
     ./configure
     mkdir -p /tmp/libvirt-glib_builded/DEBIAN
-    echo -e "Package: libvirt-glib\nVersion: 1.0-0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom libvirt-glib-1.0-0" > /tmp/libvirt-glib-1.0-0_builded/DEBIAN/control
+    echo -e "Package: libvirt-glib-1.0-0\nVersion: 1.0.0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom libvirt-glib-1.0-0" > /tmp/libvirt-glib_builded/DEBIAN/control
     make -j"$(nproc)" install DESTDIR=/tmp/libvirt-glib_builded
     dpkg-deb --build --root-owner-group /tmp/libvirt-glib_builded
     apt -y -o Dpkg::Options::="--force-overwrite" install /tmp/libvirt-glib_builded.deb

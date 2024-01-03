@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import logging
 import os
@@ -14,6 +15,12 @@ from random import choice
 import magic
 import requests
 from django.http import HttpResponse
+
+HAVE_PYZIPPER = False
+with suppress(ImportError):
+    import pyzipper
+
+    HAVE_PYZIPPER = True
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
@@ -209,6 +216,51 @@ all_nodes_exits_list = list(all_nodes_exits.keys())
 
 all_vms_tags = load_vms_tags()
 all_vms_tags_str = ",".join(all_vms_tags)
+
+
+def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
+    if web_cfg.general.get("top_asn", False) is False:
+        return False
+
+    t = int(time.time())
+
+    # caches results for 10 minutes
+    if hasattr(top_asn, "cache"):
+        ct, data = top_asn.cache
+        if t - ct < 600:
+            return data
+
+    """function that gets detection: count
+    Original: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
+    New: https://stackoverflow.com/a/21509359/1294762
+    """
+
+    aggregation_command = [
+        {"$match": {"network.hosts.asn": {"$exists": True}}},
+        {"$project": {"_id": 0, "network.hosts.asn": 1}},
+        {"$unwind": "$network.hosts"},
+        {"$group": {"_id": "$network.hosts.asn", "total": {"$sum": 1}}},
+        {"$sort": {"total": -1}},
+        {"$addFields": {"asn": "$_id"}},
+        {"$project": {"_id": 0}},
+        {"$limit": results_limit},
+    ]
+
+    if date_since:
+        aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
+
+    if repconf.mongodb.enabled:
+        data = mongo_aggregate("analysis", aggregation_command)
+    else:
+        data = False
+
+    if data:
+        data = list(data)
+
+    # save to cache
+    top_asn.cache = (t, data)
+
+    return data
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
@@ -421,6 +473,7 @@ def statistics(s_days: int) -> dict:
     )
 
     details["detections"] = top_detections(date_since=date_since)
+    details["asns"] = top_asn(date_since=date_since)
 
     session.close()
     return details
@@ -981,6 +1034,8 @@ search_term_map = {
     "mutex": "behavior.summary.mutexes",
     "domain": "network.domains.domain",
     "ip": "network.hosts.ip",
+    "asn": "network.hosts.asn",
+    "asn_name": "network.hosts.asn_name",
     "signature": "signatures.description",
     "signame": "signatures.name",
     "detections": "detections.family",
@@ -1299,16 +1354,45 @@ def get_hash_list(hashes):
     return hashlist
 
 
-def download_from_vt(vtdl, details, opt_filename, settings):
-    for h in get_hash_list(vtdl):
-        folder = os.path.join(settings.VTDL_PATH, "cape-vt")
-        if not path_exists(folder):
-            path_mkdir(folder, exist_ok=True)
-        base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
+_bazaar_map = {
+    32: "md5_hash",
+    40: "sha1_hash",
+    64: "sha256_hash",
+}
+
+
+def _malwarebazaar_dl(hash):
+    sample = None
+    if len(hash) not in _bazaar_map:
+        return False
+
+    try:
+        data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", _bazaar_map[len(hash)]: hash})
+        if data.ok and b"file_not_found" not in data.content:
+            try:
+                with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
+                    zf.setpassword(b"infected")
+                    sample = zf.read(zf.namelist()[0])
+            except pyzipper.zipfile.BadZipFile:
+                print(data.content)
+    except Exception as e:
+        logging.error(e, exc_info=True)
+
+    return sample
+
+
+def thirdpart_aux(samples, prefix, opt_filename, details, settings):
+    folder = os.path.join(settings.TEMP_PATH, "cape-external")
+    if not path_exists(folder):
+        path_mkdir(folder, exist_ok=True)
+    for h in get_hash_list(samples):
+        base_dir = tempfile.mkdtemp(prefix=prefix, dir=folder)
         if opt_filename:
             filename = f"{base_dir}/{opt_filename}"
         else:
             filename = f"{base_dir}/{sanitize_filename(h)}"
+        details["path"] = filename
+        details["fhash"] = h
         paths = db.sample_path_by_hash(h)
 
         # clean old content
@@ -1317,17 +1401,14 @@ def download_from_vt(vtdl, details, opt_filename, settings):
 
         if paths:
             details["content"] = get_file_content(paths)
-        if settings.VTDL_KEY:
-            details["headers"] = {"x-apikey": settings.VTDL_KEY}
-        elif details.get("apikey", False):
-            details["headers"] = {"x-apikey": details["apikey"]}
-        else:
-            details["errors"].append({"error": "Apikey not configured, neither passed as opt_apikey"})
-            return details
-        details["url"] = f"https://www.virustotal.com/api/v3/files/{h.lower()}/download"
-        details["fhash"] = h
-        details["path"] = filename
-        details["service"] = "VirusTotal"
+
+        if prefix == "vt":
+            details["url"] = f"https://www.virustotal.com/api/v3/files/{h.lower()}/download"
+        elif prefix == "bazaar":
+            content = _malwarebazaar_dl(h)
+            if content:
+                details["content"] = content
+
         if not details.get("content", False):
             status, task_ids_tmp = download_file(**details)
         else:
@@ -1339,6 +1420,28 @@ def download_from_vt(vtdl, details, opt_filename, settings):
             details["task_ids"] = task_ids_tmp
 
     return details
+
+
+def download_from_vt(samples, details, opt_filename, settings):
+    if settings.VTDL_KEY:
+        details["headers"] = {"x-apikey": settings.VTDL_KEY}
+    elif details.get("apikey", False):
+        details["headers"] = {"x-apikey": details["apikey"]}
+    else:
+        details["errors"].append({"error": "Apikey not configured, neither passed as opt_apikey"})
+        return details
+
+    details["service"] = "VirusTotal"
+    return thirdpart_aux(samples, "vt", opt_filename, details, settings)
+
+
+def download_from_bazaar(samples, details, opt_filename, settings):
+    if not HAVE_PYZIPPER:
+        print("Malware Bazaar download: Missed pyzipper dependency: pip3 install pyzipper -U")
+        return
+
+    details["service"] = "MalwareBazaar"
+    return thirdpart_aux(samples, "bazaar", opt_filename, details, settings)
 
 
 def process_new_task_files(request, samples, details, opt_filename, unique):

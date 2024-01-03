@@ -110,6 +110,9 @@ logger = logging.getLogger(__name__)
 
 def get_rsrc(pe):
     ret = []
+    if not hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
+        return ret
+
     for resource_type in pe.DIRECTORY_ENTRY_RESOURCE.entries:
         name = str(resource_type.name if resource_type.name is not None else pefile.RESOURCE_TYPE.get(resource_type.struct.Id))
         if hasattr(resource_type, "directory"):
@@ -189,7 +192,7 @@ def extract_config(filebuf):
 
             for k, v in p_data.items():
                 if k in utf_16_string_list:
-                    v = v.decode("utf16").strip("\00")
+                    v = v.decode("utf16").strip("\00") if isinstance(v, bytes) else v
                 config[k] = v
 
     except Exception as e:

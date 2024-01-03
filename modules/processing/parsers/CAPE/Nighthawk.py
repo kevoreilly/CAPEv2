@@ -8,7 +8,7 @@ import regex as re
 from Cryptodome.Cipher import AES
 
 DESCRIPTION = "NightHawk C2 DLL configuration parser."
-AUTHOR = "Nikhil Ashok Hegde <@ka1do9>"
+AUTHOR = "Nikhil Ashok Hegde <@ka1do9>, Amjad Alsharafi"
 
 
 def _decode_str(encoded_string, plaintext_alphabet, ciphertext_alphabet):
@@ -40,11 +40,36 @@ def _decode_str(encoded_string, plaintext_alphabet, ciphertext_alphabet):
     return "".join(decoded_string_list)
 
 
-def decode_config_strings(decrypted_config, plaintext_alphabet, ciphertext_alphabet, config):
+def decode_config_part(item, plaintext_alphabet, ciphertext_alphabet):
+    """
+    This function handles each element type of the NightHawk config.
+    Encoded strings are decoded.
+    :param item: config inner item
+    :type item: any
+    :param plaintext_alphabet: Plaintext alphabet used in the substitution cipher
+    :type plaintext_alphabet: <class 'bytes'>
+    :param ciphertext_alphabet: Ciphertext alphabet used in the substitution cipher
+    :type ciphertext_alphabet: <class 'bytes'>
+    :return: same object type as the input, but with decoded strings
+    :rtype: any
+    """
+    if isinstance(item, dict):
+        return decode_config_strings(item.copy(), plaintext_alphabet, ciphertext_alphabet)
+    elif isinstance(item, str):
+        return _decode_str(item, plaintext_alphabet, ciphertext_alphabet)
+    elif isinstance(item, list):
+        newlist = []
+        for s in item:
+            newlist.append(decode_config_part(s, plaintext_alphabet, ciphertext_alphabet))
+        return newlist
+    # pass as is
+    return item
+
+
+def decode_config_strings(config, plaintext_alphabet, ciphertext_alphabet):
     """
     This function implements the substitution cipher that Nighthawk uses.
     Encoded strings are decoded.
-
     :param decrypted_config: Decrypted Nighthawk config
     :type decrypted_config: dict
     :param plaintext_alphabet: Plaintext alphabet used in the substitution cipher
@@ -54,31 +79,14 @@ def decode_config_strings(decrypted_config, plaintext_alphabet, ciphertext_alpha
     :return: JSON with decoded strings
     :rtype: dict
     """
-
-    for k in decrypted_config:
+    result = {}
+    for k in config.keys():
         decoded_string = _decode_str(k, plaintext_alphabet, ciphertext_alphabet)
-
-        if isinstance(decrypted_config[k], dict):
-            config[decoded_string] = decrypted_config[k].copy()
-        else:
-            config[decoded_string] = decrypted_config[k]
-        del config[k]
-
-        if isinstance(decrypted_config[k], dict):
-            config[decoded_string] = decode_config_strings(
-                decrypted_config[k], plaintext_alphabet, ciphertext_alphabet, config[decoded_string]
-            )
-        elif isinstance(decrypted_config[k], str):
-            config[decoded_string] = _decode_str(decrypted_config[k], plaintext_alphabet, ciphertext_alphabet)
-        if isinstance(decrypted_config[k], list):
-            config[decoded_string] = []
-            for s in decrypted_config[k]:
-                config[decoded_string].append(_decode_str(s, plaintext_alphabet, ciphertext_alphabet))
-
-    return config
+        result[decoded_string] = decode_config_part(config[k], plaintext_alphabet, ciphertext_alphabet)
+    return result
 
 
-def _get_section_data(data, section_name):
+def _get_section_data(data, section_name, take_first=True):
     """
     Function to return data belonging to `section_name` section in PE `data`
 
@@ -98,11 +106,15 @@ def _get_section_data(data, section_name):
     if not pe:
         return None
 
+    data = None
     for section in pe.sections:
         if section.Name.strip(b"\x00") == section_name:
-            return section.get_data()
+            data = section.get_data()
+            # if we care about first one, just break, otherwise keep looking for the next section with same name
+            if take_first:
+                break
 
-    return None
+    return data
 
 
 def _alphabet_heuristics(alphabets):
@@ -266,6 +278,34 @@ def get_profile_section_contents(data):
     return _get_section_data(data, b".profile")
 
 
+def get_last_text_section(data):
+    """
+    Newer Nighthawk DLLs are known to contain a .text at the end which contains
+    configuration information.
+
+    :param data: Nighthawk DLL contents
+    :type data: <class 'bytes'>
+    :return: last .text section contents
+    :rtype: <class 'bytes'> or None
+    """
+
+    return _get_section_data(data, b".text", take_first=False)
+
+
+def get_config_section_content(data):
+    """
+    Get the config section data either from .profile, or from the last .text section
+    which is available
+
+    :param data: Nighthawk DLL contents
+    :type data: <class 'bytes'>
+    :return: the config data contents
+    :rtype: <class 'bytes'> or None
+    """
+
+    return get_profile_section_contents(data) or get_last_text_section(data)
+
+
 def extract_config(data):
     """
     Configuration extractor for Nighthawk DLL
@@ -279,7 +319,7 @@ def extract_config(data):
     # Will contain the final config that is passed to CAPEv2
     cfg = {}
 
-    profile_section_contents = get_profile_section_contents(data)
+    profile_section_contents = get_config_section_content(data)
     if profile_section_contents is None:
         return None
 
@@ -299,7 +339,11 @@ def extract_config(data):
     possible_alphabets = get_possible_alphabet(data)
 
     for plaintext_alphabet, ciphertext_alphabet in possible_alphabets:
-        config_ = decode_config_strings(decrypted_config, plaintext_alphabet, ciphertext_alphabet, decrypted_config.copy())
+        config_ = decode_config_strings(
+            decrypted_config,
+            plaintext_alphabet,
+            ciphertext_alphabet,
+        )
 
         if "implant-config" in config_:
             # This is a heuristic and may fail in future versions

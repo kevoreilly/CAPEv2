@@ -4,6 +4,8 @@ try:
     import dnfile
 
     HAVE_DNFILE = True
+    logging.getLogger("dnfile").setLevel(logging.CRITICAL)
+    logging.getLogger("dnfile.stream").setLevel(logging.CRITICAL)
 except ImportError:
     HAVE_DNFILE = False
 
@@ -23,7 +25,7 @@ def dotnet_user_strings(file: str = False, data: bytes = False, dn_whitelisting:
             dn = dn = dnfile.dnPE(data=data)
 
         dn_strings = []
-        if not hasattr(dn, "net") or not hasattr(dn.net, "metadata"):
+        if not hasattr(dn, "net") or not hasattr(dn.net, "metadata") or not hasattr(dnfile, "streams"):
             return []
 
         us: dnfile.stream.UserStringHeap = dn.net.metadata.streams.get(b"#US", None)

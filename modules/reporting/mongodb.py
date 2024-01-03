@@ -10,7 +10,7 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportErro
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
-    from pymongo.errors import InvalidDocument
+    from pymongo.errors import InvalidDocument, OperationFailure
 
     from dev_utils.mongodb import mongo_collection_names, mongo_delete_data, mongo_find_one, mongo_insert_one, mongo_update_one
 
@@ -130,6 +130,17 @@ class MongoDB(Report):
         # Store the report and retrieve its object id.
         try:
             mongo_insert_one("analysis", report)
+        except OperationFailure as e:
+            # ToDo rewrite how children are stored
+            if str(e).startswith("BSONObj exceeds maximum nested object"):
+                log.debug("Deleting behavior process tree children from results.")
+                del report["behavior"]["processtree"][0]["children"]
+                try:
+                    mongo_insert_one("analysis", report)
+                except Exception as e:
+                    log.error("Deleting behavior process tree parent from results: %s", str(e))
+                    del report["behavior"]["processtree"][0]
+                    mongo_insert_one("analysis", report)
         except InvalidDocument as e:
             if str(e).startswith("cannot encode object") or str(e).endswith("must not contain '.'"):
                 self.loop_saver(report)

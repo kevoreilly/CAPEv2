@@ -35,7 +35,15 @@ class Sniffer(Auxiliary):
 
         # Get updated machine info
         self.machine = self.db.view_machine_by_label(self.machine.label)
-        tcpdump = self.options.get("tcpdump", "/usr/sbin/tcpdump")
+
+        # I got tired of Ubuntu's renaming
+        tcpdump = self.options.get("tcpdump", "/usr/bin/tcpdump")
+        if not os.path.exists(tcpdump):
+            for path in ["/usr/bin/tcpdump", "/usr/sbin/tcpdump"]:
+                if os.path.exists(path):
+                    tcpdump = path
+                    break
+
         bpf = self.options.get("bpf", "")
         remote = self.options.get("remote", False)
         custom = self.options.get("custom", "")

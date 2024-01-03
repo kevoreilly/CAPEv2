@@ -125,11 +125,10 @@ if enabled_network_passlist and network_passlist_file and os.path.isfile(network
             network_passlist.append(ipaddress.ip_network(cidr.strip()))
 
 if HAVE_GEOIP and proc_cfg.network.maxmind_database:
-    # Reload the maxmind database when it has changed, but only check the file system
-    # every 5 minutes.
+    # Reload the maxmind database when it has changed, but only check the file system every 5 minutes.
     _MAXMINDDB_PATH = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
-    _MAXMINDDB_CLIENT = None
     _MAXMINDDB_MTIME = None
+    _MAXMINDDB_CLIENT = None
 
     @cachetools.func.ttl_cache(maxsize=None, ttl=5 * 60)
     def get_maxminddb_client():
@@ -143,6 +142,9 @@ if HAVE_GEOIP and proc_cfg.network.maxmind_database:
                 _MAXMINDDB_CLIENT = maxminddb.open_database(_MAXMINDDB_PATH)
             return _MAXMINDDB_CLIENT
         return None
+
+    # Do initial load
+    _MAXMINDDB_CLIENT = get_maxminddb_client()
 
 else:
 
@@ -272,10 +274,15 @@ class Pcap:
             maxminddb_client = get_maxminddb_client()
             if maxminddb_client:
                 try:
-                    return maxminddb_client.get(ip).get("country", {}).get("names", {}).get("en", "unknown")
+                    ip_info = maxminddb_client.get(ip)
+                    # ipinfo db
+                    if "continent_name" in ip_info:
+                        return ip_info.get("country", "unknown").lower(), ip_info.get("asn", ""), ip_info.get("as_name", "")
+                    else:
+                        return ip_info.get("country", {}).get("names", {}).get("en", "unknown"), "", ""
                 except Exception:
-                    log.error("Unable to resolve GEOIP for %s", ip)
-        return "unknown"
+                    log.debug("Unable to resolve GEOIP for %s", ip)
+        return "unknown", "", ""
 
     def _add_hosts(self, connection):
         """Add IPs to unique list.
@@ -319,8 +326,17 @@ class Pcap:
                         break
                 if hostname:
                     break
-
-            enriched_hosts.append({"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa})
+            country_name, asn, asn_name = self._get_cn(ip)
+            enriched_hosts.append(
+                {
+                    "ip": ip,
+                    "country_name": country_name,
+                    "asn": asn,
+                    "asn_name": asn_name,
+                    "hostname": hostname,
+                    "inaddrarpa": inaddrarpa,
+                }
+            )
         return enriched_hosts
 
     def _tcp_dissect(self, conn, data, ts):
@@ -1071,7 +1087,7 @@ class NetworkAnalysis(Processing):
             return {}
 
         if not path_exists(self.pcap_path):
-            log.warning('The PCAP file does not exist at path "%s"', self.pcap_path)
+            log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
         if os.path.getsize(self.pcap_path) == 0:

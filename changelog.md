@@ -1,3 +1,28 @@
+### [08.12.2023]
+* Monitor updates:
+    * Expand procdump config option to allow forced procdumps irrespective of code section changes (procdump=2)
+    * Improve dumping of images with missing section addresses (e.g. VMP)
+
+### [07.12.2023]
+* Monitor update: fix bug in dumping malformed PEs
+
+### [05.12.2023]
+* Monitor updates: 
+    * Process dump filter enhancements & fix
+    * Enhanced checks (parent process path) for service hookset assignment
+    * Misc fixes
+
+### [04.12.2023] IPinfo.io database integration
+* Introduce support for IPinfo.io database. You can download database [here](https://ipinfo.io/account/data-downloads).
+* To enable it:
+    * `conf/processing.conf` -> `network` -> `country_lookup = yes` and point `maxmind_database` to proper file.
+
+### [30.11.2023]
+* Monitor update: Fix bug affecting some process dumps
+
+### [29.11.2023] Unify download services
+* Virustotal config moved from `auxiliary.conf` to `web.conf` under `download_services`
+
 ### [24.11.2023]
 * AsyncRAT config parser overhaul
 * Monitor update: Debugger tweaks

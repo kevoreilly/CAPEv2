@@ -26,6 +26,7 @@ from lib.cuckoo.common.web_utils import (
     all_nodes_exits_list,
     all_vms_tags,
     download_file,
+    download_from_bazaar,
     download_from_vt,
     get_file_content,
     parse_request_arguments,
@@ -268,6 +269,9 @@ def index(request, task_id=None, resubmit_hash=None):
         ):
             task_category = "vtdl"
             samples = request.POST.get("vtdl").strip()
+        elif "bazaar" in request.POST and request.POST.get("bazaar").strip():
+            task_category = "bazaar"
+            samples = request.POST.get("bazaar").strip()
 
         list_of_tasks = []
         if task_category in ("url", "dlnexec"):
@@ -343,7 +347,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
-        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl"):
+        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl", "bazaar"):
             task_category = job_category
 
         if task_category == "resubmit":
@@ -478,18 +482,19 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "vtdl":
-            if not settings.VTDL_KEY or not settings.VTDL_PATH:
+            if not settings.VTDL_KEY:
                 return render(
                     request,
                     "error.html",
-                    {
-                        "error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"
-                    },
+                    {"error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"},
                 )
             else:
                 if opt_apikey:
                     details["apikey"] = opt_apikey
                 details = download_from_vt(samples, details, opt_filename, settings)
+
+        elif task_category == "bazaar":
+            details = download_from_bazaar(samples, details, opt_filename, settings)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])
@@ -509,6 +514,7 @@ def index(request, task_id=None, resubmit_hash=None):
     else:
         enabledconf = {}
         enabledconf["vt"] = settings.VTDL_ENABLED
+        enabledconf["bazaar"] = settings.BAZAAR_ENABLED
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")
         enabledconf["procmemory"] = processing.procmemory.get("enabled")

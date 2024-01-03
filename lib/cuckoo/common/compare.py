@@ -3,8 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import contextlib
-import json
-import zlib
 from typing import Dict
 
 from lib.cuckoo.common.config import Config
@@ -132,10 +130,6 @@ def helper_summary_elastic(es_obj, tid1, tid2):
 
 def get_similar_summary(left_sum, right_sum):
     ret = {}
-
-    if repconf.compressresults.enabled:
-        left_sum["behavior"]["summary"] = json.loads(zlib.decompress(left_sum["behavior"]["summary"]))
-        right_sum["behavior"]["summary"] = json.loads(zlib.decompress(right_sum["behavior"]["summary"]))
 
     for summary in left_sum["behavior"]["summary"]:
         for item in left_sum["behavior"]["summary"][summary]:

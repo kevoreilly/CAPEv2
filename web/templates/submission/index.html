@@ -69,7 +69,10 @@ $(document).ready( function() {
                     {% else %}
                         <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="fa fa-file"></span> File(s)</a></li>
                         {% if config.vt %}
-                            <li class="nav-item"><a class="nav-link" href="#vtdl" data-toggle="tab"><span class="fa fa-download"></span>VirusTotal</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#vtdl" data-toggle="tab"><span class="fa fa-download"></span> VirusTotal</a></li>
+                        {% endif %}
+                        {% if config.bazaar %}
+                            <li class="nav-item"><a class="nav-link" href="#bazaar" data-toggle="tab"><span class="fa fa-download"></span> MalwareBazaar</a></li>
                         {% endif %}
                         {% if config.url_analysis %}
                             <li class="nav-item"><a class="nav-link" href="#url" data-toggle="tab"><span class="fa fa-globe"></span> URL</a></li>
@@ -104,6 +107,14 @@ $(document).ready( function() {
                             <div class="input-group col-md-12">
                                 <label class="sr-only" form="form_vtdl"> VirusTotal</label>
                                 <input type="text" class="form-control" id="form_vtdl" name="vtdl" placeholder="Enter comma separated hashes or just a hash" />
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if config.bazaar %}
+                        <div class="tab-pane fade show" id="bazaar">
+                            <div class="input-group col-md-12">
+                                <label class="sr-only" form="form_bazaar"> MalwareBazaar</label>
+                                <input type="text" class="form-control" id="form_bazaar" name="bazaar" placeholder="Enter comma separated hashes or just a hash" />
                             </div>
                         </div>
                         {% endif %}
@@ -174,6 +185,7 @@ $(document).ready( function() {
                                             <option value="pcap">Pcap</option>
                                             <option value="dlnexec">Download and Execute</option>
                                             <option value="vtdl">Virustotal Download</option>
+                                            <option value="bazaar">MalwareBazaar Download</option>
                                         </select>
                                     </div>
                                 {% endif %}

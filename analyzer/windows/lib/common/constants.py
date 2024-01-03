@@ -25,3 +25,12 @@ CAPEMON64_NAME = f"dll\\{random_string(6, 8)}.dll"
 LOADER32_NAME = f"bin\\{random_string(7)}.exe"
 LOADER64_NAME = f"bin\\{random_string(8)}.exe"
 LOGSERVER_PREFIX = f"\\\\.\\PIPE\\{random_string(8, 12)}"
+
+""" Excel, Word, and Powerpoint won't have macros enabled without interaction for
+documents that are outside one of its "Trusted Locations". Unless the user has
+provided a 'curdir' option, use MSOFFICE_TRUSTED_PATH as the directory where
+the document will be saved and executed from since that is a default trusted
+location for all 3 apps. See
+https://learn.microsoft.com/en-us/deployoffice/security/trusted-locations
+"""
+MSOFFICE_TRUSTED_PATH = os.path.join("%SystemDrive%", "Program Files", "Microsoft Office", "root", "Templates")

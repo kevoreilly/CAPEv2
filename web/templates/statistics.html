@@ -20,6 +20,23 @@
 </table>
 {% endif %}
 
+{% if statistics.asns %}
+  <center><h4>Top ASN</h4></center>
+  <table class="table table-striped table-hover" style="table-layout: fixed; width: 50%; text-align: center;margin-left: auto;margin-right: auto;">
+    {% for block in statistics.asns %}
+      {% if block.asn %}
+        <td>{{block.total}}: <a href="/analysis/search/asn:{{block.asn}}"><span style="color:#EE1B2F;font-weight: bold;">{{block.asn}}</span></a></td>
+      {% endif %}
+      {% if forloop.counter|divisibleby:"5" %}
+          </tr>
+      {% elif forloop.last %}
+          </tr>
+      {% endif %}
+
+    {% endfor %}
+</table>
+{% endif %}
+
 <h4>Tasks per day</h4>
 <table class="table table-striped table-hover">
     <thead>

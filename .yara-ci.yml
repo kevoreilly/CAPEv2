@@ -10,3 +10,4 @@ false_positives:
     - rule: "NSIS"
     - rule: "UPX"
     - rule: "Syscall"
+    - rule: "FormhookB"

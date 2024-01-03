@@ -23,7 +23,10 @@ def _search_for_url(obj: Union[dict, list]) -> Iterable[str]:
     elif isinstance(obj, dict):
         for key, value in obj.items():
             if key == "URI":
-                yield value.decode() if isinstance(value, bytes) else value
+                if isinstance(value, bytes):
+                    yield value.decode()
+                elif isinstance(value, str):
+                    yield value
                 continue
 
             yield from _search_for_url(value)

@@ -342,7 +342,7 @@ class PortableExecutable:
                                     }
                                 )
             except pefile.PEFormatError as e:
-                log.error("get_resources error: %s", str(e))
+                log.debug("get_resources error: %s", str(e))
             except Exception as e:
                 log.error(e, exc_info=True)
                 continue
@@ -760,7 +760,7 @@ class PortableExecutable:
                 certs = backend.load_der_pkcs7_certificates(signatures)
 
         except AttributeError:
-            log.error("Can't get PE signatures")
+            log.debug("Can't get PE signatures")
 
         for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()

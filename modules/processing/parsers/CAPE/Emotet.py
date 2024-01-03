@@ -24,7 +24,7 @@ import yara
 from Cryptodome.PublicKey import ECC, RSA
 from Cryptodome.Util import asn1
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 try:
@@ -529,7 +529,7 @@ def extract_config(filebuf):
             return
         size = struct.unpack("I", presize)[0] ^ struct.unpack("I", key)[0]
         if size > 1000:
-            log.info("Anomalous C2 list size 0x%x", size)
+            log.debug("Anomalous C2 list size 0x%x", size)
             return
         c2_list_offset += 8
         c2_list = xor_data(filebuf[c2_list_offset:], key)

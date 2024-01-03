@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import collections
 import logging
 import os
 import re
@@ -25,6 +26,16 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.path_utils import path_exists
 
 log = logging.getLogger()
+
+
+def reindex_screenshots(shots_path):
+    for i, cur_basename in enumerate(sorted(os.listdir(shots_path))):
+        extension = os.path.splitext(cur_basename)[-1]
+        new_basename = "%s%s" % (str(i).rjust(4, "0"), extension)
+        log.debug("renaming %s to %s", cur_basename, new_basename)
+        old_path = os.path.join(shots_path, cur_basename)
+        new_path = os.path.join(shots_path, new_basename)
+        os.rename(old_path, new_path)
 
 
 class Deduplicate(Processing):
@@ -51,13 +62,21 @@ class Deduplicate(Processing):
         """
         dd_img_set = []
 
-        image_filenames = [os.path.join(userpath, path) for path in os.listdir(userpath) if is_image(path)]
-        images = {}
-        for img in sorted(image_filenames):
+        image_paths = [os.path.join(userpath, path) for path in os.listdir(userpath) if is_image(path)]
+        images = collections.defaultdict(list)
+        for img in sorted(image_paths):
             hash = hashfunc(Image.open(img))
-            images.setdefault(hash, []).append(img)
+            images[hash].append(img)
         for img_list in images.values():
             dd_img_set.append(os.path.basename(img_list[0]))
+
+        image_filenames = {os.path.basename(x) for x in image_paths}
+        duplicates = set(image_filenames) - set(dd_img_set)
+        for dupe in duplicates:
+            log.debug("removing duplicate screenshot: %s", dupe)
+            os.remove(os.path.join(userpath, dupe))
+        reindex_screenshots(userpath)
+
         # Found that we get slightly more complete images in most cases when getting rid of images with close bit distance.
         # We flip the list back around after prune.
         dd_img_set.sort(reverse=True)
@@ -70,7 +89,8 @@ class Deduplicate(Processing):
         self.key = "deduplicated_shots"
         shots = []
 
-        if not HAVE_IMAGEHASH:
+        shots_path = os.path.join(self.analysis_path, "shots")
+        if not path_exists(shots_path) or not HAVE_IMAGEHASH:
             return shots
 
         hashmethod = self.options.get("hashmethod", "ahash")
@@ -93,9 +113,9 @@ class Deduplicate(Processing):
                 hashfunc = imagehash.average_hash
 
             shots_path = os.path.join(self.analysis_path, "shots")
-            if path_exists(shots_path):
-                screenshots = sorted(self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc))
-                shots = [re.sub(r"\.(png|jpg)$", "", screenshot) for screenshot in screenshots]
+            screenshots = sorted(self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc))
+            shots = [re.sub(r"\.(png|jpg)$", "", screenshot) for screenshot in screenshots]
+
         except Exception as e:
             log.error(e)
 

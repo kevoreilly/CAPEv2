@@ -363,12 +363,11 @@ def tmp_clean_before_day(args):
             if file_time.days > days:
                 try:
                     if path_is_dir(path):
-                        log.info("Delete folder: {0}".format(path))
+                        log.info("Delete folder: %s", path)
                         delete_folder(path)
-                    else:
-                        if path_exists(path):
-                            log.info("Delete file: {0}".format(path))
-                            path_delete(path)
+                    elif path_exists(path):
+                        log.info("Delete file: %s", path)
+                        path_delete(path)
                 except Exception as e:
                     log.error(e)
 

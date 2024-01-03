@@ -379,8 +379,8 @@ class Human(Auxiliary, Thread):
         try:
             GIVEN_INSTRUCTIONS = instruction_arg.split(" ")
             log.debug(GIVEN_INSTRUCTIONS)
-        except:
-            log.debug("Invalid instructions given: %s" % instruction_arg)
+        except Exception as e:
+            log.debug("Invalid instructions given: %s with error %s" % (instruction_arg,e))
             GIVEN_INSTRUCTIONS = None
     def stop(self):
         self.do_run = False
@@ -440,7 +440,7 @@ class Human(Auxiliary, Thread):
             USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
             interval = 300
             try:
-                iterator = iter(GIVEN_INSTRUCTIONS)
+                iter(GIVEN_INSTRUCTIONS)
             except TypeError:
                 pass
             else:
@@ -464,7 +464,7 @@ class Human(Auxiliary, Thread):
                         if match is not None:
                             interval = int(match.group(1))
                     except Exception as e:
-                        log.debug("One of the instruction given is invalid:%s" % instruction)
+                        log.debug("One of the instruction given is invalid:%s with error %s" % (instruction,e))
                         continue
                     
 

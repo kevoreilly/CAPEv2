@@ -1107,7 +1107,9 @@ search_term_map_repetetive_blocks = {
     "imphash": "imphash",
 }
 
-search_term_map_base_naming = ("info.parent_sample",) + NORMALIZED_FILE_FIELDS
+search_term_map_base_naming = (
+    ("info.parent_sample",) + NORMALIZED_FILE_FIELDS + tuple(f"{category}.extracted_files" for category in NORMALIZED_FILE_FIELDS)
+)
 
 for key, value in search_term_map_repetetive_blocks.items():
     search_term_map.update({key: [f"{path}.{value}" for path in search_term_map_base_naming]})

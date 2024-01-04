@@ -5,13 +5,20 @@
 import xml.etree.ElementTree as ET
 
 from lib.cuckoo.common.abstracts import LibVirtMachinery
-
+from lib.cuckoo.common.exceptions import CuckooMachineError
 
 class KVM(LibVirtMachinery):
     """Virtualization layer for KVM based on python-libvirt."""
 
-    # Set KVM connection string.
-    dsn = "qemu:///system"
+
+    def _initialize_check(self):
+        """Runs all checks when a machine manager is initialized.
+        @raise CuckooMachineError: if configuration is invalid
+        """
+        if not self.options.kvm.dsn:
+            raise CuckooMachineError("KVM DSN is missing, please add it to the config file")
+        self.dsn = self.options.kvm.dsn
+        super(KVM, self)._initialize_check()
 
     def _get_interface(self, label):
         xml = ET.fromstring(self._lookup(label).XMLDesc())

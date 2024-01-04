@@ -158,7 +158,7 @@ def delete_unused_file_docs():
     return mongo_delete_many(FILES_COLL, {TASK_IDS_KEY: {"$size": 0}})
 
 
-NORMALIZED_FILE_FIELDS = ("target.file", "dropped", "CAPE.payloads", "procdump")
+NORMALIZED_FILE_FIELDS = ("target.file", "dropped", "CAPE.payloads", "procdump", "procmemory")
 
 
 def collect_file_dicts(report) -> itertools.chain:

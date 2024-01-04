@@ -2493,7 +2493,7 @@ class Database(object, metaclass=Singleton):
                     if repconf.mongodb.enabled:
                         tasks = mongo_find(
                             "analysis",
-                            {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
+                            {"CAPE.payloads.file_ref": sample_hash},
                             {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
                         )
                     elif repconf.elasticsearchdb.enabled:
@@ -2501,7 +2501,7 @@ class Database(object, metaclass=Singleton):
                             d["_source"]
                             for d in es.search(
                                 index=get_analysis_index(),
-                                body={"query": {"match": {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
+                                body={"query": {"match": {"CAPE.payloads.file_ref": sample_hash}}},
                                 _source=["CAPE.payloads", "info.id"],
                             )["hits"]["hits"]
                         ]

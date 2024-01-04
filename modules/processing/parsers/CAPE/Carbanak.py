@@ -6,7 +6,7 @@ from contextlib import suppress
 import pefile
 import yara
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 rule_source = """

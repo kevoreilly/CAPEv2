@@ -53,7 +53,7 @@ librenms_megaraid_enable=0
 # disabling this will result in the web interface being disabled
 MONGO_ENABLE=1
 
-DIE_VERSION="3.08"
+DIE_VERSION="3.09"
 
 TOR_SOCKET_TIMEOUT="60"
 
@@ -781,7 +781,7 @@ function install_mongo(){
 			MONGO_VERSION="4.4"
 		fi
 
-		sudo curl -fsSL "https://pgp.mongodb.org/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
+		sudo curl -fsSL "https://pgp.mongodb.com/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
 		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
 		apt update 2>/dev/null
@@ -1202,9 +1202,8 @@ function install_CAPE() {
 
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
-	# default is enabled, so we only need to disable it
-	if [ "$MONGO_ENABLE" -lt 1 ]; then
-		crudini --set conf/reporting.conf mongodb enabled no
+	if [ "$MONGO_ENABLE" -ge 1 ]; then
+		crudini --set conf/reporting.conf mongodb enabled yes
 	fi
 
 	if [ "$librenms_enable" -ge 1 ]; then

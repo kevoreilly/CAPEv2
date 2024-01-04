@@ -219,7 +219,7 @@ class PipeServer(threading.Thread):
 
     def stop(self):
         self.do_run = False
-        for h in self.handlers:
+        for h in self.handlers.copy():
             try:
                 if h.is_alive():
                     h.stop()

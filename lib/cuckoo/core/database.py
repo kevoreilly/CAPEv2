@@ -195,8 +195,8 @@ def _get_linux_vm_tag(mgtype):
     return "x64"
 
 
-def get_count(q):
-    count_q = q.statement.with_only_columns([func.count()]).order_by(None)
+def get_count(q, property):
+    count_q = q.statement.with_only_columns(func.count(property)).order_by(None)
     count = q.session.execute(count_q).scalar()
     return count
 
@@ -2254,7 +2254,7 @@ class Database(object, metaclass=Singleton):
                     unfiltered = unfiltered.filter_by(machine_id=mid)
                 if status:
                     unfiltered = unfiltered.filter_by(status=status)
-                tasks_count = get_count(unfiltered)
+                tasks_count = get_count(unfiltered, Task.id)
                 return tasks_count
             except SQLAlchemyError as e:
                 log.debug("Database error counting tasks: %s", e)
@@ -2493,7 +2493,7 @@ class Database(object, metaclass=Singleton):
                     if repconf.mongodb.enabled:
                         tasks = mongo_find(
                             "analysis",
-                            {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
+                            {"CAPE.payloads.file_ref": sample_hash},
                             {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
                         )
                     elif repconf.elasticsearchdb.enabled:
@@ -2501,7 +2501,7 @@ class Database(object, metaclass=Singleton):
                             d["_source"]
                             for d in es.search(
                                 index=get_analysis_index(),
-                                body={"query": {"match": {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
+                                body={"query": {"match": {"CAPE.payloads.file_ref": sample_hash}}},
                                 _source=["CAPE.payloads", "info.id"],
                             )["hits"]["hits"]
                         ]

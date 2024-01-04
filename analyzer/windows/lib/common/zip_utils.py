@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from zipfile import BadZipfile, ZipFile
+import hashlib
 
 try:
     import re2 as re
@@ -11,10 +12,34 @@ except ImportError:
     import re
 
 from lib.common.exceptions import CuckooPackageError
+from lib.common.results import upload_to_host
+from lib.common.hashing import hash_file
 
 log = logging.getLogger(__name__)
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+FILE_EXT_OF_INTEREST = [
+    ".bat",
+    ".cmd",
+    ".dat",
+    ".db",
+    ".dll",
+    ".doc",
+    ".exe",
+    ".html",
+    ".js",
+    ".jse",
+    ".lnk",
+    ".msi",
+    ".ps1",
+    ".scr",
+    ".temp",
+    ".tmp",
+    ".vbe",
+    ".vbs",
+    ".wsf",
+    ".xls",
+]
 
 
 def extract_archive(seven_zip_path, archive_path, extract_path, password="infected", try_multiple_passwords=False):
@@ -245,6 +270,34 @@ def winrar_extractor(winrar_binary, extract_path, archive_path):
     return os.listdir(extract_path)
 
 
+def get_interesting_files(file_names):
+    """
+    Using a regular expression that matches interesting file extensions, return interesting files
+    """
+    interesting_files = []
+
+    for f in file_names:
+        if any(f.lower().endswith(file_ext) for file_ext in FILE_EXT_OF_INTEREST):
+            interesting_files.append(f)
+
+    return interesting_files
+
+
+def upload_extracted_files(root, files_at_root):
+    """
+    Upload each file that was extracted, for further analysis
+    """
+    for entry in files_at_root:
+        try:
+            file_path = os.path.join(root, entry)
+            log.info("Uploading {0} to host".format(file_path))
+            filename = f"files/{hash_file(hashlib.sha256, file_path)}"
+            upload_to_host(file_path, filename, metadata=Path(entry).name, duplicated=False)
+        except Exception as e:
+            log.warning(f"Couldn't upload file {Path(entry).name} to host {e}")
+
+            
+            
 def attempt_multiple_passwords(options: dict, password: str) -> bool:
     """Does the user want us to try multiple passwords?"""
     enable_multi_password = options.get("enable_multi_password", "")
@@ -255,3 +308,4 @@ def attempt_multiple_passwords(options: dict, password: str) -> bool:
             return True
 
     return False
+

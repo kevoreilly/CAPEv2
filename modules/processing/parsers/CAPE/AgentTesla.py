@@ -14,7 +14,7 @@ def extract_config(data):
             if base:
 
                 # Check if string true or false is next string
-                if (lines[base + 1] == "false") or (lines[base + 1] == "true"): 
+                if (lines[base + 1] == "false") or (lines[base + 1] == "true"):
                     base = base + 1
 
                 # Data Exfiltration via Telegram
@@ -38,14 +38,14 @@ def extract_config(data):
 
                 # Data Exfiltration via SMTP
                 elif "@" in lines[base + 3]:
-        
+
                     config_dict["Protocol"] = "SMTP"
                     config_dict["Port"] = lines[base + 1]
                     config_dict["C2"] = lines[base + 2]
                     config_dict["Username"] = lines[base + 3]
                     config_dict["Password"] = lines[base + 4]
 
-                #Get Payload Filename
+                # Get Payload Filename
                 for x in range(1, 10):
                     if ".exe" in lines[base + x]:
                         config_dict["Filename"] = lines[base + x]

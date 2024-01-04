@@ -9,8 +9,8 @@ from typing import Tuple
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
-from lib.core.compound import create_custom_folders, extract_json_data
 from lib.common.zip_utils import extract_zip, get_interesting_files
+from lib.core.compound import create_custom_folders, extract_json_data
 
 log = logging.getLogger(__name__)
 

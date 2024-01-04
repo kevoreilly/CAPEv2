@@ -5,19 +5,17 @@
 import logging
 import os
 import shutil
-
 from pathlib import Path
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
-
 from lib.common.zip_utils import (
+    attempt_multiple_passwords,
     extract_archive,
     get_file_names,
-    winrar_extractor,
     get_interesting_files,
     upload_extracted_files,
-    attempt_multiple_passwords
+    winrar_extractor,
 )
 
 log = logging.getLogger(__name__)

@@ -7,7 +7,15 @@ import os
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
-from lib.common.zip_utils import upload_extracted_files, attempt_multiple_passwords, extract_archive, extract_zip, get_file_names, get_infos, get_interesting_files
+from lib.common.zip_utils import (
+    attempt_multiple_passwords,
+    extract_archive,
+    extract_zip,
+    get_file_names,
+    get_infos,
+    get_interesting_files,
+    upload_extracted_files,
+)
 
 log = logging.getLogger(__name__)
 

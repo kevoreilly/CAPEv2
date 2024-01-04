@@ -1,10 +1,10 @@
+import hashlib
 import logging
 import os
 import shutil
 import subprocess
 from pathlib import Path
 from zipfile import BadZipfile, ZipFile
-import hashlib
 
 try:
     import re2 as re
@@ -12,8 +12,8 @@ except ImportError:
     import re
 
 from lib.common.exceptions import CuckooPackageError
-from lib.common.results import upload_to_host
 from lib.common.hashing import hash_file
+from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
@@ -296,8 +296,7 @@ def upload_extracted_files(root, files_at_root):
         except Exception as e:
             log.warning(f"Couldn't upload file {Path(entry).name} to host {e}")
 
-            
-            
+
 def attempt_multiple_passwords(options: dict, password: str) -> bool:
     """Does the user want us to try multiple passwords?"""
     enable_multi_password = options.get("enable_multi_password", "")
@@ -308,4 +307,3 @@ def attempt_multiple_passwords(options: dict, password: str) -> bool:
             return True
 
     return False
-

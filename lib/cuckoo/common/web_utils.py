@@ -1053,7 +1053,7 @@ search_term_map = {
     "suritlssubject": "suricata.tls.subject",
     "suritlsissuerdn": "suricata.tls.issuer",
     "suritlsfingerprint": "suricata.tls.fingerprint",
-    "procmemyara": "procmemory.yara.name",
+    "procmemyara": ("procmemory.yara.name", "procmemory.capeyara.name"),
     "virustotal": "virustotal.results.sig",
     "machinename": "info.machine.name",
     "machinelabel": "info.machine.label",

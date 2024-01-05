@@ -9,7 +9,7 @@ def extract_config(data):
     try:
         lines = data.decode().split("\n")
         for line in lines:
-            if '.' in line and len(line) > 2:
+            if "." in line and len(line) > 2:
                 C2s.append(line)
     except Exception:
         return

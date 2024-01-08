@@ -10,11 +10,17 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
-        python-version: ["3.8"]
+        python-version: ["3.10"]
 
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
+
+      - name: Checkout test files repo
+        uses: actions/checkout@v3
+        with:
+          repository: CAPESandbox/CAPE-TestFiles
+          path: tests/data/
 
       - name: Install dependencies
         run: |

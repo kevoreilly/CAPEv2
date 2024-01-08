@@ -18,7 +18,7 @@ import logging
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.path_utils import path_exists
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 # ToDo store list of exclude files if conf enable to store them
 do_not_skip = (
     "txt",

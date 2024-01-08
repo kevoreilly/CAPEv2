@@ -1,8 +1,3 @@
-from contextlib import suppress
-
-from lib.cuckoo.common.integrations.strings import extract_strings
-
-
 def extract_config(data):
     config_dict = {}
     C2s = []

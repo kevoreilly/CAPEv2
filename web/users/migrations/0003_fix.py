@@ -5,7 +5,7 @@ from users.models import UserProfile
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("users", "0001_initial"),
+        ("users", "0002_reports"),
     ]
 
     operations = list()

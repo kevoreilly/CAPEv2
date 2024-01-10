@@ -476,15 +476,21 @@ def main():
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
                     print(red(f"\n[{num}] Analysis folder doesn't exist anymore\n"))
                     continue
-                task = Database().view_task(num)
-                # Add sample lookup as we point to sample from TMP. Case when delete_original=on
-                if not path_exists(task.target):
-                    samples = Database().sample_path_by_hash(task_id=task.id)
-                    for sample in samples:
-                        if path_exists(sample):
-                            task.__setattr__("target", sample)
-                            break
-
+                try:
+                    task = Database().view_task(num)
+                    # Add sample lookup as we point to sample from TMP. Case when delete_original=on
+                    if not path_exists(task.target):
+                        samples = Database().sample_path_by_hash(task_id=task.id)
+                        for sample in samples:
+                            if path_exists(sample):
+                                task.__setattr__("target", sample)
+                                break
+                except Exception as e:
+                    print("Task not in database")
+                finally:
+                    if 'task' not in locals():
+                        task = {}
+                        task["id"] = args.id
                 if args.signatures:
                     report = False
                     results = _load_report(num)
@@ -502,7 +508,10 @@ def main():
                         # If the "statistics" key-value pair has not been set by now, set it here
                         if "statistics" not in results:
                             results["statistics"] = {"signatures": []}
-                        RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
+                        if isinstance(task,dict):
+                            RunSignatures(task=task, results=results).run(args.signature_name)
+                        else:
+                            RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
                         # If you are only running a single signature, print that output
                         if args.signature_name and results["signatures"]:
                             print(results["signatures"][0])

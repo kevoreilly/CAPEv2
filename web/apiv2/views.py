@@ -6,6 +6,7 @@ import shutil
 import socket
 import sys
 import zipfile
+import urllib3
 from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import quote
@@ -1067,19 +1068,38 @@ def tasks_delete(request, task_id, status=False):
 
 
 @csrf_exempt
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 def tasks_status(request, task_id):
     if not apiconf.taskstatus.get("enabled"):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
 
+
     task = db.view_task(task_id)
     if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
         return Response(resp)
+    if request.method == 'Get':
+        status = task.to_dict()["status"]
+        resp = {"error": False, "data": status}
+    elif request.method == 'POST':
+        # ToDo Kill/Terminate
+        if task.status == TASK_RUNNING:
+            # Get VM name
 
-    status = task.to_dict()["status"]
-    resp = {"error": False, "data": status}
+            machine = db.view_machine_by_label(task.machine)
+            # Get ip
+            # Send POST request to agent /status with {"status": "completed"}
+            try:
+                # ToDo should we init this each time?
+                http = urllib3.PoolManager()
+                r = http.request('POST', f'http://{machine.ip}:8000/status',
+                    headers={'Content-Type': 'application/json'},
+                    body=json.dumps({"status": "completed"}))
+                # ToDo change to debug
+                log.info(r.read())
+            except Exception as e:
+                log.error(e)
     return Response(resp)
 
 

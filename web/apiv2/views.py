@@ -1075,6 +1075,7 @@ def tasks_status(request, task_id):
         return Response(resp)
 
 
+    resp = {}
     task = db.view_task(task_id)
     if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
@@ -1085,17 +1086,13 @@ def tasks_status(request, task_id):
     elif request.method == 'POST':
         # ToDo Kill/Terminate
         if task.status == TASK_RUNNING:
-            # Get VM name
-
             machine = db.view_machine_by_label(task.machine)
-            # Get ip
-            # Send POST request to agent /status with {"status": "completed"}
             try:
                 # ToDo should we init this each time?
                 http = urllib3.PoolManager()
                 r = http.request('POST', f'http://{machine.ip}:8000/status',
                     headers={'Content-Type': 'application/json'},
-                    body=json.dumps({"status": "completed"}))
+                    body=json.dumps({"status": "complete"}))
                 # ToDo change to debug
                 log.info(r.read())
             except Exception as e:

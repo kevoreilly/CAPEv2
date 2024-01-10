@@ -1074,7 +1074,6 @@ def tasks_status(request, task_id):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
 
-
     resp = {}
     task = db.view_task(task_id)
     if not task:
@@ -1088,9 +1087,8 @@ def tasks_status(request, task_id):
         if task.status == TASK_RUNNING:
             machine = db.view_machine_by_label(task.machine)
             try:
-                # ToDo should we init this each time?
-                http = urllib3.PoolManager()
-                r = http.request('POST', f'http://{machine.ip}:8000/status',
+                # Only local, not distributed mode support/planed yet
+                r = urllib3.request('POST', f'http://{machine.ip}:8000/status',
                     headers={'Content-Type': 'application/json'},
                     body=json.dumps({"status": "complete"}))
                 # ToDo change to debug

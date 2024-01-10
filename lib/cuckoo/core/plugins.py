@@ -525,7 +525,7 @@ class RunSignatures:
                     if sigs is None:
                         # Build interested signatures
                         cat = call.get("category")
-                        sigs = self.call_always.union(
+                        sigs = self.call_always.intersection(
                             self.call_for_api.get(api, set()),
                             self.call_for_cat.get(cat, set()),
                             self.call_for_processname.get(process_name, set()),

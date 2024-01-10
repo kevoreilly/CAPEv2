@@ -14,6 +14,7 @@
 
 import socket
 import struct
+from contextlib import suppress
 
 import pefile
 import yara
@@ -158,11 +159,12 @@ def extract_config(filebuf):
     if botnet_code:
         botnet_rva = struct.unpack("i", filebuf[botnet_code + 23 : botnet_code + 27])[0] - image_base
     if botnet_rva:
-        botnet_offset = pe.get_offset_from_rva(botnet_rva)
-        botnet_id = struct.unpack("H", filebuf[botnet_offset : botnet_offset + 2])[0]
-        cfg["Botnet ID"] = str(botnet_id)
+        with suppress(struct.error):
+            botnet_offset = pe.get_offset_from_rva(botnet_rva)
+            botnet_id = struct.unpack("H", filebuf[botnet_offset : botnet_offset + 2])[0]
+            cfg["Botnet ID"] = str(botnet_id)
 
-        return cfg
+    return cfg
 
 
 if __name__ == "__main__":

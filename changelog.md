@@ -1,3 +1,8 @@
+### [10.01.2024]
+* Monitor updates:
+    * Further process dump filter hardening
+    * Fix dotnet cache dumps
+
 ### [05.01.2024]
 * Monitor updates: fix a couple of issues affecting detonation (see capemon repo for details)
 

@@ -1085,6 +1085,8 @@ def tasks_status(request, task_id):
     elif request.method == 'POST':
         # ToDo Kill/Terminate
         if task.status == TASK_RUNNING:
+            db.guest_set_status(task_id, "complete")
+            """
             machine = db.view_machine(task.machine)
             try:
                 # Only local, not distributed mode support/planed yet
@@ -1092,6 +1094,7 @@ def tasks_status(request, task_id):
                 resp = r.json()
             except Exception as e:
                 log.error(e)
+            """
     return Response(resp)
 
 

@@ -6,13 +6,13 @@ import shutil
 import socket
 import sys
 import zipfile
-import urllib3
 from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
 import pyzipper
+import requests
 from bson.objectid import ObjectId
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -1085,14 +1085,11 @@ def tasks_status(request, task_id):
     elif request.method == 'POST':
         # ToDo Kill/Terminate
         if task.status == TASK_RUNNING:
-            machine = db.view_machine_by_label(task.machine)
+            machine = db.view_machine(task.machine)
             try:
                 # Only local, not distributed mode support/planed yet
-                r = urllib3.request('POST', f'http://{machine.ip}:8000/status',
-                    headers={'Content-Type': 'application/json'},
-                    body=json.dumps({"status": "complete"}))
-                # ToDo change to debug
-                log.info(r.read())
+                r = requests.post(f'http://{machine.ip}:8000/status', data={"status": 3})
+                resp = r.json()
             except Exception as e:
                 log.error(e)
     return Response(resp)

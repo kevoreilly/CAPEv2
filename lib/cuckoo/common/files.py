@@ -17,7 +17,7 @@ from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 cuckoo_conf = Config()
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 def temppath():

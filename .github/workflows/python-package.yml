@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
-        python-version: ["3.8", "3.11"]
+        python-version: ["3.10", "3.11"]
 
     steps:
       - name: Check out repository code
@@ -70,7 +70,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
-        python-version: ["3.8", "3.11"]
+        python-version: ["3.10", "3.11"]
     if: ${{ github.ref == 'refs/heads/master' }}
 
     steps:

@@ -270,7 +270,7 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.thread_map = {}
             self.lastprocess = process
 
-        if process.get("process_name") in ("acrord32.exe",):
+        if process.get("process_name").lower() in ("acrord32.exe",):
             return False
 
         if call["api"] == "CreateProcessInternalW":

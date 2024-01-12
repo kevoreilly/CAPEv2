@@ -23,7 +23,6 @@ nginx_version=1.25.3
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.5.2
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0
@@ -1292,6 +1291,8 @@ function install_guacamole() {
        mkdir /tmp/guac-build
     fi
     cd /tmp/guac-build || return
+
+    guacamole_version=$(curl -s https://downloads.apache.org/guacamole/|grep DIR|tail -1|cut -d">" -f 3| cut -d"/" -f 1)
 
     if [ ! -f "guacamole-server-"$guacamole_version".tar.gz" ] ; then
         wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz

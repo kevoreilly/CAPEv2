@@ -1053,7 +1053,8 @@ search_term_map = {
     "suritlssubject": "suricata.tls.subject",
     "suritlsissuerdn": "suricata.tls.issuer",
     "suritlsfingerprint": "suricata.tls.fingerprint",
-    "procmemyara": "procmemory.yara.name",
+    "procmemyara": ("procmemory.yara.name", "procmemory.cape_yara.name"),
+    "procdumpyara": ("procdump.yara.name", "procdump.cape_yara.name"),
     "virustotal": "virustotal.results.sig",
     "machinename": "info.machine.name",
     "machinelabel": "info.machine.label",
@@ -1106,7 +1107,9 @@ search_term_map_repetetive_blocks = {
     "imphash": "imphash",
 }
 
-search_term_map_base_naming = ("info.parent_sample",) + NORMALIZED_FILE_FIELDS
+search_term_map_base_naming = (
+    ("info.parent_sample",) + NORMALIZED_FILE_FIELDS + tuple(f"{category}.extracted_files" for category in NORMALIZED_FILE_FIELDS)
+)
 
 for key, value in search_term_map_repetetive_blocks.items():
     search_term_map.update({key: [f"{path}.{value}" for path in search_term_map_base_naming]})

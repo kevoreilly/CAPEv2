@@ -6,7 +6,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 class process_overlay_file(object):

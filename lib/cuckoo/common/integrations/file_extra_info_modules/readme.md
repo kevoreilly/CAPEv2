@@ -12,7 +12,7 @@ from lib.cuckoo.common.path_utils import path_write_file
 from lib.cuckoo.common.integrations.file_extra_info_modules import time_tracker, ExtractorReturnType, extractor_ctx, collect_extracted_filenames
 
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 # Enable/disable
 enabled = True

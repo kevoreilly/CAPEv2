@@ -4,7 +4,6 @@
 
 import logging
 import os
-import re
 import shutil
 
 try:
@@ -17,6 +16,7 @@ except ImportError:
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
+from lib.common.zip_utils import get_interesting_files, upload_extracted_files
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +26,19 @@ class Rar(Package):
 
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),
+        ("SystemRoot", "system32", "wscript.exe"),
+        ("SystemRoot", "system32", "rundll32.exe"),
+        ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
+        ("ProgramFiles", "7-Zip", "7z.exe"),
+        ("SystemRoot", "system32", "xpsrchvw.exe"),
+        ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
+        ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
+        ("ProgramFiles", "Microsoft Office", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office", "Office*", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
 
     def extract_rar(self, rar_path, extract_path, password):
@@ -95,30 +108,35 @@ class Rar(Package):
 
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile(r"(\.exe|\.scr|\.msi|\.bat|\.lnk)$", flags=re.IGNORECASE)
 
         rarinfos = self.get_infos(path)
         self.extract_rar(path, root, password)
 
         file_name = self.options.get("file")
         # If no file name is provided via option, take the first file.
-        if file_name is None:
-            # No name provided try to find a better name.
-            if len(rarinfos):
-                # Attempt to find a valid exe extension in the archive
-                for f in rarinfos:
-                    if exe_regex.search(f.filename):
-                        file_name = f.filename
-                        break
-                # Default to the first one if none found
-                file_name = file_name or rarinfos[0].filename
-                log.debug("Missing file option, auto executing: %s", file_name)
-            else:
+        if not file_name:
+            # If no file names to choose from, bail
+            if not len(rarinfos):
                 raise CuckooPackageError("Empty RAR archive")
 
-        file_path = os.path.join(root, file_name)
-        if file_name.lower().endswith(".lnk"):
-            cmd_path = self.get_path("cmd.exe")
-            cmd_args = f'/c start /wait "" "{file_path}"'
-            return self.execute(cmd_path, cmd_args, file_path)
-        return self.execute(file_path, self.options.get("arguments"), file_path)
+            file_names = [f.filename for f in rarinfos]
+
+            upload_extracted_files(root, file_names)
+            ret_list = []
+
+            # Attempt to find a valid exe extension in the archive
+            interesting_files = get_interesting_files(file_names)
+
+            if not interesting_files:
+                log.debug("No interesting files found, auto executing the first file: %s", file_names[0])
+                interesting_files.append(file_names[0])
+
+            log.debug("Missing file option, auto executing: %s", interesting_files)
+            for interesting_file in interesting_files:
+                file_path = os.path.join(root, interesting_file)
+                ret_list.append(self.execute_interesting_file(root, interesting_file, file_path))
+
+            return ret_list
+        else:
+            file_path = os.path.join(root, file_name)
+            return self.execute_interesting_file(root, file_name, file_path)

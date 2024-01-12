@@ -12,7 +12,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_mkdir, path_object
 
 cfg = Config()
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 class SuccessfulExtractionReturnType(TypedDict, total=False):

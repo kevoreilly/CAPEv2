@@ -536,7 +536,7 @@ class Analyzer:
         try:
             pids = self.package.start(self.target)
         except NotImplementedError as e:
-            raise CuckooError('The package "{package_name}" doesn\'t contain a start function') from e
+            raise CuckooError(f'The package "{package_name}" doesn\'t contain a start function') from e
         except CuckooPackageError as e:
             raise CuckooError(f'The package "{package_name}" start function raised an error: {e}') from e
         except Exception as e:

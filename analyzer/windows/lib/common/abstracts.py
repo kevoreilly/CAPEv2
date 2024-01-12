@@ -8,10 +8,14 @@ import os
 import shutil
 
 from lib.api.process import Process
+from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
+from lib.common.parse_pe import choose_dll_export, is_pe_image
 from lib.core.compound import create_custom_folders
 
 log = logging.getLogger(__name__)
+
+PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 
 class Package:
@@ -170,6 +174,87 @@ class Package:
         newpath = os.path.join(self.curdir, os.path.basename(filepath))
         shutil.move(filepath, newpath)
         return newpath
+
+    def execute_interesting_file(self, root: str, file_name: str, file_path: str):
+        """
+        Based on file extension or file contents, run relevant analysis package
+        """
+        # File extensions that require cmd.exe to run
+        if file_name.lower().endswith((".lnk", ".bat", ".cmd")):
+            cmd_path = self.get_path("cmd.exe")
+            cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
+            return self.execute(cmd_path, cmd_args, file_path)
+        # File extensions that require msiexec.exe to run
+        elif file_name.lower().endswith(".msi"):
+            msi_path = self.get_path("msiexec.exe")
+            msi_args = f'/I "{file_path}"'
+            return self.execute(msi_path, msi_args, file_path)
+        # File extensions that require wscript.exe to run
+        elif file_name.lower().endswith((".js", ".jse", ".vbs", ".vbe", ".wsf")):
+            cmd_path = self.get_path("cmd.exe")
+            wscript = self.get_path_app_in_path("wscript.exe")
+            cmd_args = f'/c "cd ^"{root}^" && {wscript} ^"{file_path}^"'
+            return self.execute(cmd_path, cmd_args, file_path)
+        # File extensions that require rundll32.exe/regsvr32.exe to run
+        elif file_name.lower().endswith((".dll", ".db", ".dat", ".tmp", ".temp")):
+            # We are seeing techniques where dll files are named with the .db/.dat/.tmp/.temp extensions
+            if not file_name.lower().endswith(".dll"):
+                # Let's confirm that at least this is a PE
+                with open(file_path, "rb") as f:
+                    if not any(PE_indicator in f.read() for PE_indicator in PE_INDICATORS):
+                        return
+            dll_export = choose_dll_export(file_path)
+            if dll_export == "DllRegisterServer":
+                rundll32 = self.get_path("regsvr32.exe")
+            else:
+                rundll32 = self.get_path_app_in_path("rundll32.exe")
+                function = self.options.get("function", "#1")
+            arguments = self.options.get("arguments")
+            dllloader = self.options.get("dllloader")
+            dll_args = f'"{file_path}",{function}'
+            if arguments:
+                dll_args += f" {arguments}"
+            if dllloader:
+                newname = os.path.join(os.path.dirname(rundll32), dllloader)
+                shutil.copy(rundll32, newname)
+                rundll32 = newname
+            return self.execute(rundll32, dll_args, file_path)
+        # File extensions that require powershell.exe to run
+        elif file_name.lower().endswith(".ps1"):
+            powershell = self.get_path_app_in_path("powershell.exe")
+            args = f'-NoProfile -ExecutionPolicy bypass -File "{file_path}"'
+            return self.execute(powershell, args, file_path)
+        # File extensions that require winword.exe/wordview.exe to run
+        elif file_name.lower().endswith(".doc"):
+            # Try getting winword or wordview as a backup
+            try:
+                word = self.get_path_glob("WINWORD.EXE")
+            except CuckooPackageError:
+                word = self.get_path_glob("WORDVIEW.EXE")
+            return self.execute(word, f'"{file_path}" /q', file_path)
+        # File extensions that require excel.exe to run
+        elif file_name.lower().endswith(".xls"):
+            # Try getting excel
+            excel = self.get_path_glob("EXCEL.EXE")
+            return self.execute(excel, f'"{file_path}" /q', file_path)
+        # File extensions that require iexplore.exe to run
+        elif file_name.lower().endswith(".html"):
+            edge = self.get_path("msedge.exe")
+            return self.execute(edge, f'"{file_path}"', file_path)
+        # File extensions that are portable executables
+        elif is_pe_image(file_path):
+            file_path = check_file_extension(file_path, ".exe")
+            return self.execute(file_path, self.options.get("arguments"), file_path)
+        # Last ditch effort to attempt to execute this file
+        else:
+            # From zip_compound package
+            if "." not in os.path.basename(file_path):
+                new_path = f"{file_path}.exe"
+                os.rename(file_path, new_path)
+                file_path = new_path
+            cmd_path = self.get_path("cmd.exe")
+            cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
+            return self.execute(cmd_path, cmd_args, file_path)
 
 
 class Auxiliary:

@@ -35,7 +35,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooReportError,
 )
 from lib.cuckoo.common.integrations.mitre import mitre_load
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
 from lib.cuckoo.core.database import Database
@@ -513,6 +513,10 @@ class LibVirtMachinery(Machinery):
 
         def stream_handler(_, data, buffer):
             buffer.write(data)
+
+        folder_name, _ = path.rsplit("/", 1)
+        if not path_exists(folder_name):
+            path_mkdir(folder_name, parent=True, exist_ok=True)
 
         stream0.recvAll(stream_handler, buffer)
         stream0.finish()

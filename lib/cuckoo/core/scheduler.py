@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import enum
 import logging
 import os
 import queue
@@ -51,6 +52,12 @@ enable_trim = int(Config("web").general.enable_trim)
 
 active_analysis_count = 0
 
+class LoopState(enum.IntEnum):
+    """Enum that represents the state of the main scheduler loop."""
+    RUNNING = 1
+    PAUSED = 2
+    STOPPING = 3
+    INACTIVE = 4
 
 class ScalingBoundedSemaphore(threading.Semaphore):
     """Implements a dynamic bounded semaphore.
@@ -738,16 +745,28 @@ class Scheduler:
     """
 
     def __init__(self, maxcount=None):
-        self.running = True
+        self.loop_state = LoopState.INACTIVE
         self.cfg = Config()
         self.db = Database()
         self.maxcount = maxcount
         self.total_analysis_count = 0
         self.analyzing_categories, self.categories_need_VM = load_categories()
+        self.analysis_threads = []
 
-    def set_stop_analyzing(self, signum, stack):
-        self.running = False
-        log.info("Now wait till all running tasks are completed")
+    def signal_handler(self, signum, frame):
+        """Scheduler signal handler"""
+        sig = signal.Signals(signum)
+        if sig in (signal.SIGHUP, signal.SIGTERM):
+            log.info("received signal '%s', waiting for remaining analysis to finish before stopping", sig.name)
+            self.loop_state = LoopState.STOPPING
+        elif sig == signal.SIGUSR1:
+            log.info("received signal '%s', pausing new detonations, running detonations will continue until completion", sig.name)
+            self.loop_state = LoopState.PAUSED
+        elif sig == signal.SIGUSR2:
+            log.info("received signal '%s', resuming detonations", sig.name)
+            self.loop_state = LoopState.RUNNING
+        else:
+            log.info("received signal '%s', nothing to do", sig.name)
 
     def initialize(self):
         """Initialize the machine manager."""
@@ -846,9 +865,11 @@ class Scheduler:
                 rooter("forward_disable", machine.interface, routing.routing.internet, machine.ip)
 
     def stop(self):
-        """Stop scheduler."""
-        self.running = False
-        # Shutdown machine manager (used to kill machines that still alive).
+        """Set loop state to stopping."""
+        self.loop_state = LoopState.STOPPING
+
+    def shutdown_machinery(self):
+        """Shutdown machine manager (used to kill machines that still alive)."""
         if self.categories_need_VM:
             machinery.shutdown()
 
@@ -858,8 +879,9 @@ class Scheduler:
 
         log.info("Waiting for analysis tasks")
 
-        # To handle stop analyzing when we need to restart process without break tasks
-        signal.signal(signal.SIGHUP, self.set_stop_analyzing)
+        # Handle interrupts
+        for _signal in [signal.SIGHUP, signal.SIGTERM, signal.SIGUSR1, signal.SIGUSR2]:
+            signal.signal(_signal, self.signal_handler)
 
         # Message queue with threads to transmit exceptions (used as IPC).
         errors = queue.Queue()
@@ -876,8 +898,20 @@ class Scheduler:
             # Note that this variable only exists under these conditions
             scaling_semaphore_timer = time.time()
 
-        # This loop runs forever.
-        while self.running:
+        # Set loop state and loop forever
+        self.loop_state = LoopState.RUNNING
+        while self.loop_state in (LoopState.RUNNING, LoopState.PAUSED, LoopState.STOPPING):
+            if self.loop_state == LoopState.STOPPING:
+                # Wait for analyses to finish before stopping
+                while self.analysis_threads:
+                    thread = self.analysis_threads.pop()
+                    log.debug("Waiting for analysis PID %d", thread.native_id)
+                    thread.join()
+                break
+            if self.loop_state == LoopState.PAUSED:
+                log.debug("scheduler is paused, send '%s' to process %d to resume", signal.SIGUSR2, os.getpid())
+                time.sleep(5)
+                continue
             # Update scaling bounded semaphore limit value, if enabled, based on the number of machines
             if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
                 # Every x seconds, update the semaphore limit. This requires a database call to machinery.availables(),
@@ -927,6 +961,7 @@ class Scheduler:
             # file and has been reached.
             if self.maxcount and self.total_analysis_count >= self.maxcount:
                 if active_analysis_count <= 0:
+                    log.info("Maximum analysis count has been reached, shutting down.")
                     self.stop()
             else:
                 if self.categories_need_VM:
@@ -961,12 +996,16 @@ class Scheduler:
                     analysis = AnalysisManager(task, errors)
                     analysis.daemon = True
                     analysis.start()
+                    self.analysis_threads.append(analysis)
+            # We only want to keep track of active threads
+            self.analysis_threads = [t for t in self.analysis_threads if t.is_alive()]
 
             # Deal with errors.
             try:
                 raise errors.get(block=False)
             except queue.Empty:
                 pass
+        self.loop_state = LoopState.INACTIVE
 
     def _thr_periodic_log(self):
         specific_available_machine_counts = defaultdict(int)

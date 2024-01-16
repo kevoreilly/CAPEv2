@@ -1,4 +1,5 @@
 # encoding: utf-8
+import hashlib
 import json
 import logging
 import os
@@ -10,7 +11,6 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
-import hashlib
 
 import pyzipper
 import requests
@@ -1080,7 +1080,7 @@ def tasks_status(request, task_id):
     if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
         return Response(resp)
-    if request.method == 'GET':
+    if request.method == "GET":
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
     elif request.method == "POST" and apiconf.user_stop.enabled and request.data.get("status", "") == "finish":
@@ -1088,11 +1088,11 @@ def tasks_status(request, task_id):
         # Todo probably add task status if pending
         if machine.status == "running":
             try:
-                guest_env = requests.get(f'http://{machine.ip}:8000/environ').json()
+                guest_env = requests.get(f"http://{machine.ip}:8000/environ").json()
                 complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
                 # ToDo proper OS version join
                 dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
-                r = requests.post(f'http://{machine.ip}:8000/mkdir', data={"dirpath": dest_folder})
+                r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder})
                 resp = {"error": r.status_code == 200, "data": r.text}
             except requests.exceptions.ConnectionError as e:
                 log.error(e)

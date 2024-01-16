@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
+import hashlib
 
 import pyzipper
 import requests
@@ -1083,18 +1084,16 @@ def tasks_status(request, task_id):
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
     elif request.method == 'POST':
-        # ToDo Kill/Terminate
-        if task.status == TASK_RUNNING:
-            db.guest_set_status(task_id, "complete")
-            """
-            machine = db.view_machine(task.machine)
-            try:
-                # Only local, not distributed mode support/planed yet
-                r = requests.post(f'http://{machine.ip}:8000/status', data={"status": 3})
-                resp = r.json()
-            except Exception as e:
-                log.error(e)
-            """
+        # ToDo should be enabled in config
+        machine = db.view_machine(task.machine)
+        try:
+            guest_env = requests.get(f'http://{machine.ip}:8000/environ').json()
+            complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
+            # ToDo proper OS version join
+            dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
+            r = requests.get(f'http://{machine.ip}:8000/mkdir', data={"dirpath": dest_folder})
+        except requests.exceptions.ConnectionError as e:
+            log.error(e)
     return Response(resp)
 
 

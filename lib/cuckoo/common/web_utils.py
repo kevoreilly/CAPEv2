@@ -706,7 +706,7 @@ def download_file(**kwargs):
         else:
             return "error", {"error": f"Was impossible to download from {kwargs['service']}"}
 
-    if not kwargs["content"]:
+    if not kwargs.get("content"):
         return "error", {"error": f"Error downloading file from {kwargs['service']}"}
     try:
         if kwargs.get("fhash", False):

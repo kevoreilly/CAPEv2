@@ -565,11 +565,18 @@ class Analyzer:
         kernel_analysis = self.options.get("kernel_analysis", False)
 
         emptytime = None
-
+        complete_folder = hashlib.md5(f"cape-{self.config.id}".encode()).hexdigest()
+        complete_analysis_pattern = os.path.join(os.environ["TMP"], complete_folder)
+        # log.info("Complete analysis folder is: %s", complete_analysis_pattern)
         while self.do_run:
             self.time_counter = timeit.default_timer() - time_start
             if self.time_counter >= int(self.config.timeout):
                 log.info("Analysis timeout hit, terminating analysis")
+                ANALYSIS_TIMED_OUT = True
+                break
+
+            if os.path.isdir(complete_analysis_pattern):
+                log.info("Analysis termination requested by user")
                 ANALYSIS_TIMED_OUT = True
                 break
 

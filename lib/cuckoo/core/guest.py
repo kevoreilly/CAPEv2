@@ -325,8 +325,8 @@ class GuestManager:
 
         # Debug analyzer.py in vm
         if "CAPE_DBG" in os.environ:
-            while True:
-                pass
+            # change this to input so we can resume
+            input("CAPE DBG enabled. Introduce any text to resume")
 
         if "execpy" in features:
             data = {

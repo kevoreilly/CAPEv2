@@ -176,3 +176,26 @@ function GuacMe(element, guest_ip, vncport, session_id, recording_name) {
 
     init();
 }
+
+function stopTask(taskId) {
+    var apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
+
+    var postData = {
+        status: 'finish',
+    };
+
+    fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postData),
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Response:', data);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}

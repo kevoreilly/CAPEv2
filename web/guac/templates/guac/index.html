@@ -4,6 +4,7 @@
 <head>
     <link rel="icon" href="{% static 'img/cape.png' %}">
     <link href="{% static 'css/guac-main.css' %}" rel="stylesheet" type="text/css"/>
+    <script src="{% static 'js/crypto-js.min.js' %}"></script>
     <script src="{% static 'js/guac-main.js' %}"></script>
     <script src="{% static 'js/guacamole-1.4.0-all.min.js' %}"></script>
     <script src="{% static 'js/jquery.js' %}"></script>
@@ -24,11 +25,14 @@
             </div>
         </div>
         <script>
+            document.getElementById("stopTask").addEventListener("click", function () {
+                stopTask("{{task_id}}");
+            });
             var task_url = location.origin + '/submit/status/{{task_id}}'
             document.getElementById("taskStatus").addEventListener("click", function() {
                 location.replace(task_url);
             }, false);
-	        GuacMe("html", "{{guest_ip}}", {{vncport}}, "{{session_id}}", "{{recording_name}}");
+	        GuacMe("html", "{{guest_ip}}","{{vncport}}", "{{session_id}}", "{{recording_name}}");
         </script>
     </div>
 </body>

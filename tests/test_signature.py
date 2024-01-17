@@ -76,7 +76,7 @@ class TestSignatureEngine:
         report = None
         results = {}
         if task_id is not None:
-            report = os.path.join(CUCKOO_ROOT, "tests", "data", str(task_id), "reports", "report.json")
+            report = os.path.join(CUCKOO_ROOT, "tests", "test_data", str(task_id), "reports", "report.json")
             assert(not path_exists(report),"Missing test data file, failing")
         if report:
             results = json.load(open(report))

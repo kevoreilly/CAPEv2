@@ -130,6 +130,7 @@ class FakeSignatureCategory(Signature):
         if self.query_network:
             return True
 
+
 class TestSignatureEngine:
     def setup_method(self, method):
         self.d = Database(dsn="sqlite://")

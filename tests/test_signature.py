@@ -107,6 +107,7 @@ class FakeSignatureProcess(Signature):
         if self.query_process:
             return True
         
+        
 class FakeSignatureCategory(Signature):
     name = "FakeCategory"
     description = "Fake signature created for testing signatures triggering"

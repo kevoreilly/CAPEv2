@@ -36,7 +36,7 @@ from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
-from lib.cuckoo.common.utils import free_space_monitor, get_options
+from lib.cuckoo.common.utils import free_space_monitor
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
@@ -102,14 +102,10 @@ def process(
 
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
-    # cluster mode
-    main_task_id = False
-    if "main_task_id" in task_dict.get("options", ""):
-        main_task_id = get_options(task_dict["options"]).get("main_task_id", 0)
 
     # ToDo new logger here
     handlers = init_logging(tid=str(task_id), debug=debug)
-    set_formatter_fmt(task_id, main_task_id)
+    set_formatter_fmt(task_id)
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     if memory_debugging:
@@ -163,23 +159,19 @@ def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def get_formatter_fmt(task_id=None, main_task_id=None):
-    task_info = f"[Task {task_id}" if task_id is not None else ""
-    if main_task_id:
-        task_info += f" ({main_task_id})"
-    if task_id or main_task_id:
-        task_info += "] "
+def get_formatter_fmt(task_id=None):
+    task_info = f"[Task {task_id}] " if task_id is not None else ""
     return f"%(asctime)s {task_info}[%(name)s] %(levelname)s: %(message)s"
 
 
 FORMATTER = logging.Formatter(get_formatter_fmt())
 
 
-def set_formatter_fmt(task_id=None, main_task_id=None):
-    FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
+def set_formatter_fmt(task_id=None):
+    FORMATTER._style._fmt = get_formatter_fmt(task_id)
 
 
-def init_logging(tid=0, debug=False):
+def init_logging(auto=False, tid=0, debug=False):
 
     # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
     # If basicConfig was already called by something and had a StreamHandler added,
@@ -188,14 +180,6 @@ def init_logging(tid=0, debug=False):
         if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
             log.removeHandler(h)
             h.close()
-
-    """
-    Handlers:
-        - ch - console handler
-        - slh - syslog handler
-        - fh - file handle -> process.log
-        - fhpa - file handler per analysis
-    """
 
     ch = ConsoleHandler()
     ch.setFormatter(FORMATTER)
@@ -212,29 +196,39 @@ def init_logging(tid=0, debug=False):
     try:
         if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
             path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
-
-        path = os.path.join(CUCKOO_ROOT, "log", "process.log")
-        if logconf.log_rotation.enabled:
-            days = logconf.log_rotation.backup_count or 7
-            fh = logging.handlers.TimedRotatingFileHandler(path, when="midnight", backupCount=int(days))
+        if auto:
+            if logconf.log_rotation.enabled:
+                days = logconf.log_rotation.backup_count or 7
+                fh = logging.handlers.TimedRotatingFileHandler(
+                    os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=int(days)
+                )
+            else:
+                fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
+            if logconf.logger.process_analysis_folder:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
+                # We need to delete old log, otherwise it will append to existing one
+                if path_exists(path):
+                    path_delete(path)
+                fhpa = logging.handlers.WatchedFileHandler(path)
+                fhpa.setFormatter(FORMATTER)
+                log.addHandler(fhpa)
         else:
+            if logconf.logger.process_analysis_folder:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
+            else:
+                path = os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % str(tid))
+
+            # We need to delete old log, otherwise it will append to existing one
+            if path_exists(path):
+                path_delete(path)
+
             fh = logging.handlers.WatchedFileHandler(path)
 
-        fh.setFormatter(FORMATTER)
-        log.addHandler(fh)
-
-        if logconf.logger.process_analysis_folder:
-            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
-        else:
-            path = os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % str(tid))
-        if path_exists(path):
-            path_delete(path)
-
-        fhpa = logging.handlers.WatchedFileHandler(path)
-        fhpa.setFormatter(FORMATTER)
-        log.addHandler(fhpa)
     except PermissionError:
         sys.exit("Probably executed with wrong user, PermissionError to create/access log")
+
+    fh.setFormatter(FORMATTER)
+    log.addHandler(fh)
 
     if debug:
         log.setLevel(logging.DEBUG)
@@ -350,16 +344,20 @@ def autoprocess(
             pool.join()
 
 
-def _load_report(task_id: int):
+def _load_report(task_id: int, return_one: bool = False):
 
     if repconf.mongodb.enabled:
-        analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
-        for process in analysis.get("behavior", {}).get("processes", []):
-            calls = [ObjectId(call) for call in process["calls"]]
-            process["calls"] = []
-            for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
-                process["calls"] += call["calls"]
-        return analysis
+        if return_one:
+            analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
+            for process in analysis.get("behavior", {}).get("processes", []):
+                calls = [ObjectId(call) for call in process["calls"]]
+                process["calls"] = []
+                for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
+                    process["calls"] += call["calls"]
+            return analysis
+
+        else:
+            return mongo_find("analysis", {"info.id": task_id})
 
     if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         try:
@@ -369,7 +367,10 @@ def _load_report(task_id: int):
                 .get("hits", [])
             )
             if analyses:
-                return analyses[0]
+                if return_one:
+                    return analyses[0]
+                else:
+                    return analyses
         except ESRequestError as e:
             print(e)
 
@@ -460,6 +461,8 @@ def main():
 
     init_modules()
     if args.id == "auto":
+        if not logconf.logger.process_per_task_log:
+            init_logging(auto=True, debug=args.debug)
         autoprocess(
             parallel=args.parallel,
             failed_processing=args.failed_processing,
@@ -476,8 +479,14 @@ def main():
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
                     print(red(f"\n[{num}] Analysis folder doesn't exist anymore\n"))
                     continue
-                try:
-                    task = Database().view_task(num)
+                handlers = init_logging(tid=str(num), debug=args.debug)
+                task = Database().view_task(num)
+                if task is None:
+                    task = {}
+                    print("Task not in database")
+                    task["id"] = args.id
+                    task["target"] = None
+                else:
                     # Add sample lookup as we point to sample from TMP. Case when delete_original=on
                     if not path_exists(task.target):
                         samples = Database().sample_path_by_hash(task_id=task.id)
@@ -485,15 +494,10 @@ def main():
                             if path_exists(sample):
                                 task.__setattr__("target", sample)
                                 break
-                except Exception as e:
-                    print("Task not in database")
-                finally:
-                    if 'task' not in locals():
-                        task = {}
-                        task["id"] = args.id
+
                 if args.signatures:
                     report = False
-                    results = _load_report(num)
+                    results = _load_report(num, return_one=True)
                     if not results:
                         # fallback to json
                         report = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num), "reports", "report.json")
@@ -514,7 +518,7 @@ def main():
                             RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
                         # If you are only running a single signature, print that output
                         if args.signature_name and results["signatures"]:
-                            print(results["signatures"][0])
+                            print(results["signatures"])
                 else:
                     process(
                         task=task,

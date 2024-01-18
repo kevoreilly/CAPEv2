@@ -6,7 +6,7 @@ from lib.cuckoo.common.abstracts import Signature
 from lib.cuckoo.core.plugins import RunSignatures
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.core.plugins import register_plugin, list_plugins
+from lib.cuckoo.core.plugins import register_plugin
 
 
 class FakeSignatureNonFiltered(Signature):
@@ -229,7 +229,7 @@ class TestSignatureEngine:
         report = None
         results = {}
         if task_id is not None:
-            report = os.path.join(CUCKOO_ROOT, "tests", "data", str(task_id), "reports", "report.json")
+            report = os.path.join(CUCKOO_ROOT, "tests", "test_data", str(task_id), "reports", "report.json")
             assert path_exists(report),"Missing test data file, failing"
         if report:
             results = json.load(open(report))

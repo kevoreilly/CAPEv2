@@ -76,19 +76,17 @@ class TestSignatureEngine:
         report = None
         results = {}
         if task_id is not None:
-            report = os.path.join(CUCKOO_ROOT, "tests", "test_data", str(task_id), "reports", "report.json")
-            assert(not path_exists(report),"Missing test data file, failing")
+            report = os.path.join(CUCKOO_ROOT, "tests", "data", str(task_id), "reports", "report.json")
+            assert path_exists(report),"Missing test data file, failing"
         if report:
             results = json.load(open(report))
-            assert(results is not None,"Test data file is empty")
+            assert results is not None,"Test data file is empty"
         # If the "statistics" key-value pair has not been set by now, set it here
-        if "statistics" not in results:
-            results["statistics"] = {"signatures": []}
         RunSignatures(task=task, results=results).run(signature_name)
         if match_expected:
-            assert(signature_name in results["signatures"],"Signature should be matching report")
-            assert(len(results["signatures"]) == 1,"{signature_name} should be the only signature ran") 
+            assert signature_name in results["statistics"]["signatures"][0]["name"],"Signature should be matching report"
+            assert len(results["statistics"]["signatures"]) == 1,"{signature_name} should be the only signature ran"
         elif not match_expected:
-            assert(signature_name not in results["signatures"],"Signature should not be matching report")
-            assert(len(results["signatures"]) == 0,"{signature_name} should have no signature matching")
+            assert signature_name not in results["signatures"],"Signature should not be matching report"
+            assert len(results["signatures"]) == 0,"{signature_name} should have no signature matching"
             

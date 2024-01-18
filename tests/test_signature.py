@@ -8,7 +8,6 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.plugins import register_plugin, list_plugins
 
-#filter_analysistypes = set(["file"])
 
 class FakeSignatureNonFiltered(Signature):
     name = "FakeSig"
@@ -29,11 +28,11 @@ class FakeSignatureNonFiltered(Signature):
 
     def on_call(self, call, process):
         self.query = True
-            
 
     def on_complete(self):
         if self.query:
             return True
+
 
 class FakeSignatureFiltered(Signature):
     name = "FakeSigFiltered"
@@ -55,11 +54,11 @@ class FakeSignatureFiltered(Signature):
     def on_call(self, call, process):
         if call["api"] == "gethostbyname" and call["category"] == "network" and process["process_name"] == "powershell.exe":
             self.query = True
-            
 
     def on_complete(self):
         if self.query:
             return True
+
 
 class FakeSignatureAPI(Signature):
     name = "FakeAPI"
@@ -84,6 +83,7 @@ class FakeSignatureAPI(Signature):
         if self.query_host:
             return True
         
+
 class FakeSignatureProcess(Signature):
     name = "FakeProcess"
     description = "Fake signature created for testing signatures triggering"
@@ -106,6 +106,7 @@ class FakeSignatureProcess(Signature):
     def on_complete(self):
         if self.query_process:
             return True
+        
         
 class FakeSignatureCategory(Signature):
     name = "FakeCategory"
@@ -130,6 +131,7 @@ class FakeSignatureCategory(Signature):
         if self.query_network:
             return True
 
+
 class TestSignatureEngine:
     def setup_method(self, method):
         self.d = Database(dsn="sqlite://")
@@ -138,6 +140,7 @@ class TestSignatureEngine:
         register_plugin("signatures", FakeSignatureCategory)
         register_plugin("signatures", FakeSignatureNonFiltered)
         register_plugin("signatures", FakeSignatureFiltered)
+
     @pytest.mark.parametrize(
         "task_id, signature_name, match_expected",
         # @task_id: task to be created or task id to use
@@ -218,7 +221,8 @@ class TestSignatureEngine:
             ),
         ),
     )
-    # This test can be used to validate if a specific report trigger your function the same way as process.py does. It could be used to test a suite of signature against known report.json files.
+    # This test can be used to validate if a specific report trigger your function the same way as process.py does. 
+    # It could be used to test a suite of signature against known report.json files.
     def test_RunSignatures(self, task_id, signature_name, match_expected):
         task = {}
         task["id"] = task_id

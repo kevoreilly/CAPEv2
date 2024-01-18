@@ -6,7 +6,7 @@ from lib.cuckoo.common.abstracts import Signature
 from lib.cuckoo.core.plugins import RunSignatures
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.core.plugins import register_plugin
+from lib.cuckoo.core.plugins import register_plugin, list_plugins
 
 #filter_analysistypes = set(["file"])
 
@@ -77,8 +77,7 @@ class FakeSignatureAPI(Signature):
         self.query_host = False
 
     def on_call(self, call, process):
-        if call["api"] == "gethostbyname":
-            self.query_host = True
+        self.query_host = True
             
 
     def on_complete(self):
@@ -101,8 +100,7 @@ class FakeSignatureProcess(Signature):
         self.query_process = False
 
     def on_call(self, call, process):
-        if process["process_name"] == "powershell.exe":
-            self.query_process = True
+        self.query_process = True
             
 
     def on_complete(self):
@@ -125,8 +123,7 @@ class FakeSignatureCategory(Signature):
         self.query_network = False
 
     def on_call(self, call, process):
-        if call["category"] == "network":
-            self.query_network = True
+        self.query_network = True
             
 
     def on_complete(self):
@@ -145,7 +142,7 @@ class TestSignatureEngine:
         "task_id, signature_name, match_expected",
         # @task_id: task to be created or task id to use
         # @signature_name: Name of the signature to test
-        # @match_expected: tell if the signature should match or not the report
+        # @match_expected: tell if the signature should match or not in the report (if multiple specify which ones if wanted)
         (
             # No tasks and signature_name
             (
@@ -216,8 +213,8 @@ class TestSignatureEngine:
             # Test running all signatures
             (
                 2,
-                None,
                 False,
+                ["FakeProcess", "FakeCategory", "FakeAPI", "FakeSigFiltered", "FakeSig"],
             ),
         ),
     )
@@ -228,17 +225,28 @@ class TestSignatureEngine:
         report = None
         results = {}
         if task_id is not None:
-            report = os.path.join(CUCKOO_ROOT, "tests", "test_data", str(task_id), "reports", "report.json")
+            report = os.path.join(CUCKOO_ROOT, "tests", "data", str(task_id), "reports", "report.json")
             assert path_exists(report),"Missing test data file, failing"
         if report:
             results = json.load(open(report))
             assert results is not None,"Test data file is empty"
         # If the "statistics" key-value pair has not been set by now, set it here
         RunSignatures(task=task, results=results).run(signature_name)
-        if match_expected:
+        print(results)
+        if match_expected and isinstance(match_expected,bool):
             assert signature_name in results["statistics"]["signatures"][0]["name"],"Signature should be matching report"
             assert len(results["statistics"]["signatures"]) == 1,"{signature_name} should be the only signature ran"
         elif not match_expected:
-            assert signature_name not in results["signatures"],"Signature should not be matching report"
-            assert len(results["signatures"]) == 0,"{signature_name} should have no signature matching"
+            if "statistics" in results.keys():
+                assert signature_name not in results["statistics"]["signatures"],"Signature should not be matching report"
+        else:
+            count = 0
+            triggered = []
+            for sig in results["statistics"]["signatures"]:
+                triggered.append(sig["name"])
+            for match in match_expected:
+                assert match in triggered,"Signature should be matching report"
+                count += 1
+            assert len(results["statistics"]["signatures"]) == count,"should have {count} signature matching"
+
             

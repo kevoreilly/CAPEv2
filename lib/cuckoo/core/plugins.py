@@ -373,6 +373,12 @@ class RunSignatures:
                 self.call_for_cat[cat].add(sig)
             for proc in sig.filter_processnames:
                 self.call_for_processname[proc].add(sig)
+            if not sig.filter_apinames:
+                self.call_for_api["any"].add(sig)
+            if not sig.filter_categories:
+                self.call_for_cat["any"].add(sig)
+            if not sig.filter_processnames:
+                self.call_for_processname["any"].add(sig)
 
     def _should_load_signature(self, signature):
         """Should the given signature be enabled for this analysis?"""
@@ -525,11 +531,45 @@ class RunSignatures:
                     if sigs is None:
                         # Build interested signatures
                         cat = call.get("category")
-                        sigs = self.call_always.intersection(
+                        evented_set = set(self.evented_list)
+                        sigs = evented_set.intersection(
                             self.call_for_api.get(api, set()),
                             self.call_for_cat.get(cat, set()),
                             self.call_for_processname.get(process_name, set()),
                         )
+                        sigs.update(evented_set.intersection(
+                            self.call_for_api.get(api, set()),
+                            self.call_for_cat.get(cat, set()),
+                            self.call_for_processname.get("any", set()),
+                        ))
+                        sigs.update(evented_set.intersection(
+                            self.call_for_api.get(api, set()),
+                            self.call_for_cat.get("any", set()),
+                            self.call_for_processname.get(process_name, set()),
+                        ))
+                        sigs.update(evented_set.intersection(
+                            self.call_for_api.get("any", set()),
+                            self.call_for_cat.get(cat, set()),
+                            self.call_for_processname.get(process_name, set()),
+                        ))
+                        sigs.update(evented_set.intersection(
+                            self.call_for_api.get(api, set()),
+                            self.call_for_cat.get("any", set()),
+                            self.call_for_processname.get("any", set()),
+                        ))
+                        sigs.update(evented_set.intersection(
+                            self.call_for_api.get("any", set()),
+                            self.call_for_cat.get(cat, set()),
+                            self.call_for_processname.get("any", set()),
+                        ))
+                        sigs.update(evented_set.intersection(
+                            self.call_for_api.get("any", set()),
+                            self.call_for_cat.get("any", set()),
+                            self.call_for_processname.get(process_name, set()),
+                        ))
+                        sigs.update(evented_set.intersection(
+                            self.call_always
+                        ))
                     for sig in sigs:
                         # Setting signature attributes per call
                         sig.cid = idx

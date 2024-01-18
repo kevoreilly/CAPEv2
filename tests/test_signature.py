@@ -53,7 +53,6 @@ class FakeSignatureFiltered(Signature):
     def on_call(self, call, process):
         if call["api"] == "gethostbyname" and call["category"] == "network" and process["process_name"] == "powershell.exe":
             self.query = True
-            
 
     def on_complete(self):
         if self.query:

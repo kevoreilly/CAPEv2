@@ -101,7 +101,6 @@ class FakeSignatureProcess(Signature):
     def on_call(self, call, process):
         if process["process_name"] == "powershell.exe":
             self.query_process = True
-            
 
     def on_complete(self):
         if self.query_process:

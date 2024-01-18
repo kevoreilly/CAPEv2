@@ -1947,7 +1947,7 @@ def cuckoo_status(request):
             hostname=socket.gethostname(),
             machines=dict(total=len(db.list_machines()), available=db.count_machines_available()),
             tasks=dict(
-                total=sum(tasks_dict_with_counts.values()),
+                total=sum(tasks_dict_with_counts.values() if tasks_dict_with_counts else 0),
                 pending=tasks_dict_with_counts.get("pending", 0),
                 running=tasks_dict_with_counts.get("running", 0),
                 completed=tasks_dict_with_counts.get("completed", 0),

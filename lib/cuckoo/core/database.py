@@ -2238,7 +2238,8 @@ class Database(object, metaclass=Singleton):
                 return dict(tasks_dict_count)
             except SQLAlchemyError as e:
                 log.debug("Database error counting all tasks: %s", e)
-                return 0
+
+        return {}
 
     @classlock
     def count_tasks(self, status=None, mid=None):

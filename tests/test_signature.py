@@ -220,7 +220,8 @@ class TestSignatureEngine:
             ),
         ),
     )
-    # This test can be used to validate if a specific report trigger your function the same way as process.py does. It could be used to test a suite of signature against known report.json files.
+    # This test can be used to validate if a specific report trigger your function the same way as process.py does. 
+    # It could be used to test a suite of signature against known report.json files.
     def test_RunSignatures(self, task_id, signature_name, match_expected):
         task = {}
         task["id"] = task_id

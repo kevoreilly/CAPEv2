@@ -33,6 +33,7 @@ class FakeSignatureNonFiltered(Signature):
         if self.query:
             return True
 
+
 class FakeSignatureFiltered(Signature):
     name = "FakeSigFiltered"
     description = "Fake signature created for testing signatures triggering"

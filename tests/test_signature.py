@@ -140,6 +140,7 @@ class TestSignatureEngine:
         register_plugin("signatures", FakeSignatureCategory)
         register_plugin("signatures", FakeSignatureNonFiltered)
         register_plugin("signatures", FakeSignatureFiltered)
+
     @pytest.mark.parametrize(
         "task_id, signature_name, match_expected",
         # @task_id: task to be created or task id to use

@@ -78,7 +78,6 @@ class FakeSignatureAPI(Signature):
     def on_call(self, call, process):
         if call["api"] == "gethostbyname":
             self.query_host = True
-            
 
     def on_complete(self):
         if self.query_host:

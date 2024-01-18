@@ -125,7 +125,6 @@ class FakeSignatureCategory(Signature):
     def on_call(self, call, process):
         if call["category"] == "network":
             self.query_network = True
-            
 
     def on_complete(self):
         if self.query_network:

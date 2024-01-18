@@ -58,6 +58,7 @@ class FakeSignatureFiltered(Signature):
         if self.query:
             return True
 
+
 class FakeSignatureAPI(Signature):
     name = "FakeAPI"
     description = "Fake signature created for testing signatures triggering"

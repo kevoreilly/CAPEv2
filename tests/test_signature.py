@@ -8,7 +8,6 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.plugins import register_plugin
 
-#filter_analysistypes = set(["file"])
 
 class FakeSignatureNonFiltered(Signature):
     name = "FakeSig"

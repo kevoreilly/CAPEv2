@@ -82,6 +82,7 @@ class FakeSignatureAPI(Signature):
         if self.query_host:
             return True
         
+
 class FakeSignatureProcess(Signature):
     name = "FakeProcess"
     description = "Fake signature created for testing signatures triggering"

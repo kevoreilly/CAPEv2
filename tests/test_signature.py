@@ -28,7 +28,6 @@ class FakeSignatureNonFiltered(Signature):
 
     def on_call(self, call, process):
         self.query = True
-            
 
     def on_complete(self):
         if self.query:

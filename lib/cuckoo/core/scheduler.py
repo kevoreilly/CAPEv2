@@ -172,8 +172,8 @@ class ScalingBoundedSemaphore(threading.Semaphore):
 
     def check_for_starvation(self, available_count: int):
         """Check for preventing starvation from coming up after updating the limit.
-        Take no parameter. 
-        Return true on starvation. 
+        Take no parameter.
+        Return true on starvation.
         """
         if self._value == 0 and available_count == self._limit_value:
             self._value = self._limit_value
@@ -975,7 +975,7 @@ class Scheduler:
         if self.cfg.cuckoo.batch_scheduling:
             max_batch_scheduling_count = self.cfg.cuckoo.max_batch_count if self.cfg.cuckoo.max_batch_count and self.cfg.cuckoo.max_batch_count > 1 else 5
         # This loop runs forever.
-        
+
         self.loop_state = LoopState.RUNNING
         while self.loop_state in (LoopState.RUNNING, LoopState.PAUSED, LoopState.STOPPING):
             if self.loop_state == LoopState.STOPPING:
@@ -1065,8 +1065,8 @@ class Scheduler:
                             if self.db.is_relevant_machine_available(task=task,set_status=False):
                                 tasks_with_relevant_machine_available.append(task)
                         # The batching number is the number of tasks that will be considered to mapping to machines for starting
-                        # Max_batch_scheduling_count is referring to the batch_scheduling config however this number 
-                        # is the maximum and capped for each usage by the number of locks available which refer to 
+                        # Max_batch_scheduling_count is referring to the batch_scheduling config however this number
+                        # is the maximum and capped for each usage by the number of locks available which refer to
                         # the number of expected available machines.
                         batching_number = max_batch_scheduling_count if machine_lock._value > max_batch_scheduling_count else machine_lock._value
                         if len(tasks_with_relevant_machine_available) > batching_number:
@@ -1088,6 +1088,9 @@ class Scheduler:
                         analysis = AnalysisManager(task, errors)
                         analysis.daemon = True
                         analysis.start()
+                        self.analysis_threads.append(analysis)
+                    # We only want to keep track of active threads
+                    self.analysis_threads = [t for t in self.analysis_threads if t.is_alive()]
                 else:
                     if self.categories_need_VM:
                         # First things first, are there pending tasks?

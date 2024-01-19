@@ -57,6 +57,7 @@ active_analysis_count_lock = threading.Lock()
 
 class LoopState(enum.IntEnum):
     """Enum that represents the state of the main scheduler loop."""
+
     RUNNING = 1
     PAUSED = 2
     STOPPING = 3

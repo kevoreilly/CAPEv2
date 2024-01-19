@@ -528,8 +528,7 @@ class RunSignatures:
                 calls = proc.get("calls", [])
                 sigs = evented_set.intersection(
                     self.call_for_processname.get("any", set()).union(
-                        self.call_for_processname.get(process_name, set()),
-                        self.call_always
+                        self.call_for_processname.get(process_name, set())
                     )
                 )
 
@@ -547,6 +546,9 @@ class RunSignatures:
                             self.call_for_cat.get("any", set())
                         )
                     )
+                    call_sigs.update(evented_set.intersection(
+                        self.call_always
+                    ))
             
                     for sig in call_sigs:
                         # Setting signature attributes per call

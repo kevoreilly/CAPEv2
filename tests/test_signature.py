@@ -5,8 +5,8 @@ from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.abstracts import Signature
 from lib.cuckoo.core.plugins import RunSignatures
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.plugins import register_plugin
+
 
 class FakeSignatureCallAlways(Signature):
     name = "FakeSignatureCallAlways"
@@ -28,6 +28,7 @@ class FakeSignatureCallAlways(Signature):
         if self.query:
             return True
         
+
 class FakeSignatureAPI_Cat(Signature):
     name = "FakeSignatureAPI_Cat"
     description = "Fake signature created for testing signatures triggering"
@@ -51,6 +52,7 @@ class FakeSignatureAPI_Cat(Signature):
         if self.query:
             return True
         
+
 class FakeSignatureAPI_Process(Signature):
     name = "FakeSignatureAPI_Process"
     description = "Fake signature created for testing signatures triggering"
@@ -63,7 +65,6 @@ class FakeSignatureAPI_Process(Signature):
     filter_apinames = set(["gethostbyname"])
     filter_processnames = set(["powershell.exe"])
      
-
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
         self.query = False
@@ -74,6 +75,7 @@ class FakeSignatureAPI_Process(Signature):
     def on_complete(self):
         if self.query:
             return True
+
 
 class FakeSignatureCat_Process(Signature):
     name = "FakeSignatureCat_Process"
@@ -98,8 +100,9 @@ class FakeSignatureCat_Process(Signature):
         if self.query:
             return True
 
-class FakeSignatureNonFiltered(Signature):
-    name = "FakeSignatureNonFiltered"
+
+class FakeSignatureAPI_Cat_Process_With_No_OnCall_Check(Signature):
+    name = "FakeSignatureAPI_Cat_Process_With_No_OnCall_Check"
     description = "Fake signature created for testing signatures triggering"
     severity = 1
     categories = ["malware"]
@@ -123,8 +126,8 @@ class FakeSignatureNonFiltered(Signature):
             return True
 
 
-class FakeSignatureFiltered(Signature):
-    name = "FakeSigFiltered"
+class FakeSignatureAPI_Cat_Process_With_OnCall_Check(Signature):
+    name = "FakeSignatureAPI_Cat_Process_With_OnCall_Check"
     description = "Fake signature created for testing signatures triggering"
     severity = 1
     categories = ["malware"]
@@ -222,17 +225,10 @@ class FakeSignatureCategory(Signature):
 
 
 class TestSignatureEngine:
-    def setup_method(self, method):
-        self.d = Database(dsn="sqlite://")
-        register_plugin("signatures", FakeSignatureAPI)
-        register_plugin("signatures", FakeSignatureProcess)
-        register_plugin("signatures", FakeSignatureCategory)
-        register_plugin("signatures", FakeSignatureNonFiltered)
-        register_plugin("signatures", FakeSignatureFiltered)
-        register_plugin("signatures", FakeSignatureCallAlways)
-        register_plugin("signatures", FakeSignatureAPI_Cat)
-        register_plugin("signatures", FakeSignatureAPI_Process)
-        register_plugin("signatures", FakeSignatureCat_Process)
+    def setup_class(cls):
+        sigs = [FakeSignatureAPI, FakeSignatureProcess, FakeSignatureCategory, FakeSignatureAPI_Cat_Process_With_OnCall_Check, FakeSignatureAPI_Cat_Process_With_No_OnCall_Check, FakeSignatureCallAlways, FakeSignatureAPI_Cat, FakeSignatureAPI_Process, FakeSignatureCat_Process]
+        for sig in sigs:
+            register_plugin(group="signatures", name=sig)
 
     @pytest.mark.parametrize(
         "task_id, signature_name, match_expected",
@@ -285,25 +281,25 @@ class TestSignatureEngine:
             # Single signature with all filtering  which should match
             (
                 1,
-                "FakeSignatureNonFiltered",
+                "FakeSignatureAPI_Cat_Process_With_No_OnCall_Check",
                 True,
             ),
             # Single signature with all filtering  which should match
             (
                 2,
-                "FakeSignatureNonFiltered",
+                "FakeSignatureAPI_Cat_Process_With_No_OnCall_Check",
                 False,
             ),
             # Single signature with all double filtering which should match
             (
                 1,
-                "FakeSigFiltered",
+                "FakeSignatureAPI_Cat_Process_With_OnCall_Check",
                 True,
             ),
             # Single signature with all double filtering which shouldn't match
             (
                 2,
-                "FakeSigFiltered",
+                "FakeSignatureAPI_Cat_Process_With_OnCall_Check",
                 False,
             ),
             # Single signature with no filtering which should match
@@ -350,9 +346,21 @@ class TestSignatureEngine:
             ),
             # Test running all signatures
             (
+                1,
+                False,
+                ["FakeProcess", "FakeSignatureCallAlways", "FakeSignatureCat_Process", "FakeCategory", "FakeAPI", "FakeSignatureAPI_Cat_Process_With_No_OnCall_Check", "FakeSignatureAPI_Cat_Process_With_OnCall_Check", "FakeSignatureAPI_Process", "FakeSignatureAPI_Cat"],
+            ),
+            # Test running all signatures
+            (
                 2,
                 False,
-                ["FakeProcess", "FakeCategory", "FakeAPI", "FakeSigFiltered", "FakeSignatureNonFiltered", "FakeSignatureCallAlways", "FakeSignatureCat_Process", "FakeSignatureAPI_Process", "FakeSignatureAPI_Cat"],
+                ["FakeProcess", "FakeSignatureCallAlways", "FakeSignatureCat_Process", "FakeCategory"],
+            ),
+            # Test running all signatures
+            (
+                3,
+                False,
+                ["FakeSignatureCallAlways"],
             ),
         ),
     )
@@ -370,21 +378,18 @@ class TestSignatureEngine:
             assert results is not None, "Test data file is empty"
         # If the "statistics" key-value pair has not been set by now, set it here
         RunSignatures(task=task, results=results).run(signature_name)
-        print(results)
-        if match_expected and isinstance(match_expected,bool):
-            assert signature_name in results["statistics"]["signatures"][0]["name"], f"Signature should be matching report for task {task_id}"
-            assert len(results["statistics"]["signatures"]) == 1, "{signature_name} should be the only signature run"
+        if match_expected and isinstance(match_expected, bool):
+            assert signature_name in results["signatures"][0]["name"], f"Signature should be matching report for task {task_id}"
+            assert len(results["signatures"]) == 1, f"{signature_name} should be the only signature run"
         elif not match_expected:
             if "statistics" in results.keys():
-                assert signature_name not in results["statistics"]["signatures"], f"Signature should not be matching report for task {task_id}"
+                assert signature_name not in results["signatures"], f"Signature should not be matching report for task {task_id}"
         else:
-            count = 0
             triggered = []
-            for sig in results["statistics"]["signatures"]:
+            for sig in results["signatures"]:
                 triggered.append(sig["name"])
             for match in match_expected:
-                assert match in triggered,"Signature should be matching report"
-                count += 1
-            assert len(results["statistics"]["signatures"]) == count, f"Should have {count} signature(s) matching"
+                assert match in triggered, f"Signature should be matching report"
+            assert len(match_expected) == len(results["signatures"]), f"Should have {len(match_expected)} signature matching"
 
             

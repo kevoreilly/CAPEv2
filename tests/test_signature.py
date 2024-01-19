@@ -10,11 +10,11 @@ from lib.cuckoo.core.plugins import register_plugin
 
 
 class FakeSignatureNonFiltered(Signature):
-    name = "FakeSig"
+    name = "FakeSignatureNonFiltered"
     description = "Fake signature created for testing signatures triggering"
     severity = 1
     categories = ["malware"]
-    authors = ["cccs-mog"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
     evented = True
 
@@ -39,7 +39,7 @@ class FakeSignatureFiltered(Signature):
     description = "Fake signature created for testing signatures triggering"
     severity = 1
     categories = ["malware"]
-    authors = ["cccs-mog"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
     evented = True
 
@@ -65,7 +65,7 @@ class FakeSignatureAPI(Signature):
     description = "Fake signature created for testing signatures triggering"
     severity = 1
     categories = ["malware"]
-    authors = ["cccs-mog"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
     evented = True
 
@@ -89,7 +89,7 @@ class FakeSignatureProcess(Signature):
     description = "Fake signature created for testing signatures triggering"
     severity = 1
     categories = ["malware"]
-    authors = ["cccs-mog"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
     evented = True
 
@@ -113,7 +113,7 @@ class FakeSignatureCategory(Signature):
     description = "Fake signature created for testing signatures triggering"
     severity = 1
     categories = ["malware"]
-    authors = ["cccs-mog"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
     evented = True
 
@@ -223,26 +223,25 @@ class TestSignatureEngine:
     )
     # This test can be used to validate if a specific report trigger your function the same way as process.py does. 
     # It could be used to test a suite of signature against known report.json files.
-    def test_RunSignatures(self, task_id, signature_name, match_expected):
-        task = {}
-        task["id"] = task_id
+    def test_RunSignatures_run(self, task_id, signature_name, match_expected):
+        task = {"id": task_id}
         report = None
         results = {}
         if task_id is not None:
             report = os.path.join(CUCKOO_ROOT, "tests", "test_data", str(task_id), "reports", "report.json")
-            assert path_exists(report),"Missing test data file, failing"
+            assert path_exists(report), "Missing test data file, failing"
         if report:
             results = json.load(open(report))
-            assert results is not None,"Test data file is empty"
+            assert results is not None, "Test data file is empty"
         # If the "statistics" key-value pair has not been set by now, set it here
         RunSignatures(task=task, results=results).run(signature_name)
         print(results)
         if match_expected and isinstance(match_expected,bool):
-            assert signature_name in results["statistics"]["signatures"][0]["name"],"Signature should be matching report"
-            assert len(results["statistics"]["signatures"]) == 1,"{signature_name} should be the only signature ran"
+            assert signature_name in results["statistics"]["signatures"][0]["name"], f"Signature should be matching report for task {task_id}"
+            assert len(results["statistics"]["signatures"]) == 1, "{signature_name} should be the only signature run"
         elif not match_expected:
             if "statistics" in results.keys():
-                assert signature_name not in results["statistics"]["signatures"],"Signature should not be matching report"
+                assert signature_name not in results["statistics"]["signatures"], f"Signature should not be matching report for task {task_id}"
         else:
             count = 0
             triggered = []
@@ -251,6 +250,6 @@ class TestSignatureEngine:
             for match in match_expected:
                 assert match in triggered,"Signature should be matching report"
                 count += 1
-            assert len(results["statistics"]["signatures"]) == count,"should have {count} signature matching"
+            assert len(results["statistics"]["signatures"]) == count, f"Should have {count} signature(s) matching"
 
             

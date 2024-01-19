@@ -44,8 +44,8 @@ try:
         event,
         func,
         not_,
+        or_,
         select,
-        or_
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.orm import backref, declarative_base, joinedload, relationship, sessionmaker
@@ -865,7 +865,13 @@ class Database(object, metaclass=Singleton):
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
         vms = self.list_machines(
-            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version, include_scheduled=False
+            locked=False,
+            label=task.machine,
+            platform=task.platform,
+            tags=task_tags,
+            arch=task_archs,
+            os_version=os_version,
+            include_scheduled=False,
         )
         if len(vms) > 0:
             # There are? Awesome!
@@ -876,7 +882,7 @@ class Database(object, metaclass=Singleton):
 
     @classlock
     def map_tasks_to_available_machines(self, tasks: list) -> list:
-        """Map tasks to available_machines to schedule in batch and prevent double spending of machines 
+        """Map tasks to available_machines to schedule in batch and prevent double spending of machines
         @param tasks: List of tasks to filter
         @return: list of tasks that should be started by the scheduler
         """
@@ -897,14 +903,14 @@ class Database(object, metaclass=Singleton):
                         platform=task.platform,
                         tags=task_tags,
                         archs=task_archs,
-                        os_version=os_version
+                        os_version=os_version,
                     )
                     # This loop is there in order to prevent double spending of machines by filtering
                     # out already mapped machines
                     for assigned in assigned_machines:
                         machines = machines.filter(Machine.label.notlike(assigned.label))
                     machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
-                     # Get the first free machine.
+                    # Get the first free machine.
                     machine = machines.first()
                     if machine:
                         assigned_machines.append(machine)
@@ -1044,16 +1050,9 @@ class Database(object, metaclass=Singleton):
         return machines
 
     def filter_machines_to_task(
-            self,
-            machines: list,
-            label=None,
-            platform=None,
-            tags=None,
-            archs=None,
-            os_version=[],
-            include_reserved=False
-        ) -> list:
-        """ Add filters to the given query based on the task
+        self, machines: list, label=None, platform=None, tags=None, archs=None, os_version=[], include_reserved=False
+    ) -> list:
+        """Add filters to the given query based on the task
         @param machines: List of machines where the filter will be applied
         @param label: label of the machine(s) expected for the task
         @param platform: platform of the machine(s) expected for the task
@@ -1078,7 +1077,17 @@ class Database(object, metaclass=Singleton):
         return machines
 
     @classlock
-    def list_machines(self, locked=None, label=None, platform=None, tags=[], arch=None, include_reserved=False, os_version=[], include_scheduled=True):
+    def list_machines(
+        self,
+        locked=None,
+        label=None,
+        platform=None,
+        tags=[],
+        arch=None,
+        include_reserved=False,
+        os_version=[],
+        include_scheduled=True,
+    ):
         """Lists virtual machines.
         @return: list of virtual machines
         """
@@ -1100,7 +1109,7 @@ class Database(object, metaclass=Singleton):
                     tags=tags,
                     archs=arch,
                     os_version=os_version,
-                    include_reserved=include_reserved
+                    include_reserved=include_reserved,
                 )
                 if not include_scheduled:
                     machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
@@ -1129,12 +1138,7 @@ class Database(object, metaclass=Singleton):
             try:
                 machines = session.query(Machine)
                 machines = self.filter_machines_to_task(
-                    machines=machines,
-                    label=label,
-                    platform=platform,
-                    tags=tags,
-                    archs=arch,
-                    os_version=os_version
+                    machines=machines, label=label, platform=platform, tags=tags, archs=arch, os_version=os_version
                 )
                 # Check if there are any machines that satisfy the
                 # selection requirements.
@@ -1210,7 +1214,7 @@ class Database(object, metaclass=Singleton):
                     tags=tags,
                     archs=arch,
                     os_version=os_version,
-                    include_reserved=include_reserved
+                    include_reserved=include_reserved,
                 )
                 return machines.count()
             except SQLAlchemyError as e:
@@ -1280,7 +1284,7 @@ class Database(object, metaclass=Singleton):
             for machine in machines:
                 if machine.status_changed_on + timedelta(seconds=30) < datetime.now():
                     self.set_machine_status(machine.label, MACHINE_RUNNING)
-        
+
     @classlock
     def add_error(self, message, task_id):
         """Add an error related to a task.
@@ -2346,7 +2350,8 @@ class Database(object, metaclass=Singleton):
                 return dict(tasks_dict_count)
             except SQLAlchemyError as e:
                 log.debug("Database error counting all tasks: %s", e)
-                return 0
+
+        return {}
 
     @classlock
     def count_tasks(self, status=None, mid=None):

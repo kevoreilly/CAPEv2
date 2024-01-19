@@ -1,3 +1,6 @@
+### [18.01.2024]
+* Monitor update: Harden against volatile register anti-hook technique in e.g. AgentTesla (thanks @ClaudioWayne)
+
 ### [10.01.2024]
 * Monitor updates:
     * Further process dump filter hardening

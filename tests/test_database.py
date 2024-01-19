@@ -11,10 +11,10 @@ import pytest
 from sqlalchemy import delete, inspect
 from sqlalchemy.exc import SQLAlchemyError
 
+from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core.database import Database, Machine, Tag, Task, machines_tags, tasks_tags
-from lib.cuckoo.common.exceptions import CuckooOperationalError
 
 
 @pytest.fixture(autouse=True)
@@ -342,8 +342,8 @@ class TestDatabaseEngine:
                     reserved=False,
                 )
                 machines.append((machine_name, tags))
-        for machine,machine_tag in machines:
-            self.d.set_machine_status(machine,"running")
+        for machine, machine_tag in machines:
+            self.d.set_machine_status(machine, "running")
         # Parsing tasks instructions
         for task_instruction in task_instructions:
             tags, num_of_tasks = task_instruction
@@ -401,7 +401,7 @@ class TestDatabaseEngine:
                     "tags": "tag1",
                     "locked": False,
                 },
-                (0,False,True),
+                (0, False, True),
             ),
             # Suitable task which is going to be locking this machine
             (
@@ -973,10 +973,7 @@ class TestDatabaseEngine:
     def test_filter_machines_to_task(self, task, machines, expected_result):
         for machine in machines:
             machine_name = (
-                str(machine["label"])
-                + str(machine["platform"])
-                + str(machine["arch"])
-                + str(task["label"].replace("task", ""))
+                str(machine["label"]) + str(machine["platform"]) + str(machine["arch"]) + str(task["label"].replace("task", ""))
             )
             self.d.add_machine(
                 name=machine_name,
@@ -1037,7 +1034,4 @@ class TestDatabaseEngine:
         ),
     )
     def test_validate_task_parameters(self, task, expected_result):
-        assert (
-            self.d.validate_task_parameters(label=task["label"], platform=task["platform"], tags=task["tags"])
-            == expected_result
-        )
+        assert self.d.validate_task_parameters(label=task["label"], platform=task["platform"], tags=task["tags"]) == expected_result

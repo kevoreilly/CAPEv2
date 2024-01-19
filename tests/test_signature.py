@@ -192,13 +192,13 @@ class TestSignatureEngine:
             # Single signature with all filtering  which should match
             (
                 1,
-                "FakeSig",
+                "FakeSignatureNonFiltered",
                 True,
             ),
             # Single signature with all filtering  which should match
             (
                 2,
-                "FakeSig",
+                "FakeSignatureNonFiltered",
                 False,
             ),
             # Single signature with all double filtering which should match

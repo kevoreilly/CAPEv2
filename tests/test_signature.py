@@ -228,7 +228,7 @@ class TestSignatureEngine:
     def setup_class(cls):
         sigs = [FakeSignatureAPI, FakeSignatureProcess, FakeSignatureCategory, FakeSignatureAPI_Cat_Process_With_OnCall_Check, FakeSignatureAPI_Cat_Process_With_No_OnCall_Check, FakeSignatureCallAlways, FakeSignatureAPI_Cat, FakeSignatureAPI_Process, FakeSignatureCat_Process]
         for sig in sigs:
-            register_plugin(group="signatures", name=sig)
+            register_plugin("signatures", sig)
 
     @pytest.mark.parametrize(
         "task_id, signature_name, match_expected",

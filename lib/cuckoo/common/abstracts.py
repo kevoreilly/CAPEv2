@@ -199,12 +199,9 @@ class Machinery:
                 continue
 
     def _initialize_check(self):
-        """Runs checks against virtualization software when a machine manager
-        is initialized.
-        @note: in machine manager modules you may override or superclass
-               his method.
-        @raise CuckooMachineError: if a misconfiguration or a unkown vm state
-                                   is found.
+        """Runs checks against virtualization software when a machine manager is initialized.
+        @note: in machine manager modules you may override or superclass his method.
+        @raise CuckooMachineError: if a misconfiguration or a unkown vm state is found.
         """
         try:
             configured_vms = self._list()
@@ -260,19 +257,24 @@ class Machinery:
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[]):
+    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[], need_scheduled=False):
         """Acquire a machine to start analysis.
         @param machine_id: machine ID.
         @param platform: machine platform.
         @param tags: machine tags
         @param arch: machine arch
+        @param os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
+        @param need_scheduled: should the result be filtered on 'scheduled' machine status        
         @return: machine or None.
         """
         if machine_id:
-            return self.db.lock_machine(label=machine_id)
+            return self.db.lock_machine(label=machine_id, need_scheduled=need_scheduled)
         elif platform:
-            return self.db.lock_machine(platform=platform, tags=tags, arch=arch, os_version=os_version)
-        return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version)
+            return self.db.lock_machine(platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
+        return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
+
+    def get_machines_scheduled(self):
+        return self.db.get_machines_scheduled()
 
     def release(self, label=None):
         """Release a machine.

@@ -8,6 +8,95 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.plugins import register_plugin
 
+class FakeSignatureCallAlways(Signature):
+    name = "FakeSignatureCallAlways"
+    description = "Fake signature created for testing signatures triggering"
+    severity = 1
+    categories = ["malware"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
+    minimum = "1.3"
+    evented = True  
+
+    def __init__(self, *args, **kwargs):
+        Signature.__init__(self, *args, **kwargs)
+        self.query = False
+
+    def on_call(self, call, process):
+        self.query = True
+
+    def on_complete(self):
+        if self.query:
+            return True
+        
+class FakeSignatureAPI_Cat(Signature):
+    name = "FakeSignatureAPI_Cat"
+    description = "Fake signature created for testing signatures triggering"
+    severity = 1
+    categories = ["malware"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
+    minimum = "1.3"
+    evented = True  
+
+    filter_apinames = set(["gethostbyname"])
+    filter_categories = set(["network"]) 
+
+    def __init__(self, *args, **kwargs):
+        Signature.__init__(self, *args, **kwargs)
+        self.query = False
+
+    def on_call(self, call, process):
+        self.query = True
+
+    def on_complete(self):
+        if self.query:
+            return True
+        
+class FakeSignatureAPI_Process(Signature):
+    name = "FakeSignatureAPI_Process"
+    description = "Fake signature created for testing signatures triggering"
+    severity = 1
+    categories = ["malware"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
+    minimum = "1.3"
+    evented = True  
+
+    filter_apinames = set(["gethostbyname"])
+    filter_processnames = set(["powershell.exe"])
+     
+
+    def __init__(self, *args, **kwargs):
+        Signature.__init__(self, *args, **kwargs)
+        self.query = False
+
+    def on_call(self, call, process):
+        self.query = True
+
+    def on_complete(self):
+        if self.query:
+            return True
+
+class FakeSignatureCat_Process(Signature):
+    name = "FakeSignatureCat_Process"
+    description = "Fake signature created for testing signatures triggering"
+    severity = 1
+    categories = ["malware"]
+    authors = ["@CybercentreCanada", "@cccs-mog"]
+    minimum = "1.3"
+    evented = True  
+
+    filter_processnames = set(["powershell.exe"])
+    filter_categories = set(["network"])
+
+    def __init__(self, *args, **kwargs):
+        Signature.__init__(self, *args, **kwargs)
+        self.query = False
+
+    def on_call(self, call, process):
+        self.query = True
+
+    def on_complete(self):
+        if self.query:
+            return True
 
 class FakeSignatureNonFiltered(Signature):
     name = "FakeSignatureNonFiltered"
@@ -140,6 +229,10 @@ class TestSignatureEngine:
         register_plugin("signatures", FakeSignatureCategory)
         register_plugin("signatures", FakeSignatureNonFiltered)
         register_plugin("signatures", FakeSignatureFiltered)
+        register_plugin("signatures", FakeSignatureCallAlways)
+        register_plugin("signatures", FakeSignatureAPI_Cat)
+        register_plugin("signatures", FakeSignatureAPI_Process)
+        register_plugin("signatures", FakeSignatureCat_Process)
 
     @pytest.mark.parametrize(
         "task_id, signature_name, match_expected",
@@ -213,11 +306,53 @@ class TestSignatureEngine:
                 "FakeSigFiltered",
                 False,
             ),
+            # Single signature with no filtering which should match
+            (
+                1,
+                "FakeSignatureCallAlways",
+                True,
+            ),
+            # Single signature with two filter which should match
+            (
+                1,
+                "FakeSignatureCat_Process",
+                True,
+            ),
+            # Single signature with two filter which shouldn't match
+            (
+                3,
+                "FakeSignatureCat_Process",
+                False,
+            ),
+            # Single signature with two filter which should match
+            (
+                1,
+                "FakeSignatureAPI_Process",
+                True,
+            ),
+            # Single signature with two filter which shouldn't match
+            (
+                3,
+                "FakeSignatureAPI_Process",
+                False,
+            ),
+            # Single signature with two filter which should match
+            (
+                1,
+                "FakeSignatureAPI_Cat",
+                True,
+            ),
+            # Single signature with two filter which shouldn't match
+            (
+                3,
+                "FakeSignatureAPI_Cat",
+                False,
+            ),
             # Test running all signatures
             (
                 2,
                 False,
-                ["FakeProcess", "FakeCategory", "FakeAPI", "FakeSigFiltered", "FakeSignatureNonFiltered"],
+                ["FakeProcess", "FakeCategory", "FakeAPI", "FakeSigFiltered", "FakeSignatureNonFiltered", "FakeSignatureCallAlways", "FakeSignatureCat_Process", "FakeSignatureAPI_Process", "FakeSignatureAPI_Cat"],
             ),
         ),
     )

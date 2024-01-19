@@ -217,7 +217,7 @@ class TestSignatureEngine:
             (
                 2,
                 False,
-                ["FakeProcess", "FakeCategory", "FakeAPI", "FakeSigFiltered", "FakeSig"],
+                ["FakeProcess", "FakeCategory", "FakeAPI", "FakeSigFiltered", "FakeSignatureNonFiltered"],
             ),
         ),
     )

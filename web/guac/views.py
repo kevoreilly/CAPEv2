@@ -1,6 +1,6 @@
 from base64 import urlsafe_b64decode
-
 from xml.etree import ElementTree as ET
+
 from django.shortcuts import render
 
 from lib.cuckoo.common.config import Config
@@ -12,6 +12,7 @@ except ImportError:
 
 machinery = Config().cuckoo.machinery
 machinery_dsn = getattr(Config(machinery), machinery).get("dsn", "qemu:///system")
+
 
 def index(request, task_id, session_data):
     conn = libvirt.open(machinery_dsn)

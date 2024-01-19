@@ -9,8 +9,8 @@ import shutil
 import signal
 import threading
 import time
-from time import monotonic as _time
 from collections import defaultdict
+from time import monotonic as _time
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -52,6 +52,7 @@ enable_trim = int(Config("web").general.enable_trim)
 
 active_analysis_count = 0
 active_analysis_count_lock = threading.Lock()
+
 
 class ScalingBoundedSemaphore(threading.Semaphore):
     """Implements a dynamic bounded semaphore.
@@ -163,8 +164,8 @@ class ScalingBoundedSemaphore(threading.Semaphore):
 
     def check_for_starvation(self, available_count: int):
         """Check for preventing starvation from coming up after updating the limit.
-        Take no parameter. 
-        Return true on starvation. 
+        Take no parameter.
+        Return true on starvation.
         """
         if self._value == 0 and available_count == self._limit_value:
             self._value = self._limit_value
@@ -331,11 +332,20 @@ class AnalysisManager(threading.Thread):
                 continue
             if self.cfg.cuckoo.batch_scheduling and not orphan:
                 machine = machinery.acquire(
-                    machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version, need_scheduled=True
+                    machine_id=self.task.machine,
+                    platform=self.task.platform,
+                    tags=task_tags,
+                    arch=task_archs,
+                    os_version=os_version,
+                    need_scheduled=True,
                 )
             else:
                 machine = machinery.acquire(
-                    machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version
+                    machine_id=self.task.machine,
+                    platform=self.task.platform,
+                    tags=task_tags,
+                    arch=task_archs,
+                    os_version=os_version,
                 )
 
             # If no machine is available at this moment, wait for one second and try again.
@@ -636,7 +646,6 @@ class AnalysisManager(threading.Thread):
             active_analysis_count_lock.acquire()
             active_analysis_count -= 1
             active_analysis_count_lock.release()
-
 
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:
@@ -949,7 +958,9 @@ class Scheduler:
             scaling_semaphore_timer = time.time()
 
         if self.cfg.cuckoo.batch_scheduling:
-            max_batch_scheduling_count = self.cfg.cuckoo.max_batch_count if self.cfg.cuckoo.max_batch_count and self.cfg.cuckoo.max_batch_count > 1 else 5
+            max_batch_scheduling_count = (
+                self.cfg.cuckoo.max_batch_count if self.cfg.cuckoo.max_batch_count and self.cfg.cuckoo.max_batch_count > 1 else 5
+            )
         # This loop runs forever.
         while self.running:
             # Wait until the machine lock is not locked. This is only the case
@@ -1023,13 +1034,15 @@ class Scheduler:
                                     self.db.set_status(task.id, TASK_FAILED_ANALYSIS)
                                     continue
                                 log.debug("Task #%s: Unserviceable task", task.id)
-                            if self.db.is_relevant_machine_available(task=task,set_status=False):
+                            if self.db.is_relevant_machine_available(task=task, set_status=False):
                                 tasks_with_relevant_machine_available.append(task)
                         # The batching number is the number of tasks that will be considered to mapping to machines for starting
-                        # Max_batch_scheduling_count is referring to the batch_scheduling config however this number 
-                        # is the maximum and capped for each usage by the number of locks available which refer to 
+                        # Max_batch_scheduling_count is referring to the batch_scheduling config however this number
+                        # is the maximum and capped for each usage by the number of locks available which refer to
                         # the number of expected available machines.
-                        batching_number = max_batch_scheduling_count if machine_lock._value > max_batch_scheduling_count else machine_lock._value
+                        batching_number = (
+                            max_batch_scheduling_count if machine_lock._value > max_batch_scheduling_count else machine_lock._value
+                        )
                         if len(tasks_with_relevant_machine_available) > batching_number:
                             tasks_with_relevant_machine_available = tasks_with_relevant_machine_available[:batching_number]
                         tasks_to_create = self.db.map_tasks_to_available_machines(tasks_with_relevant_machine_available)
@@ -1128,7 +1141,7 @@ class Scheduler:
                 machine_lock._value,
                 machine_lock._limit_value,
                 active_analysis_count,
-                number_of_machine_scheduled
+                number_of_machine_scheduled,
             )
         else:
             log.debug(
@@ -1139,7 +1152,7 @@ class Scheduler:
                 dict(specific_available_machine_counts),
                 len(self.db.list_machines(locked=True)),
                 dict(specific_locked_machine_counts),
-                len(self.db.list_machines())
+                len(self.db.list_machines()),
             )
         thr = threading.Timer(10, self._thr_periodic_log)
         thr.daemon = True

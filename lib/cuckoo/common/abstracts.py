@@ -264,13 +264,15 @@ class Machinery:
         @param tags: machine tags
         @param arch: machine arch
         @param os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
-        @param need_scheduled: should the result be filtered on 'scheduled' machine status        
+        @param need_scheduled: should the result be filtered on 'scheduled' machine status
         @return: machine or None.
         """
         if machine_id:
             return self.db.lock_machine(label=machine_id, need_scheduled=need_scheduled)
         elif platform:
-            return self.db.lock_machine(platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
+            return self.db.lock_machine(
+                platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled
+            )
         return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
 
     def get_machines_scheduled(self):

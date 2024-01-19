@@ -523,69 +523,32 @@ class RunSignatures:
             # Iterate calls and tell interested signatures about them.
             evented_set = set(self.evented_list)
             for proc in self.results["behavior"]["processes"]:
-                sigs = evented_set.union(
-                    self.call_for_processname.get("any", set()),
-                    self.call_for_processname.get(process_name, set())
-                )
                 process_name = proc["process_name"]
                 process_id = proc["process_id"]
                 calls = proc.get("calls", [])
+                sigs = evented_set.intersection(
+                    self.call_for_processname.get("any", set()).union(
+                        self.call_for_processname.get(process_name, set()),
+                        self.call_always
+                    )
+                )
 
                 for idx, call in enumerate(calls):
                     api = call.get("api")
                     # Build interested signatures
                     cat = call.get("category")
-                    sigs = evented_set.intersection(
-                        sigs,
+                    call_sigs = sigs.intersection(
                         self.call_for_api.get(api, set()).union(
                             self.call_for_api.get("any", set())
                         )
                     )
-                    sigs = evented_set.intersection(
-                        sigs,
+                    call_sigs = call_sigs.intersection(
                         self.call_for_cat.get(cat, set()).union(
                             self.call_for_cat.get("any", set())
                         )
                     )
-                    #sigs = evented_set.intersection(
-                    #    self.call_for_api.get(api, set()),
-                    #    self.call_for_cat.get(cat, set()),
-                    #    self.call_for_processname.get(process_name, set()),
-                    #)
-                    #sigs.update(evented_set.intersection(
-                    #    self.call_for_api.get(api, set()),
-                    #    self.call_for_cat.get(cat, set()),
-                    #    self.call_for_processname.get("any", set()),
-                    #))
-                    #sigs.update(evented_set.intersection(
-                    #    self.call_for_api.get(api, set()),
-                    #    self.call_for_cat.get("any", set()),
-                    #    self.call_for_processname.get(process_name, set()),
-                    #))
-                    #sigs.update(evented_set.intersection(
-                    #    self.call_for_api.get("any", set()),
-                    #    self.call_for_cat.get(cat, set()),
-                    #    self.call_for_processname.get(process_name, set()),
-                    #))
-                    #sigs.update(evented_set.intersection(
-                    #    self.call_for_api.get(api, set()),
-                    #    self.call_for_cat.get("any", set()),
-                    #    self.call_for_processname.get("any", set()),
-                    #))
-                    #sigs.update(evented_set.intersection(
-                    #    self.call_for_api.get("any", set()),
-                    #    self.call_for_cat.get(cat, set()),
-                    #    self.call_for_processname.get("any", set()),
-                    #))
-                    #sigs.update(evented_set.intersection(
-                    #    self.call_for_api.get("any", set()),
-                    #    self.call_for_cat.get("any", set()),
-                    #     self.call_for_processname.get(process_name, set()),
-                    #))
-                    sigs.update(evented_set.intersection(
-                        self.call_always
-                    ))
-                    for sig in sigs:
+            
+                    for sig in call_sigs:
                         # Setting signature attributes per call
                         sig.cid = idx
                         sig.call = call

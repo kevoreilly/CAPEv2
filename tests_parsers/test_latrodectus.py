@@ -5,7 +5,7 @@
 from modules.processing.parsers.CAPE.Latrodectus import extract_config
 
 
-def test_bumblebee():
+def test_latrodectus():
     with open("tests/data/malware/a547cff9991a713535e5c128a0711ca68acf9298cc2220c4ea0685d580f36811", "rb") as data:
         conf = extract_config(data.read())
         assert conf == {

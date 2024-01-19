@@ -389,7 +389,7 @@ class TestSignatureEngine:
             for sig in results["signatures"]:
                 triggered.append(sig["name"])
             for match in match_expected:
-                assert match in triggered, f"Signature should be matching report"
+                assert match in triggered, "Signature should be matching report"
             assert len(match_expected) == len(results["signatures"]), f"Should have {len(match_expected)} signature matching"
 
             

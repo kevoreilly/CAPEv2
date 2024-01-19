@@ -176,11 +176,11 @@ class AWS(Machinery):
 
     """override Machinery method"""
 
-    def acquire(self, machine_id=None, platform=None, tags=None):
+    def acquire(self, machine_id=None, platform=None, tags=None, need_scheduled=False):
         """
         override Machinery method to utilize the auto scale option
         """
-        base_class_return_value = super(AWS, self).acquire(machine_id, platform, tags)
+        base_class_return_value = super(AWS, self).acquire(machine_id, platform, tags, need_scheduled=need_scheduled)
         self._start_or_create_machines()  # prepare another machine
         return base_class_return_value
 

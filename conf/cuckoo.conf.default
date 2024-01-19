@@ -30,9 +30,13 @@ machinery_screenshots = off
 # For Azure, this configuration key is "total_machines_limit"
 # For AWS, this configuration key is "dynamic_machines_limit"
 scaling_semaphore = off
-
 # A configurable wait time between updating the limit value of the scaling bounded semaphore
 scaling_semaphore_update_timer = 10
+# Allow more than one task scheduled to be assigned at once for better scaling
+# A switch to allow batch task assignment, a method that can more efficiently assign tasks to available machines
+batch_scheduling = off
+# The maximum number of tasks assigned to machines per batch, optimal value dependent on deployment
+max_batch_count = 20
 
 # Enable creation of memory dump of the analysis machine before shutting
 # down. Even if turned off, this functionality can also be enabled at

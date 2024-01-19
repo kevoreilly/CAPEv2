@@ -7,7 +7,7 @@ def extract_config(data):
             if line.startswith("http") and "://" in line:
                 C2s.append(line)
                 print(line)
-            if line.startswith("/") and line[-4] is ".":
+            if line.startswith("/") and line[-4] == ".":
                 config_dict["Path"] = line
     except Exception:
         return

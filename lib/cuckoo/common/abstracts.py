@@ -494,7 +494,15 @@ class LibVirtMachinery(Machinery):
 
     def shutdown(self):
         """Override shutdown to free libvirt handlers - they print errors."""
-        super(LibVirtMachinery, self).shutdown()
+        for machine in self.machines():
+            # If the machine is already shutdown, move on
+            if self._status(machine.label) in (self.POWEROFF, self.ABORTED):
+                continue
+            try:
+                log.info("Shutting down machine '%s'", machine.label)
+                self.stop(machine.label)
+            except CuckooMachineError as e:
+                log.warning("Unable to shutdown machine %s, please check manually. Error: %s", machine.label, e)
 
         # Free handlers.
         self.vms = None

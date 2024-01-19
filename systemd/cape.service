@@ -11,6 +11,7 @@ User=cape
 Group=cape
 Restart=always
 RestartSec=5m
+TimeoutStopSec=4m # send SIGKILL if analysis is still ongoing 4m after SIGTERM
 LimitNOFILE=100000
 
 [Install]

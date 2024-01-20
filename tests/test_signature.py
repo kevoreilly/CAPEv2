@@ -1,11 +1,12 @@
-import pytest
-import os
 import json
-from lib.cuckoo.common.path_utils import path_exists
+import os
+
+import pytest
+
 from lib.cuckoo.common.abstracts import Signature
-from lib.cuckoo.core.plugins import RunSignatures
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.core.plugins import register_plugin
+from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.core.plugins import RunSignatures, register_plugin
 
 
 class FakeSignatureCallAlways(Signature):
@@ -15,7 +16,7 @@ class FakeSignatureCallAlways(Signature):
     categories = ["malware"]
     authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
-    evented = True  
+    evented = True
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -27,7 +28,7 @@ class FakeSignatureCallAlways(Signature):
     def on_complete(self):
         if self.query:
             return True
-        
+
 
 class FakeSignatureAPI_Cat(Signature):
     name = "FakeSignatureAPI_Cat"
@@ -36,10 +37,10 @@ class FakeSignatureAPI_Cat(Signature):
     categories = ["malware"]
     authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
-    evented = True  
+    evented = True
 
     filter_apinames = set(["gethostbyname"])
-    filter_categories = set(["network"]) 
+    filter_categories = set(["network"])
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -51,7 +52,7 @@ class FakeSignatureAPI_Cat(Signature):
     def on_complete(self):
         if self.query:
             return True
-        
+
 
 class FakeSignatureAPI_Process(Signature):
     name = "FakeSignatureAPI_Process"
@@ -60,11 +61,11 @@ class FakeSignatureAPI_Process(Signature):
     categories = ["malware"]
     authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
-    evented = True  
+    evented = True
 
     filter_apinames = set(["gethostbyname"])
     filter_processnames = set(["powershell.exe"])
-     
+
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
         self.query = False
@@ -84,7 +85,7 @@ class FakeSignatureCat_Process(Signature):
     categories = ["malware"]
     authors = ["@CybercentreCanada", "@cccs-mog"]
     minimum = "1.3"
-    evented = True  
+    evented = True
 
     filter_processnames = set(["powershell.exe"])
     filter_categories = set(["network"])
@@ -112,7 +113,7 @@ class FakeSignatureAPI_Cat_Process_With_No_OnCall_Check(Signature):
 
     filter_apinames = set(["gethostbyname"])
     filter_processnames = set(["powershell.exe"])
-    filter_categories = set(["network"])    
+    filter_categories = set(["network"])
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -137,7 +138,7 @@ class FakeSignatureAPI_Cat_Process_With_OnCall_Check(Signature):
 
     filter_apinames = set(["gethostbyname"])
     filter_processnames = set(["powershell.exe"])
-    filter_categories = set(["network"])    
+    filter_categories = set(["network"])
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -169,12 +170,11 @@ class FakeSignatureAPI(Signature):
 
     def on_call(self, call, process):
         self.query_host = True
-            
 
     def on_complete(self):
         if self.query_host:
             return True
-        
+
 
 class FakeSignatureProcess(Signature):
     name = "FakeProcess"
@@ -193,13 +193,12 @@ class FakeSignatureProcess(Signature):
 
     def on_call(self, call, process):
         self.query_process = True
-            
 
     def on_complete(self):
         if self.query_process:
             return True
-        
-        
+
+
 class FakeSignatureCategory(Signature):
     name = "FakeCategory"
     description = "Fake signature created for testing signatures triggering"
@@ -217,7 +216,6 @@ class FakeSignatureCategory(Signature):
 
     def on_call(self, call, process):
         self.query_network = True
-            
 
     def on_complete(self):
         if self.query_network:
@@ -226,7 +224,17 @@ class FakeSignatureCategory(Signature):
 
 class TestSignatureEngine:
     def setup_class(cls):
-        sigs = [FakeSignatureAPI, FakeSignatureProcess, FakeSignatureCategory, FakeSignatureAPI_Cat_Process_With_OnCall_Check, FakeSignatureAPI_Cat_Process_With_No_OnCall_Check, FakeSignatureCallAlways, FakeSignatureAPI_Cat, FakeSignatureAPI_Process, FakeSignatureCat_Process]
+        sigs = [
+            FakeSignatureAPI,
+            FakeSignatureProcess,
+            FakeSignatureCategory,
+            FakeSignatureAPI_Cat_Process_With_OnCall_Check,
+            FakeSignatureAPI_Cat_Process_With_No_OnCall_Check,
+            FakeSignatureCallAlways,
+            FakeSignatureAPI_Cat,
+            FakeSignatureAPI_Process,
+            FakeSignatureCat_Process,
+        ]
         for sig in sigs:
             register_plugin("signatures", sig)
 
@@ -348,7 +356,17 @@ class TestSignatureEngine:
             (
                 1,
                 False,
-                ["FakeProcess", "FakeSignatureCallAlways", "FakeSignatureCat_Process", "FakeCategory", "FakeAPI", "FakeSignatureAPI_Cat_Process_With_No_OnCall_Check", "FakeSignatureAPI_Cat_Process_With_OnCall_Check", "FakeSignatureAPI_Process", "FakeSignatureAPI_Cat"],
+                [
+                    "FakeProcess",
+                    "FakeSignatureCallAlways",
+                    "FakeSignatureCat_Process",
+                    "FakeCategory",
+                    "FakeAPI",
+                    "FakeSignatureAPI_Cat_Process_With_No_OnCall_Check",
+                    "FakeSignatureAPI_Cat_Process_With_OnCall_Check",
+                    "FakeSignatureAPI_Process",
+                    "FakeSignatureAPI_Cat",
+                ],
             ),
             # Test running all signatures
             (
@@ -364,7 +382,7 @@ class TestSignatureEngine:
             ),
         ),
     )
-    # This test can be used to validate if a specific report trigger your function the same way as process.py does. 
+    # This test can be used to validate if a specific report trigger your function the same way as process.py does.
     # It could be used to test a suite of signature against known report.json files.
     def test_RunSignatures_run(self, task_id, signature_name, match_expected):
         task = {"id": task_id}
@@ -391,5 +409,3 @@ class TestSignatureEngine:
             for match in match_expected:
                 assert match in triggered, "Signature should be matching report"
             assert len(match_expected) == len(results["signatures"]), f"Should have {len(match_expected)} signature matching"
-
-            

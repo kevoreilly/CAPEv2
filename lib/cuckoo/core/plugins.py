@@ -527,29 +527,17 @@ class RunSignatures:
                 process_id = proc["process_id"]
                 calls = proc.get("calls", [])
                 sigs = evented_set.intersection(
-                    self.call_for_processname.get("any", set()).union(
-                        self.call_for_processname.get(process_name, set())
-                    )
+                    self.call_for_processname.get("any", set()).union(self.call_for_processname.get(process_name, set()))
                 )
 
                 for idx, call in enumerate(calls):
                     api = call.get("api")
                     # Build interested signatures
                     cat = call.get("category")
-                    call_sigs = sigs.intersection(
-                        self.call_for_api.get(api, set()).union(
-                            self.call_for_api.get("any", set())
-                        )
-                    )
-                    call_sigs = call_sigs.intersection(
-                        self.call_for_cat.get(cat, set()).union(
-                            self.call_for_cat.get("any", set())
-                        )
-                    )
-                    call_sigs.update(evented_set.intersection(
-                        self.call_always
-                    ))
-            
+                    call_sigs = sigs.intersection(self.call_for_api.get(api, set()).union(self.call_for_api.get("any", set())))
+                    call_sigs = call_sigs.intersection(self.call_for_cat.get(cat, set()).union(self.call_for_cat.get("any", set())))
+                    call_sigs.update(evented_set.intersection(self.call_always))
+
                     for sig in call_sigs:
                         # Setting signature attributes per call
                         sig.cid = idx

@@ -478,17 +478,18 @@ def main():
                     continue
                 task = Database().view_task(num)
                 if task is None:
-                    task = {}
+                    task = {
+                        "id": args.id,
+                        "target": None
+                    }
                     print("Task not in database")
-                    task["id"] = args.id
-                    task["target"] = None
                 else:
                     # Add sample lookup as we point to sample from TMP. Case when delete_original=on
                     if not path_exists(task.target):
                         samples = Database().sample_path_by_hash(task_id=task.id)
                         for sample in samples:
                             if path_exists(sample):
-                                task.__setattr__("target", sample)
+                                task["target"] = sample
                                 break
 
                 if args.signatures:
@@ -508,7 +509,7 @@ def main():
                         # If the "statistics" key-value pair has not been set by now, set it here
                         if "statistics" not in results:
                             results["statistics"] = {"signatures": []}
-                        if isinstance(task,dict):
+                        if isinstance(task, dict):
                             RunSignatures(task=task, results=results).run(args.signature_name)
                         else:
                             RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)

@@ -1942,12 +1942,15 @@ def cuckoo_status(request):
     else:
         resp["error"] = False
         tasks_dict_with_counts = db.get_tasks_status_count()
+        total_sum = 0
+        if isinstance(tasks_dict_with_counts, dict):
+            total_sum = sum(tasks_dict_with_counts.values()
         resp["data"] = dict(
             version=CUCKOO_VERSION,
             hostname=socket.gethostname(),
             machines=dict(total=len(db.list_machines()), available=db.count_machines_available()),
             tasks=dict(
-                total=sum(tasks_dict_with_counts.values() if tasks_dict_with_counts else 0),
+                total=total_sum,
                 pending=tasks_dict_with_counts.get("pending", 0),
                 running=tasks_dict_with_counts.get("running", 0),
                 completed=tasks_dict_with_counts.get("completed", 0),

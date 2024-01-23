@@ -1,0 +1,36 @@
+{
+  "statistics": {
+    "signatures": []
+  },
+  "behavior": {
+      "processes": [
+        {
+        "process_id": 6444,
+        "process_name": "calc.exe",
+        "parent_id": 7772,
+        "module_path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "first_seen": "2024-01-17 20:30:16,072",
+        "calls": [
+          {
+            "timestamp": "2024-01-17 20:31:18,697",
+            "thread_id": "7948",
+            "caller": "0x7ff60f5411a1",
+            "parentcaller": "0x7ff60f5417b0",
+            "category": "misc",
+            "api": "explode",
+            "status": true,
+            "return": "0x26d1cd72460",
+            "arguments": [
+              {
+                "name": "Name",
+                "value": ""
+              }
+            ],
+            "repeated": 0,
+            "id": 37
+          }
+        ]
+        }
+      ]  
+    }
+}

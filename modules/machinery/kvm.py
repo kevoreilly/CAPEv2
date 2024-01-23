@@ -7,9 +7,9 @@ import xml.etree.ElementTree as ET
 from lib.cuckoo.common.abstracts import LibVirtMachinery
 from lib.cuckoo.common.exceptions import CuckooMachineError
 
+
 class KVM(LibVirtMachinery):
     """Virtualization layer for KVM based on python-libvirt."""
-
 
     def _initialize_check(self):
         """Runs all checks when a machine manager is initialized.

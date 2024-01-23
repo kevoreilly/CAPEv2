@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import enum
 import logging
 import os
 import queue
@@ -9,8 +10,8 @@ import shutil
 import signal
 import threading
 import time
-from time import monotonic as _time
 from collections import defaultdict
+from time import monotonic as _time
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -52,6 +53,16 @@ enable_trim = int(Config("web").general.enable_trim)
 
 active_analysis_count = 0
 active_analysis_count_lock = threading.Lock()
+
+
+class LoopState(enum.IntEnum):
+    """Enum that represents the state of the main scheduler loop."""
+
+    RUNNING = 1
+    PAUSED = 2
+    STOPPING = 3
+    INACTIVE = 4
+
 
 class ScalingBoundedSemaphore(threading.Semaphore):
     """Implements a dynamic bounded semaphore.
@@ -163,8 +174,8 @@ class ScalingBoundedSemaphore(threading.Semaphore):
 
     def check_for_starvation(self, available_count: int):
         """Check for preventing starvation from coming up after updating the limit.
-        Take no parameter. 
-        Return true on starvation. 
+        Take no parameter.
+        Return true on starvation.
         """
         if self._value == 0 and available_count == self._limit_value:
             self._value = self._limit_value
@@ -331,11 +342,20 @@ class AnalysisManager(threading.Thread):
                 continue
             if self.cfg.cuckoo.batch_scheduling and not orphan:
                 machine = machinery.acquire(
-                    machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version, need_scheduled=True
+                    machine_id=self.task.machine,
+                    platform=self.task.platform,
+                    tags=task_tags,
+                    arch=task_archs,
+                    os_version=os_version,
+                    need_scheduled=True,
                 )
             else:
                 machine = machinery.acquire(
-                    machine_id=self.task.machine, platform=self.task.platform, tags=task_tags, arch=task_archs, os_version=os_version
+                    machine_id=self.task.machine,
+                    platform=self.task.platform,
+                    tags=task_tags,
+                    arch=task_archs,
+                    os_version=os_version,
                 )
 
             # If no machine is available at this moment, wait for one second and try again.
@@ -637,7 +657,6 @@ class AnalysisManager(threading.Thread):
             active_analysis_count -= 1
             active_analysis_count_lock.release()
 
-
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:
             raise CuckooCriticalError(f"Error execution rooter command: {self.rooter_response['exception']}")
@@ -812,16 +831,28 @@ class Scheduler:
     """
 
     def __init__(self, maxcount=None):
-        self.running = True
+        self.loop_state = LoopState.INACTIVE
         self.cfg = Config()
         self.db = Database()
         self.maxcount = maxcount
         self.total_analysis_count = 0
         self.analyzing_categories, self.categories_need_VM = load_categories()
+        self.analysis_threads = []
 
-    def set_stop_analyzing(self, signum, stack):
-        self.running = False
-        log.info("Now wait till all running tasks are completed")
+    def signal_handler(self, signum, frame):
+        """Scheduler signal handler"""
+        sig = signal.Signals(signum)
+        if sig in (signal.SIGHUP, signal.SIGTERM):
+            log.info("received signal '%s', waiting for remaining analysis to finish before stopping", sig.name)
+            self.loop_state = LoopState.STOPPING
+        elif sig == signal.SIGUSR1:
+            log.info("received signal '%s', pausing new detonations, running detonations will continue until completion", sig.name)
+            self.loop_state = LoopState.PAUSED
+        elif sig == signal.SIGUSR2:
+            log.info("received signal '%s', resuming detonations", sig.name)
+            self.loop_state = LoopState.RUNNING
+        else:
+            log.info("received signal '%s', nothing to do", sig.name)
 
     def initialize(self):
         """Initialize the machine manager."""
@@ -918,9 +949,11 @@ class Scheduler:
                 rooter("forward_disable", machine.interface, routing.routing.internet, machine.ip)
 
     def stop(self):
-        """Stop scheduler."""
-        self.running = False
-        # Shutdown machine manager (used to kill machines that still alive).
+        """Set loop state to stopping."""
+        self.loop_state = LoopState.STOPPING
+
+    def shutdown_machinery(self):
+        """Shutdown machine manager (used to kill machines that still alive)."""
         if self.categories_need_VM:
             machinery.shutdown()
 
@@ -930,8 +963,9 @@ class Scheduler:
 
         log.info("Waiting for analysis tasks")
 
-        # To handle stop analyzing when we need to restart process without break tasks
-        signal.signal(signal.SIGHUP, self.set_stop_analyzing)
+        # Handle interrupts
+        for _signal in [signal.SIGHUP, signal.SIGTERM, signal.SIGUSR1, signal.SIGUSR2]:
+            signal.signal(_signal, self.signal_handler)
 
         # Message queue with threads to transmit exceptions (used as IPC).
         errors = queue.Queue()
@@ -949,9 +983,25 @@ class Scheduler:
             scaling_semaphore_timer = time.time()
 
         if self.cfg.cuckoo.batch_scheduling:
-            max_batch_scheduling_count = self.cfg.cuckoo.max_batch_count if self.cfg.cuckoo.max_batch_count and self.cfg.cuckoo.max_batch_count > 1 else 5
+            max_batch_scheduling_count = (
+                self.cfg.cuckoo.max_batch_count if self.cfg.cuckoo.max_batch_count and self.cfg.cuckoo.max_batch_count > 1 else 5
+            )
         # This loop runs forever.
-        while self.running:
+
+        self.loop_state = LoopState.RUNNING
+        while self.loop_state in (LoopState.RUNNING, LoopState.PAUSED, LoopState.STOPPING):
+            if self.loop_state == LoopState.STOPPING:
+                # Wait for analyses to finish before stopping
+                while self.analysis_threads:
+                    thread = self.analysis_threads.pop()
+                    log.debug("Waiting for analysis PID %d", thread.native_id)
+                    thread.join()
+                break
+            if self.loop_state == LoopState.PAUSED:
+                log.debug("scheduler is paused, send '%s' to process %d to resume", signal.SIGUSR2, os.getpid())
+                time.sleep(5)
+                continue
+            # Update scaling bounded semaphore limit value, if enabled, based on the number of machines
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather than "about to start"
             # or "still busy starting". This way we won't have race conditions
@@ -1003,6 +1053,7 @@ class Scheduler:
             # file and has been reached.
             if self.maxcount and self.total_analysis_count >= self.maxcount:
                 if active_analysis_count <= 0:
+                    log.info("Maximum analysis count has been reached, shutting down.")
                     self.stop()
             else:
                 if self.cfg.cuckoo.batch_scheduling:
@@ -1023,13 +1074,15 @@ class Scheduler:
                                     self.db.set_status(task.id, TASK_FAILED_ANALYSIS)
                                     continue
                                 log.debug("Task #%s: Unserviceable task", task.id)
-                            if self.db.is_relevant_machine_available(task=task,set_status=False):
+                            if self.db.is_relevant_machine_available(task=task, set_status=False):
                                 tasks_with_relevant_machine_available.append(task)
                         # The batching number is the number of tasks that will be considered to mapping to machines for starting
-                        # Max_batch_scheduling_count is referring to the batch_scheduling config however this number 
-                        # is the maximum and capped for each usage by the number of locks available which refer to 
+                        # Max_batch_scheduling_count is referring to the batch_scheduling config however this number
+                        # is the maximum and capped for each usage by the number of locks available which refer to
                         # the number of expected available machines.
-                        batching_number = max_batch_scheduling_count if machine_lock._value > max_batch_scheduling_count else machine_lock._value
+                        batching_number = (
+                            max_batch_scheduling_count if machine_lock._value > max_batch_scheduling_count else machine_lock._value
+                        )
                         if len(tasks_with_relevant_machine_available) > batching_number:
                             tasks_with_relevant_machine_available = tasks_with_relevant_machine_available[:batching_number]
                         tasks_to_create = self.db.map_tasks_to_available_machines(tasks_with_relevant_machine_available)
@@ -1049,6 +1102,9 @@ class Scheduler:
                         analysis = AnalysisManager(task, errors)
                         analysis.daemon = True
                         analysis.start()
+                        self.analysis_threads.append(analysis)
+                    # We only want to keep track of active threads
+                    self.analysis_threads = [t for t in self.analysis_threads if t.is_alive()]
                 else:
                     if self.categories_need_VM:
                         # First things first, are there pending tasks?
@@ -1082,12 +1138,16 @@ class Scheduler:
                         analysis = AnalysisManager(task, errors)
                         analysis.daemon = True
                         analysis.start()
+                        self.analysis_threads.append(analysis)
+                    # We only want to keep track of active threads
+                    self.analysis_threads = [t for t in self.analysis_threads if t.is_alive()]
 
             # Deal with errors.
             try:
                 raise errors.get(block=False)
             except queue.Empty:
                 pass
+        self.loop_state = LoopState.INACTIVE
 
     def _thr_periodic_log(self):
         global active_analysis_count
@@ -1128,7 +1188,7 @@ class Scheduler:
                 machine_lock._value,
                 machine_lock._limit_value,
                 active_analysis_count,
-                number_of_machine_scheduled
+                number_of_machine_scheduled,
             )
         else:
             log.debug(
@@ -1139,7 +1199,7 @@ class Scheduler:
                 dict(specific_available_machine_counts),
                 len(self.db.list_machines(locked=True)),
                 dict(specific_locked_machine_counts),
-                len(self.db.list_machines())
+                len(self.db.list_machines()),
             )
         thr = threading.Timer(10, self._thr_periodic_log)
         thr.daemon = True

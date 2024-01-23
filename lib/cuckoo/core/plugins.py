@@ -586,7 +586,7 @@ class RunSignatures:
                                 for ttp in sig.ttps
                                 if {"ttp": ttp, "signature": sig.name} not in self.ttps
                             ]
-                        if hasattr(sig, "mbcs") and not {sig.name: sig.mbcs} in self.mbcs:
+                        if hasattr(sig, "mbcs"):
                             self.mbcs[sig.name] = sig.mbcs
 
         # Link this into the results already at this point, so non-evented signatures can use it
@@ -619,7 +619,7 @@ class RunSignatures:
                                 for ttp in signature.ttps
                                 if {"ttp": ttp, "signature": signature.name} not in self.ttps
                             ]
-                        if hasattr(signature, "mbcs") and not {signature.name: signature.mbcs} in self.mbcs:
+                        if hasattr(signature, "mbcs"):
                             self.mbcs[signature.name] = signature.mbcs
                         signature.matched = True
 

@@ -478,7 +478,7 @@ def main():
                     continue
                 task = Database().view_task(num)
                 if task is None:
-                    task = {"id": args.id, "target": None}
+                    task = {"id": num, "target": None}
                     print("Task not in database")
                 else:
                     # Add sample lookup as we point to sample from TMP. Case when delete_original=on
@@ -486,7 +486,7 @@ def main():
                         samples = Database().sample_path_by_hash(task_id=task.id)
                         for sample in samples:
                             if path_exists(sample):
-                                task["target"] = sample
+                                task.__setattr__("target", sample)
                                 break
 
                 if args.signatures:

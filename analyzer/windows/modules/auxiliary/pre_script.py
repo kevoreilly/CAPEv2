@@ -2,7 +2,6 @@ import glob
 import logging
 import os
 import subprocess
-from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import NetlogFile
@@ -11,11 +10,10 @@ from lib.core.config import Config
 log = logging.getLogger(__name__)
 
 
-class Pre_script(Thread, Auxiliary):
+class Pre_script(Auxiliary):
     def __init__(self, options=None, config=None):
         if options is None:
             options = {}
-        Thread.__init__(self)
         Auxiliary.__init__(self, options, config)
         self.config = Config(cfg="analysis.conf")
         self.enabled = self.config

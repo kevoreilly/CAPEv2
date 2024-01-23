@@ -17,7 +17,7 @@ import traceback
 from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
-from threading import Lock
+from threading import Lock, Thread
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -489,7 +489,6 @@ class Analyzer:
                 # else:
                 log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
-                log.debug('Started auxiliary module "%s"', module.__name__)
             except (NotImplementedError, AttributeError) as e:
                 log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
             except Exception as e:
@@ -706,6 +705,10 @@ class Analyzer:
             try:
                 log.info("Stopping auxiliary module: %s", aux.__class__.__name__)
                 aux.stop()
+                if isinstance(aux, Thread):
+                    aux.join(timeout=10)
+                    if aux.is_alive():
+                        log.warning("Failed to join {aux} thread.")
             except (NotImplementedError, AttributeError):
                 continue
             except Exception as e:

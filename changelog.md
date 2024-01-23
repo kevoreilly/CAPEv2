@@ -1,3 +1,8 @@
+### [23.01.2024]
+* Monitor updates:
+    * PE dumping refinements for small PEs
+    * Debugger: don't trace rundll32 entry point for dlls submitted with bpX=ep
+
 ### [18.01.2024]
 * Monitor update: Harden against volatile register anti-hook technique in e.g. AgentTesla (thanks @ClaudioWayne)
 

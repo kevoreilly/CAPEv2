@@ -1944,7 +1944,7 @@ def cuckoo_status(request):
         tasks_dict_with_counts = db.get_tasks_status_count()
         total_sum = 0
         if isinstance(tasks_dict_with_counts, dict):
-            total_sum = sum(tasks_dict_with_counts.values()
+            total_sum = sum(tasks_dict_with_counts.values())
         resp["data"] = dict(
             version=CUCKOO_VERSION,
             hostname=socket.gethostname(),

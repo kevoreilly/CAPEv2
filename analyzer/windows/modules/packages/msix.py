@@ -46,7 +46,9 @@ class Msix(Package):
 
         # We need the app ID
         try:
-            app_id = subprocess.check_output([powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True)
+            app_id = subprocess.check_output(
+                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True
+            )
         except Exception as e:
             print("Can't get AppID: %s", e)
 

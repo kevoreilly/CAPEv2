@@ -1,7 +1,6 @@
 files:
   accept:
   - "data/yara/**.yar"
-  - "analyzer/windows/data/yara/*.yar"
 
 false_positives:
   ignore:

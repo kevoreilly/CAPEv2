@@ -1,4 +1,5 @@
 # encoding: utf-8
+import hashlib
 import json
 import logging
 import os
@@ -12,6 +13,7 @@ from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
 import pyzipper
+import requests
 from bson.objectid import ObjectId
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -1067,19 +1069,33 @@ def tasks_delete(request, task_id, status=False):
 
 
 @csrf_exempt
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 def tasks_status(request, task_id):
     if not apiconf.taskstatus.get("enabled"):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
 
+    resp = {}
     task = db.view_task(task_id)
     if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
         return Response(resp)
-
-    status = task.to_dict()["status"]
-    resp = {"error": False, "data": status}
+    if request.method == "GET":
+        status = task.to_dict()["status"]
+        resp = {"error": False, "data": status}
+    elif request.method == "POST" and apiconf.user_stop.enabled and request.data.get("status", "") == "finish":
+        machine = db.view_machine(task.machine)
+        # Todo probably add task status if pending
+        if machine.status == "running":
+            try:
+                guest_env = requests.get(f"http://{machine.ip}:8000/environ").json()
+                complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
+                # ToDo proper OS version join
+                dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
+                r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder})
+                resp = {"error": r.status_code == 200, "data": r.text}
+            except requests.exceptions.ConnectionError as e:
+                log.error(e)
     return Response(resp)
 
 
@@ -1931,7 +1947,7 @@ def cuckoo_status(request):
             hostname=socket.gethostname(),
             machines=dict(total=len(db.list_machines()), available=db.count_machines_available()),
             tasks=dict(
-                total=sum(tasks_dict_with_counts.values()),
+                total=sum(tasks_dict_with_counts.values() if tasks_dict_with_counts else 0),
                 pending=tasks_dict_with_counts.get("pending", 0),
                 running=tasks_dict_with_counts.get("running", 0),
                 completed=tasks_dict_with_counts.get("completed", 0),

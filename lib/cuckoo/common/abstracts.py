@@ -264,13 +264,15 @@ class Machinery:
         @param tags: machine tags
         @param arch: machine arch
         @param os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
-        @param need_scheduled: should the result be filtered on 'scheduled' machine status        
+        @param need_scheduled: should the result be filtered on 'scheduled' machine status
         @return: machine or None.
         """
         if machine_id:
             return self.db.lock_machine(label=machine_id, need_scheduled=need_scheduled)
         elif platform:
-            return self.db.lock_machine(platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
+            return self.db.lock_machine(
+                platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled
+            )
         return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
 
     def get_machines_scheduled(self):
@@ -492,7 +494,15 @@ class LibVirtMachinery(Machinery):
 
     def shutdown(self):
         """Override shutdown to free libvirt handlers - they print errors."""
-        super(LibVirtMachinery, self).shutdown()
+        for machine in self.machines():
+            # If the machine is already shutdown, move on
+            if self._status(machine.label) in (self.POWEROFF, self.ABORTED):
+                continue
+            try:
+                log.info("Shutting down machine '%s'", machine.label)
+                self.stop(machine.label)
+            except CuckooMachineError as e:
+                log.warning("Unable to shutdown machine %s, please check manually. Error: %s", machine.label, e)
 
         # Free handlers.
         self.vms = None

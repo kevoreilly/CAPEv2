@@ -534,7 +534,7 @@ class File:
 
         return results
 
-    cape_name_regex = re.compile(r" (?:payload|config|loader)$", re.I)
+    cape_name_regex = re.compile(r" (?:payload|config|loader|strings)$", re.I)
 
     @classmethod
     def yara_hit_provides_detection(cls, hit: Dict[str, Any]) -> bool:
@@ -545,14 +545,14 @@ class File:
     def get_cape_name_from_yara_hit(cls, hit: Dict[str, Any]) -> str:
         """Use the cape_type as defined in the metadata for the yara hit
         (e.g. "SocGholish Payload") and return the part before
-        "Loader", "Payload", or "Config".
+        "Loader", "Payload", "Config", or "Strings"
         """
         return cls.get_cape_name_from_cape_type(hit["meta"].get("cape_type", ""))
 
     @classmethod
     def get_cape_name_from_cape_type(cls, cape_type: str) -> str:
         """Return the part of the cape_type (e.g. "SocGholish Payload") preceding
-        " Payload", " Config", or " Loader".
+        " Payload", " Config", " Loader", or " Strings"
         """
         return cls.cape_name_regex.sub("", cape_type)
 

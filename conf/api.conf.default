@@ -347,3 +347,7 @@ enabled = no
 auth_only = no
 rps = 1/s
 rpm = 4/m
+
+# Allow to request stop of the analysis inside of the VM
+[user_stop]
+enabled = no

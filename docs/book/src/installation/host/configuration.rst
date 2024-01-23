@@ -27,6 +27,14 @@ We suggest you check all configs before starting, to be familiar with the possib
     file in that directory whose name ends in `.conf` will be read (in lexicographic
     order). The last value read for a value will be the one that is used.
 
+.. warning::
+    Any section inside the configs that is marked #community at the top refers to a plugin
+    that was developed by our community, but that doesn't mean that we maintain it.
+    Those plugins might be outdated or broken due to software/dependency changes.
+    If you find anything like this broken, you are more than welcome to fix it and submit a pull request.
+    The alternative is to switch off the offending plugin. Opening an issue for any of these is pointless
+    as we don't maintain them and cannot support them.
+
 .. _cuckoo_conf:
 
 cuckoo.conf

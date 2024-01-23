@@ -95,11 +95,13 @@ def cuckoo_main(max_analysis_count=0):
     cur_path = Path.cwd()
     os.chdir(CUCKOO_ROOT)
 
+    sched = Scheduler(max_analysis_count)
     try:
-        sched = Scheduler(max_analysis_count)
         sched.start()
     except KeyboardInterrupt:
-        sched.stop()
+        log.info("Received keyboard interrupt, stopping.")
+    finally:
+        sched.shutdown_machinery()
 
     os.chdir(cur_path)
 

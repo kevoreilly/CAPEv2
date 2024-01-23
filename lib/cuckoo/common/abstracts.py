@@ -728,6 +728,7 @@ class Processing:
         @param analysis_path: analysis folder path.
         """
         self.analysis_path = analysis_path
+        self.aux_path = os.path.join(self.analysis_path, "aux")
         self.log_path = os.path.join(self.analysis_path, "analysis.log")
         self.package_files = os.path.join(self.analysis_path, "package_files")
         self.file_path = os.path.realpath(os.path.join(self.analysis_path, "binary"))

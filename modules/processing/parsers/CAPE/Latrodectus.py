@@ -16,11 +16,10 @@
 import logging
 import os
 import re
+from contextlib import suppress
 
 import pefile
 import yara
-
-from contextlib import suppress
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 

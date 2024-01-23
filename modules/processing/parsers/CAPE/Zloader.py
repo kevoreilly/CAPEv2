@@ -51,7 +51,7 @@ def decrypt_rc4(key, data):
 
 
 def string_from_offset(data, offset):
-    return data[offset: offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def extract_config(filebuf):
@@ -80,10 +80,9 @@ def extract_config(filebuf):
                 kva_s = 6
 
     if conf_type == "1":
-        va = struct.unpack("I", filebuf[decrypt_conf: decrypt_conf + 4])[0]
+        va = struct.unpack("I", filebuf[decrypt_conf : decrypt_conf + 4])[0]
         key = string_from_offset(filebuf, pe.get_offset_from_rva(va - image_base))
-        data_offset = pe.get_offset_from_rva(
-            struct.unpack("I", filebuf[decrypt_conf + 5: decrypt_conf + 9])[0] - image_base)
+        data_offset = pe.get_offset_from_rva(struct.unpack("I", filebuf[decrypt_conf + 5 : decrypt_conf + 9])[0] - image_base)
         enc_data = filebuf[data_offset:].split(b"\0\0", 1)[0]
         raw = decrypt_rc4(key, enc_data)
         items = list(filter(None, raw.split(b"\x00\x00")))
@@ -96,13 +95,13 @@ def extract_config(filebuf):
             elif len(item) == 16:
                 end_config["RC4 key"] = item
     elif conf_type == "2" and decrypt_key:
-        conf_va = struct.unpack("I", filebuf[decrypt_conf + cva: decrypt_conf + cva + 4])[0]
+        conf_va = struct.unpack("I", filebuf[decrypt_conf + cva : decrypt_conf + cva + 4])[0]
         conf_offset = pe.get_offset_from_rva(conf_va + pe.get_rva_from_offset(decrypt_conf) + cva + 4)
-        conf_size = struct.unpack("I", filebuf[decrypt_key + size_s: decrypt_key + size_s + 4])[0]
-        key_va = struct.unpack("I", filebuf[decrypt_key + kva_s: decrypt_key + kva_s + 4])[0]
+        conf_size = struct.unpack("I", filebuf[decrypt_key + size_s : decrypt_key + size_s + 4])[0]
+        key_va = struct.unpack("I", filebuf[decrypt_key + kva_s : decrypt_key + kva_s + 4])[0]
         key_offset = pe.get_offset_from_rva(key_va + pe.get_rva_from_offset(decrypt_key) + kva_s + 4)
         key = string_from_offset(filebuf, key_offset)
-        conf_data = filebuf[conf_offset: conf_offset + conf_size]
+        conf_data = filebuf[conf_offset : conf_offset + conf_size]
         raw = decrypt_rc4(key, conf_data)
         items = list(filter(None, raw.split(b"\x00\x00")))
         end_config["Botnet name"] = items[0].decode("utf-8")

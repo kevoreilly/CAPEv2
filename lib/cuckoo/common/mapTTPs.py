@@ -28,4 +28,7 @@ def mapTTP(oldTTPs: list, mbcs: list):
     for item in ttpsList:
         grouped_ttps[item["signature"]].append(item["ttp"])
 
-    return [{"signature": signature, "ttps": list(dict.fromkeys(ttps)), "mbcs": mbcs.get(signature, [])} for signature, ttps in grouped_ttps.items()]
+    return [
+        {"signature": signature, "ttps": list(dict.fromkeys(ttps)), "mbcs": mbcs.get(signature, [])}
+        for signature, ttps in grouped_ttps.items()
+    ]

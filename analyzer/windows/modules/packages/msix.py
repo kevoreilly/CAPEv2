@@ -43,7 +43,6 @@ class Msix(Package):
             ps_version = subprocess.check_output([powershell, *shlex.split(args)], universal_newlines=True)
         except Exception as e:
             print("Can't get PowerShell version, assuming we are on V5: %s", e)
-        # self.execute(powershell, args, path)
 
         # We need the app ID
         try:
@@ -51,7 +50,7 @@ class Msix(Package):
         except Exception as e:
             print("Can't get AppID: %s", e)
 
-        args = f"-NoProfile -ExecutionPolicy bypass {ps_7_command} explorer shell:appsFolder\{app_id}"
+        args = f"-NoProfile -ExecutionPolicy bypass {ps_7_command} explorer shell:appsFolder\\{app_id}"
 
         # now we need to get app id and launch it
         return self.execute(powershell, args, path)

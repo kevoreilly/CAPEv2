@@ -78,7 +78,7 @@ def upload_buffer_to_host(buffer, dump_path, filepath=False, pids="", ppids="", 
                 while idx < size:
                     nc.send(buffer[idx : idx + BUFSIZE], retry=True)
                     idx += BUFSIZE
-    except Exception as e:
+    except Exception:
         log.exception("Exception uploading buffer %s to host.", dump_path)
 
 

@@ -1167,7 +1167,7 @@ class AMSI:
         try:
             self.providers = [ProviderInfo("AMSI", GUID("{2A576B87-09A7-520E-C21A-4942F0271D67}"))]
         except OSError as err:
-            raise OSError("AMSI not supported on this platform")
+            raise OSError("AMSI not supported on this platform") from err
         self.provider = None
         self.properties = TraceProperties()
         self.session_name = "{:s}".format(str(uuid.uuid4()))

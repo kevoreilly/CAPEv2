@@ -460,7 +460,9 @@ class Analyzer:
         # To generate offline certs dump file run: CertUtil -generateSSTFromWU dump.sst
         if os.path.exists("data\\dump.sst"):
             try:
-                _ = subprocess.check_output(["certutil", "-addstore", "-enterprise", "Root", "data\\dump.sst"], universal_newlines=True, startupinfo=si)
+                _ = subprocess.check_output(
+                    ["certutil", "-addstore", "-enterprise", "Root", "data\\dump.sst"], universal_newlines=True, startupinfo=si
+                )
             except Exception as e:
                 log.error("Can't update certificates: %s", str(e))
 

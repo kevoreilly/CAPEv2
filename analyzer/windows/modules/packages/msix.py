@@ -34,7 +34,9 @@ class Msix(Package):
         app_id = ""
         last_app_id = ""
         try:
-            ps_version = subprocess.check_output([powershell, "(Get-host).version.Major"], universal_newlines=True, startupinfo=self.startupinfo)
+            ps_version = subprocess.check_output(
+                [powershell, "(Get-host).version.Major"], universal_newlines=True, startupinfo=self.startupinfo
+            )
         except Exception as e:
             print("Can't get PowerShell version, assuming we are on V5: %s", e)
 
@@ -44,7 +46,9 @@ class Msix(Package):
 
         try:
             last_app_id = subprocess.check_output(
-                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True, startupinfo=self.startupinfo
+                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"],
+                universal_newlines=True,
+                startupinfo=self.startupinfo,
             )
         except Exception as e:
             print("Can't get AppID: %s", e)
@@ -60,7 +64,9 @@ class Msix(Package):
         # We need the app ID
         try:
             app_id = subprocess.check_output(
-                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True, startupinfo=self.startupinfo
+                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"],
+                universal_newlines=True,
+                startupinfo=self.startupinfo,
             )
         except Exception as e:
             print("Can't get AppID: %s", e)

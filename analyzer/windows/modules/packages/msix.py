@@ -4,9 +4,9 @@
 import shlex
 import subprocess
 
-from lib.common.exceptions import CuckooPackageError
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.exceptions import CuckooPackageError
 
 
 class Msix(Package):

@@ -24,6 +24,9 @@ class Msix(Package):
     # Add-AppxPackage Microsoft.WindowsTerminal_<versionNumber>.msixbundle
 
     def start(self, path):
+        self.startupinfo = subprocess.STARTUPINFO()
+        self.startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
         powershell = self.get_path_glob("PowerShell")
         path = check_file_extension(path, ".msix")
 
@@ -31,7 +34,7 @@ class Msix(Package):
         app_id = ""
         last_app_id = ""
         try:
-            ps_version = subprocess.check_output([powershell, "(Get-host).version.Major"], universal_newlines=True)
+            ps_version = subprocess.check_output([powershell, "(Get-host).version.Major"], universal_newlines=True, startupinfo=self.startupinfo)
         except Exception as e:
             print("Can't get PowerShell version, assuming we are on V5: %s", e)
 
@@ -41,22 +44,23 @@ class Msix(Package):
 
         try:
             last_app_id = subprocess.check_output(
-                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True
+                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True, startupinfo=self.startupinfo
             )
         except Exception as e:
             print("Can't get AppID: %s", e)
 
+        # -WindowStyle hidden
         args = f'-NoProfile -ExecutionPolicy bypass {ps_7_command} Add-AppPackage -path "{path}"'
         # this is just install
         try:
-            ps_version = subprocess.check_output([powershell, *shlex.split(args)], universal_newlines=True)
+            _ = subprocess.check_output([powershell, *shlex.split(args)], universal_newlines=True, startupinfo=self.startupinfo)
         except Exception as e:
             print("Can't get PowerShell version, assuming we are on V5: %s", e)
 
         # We need the app ID
         try:
             app_id = subprocess.check_output(
-                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True
+                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True, startupinfo=self.startupinfo
             )
         except Exception as e:
             print("Can't get AppID: %s", e)

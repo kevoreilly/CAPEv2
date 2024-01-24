@@ -63,7 +63,7 @@ class Msix(Package):
 
         # app_id should be our recently installer MSIX app
         if last_app_id == app_id:
-            raise CuckooPackageError("MSIX package wasn't installer properly, see screenshots and logs for more details")
+            raise CuckooPackageError("MSIX package wasn't installed properly, see screenshots and logs for more details")
 
         args = f"-NoProfile -ExecutionPolicy bypass {ps_7_command} explorer shell:appsFolder\\{app_id}"
 

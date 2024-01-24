@@ -658,3 +658,7 @@ License, Version 2.0.
 The files bootstrap.min.js, bootstrap.min.css, bootstrap-responsive.min.css,
 glyphicons-halflings.png, glyphicons-halflings-white.png are copyrighted by Twitter, Inc.
 and licensed under the Apache License, Version 2.0.
+
+The file analyzer/windows/modules/amsi.py uses parts of pywintrace
+(https://github.com/fireeye/pywintrace), which is copyrighted by FireEye, Inc. and licensed
+under the Apache License, Version 2.0.

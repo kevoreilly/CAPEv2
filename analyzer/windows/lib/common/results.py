@@ -47,25 +47,39 @@ def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", categor
         return
 
     log.info("Uploading file %s to %s; Size is %d; Max size: %s", file_path, dump_path, size, config.upload_max_size)
-    nc = None
     try:
-        nc = NetlogFile()
-        nc.init(dump_path, file_path, pids, ppids, metadata, category, duplicated)
-        if not duplicated and file_path:
-            with open(file_path, "rb") as infd:
-                buf = infd.read(BUFSIZE)
-                while buf:
-                    read_size = len(buf)
-                    nc.send(buf[:size], retry=True)
-                    if read_size > size:
-                        break
-                    size -= read_size
+        with NetlogFile() as nc:
+            nc.init(dump_path, file_path, pids, ppids, metadata, category, duplicated)
+            if not duplicated and file_path:
+                with open(file_path, "rb") as infd:
                     buf = infd.read(BUFSIZE)
+                    while buf:
+                        read_size = len(buf)
+                        nc.send(buf[:size], retry=True)
+                        if read_size > size:
+                            break
+                        size -= read_size
+                        buf = infd.read(BUFSIZE)
     except Exception as e:
         log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
-    finally:
-        if nc:
-            nc.close()
+
+
+def upload_buffer_to_host(buffer, dump_path, filepath=False, pids="", ppids="", metadata="", category="", duplicated=False):
+    size = len(buffer)
+    log.info("Uploading buffer to %s; Size: %d", dump_path, size)
+    if int(config.upload_max_size) < size and not config.do_upload_max_size:
+        log.warning("Buffer is too big: %d; max size: %d", size, config.upload_max_size)
+        return
+    try:
+        with NetlogFile() as nc:
+            nc.init(dump_path, filepath, pids, ppids, metadata, category, duplicated)
+            if not duplicated:
+                idx = 0
+                while idx < size:
+                    nc.send(buffer[idx : idx + BUFSIZE], retry=True)
+                    idx += BUFSIZE
+    except Exception:
+        log.exception("Exception uploading buffer %s to host.", dump_path)
 
 
 class NetlogConnection:
@@ -73,7 +87,12 @@ class NetlogConnection:
         self.hostip, self.hostport = config.ip, config.port
         self.sock = None
         self.proto = proto
-        self.connected = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.close()
 
     def connect(self):
         # Try to connect as quickly as possible. Just sort of force it to connect with a short timeout.
@@ -87,7 +106,6 @@ class NetlogConnection:
             self.sock = s
             self.sock.settimeout(None)
             self.sock.sendall(self.proto)
-            self.connected = True
 
     def send(self, data, retry=True):
         if not self.sock:
@@ -109,6 +127,9 @@ class NetlogConnection:
             self.close()
 
     def close(self):
+        if not self.sock:
+            return
+
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()

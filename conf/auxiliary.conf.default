@@ -17,6 +17,7 @@
 
 # Modules to be enabled or not inside of the VM
 [auxiliary_modules]
+amsi = no
 browser = yes
 curtain = no
 digisig = yes

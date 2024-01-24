@@ -1,3 +1,6 @@
+### [24.01.2024]
+* Monitor update: Improve handling of irregularly mapped PE images (e.g. from 7911e39e07995e3afb97ac0e5a4608c10c2e278bef29924ecc3924edfcc495ca)
+
 ### [23.01.2024]
 * Monitor updates:
     * PE dumping refinements for small PEs

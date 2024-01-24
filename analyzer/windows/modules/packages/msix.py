@@ -4,6 +4,7 @@
 import shlex
 import subprocess
 
+from lib.common.exceptions import CuckooPackageError
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
@@ -28,6 +29,7 @@ class Msix(Package):
 
         ps_version = "5"
         app_id = ""
+        last_app_id = ""
         try:
             ps_version = subprocess.check_output([powershell, "(Get-host).version.Major"], universal_newlines=True)
         except Exception as e:
@@ -36,6 +38,13 @@ class Msix(Package):
         ps_7_command = ""
         if ps_version.startswith("7"):
             ps_7_command = "Import-Module Appx -UseWindowsPowerShell"
+
+        try:
+            last_app_id = subprocess.check_output(
+                [powershell, "Get-StartApps | Select AppID -last 1 | ForEach-Object {$_.AppID }"], universal_newlines=True
+            )
+        except Exception as e:
+            print("Can't get AppID: %s", e)
 
         args = f'-NoProfile -ExecutionPolicy bypass {ps_7_command} Add-AppPackage -path "{path}"'
         # this is just install
@@ -52,7 +61,13 @@ class Msix(Package):
         except Exception as e:
             print("Can't get AppID: %s", e)
 
+        # app_id should be our recently installer MSIX app
+        if last_app_id == app_id:
+            raise CuckooPackageError("MSIX package wasn't installer properly, see screenshots and logs for more details")
+
         args = f"-NoProfile -ExecutionPolicy bypass {ps_7_command} explorer shell:appsFolder\\{app_id}"
+
+        # ToDo abort analysis here somehow
 
         # now we need to get app id and launch it
         return self.execute(powershell, args, path)

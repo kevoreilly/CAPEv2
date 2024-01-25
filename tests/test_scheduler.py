@@ -345,6 +345,7 @@ class TestAnalysisManager:
         opts = analysis_man.build_options()
         opts["target"] = opts["target"].rsplit("/", 1)[-1]
         assert opts == {
+            "amsi": False,
             "category": "file",
             "exports": "",
             "target": "test_scheduler.py",

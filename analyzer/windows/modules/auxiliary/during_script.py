@@ -50,7 +50,7 @@ class During_script(Thread, Auxiliary):
         else:
             self.do_run = False
 
-    def start(self):
+    def run(self):
         if not self.do_run:
             return
         try:

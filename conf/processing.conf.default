@@ -43,6 +43,9 @@ enabled = no
 [dumptls]
 enabled = no
 
+[amsi]
+enabled = no
+
 [behavior]
 enabled = yes
 # Toggle specific modules within the BehaviorAnalysis class

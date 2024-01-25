@@ -17,7 +17,7 @@ import traceback
 from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
-from threading import Lock
+from threading import Lock, Thread
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -450,6 +450,22 @@ class Analyzer:
         else:
             copy("bin\\loader_x64.exe", LOADER64_NAME)
 
+        si = subprocess.STARTUPINFO()
+        # STARTF_USESHOWWINDOW
+        si.dwFlags = 1
+        # SW_HIDE
+        si.wShowWindow = 0
+
+        # Force update of Windows certificates offline if update file exist
+        # To generate offline certs dump file run: CertUtil -generateSSTFromWU dump.sst
+        if os.path.exists("data\\dump.sst"):
+            try:
+                _ = subprocess.check_output(
+                    ["certutil", "-addstore", "-enterprise", "Root", "data\\dump.sst"], universal_newlines=True, startupinfo=si
+                )
+            except Exception as e:
+                log.error("Can't update certificates: %s", str(e))
+
         # Initialize Auxiliary modules
         Auxiliary()
         prefix = f"{auxiliary.__name__}."
@@ -489,7 +505,6 @@ class Analyzer:
                 # else:
                 log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
-                log.debug('Started auxiliary module "%s"', module.__name__)
             except (NotImplementedError, AttributeError) as e:
                 log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
             except Exception as e:
@@ -517,11 +532,6 @@ class Analyzer:
         zer0m0n.dumpint(int(self.options.get("dumpint", 0)))
         """
 
-        si = subprocess.STARTUPINFO()
-        # STARTF_USESHOWWINDOW
-        si.dwFlags = 1
-        # SW_HIDE
-        si.wShowWindow = 0
         # log.info("Stopping WMI Service")
         subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
         # log.info("Stopped WMI Service")
@@ -706,6 +716,10 @@ class Analyzer:
             try:
                 log.info("Stopping auxiliary module: %s", aux.__class__.__name__)
                 aux.stop()
+                if isinstance(aux, Thread):
+                    aux.join(timeout=10)
+                    if aux.is_alive():
+                        log.warning("Failed to join {aux} thread.")
             except (NotImplementedError, AttributeError):
                 continue
             except Exception as e:

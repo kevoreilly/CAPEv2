@@ -25,7 +25,6 @@ class Msix(Package):
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")
         path = check_file_extension(path, ".msix")
-        cwd = os.getcwd()
-        args = f"-NoProfile -ExecutionPolicy bypass {cwd}\data\msix.ps1 {path}"
+        args = f"-NoProfile -ExecutionPolicy bypass {os.getcwd()}\data\msix.ps1 {path}"
         # now we need to get app id and launch it
         return self.execute(powershell, args, powershell)

@@ -24,23 +24,9 @@ $os=Get-ComputerInfo | Select-Object OSName| ForEach-Object {$_.OsName }
 https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package
 -AllowUnsigned only available on Window 11#>
 
-Get-StartApps | Select-Object AppID -last 1 | ForEach-Object {$_.AppID }
-
-
 $pre_last_installed_app=Get-StartApps | Select-Object AppID -last 1 | ForEach-Object {$_.AppID }
-
-Write-Host Script Start
-Write-Host $pre_last_installed_app
-Write-Host Script End
-
 Add-AppPackage -path $Args[0]
-
-Get-StartApps | Select-Object AppID -last 1 | ForEach-Object {$_.AppID }
 $last_installed_app=Get-StartApps | Select-Object AppID -last 1 | ForEach-Object {$_.AppID }
-
-Write-Host Script Start
-Write-Host $last_installed_app
-Write-Host Script End
 
 if ($pre_last_installed_app -eq $last_installed_app)
 {

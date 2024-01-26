@@ -11,13 +11,10 @@ from pathlib import Path
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
-from lib.common.zip_utils import (
-    attempt_multiple_passwords,
-    extract_archive,
-    get_file_names,
-)
+from lib.common.zip_utils import attempt_multiple_passwords, extract_archive, get_file_names
 
 log = logging.getLogger(__name__)
+
 
 class Msix(Package):
     """MSIX/MsixBundle analysis package."""

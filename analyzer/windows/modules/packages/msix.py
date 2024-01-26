@@ -1,9 +1,9 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-import os
 import json
 import logging
+import os
 from contextlib import suppress
 from pathlib import Path
 

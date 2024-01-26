@@ -49,7 +49,7 @@ class Msix(Package):
         if len(file_names) and "config.json" in file_names:
             try_multiple_passwords = attempt_multiple_passwords(self.options, password)
             extract_archive(seven_zip_path, path, orig_path.parent, password, try_multiple_passwords)
-            log.info(f"Extracted {len(file_names)} files from {path} to {orig_path.parent}")
+            log.debug(f"Extracted {len(file_names)} files from {path} to {orig_path.parent}")
 
         with suppress(Exception):
             config_path = str(orig_path.with_name("config.json"))

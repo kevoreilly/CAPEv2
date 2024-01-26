@@ -28,7 +28,10 @@ class WindowsScriptFile:
 
     def run(self) -> List[str]:
         ret = []
-        source = Path(self.filepath).read_text()
+        try:
+            source = Path(self.filepath).read_text()
+        except UnicodeDecodeError:
+            return ret
 
         # Get rid of superfluous comments.
         source = re.sub("/\\*.*?\\*/", "", source, flags=re.S)

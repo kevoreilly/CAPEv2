@@ -30,7 +30,7 @@ class WindowsScriptFile:
         ret = []
         try:
             source = Path(self.filepath).read_text()
-        except UnicodeDecodeError as e:
+        except UnicodeDecodeError:
             return ret
 
         # Get rid of superfluous comments.

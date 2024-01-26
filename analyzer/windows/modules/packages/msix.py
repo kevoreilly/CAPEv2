@@ -4,14 +4,11 @@
 import os
 import json
 import logging
-import shlex
-import subprocess
 from contextlib import suppress
 from pathlib import Path
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
-from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import attempt_multiple_passwords, extract_archive, get_file_names
 
 log = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
-from lib.common.zip_utils import attempt_multiple_passwords, extract_archive, get_file_names
+from lib.common.zip_utils import extract_zip, get_zip_file_names
 
 log = logging.getLogger(__name__)
 
@@ -18,29 +18,19 @@ class Msix(Package):
     """MSIX/MsixBundle analysis package."""
 
     PATHS = [
-        ("ProgramFiles", "7-Zip", "7z.exe"),
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v*.0", "powershell.exe"),
         ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
-
-    # https://github.com/Microsoft/Terminal#installing-and-running-windows-terminal
-    # NOTE: If you are using PowerShell 7+, please run
-    # Import-Module Appx -UseWindowsPowerShell
-    # before using Add-AppxPackage.
-    # Add-AppxPackage Microsoft.WindowsTerminal_<versionNumber>.msixbundle
 
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")
         path = check_file_extension(path, ".msix")
         orig_path = Path(path)
-        seven_zip_path = self.get_path_app_in_path("7z.exe")
-        password = self.options.get("password", "infected")
-        file_names = get_file_names(seven_zip_path, path)
+        file_names = get_zip_file_names(path)
         args = ""
 
         if len(file_names) and "config.json" in file_names:
-            try_multiple_passwords = attempt_multiple_passwords(self.options, password)
-            extract_archive(seven_zip_path, path, orig_path.parent, password, try_multiple_passwords)
+            extract_zip(path, orig_path.parent)
             log.debug(f"Extracted {len(file_names)} files from {path} to {orig_path.parent}")
 
         with suppress(Exception):
@@ -59,4 +49,5 @@ class Msix(Package):
         if not args:
             args = f"-NoProfile -ExecutionPolicy bypass {os.getcwd()}\data\msix.ps1 {path}"
             # now we need to get app id and launch it
-            return self.execute(powershell, args, powershell)
+
+        return self.execute(powershell, args, powershell)

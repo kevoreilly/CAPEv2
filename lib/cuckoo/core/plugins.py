@@ -633,20 +633,146 @@ class RunSignatures:
         # Sort the matched signatures by their severity level.
         matched.sort(key=lambda key: key["severity"])
 
-        # Tweak later as needed
-        malscore = 0.0
-        for match in matched:
-            if match["severity"] == 1:
-                malscore += match["weight"] * 0.5 * (match["confidence"] / 100.0)
+        fileType = self.results['info']['package']
+        finalMalscore = 0.0
+        
+        if fileType in ('exe', 'dll', 'regsvr32'):
+            # We have 5 methodologies
+            # 1. The file is Malicious-Known (The sample is detected by YARA)
+            ## score 10/10 (Malicious)
+            #=======================================================================================================#
+            # 2. If the file is Malicious-Unknown
+            ## triggered some signatures that has specific malicious categories such as:
+            ## ["malware", "ransomware", "infostealer", "rat", "trojan", "rootkit", "bootkit", "wiper", "banker",
+            ## "bypass", "anti-sandbox", "keylogger"]
+            ## score [7-9]/10 (Malicious)
+            #=======================================================================================================#
+            # 3. If the file is Suspicious-Unknown
+            ## triggered some signatures that has specific suspicious categories such as:
+            ## ["network", "encryption", "anti-vm", "anti-analysis", "anti-av", "anti-debug", "anti-emulation",
+            ## "persistence", "stealth", "discovery", "injection", "generic",  "account", "bot", "browser",
+            #  "allocation", "command"]
+            ## score[4-6]/10 (Suspicious)
+            #=======================================================================================================#
+            # 4. If the file is benign
+            ## Likely all trusted files are digitally signed.
+            ## score [0-3]/10 (benign)
+            #=======================================================================================================#
+            # 5. If the file doesn't trigger any signatures
+            ## The file is undetected/failed
+            tempScore1 = 0.0
+            tempScore2 = 0.0
+            is_maliciousCategoryHit = False
+            is_suspiciousCategoryHit = False
+            is_detected = False
+    
+            # CAPE uses signtool.exe utility to verify the digital signature embedded in the PE file.
+            is_digital_signauture_verified = self.results.get("target", {}).get("file", {}).get("pe", {}).get("guest_signers", {}).get("aux_valid", False)
+    
+            maliciousCategories = ["malware", "ransomware", "infostealer", "rat", "trojan", "rootkit", "bootkit", "wiper",
+                                   "banker", "bypass", "anti-sandbox", "keylogger"]
+    
+            suspiciousCategories = ["network", "encryption", "anti-vm", "anti-analysis", "anti-av", "anti-debug",
+                                    "anti-emulation", "persistence", "stealth", "discovery", "injection", "generic",
+                                    "account", "bot", "browser", "allocation", "command", "execution"]
+    
+            for detection in self.results.get("detections", []):
+                if any("Yara" in detail for detail in detection.get("details", [])):
+                    is_detected = True
+    
+            for matchedSig in matched:
+                if set(matchedSig.get("categories", [])) & set(maliciousCategories):
+                    if matchedSig["confidence"] > 70:
+                        is_maliciousCategoryHit = True
+                        matchedSig["weight"] = 4
+                        if matchedSig["severity"] == 1:
+                            tempScore1 += matchedSig["weight"] * 0.5 * (matchedSig["confidence"] / 100.0)
+                        else:
+                            tempScore1 += matchedSig["weight"] * (matchedSig["severity"] - 1) * \
+                                          (matchedSig["confidence"] / 100.0)
+    
+                if set(matchedSig.get("categories", [])) & set(suspiciousCategories):
+                    is_suspiciousCategoryHit = True
+                    if matchedSig["severity"] == 1:
+                        tempScore2 += matchedSig["weight"] * 0.5 * (matchedSig["confidence"] / 100.0)
+                    else:
+                        tempScore2 += matchedSig["weight"] * (matchedSig["severity"] - 1) * \
+                                      (matchedSig["confidence"] / 100.0)
+    
+            # 1. The file is Malicious-Known (The sample is detected by YARA)
+            ## score 10/10 (Malicious)
+            if is_detected:
+                self.status = "Malicious"
+                finalMalscore = 10.0
+    
+            # 2. If the file is Malicious-Unknown
+            ## triggered some signatures that has specific malicious categories such as:
+            ## ["malware", "ransomware", "infostealer", "rat", "trojan", "rootkit", "bootkit", "wiper", "banker",
+            ## "bypass", "anti-sandbox", "keylogger"]
+            ## score [7-9]/10 (Malicious)
+            elif is_maliciousCategoryHit:
+                finalMalscore = tempScore1
+                self.status = "Malicious"
+    
+                ## Include numbers between that range
+                if 7.0 < finalMalscore < 9.0:
+                    pass
+                elif finalMalscore >= 9.0:
+                    finalMalscore = 9.0
+                elif finalMalscore < 7.0:
+                    finalMalscore = 7.0
+    
+            # 3. If the file is Suspicious-Unknown
+            ## triggered some signatures that has specific suspicious categories such as:
+            ## ["network", "encryption", "anti-vm", "anti-analysis", "anti-av", "anti-debug", "anti-emulation",
+            ## "persistence", "stealth", "discovery", "injection", "generic",  "account", "bot", "browser",
+            #  "allocation", "command"]
+            ## score[4-6]/10 (Suspicious)
+            elif is_suspiciousCategoryHit:
+                finalMalscore = tempScore2
+    
+                # 4. If the file is benign
+                ## Likely all trusted files are digitally signed.
+                ## score [0-3]/10 (benign)
+                if is_digital_signauture_verified:
+                    finalMalscore = 0.0
+                    self.status = "Clean"
+    
+                elif finalMalscore < 4.0:
+                    self.status = "Clean"
+    
+                ## Include numbers between that range
+                elif 4.0 < finalMalscore < 6.0:
+                    self.status = "Suspicious"
+                elif finalMalscore == 4:
+                    finalMalscore = 4
+                    self.status = "Suspicious"
+                elif finalMalscore >= 6.0:
+                    finalMalscore = 6.0
+                    self.status = "Suspicious"
+    
+            # 5. If the file doesn't trigger any signatures
+            ## The file is undetected/failed
             else:
-                malscore += match["weight"] * (match["severity"] - 1) * (match["confidence"] / 100.0)
-        if malscore > 10.0:
-            malscore = 10.0
-        if malscore < 0.0:
-            malscore = 0.0
+                finalMalscore = None
+                if self.results.get("behavior", {}).get("processtree", []):
+                    self.status = "Undetected"
+                else:
+                    self.status = "Failed"
+        else:
+            for match in matched:
+                if match["severity"] == 1:
+                    finalMalscore += match["weight"] * 0.5 * (match["confidence"] / 100.0)
+                else:
+                    finalMalscore += match["weight"] * (match["severity"] - 1) * (match["confidence"] / 100.0)
+            if finalMalscore > 10.0:
+                finalMalscore = 10.0
+            if finalMalscore < 0.0:
+                finalMalscore = 0.0
 
-        self.results["malscore"] = malscore
+        self.results["malscore"] = finalMalscore
         self.results["ttps"] = mapTTP(self.ttps, self.mbcs)
+        self.results["status"] = self.status
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         if (

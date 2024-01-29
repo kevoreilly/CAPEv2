@@ -65,7 +65,8 @@ def get_form_data(platform):
         name = os.path.splitext(name)[0]
         if name == "__init__":
             continue
-        if name not in web_conf.package_exclusion.packages:
+        exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
+        if name not in exclusions:
             packages.append(name)
 
     # Prepare a list of VM names, description label based on tags.

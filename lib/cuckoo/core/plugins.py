@@ -324,6 +324,7 @@ class RunSignatures:
         self.mbcs = {}
         self.cfg_processing = processing_cfg
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
+        self.status = None
 
         # Gather all enabled & up-to-date Signatures.
         self.signatures = []

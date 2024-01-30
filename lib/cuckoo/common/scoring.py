@@ -6,7 +6,7 @@ def calc_scoring(results: dict, matched: list):
     if not fileType:
         return finalMalscore, status
 
-    if fileType in ("exe", "dll", "regsvr32"):
+    if fileType in ("exe", "dll", "regsvr"):
         # We have 5 methodologies
         # 1. The file is Malicious-Known (The sample is detected by YARA)
         ## score 10/10 (Malicious)

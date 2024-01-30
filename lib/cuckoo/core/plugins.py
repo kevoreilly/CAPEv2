@@ -325,7 +325,6 @@ class RunSignatures:
         self.mbcs = {}
         self.cfg_processing = processing_cfg
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
-        self.status = None
 
         # Gather all enabled & up-to-date Signatures.
         self.signatures = []
@@ -639,7 +638,7 @@ class RunSignatures:
 
         self.results["malscore"] = finalMalscore
         self.results["ttps"] = mapTTP(self.ttps, self.mbcs)
-        self.results["status"] = self.status
+        self.results["status"] = status
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         if (

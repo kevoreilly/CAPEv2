@@ -634,11 +634,11 @@ class RunSignatures:
         # Sort the matched signatures by their severity level.
         matched.sort(key=lambda key: key["severity"])
 
-        malscore, status = calc_scoring(self.results, matched)
+        malscore, malstatus = calc_scoring(self.results, matched)
 
         self.results["malscore"] = malscore
         self.results["ttps"] = mapTTP(self.ttps, self.mbcs)
-        self.results["malstatus"] = status
+        self.results["malstatus"] = malstatus
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         if (

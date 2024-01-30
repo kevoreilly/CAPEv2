@@ -1,6 +1,10 @@
 def calc_scoring(results: dict, matched: list):
-    fileType = results["info"]["package"]
     finalMalscore = 0.0
+    status = None
+    fileType = results.get("info", {}).get("package")
+
+    if not fileType:
+        return finalMalscore, status
 
     if fileType in ("exe", "dll", "regsvr32"):
         # We have 5 methodologies

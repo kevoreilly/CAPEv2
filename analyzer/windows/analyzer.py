@@ -450,6 +450,22 @@ class Analyzer:
         else:
             copy("bin\\loader_x64.exe", LOADER64_NAME)
 
+        si = subprocess.STARTUPINFO()
+        # STARTF_USESHOWWINDOW
+        si.dwFlags = 1
+        # SW_HIDE
+        si.wShowWindow = 0
+
+        # Force update of Windows certificates offline if update file exist
+        # To generate offline certs dump file run: CertUtil -generateSSTFromWU dump.sst
+        if os.path.exists("data\\dump.sst"):
+            try:
+                _ = subprocess.check_output(
+                    ["certutil", "-addstore", "-enterprise", "Root", "data\\dump.sst"], universal_newlines=True, startupinfo=si
+                )
+            except Exception as e:
+                log.error("Can't update certificates: %s", str(e))
+
         # Initialize Auxiliary modules
         Auxiliary()
         prefix = f"{auxiliary.__name__}."
@@ -516,11 +532,6 @@ class Analyzer:
         zer0m0n.dumpint(int(self.options.get("dumpint", 0)))
         """
 
-        si = subprocess.STARTUPINFO()
-        # STARTF_USESHOWWINDOW
-        si.dwFlags = 1
-        # SW_HIDE
-        si.wShowWindow = 0
         # log.info("Stopping WMI Service")
         subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
         # log.info("Stopped WMI Service")

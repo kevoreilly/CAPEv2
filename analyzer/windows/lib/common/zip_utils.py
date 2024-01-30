@@ -305,3 +305,15 @@ def attempt_multiple_passwords(options: dict, password: str) -> bool:
             return True
 
     return False
+
+
+def get_zip_file_names(zip_path):
+    """Get information from ZIP file.
+    @param zip_path: zip file path
+    @return: ZipInfo class
+    """
+    try:
+        with ZipFile(zip_path, "r") as archive:
+            return archive.namelist()
+    except BadZipfile as e:
+        raise CuckooPackageError("Invalid Zip file") from e

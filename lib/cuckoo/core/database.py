@@ -909,7 +909,7 @@ class Database(object, metaclass=Singleton):
                     # out already mapped machines
                     for assigned in assigned_machines:
                         machines = machines.filter(Machine.label.notlike(assigned.label))
-                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
+                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status == None))  # noqa: E711
                     # Get the first free machine.
                     machine = machines.first()
                     if machine:
@@ -1112,7 +1112,7 @@ class Database(object, metaclass=Singleton):
                     include_reserved=include_reserved,
                 )
                 if not include_scheduled:
-                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status is None))
+                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status == None))  # noqa: E711
                 return machines.all()
             except SQLAlchemyError as e:
                 print(e)

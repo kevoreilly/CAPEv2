@@ -28,6 +28,7 @@ from lib.cuckoo.common.mapTTPs import mapTTP
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.scoring import calc_scoring
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -633,20 +634,11 @@ class RunSignatures:
         # Sort the matched signatures by their severity level.
         matched.sort(key=lambda key: key["severity"])
 
-        # Tweak later as needed
-        malscore = 0.0
-        for match in matched:
-            if match["severity"] == 1:
-                malscore += match["weight"] * 0.5 * (match["confidence"] / 100.0)
-            else:
-                malscore += match["weight"] * (match["severity"] - 1) * (match["confidence"] / 100.0)
-        if malscore > 10.0:
-            malscore = 10.0
-        if malscore < 0.0:
-            malscore = 0.0
+        malscore, malstatus = calc_scoring(self.results, matched)
 
         self.results["malscore"] = malscore
         self.results["ttps"] = mapTTP(self.ttps, self.mbcs)
+        self.results["malstatus"] = malstatus
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         if (

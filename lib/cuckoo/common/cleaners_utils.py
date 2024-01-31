@@ -7,11 +7,10 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
 
+
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
-from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir
 from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
@@ -25,6 +24,8 @@ from lib.cuckoo.core.database import (
     Task,
 )
 from lib.cuckoo.core.startup import create_structure, init_console_logging
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.exceptions import CuckooOperationalError
 
 log = logging.getLogger(__name__)
 
@@ -412,9 +413,7 @@ def cuckoo_clean_before_day(args: dict):
         id_arr = [entry["info"]["id"] for entry in result]
     if id_arr and args.get("custom_include_filter"):
         result = list(
-            mongo_find(
-                "analysis", {"info.custom": {"$regex": args.get("custom_include_filter")}, "$or": id_arr}, {"info.id": 1, "_id": 0}
-            )
+            mongo_find("analysis", {"info.custom": {"$regex": args.get("custom_include_filter")}, "$or": id_arr}, {"info.id": 1, "_id": 0})
         )
         id_arr = [entry["info"]["id"] for entry in result]
     log.info("number of matching records %s" % len(id_arr))
@@ -624,3 +623,4 @@ def execute_cleanup(args: dict):
 
     if args.get("delete_unused_file_data_in_mongo"):
         delete_unused_file_data_in_mongo()
+

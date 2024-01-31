@@ -59,13 +59,13 @@ logger = logging.getLogger(__name__)
 
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
+    exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
 
     packages = []
     for name in files:
         name = os.path.splitext(name)[0]
         if name == "__init__":
             continue
-        exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
         if name not in exclusions:
             packages.append(name)
 

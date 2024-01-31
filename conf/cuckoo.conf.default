@@ -210,3 +210,13 @@ path = /mnt/tmpfs/
 # in mb
 freespace = 2000
 
+[cleaner]
+# Invoke cleanup if <= of free space detected. see/set freespace/freespace_processing
+enabled = no
+# set any value to 0 to disable it. In days
+binaries_days = 5
+tmp_days = 5
+# Remove analysis folder
+analysis_days = 5
+# Delete mongo data
+mongo = no

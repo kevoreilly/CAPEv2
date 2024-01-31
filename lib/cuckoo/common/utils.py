@@ -31,6 +31,8 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_is_dir, path_mkdir, path_read_file
+# ToDo
+# from lib.cuckoo.common.cleaners_utils import execute_cleanup
 
 try:
     import re2 as re
@@ -188,6 +190,18 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     @param processing: size from cuckoo.conf -> freespace_processing.
     @param analysis: check the main storage size
     """
+    """
+    cleanup_dict = {
+        "delete_mongo": config.cleanup.mongo,
+    }
+    if config.cleaner.binaries_days:
+        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.binaries_days
+    if config.cleaner.tmp_days:
+        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.tmp_days
+    if config.cleaner.analysis_days:
+        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.analysis_days
+    """
+
     need_space, space_available = False, 0
     # Calculate the free disk space in megabytes.
     # Check main FS if processing
@@ -218,6 +232,12 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             log.error(
                 "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
             )
+            """
+            # Invoke cleaups here if enabled
+            if config.cleaner.invoke_cleanup:
+                # prepare dict on startup
+                execute_cleanup(cleanup_dict)
+            """
             time.sleep(5)
         else:
             break

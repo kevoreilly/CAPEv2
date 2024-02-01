@@ -177,6 +177,9 @@ psql_ssl_mode = disable
 # If empty, default is set to 60 seconds.
 timeout =
 
+# Log all SQL statements issued to the database.
+log_statements = off
+
 [timeouts]
 # Set the default analysis timeout expressed in seconds. This value will be
 # used to define after how many seconds the analysis will terminate unless

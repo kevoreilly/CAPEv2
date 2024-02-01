@@ -13,6 +13,45 @@ log = logging.getLogger(__name__)
 __author__ = "@winson0123"
 __version__ = "1.0.0"
 
+fd_syscalls = [
+    "read",
+    "write",
+    "close",
+    "newfstat",
+    "lseek",
+    "ioctl",
+    "pread64",
+    "pwrite64",
+    "readv",
+    "writev",
+    "fcntl",
+    "flock",
+    "fsync",
+    "fdatasync",
+    "ftruncate",
+    "getdents",
+    "fchdir",
+    "fchmod",
+    "fchown",
+    "fstatfs",
+    "readahead",
+    "fsetxattr",
+    "fgetxattr",
+    "flistxattr",
+    "fremovexattr",
+    "getdents64",
+    "sync_file_range",
+    "vmsplice",
+    "fallocate",
+    "preadv",
+    "pwritev",
+    "syncfs",
+    "preadv2",
+    "pwritev2"
+    "fsconfig",
+    "quotactl_fd",
+]
+
 
 class ParseProcessLog(list):
     """Parses the process log file"""
@@ -252,29 +291,7 @@ class Processes:
 
         for process in process_list:
             for call in process["calls"]:
-                if call["api"] in [
-                    "fstat",
-                    "newfstat",
-                    "newfstatat",
-                    "lseek",
-                    "close",
-                    "fcntl",
-                    "flock",
-                    "fsync",
-                    "fdatasync",
-                    "read",
-                    "write",
-                    "readv",
-                    "writev",
-                    "pread",
-                    "pwrite",
-                    "preadv",
-                    "pwritev",
-                    "preadv2",
-                    "pwritev2",
-                    "pread64",
-                    "pwrite64",
-                ]:
+                if call["api"] in fd_syscalls:
                     # append filename to file descriptor according to relevant time that fd is opened
                     # if any unclosed file descriptor, assume that it is closed after process is finished
                     for fd in file_descriptors:

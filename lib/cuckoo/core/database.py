@@ -383,9 +383,10 @@ class Error(Base):
     """Analysis errors."""
 
     __tablename__ = "errors"
+    MAX_LENGTH = 1024
 
     id = Column(Integer(), primary_key=True)
-    message = Column(String(1024), nullable=False)
+    message = Column(String(MAX_LENGTH), nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
 
     def to_dict(self):
@@ -404,6 +405,12 @@ class Error(Base):
         return json.dumps(self.to_dict())
 
     def __init__(self, message, task_id):
+        if len(message) > self.MAX_LENGTH:
+            # Make sure that we don't try to insert an error message longer than what's allowed
+            # in the database. Provide the beginning and the end of the error.
+            left_of_ellipses = self.MAX_LENGTH // 2 - 2
+            right_of_ellipses = self.MAX_LENGTH - left_of_ellipses - 3
+            message = "...".join((message[:left_of_ellipses], message[-right_of_ellipses:]))
         self.message = message
         self.task_id = task_id
 

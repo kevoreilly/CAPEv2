@@ -27,26 +27,28 @@ if processing_conf.flare_capa.enabled:
     try:
         from capa.version import __version__ as capa_version
 
-        if capa_version[0] != "6":
-            print("FLARE-CAPA missed, poetry install")
+        if capa_version[0] != "7":
+            print("FLARE-CAPA missed or incompatible version. Run: poetry install")
         else:
-            import capa.engine
-            import capa.features
-            import capa.features.freeze.features as frzf
             import capa.main
-            import capa.render.default
-            import capa.render.json
-            import capa.render.result_document as rd
-            import capa.render.utils as rutils
             import capa.rules
-            from capa.exceptions import UnsupportedFormatError
+            import capa.engine
+            import capa.loader
+            import capa.features
+            import capa.render.json
+            import capa.render.utils as rutils
+            import capa.render.default
+            import capa.capabilities.common
+            import capa.render.result_document as rd
+            import capa.features.freeze.features as frzf
             from capa.features.common import FORMAT_AUTO, OS_AUTO
+            from capa.exceptions import UnsupportedFormatError
             from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
                 try:
-                    rules = capa.main.get_rules([path_object(rules_path)])
+                    rules = capa.rules.get_rules([path_object(rules_path)])
                     HAVE_FLARE_CAPA = True
                 except InvalidRuleWithPath:
                     print("FLARE_CAPA InvalidRuleWithPath")
@@ -226,7 +228,7 @@ def render_dictionary(doc) -> Dict[str, Any]:
 
 
 # ==== render dictionary helpers
-def flare_capa_details(file_path: str, category: str = False, on_demand=False, disable_progress=True) -> Dict[str, Any]:
+def flare_capa_details(input_file: str, category: str = False, on_demand=False, disable_progress=True) -> Dict[str, Any]:
     # load rules from disk
     capa_output = {}
     if (
@@ -237,18 +239,18 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
         or on_demand
     ):
         try:
-            file_path_object = path_object(file_path)
+            file_path_object = path_object(input_file)
             # extract features and find capabilities
-            extractor = capa.main.get_extractor(
-                file_path_object, FORMAT_AUTO, OS_AUTO, capa.main.BACKEND_VIV, [], False, disable_progress=True
+            extractor = capa.loader.get_extractor(
+                file_path_object, FORMAT_AUTO, OS_AUTO, capa.main.BACKEND_VIV, [], should_save_workspace=False, disable_progress=True
             )
-            capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
+            capabilities, counts = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=True)
 
             # collect metadata (used only to make rendering more complete)
-            meta = capa.main.collect_metadata([], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor)
+            meta = capa.loader.collect_metadata([], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor, counts)
             meta.analysis.feature_counts = counts["feature_counts"]
             meta.analysis.library_functions = counts["library_functions"]
-            meta.analysis.layout = capa.main.compute_layout(rules, extractor, capabilities)
+            meta.analysis.layout = capa.loader.compute_layout(rules, extractor, capabilities)
 
             capa_output: Any = False
 

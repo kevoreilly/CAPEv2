@@ -45,6 +45,8 @@ if processing_conf.flare_capa.enabled:
             from capa.exceptions import UnsupportedFormatError
             from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
 
+            from capa.features.extractors.cape.extractor import CapeExtractor
+
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
                 try:
@@ -226,6 +228,12 @@ def render_dictionary(doc) -> Dict[str, Any]:
 
 # ===== CAPA END
 
+# ===== Generate CAPA summary of analysis
+def flare_capa_summary(report):
+    try:
+        return CapeExtractor.from_report(report)
+    except Exception as e:
+        log.error("Can't generate CAPA's summary for analysis: %s", str(e))
 
 # ==== render dictionary helpers
 def flare_capa_details(input_file: str, category: str = False, on_demand=False, disable_progress=True) -> Dict[str, Any]:

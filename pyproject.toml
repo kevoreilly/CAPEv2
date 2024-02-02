@@ -32,7 +32,7 @@ SFlock2 = {version = "0.3.57", extras = ["shellcode"]}
 # volatility3 = "2.0.0"
 # XLMMacroDeobfuscator = "0.2.7"
 pyzipper = "0.3.5"
-flare-capa = "^7.0"
+flare-capa = "7.0.1"
 Cython = "0.29.24"
 # pyre2 = "0.3.6" # Dead for python3.11
 Django = "4.2.7"

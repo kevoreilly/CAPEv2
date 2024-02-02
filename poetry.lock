@@ -1003,13 +1003,13 @@ typing = ["typing-extensions (>=4.7.1)"]
 
 [[package]]
 name = "flare-capa"
-version = "7.0.0"
+version = "7.0.1"
 description = "The FLARE team's open-source tool to identify capabilities in executable files."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "flare-capa-7.0.0.tar.gz", hash = "sha256:205c4e13d824b38532a86157889a9982f87554694c4b972a371516b668dfa679"},
-    {file = "flare_capa-7.0.0-py3-none-any.whl", hash = "sha256:2c242878d7579d7ad66d6063616c75ea46038554f4c5b6488f4853160b7a0aab"},
+    {file = "flare-capa-7.0.1.tar.gz", hash = "sha256:02021bdfd8c3bdb3c1e5d72778e3a7cf72e7bf3f2652a34778f25f1037e22400"},
+    {file = "flare_capa-7.0.1-py3-none-any.whl", hash = "sha256:2d0ad6225d4b0aaf7c824de6d75957d78c4733ee8232175d69f2c54a9a4add90"},
 ]
 
 [package.dependencies]
@@ -4171,4 +4171,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "c11f30be37f99533c2c15de04c60400500787245590d79e0075a33e05a884be9"
+content-hash = "73ea63ae3b755f5da5131e49e150f426cb5fce54b292c57a0ffb15fe5d23e842"

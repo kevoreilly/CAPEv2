@@ -72,7 +72,7 @@ if processing_conf.flare_capa.enabled:
             if path_exists(signatures_path):
                 capa.main.SIGNATURES_PATH_DEFAULT_STRING = path_object(signatures_path)
                 try:
-                    signatures = capa.main.get_signatures(capa.main.SIGNATURES_PATH_DEFAULT_STRING)
+                    signatures = capa.loader.get_signatures(capa.main.SIGNATURES_PATH_DEFAULT_STRING)
                     HAVE_FLARE_CAPA = True
                 except IOError:
                     print("FLARE_CAPA InvalidSignatures")

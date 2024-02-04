@@ -78,7 +78,7 @@ def extract_config(data):
     \x72(...)\x70\x80...\x04
     """
     )
-    
+
     # If the config file is stored in plaintext format
     pattern6 = re.compile(
         Rb"""(?x)
@@ -157,7 +157,7 @@ def extract_config(data):
                         botnet = decrypt(extracted[1], key)
                         if "." in c2:
                             break
-                    
+
                     # Case-2: If the config file is stored in plaintext format
                     else:
                         c2 = extracted[0]
@@ -170,3 +170,10 @@ def extract_config(data):
     config_dict = {"C2": c2, "Botnet": botnet, "Key": key}
 
     return config_dict
+
+
+if __name__ == "__main__":
+    import sys
+
+    with open(sys.argv[1], "rb") as f:
+        print(extract_config(f.read()))

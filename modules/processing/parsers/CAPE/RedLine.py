@@ -78,8 +78,15 @@ def extract_config(data):
     \x72(...)\x70\x80...\x04
     """
     )
-
-    patterns = [pattern, pattern2, pattern3, pattern4, pattern5]
+    
+    # If the config file is stored in plaintext format
+    pattern6 = re.compile(
+        Rb"""(?x)
+    \x72(...)\x70\x80...\x04
+    \x72(...)\x70\x80...\x04
+    """
+    )
+    patterns = [pattern, pattern2, pattern3, pattern4, pattern5, pattern6]
     key = c2 = botnet = base_location = None
 
     user_strings = extract_strings(data=data, on_demand=True)
@@ -143,19 +150,23 @@ def extract_config(data):
                         if user_string:
                             extracted.append(user_string)
                 if extracted:
-                    key = extracted[2]
-                    c2 = decrypt(extracted[0], key)
-                    botnet = decrypt(extracted[1], key)
-                    if "." in c2:
-                        break
+                    # Case-1: If the config file is stored in encrypted format
+                    if len(extracted) == 3:
+                        key = extracted[2]
+                        c2 = decrypt(extracted[0], key)
+                        botnet = decrypt(extracted[1], key)
+                        if "." in c2:
+                            break
+                    
+                    # Case-2: If the config file is stored in plaintext format
+                    else:
+                        c2 = extracted[0]
+                        botnet = extracted[1]
             dn.close()
 
     if not c2 or "." not in c2:
         return
 
     config_dict = {"C2": c2, "Botnet": botnet, "Key": key}
-    base_location = user_strings.index("Authorization")
-    if base_location:
-        config_dict["Authorization"] = user_strings[base_location - 1]
 
     return config_dict

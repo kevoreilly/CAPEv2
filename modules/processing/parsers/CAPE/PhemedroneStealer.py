@@ -3,15 +3,17 @@
 try:
     import dnfile
     from dnfile.enums import MetadataTables
+
     HAVE_DNFILE = True
 except ImportError:
     HAVE_DNFILE = False
 
 try:
     from dncil.cil.body import CilMethodBody
-    from dncil.cil.error import MethodBodyFormatError
-    from dncil.clr.token import Token, StringToken, InvalidToken
     from dncil.cil.body.reader import CilMethodBodyReaderBase
+    from dncil.cil.error import MethodBodyFormatError
+    from dncil.clr.token import InvalidToken, StringToken, Token
+
     HAVE_DNCIL = True
 except ImportError:
     HAVE_DNCIL = False
@@ -38,10 +40,10 @@ class DnfileMethodBodyReader(CilMethodBodyReaderBase):
         self.offset = offset
         return self.offset
 
-    
-class DnfileParse():
+
+class DnfileParse:
     DOTNET_META_TABLES_BY_INDEX = {table.value: table.name for table in MetadataTables}
-    
+
     @staticmethod
     def read_dotnet_user_string(pe, token):
         """read user string from #US stream"""
@@ -108,16 +110,19 @@ class DnfileParse():
 
     @staticmethod
     def get_instruction_text(pe, insn):
-        return "{:04X}".format(insn.offset) \
-                + "    " \
-                + f"{' '.join('{:02x}'.format(b) for b in insn.get_bytes()) : <20}" \
-                + f"{str(insn.opcode) : <15}" \
-                + DnfileParse.format_operand(pe, insn.operand)
+        return (
+            "{:04X}".format(insn.offset)
+            + "    "
+            + f"{' '.join('{:02x}'.format(b) for b in insn.get_bytes()) : <20}"
+            + f"{str(insn.opcode) : <15}"
+            + DnfileParse.format_operand(pe, insn.operand)
+        )
 
-def check_next_inst(pe, body, DnfileParse,  index):
 
-    str_list= []
-    for i in range(1, len(body.instructions)<< 2):
+def check_next_inst(pe, body, DnfileParse, index):
+
+    str_list = []
+    for i in range(1, len(body.instructions) << 2):
         if index + i >= len(body.instructions):
             break
             return None
@@ -125,7 +130,7 @@ def check_next_inst(pe, body, DnfileParse,  index):
             next_inst = body.instructions[index + i]
             next_inst_ = DnfileParse.get_instruction_text(pe, next_inst)
             if str(next_inst.opcode) == "ldstr":
-                 str_list.append(DnfileParse.resolve_token(pe, next_inst.operand))
+                str_list.append(DnfileParse.resolve_token(pe, next_inst.operand))
             elif str(next_inst.opcode) == "stsfld":
                 return (next_inst_.split(" ")[-1]), str_list
 
@@ -148,16 +153,16 @@ def extract_config(data):
             continue
         if not body.instructions:
             continue
-        if row.Name == ".cctor":            
-            index=0
-            if len(body.instructions) >=20 and str(body.instructions[0].opcode) == "ldstr":
+        if row.Name == ".cctor":
+            index = 0
+            if len(body.instructions) >= 20 and str(body.instructions[0].opcode) == "ldstr":
                 for index in range(0, len(body.instructions)):
                     value_data = ""
                     config_field_name = ""
                     inst = body.instructions[index]
-                    inst_ = DnfileParse.get_instruction_text(pe, inst)                                
+                    inst_ = DnfileParse.get_instruction_text(pe, inst)
                     if str(inst.opcode) == "ldstr":
-                        value_data = (DnfileParse.resolve_token(pe, inst.operand))
+                        value_data = DnfileParse.resolve_token(pe, inst.operand)
                         config_field_name, str_list = check_next_inst(pe, body, DnfileParse, index)
                         if config_field_name is not None and config_field_name not in config_dict:
                             str_list.insert(0, value_data)
@@ -167,14 +172,14 @@ def extract_config(data):
                     if "ldc.i4." in str(inst.opcode):
                         if inst_.split(".")[-1].strip() == "0":
                             value_data = "False"
-                            config_field_name, str_list = check_next_inst(pe, body, DnfileParse,index)
+                            config_field_name, str_list = check_next_inst(pe, body, DnfileParse, index)
                             config_dict[config_field_name] = value_data
                         elif inst_.split(".")[-1].strip() == "1":
                             value_data = "True"
-                            config_field_name, str_list = check_next_inst(pe, body, DnfileParse,index)
+                            config_field_name, str_list = check_next_inst(pe, body, DnfileParse, index)
                             config_dict[config_field_name] = value_data
                         else:
                             value_data = inst_.split(".")[-1].strip()
-                            config_field_name, str_list = check_next_inst(pe, body, DnfileParse,index)
+                            config_field_name, str_list = check_next_inst(pe, body, DnfileParse, index)
                             config_dict[config_field_name] = value_data
     return config_dict

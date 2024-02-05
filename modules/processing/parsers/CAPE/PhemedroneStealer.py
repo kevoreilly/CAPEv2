@@ -1,4 +1,4 @@
-# Phemdrone Stealer config extractor by @tccontre18 - Br3akp0int
+# Phemedrone Stealer config extractor by @tccontre18 - Br3akp0int
 # https://github.com/tccontre/KnowledgeBase/blob/main/malware_re_tools/phemdrone_cfg_extractor/phemdrone_extractor_s.py
 try:
     import dnfile

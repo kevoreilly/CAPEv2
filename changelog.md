@@ -1,3 +1,6 @@
+### [05.02.2024]
+* PhemedroneStealer config extractor - thanks @tccontre18 - Br3akp0int
+
 ### [31.01.2024]
 * Monitor update: Protect 64-bit hooks against unaligned stack (e.g. 780be7a70ce3567ef268f6c768fc5a3d2510310c603bf481ebffd65e4fe95ff3)
 

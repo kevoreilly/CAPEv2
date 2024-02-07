@@ -40,6 +40,7 @@ fd_syscalls = [
     "flistxattr",
     "fremovexattr",
     "getdents64",
+    "newfstatat",
     "sync_file_range",
     "vmsplice",
     "fallocate",
@@ -251,7 +252,11 @@ class Processes:
         Returns an updated process list where file-access related calls have
         the matching file descriptor at the time of it being opened.
         """
-        file_descriptors = []
+        file_descriptors = [
+            {'fd': '0', 'filename': 'STDIN', 'time_opened': '00:00:00.000000', 'time_closed': None},
+            {'fd': '1', 'filename': 'STDOUT', 'time_opened': '00:00:00.000000', 'time_closed': None},
+            {'fd': '2', 'filename': 'STDERR', 'time_opened': '00:00:00.000000', 'time_closed': None},
+        ]
         sorted_fd_calls = sorted(fd_calls, key=lambda x: x["time"])
 
         for fd_call in sorted_fd_calls:

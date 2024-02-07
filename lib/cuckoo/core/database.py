@@ -193,7 +193,7 @@ def _get_linux_vm_tag(mgtype):
     elif "powerpc" in mgtype:
         return "powerpc"
     elif "32-bit" in mgtype:
-        return "x32"
+        return "x64"
     elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
         return "x64"
     return "x64"

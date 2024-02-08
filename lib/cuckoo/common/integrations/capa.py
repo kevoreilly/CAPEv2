@@ -46,7 +46,6 @@ if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabl
             import capa.rules
             from capa.exceptions import UnsupportedFormatError
             from capa.features.common import FORMAT_AUTO, OS_AUTO
-            from capa.features.extractors.cape.extractor import CapeExtractor
             from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")

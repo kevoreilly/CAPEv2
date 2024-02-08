@@ -88,6 +88,12 @@
 {% elif analysis.info.category == "url" %}
     {% include "analysis/overview/_url.html" %}
 {% endif %}
+
+{% if analysis.capa_summary %}
+    <hr />
+    {% include "analysis/overview/_capa_summary.html" %}
+{% endif %}
+
 <div class="container">
     <div class="row">
         {% if reports_exist %}

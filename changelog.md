@@ -1,3 +1,6 @@
+### [08.02.2024] CAPA 7 + CAPE
+* [CAPA](https://github.com/mandiant/capa) allows to generate a summary of CAPE's analysis. This gives quick abstract summary of analysis. More details [CAPA v7 blogpost](https://www.mandiant.com/resources/blog/dynamic-capa-executable-behavior-cape-sandbox)
+
 ### [05.02.2024]
 * PhemedroneStealer config extractor - thanks @tccontre18 - Br3akp0int
 
@@ -32,7 +35,7 @@
 * Monitor update: fix bug in dumping malformed PEs
 
 ### [05.12.2023]
-* Monitor updates: 
+* Monitor updates:
     * Process dump filter enhancements & fix
     * Enhanced checks (parent process path) for service hookset assignment
     * Misc fixes

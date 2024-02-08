@@ -1,0 +1,27 @@
+{% if analysis.capa_summary %}
+    {% load analysis_tags %}
+    <div class="card-header">
+        <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#capa_summary"><i class="fas fa-rectangle-list"></i> CAPA analysis summary</a></center>
+    </div>
+    <div id="capa_summary" class="collapse">
+        <tr>
+            <th></th><td>
+            <div class="collapse" id="capa_summary">
+                <div>
+                <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
+                {% if analysis.capa_summary.CAPABILITY %}
+                    {{analysis.capa_summary|flare_capa_capability}}
+                {% endif %}
+                {% if analysis.capa_summary.ATTCK %}
+                    {{analysis.capa_summary|flare_capa_attck}}
+                {% endif %}
+                {% if analysis.capa_summary.MBC %}
+                    {{analysis.capa_summary|flare_capa_mbc}}
+                {% endif %}
+                </div>
+            </div>
+        </td>
+        </tr>
+        </br>
+    </div>
+{% endif %}

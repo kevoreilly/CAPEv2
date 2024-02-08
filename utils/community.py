@@ -167,6 +167,7 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
                 except PermissionError:
                     print(colors.red(f"Fix permission on: {filepath}"))
 
+
 def ipinfo_asn_database_fetch(token, proxy=False):
     if proxy:
         http = urllib3.ProxyManager(proxy)
@@ -180,6 +181,7 @@ def ipinfo_asn_database_fetch(token, proxy=False):
 
     except Exception as e:
         log.error("Can't getch asn database: %s", str(e))
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -222,7 +224,13 @@ def main():
     parser.add_argument("-y", "--yara", help="Download YARA rules", action="store_true", required=False)
     parser.add_argument("-ut", "--utils", help="Download community utilities", action="store_true", required=False)
 
-    parser.add_argument("-iasn", "--ipinfo-asn", help="Download ipinfo.io ASN database. provide your token as argument", action="store", required=False)
+    parser.add_argument(
+        "-iasn",
+        "--ipinfo-asn",
+        help="Download ipinfo.io ASN database. provide your token as argument",
+        action="store",
+        required=False,
+    )
 
     args = parser.parse_args()
 

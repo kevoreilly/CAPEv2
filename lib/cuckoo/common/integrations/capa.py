@@ -5,8 +5,8 @@
 import collections
 import logging
 import os
-from typing import Any, Dict, Set
 from contextlib import suppress
+from typing import Any, Dict, Set
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -33,22 +33,21 @@ if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabl
         if capa_version[0] != "7":
             print("FLARE-CAPA missed or incompatible version. Run: poetry install")
         else:
-            import capa.main
-            import capa.rules
-            import capa.engine
-            import capa.loader
-            import capa.features
-            import capa.render.json
-            import capa.render.utils as rutils
-            import capa.render.default
             import capa.capabilities.common
-            import capa.render.result_document as rd
+            import capa.engine
+            import capa.features
             import capa.features.freeze.features as frzf
-            from capa.features.common import FORMAT_AUTO, OS_AUTO
+            import capa.loader
+            import capa.main
+            import capa.render.default
+            import capa.render.json
+            import capa.render.result_document as rd
+            import capa.render.utils as rutils
+            import capa.rules
             from capa.exceptions import UnsupportedFormatError
-            from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
-
+            from capa.features.common import FORMAT_AUTO, OS_AUTO
             from capa.features.extractors.cape.extractor import CapeExtractor
+            from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
@@ -233,7 +232,14 @@ def render_dictionary(doc) -> Dict[str, Any]:
 
 
 # ==== render dictionary helpers
-def flare_capa_details(file_path: str, category: str = False, on_demand:bool=False, disable_progress:bool = True, backend:str = "viv", results: dict = {}) -> Dict[str, Any]:
+def flare_capa_details(
+    file_path: str,
+    category: str = False,
+    on_demand: bool = False,
+    disable_progress: bool = True,
+    backend: str = "viv",
+    results: dict = {},
+) -> Dict[str, Any]:
     # load rules from disk
     capa_output = {}
     if (
@@ -259,7 +265,9 @@ def flare_capa_details(file_path: str, category: str = False, on_demand:bool=Fal
             capabilities, counts = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
 
             # collect metadata (used only to make rendering more complete)
-            meta = capa.loader.collect_metadata([], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor, counts)
+            meta = capa.loader.collect_metadata(
+                [], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor, counts
+            )
             meta.analysis.feature_counts = counts.get("feature_counts", 0)
             with suppress(ValueError):
                 meta.analysis.library_functions = counts.get("library_functions", 0)

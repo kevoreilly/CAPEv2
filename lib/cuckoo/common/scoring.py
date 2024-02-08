@@ -1,7 +1,7 @@
 def calc_scoring(results: dict, matched: list):
     finalMalscore = 0.0
     status = None
-    fileType = results.get("target", {}).get("file").get("type")
+    fileType = results.get("target", {}).get("file", {}).get("type")
 
     if not fileType:
         return finalMalscore, status

@@ -26,9 +26,9 @@ from lib.cuckoo.common.exceptions import (
 )
 from lib.cuckoo.common.mapTTPs import mapTTP
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.scoring import calc_scoring
 from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.scoring import calc_scoring
 
 log = logging.getLogger(__name__)
 db = Database()

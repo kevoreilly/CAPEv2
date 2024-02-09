@@ -1345,6 +1345,13 @@ function install_DIE() {
     wget "https://github.com/horsicq/DIE-engine/releases/download/${DIE_VERSION}/die_${DIE_VERSION}_Ubuntu_${UBUNTU_VERSION}_amd64.deb" -O DIE.deb && dpkg -i DIE.deb
 }
 
+function install_fluentd() {
+    curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh && sudo bash add-logging-agent-repo.sh
+    sudo apt-get update && sudo apt-get install google-fluentd
+    sudo apt-get install -y google-fluentd-catch-all-config-structured
+    sudo service google-fluentd start && sudo service google-fluentd status
+}
+
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 
@@ -1477,6 +1484,8 @@ case "$COMMAND" in
     install_crowdsecurity;;
 'die')
     install_DIE;;
+'fluentd')
+    install_fluentd;;
 *)
     usage;;
 esac

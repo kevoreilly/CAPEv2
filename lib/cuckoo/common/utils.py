@@ -233,7 +233,8 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
         if need_space:
             if not printed_error:
                 log.error(
-                    "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
+                    "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
+                    space_available,
                 )
                 printed_error = True
             """

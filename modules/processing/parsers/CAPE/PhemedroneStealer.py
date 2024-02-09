@@ -1,5 +1,10 @@
 # Phemedrone Stealer config extractor by @tccontre18 - Br3akp0int
 # https://github.com/tccontre/KnowledgeBase/blob/main/malware_re_tools/phemdrone_cfg_extractor/phemdrone_extractor_s.py
+
+import abc
+
+CilMethodBodyReaderBase = abc.ABC
+
 try:
     import dnfile
     from dnfile.enums import MetadataTables
@@ -16,6 +21,7 @@ try:
 
     HAVE_DNCIL = True
 except ImportError:
+    print("Missed dependency: poetry run pip install dncil")
     HAVE_DNCIL = False
 
 

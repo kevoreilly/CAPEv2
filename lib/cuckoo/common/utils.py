@@ -217,6 +217,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     if path and not path_exists(path):
         sys.exit("Restart daemon/process, happens after full cleanup")
 
+    printed_error = False
     while True:
         try:
             space_available = shutil.disk_usage(path).free >> 20
@@ -230,9 +231,11 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             return need_space, space_available
 
         if need_space:
-            log.error(
-                "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
-            )
+            if not printed_error:
+                log.error(
+                    "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
+                )
+                printed_error = True
             """
             # Invoke cleaups here if enabled
             if config.cleaner.invoke_cleanup:

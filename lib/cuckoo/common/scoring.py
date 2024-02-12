@@ -152,7 +152,7 @@ def calc_scoring(results: dict, matched: list):
         # 5. If the file doesn't trigger any signatures
         ## The file is undetected/failed
         else:
-            finalMalscore = None
+            finalMalscore = 0
             if results.get("behavior", {}).get("processtree", []):
                 status = "Undetected"
             else:

@@ -84,6 +84,9 @@ enabled = no
 [malscore]
 enabled = no
 
+[malstatus]
+enabled = no
+
 [vtupload]
 # Don't forget to set VT key in aux.conf under virustotaldl
 enabled = no

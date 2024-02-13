@@ -44,7 +44,7 @@ if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabl
             import capa.render.result_document as rd
             import capa.render.utils as rutils
             import capa.rules
-            from capa.exceptions import UnsupportedFormatError, EmptyReportError
+            from capa.exceptions import EmptyReportError, UnsupportedFormatError
             from capa.features.common import FORMAT_AUTO, OS_AUTO
             from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
 

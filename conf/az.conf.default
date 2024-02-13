@@ -87,7 +87,7 @@ overprovision = 0
 
 # This time, in seconds, is used to build up a queue of machines that need to be reimaged,
 # such that we can perform bulk reimaging.
-wait_time_to_reimage = 15
+wait_time_to_reimage = 4
 
 # This boolean value is used to indicate if we want to use Azure Spot instances rather than
 # normal instances

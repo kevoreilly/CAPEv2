@@ -14,7 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
-from lib.cuckoo.core.database import Database, Machine, Tag, Task, machines_tags, tasks_tags
+from lib.cuckoo.core.database import Database, Error, Machine, Tag, Task, machines_tags, tasks_tags
 
 
 @pytest.fixture(autouse=True)
@@ -57,11 +57,13 @@ class TestDatabaseEngine:
             stmt3 = delete(machines_tags)
             stmt4 = delete(tasks_tags)
             stmt5 = delete(Tag)
+            stmt6 = delete(Error)
             self.session.execute(stmt)
             self.session.execute(stmt2)
             self.session.execute(stmt3)
             self.session.execute(stmt4)
             self.session.execute(stmt5)
+            self.session.execute(stmt6)
             self.session.commit()
 
     def teardown_method(self):

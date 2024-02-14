@@ -1,3 +1,6 @@
+### [14.02.2024]
+* Monitor update: Protect NtFreeVirtualMemory hook against spurious pointer values (e.g. f4bb0089dcf3629b1570fda839ef2f06c29cbf846c5134755d22d419015c8bd2)
+
 ### [08.02.2024] CAPA 7 + CAPE
 * [CAPA](https://github.com/mandiant/capa) allows to generate a summary of CAPE's analysis. This gives quick abstract summary of analysis. More details [CAPA v7 blogpost](https://www.mandiant.com/resources/blog/dynamic-capa-executable-behavior-cape-sandbox)
 * Monitor update: Fix logging bug causing rare buffer overflows (e.g. 780be7a70ce3567ef268f6c768fc5a3d2510310c603bf481ebffd65e4fe95ff3)

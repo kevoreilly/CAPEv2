@@ -11,7 +11,6 @@ from typing import List, Optional, TypedDict
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_mkdir, path_object
 
-cfg = Config()
 log = logging.getLogger(__name__)
 
 
@@ -50,6 +49,7 @@ def time_tracker(func):
 
 @contextlib.contextmanager
 def extractor_ctx(filepath, tool_name, prefix=None):
+    cfg = Config()
     folder = os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
     path_mkdir(folder, exist_ok=True)
 

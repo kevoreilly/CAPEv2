@@ -959,6 +959,7 @@ function dependencies() {
 
 
     sudo apt update 2>/dev/null
+    sudo systemctl stop tor@default.service && sudo systemctl disable tor@default.service
     apt install tor deb.torproject.org-keyring libzstd1 -y
 
     sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc

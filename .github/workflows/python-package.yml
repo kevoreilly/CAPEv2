@@ -42,10 +42,15 @@ jobs:
           # check-latest: true
           python-version: ${{ matrix.python-version }}
           cache: 'poetry'
+
       - name: Install requirements
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: |
           poetry install --no-interaction --no-root
+
+      - name: Install pyattck
+        run: |
+          poetry run pip install pyattck==7.1.2
 
       - name: Run Ruff
         run: poetry run ruff . --line-length 132 --ignore E501,E402

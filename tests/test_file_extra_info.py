@@ -1,6 +1,7 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+import pathlib
 import tempfile
 
 import pytest
@@ -8,6 +9,9 @@ import pytest
 from lib.cuckoo.common.integrations import file_extra_info
 
 
+@pytest.mark.skipif(
+    not (pathlib.Path(__file__).parent / "data" / "selfextraction").exists(), reason="Required data file is not present"
+)
 class TestFileExtraInfo:
     def test_generic_file_extractors(self):
         results = {}

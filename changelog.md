@@ -1,3 +1,16 @@
+### [14.02.2024]
+* Monitor update: Protect NtFreeVirtualMemory hook against spurious pointer values (e.g. f4bb0089dcf3629b1570fda839ef2f06c29cbf846c5134755d22d419015c8bd2)
+
+### [08.02.2024] CAPA 7 + CAPE
+* [CAPA](https://github.com/mandiant/capa) allows to generate a summary of CAPE's analysis. This gives quick abstract summary of analysis. More details [CAPA v7 blogpost](https://www.mandiant.com/resources/blog/dynamic-capa-executable-behavior-cape-sandbox)
+* Monitor update: Fix logging bug causing rare buffer overflows (e.g. 780be7a70ce3567ef268f6c768fc5a3d2510310c603bf481ebffd65e4fe95ff3)
+
+### [05.02.2024]
+* PhemedroneStealer config extractor - thanks @tccontre18 - Br3akp0int
+
+### [31.01.2024]
+* Monitor update: Protect 64-bit hooks against unaligned stack (e.g. 780be7a70ce3567ef268f6c768fc5a3d2510310c603bf481ebffd65e4fe95ff3)
+
 ### [24.01.2024]
 * Monitor update: Improve handling of irregularly mapped PE images (e.g. from 7911e39e07995e3afb97ac0e5a4608c10c2e278bef29924ecc3924edfcc495ca)
 
@@ -26,7 +39,7 @@
 * Monitor update: fix bug in dumping malformed PEs
 
 ### [05.12.2023]
-* Monitor updates: 
+* Monitor updates:
     * Process dump filter enhancements & fix
     * Enhanced checks (parent process path) for service hookset assignment
     * Misc fixes

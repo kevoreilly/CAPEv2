@@ -383,9 +383,10 @@ class Error(Base):
     """Analysis errors."""
 
     __tablename__ = "errors"
+    MAX_LENGTH = 1024
 
     id = Column(Integer(), primary_key=True)
-    message = Column(String(1024), nullable=False)
+    message = Column(String(MAX_LENGTH), nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
 
     def to_dict(self):
@@ -404,6 +405,12 @@ class Error(Base):
         return json.dumps(self.to_dict())
 
     def __init__(self, message, task_id):
+        if len(message) > self.MAX_LENGTH:
+            # Make sure that we don't try to insert an error message longer than what's allowed
+            # in the database. Provide the beginning and the end of the error.
+            left_of_ellipses = self.MAX_LENGTH // 2 - 2
+            right_of_ellipses = self.MAX_LENGTH - left_of_ellipses - 3
+            message = "...".join((message[:left_of_ellipses], message[-right_of_ellipses:]))
         self.message = message
         self.task_id = task_id
 
@@ -571,7 +578,7 @@ class Database(object, metaclass=Singleton):
             self._connect_database(f"sqlite:///{file_path}")
 
         # Disable SQL logging. Turn it on for debugging.
-        self.engine.echo = False
+        self.engine.echo = self.cfg.database.log_statements
         # Connection timeout.
         if self.cfg.database.timeout:
             self.engine.pool_timeout = self.cfg.database.timeout
@@ -742,8 +749,26 @@ class Database(object, metaclass=Singleton):
                 machine = session.query(Machine).filter_by(label=label).first()
                 if machine is None:
                     log.debug("Database error setting interface: %s not found", label)
-                    return None
+                    return
                 machine.interface = interface
+                session.commit()
+
+            except SQLAlchemyError as e:
+                log.debug("Database error setting interface: %s", e)
+                session.rollback()
+
+    @classlock
+    def set_vnc_port(self, task_id:int, port:int):
+        with self.Session() as session:
+            try:
+                task = session.query(Task).filter_by(id=task_id).first()
+                if task is None:
+                    log.debug("Database error setting VPN port: For task %s", task_id)
+                    return
+                if task.options:
+                    task.options += f",vnc_port={port}"
+                else:
+                    task.options = f"vnc_port={port}"
                 session.commit()
 
             except SQLAlchemyError as e:

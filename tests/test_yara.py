@@ -1,5 +1,9 @@
 # import pytest
 
+import pathlib
+
+import pytest
+
 from lib.cuckoo.common.objects import File
 
 try:
@@ -33,6 +37,7 @@ def test_yara():
     _ = yara.compile(source='import "dotnet" rule a { condition: false }')
 
 
+@pytest.mark.skipif(not (pathlib.Path(__file__).parent / "data" / "malware").exists(), reason="Required data file is not present")
 def test_get_yaras():
     File.init_yara()
     yara_matches = File("tests/data/malware/f8a6eddcec59934c42ea254cdd942fb62917b5898f71f0feeae6826ba4f3470d").get_yara(

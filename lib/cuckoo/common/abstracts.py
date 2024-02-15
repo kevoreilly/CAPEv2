@@ -844,6 +844,7 @@ class Signature:
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
         self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
+        self.files_metadata = os.path.join(self.analysis_path, "files.json")
 
         try:
             create_folder(folder=self.reports_path)

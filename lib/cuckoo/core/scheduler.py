@@ -49,7 +49,9 @@ machinery = None
 machine_lock = None
 latest_symlink_lock = threading.Lock()
 routing = Config("routing")
-enable_trim = int(Config("web").general.enable_trim)
+web_cfg = Config("web")
+enable_trim = int(web_cfg.general.enable_trim)
+expose_vnc_port = web_cfg.guacamole.enabled
 
 active_analysis_count = 0
 active_analysis_count_lock = threading.Lock()
@@ -497,6 +499,9 @@ class AnalysisManager(threading.Thread):
 
             # Generate the analysis configuration file.
             options = self.build_options()
+
+            if expose_vnc_port:
+                machinery.store_vnc_port(self.machine.label, self.task.id, self.task.options)
 
             try:
                 ResultServer().add_task(self.task, self.machine)

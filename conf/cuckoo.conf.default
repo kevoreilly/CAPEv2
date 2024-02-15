@@ -177,6 +177,9 @@ psql_ssl_mode = disable
 # If empty, default is set to 60 seconds.
 timeout =
 
+# Log all SQL statements issued to the database.
+log_statements = off
+
 [timeouts]
 # Set the default analysis timeout expressed in seconds. This value will be
 # used to define after how many seconds the analysis will terminate unless
@@ -210,3 +213,13 @@ path = /mnt/tmpfs/
 # in mb
 freespace = 2000
 
+[cleaner]
+# Invoke cleanup if <= of free space detected. see/set freespace/freespace_processing
+enabled = no
+# set any value to 0 to disable it. In days
+binaries_days = 5
+tmp_days = 5
+# Remove analysis folder
+analysis_days = 5
+# Delete mongo data
+mongo = no

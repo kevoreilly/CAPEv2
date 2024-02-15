@@ -59,13 +59,14 @@ logger = logging.getLogger(__name__)
 
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
+    exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
 
     packages = []
     for name in files:
         name = os.path.splitext(name)[0]
         if name == "__init__":
             continue
-        if name not in web_conf.package_exclusion.packages:
+        if name not in exclusions:
             packages.append(name)
 
     # Prepare a list of VM names, description label based on tags.
@@ -652,6 +653,8 @@ def remote_session(request, task_id):
 
     if task.status == "running":
         machine = db.view_machine_by_label(task.machine)
+        if not machine:
+            return render(request, "error.html", {"error": "Machine is not set for this task."})
         guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]

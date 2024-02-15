@@ -400,7 +400,7 @@ def main():
     parser.add_argument(
         "id",
         type=parse_id,
-        help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10",
+        help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10 or 1,3,5,7",
     )
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)

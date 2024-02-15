@@ -8,7 +8,12 @@ from modules.processing.parsers.CAPE.Njrat import extract_config
 def test_njrat():
     with open("tests/data/malware/09bf19c00f3d8c63b8896edadd4622724a01f7d74de583733ee57a7d11eacd86", "rb") as data:
         conf = extract_config(data.read())
-        assert conf == {'cncs': ['peter-bikini.gl.at.ply.gg:64215'], 'campaign id': 'HacKed', 'version': 'Njrat 0.7 Golden By Hassan Amiri'}
+        assert conf == {
+            "cncs": ["peter-bikini.gl.at.ply.gg:64215"],
+            "campaign id": "HacKed",
+            "version": "Njrat 0.7 Golden By Hassan Amiri",
+        }
+
 
 """
 https://github.com/kevoreilly/CAPEv2/pull/1957

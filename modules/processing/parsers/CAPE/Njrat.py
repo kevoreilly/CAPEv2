@@ -1,13 +1,12 @@
-import sys
-import re
 import base64
+import re
+import sys
 from contextlib import suppress
 
 import dnfile
 
 
 class Parser:
-
     def __init__(self, data: bytes):
         self.dotnet_file = dnfile.dnPE(data=data)
 
@@ -24,49 +23,48 @@ class Parser:
 
 
 CONFIG_MAPPING = {
-    'DR': 'directory',
-    'EXE': 'executable',
-    'H': 'domain',
-    'P': 'port',
-    'VN': 'campaign_id',
-    'VR': 'version',
-    'RG': 'registry_value',
-    'x': 'port',
-    'ss': 'domain'
-
+    "DR": "directory",
+    "EXE": "executable",
+    "H": "domain",
+    "P": "port",
+    "VN": "campaign_id",
+    "VR": "version",
+    "RG": "registry_value",
+    "x": "port",
+    "ss": "domain",
 }
 
 REPLACES_MAPPING = {
-    'विनी': 'M',
-    '蒂': 'T',
-    'मे': 'A',
-    'बीपी': 'Z',
-    '粹': 'M',
-    'ता': 'T',
-    '의도': 'A',
-    '에': 'e',
-    '!': '=',
-    'FRANSESCO': 'M',
-    'Strik': '='
+    "विनी": "M",
+    "蒂": "T",
+    "मे": "A",
+    "बीपी": "Z",
+    "粹": "M",
+    "ता": "T",
+    "의도": "A",
+    "에": "e",
+    "!": "=",
+    "FRANSESCO": "M",
+    "Strik": "=",
 }
 
 
 def get_patterns():
     # ldstr, stsfld
     pattern_1 = re.compile(
-        Rb'''(?x)
+        Rb"""(?x)
     \x72(...)\x70
     \x80(...)\x04
-    '''
+    """
     )
 
     # ldstr, call Conversions.ToBoolean, stsfld
     pattern_2 = re.compile(
-        Rb'''(?x)
+        Rb"""(?x)
     \x72(...)\x70
     \x28\x04\x00\x00\x0A
     \x80(...)\x04
-    '''
+    """
     )
 
     return [pattern_1, pattern_2]
@@ -115,8 +113,8 @@ def normalize_config(config_dict):
 
 
 def decode_b64_values(config):
-    if 'campaign_id' in config:
-        config['campaign_id'] = base64.b64decode(config['campaign_id']).decode()
+    if "campaign_id" in config:
+        config["campaign_id"] = base64.b64decode(config["campaign_id"]).decode()
 
     return config
 
@@ -130,26 +128,26 @@ def do_string_replaces(s):
 
 
 def replaces_and_b6d_decode(config):
-    clean_domain = do_string_replaces(config['domain'])
-    clean_port = do_string_replaces(config['port'])
+    clean_domain = do_string_replaces(config["domain"])
+    clean_port = do_string_replaces(config["port"])
 
-    config['domain'] = base64.b64decode(clean_domain).decode()
-    config['port'] = base64.b64decode(clean_port).decode()
+    config["domain"] = base64.b64decode(clean_domain).decode()
+    config["port"] = base64.b64decode(clean_port).decode()
 
     return config
 
 
 def clean_https_reversed_port_and_domain(config):
-    if 'https' in config['port']:
-        config['port'] = config['port'].replace('https://', '')[::-1]
-        config['domain'] = config['domain'].replace('https://', '')[::-1]
+    if "https" in config["port"]:
+        config["port"] = config["port"].replace("https://", "")[::-1]
+        config["domain"] = config["domain"].replace("https://", "")[::-1]
 
     return config
 
 
 def decode_domain_and_port(config):
     try:
-        if 'port' in config and int(config['port']):
+        if "port" in config and int(config["port"]):
             pass
     except ValueError:
         config = replaces_and_b6d_decode(config)
@@ -178,17 +176,18 @@ def extract_config(data):
     config_dict = get_config_dict(dotnet_file_parser, data)
     config = get_clean_config(config_dict)
 
-    if config.get('domain') and config.get('port'):
+    if config.get("domain") and config.get("port"):
         conf["cncs"] = [f"{config['domain']}:{config['port']}"]
 
-    if config.get('campaign_id'):
-        conf["campaign id"] = config['campaign_id']
+    if config.get("campaign_id"):
+        conf["campaign id"] = config["campaign_id"]
 
-    if config.get('version'):
-        conf["version"] = config['version']
+    if config.get("version"):
+        conf["version"] = config["version"]
 
     dotnet_file_parser.close()
     return conf
+
 
 if "__main__" == __name__:
     with open(sys.argv[1], "rb") as f:

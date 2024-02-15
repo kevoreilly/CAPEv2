@@ -1,6 +1,8 @@
+import sys
 import re
 import base64
 from contextlib import suppress
+
 import dnfile
 
 
@@ -176,10 +178,18 @@ def extract_config(data):
     config_dict = get_config_dict(dotnet_file_parser, data)
     config = get_clean_config(config_dict)
 
-    conf["C2"] = config.get('domain')
-    conf["Port"] = config.get('port')
-    conf["Campaign ID"] = config.get('campaign_id')
-    conf["Version"] = config.get('version')
+    if config.get('domain') and config.get('port'):
+        conf["cncs"] = [f"{config['domain']}:{config['port']}"]
+
+    if config.get('campaign_id'):
+        conf["campaign id"] = config['campaign_id']
+
+    if config.get('version'):
+        conf["version"] = config['version']
 
     dotnet_file_parser.close()
     return conf
+
+if "__main__" == __name__:
+    with open(sys.argv[1], "rb") as f:
+        print(extract_config(f.read()))

@@ -1,9 +1,10 @@
 import pathlib
+
 import pytest
-from lib.cuckoo.common.config import ConfigMeta
 
 import lib.cuckoo.common.config
 import lib.cuckoo.core.database
+from lib.cuckoo.common.config import ConfigMeta
 
 
 @pytest.fixture

@@ -135,6 +135,7 @@ exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
 tools_folder = os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
 
+
 def static_file_info(
     data_dictionary: dict,
     file_path: str,

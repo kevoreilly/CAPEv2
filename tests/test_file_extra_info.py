@@ -8,20 +8,22 @@ import pytest
 
 from lib.cuckoo.common.integrations import file_extra_info
 
+
 @pytest.fixture(autouse=True)
 def set_tools_folder():
     file_extra_info.tools_folder = "/tmp"
     yield
 
-self_extraction_dir = (pathlib.Path(__file__).parent / "data" / "selfextraction")
 
-@pytest.mark.skipif(
-    not (self_extraction_dir).exists(), reason="Required data file is not present"
-)
+self_extraction_dir = pathlib.Path(__file__).parent / "data" / "selfextraction"
+
+
+@pytest.mark.skipif(not (self_extraction_dir).exists(), reason="Required data file is not present")
 class TestFileExtraInfo:
     @pytest.mark.skipif(
-        not (self_extraction_dir / "0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi").exists(), reason="Required data file is not present"
-    )   
+        not (self_extraction_dir / "0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi").exists(),
+        reason="Required data file is not present",
+    )
     def test_generic_file_extractors(self):
         results = {}
         data_dictionary = {"type": "MSI Installer"}
@@ -41,7 +43,8 @@ class TestFileExtraInfo:
         assert len(data_dictionary["extracted_files"]) == 2
 
     @pytest.mark.skipif(
-        not (self_extraction_dir / "5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno").exists(), reason="Required data file is not present"
+        not (self_extraction_dir / "5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno").exists(),
+        reason="Required data file is not present",
     )
     def test_generic_file_extractors_no_tests(self):
         results = {}
@@ -68,7 +71,8 @@ class TestFileExtraInfo:
         assert len(extracted_files["result"]["extracted_files"]) == 4
 
     @pytest.mark.skipif(
-        not (self_extraction_dir / "c738cdd8ec0d65769e17eed1d6fe371893a2972b7a432c6532446d225e166733.vbe").exists(), reason="Required data file is not present"
+        not (self_extraction_dir / "c738cdd8ec0d65769e17eed1d6fe371893a2972b7a432c6532446d225e166733.vbe").exists(),
+        reason="Required data file is not present",
     )
     def test_vbe_extract(self):
         extracted_files = file_extra_info.vbe_extract(
@@ -92,7 +96,8 @@ class TestFileExtraInfo:
         self.assertEqual(len(extracted_files["result"]["extracted_files"]), 4, "Failed to extract.")
 
     @pytest.mark.skipif(
-        not (self_extraction_dir / "0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi").exists(), reason="Required data file is not present"
+        not (self_extraction_dir / "0ea5e25b12ab314bc9a0569c3ca756f205f40b792119f8e0fc62c874628dfea0.msi").exists(),
+        reason="Required data file is not present",
     )
     def test_msi_extract(self):
         extracted_files = file_extra_info.msi_extract(
@@ -103,7 +108,8 @@ class TestFileExtraInfo:
         assert len(extracted_files["result"]["extracted_files"]) == 2
 
     @pytest.mark.skipif(
-        not (self_extraction_dir / "5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno").exists(), reason="Required data file is not present"
+        not (self_extraction_dir / "5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno").exists(),
+        reason="Required data file is not present",
     )
     def test_Inno_extract(self):
         extracted_files = file_extra_info.Inno_extract(
@@ -130,7 +136,8 @@ class TestFileExtraInfo:
         assert len(extracted_files["result"]["extracted_files"]) == 4
 
     @pytest.mark.skipif(
-        not (self_extraction_dir / "1b0c4149df7892b2497c955dc393ed49e458062324a81288589b15492ce8b50b.upx").exists(), reason="Required data file is not present"
+        not (self_extraction_dir / "1b0c4149df7892b2497c955dc393ed49e458062324a81288589b15492ce8b50b.upx").exists(),
+        reason="Required data file is not present",
     )
     def test_UPX_unpack(self):
         extracted_files = file_extra_info.UPX_unpack(
@@ -145,7 +152,8 @@ class TestFileExtraInfo:
         ]
 
     @pytest.mark.skipif(
-        not (self_extraction_dir / "ab77ea6ad4b6766e0db88d4f49c2c0075ba18b3573d7c6d07ee878bd6e71c388.7z").exists(), reason="Required data file is not present"
+        not (self_extraction_dir / "ab77ea6ad4b6766e0db88d4f49c2c0075ba18b3573d7c6d07ee878bd6e71c388.7z").exists(),
+        reason="Required data file is not present",
     )
     def test_SevenZip_unpack(self):
         extracted_files = file_extra_info.SevenZip_unpack(
@@ -165,7 +173,8 @@ class TestFileExtraInfo:
         ]
 
     @pytest.mark.skipif(
-        not (self_extraction_dir / "9e69c36d967afbb1a948a022fcfb1a6384b35b233a47e7d859145db19018d21e.sfx").exists(), reason="Required data file is not present"
+        not (self_extraction_dir / "9e69c36d967afbb1a948a022fcfb1a6384b35b233a47e7d859145db19018d21e.sfx").exists(),
+        reason="Required data file is not present",
     )
     def test_RarSFX_extract(self):
         extracted_files = file_extra_info.RarSFX_extract(
@@ -176,10 +185,10 @@ class TestFileExtraInfo:
         assert len(extracted_files["result"]["extracted_files"]) == 3
         assert sorted(extracted_files["result"]["extracted_files"]) == ["Manag.exe", "mLib.cs", "x64.xr"]
 
-
     @pytest.mark.skipif(
-        not (self_extraction_dir / "12c4d9eddce807d10e3578fcf2918366def586ec374a35957880a65dbd467efc.one").exists(), reason="Required data file is not present"
-    )   
+        not (self_extraction_dir / "12c4d9eddce807d10e3578fcf2918366def586ec374a35957880a65dbd467efc.one").exists(),
+        reason="Required data file is not present",
+    )
     def test_office_one_extract(self):
         extracted_files = file_extra_info.office_one(
             file=f"{self_extraction_dir}/12c4d9eddce807d10e3578fcf2918366def586ec374a35957880a65dbd467efc.one",

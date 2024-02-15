@@ -8,6 +8,11 @@ import pytest
 
 from lib.cuckoo.common.integrations import file_extra_info
 
+@pytest.fixture(autouse=True)
+def set_tools_folder():
+    file_extra_info.tools_folder = "/tmp"
+    yield
+
 self_extraction_dir = (pathlib.Path(__file__).parent / "data" / "selfextraction")
 
 @pytest.mark.skipif(

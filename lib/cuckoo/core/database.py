@@ -749,8 +749,26 @@ class Database(object, metaclass=Singleton):
                 machine = session.query(Machine).filter_by(label=label).first()
                 if machine is None:
                     log.debug("Database error setting interface: %s not found", label)
-                    return None
+                    return
                 machine.interface = interface
+                session.commit()
+
+            except SQLAlchemyError as e:
+                log.debug("Database error setting interface: %s", e)
+                session.rollback()
+
+    @classlock
+    def set_vnc_port(self, task_id:int, port:int):
+        with self.Session() as session:
+            try:
+                task = session.query(Task).filter_by(id=task_id).first()
+                if task is None:
+                    log.debug("Database error setting VPN port: For task %s", task_id)
+                    return
+                if task.options:
+                    task.options += f",vnc_port={port}"
+                else:
+                    task.options = f"vnc_port={port}"
                 session.commit()
 
             except SQLAlchemyError as e:

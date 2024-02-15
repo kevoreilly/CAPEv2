@@ -8,6 +8,20 @@
         </p>
     {% endif %}
 
+    {% if config.malscore and analysis.malstatus %}
+        <p  style="text-align:center; font-size: 18px;font-weight-bold";>Status:
+            {% if analysis.malstatus == "Malicious" %}
+                <span class="badge badge-danger">{{analysis.malstatus}}</span>
+            {% elif analysis.malstatus == "Suspicious" %}
+                <span class="badge badge-warning">{{analysis.malstatus}}</span>
+            {% elif analysis.malstatus == "Clean" %}
+                <span class="badge badge-success">{{analysis.malstatus}}</span>
+            {% else %}
+                {{analysis.malstatus}}
+         {% endif %}
+        </p>
+    {% endif %}
+
     <div class="panel panel-primary">
         <div class="panel-heading">
             <h4 class="panel-title">Analysis {% if settings.REPROCESS_TASKS %} <a class="btn btn-secondary btn-sm" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess the task"><span class="fa-solid fa-rotate"></span></a>{% endif %}</h4>

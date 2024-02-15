@@ -40,3 +40,12 @@ class KVM(LibVirtMachinery):
                 self.db.set_machine_interface(label, iface)
             else:
                 print(f"Can't get iface for {label}")
+
+    def store_vnc_port(self, label: str, task_id: int):
+        xml = ET.fromstring(self._lookup(label).XMLDesc())
+        port = int(xml.find("./devices/graphics").get("port", -1))
+        if port and port != -1:
+            self.db.set_vnc_port(task_id, port)
+        else:
+            print(f"Can't get iface for {label}")
+

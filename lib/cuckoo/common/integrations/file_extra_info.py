@@ -59,7 +59,7 @@ except ImportError:
 
 DuplicatesType = DefaultDict[str, Set[str]]
 
-
+cfg = Config()
 processing_conf = Config("processing")
 selfextract_conf = Config("selfextract")
 
@@ -133,7 +133,7 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 
 exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
-
+tools_folder = os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
 
 def static_file_info(
     data_dictionary: dict,
@@ -515,7 +515,7 @@ def generic_file_extractors(
 
 
 def _generic_post_extraction_process(file: str, tool_name: str, decoded: str) -> SuccessfulExtractionReturnType:
-    with extractor_ctx(file, tool_name) as ctx:
+    with extractor_ctx(file, tool_name, folder=tools_folder) as ctx:
         basename = f"{os.path.basename(file)}_decoded"
         decoded_file_path = os.path.join(ctx["tempdir"], basename)
         _ = path_write_file(decoded_file_path, decoded, mode="text")
@@ -595,7 +595,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
         log.error("You need to add execution permissions: chmod a+x data/NETReactorSlayer.CLI")
         return
 
-    with extractor_ctx(file, "eziriz", prefix="eziriz_") as ctx:
+    with extractor_ctx(file, "eziriz", prefix="eziriz_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         dest_path = os.path.join(tempdir, os.path.basename(file))
         _ = run_tool(
@@ -628,7 +628,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
         log.error("Missed dependency: sudo apt install de4dot")
         return
 
-    with extractor_ctx(file, "de4dot", prefix="de4dot_") as ctx:
+    with extractor_ctx(file, "de4dot", prefix="de4dot_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         dest_path = os.path.join(tempdir, os.path.basename(file))
         _ = run_tool(
@@ -657,7 +657,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
 
     extracted_files = []
     # sudo apt install msitools or 7z
-    with extractor_ctx(file, "MsiExtract", prefix="msidump_") as ctx:
+    with extractor_ctx(file, "MsiExtract", prefix="msidump_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         output = False
         if not kwargs.get("tests"):
@@ -705,7 +705,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
         log.error("Missed dependency: sudo apt install innoextract")
         return
 
-    with extractor_ctx(file, "InnoExtract", prefix="innoextract_") as ctx:
+    with extractor_ctx(file, "InnoExtract", prefix="innoextract_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         run_tool(
             [selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir],
@@ -731,7 +731,7 @@ def kixtart_extract(file: str, **_) -> ExtractorReturnType:
     if not data.startswith(b"\x1a\xaf\x06\x00\x00\x10"):
         return
 
-    with extractor_ctx(file, "Kixtart", prefix="kixtart_") as ctx:
+    with extractor_ctx(file, "Kixtart", prefix="kixtart_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         kix = Kixtart(file, dump_dir=tempdir)
         kix.decrypt()
@@ -756,7 +756,7 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
         UN_AUTOIT_NOTIF = True
         return
 
-    with extractor_ctx(file, "UnAutoIt", prefix="unautoit_") as ctx:
+    with extractor_ctx(file, "UnAutoIt", prefix="unautoit_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         output = run_tool(
             [unautoit_binary, "extract-all", "--output-dir", tempdir, file],
@@ -778,7 +778,7 @@ def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> Extra
     ):
         return
 
-    with extractor_ctx(file, "UnUPX", prefix="unupx_") as ctx:
+    with extractor_ctx(file, "UnUPX", prefix="unupx_", folder=tools_folder) as ctx:
         basename = f"{os.path.basename(file)}_unpacked"
         dest_path = os.path.join(ctx["tempdir"], basename)
         output = run_tool(
@@ -852,7 +852,7 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     else:
         return
 
-    with extractor_ctx(file, tool, prefix=prefix) as ctx:
+    with extractor_ctx(file, tool, prefix=prefix, folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         HAVE_SFLOCK = False
         if HAVE_SFLOCK:
@@ -892,7 +892,7 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
         log.warning("Missed UnRar binary: /usr/bin/unrar. sudo apt install unrar")
         return
 
-    with extractor_ctx(file, "UnRarSFX", prefix="unrar_") as ctx:
+    with extractor_ctx(file, "UnRarSFX", prefix="unrar_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         password = options.get("password", "infected")
         output = run_tool(
@@ -914,7 +914,7 @@ def office_one(file, **_) -> ExtractorReturnType:
     ):
         return
 
-    with extractor_ctx(file, "OfficeOne", prefix="office_one") as ctx:
+    with extractor_ctx(file, "OfficeOne", prefix="office_one", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         try:
             document = OneNoteExtractor(path_read_file(file))
@@ -937,7 +937,7 @@ def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
     ):
         return
 
-    with extractor_ctx(file, "MSIX", prefix="msixdump_") as ctx:
+    with extractor_ctx(file, "MSIX", prefix="msixdump_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         _ = run_tool(
             ["unzip", file, "-d", tempdir],

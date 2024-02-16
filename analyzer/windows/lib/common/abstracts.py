@@ -12,6 +12,7 @@ from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
 from lib.common.parse_pe import choose_dll_export, is_pe_image
 from lib.core.compound import create_custom_folders
+from lib.common.common import disable_wow64_redirection
 
 log = logging.getLogger(__name__)
 
@@ -152,6 +153,7 @@ class Package:
 
         return True
 
+    @disable_wow64_redirection
     def move_curdir(self, filepath):
         """Move a file to the current working directory so it can be executed
         from there.

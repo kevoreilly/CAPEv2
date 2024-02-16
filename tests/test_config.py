@@ -7,8 +7,7 @@ import textwrap
 
 import pytest
 
-import lib.cuckoo.common.config
-from lib.cuckoo.common.config import AnalysisConfig, Config, ConfigMeta
+from lib.cuckoo.common.config import AnalysisConfig, Config
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_write_file
 
@@ -29,11 +28,6 @@ interface = vboxnet0
     path = tmp_path / "analysis.conf"
     path_write_file(path, CONF_EXAMPLE, mode="text")
     yield AnalysisConfig(path)
-
-
-@pytest.fixture(autouse=True)
-def reset():
-    ConfigMeta.reset()
 
 
 class TestAnalysisConfig:
@@ -67,60 +61,34 @@ def write_config(path, content):
     path_write_file(path, textwrap.dedent(content), mode="text")
 
 
-@pytest.fixture
-def custom_conf_dir(monkeypatch, tmp_path):
-    custom_dir = tmp_path / "custom"
-    custom_dir.mkdir()
-    monkeypatch.setattr(lib.cuckoo.common.config, "CUSTOM_CONF_DIR", str(custom_dir))
-    yield custom_dir
-
-
-@pytest.fixture
-def default_config(monkeypatch, tmp_path):
-    default_dir = tmp_path / "default"
-    default_dir.mkdir()
-    default_conf = default_dir / "conf" / "cuckoo.conf"
-    default_conf.parent.mkdir()
-    write_config(
-        default_conf,
-        """
-        [cuckoo]
-        debug = false
-        analysis_timeout = 120
-        """,
-    )
-    monkeypatch.setattr(lib.cuckoo.common.config, "CUCKOO_ROOT", str(default_dir))
-    yield default_conf
-
-
 class TestConfig:
-    def test_option_override(self, custom_conf_dir, default_config):
+    def test_option_override(self, custom_conf_path):
         """Fetch an option of each type from default config file."""
-        custom_conf = custom_conf_dir / "cuckoo.conf"
+        custom_conf = custom_conf_path / "cuckoo.conf"
         write_config(
             custom_conf,
             """
             [cuckoo]
-            debug = true
+            machinery_screenshots = true
             """,
         )
         config = Config("cuckoo")
 
         # This was overridden in the custom config.
-        assert config.get("cuckoo")["debug"] is True
+        assert config.get("cuckoo")["machinery_screenshots"] is True
         # This was inherited from the default config.
-        assert config.get("cuckoo")["analysis_timeout"] == 120
+        assert config.get("cuckoo")["max_analysis_count"] == 0
 
-    def test_nonexistent_custom_file(self, custom_conf_dir, default_config):
+    def test_nonexistent_custom_file(self):
         """Verify that there are no problems when the file to be processed does not
         exist in the custom config dir.
         """
         config = Config("cuckoo")
-        assert config.get("cuckoo")["debug"] is False
-        assert config.get("cuckoo")["analysis_timeout"] == 120
+        assert config.get("cuckoo")["machinery_screenshots"] is False
+        assert config.get("cuckoo")["max_analysis_count"] == 0
 
-    def test_subdirs(self, custom_conf_dir):
-        api_conf = custom_conf_dir / "api.conf"
+    def test_subdirs(self, custom_conf_path):
+        api_conf = custom_conf_path / "api.conf"
         write_config(
             api_conf,
             """
@@ -128,7 +96,7 @@ class TestConfig:
             ratelimit = no
             """,
         )
-        api_conf_d_dir = custom_conf_dir / "api.conf.d"
+        api_conf_d_dir = custom_conf_path / "api.conf.d"
         api_conf_d_dir.mkdir()
         host_specific_conf = api_conf_d_dir / "01_host_specific.conf"
         url = "https://somehost.example.com"
@@ -149,7 +117,7 @@ class TestConfig:
         # api.conf.d/01_host_specific.conf.
         assert config.get("api")["url"] == url
 
-    def test_singleton_configs(self, default_config):
+    def test_singleton_configs(self):
         """Verify that Config objects that were passed the same "file_name" argument
         are reused.
         """
@@ -157,54 +125,43 @@ class TestConfig:
         config2 = Config("cuckoo")
         assert config1 is config2
 
-    def test_environment_interpolation(self, default_config, custom_conf_dir, monkeypatch):
+    def test_environment_interpolation(self, custom_conf_path, monkeypatch):
         """Verify that environment variables are able to be referenced in config
         files.
         """
-        default_dir = default_config.parent
-        aux_conf = default_dir / "auxiliary.conf"
-        write_config(
-            aux_conf,
-            """
-            [virustotaldl]
-            enabled = no
-            #dlintelkey = SomeKeyWithDLAccess
-            dlpath = /tmp/
-            """,
-        )
-        custom_conf = custom_conf_dir / "auxiliary.conf"
+        custom_conf = custom_conf_path / "processing.conf"
         write_config(
             custom_conf,
             """
-            [virustotaldl]
-            enabled = yes
-            dlintelkey = %(ENV:DLINTELKEY)s
+            [virustotal]
+            on_demand = yes
+            key = %(ENV:DLINTELKEY)s
             """,
         )
 
         custom_secret = "MyReallySecretKeyWithAPercent(%)InIt"
         monkeypatch.setenv("DLINTELKEY", custom_secret)
-        config = Config("auxiliary")
-        section = config.get("virustotaldl")
+        config = Config("processing")
+        section = config.get("virustotal")
         # Inherited from default config
-        assert section.dlpath == "/tmp/"
-        # Overridden from custom config
         assert section.enabled is True
+        # Overridden from custom config
+        assert section.on_demand is True
         # Overridden from custom config and uses environment variable
-        assert section.dlintelkey == custom_secret
+        assert section.key == custom_secret
 
-    def test_missing_environment_interpolation(self, default_config, custom_conf_dir, monkeypatch):
+    def test_missing_environment_interpolation(self, custom_conf_path, monkeypatch):
         """Verify that an exception is raised if an ENV variable is to be used in a
         config file, but that variable is not present in the environment.
         """
-        default_dir = default_config.parent
-        aux_conf = default_dir / "auxiliary.conf"
+        custom_conf = custom_conf_path / "processing.conf"
         write_config(
-            aux_conf,
+            custom_conf,
             """
-            [foo]
-            bar = %(ENV:IDONTEXIST)s
+            [virustotal]
+            key = %(ENV:IDONTEXIST)s
             """,
         )
+
         with pytest.raises(configparser.InterpolationMissingOptionError):
-            _ = Config("auxiliary")
+            _ = Config("processing")

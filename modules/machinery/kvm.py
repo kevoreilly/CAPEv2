@@ -48,4 +48,3 @@ class KVM(LibVirtMachinery):
             self.db.set_vnc_port(task_id, port)
         else:
             print(f"Can't get iface for {label}")
-

@@ -758,7 +758,7 @@ class Database(object, metaclass=Singleton):
                 session.rollback()
 
     @classlock
-    def set_vnc_port(self, task_id:int, port:int):
+    def set_vnc_port(self, task_id: int, port: int):
         with self.Session() as session:
             try:
                 task = session.query(Task).filter_by(id=task_id).first()

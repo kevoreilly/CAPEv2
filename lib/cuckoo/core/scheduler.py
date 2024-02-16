@@ -501,7 +501,7 @@ class AnalysisManager(threading.Thread):
             options = self.build_options()
 
             if expose_vnc_port:
-                machinery.store_vnc_port(self.machine.label, self.task.id, self.task.options)
+                machinery.store_vnc_port(self.machine.label, self.task.id)
 
             try:
                 ResultServer().add_task(self.task, self.machine)

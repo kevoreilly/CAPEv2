@@ -890,8 +890,9 @@ class Signature:
                                 path = block["path"] if block.get("path", False) else ""
                                 yield keyword, path, yara_block, block
 
-                        if keyword == "procmemory":
-                            for pe in block.get("extracted_pe", []) or []:
+                    if keyword == "procmemory":
+                        for pe in block.get("extracted_pe", []) or []:
+                            for sub_keyword in ("cape_yara", "yara"):
                                 for yara_block in pe.get(sub_keyword, []) or []:
                                     if re.findall(name, yara_block["name"], re.I):
                                         yield "extracted_pe", pe["path"], yara_block, block

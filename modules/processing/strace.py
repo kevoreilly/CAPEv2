@@ -148,7 +148,7 @@ class ParseProcessLog(list):
             syscall = event.group("syscall")
             arguments = []
             args = self.split_arguments(event.group("args"))
-            if syscall_info := syscalls_info.get(int(event.group("syscall_number")), None):
+            if syscall_info := syscalls_info.get(event.group("syscall"), None):
                 category = syscall_info.get("category", "misc")
                 arg_names = syscall_info.get("signature", None)
                 for arg_name, arg in zip(arg_names, args):
@@ -240,7 +240,7 @@ class Processes:
         syscalls_json = open("/opt/CAPEv2/data/linux/linux-syscalls.json", "r")
         syscalls_dict = json.load(syscalls_json)
         return {
-            syscall["index"]: {
+            syscall["name"]: {
                 "signature": syscall["signature"],
                 "category": "kernel" if "kernel" in syscall["file"] else syscall["file"].split("/")[0],
             }

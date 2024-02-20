@@ -26,7 +26,6 @@ from lib.cuckoo.common.web_utils import (
     all_nodes_exits_list,
     all_vms_tags,
     download_file,
-    download_from_bazaar,
     download_from_vt,
     get_file_content,
     parse_request_arguments,
@@ -59,15 +58,13 @@ logger = logging.getLogger(__name__)
 
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
-    exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
 
     packages = []
     for name in files:
         name = os.path.splitext(name)[0]
         if name == "__init__":
             continue
-        if name not in exclusions:
-            packages.append(name)
+        packages.append(name)
 
     # Prepare a list of VM names, description label based on tags.
     machines = []
@@ -270,9 +267,6 @@ def index(request, task_id=None, resubmit_hash=None):
         ):
             task_category = "vtdl"
             samples = request.POST.get("vtdl").strip()
-        elif "bazaar" in request.POST and request.POST.get("bazaar").strip():
-            task_category = "bazaar"
-            samples = request.POST.get("bazaar").strip()
 
         list_of_tasks = []
         if task_category in ("url", "dlnexec"):
@@ -348,7 +342,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
-        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl", "bazaar"):
+        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl"):
             task_category = job_category
 
         if task_category == "resubmit":
@@ -483,19 +477,18 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["task_ids"] = task_ids_tmp
 
         elif task_category == "vtdl":
-            if not settings.VTDL_KEY:
+            if not settings.VTDL_KEY or not settings.VTDL_PATH:
                 return render(
                     request,
                     "error.html",
-                    {"error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"},
+                    {
+                        "error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"
+                    },
                 )
             else:
                 if opt_apikey:
                     details["apikey"] = opt_apikey
                 details = download_from_vt(samples, details, opt_filename, settings)
-
-        elif task_category == "bazaar":
-            details = download_from_bazaar(samples, details, opt_filename, settings)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])
@@ -515,7 +508,6 @@ def index(request, task_id=None, resubmit_hash=None):
     else:
         enabledconf = {}
         enabledconf["vt"] = settings.VTDL_ENABLED
-        enabledconf["bazaar"] = settings.BAZAAR_ENABLED
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")
         enabledconf["procmemory"] = processing.procmemory.get("enabled")
@@ -639,7 +631,16 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
-    return render(request, "submission/status.html", {"completed": completed, "status": status, "task_id": task_id})
+    machine_status = False
+    session_data = ""
+
+    machine = db.view_machine_by_label(task.machine)
+    guest_ip = machine.ip
+    machine_status = True
+    session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
+    session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+
+    return render(request, "submission/status.html", {"completed": completed, "status": status, "task_id": task_id, "session_data": session_data})
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -653,8 +654,6 @@ def remote_session(request, task_id):
 
     if task.status == "running":
         machine = db.view_machine_by_label(task.machine)
-        if not machine:
-            return render(request, "error.html", {"error": "Machine is not set for this task."})
         guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]

@@ -755,7 +755,7 @@ function install_yara() {
     # for root
     pip3 install ./yara-python
     if [ -d yara-python ]; then
-        rm -r yara-python
+        sudo rm -r yara-python
     fi
 
     if id "cape" >/dev/null 2>&1; then
@@ -764,7 +764,7 @@ function install_yara() {
         cd -
     fi
     if [ -d yara-python ]; then
-        rm -r yara-python
+        sudo rm -r yara-python
     fi
 
 }

@@ -357,9 +357,9 @@ def tmp_clean_before_day(days: int):
         for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
             for name in files + directories:
                 path = os.path.join(root, name)
-                last_modified_time_in_seconds = os.stat(os.path.join(root, path)).st_mtime
+                last_modified_time_in_seconds = os.stat(os.path.join(root, path)).st_ctime
                 file_time = today - datetime.fromtimestamp(last_modified_time_in_seconds)
-
+                # ToDo add check for hours, as 1 day and 23h is still just 1 day
                 if file_time.days > days:
                     try:
                         if path_is_dir(path):

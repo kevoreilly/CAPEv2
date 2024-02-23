@@ -78,6 +78,10 @@ platform = windows
 # Specify a port number to bind the result server on.
 # resultserver_port = 2042
 
+# Set the machine architecture
+# Required to auto select proper machine architecture for sample
+# x64 or x86
+arch = x64
 
 
 # This section is just a template for one pre-configured machine, if you choose to use it.

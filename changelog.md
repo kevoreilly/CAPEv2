@@ -1,3 +1,6 @@
+### [23.02.2024]
+* Monitor updates: Debugger/Trace enhancements
+
 ### [14.02.2024]
 * Monitor update: Protect NtFreeVirtualMemory hook against spurious pointer values (e.g. f4bb0089dcf3629b1570fda839ef2f06c29cbf846c5134755d22d419015c8bd2)
 

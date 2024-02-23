@@ -175,7 +175,13 @@
         {% endif %}
         {% if file.yara %}
         <tr>
-            <th>Yara</th>
+            <th>
+             {% if config.yara_detail %}
+                <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#yara_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="yara_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Yara details"><span class="fas fa-file-lines"></span> Yara</a>
+             {% else %}
+                Yara
+            {% endif %}
+            </th>
             <td>
                 <ul style="margin-bottom: 0;">
                 {% for sign in file.yara %}
@@ -192,7 +198,13 @@
         {% endif %}
         {% if file.cape_yara %}
         <tr>
-            <th>CAPE Yara</th>
+            <th>
+            {% if config.yara_detail %}
+                <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#capeyara_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="capeyara_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display CAPE Yara details"><span class="fas fa-file-lines"></span> CAPE Yara</a>
+            {% else %}
+                CAPE Yara
+            {% endif %}
+            </th>
             <td>
                 <ul style="margin-bottom: 0;">
                 {% for sign in file.cape_yara %}
@@ -419,6 +431,8 @@
             </tr>
             </br>
         {% endif %}
+    {% if config.yara_detail and file.yara %} <div class="collapse" id="yara_{{file.sha256}}"> <div> {% include "analysis/generic/_yara.html" %}</div></div></br>{% endif %}
+    {% if config.yara_detail and file.cape_yara %} <div class="collapse" id="capeyara_{{file.sha256}}"> <div> {% include "analysis/generic/_capeyara.html" %}</div></div></br>{% endif %}
     {% if file.pe %} <div class="collapse" id="pe_{{file.sha256}}"> <div> {% include "analysis/generic/_pe.html" %}</div></div></br>{% endif %}
     {% if file.dotnet %} <div class="collapse" id="dotnet_{{file.sha256}}"> <div> {% include "analysis/generic/_dotnet.html" %}</div></div></br>{% endif %}
     {% if file.pdf %} <div class="collapse" id="pdf_{{file.sha256}}"> <div> {% include "analysis/generic/_pdf.html" %}</div></div></br>{% endif %}

@@ -48,7 +48,7 @@ fd_syscalls = [
     "pwritev",
     "syncfs",
     "preadv2",
-    "pwritev2"
+    "pwritev2",
     "fsconfig",
     "quotactl_fd",
 ]
@@ -80,9 +80,6 @@ class ParseProcessLog(list):
     def __repr__(self):
         return f"<ParseProcessLog log-path: {self._log_path}>"
 
-    def time_key(self, event):
-        return event.group("time")
-
     def log_concat(self, unfinished, resumed):
         """
         Concatenates all the respective unfinished and resumed strace logs into a string,
@@ -92,35 +89,39 @@ class ParseProcessLog(list):
         data = ""
         for head in unfinished:
             for tail in resumed:
-                if head.group("syscall_number") != tail.group("syscall_number"):
+                if head["syscall"] != tail["syscall"]:
                     continue
-                data += " ".join([tail.group("time"), head.group("unfinished") + tail.group("resumed") + "\n"])
+                data += " ".join([tail["time"], head["unfinished"] + tail["resumed"] + "\n"])
                 resumed.remove(tail)
                 break
         return data
 
+    def extract_logs(self, raw_logs, pattern):
+        return [match.groupdict() for match in pattern.finditer(raw_logs)]
+
     def normalize_logs(self):
-        raw_strace_logs = open(self._log_path, "r").read()
-
+        """
+        Normalize the logs into a standard format to process the syscall information.
+        Returns a list of dictionaries containing syscall information.
+        """
         log_pattern = re.compile(
-            r"(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+(?P<syscall_number>\d+)\]\s+(?P<syscall>\w+)\((?P<args>.*)\)\s+=\s(?P<retval>.+)\n"
+            r"(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+\d+\]\s+(?P<syscall>\w+)\((?P<args>.*)\)\s+=\s(?P<retval>.+)\n"
         )
-        unfinished_pattern = re.compile(
-            r"\d+:\d+:\d+\.\d+\s+(?P<unfinished>\[\s+(?P<syscall_number>\d+)\]\s+(?P<syscall>\w+)\(.*)<unfinished\s...>\n"
-        )
+        unfinished_pattern = re.compile(r"\d+:\d+:\d+\.\d+\s+(?P<unfinished>\[\s+\d+\]\s+(?P<syscall>\w+)\(.*)<unfinished\s...>\n")
         resumed_pattern = re.compile(
-            r"(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+(?P<syscall_number>\d+)\]\s+<\.\.\.\s(?P<syscall>\w+)\sresumed>(?P<resumed>.*)\n"
+            r"(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+\d+\]\s+<\.\.\.\s(?P<syscall>\w+)\sresumed>(?P<resumed>.*)\n"
         )
-        # exited_pattern = re.compile(r'(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+\+\+\+ exited with 0 \+\+\+')
+        with open(self._log_path, "r") as log_file:
+            raw_logs = log_file.read()
 
-        unfinished_logs = [x for x in unfinished_pattern.finditer(raw_strace_logs)]
-        resumed_logs = [x for x in resumed_pattern.finditer(raw_strace_logs)]
+        normal_logs = self.extract_logs(raw_logs, log_pattern)
+        unfinished_logs = self.extract_logs(raw_logs, unfinished_pattern)
+        resumed_logs = self.extract_logs(raw_logs, resumed_pattern)
+
         concat_logs = self.log_concat(unfinished_logs, resumed_logs)
+        normal_logs.extend(self.extract_logs(concat_logs, log_pattern))
 
-        normal_logs = [x for x in log_pattern.finditer(raw_strace_logs)]
-        normal_logs.extend([x for x in log_pattern.finditer(concat_logs)])
-        normal_logs = sorted(normal_logs, key=self.time_key)
-
+        normal_logs.sort(key=lambda d: d["time"])
         return normal_logs
 
     def split_arguments(self, args_str):
@@ -143,12 +144,12 @@ class ParseProcessLog(list):
 
     def fetch_calls(self, syscalls_info):
         for event in self.normalize_logs():
-            time = event.group("time")
+            time = event["time"]
             category = "misc"
-            syscall = event.group("syscall")
+            syscall = event["syscall"]
             arguments = []
-            args = self.split_arguments(event.group("args"))
-            if syscall_info := syscalls_info.get(event.group("syscall"), None):
+            args = self.split_arguments(event["args"])
+            if syscall_info := syscalls_info.get(syscall, None):
                 category = syscall_info.get("category", "misc")
                 arg_names = syscall_info.get("signature", None)
                 for arg_name, arg in zip(arg_names, args):
@@ -159,54 +160,60 @@ class ParseProcessLog(list):
                         }
                     )
             else:
-                arguments.append(event.group("args"))
-            retval = event.group("retval")
+                arguments.append(event["args"])
+            retval = event["retval"]
 
             if len(self.calls) == 0:
                 self.first_seen = time
-                self.process_name = syscall + "(" + event.group("args") + ")"
+                self.process_name = syscall + "(" + event["args"] + ")"
 
             if syscall in ["fork", "vfork", "clone", "clone3"]:
-                self.children_ids.append((int(retval), syscall + "(" + event.group("args") + ")"))
+                self.children_ids.append((int(retval), syscall + "(" + event["args"] + ")"))
 
-            self.calls.append({"timestamp": time, "category": category, "api": syscall, "return": retval, "arguments": arguments})
+            self.calls.append(
+                {
+                    "timestamp": time,
+                    "category": category,
+                    "api": syscall,
+                    "return": retval,
+                    "arguments": arguments,
+                }
+            )
 
             # Consider open/openat/dup syscalls for tracking opened file descriptors
-            if syscall in ["open", "creat"] and retval > "0":
-                self.file_descriptors.append(
-                    {
-                        "time": time,
-                        "syscall": syscall,
-                        "fd": retval,
-                        "filename": eval(args[0]),
-                    }
-                )
-                continue
-
-            if syscall in ["openat", "openat2"] and retval > "0":
-                self.file_descriptors.append(
-                    {
-                        "time": time,
-                        "syscall": syscall,
-                        "fd": retval,
-                        "filename": eval(args[1]),
-                    }
-                )
-                continue
-
-            if syscall in ["dup", "dup2", "dup3"] and retval > "0":
-                self.file_descriptors.append(
-                    {
-                        "time": time,
-                        "syscall": syscall,
-                        "oldfd": args[0],
-                        "fd": retval,
-                    }
-                )
+            if retval > "0":
+                match syscall:
+                    case call if call in ["open", "creat"]:
+                        self.file_descriptors.append(
+                            {
+                                "time": time,
+                                "syscall": syscall,
+                                "fd": retval,
+                                "filename": eval(args[0]),
+                            }
+                        )
+                    case call if call in ["openat", "openat2"]:
+                        self.file_descriptors.append(
+                            {
+                                "time": time,
+                                "syscall": syscall,
+                                "fd": retval,
+                                "filename": eval(args[1]),
+                            }
+                        )
+                    case call if call in ["dup", "dup2", "dup3"]:
+                        self.file_descriptors.append(
+                            {
+                                "time": time,
+                                "syscall": syscall,
+                                "oldfd": args[0],
+                                "fd": retval,
+                            }
+                        )
                 continue
 
             # Consider close syscalls for tracking closed file descriptors
-            if syscall == "close" and retval == "0":
+            if retval == "0" and syscall == "close":
                 self.file_descriptors.append(
                     {
                         "time": time,
@@ -214,7 +221,6 @@ class ParseProcessLog(list):
                         "fd": args[0],
                     }
                 )
-                continue
 
 
 class Processes:
@@ -252,47 +258,56 @@ class Processes:
         Returns an updated process list where file-access related calls have
         the matching file descriptor at the time of it being opened.
         """
+        # Default file descriptors
         file_descriptors = [
-            {'fd': '0', 'filename': 'STDIN', 'time_opened': '00:00:00.000000', 'time_closed': None},
-            {'fd': '1', 'filename': 'STDOUT', 'time_opened': '00:00:00.000000', 'time_closed': None},
-            {'fd': '2', 'filename': 'STDERR', 'time_opened': '00:00:00.000000', 'time_closed': None},
+            {
+                "fd": "0",
+                "filename": "STDIN",
+                "time_opened": "00:00:00.000000",
+                "time_closed": None,
+            },
+            {
+                "fd": "1",
+                "filename": "STDOUT",
+                "time_opened": "00:00:00.000000",
+                "time_closed": None,
+            },
+            {
+                "fd": "2",
+                "filename": "STDERR",
+                "time_opened": "00:00:00.000000",
+                "time_closed": None,
+            },
         ]
         sorted_fd_calls = sorted(fd_calls, key=lambda x: x["time"])
 
         for fd_call in sorted_fd_calls:
-            if fd_call["syscall"] in ["open", "creat"]:
-                file_descriptors.append(
-                    {
-                        "fd": fd_call["fd"],
-                        "filename": fd_call["filename"],
-                        "time_opened": fd_call["time"],
-                        "time_closed": None,
-                    }
-                )
-            elif fd_call["syscall"] in ["openat", "openat2"]:
-                file_descriptors.append(
-                    {
-                        "fd": fd_call["fd"],
-                        "filename": fd_call["filename"],
-                        "time_opened": fd_call["time"],
-                        "time_closed": None,
-                    }
-                )
-            elif fd_call["syscall"] in ["dup", "dup2", "dup3"]:
-                for fd in reversed(file_descriptors):
-                    if fd["time_closed"] is None and fd_call["oldfd"] == fd["fd"]:
-                        file_descriptors.append(
-                            {
-                                "fd": fd_call["fd"],
-                                "filename": fd["filename"],
-                                "time_opened": fd_call["time"],
-                                "time_closed": None,
-                            }
-                        )
-            elif fd_call["syscall"] == "close":
-                for fd in reversed(file_descriptors):
-                    if fd["time_closed"] is None and fd_call["fd"] == fd["fd"]:
-                        fd["time_closed"] = fd_call["time"]
+            # Retrieve the relevant informaton from syscalls that open/duplicate/close file descriptors
+            match fd_call["syscall"]:
+                case syscall if syscall in ["open", "creat", "openat", "openat2"]:
+                    file_descriptors.append(
+                        {
+                            "fd": fd_call["fd"],
+                            "filename": fd_call["filename"],
+                            "time_opened": fd_call["time"],
+                            "time_closed": None,
+                        }
+                    )
+                case syscall if syscall in ["dup", "dup2", "dup3"]:
+                    for fd in reversed(file_descriptors):
+                        if fd["time_closed"] is None and fd_call["oldfd"] == fd["fd"]:
+                            file_descriptors.append(
+                                {
+                                    "fd": fd_call["fd"],
+                                    "filename": fd["filename"],
+                                    "time_opened": fd_call["time"],
+                                    "time_closed": None,
+                                }
+                            )
+                case "close":
+                    for fd in reversed(file_descriptors):
+                        if fd["time_closed"] is None and fd_call["fd"] == fd["fd"]:
+                            fd["time_closed"] = fd_call["time"]
 
         for process in process_list:
             for call in process["calls"]:

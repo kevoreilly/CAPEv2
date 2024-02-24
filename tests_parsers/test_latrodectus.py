@@ -38,7 +38,6 @@ def test_latrodectus():
                 ".dll",
                 ".exe",
                 '"%s"',
-                "",
                 "rundll32.exe",
                 '"%s", %s %s',
                 "runnung",

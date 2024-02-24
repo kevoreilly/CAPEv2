@@ -120,10 +120,10 @@ def extract_config(filebuf):
                 if ".exe" in str_vals[i+2]:
                     campaign = str_vals[i+1]
                 cfg = {
-                    "c2": c2,
-                    "campaign string": campaign,
-                    "campaign ID": fnv_hash(campaign.encode()),
-                    "strings": str_vals,
+                    "C2": c2,
+                    "Group name": campaign,
+                    "Campaign ID": fnv_hash(campaign.encode()),
+                    "Strings": str_vals,
                 }
             except Exception as e:
                 log.error("Error: %s", e)

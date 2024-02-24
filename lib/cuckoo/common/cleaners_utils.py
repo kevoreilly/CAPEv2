@@ -345,6 +345,7 @@ def cuckoo_clean_lower_score(malscore: int):
 def tmp_clean_before_day(days: int):
     """Clean up tmp folder
     It deletes all items in tmp folder before now - days.
+    CAPE related only, is not our tasks to clean your TMP folder
     """
 
     init_console_logging()
@@ -352,22 +353,23 @@ def tmp_clean_before_day(days: int):
     today = datetime.today()
     tmp_folder_path = cuckoo.cuckoo.get("tmppath")
 
-    for root, directories, files in os.walk(tmp_folder_path, topdown=True):
-        for name in files + directories:
-            path = os.path.join(root, name)
-            last_modified_time_in_seconds = os.stat(os.path.join(root, path)).st_mtime
-            file_time = today - datetime.fromtimestamp(last_modified_time_in_seconds)
+    for folder in ("cuckoo-tmp", "cape-external"):
+        for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
+            for name in files + directories:
+                path = os.path.join(root, name)
+                last_modified_time_in_seconds = os.stat(os.path.join(root, path)).st_mtime
+                file_time = today - datetime.fromtimestamp(last_modified_time_in_seconds)
 
-            if file_time.days > days:
-                try:
-                    if path_is_dir(path):
-                        log.info("Delete folder: %s", path)
-                        delete_folder(path)
-                    elif path_exists(path):
-                        log.info("Delete file: %s", path)
-                        path_delete(path)
-                except Exception as e:
-                    log.error(e)
+                if file_time.days > days:
+                    try:
+                        if path_is_dir(path):
+                            log.info("Delete folder: %s", path)
+                            delete_folder(path)
+                        elif path_exists(path):
+                            log.info("Delete file: %s", path)
+                            path_delete(path)
+                    except Exception as e:
+                        log.error(e)
 
 
 def cuckoo_clean_before_day(args: dict):

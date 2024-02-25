@@ -16,13 +16,10 @@
 import logging
 import os
 import re
-import sys
 from contextlib import suppress
 
 import pefile
 import yara
-
-sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
@@ -58,14 +55,12 @@ def decrypt_string(data, type):
     src = data[6:]
     result = bytearray()
 
-    if type == 1:
-        for i in range(length):
+    for i in range(length):
+        if type == 1:
             seed = prng_seed(seed)
-            result.append((seed ^ src[i]) & 0xFF)
-    elif type == 2:
-        for i in range(length):
+        elif type == 2:
             seed += 1
-            result.append((seed ^ src[i]) & 0xFF)
+        result.append((seed ^ src[i]) & 0xFF)
     return result
 
 
@@ -82,7 +77,6 @@ def extract_config(filebuf):
 
     for hit in yara_hit:
         if hit.rule == "Latrodectus":
-            data = None
             try:
                 pe = pefile.PE(data=filebuf, fast_load=True)
                 data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
@@ -115,6 +109,7 @@ def extract_config(filebuf):
                         break
                     else:
                         i += 1
+                campaign = ""
                 if ".exe" in str_vals[i + 2]:
                     campaign = str_vals[i + 1]
                 cfg = {

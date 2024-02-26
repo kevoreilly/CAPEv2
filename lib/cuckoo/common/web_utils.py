@@ -726,7 +726,7 @@ def download_file(**kwargs):
         parsed_options = get_options(kwargs["options"])
         node = parsed_options.get("node")
 
-        if node and route not in all_nodes_exits.get(node):
+        if node and node not in all_nodes_exits.get(route):
             return "error", {"error": f"Specified worker {node} doesn't support this route: {route}"}
         elif route not in all_nodes_exits_list:
             return "error", {"error": "Specified route doesn't exist on any worker"}
@@ -741,8 +741,8 @@ def download_file(**kwargs):
                     kwargs["options"] = f"node={choice(tmp_workers)}"
 
         # Remove workers prefixes
-        if route.startswith(("socks5:", "vpn:")):
-            route = route.replace("socks5:", "", 1).replace("vpn:", "", 1)
+        if route.startswith(("socks5:", "vpn:", "socks:")):
+            route = route.replace("socks5:", "", 1).replace("vpn:", "", 1).replace("socks:", "", 1)
 
     onesuccess = True
     magic_type = get_magic_type(kwargs["path"])

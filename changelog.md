@@ -1,6 +1,7 @@
 ### [26.02.2024]
 * Monitor updates: Service injection delay for e.g. msi detonation & EnumDisplayDevices hooks & anti-vm (thanks @enzo)
 * Updated DarkGate config & payload extraction (thanks @enzo)
+* Latrodectus auto-export selection
 
 ### [23.02.2024]
 * Monitor updates: Debugger/Trace enhancements

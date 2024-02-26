@@ -1,3 +1,6 @@
+### [26.02.2024]
+* Monitor update: Service injection delay for e.g. msi detonation
+
 ### [23.02.2024]
 * Monitor updates: Debugger/Trace enhancements
 

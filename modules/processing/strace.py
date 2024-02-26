@@ -64,7 +64,7 @@ class ParseProcessLog(list):
         self.children_ids = []
         self.first_seen = None
         self.process_name = None
-        self.calls = list()
+        self.calls = self
         self.file_descriptors = []
         self.options = options
         # Limit of API calls per process
@@ -74,11 +74,13 @@ class ParseProcessLog(list):
             self.fetch_calls(syscalls_info)
 
     def __iter__(self):
-        for item in self.calls:
-            yield item
+       return iter(super().__iter__())
 
     def __repr__(self):
         return f"<ParseProcessLog log-path: {self._log_path}>"
+    
+    def begin_reporting(self):
+        pass
 
     def log_concat(self, unfinished, resumed):
         """
@@ -472,7 +474,7 @@ class ProcessTree:
 class StraceAnalysis(Processing):
     """Strace Analyzer."""
 
-    key = "strace"
+    key = "behavior"
     os = "linux"
 
     def run(self):

@@ -34,7 +34,7 @@ def extract_config(data):
                     # Data Exfiltration via SMTP
                     elif "@" in lines[base + x]:
                         config_dict["Protocol"] = "SMTP"
-                        if lines[base + x - 2].isdigit() and len(lines[base + x - 2]) <= 5: #check if length <= highest Port 65535 
+                        if lines[base + x - 2].isdigit() and len(lines[base + x - 2]) <= 5:  # check if length <= highest Port 65535
                             # minchars 3 so Ports < 100 do not appear in strings / TBD: michars < 3
                             config_dict["Port"] = lines[base + x - 2]
                         config_dict["C2"] = lines[base + +x - 1]

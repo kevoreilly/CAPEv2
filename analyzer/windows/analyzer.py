@@ -34,7 +34,16 @@ from lib.common.constants import (
     SHUTDOWN_MUTEX,
     TERMINATE_EVENT,
 )
-from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, MAX_PATH, PROCESS_QUERY_LIMITED_INFORMATION, PSAPI, SHELL32, USER32
+from lib.common.defines import (
+    ADVAPI32,
+    EVENT_MODIFY_STATE,
+    KERNEL32,
+    MAX_PATH,
+    PROCESS_QUERY_LIMITED_INFORMATION,
+    PSAPI,
+    SHELL32,
+    USER32,
+)
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host

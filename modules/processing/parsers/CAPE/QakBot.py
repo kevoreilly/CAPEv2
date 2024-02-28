@@ -87,6 +87,10 @@ def parse_binary_c2(data):
         alignment = 7
     elif len(data) % 8 == 0:
         alignment = 8
+
+    if not alignment:
+        return controllers
+
     for c2_offset in range(0, length, alignment):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])
@@ -109,10 +113,15 @@ def parse_binary_c2_2(data):
     length = len(data)
 
     controllers = []
+    alignment = 0
     if len(data) % 7 == 0:
         alignment = 7
     elif len(data) % 8 == 0:
         alignment = 8
+
+    if not alignment:
+        return controllers
+
     for c2_offset in range(0, length, alignment):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])

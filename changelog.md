@@ -1,5 +1,7 @@
 ### [28.02.2024]
 * Add 'ShellWindows' COM object injection mechanism (e.g. Latrodectus MSIs)
+* Monitor: add option to disable ntdll remap protection: ntdll-remap=0
+* Lumma direct systenter unmap crash bypass
 
 ### [26.02.2024]
 * Monitor updates: Service injection delay for e.g. msi detonation & EnumDisplayDevices hooks & anti-vm (thanks @enzo)

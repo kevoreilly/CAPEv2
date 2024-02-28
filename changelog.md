@@ -1,3 +1,6 @@
+### [28.02.2024]
+* Add 'ShellWindows' COM object injection mechanism (e.g. Latrodectus MSIs)
+
 ### [26.02.2024]
 * Monitor updates: Service injection delay for e.g. msi detonation & EnumDisplayDevices hooks & anti-vm (thanks @enzo)
 * Updated DarkGate config & payload extraction (thanks @enzo)

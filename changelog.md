@@ -1,5 +1,6 @@
 ### [29.02.2024]
 * TLP fields added to distributed database. Requires db upgrade: `cd utils/db_migration_db && alembic upgrade head`
+* Monitor fixes
 
 ### [28.02.2024]
 * Add 'ShellWindows' COM object injection mechanism (e.g. Latrodectus MSIs)

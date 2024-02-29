@@ -1,50 +1,26 @@
-name: 'Set up python'
-description: 'TBD'
+name: 'Python setup steps that can be reused'
+description: 'Install dependencies, poetry, requirements'
 inputs:
-  recurse-submodules:
-    required: false
-    type: boolean
-    default: false
-  checkout-sandbox-testfiles:
-    required: false
-    type: boolean
-    default: false
   python-version:
     required: true
-    type: string
+    description: The python version
 
 runs:
   using: "composite"
   steps:
-    - name: Check out repository code recursively
-      if: ${{ inputs.recurse-submodules }}
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Check out repository code non-recursively
-      if: ${{ ! inputs.recurse-submodules }}
-      uses: actions/checkout@v4
-
-    - name: Checkout sandbox test files repo
-      if: ${{ inputs.checkout-sandbox-testfiles }}
-      uses: actions/checkout@v4
-      with:
-        repository: CAPESandbox/CAPE-TestFiles
-        path: tests/data/
-
     - name: Install dependencies
+      if: ${{ runner.os == 'Linux' }}
       run: |
-       sudo apt update && sudo apt-get install -y --no-install-recommends libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev p7zip-full innoextract unrar upx
+        sudo apt update && sudo apt-get install -y --no-install-recommends libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev p7zip-full innoextract unrar upx
 
     - name: Install poetry
       run: pip install poetry
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python ${{ inputs.python-version }}
       uses: actions/setup-python@v5
+      id: cached-poetry-dependencies
       with:
-        # check-latest: true
-        python-version: ${{ matrix.python-version }}
+        python-version: ${{ inputs.python-version }}
         cache: 'poetry'
 
     - name: Install requirements

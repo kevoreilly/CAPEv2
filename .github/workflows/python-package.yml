@@ -17,11 +17,19 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11"]
     steps:
-      - name: Set up python
-        uses: ./.github/actions/python-setup
+      - name: Check out repository code
+        uses: actions/checkout@v4
         with:
-          recurse-submodules: true
-          checkout-sandbox-testfiles: true
+          submodules: recursive
+
+      - name: Checkout test files repo
+        uses: actions/checkout@v4
+        with:
+          repository: CAPESandbox/CAPE-TestFiles
+          path: tests/data/
+
+      - uses: ./.github/actions/python-setup/
+        with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install pyattck
@@ -32,6 +40,10 @@ jobs:
         run: poetry run ruff . --line-length 132 --ignore E501,E402
 
       - name: Run unit tests
+        # Nektos act runs tests as root;
+        # and failing from line 10 on web/web/settings.py
+        env:
+          CAPE_AS_ROOT: 1
         run: poetry run python -m pytest --import-mode=append
 
       - name: See if any parser changed
@@ -55,6 +67,9 @@ jobs:
     if: ${{ github.ref == 'refs/heads/master' }}
 
     steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
       - name: Set up python
         uses: ./.github/actions/python-setup
         with:

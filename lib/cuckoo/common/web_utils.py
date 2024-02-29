@@ -969,14 +969,14 @@ def validate_task(tid, status=TASK_REPORTED):
         return {"error": True, "error_value": "Specified wrong task status"}
     elif status == task.status:
         if tid != task_id:
-            return {"error": False, "rtid": task_id, "tlp": task.get("tlp", "")}
-        return {"error": False, "tlp": task.get("tlp", "")}
+            return {"error": False, "rtid": task_id, "tlp": task.tlp}
+        return {"error": False, "tlp": task.tlp}
     elif task.status in {TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING}:
         return {"error": True, "error_value": "Task failed"}
     elif task.status != TASK_REPORTED:
         return {"error": True, "error_value": "Task is still being analyzed"}
 
-    return {"error": False, "tlp": task.get("tlp", "")}
+    return {"error": False, "tlp": task.tlp}
 
 
 def validate_task_by_path(tid):

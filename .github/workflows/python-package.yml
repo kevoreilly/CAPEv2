@@ -83,6 +83,8 @@ jobs:
         run: poetry run isort .
 
       - name: Commit changes if any
+        # Skip this step if being run by nektos/act
+        if: ${{ !env.ACT }}
         run: |
           git config user.name "GitHub Actions"
           git config user.email "action@github.com"

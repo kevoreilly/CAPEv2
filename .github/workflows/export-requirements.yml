@@ -9,6 +9,7 @@ on:
 
 jobs:
   update:
+    if: ${{ !github.event.act }} # skip during local actions testing
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -33,6 +34,8 @@ jobs:
         run: poetry export --format requirements.txt --output requirements.txt
 
       - name: Commit changes if any
+        # Skip this step if being run by nektos/act
+        if: ${{ !env.ACT }}
         run: |
           git config user.name "GitHub Actions"
           git config user.email "action@github.com"

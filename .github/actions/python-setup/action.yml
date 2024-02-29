@@ -19,7 +19,6 @@ runs:
       run: pip install poetry
 
     - name: Set up Python ${{ inputs.python-version }}
-      shell: bash
       uses: actions/setup-python@v5
       id: cached-poetry-dependencies
       with:

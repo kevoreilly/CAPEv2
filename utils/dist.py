@@ -269,6 +269,7 @@ def node_submit_task(task_id, node_id, main_task_id):
             memory=task.memory,
             enforce_timeout=task.enforce_timeout,
             route=task.route,
+            tlp=task.tlp,
         )
 
         if task.category in ("file", "pcap"):
@@ -969,6 +970,7 @@ class StatusThread(threading.Thread):
                         enforce_timeout=t.enforce_timeout,
                         main_task_id=t.id,
                         route=t.route,
+                        tlp=t.tlp,
                     )
                     task = Task(path=t.target, **args)
 

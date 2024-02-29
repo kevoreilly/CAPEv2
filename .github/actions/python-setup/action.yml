@@ -20,13 +20,11 @@ runs:
 
     - name: Set up Python ${{ inputs.python-version }}
       uses: actions/setup-python@v5
-      id: cached-poetry-dependencies
       with:
         python-version: ${{ inputs.python-version }}
         cache: 'poetry'
 
     - name: Install requirements
       shell: bash
-      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       run: |
         poetry install --no-interaction --no-root

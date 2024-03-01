@@ -2,6 +2,8 @@ import re
 import dnfile
 import hashlib
 import base64
+from contextlib import suppress
+
 from Cryptodome.Cipher import AES
 
 pattern = re.compile(
@@ -31,7 +33,7 @@ def decryptAES(key : str, ciphertext : str, mode):
 
     ## To exclude garbage bytes (i.e. 'http:\\example.com\\\x03\x03\x03')
     valid_bytes = set(b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-/,')
-    
+
     ## C2 could be one or more delimited by ','
     filtered_bytes = bytes(b for b in decryptedBuff if b in valid_bytes).decode('utf-8').split(',')
     if len(filtered_bytes) > 1:
@@ -40,7 +42,7 @@ def decryptAES(key : str, ciphertext : str, mode):
 
 def extract_config(data):
     config_dict = {}
-    try:
+    with suppress(Exception):
         dn = dnfile.dnPE(data=data)
         extracted = []
         conf = []
@@ -59,13 +61,11 @@ def extract_config(data):
         AESKey = deriveAESKey(mutex)
 
         for i in range(5):
-            try:
+            with suppress(Exception):
                 conf.append(decryptAES(AESKey, extracted[i], AES.MODE_ECB))
-            except:
-                continue
 
         config_dict['C2'] = conf[0]
-        
+
         ## Sometimes the port is not found in configs and 'AES Key (decrypt/encrypt connections)' is shifted with SPL'
         if 1 <= int(conf[1]) <= 65535:
             config_dict['Port'] = conf[1]
@@ -79,6 +79,3 @@ def extract_config(data):
         config_dict['Mutex'] = mutex
 
         return config_dict
-
-    except:
-        return

@@ -198,11 +198,8 @@ save it as an input file.
 Example::
 
     {
-      "action": "push",
       "act": true,
       "repository" : {
-        "id": 1,
-        "full_name": "CAPEv2",
         "default_branch": "master"
       }
     }
@@ -214,6 +211,9 @@ So to run the actions that normally are triggered by a push event::
 and to run the actions that are scheduled::
 
    gh act schedule -s GITHUB_TOKEN="$(gh auth token)" --eventpath /tmp/github-event.json
+
+We created a file ``.actrc`` containing ``--env CAPE_AS_ROOT=1`` because ``act`` runs the tests
+as root, and otherwise the tests would exit saying you cannot run CAPE as root.
 
 Poetry and pre-commit hooks
 ===========================

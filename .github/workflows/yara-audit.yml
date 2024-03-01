@@ -33,8 +33,4 @@ jobs:
           bash -c "poetry run ./extra/yara_installer.sh"
 
       - name: Run unit tests
-        # Nektos act runs tests as root;
-        # and failing from line 10 on web/web/settings.py
-        env:
-          CAPE_AS_ROOT: 1
         run: poetry run pytest tests/test_yara.py -s --import-mode=append

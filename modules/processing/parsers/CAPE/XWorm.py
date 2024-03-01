@@ -60,7 +60,7 @@ def extract_config(data):
 
         for i in range(5):
             try:
-                conf.append(decrypt_aes_ecb(AESKey, extracted[i]))
+                conf.append(decryptAES_ECB(AESKey, extracted[i]))
             except:
                 continue
 

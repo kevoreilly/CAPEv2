@@ -1,16 +1,16 @@
-import re
-import dnfile
-import hashlib
 import base64
+import hashlib
+import re
 from contextlib import suppress
 
+import dnfile
 from Cryptodome.Cipher import AES
 
 pattern = re.compile(
     rb"""(?x)
     \x72(...)\x70\x80...\x04
     """,
-    re.DOTALL
+    re.DOTALL,
 )
 
 mutexPattern = re.compile(
@@ -18,27 +18,30 @@ mutexPattern = re.compile(
     \x72(...)\x70\x80...\x04
     \x72...\x70\x28...\x0A
     """,
-    re.DOTALL
+    re.DOTALL,
 )
 
-def deriveAESKey(encryptedMutex : str):
+
+def deriveAESKey(encryptedMutex: str):
     md5Hash = hashlib.md5(encryptedMutex.encode()).hexdigest()
-    AESKey = md5Hash[:30] + md5Hash + '00'
+    AESKey = md5Hash[:30] + md5Hash + "00"
     return AESKey
 
-def decryptAES(key : str, ciphertext : str, mode):
+
+def decryptAES(key: str, ciphertext: str, mode):
     cipher = AES.new(bytes.fromhex(key), mode)
     decodedcipher = base64.b64decode(ciphertext)
     decryptedBuff = cipher.decrypt(decodedcipher)
 
     ## To exclude garbage bytes (i.e. 'http:\\example.com\\\x03\x03\x03')
-    valid_bytes = set(b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-/,')
+    valid_bytes = set(b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-/,")
 
     ## C2 could be one or more delimited by ','
-    filtered_bytes = bytes(b for b in decryptedBuff if b in valid_bytes).decode('utf-8').split(',')
+    filtered_bytes = bytes(b for b in decryptedBuff if b in valid_bytes).decode("utf-8").split(",")
     if len(filtered_bytes) > 1:
         return filtered_bytes
-    return ''.join(filtered_bytes)
+    return "".join(filtered_bytes)
+
 
 def extract_config(data):
     config_dict = {}
@@ -64,18 +67,18 @@ def extract_config(data):
             with suppress(Exception):
                 conf.append(decryptAES(AESKey, extracted[i], AES.MODE_ECB))
 
-        config_dict['C2'] = conf[0]
+        config_dict["C2"] = conf[0]
 
         ## Sometimes the port is not found in configs and 'AES Key (decrypt/encrypt connections)' is shifted with SPL'
         if 1 <= int(conf[1]) <= 65535:
-            config_dict['Port'] = conf[1]
-            config_dict['AES Key (decrypt/encrypt connections)'] = conf[2]
-            config_dict['SPL'] = conf[3]
+            config_dict["Port"] = conf[1]
+            config_dict["AES Key (decrypt/encrypt connections)"] = conf[2]
+            config_dict["SPL"] = conf[3]
         else:
-            config_dict['Port'] = ''
-            config_dict['Key'] = conf[1]
-            config_dict['SPL'] = conf[2]
-        config_dict['AES Key (decrypt configs)'] = AESKey
-        config_dict['Mutex'] = mutex
+            config_dict["Port"] = ""
+            config_dict["Key"] = conf[1]
+            config_dict["SPL"] = conf[2]
+        config_dict["AES Key (decrypt configs)"] = AESKey
+        config_dict["Mutex"] = mutex
 
         return config_dict

@@ -40,10 +40,6 @@ jobs:
         run: poetry run ruff . --line-length 132 --ignore E501,E402
 
       - name: Run unit tests
-        # Nektos act runs tests as root;
-        # and failing from line 10 on web/web/settings.py
-        env:
-          CAPE_AS_ROOT: 1
         run: poetry run python -m pytest --import-mode=append
 
       - name: See if any parser changed

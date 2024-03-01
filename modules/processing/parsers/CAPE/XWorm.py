@@ -24,8 +24,8 @@ def deriveAESKey(encryptedMutex : str):
     AESKey = md5Hash[:30] + md5Hash + '00'
     return AESKey
 
-def decryptAES_ECB(key : str, ciphertext : str):
-    cipher = AES.new(bytes.fromhex(key), AES.MODE_ECB)
+def decryptAES(key : str, ciphertext : str, mode):
+    cipher = AES.new(bytes.fromhex(key), mode)
     decodedcipher = base64.b64decode(ciphertext)
     decryptedBuff = cipher.decrypt(decodedcipher)
 
@@ -60,7 +60,7 @@ def extract_config(data):
 
         for i in range(5):
             try:
-                conf.append(decryptAES_ECB(AESKey, extracted[i]))
+                conf.append(decryptAES(AESKey, extracted[i], AES.MODE_ECB))
             except:
                 continue
 

@@ -24,8 +24,9 @@ class Package:
     PATHS = []
     default_curdir = None
 
-    def __init__(self, options=None, config=None):
+    def __init__(self, name: str, options=None, config=None):
         """@param options: options dict."""
+        self.name = name
         if options is None:
             options = {}
         self.config = config

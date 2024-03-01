@@ -408,7 +408,7 @@ class Analyzer:
 
         # Initialize the analysis package.
         log.debug('Initializing analysis package "%s"...', package)
-        self.package = package_class(self.options, self.config)
+        self.package = package_class(package_name, self.options, self.config)
         # log.debug('Initialized analysis package "%s"', package)
 
         # Move the sample to the current working directory as provided by the

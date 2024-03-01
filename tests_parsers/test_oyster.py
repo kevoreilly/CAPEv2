@@ -9,7 +9,7 @@ def test_zloader():
     with open("tests/data/malware/8bae0fa9f589cd434a689eebd7a1fde949cc09e6a65e1b56bb620998246a1650", "rb") as data:
         conf = extract_config(data.read())
         assert conf == {
-            'C2': ['https://connectivity-check.linkpc.net/'],
-            'Dll Version': 'v1.1 #ads 5',
-            'Strings': ['api/connect', 'Content-Type: application/json', 'api/session']
+            "C2": ["https://connectivity-check.linkpc.net/"],
+            "Dll Version": "v1.1 #ads 5",
+            "Strings": ["api/connect", "Content-Type: application/json", "api/session"],
         }

@@ -1,8 +1,8 @@
 import re
 import dnfile
-from Cryptodome.Cipher import AES
 import hashlib
 import base64
+from Cryptodome.Cipher import AES
 
 pattern = re.compile(
     rb"""(?x)
@@ -24,13 +24,15 @@ def deriveAESKey(encryptedMutex : str):
     AESKey = md5Hash[:30] + md5Hash + '00'
     return AESKey
 
-def decrypt_aes_ecb(key : str, ciphertext : str):
+def decryptAES_ECB(key : str, ciphertext : str):
     cipher = AES.new(bytes.fromhex(key), AES.MODE_ECB)
     decodedcipher = base64.b64decode(ciphertext)
     decryptedBuff = cipher.decrypt(decodedcipher)
 
-    ## To exclude garbage bytes (i.e. 'http:\\example.com\\\x03\x03\x03'
+    ## To exclude garbage bytes (i.e. 'http:\\example.com\\\x03\x03\x03')
     valid_bytes = set(b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-/,')
+    
+    ## C2 could be one or more delimited by ','
     filtered_bytes = bytes(b for b in decryptedBuff if b in valid_bytes).decode('utf-8').split(',')
     if len(filtered_bytes) > 1:
         return filtered_bytes

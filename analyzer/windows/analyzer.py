@@ -556,6 +556,27 @@ class Analyzer:
         subprocess.call("net start winmgmt", startupinfo=si)
         # log.info("Started WMI Service")
 
+        # Do any analysis package configuration
+        try:
+            self.package.configure(self.target)
+        except NotImplementedError:
+            # let it go, not every package is configurable
+            log.debug("package %s does not support configure, ignoring", package_name)
+        except Exception as e:
+            raise CuckooPackageError("error configuring package %s: %s", package_name, e) from e
+
+        # Do any package configuration stored in "data/packages/<package_name>"
+        try:
+            self.package.configure_from_data(self.package, self.target)
+        except ModuleNotFoundError:
+            # let it go, not every package is configurable from data
+            log.debug("package %s does not support data configuration, ignoring", package_name)
+        except ImportError as ie:
+            # let it go but emit a warning; assume a dependency is missing
+            log.warning("configuration error for package %s: %s", package_name, ie)
+        except Exception as e:
+            raise CuckooPackageError("error configuring package %s: %s", package_name, e) from e
+
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:

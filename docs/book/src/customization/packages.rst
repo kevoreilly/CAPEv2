@@ -162,6 +162,88 @@ The analysis package selected will have access to these values::
 
 These options can be used for anything you might need to configure inside your package.
 
+Package Configuration
+=====================
+
+Analysis packages can be "configured" before being started. Package configuration comes
+in two forms:
+
+#. Public configuration
+#. Private configuration
+
+Public configuration is stored within the analysis package class itself. Private
+configuration is stored externally, as data added to CAPE at runtime, separate from the
+CAPE Python code.
+
+Public Package Configuration
+----------------------------
+
+Public package configuration is stored directly in the analysis package itself.
+This form of configuration is useful when configuring the host execution environment
+before the analysis is started.
+
+For example, here is a alternative PDF package with lowered security settings:
+
+    .. code-block:: python
+        :linenos:
+
+        from lib.common.abstracts import Package
+        from lib.common.exceptions import CuckooPackageError
+        from lib.common.registry import *
+
+
+        class PDFLS(Package):
+            """PDF analysis package, with lowered security settings."""
+
+            PATHS = [
+                ("ProgramFiles", "Adobe", "Acrobat DC", "Acrobat", "Acrobat.exe"),
+            ]
+
+            def __init__(self, options=None, config=None):
+                """@param options: options dict."""
+                if options is None:
+                    options = {}
+                self.config = config
+                self.options = options
+                self.options["pdf"] = "1"
+
+            def configure(self, target):
+                rootkey, subkey = "HKEY_CURRENT_USER", r"SOFTWARE\Adobe\Adobe Acrobat\DC"
+                set_regkey(rootkey, fr"{subkey}\Privileged", "bProtectedMmode", REG_DWORD, 0)
+                set_regkey(rootkey, fr"{subkey}\JSPrefs", "bEnableJS", REG_DWORD, 1)
+                set_regkey(rootkey, fr"{subkey}\JSPrefs", "bEnableGlobalSecurity", REG_DWORD, 0)
+
+            def start(self, path):
+                reader = self.get_path_glob("Acrobat.exe")
+                return self.execute(reader, f'"{path}"', path)
+
+
+Private Package Configuration
+-----------------------------
+
+Private package configuration is stored outside the analysis package class, in a module
+under the same name as the analysis package. This is useful when managing configuration
+of package capabilities separately is desired, for privacy reasons or otherwise.
+
+For example, here is a private package configuration for exe analysis that disables
+ASLR for the target being analyzed:
+
+    .. code-block:: python
+        :linenos:
+
+        # data/packages/exe.py
+        import lief
+
+        def configure(package, target):
+            # here "package" refers to modules.packages.exe.Exe
+            if package.options.get("disable-aslr"):
+                pe_binary = lief.parse(target)
+                old_flags = pe_binary.optional.header.dll_characteristics
+                # unset DYNAMIC_BASE
+                new_flags = (old_flags & ~lief.PE.OptionalHeader.DLL_CHARACTERISTICS.DYNAMIC_BASE)
+                pe_binary.optional_header.dll_characteristics = new_flags
+                pe_binary.write(target)
+
 Process API
 ===========
 

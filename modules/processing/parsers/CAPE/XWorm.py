@@ -6,20 +6,48 @@ from contextlib import suppress
 import dnfile
 from Cryptodome.Cipher import AES
 
-pattern = re.compile(
+confPattern = re.compile(
     rb"""(?x)
     \x72(...)\x70\x80...\x04
     """,
     re.DOTALL,
 )
 
-mutexPattern = re.compile(
+mutexPattern1 = re.compile(
     rb"""(?x)
     \x72(...)\x70\x80...\x04
     \x72...\x70\x28...\x0A
     """,
     re.DOTALL,
 )
+
+mutexPattern2 = re.compile(
+    rb"""(?x)
+    \x72(...)\x70\x80...\x04\x2A
+    """,
+    re.DOTALL,
+)
+
+installBinNamePattern = re.compile(
+    rb"""(?x)
+    \x72(...)\x70\x80...\x04
+    \x72...\x70\x80...\x04
+    \x72...\x70\x28...\x0A
+    """,
+    re.DOTALL,
+)
+
+installDirPattern = re.compile(
+    rb"""(?x)
+    \x72(...)\x70\x80...\x04
+    \x72...\x70\x80...\x04
+    \x72...\x70\x80...\x04
+    \x72...\x70\x28...\x0A
+    """,
+    re.DOTALL,
+)
+
+mutexPatterns = [mutexPattern1, mutexPattern2]
 
 
 def deriveAESKey(encryptedMutex: str):
@@ -52,16 +80,18 @@ def extract_config(data):
 
         ## Mutex is used to derive AES key, so if it's not found, the extractor is useless
         ## The main problem is Mutex is not found in fixed location, so this trick is used to find the Mutex
-        mutexMatched = mutexPattern.findall(data)
-        if mutexMatched:
-            mutex = dn.net.user_strings.get_us(int.from_bytes(mutexMatched[0], "little")).value
-        else:
-            return
+        for pattern in mutexPatterns:
+            mutexMatched = pattern.findall(data)
+            if mutexMatched:
+                mutex = dn.net.user_strings.get_us(int.from_bytes(mutexMatched[0], "little")).value
+                AESKey = deriveAESKey(mutex)
+                break
+            else:
+                return
 
-        for match in pattern.findall(data):
+        for match in confPattern.findall(data):
             er_string = dn.net.user_strings.get_us(int.from_bytes(match, "little")).value
             extracted.append(er_string)
-        AESKey = deriveAESKey(mutex)
 
         for i in range(5):
             with suppress(Exception):
@@ -76,9 +106,19 @@ def extract_config(data):
             config_dict["SPL"] = conf[3]
         else:
             config_dict["Port"] = ""
-            config_dict["Key"] = conf[1]
+            config_dict["AES Key (decrypt/encrypt connections)"] = conf[1]
             config_dict["SPL"] = conf[2]
         config_dict["AES Key (decrypt configs)"] = AESKey
         config_dict["Mutex"] = mutex
+
+        installBinMatch = installBinNamePattern.findall(data)
+        installDirMatch = installDirPattern.findall(data)
+
+        if installDirMatch:
+            installDir = dn.net.user_strings.get_us(int.from_bytes(installDirMatch[0], "little")).value
+            config_dict["InstallDir"] = decryptAES(AESKey, installDir, AES.MODE_ECB)
+        if installBinMatch:
+            installBinName = dn.net.user_strings.get_us(int.from_bytes(installBinMatch[0], "little")).value
+            config_dict["InstallBinName"] = decryptAES(AESKey, installBinName, AES.MODE_ECB)
 
         return config_dict

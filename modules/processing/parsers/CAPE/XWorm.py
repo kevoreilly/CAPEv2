@@ -10,7 +10,7 @@ confPattern = re.compile(
     rb"""(?x)
     \x72(...)\x70\x80...\x04
     """,
-    re.DOTALL
+    re.DOTALL,
 )
 
 mutexPattern1 = re.compile(
@@ -18,14 +18,14 @@ mutexPattern1 = re.compile(
     \x72(...)\x70\x80...\x04
     \x72...\x70\x28...\x0A
     """,
-    re.DOTALL
+    re.DOTALL,
 )
 
 mutexPattern2 = re.compile(
     rb"""(?x)
     \x72(...)\x70\x80...\x04\x2A
     """,
-    re.DOTALL
+    re.DOTALL,
 )
 
 installBinNamePattern = re.compile(
@@ -34,7 +34,7 @@ installBinNamePattern = re.compile(
     \x72...\x70\x80...\x04
     \x72...\x70\x28...\x0A
     """,
-    re.DOTALL
+    re.DOTALL,
 )
 
 installDirPattern = re.compile(
@@ -44,10 +44,11 @@ installDirPattern = re.compile(
     \x72...\x70\x80...\x04
     \x72...\x70\x28...\x0A
     """,
-    re.DOTALL
+    re.DOTALL,
 )
 
 mutexPatterns = [mutexPattern1, mutexPattern2]
+
 
 def deriveAESKey(encryptedMutex: str):
     md5Hash = hashlib.md5(encryptedMutex.encode()).hexdigest()
@@ -105,7 +106,7 @@ def extract_config(data):
             config_dict["SPL"] = conf[3]
         else:
             config_dict["Port"] = ""
-            config_dict['AES Key (decrypt/encrypt connections)'] = conf[1]
+            config_dict["AES Key (decrypt/encrypt connections)"] = conf[1]
             config_dict["SPL"] = conf[2]
         config_dict["AES Key (decrypt configs)"] = AESKey
         config_dict["Mutex"] = mutex
@@ -115,9 +116,9 @@ def extract_config(data):
 
         if installDirMatch:
             installDir = dn.net.user_strings.get_us(int.from_bytes(installDirMatch[0], "little")).value
-            config_dict['InstallDir'] = decryptAES(AESKey, installDir, AES.MODE_ECB)
+            config_dict["InstallDir"] = decryptAES(AESKey, installDir, AES.MODE_ECB)
         if installBinMatch:
             installBinName = dn.net.user_strings.get_us(int.from_bytes(installBinMatch[0], "little")).value
-            config_dict['InstallBinName'] = decryptAES(AESKey, installBinName, AES.MODE_ECB)
+            config_dict["InstallBinName"] = decryptAES(AESKey, installBinName, AES.MODE_ECB)
 
         return config_dict

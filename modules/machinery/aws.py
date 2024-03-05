@@ -176,7 +176,7 @@ class AWS(Machinery):
 
     """override Machinery method"""
 
-    def acquire(self, machine_id=None, platform=None, tags=None, need_scheduled=False):
+    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=None, need_scheduled=False):
         """
         override Machinery method to utilize the auto scale option
         """

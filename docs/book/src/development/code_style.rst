@@ -179,15 +179,49 @@ attention must be placed when fixing bugs: it's good practice to write unit
 tests to reproduce the bug.
 All unit tests and fixtures are placed in the tests folder in the CAPE
 root.
-We adopted `Nose <http://nose.readthedocs.org/en/latest/>`_ as the unit testing framework.
+We adopted `pytest <https://docs.pytest.org/en>`_ as the unit testing framework.
+
+Github actions
+==============
+Automated tests run as `github actions <https://github.com/features/actions>`_ ;
+see the ``.github`` directory.
+
+You may wish to run github actions locally. A tool that may help is
+`Nektos act <https://nektosact.com/>`_.
+One of the installation options for ``act`` is as a plugin for the
+`github CLI, <https://cli.github.com/>`_ and the actions are then triggered by
+``gh act``.
+
+As input for ``act`` it's often helpful to create a simulated github event, and
+save it as an input file.
+
+Example::
+
+    {
+      "act": true,
+      "repository" : {
+        "default_branch": "master"
+      }
+    }
+
+So to run the actions that normally are triggered by a push event::
+
+   gh act -s GITHUB_TOKEN="$(gh auth token)" --eventpath /tmp/github-event.json
+
+and to run the actions that are scheduled::
+
+   gh act schedule -s GITHUB_TOKEN="$(gh auth token)" --eventpath /tmp/github-event.json
+
+We created a file ``.actrc`` containing ``--env CAPE_AS_ROOT=1`` because ``act`` runs the tests
+as root, and otherwise the tests would exit saying you cannot run CAPE as root.
 
 Poetry and pre-commit hooks
 ===========================
 
-After cloning the git repository, the first commands that you should do:
-```bash
-poetry install
-poetry run pre-commit install
-```
+After cloning the git repository, the first commands that you should do::
+
+    poetry install
+    poetry run pre-commit install
+
 This will install the pre-commit hooks, ensuring that all files have to conform
 to black and isort.

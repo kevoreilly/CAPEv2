@@ -1,3 +1,20 @@
+### [29.02.2024]
+* TLP fields added to distributed database. Requires db upgrade: `cd utils/db_migration_db && alembic upgrade head`
+* Monitor fixes
+
+### [28.02.2024]
+* Add 'ShellWindows' COM object injection mechanism (e.g. Latrodectus MSIs)
+* Monitor: add option to disable ntdll remap protection: ntdll-remap=0
+* Lumma direct systenter unmap crash bypass
+
+### [26.02.2024]
+* Monitor updates: Service injection delay for e.g. msi detonation & EnumDisplayDevices hooks & anti-vm (thanks @enzo)
+* Updated DarkGate config & payload extraction (thanks @enzo)
+* Latrodectus auto-export selection
+
+### [23.02.2024]
+* Monitor updates: Debugger/Trace enhancements
+
 ### [14.02.2024]
 * Monitor update: Protect NtFreeVirtualMemory hook against spurious pointer values (e.g. f4bb0089dcf3629b1570fda839ef2f06c29cbf846c5134755d22d419015c8bd2)
 

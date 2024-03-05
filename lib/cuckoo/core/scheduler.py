@@ -500,7 +500,7 @@ class AnalysisManager(threading.Thread):
             # Generate the analysis configuration file.
             options = self.build_options()
 
-            if expose_vnc_port:
+            if expose_vnc_port and hasattr(machinery, "store_vnc_port"):
                 machinery.store_vnc_port(self.machine.label, self.task.id)
 
             try:

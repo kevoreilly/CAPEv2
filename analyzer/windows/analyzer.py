@@ -34,7 +34,16 @@ from lib.common.constants import (
     SHUTDOWN_MUTEX,
     TERMINATE_EVENT,
 )
-from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, MAX_PATH, PROCESS_QUERY_LIMITED_INFORMATION, PSAPI, SHELL32
+from lib.common.defines import (
+    ADVAPI32,
+    EVENT_MODIFY_STATE,
+    KERNEL32,
+    MAX_PATH,
+    PROCESS_QUERY_LIMITED_INFORMATION,
+    PSAPI,
+    SHELL32,
+    USER32,
+)
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -79,6 +88,12 @@ def pid_from_service_name(servicename):
     ADVAPI32.CloseServiceHandle(serv_handle)
     ADVAPI32.CloseServiceHandle(sc_handle)
     return thepid
+
+
+def get_explorer_pid():
+    explorer_pid = c_int(0)
+    USER32.GetWindowThreadProcessId(USER32.GetShellWindow(), byref(explorer_pid))
+    return explorer_pid.value
 
 
 def pids_from_image_names(suffixlist):
@@ -999,6 +1014,17 @@ class CommandPipeHandler:
         for pid in self.analyzer.process_list.pids:
             log.info("Process with pid %s has terminated", pid)
             self.analyzer.process_list.remove_pid(pid)
+
+    def _handle_shell(self, data):
+        explorer_pid = get_explorer_pid()
+        if explorer_pid:
+            explorer = Process(options=self.analyzer.options, config=self.analyzer.config, pid=explorer_pid)
+            self.analyzer.CRITICAL_PROCESS_LIST.append(int(explorer_pid))
+            filepath = explorer.get_filepath()
+            explorer.inject(interest=filepath, nosleepskip=True)
+            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+            explorer.close()
+            KERNEL32.Sleep(2000)
 
     def _handle_interop(self, data):
         if not self.analyzer.MONITORED_DCOM:

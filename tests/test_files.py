@@ -104,11 +104,13 @@ class TestCreateFolders:
         with pytest.raises(CuckooOperationalError):
             Folders.create("Z:\\invalid\\directory")
 
+    @pytest.mark.xfail(os.geteuid() == 0, reason="nektos act runs tests as root")
     def test_delete_invld(self):
         """Test deletion of a folder we can't access."""
         dirpath = tempfile.mkdtemp()
 
         os.chmod(dirpath, 0)
+        # Deleting the directory will succeed if the tests are run as root.
         with pytest.raises(CuckooOperationalError):
             Folders.delete(dirpath)
 

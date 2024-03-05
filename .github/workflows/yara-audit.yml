@@ -14,31 +14,17 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Checkout test files repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: CAPESandbox/CAPE-TestFiles
           path: tests/data/
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev
-
-      - name: Install poetry
-        run: pip install poetry
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: ./.github/actions/python-setup/
         with:
-          # check-latest: true
           python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
-      - name: Install requirements
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: |
-          poetry install --no-interaction --no-root
 
       - name: Install dependencies
         run: |

@@ -62,22 +62,26 @@ security_groups = sg-abcdefgh123456789
 platform = windows
 
 # Default network interface.
-interface =
+# interface =
 
 # Mostly unused for now. Please don't fill it out.
-options =
+# options =
 
 # (Optional) Set your own tags. These are comma separated and help to identify
 # specific VMs. You can run samples on VMs with tag you require.
-tags =
+# tags =
 
 # Specify the IP of the Result Server, as your virtual machine sees it.
 # It should be the nest ip address.
-resultserver_ip =
+# resultserver_ip =
 
 # Specify a port number to bind the result server on.
-resultserver_port = 2042
+# resultserver_port = 2042
 
+# Set the machine architecture
+# Required to auto select proper machine architecture for sample
+# x64 or x86
+arch = x64
 
 
 # This section is just a template for one pre-configured machine, if you choose to use it.
@@ -95,7 +99,7 @@ platform = windows
 # Specify the IP address of the current virtual machine. Make sure that the
 # IP address is valid and that the host machine is able to reach it. If not,
 # the analysis will fail.
-ip =
+# ip =
 
 # Specify the snapshot-id to use. it is used when creating a new volume when restoring a machine.
 # You should create a snapshot from the guest machine.
@@ -105,7 +109,7 @@ snapshot =
 # when dumping network traffic from this machine with tcpdump. If specified,
 # overrides the default interface specified above.
 # Example (eth0 is the interface name):
-interface =
+# interface =
 
 # (Optional) Specify the IP of the Result Server, as your virtual machine sees it.
 # The Result Server will always bind to the address and port specified in cuckoo.conf,
@@ -114,18 +118,18 @@ interface =
 # address here, the machine will use the default value from cuckoo.conf.
 # NOTE: if you set this option you have to set result server IP to 0.0.0.0 in cuckoo.conf.
 # Example:
-resultserver_ip =
+# resultserver_ip =
 
 # (Optional) Specify the port for the Result Server, as your virtual machine sees it.
 # The Result Server will always bind to the address and port specified in cuckoo.conf,
 # however you could set up your virtual network to use NAT/PAT, so you can specify here
 # the port for the Result Server as your machine sees it. If you don't specify a port
 # here, the machine will use the default value from cuckoo.conf.
-resultserver_port =
+# resultserver_port =
 
 # (Optional) Set your own tags. These are comma separated and help to identify
 # specific VMs. You can run samples on VMs with tag you require.
-tags =
+# tags =
 
 # Mostly unused for now. Please don't fill it out.
-options =
+# options =

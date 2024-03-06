@@ -131,7 +131,7 @@ exclude = ".git,__pycache__,.cache,.venv"
 django_find_project = false
 DJANGO_SETTINGS_MODULE = "web.settings"
 pythonpath = [".", "web"]
-testpaths = "tests"
+testpaths = ["tests", "agent"]
 norecursedirs = "tests/zip_compound"
 
 [build-system]

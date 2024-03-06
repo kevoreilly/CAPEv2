@@ -7,6 +7,7 @@ import cgi
 import http.server
 import ipaddress
 import json
+import multiprocessing
 import os
 import platform
 import shutil
@@ -36,7 +37,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.12"
+AGENT_VERSION = "0.13"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -53,10 +54,6 @@ STATUS_FAILED = 0x0004
 
 ANALYZER_FOLDER = ""
 state = {"status": STATUS_INIT}
-
-# To send output to stdin comment out this 2 lines
-sys.stdout = StringIO()
-sys.stderr = StringIO()
 
 
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -105,9 +102,19 @@ class MiniHTTPServer:
             "POST": [],
         }
 
-    def run(self, host: ipaddress.IPv4Address = "0.0.0.0", port: int = 8000):
+    def run(
+        self,
+        host: ipaddress.IPv4Address = "0.0.0.0",
+        port: int = 8000,
+        event: multiprocessing.Event = None,
+    ):
+        socketserver.TCPServer.allow_reuse_address = True
         self.s = socketserver.TCPServer((host, port), self.handler)
-        self.s.allow_reuse_address = True
+
+        # tell anyone waiting that they're good to go
+        if event:
+            event.set()
+
         self.s.serve_forever()
 
     def route(self, path: str, methods: Iterable[str] = ["GET"]):
@@ -142,24 +149,41 @@ class MiniHTTPServer:
         elif isinstance(ret, send_file):
             ret.write(obj.wfile)
 
+        if hasattr(self, "s") and self.s._BaseServer__shutdown_request:
+            self.close_connection = True
+
     def shutdown(self):
         # BaseServer also features a .shutdown() method, but you can't use
         # that from the same thread as that will deadlock the whole thing.
-        self.s._BaseServer__shutdown_request = True
+        if hasattr(self, "s"):
+            self.s._BaseServer__shutdown_request = True
+        else:
+            # When running unit tests in Windows, the system would hang here,
+            # until this `exit(1)` was added.
+            print(f"{self} has no 's' attribute")
+            exit(1)
 
 
 class jsonify:
     """Wrapper that represents Flask.jsonify functionality."""
 
-    def __init__(self, **kwargs):
-        self.status_code = 200
+    def __init__(self, status_code=200, **kwargs):
+        self.status_code = status_code
         self.values = kwargs
 
     def init(self):
         pass
 
     def json(self):
-        return json.dumps(self.values)
+        for valkey in self.values:
+            if isinstance(self.values[valkey], bytes):
+                self.values[valkey] = self.values[valkey].decode("utf8", "replace")
+        try:
+            retdata = json.dumps(self.values)
+        except Exception as ex:
+            retdata = json.dumps({"error": f"Error serializing json data: {ex.args[0]}"})
+
+        return retdata
 
     def headers(self, obj):
         pass
@@ -183,7 +207,7 @@ class send_file:
         if not self.length:
             return
 
-        with open(self.path, "r") as f:
+        with open(self.path, "rb") as f:
             buf = f.read(1024 * 1024)
             while buf:
                 sock.write(buf)
@@ -261,7 +285,13 @@ def put_status():
 
 @app.route("/logs")
 def get_logs():
-    return json_success("Agent logs", stdout=sys.stdout.getvalue(), stderr=sys.stderr.getvalue())
+    if isinstance(sys.stdout, StringIO):
+        stdoutbuf = sys.stdout.getvalue()
+        stderrbuf = sys.stderr.getvalue()
+    else:
+        stdoutbuf = "verbose mode, stdout not saved"
+        stderrbuf = "verbose mode, stderr not saved"
+    return json_success("Agent logs", stdout=stdoutbuf, stderr=stderrbuf)
 
 
 @app.route("/system")
@@ -394,13 +424,16 @@ def do_remove():
 
 @app.route("/execute", methods=["POST"])
 def do_execute():
-    hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
+    local_ip = socket.gethostbyname(socket.gethostname())
 
-    if request.client_ip in ("127.0.0.1", local_ip):
-        return json_error(500, "Not allowed to execute commands")
     if "command" not in request.form:
         return json_error(400, "No command has been provided")
+
+    # only allow date command from localhost. Even this is just to
+    # let it be tested
+    allowed_commands = ["date", "cmd /c date /t"]
+    if request.client_ip in ("127.0.0.1", local_ip) and request.form["command"] not in allowed_commands:
+        return json_error(500, "Not allowed to execute commands")
 
     # Execute the command asynchronously? As a shell command?
     async_exec = "async" in request.form
@@ -475,9 +508,15 @@ def do_kill():
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method("spawn")
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="0.0.0.0")
     parser.add_argument("port", type=int, nargs="?", default=8000)
-    # ToDo redir to stdout
+    parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
+
+    if not args.verbose:
+        sys.stdout = StringIO()
+        sys.stderr = StringIO()
+
     app.run(host=args.host, port=args.port)

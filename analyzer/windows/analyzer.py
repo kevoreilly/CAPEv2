@@ -567,7 +567,7 @@ class Analyzer:
 
         # Do any package configuration stored in "data/packages/<package_name>"
         try:
-            self.package.configure_from_data(self.package, self.target)
+            self.package.configure_from_data(self.target)
         except ModuleNotFoundError:
             # let it go, not every package is configurable from data
             log.debug("package %s does not support data configuration, ignoring", package_name)

@@ -477,7 +477,7 @@ class AnalysisManager(threading.Thread):
         try:
             self.acquire_machine()
             guest_log = self.db.set_task_vm_and_guest_start(
-                self.task.id, self.machine.name, self.machine.label, self.machine.id, machinery.__class__.__name__
+                self.task.id, self.machine.name, self.machine.label, self.task.platform , self.machine.id, machinery.__class__.__name__
             )
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:

@@ -289,6 +289,7 @@ class Guest(Base):
     status = Column(String(16), nullable=False)
     name = Column(String(255), nullable=False)
     label = Column(String(255), nullable=False)
+    platform =  Column(String(255), nullable=False)
     manager = Column(String(255), nullable=False)
     started_on = Column(DateTime(timezone=False), default=datetime.now, nullable=False)
     shutdown_on = Column(DateTime(timezone=False), nullable=True)
@@ -316,9 +317,10 @@ class Guest(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, name, label, manager):
+    def __init__(self, name, label, platform, manager):
         self.name = name
         self.label = label
+        self.platform = platform
         self.manager = manager
 
 
@@ -823,7 +825,7 @@ class Database(object, metaclass=Singleton):
                 session.rollback()
 
     @classlock
-    def set_task_vm_and_guest_start(self, task_id, vmname, vmlabel, vm_id, manager):
+    def set_task_vm_and_guest_start(self, task_id, vmname, vmlabel, vmplatform, vm_id, manager):
         """Set task status and logs guest start.
         @param task_id: task identifier
         @param vmname: virtual vm name
@@ -832,7 +834,7 @@ class Database(object, metaclass=Singleton):
         @return: guest row id
         """
         with self.Session() as session:
-            guest = Guest(vmname, vmlabel, manager)
+            guest = Guest(vmname, vmlabel, vmplatform, manager)
             try:
                 guest.status = "init"
                 row = session.get(Task, task_id)

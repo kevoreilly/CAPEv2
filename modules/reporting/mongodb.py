@@ -114,12 +114,8 @@ class MongoDB(Report):
 
         new_processes = insert_calls(report, mongodb=True)
         # Store the results in the report.
-        if report.get("strace", None):
-            report["strace"] = dict(report["strace"])
-            report["strace"]["processes"] = new_processes
-        else:
-            report["behavior"] = dict(report["behavior"])
-            report["behavior"]["processes"] = new_processes
+        report["behavior"] = dict(report["behavior"])
+        report["behavior"]["processes"] = new_processes
 
         # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):

@@ -6,6 +6,9 @@ import glob
 import logging
 import os
 import shutil
+import importlib
+import inspect
+# from typing import Dict, Any
 
 from lib.api.process import Process
 from lib.common.common import check_file_extension
@@ -25,8 +28,9 @@ class Package:
     PATHS = []
     default_curdir = None
 
-    def __init__(self, options=None, config=None):
+    def __init__(self, name: str, options=None, config=None):
         """@param options: options dict."""
+        self.name = name
         if options is None:
             options = {}
         self.config = config
@@ -40,7 +44,7 @@ class Package:
         """
         self.pids = pids
 
-    def start(self):
+    def start(self, target: str):
         """Run analysis package.
         @raise NotImplementedError: this method is abstract.
         """
@@ -49,6 +53,43 @@ class Package:
     def check(self):
         """Check."""
         return True
+
+    def configure(self, target: str):
+        """Do package-specific configuration.
+
+        Analysis packages can implement this method to perform pre-analysis
+        configuration in the execution environment. This method will be called
+        after the auxiliary modules are started but before the package start
+        method is called.
+
+        See the "configure_from_data" method for an alternative approach to
+        package-specific configuration that lets configuration be treated as
+        runtime data separate from the analysis package.
+        """
+        raise NotImplementedError
+
+    def configure_from_data(self, target: str):
+        """Do private package-specific configuration.
+
+        Analysis packages can implement this method to perform pre-analysis
+        configuration based on runtime data contained in "data/packages/<package_name>".
+
+        This method raises:
+         - ImportError when any exception occurs during import
+         - AttributeError if the module configure function is invalid.
+         - ModuleNotFoundError if the module does not support configuration from data
+        """
+        module_name = f"data.packages.{self.name}"
+        try:
+            m = importlib.import_module(module_name)
+        except Exception as e:
+            raise ImportError(f"error importing {module_name}: {e}") from e
+
+        spec = inspect.getfullargspec(m.configure)
+        if len(spec.args) != 2:
+            err_msg = f"{module_name}.configure: expected 2 arguments, got {len(spec.args)}"
+            raise AttributeError(err_msg)
+        m.configure(self, target)
 
     def get_paths(self):
         """Get the default list of paths."""

@@ -35,7 +35,7 @@ class TestAgent:
     agent_process: multiprocessing.Process = None
 
     def setup_method(self):
-        agent.state = {"status": agent.STATUS_INIT, "description": "", "async_subprocess": None}
+        agent.state = {"status": agent.Status.INIT, "description": "", "async_subprocess": None}
         ev = multiprocessing.Event()
         self.agent_process = multiprocessing.Process(
             target=agent.app.run,
@@ -139,28 +139,37 @@ class TestAgent:
     def test_status_write_valid_text(self):
         """Write a status of 'exception'."""
         # First, confirm the status is NOT 'exception'.
-        _ = self.confirm_status(agent.STATUS_INIT)
+        _ = self.confirm_status(str(agent.Status.INIT))
         form = {"status": "exception"}
         url_part = "status"
         _ = self.post_form(url_part, form)
-        _ = self.confirm_status("exception")
+        _ = self.confirm_status(str(agent.Status.EXCEPTION))
+
+    def test_status_write_valid_number(self):
+        """Write a status of '5'."""
+        # First, confirm the status is NOT 'exception'.
+        _ = self.confirm_status(str(agent.Status.INIT))
+        form = {"status": 5}
+        url_part = "status"
+        _ = self.post_form(url_part, form)
+        _ = self.confirm_status(str(agent.Status.EXCEPTION))
 
     def test_status_write_invalid(self):
         """Fail to provide a valid status."""
         form = {"description": "Test Status"}
         js = self.post_form("status", form, 400)
-        assert js["message"] == "No status has been provided"
+        assert js["message"] == "No valid status has been provided"
 
         form = {"status": "unexpected value"}
-        js = self.post_form("status", form, 200)
-        assert js["message"] == "Analysis status updated"
-        _ = self.confirm_status("unexpected value")
+        js = self.post_form("status", form, 400)
+        assert js["message"] == "No valid status has been provided"
+        _ = self.confirm_status(str(agent.Status.INIT))
 
         # Write an unexpected random number.
         form = {"status": random.randint(50, 99)}
-        js = self.post_form("status", form, 200)
-        assert js["message"] == "Analysis status updated"
-        _ = self.confirm_status(str(form["status"]))
+        js = self.post_form("status", form, 400)
+        assert js["message"] == "No valid status has been provided"
+        _ = self.confirm_status(str(agent.Status.INIT))
 
     def test_logs(self):
         """Test that the agent responds to a request for the logs."""
@@ -447,7 +456,7 @@ class TestAgent:
         js = self.post_form("execpy", form, expected_status=200)
         assert js["message"] == "Successfully executed command"
         assert "stderr" in js and "No such file or directory" in js["stderr"]
-        _ = self.confirm_status(agent.STATUS_RUNNING)
+        _ = self.confirm_status(str(agent.Status.RUNNING))
 
     def test_execute_py_error_non_zero_exit_code(self):
         """Ensure we get a 400 back when there's a non-zero exit code."""
@@ -463,7 +472,7 @@ class TestAgent:
         js = self.post_form("execpy", form, expected_status=200)
         assert js["message"] == "Successfully executed command"
         assert "hello world" in js["stdout"]
-        _ = self.confirm_status(agent.STATUS_RUNNING)
+        _ = self.confirm_status(str(agent.Status.RUNNING))
 
     def test_pinning(self):
         r = requests.get(f"{BASE_URL}/pinning")

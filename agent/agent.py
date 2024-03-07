@@ -4,6 +4,7 @@
 
 import argparse
 import cgi
+import enum
 import http.server
 import ipaddress
 import json
@@ -37,7 +38,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.13"
+AGENT_VERSION = "0.14"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -47,13 +48,35 @@ AGENT_FEATURES = [
     "unicodepath",
 ]
 
-STATUS_INIT = 0x0001
-STATUS_RUNNING = 0x0002
-STATUS_COMPLETED = 0x0003
-STATUS_FAILED = 0x0004
+
+class Status(enum.IntEnum):
+    INIT = 1
+    RUNNING = 2
+    COMPLETE = 3
+    FAILED = 4
+    EXCEPTION = 5
+
+    def __str__(self):
+        return f"{self.name.lower()}"
+
+    @classmethod
+    def _missing_(cls, value):
+        if not isinstance(value, str):
+            return None
+        value = value.lower()
+        for member in cls:
+            if str(member) == value:
+                return member
+            if value.isnumeric() and int(value) == member.value:
+                return member
+        return None
+
 
 ANALYZER_FOLDER = ""
-state = {"status": STATUS_INIT}
+state = {
+    "status": Status.INIT,
+    "description": "",
+}
 
 
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -197,11 +220,11 @@ class send_file:
         self.status_code = 200
 
     def init(self):
-        if not os.path.isfile(self.path):
+        if os.path.isfile(self.path) and os.access(self.path, os.R_OK):
+            self.length = os.path.getsize(self.path)
+        else:
             self.status_code = 404
             self.length = 0
-        else:
-            self.length = os.path.getsize(self.path)
 
     def write(self, sock):
         if not self.length:
@@ -270,15 +293,17 @@ def get_index():
 
 @app.route("/status")
 def get_status():
-    return json_success("Analysis status", status=state.get("status"), description=state.get("description"))
+    return json_success("Analysis status", status=str(state.get("status")), description=state.get("description"))
 
 
 @app.route("/status", methods=["POST"])
 def put_status():
-    if "status" not in request.form:
-        return json_error(400, "No status has been provided")
+    try:
+        status = Status(request.form.get("status"))
+    except ValueError:
+        return json_error(400, "No valid status has been provided")
 
-    state["status"] = request.form["status"]
+    state["status"] = status
     state["description"] = request.form.get("description")
     return json_success("Analysis status updated")
 
@@ -449,11 +474,12 @@ def do_execute():
             p = subprocess.Popen(request.form["command"], shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
     except Exception:
-        state["status"] = STATUS_FAILED
+        state["status"] = Status.FAILED
         state["description"] = "Error execute command"
         return json_exception("Error executing command")
 
-    state["status"] = STATUS_RUNNING
+    state["status"] = Status.RUNNING
+    state["description"] = ""
     return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
 
 
@@ -480,11 +506,11 @@ def do_execpy():
             p = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
     except Exception:
-        state["status"] = STATUS_FAILED
+        state["status"] = Status.FAILED
         state["description"] = "Error executing command"
         return json_exception("Error executing command")
 
-    state["status"] = STATUS_RUNNING
+    state["status"] = Status.RUNNING
     return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
 
 

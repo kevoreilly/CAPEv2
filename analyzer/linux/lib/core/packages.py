@@ -7,10 +7,9 @@ import inspect
 import logging
 import subprocess
 import timeit
-from os import environ, path, sys, waitpid
+from os import environ, path, sys
 
 from lib.api.process import Process
-from lib.common.apicalls import apicalls
 from lib.common.results import NetlogFile
 
 log = logging.getLogger(__name__)

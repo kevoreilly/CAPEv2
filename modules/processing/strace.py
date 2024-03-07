@@ -2,11 +2,9 @@ import logging
 import re
 import json
 import os
-from contextlib import suppress
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.path_utils import path_exists
-from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 log = logging.getLogger(__name__)
 

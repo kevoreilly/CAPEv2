@@ -1,3 +1,10 @@
+### [07.03.2024]
+* Monitor updates:
+    * Countermeasure for NtCreateUserProcess block-non-Microsoft-DLLs mitigation policy affecting monitoring
+    * Expand 'syscall' breakpoints to handle indirect syscalls (sysbpmode=1)
+    * Small fixes & improvements
+* Pikabot detection update & anti-hook bypass
+
 ### [29.02.2024]
 * TLP fields added to distributed database. Requires db upgrade: `cd utils/db_migration_db && alembic upgrade head`
 * Monitor fixes

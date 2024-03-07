@@ -9,6 +9,7 @@ import random
 import shutil
 import sys
 import tempfile
+import time
 import uuid
 import zipfile
 from urllib.parse import urljoin
@@ -310,7 +311,7 @@ class TestAgent:
         upload_file = {"file": ("test_data.txt", "test data\ntest data\n")}
         form = {"filepath": os.path.join(DIRPATH, make_temp_name(), "tmp")}
         js = self.post_form("store", form, 500, files=upload_file)
-        assert js["message"] == "Error storing file"
+        assert js["message"].startswith("Error storing file")
 
     def test_retrieve(self):
         """Create a file, then try to retrieve it."""
@@ -404,6 +405,75 @@ class TestAgent:
         js = self.post_form("remove", form, 500)
         assert js["message"] == "Error removing file or directory"
 
+    def test_async_running(self):
+        """Test async execution shows as running after starting."""
+        # upload test python file
+        file_contents = (
+            f"# Comment a random number {random.randint(1000, 9999)}'",
+            "import sys",
+            "import time",
+            "print('hello world')",
+            "print('goodbye world', file=sys.stderr)",
+            "time.sleep(1)",
+            "sys.exit(0)",
+        )
+        filepath = self.store_file(file_contents)
+        form = {"filepath": filepath, "async": 1}
+
+        js = self.post_form("execpy", form)
+        assert js["message"] == "Successfully spawned command"
+        assert "stdout" not in js
+        assert "stderr" not in js
+        assert "process_id" in js
+        _ = self.confirm_status(str(agent.Status.RUNNING))
+
+    def test_async_complete(self):
+        """Test async execution shows as complete after exiting."""
+        # upload test python file
+        file_contents = (
+            f"# Comment a random number {random.randint(1000, 9999)}'",
+            "import sys",
+            "print('hello world')",
+            "sys.exit(0)",
+        )
+        filepath = self.store_file(file_contents)
+        form = {"filepath": filepath, "async": 1}
+
+        js = self.post_form("execpy", form)
+        assert js["message"] == "Successfully spawned command"
+        # sleep a moment to let it finish
+        time.sleep(1)
+        _ = self.confirm_status(str(agent.Status.COMPLETE))
+
+    def test_async_failure(self):
+        """Test that an unsuccessful script gets a status of 'failed'."""
+        # upload test python file. It will sleep, then try to import a nonexistent module.
+        file_contents = (
+            f"# Comment a random number {random.randint(1000, 9999)}'",
+            "import sys",
+            "import time",
+            "time.sleep(1)",
+            "import nonexistent",
+            "print('hello world')",
+            "print('goodbye world', file=sys.stderr)",
+            "sys.exit(0)",
+        )
+
+        filepath = self.store_file(file_contents)
+        form = {"filepath": filepath, "async": 1}
+
+        js = self.post_form("execpy", form)
+        assert js["message"] == "Successfully spawned command"
+        assert "stdout" not in js
+        assert "stderr" not in js
+        assert "process_id" in js
+        js = self.confirm_status(str(agent.Status.RUNNING))
+        assert "process_id" in js
+        time.sleep(2)
+
+        js = self.confirm_status(str(agent.Status.FAILED))
+        assert "process_id" not in js
+
     def test_execute(self):
         """Test executing the 'date' command."""
         if sys.platform == "win32":
@@ -453,10 +523,10 @@ class TestAgent:
         """Ensure we get a 400 back when a nonexistent filename is provided."""
         filepath = os.path.join(DIRPATH, make_temp_name() + ".py")
         form = {"filepath": filepath}
-        js = self.post_form("execpy", form, expected_status=200)
-        assert js["message"] == "Successfully executed command"
+        js = self.post_form("execpy", form, expected_status=400)
+        assert js["message"] == "Error executing python command."
         assert "stderr" in js and "No such file or directory" in js["stderr"]
-        _ = self.confirm_status(str(agent.Status.RUNNING))
+        _ = self.confirm_status(str(agent.Status.FAILED))
 
     def test_execute_py_error_non_zero_exit_code(self):
         """Ensure we get a 400 back when there's a non-zero exit code."""
@@ -469,10 +539,10 @@ class TestAgent:
         )
         filepath = self.store_file(file_contents)
         form = {"filepath": filepath}
-        js = self.post_form("execpy", form, expected_status=200)
-        assert js["message"] == "Successfully executed command"
+        js = self.post_form("execpy", form, expected_status=400)
+        assert js["message"] == "Error executing python command."
         assert "hello world" in js["stdout"]
-        _ = self.confirm_status(str(agent.Status.RUNNING))
+        _ = self.confirm_status(str(agent.Status.FAILED))
 
     def test_pinning(self):
         r = requests.get(f"{BASE_URL}/pinning")

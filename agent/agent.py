@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import argparse
+import base64
 import cgi
 import enum
 import http.server
@@ -11,6 +12,7 @@ import json
 import multiprocessing
 import os
 import platform
+import shlex
 import shutil
 import socket
 import socketserver
@@ -38,7 +40,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.14"
+AGENT_VERSION = "0.15"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -76,6 +78,7 @@ ANALYZER_FOLDER = ""
 state = {
     "status": Status.INIT,
     "description": "",
+    "async_subprocess": None,
 }
 
 
@@ -170,7 +173,7 @@ class MiniHTTPServer:
         if isinstance(ret, jsonify):
             obj.wfile.write(ret.json().encode())
         elif isinstance(ret, send_file):
-            ret.write(obj.wfile)
+            ret.write(obj, obj.wfile)
 
         if hasattr(self, "s") and self.s._BaseServer__shutdown_request:
             self.close_connection = True
@@ -215,9 +218,10 @@ class jsonify:
 class send_file:
     """Wrapper that represents Flask.send_file functionality."""
 
-    def __init__(self, path):
+    def __init__(self, path, encoding):
         self.path = path
         self.status_code = 200
+        self.encoding = encoding
 
     def init(self):
         if os.path.isfile(self.path) and os.access(self.path, os.R_OK):
@@ -226,15 +230,20 @@ class send_file:
             self.status_code = 404
             self.length = 0
 
-    def write(self, sock):
+    def write(self, httplog, sock):
         if not self.length:
             return
 
-        with open(self.path, "rb") as f:
-            buf = f.read(1024 * 1024)
-            while buf:
-                sock.write(buf)
+        try:
+            with open(self.path, "rb") as f:
                 buf = f.read(1024 * 1024)
+                while buf:
+                    if self.encoding == "base64":
+                        buf = base64.b64encode(buf)
+                    sock.write(buf)
+                    buf = f.read(1024 * 1024)
+        except Exception as ex:
+            httplog.log_error(f"Error reading file {self.path}: {ex}")
 
     def headers(self, obj):
         obj.send_header("Content-Length", self.length)
@@ -269,8 +278,8 @@ def isAdmin():
     return is_admin
 
 
-def json_error(error_code: int, message: str) -> jsonify:
-    r = jsonify(message=message, error_code=error_code)
+def json_error(error_code: int, message: str, **kwargs) -> jsonify:
+    r = jsonify(message=message, error_code=error_code, **kwargs)
     r.status_code = error_code
     return r
 
@@ -281,8 +290,8 @@ def json_exception(message: str) -> jsonify:
     return r
 
 
-def json_success(message: str, **kwargs) -> jsonify:
-    return jsonify(message=message, **kwargs)
+def json_success(message: str, status_code=200, **kwargs) -> jsonify:
+    return jsonify(message=message, status_code=status_code, **kwargs)
 
 
 @app.route("/")
@@ -291,8 +300,40 @@ def get_index():
     return json_success("CAPE Agent!", version=AGENT_VERSION, features=AGENT_FEATURES, is_user_admin=bool(is_admin))
 
 
+def get_subprocess_status():
+    """Return the subprocess status."""
+    async_subprocess = state.get("async_subprocess")
+    message = "Analysis status"
+    exitcode = async_subprocess.exitcode
+    if exitcode is None or (sys.platform == "win32" and exitcode == 259):
+        # Process is still running.
+        state["status"] = Status.RUNNING
+        return json_success(
+            message=message,
+            status=str(state.get("status")),
+            description=state.get("description"),
+            process_id=async_subprocess.pid,
+        )
+    # Process completed; reset async subprocess state.
+    state["async_subprocess"] = None
+    if exitcode == 0:
+        state["status"] = Status.COMPLETE
+        state["description"] = ""
+    else:
+        state["status"] = Status.FAILED
+        state["description"] = f"Exited with exit code {exitcode}"
+    return json_success(
+        message=message,
+        status=str(state.get("status")),
+        description=state.get("description"),
+        exitcode=exitcode,
+    )
+
+
 @app.route("/status")
 def get_status():
+    if state.get("async_subprocess") is not None:
+        return get_subprocess_status()
     return json_success("Analysis status", status=str(state.get("status")), description=state.get("description"))
 
 
@@ -339,11 +380,12 @@ def do_mkdir():
     if "dirpath" not in request.form:
         return json_error(400, "No dirpath has been provided")
 
-    mode = int(request.form.get("mode", 0o777))
-
     try:
+        mode = int(request.form.get("mode", 0o777))
+
         os.makedirs(request.form["dirpath"], mode=mode)
-    except Exception:
+    except Exception as ex:
+        print(f"error creating dir {ex}")
         return json_exception("Error creating directory")
 
     return json_success("Successfully created directory")
@@ -390,8 +432,8 @@ def do_store():
     try:
         with open(request.form["filepath"], "wb") as f:
             shutil.copyfileobj(request.files["file"], f, 10 * 1024 * 1024)
-    except Exception:
-        return json_exception("Error storing file")
+    except Exception as ex:
+        return json_exception(f"Error storing file: {ex}")
 
     return json_success("Successfully stored file")
 
@@ -401,7 +443,7 @@ def do_retrieve():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
 
-    return send_file(request.form["filepath"])
+    return send_file(request.form["filepath"], request.form.get("encoding", ""))
 
 
 @app.route("/extract", methods=["POST"])
@@ -415,8 +457,8 @@ def do_extract():
     try:
         with ZipFile(request.files["zipfile"], "r") as archive:
             archive.extractall(request.form["dirpath"])
-    except Exception:
-        return json_exception("Error extracting zip file")
+    except Exception as ex:
+        return json_exception(f"Error extracting zip file {ex}")
 
     return json_success("Successfully extracted zip file")
 
@@ -453,6 +495,7 @@ def do_execute():
 
     if "command" not in request.form:
         return json_error(400, "No command has been provided")
+    command_to_execute = shlex.split(request.form["command"])
 
     # only allow date command from localhost. Even this is just to
     # let it be tested
@@ -469,18 +512,62 @@ def do_execute():
 
     try:
         if async_exec:
-            subprocess.Popen(request.form["command"], shell=shell, cwd=cwd)
+            subprocess.Popen(command_to_execute, shell=shell, cwd=cwd)
         else:
-            p = subprocess.Popen(request.form["command"], shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen(command_to_execute, shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
-    except Exception:
+            if request.form.get("encoding", "") == "base64":
+                stdout = base64.b64encode(stdout)
+                stderr = base64.b64encode(stderr)
+    except Exception as ex:
         state["status"] = Status.FAILED
         state["description"] = "Error execute command"
-        return json_exception("Error executing command")
+        return json_exception(f"Error executing command: {ex}")
 
     state["status"] = Status.RUNNING
     state["description"] = ""
     return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
+
+
+def run_subprocess(command_args, cwd, base64_encode, shell=False):
+    """Execute the subprocess, wait for completion.
+
+    Return the exitcode (returncode), the stdout, and the stderr.
+    """
+    p = subprocess.Popen(
+        args=command_args,
+        cwd=cwd,
+        shell=shell,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    if base64_encode:
+        stdout = base64.b64encode(stdout)
+        stderr = base64.b64encode(stderr)
+    return p.returncode, stdout, stderr
+
+
+def background_subprocess(command_args, cwd, base64_encode, shell=False):
+    """Run subprocess, wait for completion, then exit.
+
+    This process must exit, so the parent process (agent) can find the exit status."""
+    # TODO: return the stdout/stderr to the parent process.
+    returncode, stdout, stderr = run_subprocess(command_args, cwd, base64_encode, shell)
+    sys.stdout.write(stdout.decode("ascii"))
+    sys.stderr.write(stderr.decode("ascii"))
+    sys.exit(returncode)
+
+
+def spawn(args, cwd, base64_encode, shell=False):
+    """Kick off a subprocess in the background."""
+    run_subprocess_args = [args, cwd, base64_encode, shell]
+    proc = multiprocessing.Process(target=background_subprocess, name=f"child process {args[1]}", args=run_subprocess_args)
+    proc.start()
+    state["status"] = Status.RUNNING
+    state["description"] = ""
+    state["async_subprocess"] = proc
+    return json_success("Successfully spawned command", process_id=proc.pid)
 
 
 @app.route("/execpy", methods=["POST"])
@@ -490,28 +577,34 @@ def do_execpy():
 
     # Execute the command asynchronously? As a shell command?
     async_exec = "async" in request.form
+    base64_encode = request.form.get("encoding", "") == "base64"
 
     cwd = request.form.get("cwd")
-    stdout = stderr = None
 
     args = (
         sys.executable,
         request.form["filepath"],
     )
 
+    if async_exec and state["status"] == Status.RUNNING and state["async_subprocess"]:
+        return json_error(400, "Async process already running.")
     try:
         if async_exec:
-            subprocess.Popen(args, cwd=cwd)
-        else:
-            p = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = p.communicate()
-    except Exception:
+            return spawn(args, cwd, base64_encode)
+        exitcode, stdout, stderr = run_subprocess(args, cwd, base64_encode)
+        if exitcode == 0:
+            state["status"] = Status.COMPLETE
+            state["description"] = ""
+            return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
+        # Process exited with non-zero result.
         state["status"] = Status.FAILED
-        state["description"] = "Error executing command"
-        return json_exception("Error executing command")
-
-    state["status"] = Status.RUNNING
-    return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
+        message = "Error executing python command."
+        state["description"] = message
+        return json_error(400, message, stdout=stdout, stderr=stderr, exitcode=exitcode)
+    except Exception as ex:
+        state["status"] = Status.FAILED
+        state["description"] = "Error executing Python command"
+        return json_exception(f"Error executing Python command: {ex}")
 
 
 @app.route("/pinning")

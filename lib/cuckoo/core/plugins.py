@@ -389,7 +389,7 @@ class RunSignatures:
 
         if not self._check_signature_version(signature):
             return False
-        
+
         if not self._check_signature_platform(signature):
             return False
 

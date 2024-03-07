@@ -22,8 +22,8 @@ import modules.feeds
 import modules.processing
 import modules.reporting
 import modules.signatures.all
-import modules.signatures.windows
 import modules.signatures.linux
+import modules.signatures.windows
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

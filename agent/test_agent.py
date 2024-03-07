@@ -2,6 +2,7 @@
 
 import datetime
 import io
+import json
 import multiprocessing
 import os
 import pathlib
@@ -10,8 +11,10 @@ import shutil
 import sys
 import tempfile
 import time
+import unittest
 import uuid
 import zipfile
+from unittest import mock
 from urllib.parse import urljoin
 
 import pytest
@@ -28,6 +31,149 @@ DIRPATH = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
 
 def make_temp_name():
     return str(uuid.uuid4())
+
+
+class TestAgentFunctions:
+    @mock.patch("sys.platform", "win32")
+    def test_get_subprocess_259(self):
+        mock_process_id = 999998
+        mock_subprocess = mock.Mock(spec=multiprocessing.Process)
+        mock_subprocess.exitcode = 259
+        mock_subprocess.pid = mock_process_id
+        with mock.patch.dict(agent.state, {"async_subprocess": mock_subprocess}):
+            actual = agent.get_subprocess_status()
+        assert actual.status_code == 200
+        actual_json = json.loads(actual.json())
+        assert actual_json["status"] == "running"
+        assert actual_json["process_id"] == mock_process_id
+
+
+@mock.patch("sys.platform", "linux")
+class TestMutexAPILinux(unittest.TestCase):
+    def test_post_mutex_linux(self):
+        """Mutex POSTs are only supported on win32"""
+        mutex = self.id()
+        agent.request.form["mutex"] = mutex
+        response = agent.post_mutex()
+        assert isinstance(response, agent.jsonify)
+        assert response.status_code == 400
+
+    def test_delete_mutex_linux(self):
+        """Mutex DELETEs are only supported on win32"""
+        mutex = self.id()
+        agent.request.form["mutex"] = mutex
+        response = agent.delete_mutex()
+        assert isinstance(response, agent.jsonify)
+        assert response.status_code == 400
+
+
+@mock.patch("sys.platform", "win32")
+class TestMutexAPIWin32(unittest.TestCase):
+    def test_post_mutex_win32_201(self):
+        """Mutex POSTs succeed with mocked mutex APIs"""
+        mutex = self.id()
+        agent.request.form["mutex"] = mutex
+
+        # fake handle mutex based on test id
+        hndl_mutex = self.id()
+
+        # mock opening a mutex returning the fake handle
+        open_mutex_mock = mock.MagicMock()
+        open_mutex_mock.return_value = hndl_mutex, None
+        agent.open_mutex = open_mutex_mock
+
+        # mock mutex is acquired
+        wait_mutex_mock = mock.MagicMock()
+        wait_mutex_mock.return_value = True, None
+        agent.wait_mutex = wait_mutex_mock
+
+        response = agent.post_mutex()
+        wait_mutex_mock.assert_called_once_with(hndl_mutex)
+        assert isinstance(response, agent.jsonify)
+        assert response.status_code == 201
+
+    def test_post_mutex_win32_error_mutex_doesnt_exist(self):
+        """Mutex POSTs fail gracefully when mutexes won't open"""
+        mutex = self.id()
+        agent.request.form["mutex"] = mutex
+
+        # mock opening a mutex returning an error
+        open_mutex_mock = mock.MagicMock()
+        mock_error = mock.MagicMock()
+        open_mutex_mock.return_value = None, mock_error
+        agent.open_mutex = open_mutex_mock
+
+        response = agent.post_mutex()
+        assert response is mock_error
+
+    def test_post_mutex_win32_error_mutex_wait_failed(self):
+        """Mutex POSTs fail gracefully when mutex waiting fails"""
+        mutex = self.id()
+        agent.request.form["mutex"] = mutex
+
+        # fake handle mutex based on test id
+        hndl_mutex = self.id()
+
+        # mock opening a mutex returning the fake handle
+        open_mutex_mock = mock.MagicMock()
+        mock_error = mock.MagicMock()
+        open_mutex_mock.return_value = hndl_mutex, None
+        agent.open_mutex = open_mutex_mock
+
+        # mock mutex fails to be acquired
+        wait_mutex_mock = mock.MagicMock()
+        mock_error = mock.MagicMock()
+        wait_mutex_mock.return_value = None, mock_error
+        agent.wait_mutex = wait_mutex_mock
+
+        response = agent.post_mutex()
+        open_mutex_mock.assert_called_once_with(mutex)
+        wait_mutex_mock.assert_called_once_with(hndl_mutex)
+        assert response is mock_error
+
+    def test_delete_mutex_win32_404(self):
+        """Mutex DELETEs 404 when not held"""
+        mutex = self.id()
+        agent.request.form["mutex"] = mutex
+        self.assertNotIn(mutex, agent.agent_mutexes)
+        response = agent.delete_mutex()
+        assert isinstance(response, agent.jsonify)
+        assert response.status_code == 404
+
+    def test_delete_mutex_win32_error_releasing(self):
+        mutex = self.id()
+        agent.request.form["mutex"] = mutex
+
+        # inject a previously acquired mutex
+        hndl_mutex_mock = mock.MagicMock()
+        agent.agent_mutexes[mutex] = hndl_mutex_mock
+
+        # mock mutex fails to be released
+        release_mutex_mock = mock.MagicMock()
+        mock_error = mock.MagicMock()
+        release_mutex_mock.return_value = None, mock_error
+        agent.release_mutex = release_mutex_mock
+
+        response = agent.delete_mutex()
+        assert response is mock_error
+
+    def test_delete_mutex_win32_200(self):
+        mutex = self.id()
+        agent.request.form["mutex"] = mutex
+
+        # inject a previously acquired mutex
+        hndl_mutex_mock = mock.MagicMock()
+        agent.agent_mutexes[mutex] = hndl_mutex_mock
+
+        # mock mutex is released
+        release_mutex_mock = mock.MagicMock()
+        release_mutex_mock.return_value = True, None
+        agent.release_mutex = release_mutex_mock
+
+        response = agent.delete_mutex()
+        release_mutex_mock.assert_called_once_with(hndl_mutex_mock)
+        assert isinstance(response, agent.jsonify)
+        assert response.status_code == 200
 
 
 class TestAgent:

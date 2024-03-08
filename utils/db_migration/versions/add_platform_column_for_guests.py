@@ -20,7 +20,7 @@ import sqlalchemy as sa
 
 def upgrade():
      # Add the platform column to the guests table with a default value of 'windows'
-    op.add_column('guests', sa.Column('platform', sa.String(length=50), nullable=False))
+    op.add_column('guests', sa.Column('platform', sa.String(length=50), nullable=True))
 
     # Update existing rows with the default value
     op.execute("UPDATE guests SET platform = 'windows' WHERE platform IS NULL")

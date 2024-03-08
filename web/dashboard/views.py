@@ -46,7 +46,11 @@ def index(request):
     db = Database()
 
     report = dict(
-        total_samples=db.count_samples(), total_tasks=db.count_tasks(), states_count={}, estimate_hour=None, estimate_day=None
+        total_samples=f"{db.count_samples():,}",
+        total_tasks=f"{db.count_tasks():,}",
+        states_count={},
+        estimate_hour=None,
+        estimate_day=None
     )
 
     states = (

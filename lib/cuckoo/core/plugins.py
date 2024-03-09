@@ -467,6 +467,9 @@ class RunSignatures:
         if "all" in module:
             return True
 
+        if "custom" in module:
+            return True
+
         return False
 
     def process(self, signature):

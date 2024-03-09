@@ -40,14 +40,17 @@ class conditional_login_required:
         return self.decorator(func)
 
 
+def format_number_with_space(number):
+    return f"{number:,}".replace(',',' ')
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request):
     db = Database()
 
     report = dict(
-        total_samples=f"{db.count_samples():,}".replace(',',' '),
-        total_tasks=f"{db.count_tasks():,}".replace(',',' '),
+        total_samples=format_number_with_space(db.count_samples()),
+        total_tasks=format_number_with_space(db.count_tasks()),
         states_count={},
         estimate_hour=None,
         estimate_day=None
@@ -83,8 +86,8 @@ def index(request):
         else:
             hourly = 0
 
-        report["estimate_hour"] = int(hourly)
-        report["estimate_day"] = int(24 * hourly)
+        report["estimate_hour"] = format_number_with_space(int(hourly))
+        report["estimate_day"] = format_number_with_space(int(24 * hourly))
         report["top_detections"] = top_detections()
 
     return render(request, "dashboard/index.html", {"report": report})

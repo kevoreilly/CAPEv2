@@ -23,14 +23,21 @@ jobs:
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
+        # Use x86 python because of https://github.com/kevoreilly/CAPEv2/issues/168
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          architecture: 'x86'
 
-      - name: Install pytest
-        run: pip install pytest
+      - name: Install dependencies
+        run: pip install --upgrade pytest requests
 
-      - name: Run unit tests
+      - name: Run analyzer unit tests
         run: |
           cd analyzer/windows
+          pytest -v .
+
+      - name: Run agent unit tests
+        run: |
+          cd agent
           pytest -v .

@@ -41,7 +41,8 @@ class conditional_login_required:
 
 
 def format_number_with_space(number):
-    return f"{number:,}".replace(',',' ')
+    return f"{number:,}".replace(",", " ")
+
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -53,7 +54,7 @@ def index(request):
         total_tasks=format_number_with_space(db.count_tasks()),
         states_count={},
         estimate_hour=None,
-        estimate_day=None
+        estimate_day=None,
     )
 
     states = (

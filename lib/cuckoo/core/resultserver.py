@@ -56,7 +56,6 @@ RESULT_UPLOADABLE = (
     b"procdump",
     b"shots",
     b"sysmon",
-    b"stap",
     b"evtx",
     b"htmldump",
 )

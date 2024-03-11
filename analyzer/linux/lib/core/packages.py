@@ -121,16 +121,6 @@ class Package:
         # self.normal_analysis()
         self.strace_analysis()
         return self.proc.pid
-        """
-        if self.free:
-            self.normal_analysis()
-            return self.proc.pid
-        elif self.method == "apicalls":
-            self.apicalls_analysis()
-            return self.proc.pid
-        else:
-            raise Exception("Unsupported analysis method. Try 'apicalls'")
-        """
 
     def check(self):
         """Check."""
@@ -174,25 +164,6 @@ class Package:
         log.info("Process started with strace")
         return True
 
-    ## This feature has already been migrated to Auxiliary:stap.py
-    # def apicalls_analysis(self):
-    #     kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
-    #     log.info(self.target)
-    #     cmd = apicalls(self.target, **kwargs)
-    #     stap_start = timeit.default_timer()
-    #     log.info(cmd)
-    #     self.proc = subprocess.Popen(
-    #         cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
-    #     )
-
-    #     while b"systemtap_module_init() returned 0" not in self.proc.stderr.readline():
-    #         # log.debug(self.proc.stderr.readline())
-    #         pass
-
-    #     stap_stop = timeit.default_timer()
-    #     log.info("Process startup took %.2f seconds", stap_stop - stap_start)
-    #     return True
-
     def normal_analysis(self):
         kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
 
@@ -217,20 +188,6 @@ class Package:
                 for chunk in f:
                     nf.sock.sendall(chunk)  # dirty direct send, no reconnecting
             nf.close()
-
-    # This feature has already been migrated to Auxiliary:stap.py
-    # def stop(self):
-    #     log.info("Package requested stop")
-    #     try:
-    #         r = self.proc.poll()
-    #         log.debug("stap subprocess retval %d", r)
-    #         self.proc.kill()
-    #         # subprocess.check_call(["sudo", "kill", str(self.proc.pid)])
-    #         waitpid(self.proc.pid, 0)
-    #         self._upload_file("stap.log", "stap/all.log")
-    #     except Exception as e:
-    #         log.warning("Exception uploading log: %s", e)
-
 
 def _string_to_bool(raw):
     if not isinstance(raw, str):

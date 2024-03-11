@@ -37,7 +37,6 @@ file_pickup = no
 permissions = no
 pre_script = no
 during_script = no
-stap = no
 filecollector = yes
 # This is only useful in case you use KVM's dnsmasq. You need to change your range inside of analyzer/windows/modules/auxiliary/disguise.py. Disguise must be enabled
 windows_static_route = no

@@ -129,9 +129,6 @@ class FileCollector(Auxiliary, Thread):
                     # log.info("Path is a directory or does not exist, ignoring: %s", event.pathname)
                     return
 
-                if os.path.basename(event.pathname) == "stap.log":
-                    return
-
                 if "strace.log" in os.path.basename(event.pathname):
                     return
 

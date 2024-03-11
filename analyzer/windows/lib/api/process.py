@@ -13,48 +13,54 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import byref, c_int, c_ulong, create_string_buffer, sizeof
+from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof
 from pathlib import Path
 from shutil import copy
 
-from lib.common.constants import (
-    CAPEMON32_NAME,
-    CAPEMON64_NAME,
-    LOADER32_NAME,
-    LOADER64_NAME,
-    LOGSERVER_PREFIX,
-    PATHS,
-    PIPE,
-    SHUTDOWN_MUTEX,
-    TERMINATE_EVENT,
-)
 from lib.common.defines import (
     CREATE_NEW_CONSOLE,
     CREATE_SUSPENDED,
     EVENT_MODIFY_STATE,
     GENERIC_READ,
     GENERIC_WRITE,
-    KERNEL32,
-    NTDLL,
+    MAX_PATH,
     OPEN_EXISTING,
     PROCESS_ALL_ACCESS,
     PROCESS_INFORMATION,
     PROCESS_QUERY_LIMITED_INFORMATION,
     PROCESSENTRY32,
     STARTUPINFO,
+    STILL_ACTIVE,
     SYSTEM_INFO,
     TH32CS_SNAPPROCESS,
     THREAD_ALL_ACCESS,
     ULONG_PTR,
 )
+
+if sys.platform == "win32":
+    from lib.common.constants import (
+        CAPEMON32_NAME,
+        CAPEMON64_NAME,
+        LOADER32_NAME,
+        LOADER64_NAME,
+        LOGSERVER_PREFIX,
+        PATHS,
+        PIPE,
+        SHUTDOWN_MUTEX,
+        TERMINATE_EVENT,
+    )
+    from lib.common.defines import (
+        KERNEL32,
+        NTDLL,
+        PSAPI,
+    )
+    from lib.core.log import LogServer
+
 from lib.common.errors import get_error_string
 from lib.common.rand import random_string
 from lib.common.results import upload_to_host
 from lib.core.compound import create_custom_folders
 from lib.core.config import Config
-from lib.core.log import LogServer
-
-# from lib.common.defines import STILL_ACTIVE
 
 IOCTL_PID = 0x222008
 IOCTL_CUCKOO_PATH = 0x22200C
@@ -131,6 +137,8 @@ class Process:
         """Open a process and/or thread.
         @return: operation status.
         """
+        # Logging calls in this method can get really noisy since it's called a
+        # lot. As a result only failed ctypes calls are logged, nothing else.
         ret = bool(self.pid or self.thread_id)
         if self.pid and not self.h_process:
             if self.pid == os.getpid():
@@ -138,11 +146,19 @@ class Process:
             else:
                 self.h_process = KERNEL32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
                 if not self.h_process:
+                    log.warning("OpenProcess(PROCESS_ALL_ACCESS, ...) failed for process %d", self.pid)
+                    log.debug("opening process with limited info %d", self.pid)
                     self.h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, self.pid)
+
             ret = True
+
+            if not self.h_process:
+                log.warning("failed to open process %d", self.pid)
 
         if self.thread_id and not self.h_thread:
             self.h_thread = KERNEL32.OpenThread(THREAD_ALL_ACCESS, False, self.thread_id)
+            if not self.h_thread:
+                log.warning("OpenThread(THREAD_ALL_ACCESS, ...) failed for thread %d", self.thread_id)
             ret = True
         return ret
 
@@ -164,14 +180,26 @@ class Process:
 
     def exit_code(self):
         """Get process exit code.
+
+        Gets the exit code for the process handle via kernel32 and returns its
+        value. Note a valid value can be returned for processes that have not
+        exited, e.g. exit code 259 indicates the process is still active.
+
         @return: exit code value.
         """
         if not self.h_process:
             self.open()
 
         exit_code = c_ulong(0)
-        KERNEL32.GetExitCodeProcess(self.h_process, byref(exit_code))
-
+        ok = KERNEL32.GetExitCodeProcess(self.h_process, byref(exit_code))
+        if not ok:
+            log.debug("failed getting exit code for %s", self)
+            return None
+        # Uncommenting the lines below will spam the analyzer.log file.
+        # if exit_code.value == STILL_ACTIVE:
+        #     log.debug("%s is STILL_ACTIVE", self)
+        # else:
+        #     log.debug("%s exit code is %d", self, exit_code.value)
         return exit_code.value
 
     def get_filepath(self):
@@ -199,13 +227,25 @@ class Process:
 
         return ""
 
+    def get_image_name(self):
+        """Get the image name; returns an empty string on error."""
+        if not self.h_process:
+            self.open()
+
+        ret = ""
+        image_name_buf = c_buffer(MAX_PATH)
+        n = PSAPI.GetProcessImageFileNameA(self.h_process, image_name_buf, MAX_PATH)
+        if not n:
+            log.debug("failed getting image name for pid %s", self.pid)
+            return ret
+        image_name = image_name_buf.value.decode()
+        return image_name.split("\\")[-1]
+
     def is_alive(self):
         """Process is alive?
         @return: process status.
         """
-        # ToDo: Fix this, it's broken
-        # return self.exit_code() == STILL_ACTIVE
-        return True
+        return self.exit_code() == STILL_ACTIVE
 
     def is_critical(self):
         """Determines if process is 'critical' or not, so we can prevent terminating it"""
@@ -247,7 +287,7 @@ class Process:
             sys_file = os.path.join(Path.cwd(), "dll", "zer0m0n.sys")
         exe_file = os.path.join(Path.cwd(), "dll", "logs_dispatcher.exe")
         if not os.path.isfile(sys_file) or not os.path.isfile(exe_file):
-            log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
+            log.warning("no valid zer0m0n files to be used for %s, injection aborted", self)
             return False
 
         exe_name = service_name = driver_name = random_string(6)
@@ -444,7 +484,7 @@ class Process:
         @return: operation status.
         """
         if not self.suspended:
-            log.warning("The process with pid %d was not suspended at creation", self.pid)
+            log.warning("%s was not suspended at creation", self)
             return False
 
         if not self.h_thread:
@@ -454,10 +494,10 @@ class Process:
 
         if KERNEL32.ResumeThread(self.h_thread) != -1:
             self.suspended = False
-            log.info("Successfully resumed process with pid %d", self.pid)
+            log.info("successfully resumed %s", self)
             return True
         else:
-            log.error("Failed to resume process with pid %d", self.pid)
+            log.error("failed to resume %s", self)
             return False
 
     def set_terminate_event(self):
@@ -470,20 +510,20 @@ class Process:
         if self.terminate_event_handle:
             # make sure process is aware of the termination
             KERNEL32.SetEvent(self.terminate_event_handle)
-            log.info("Terminate event set for process %d", self.pid)
+            log.info("terminate event set for %s", self)
             KERNEL32.CloseHandle(self.terminate_event_handle)
         else:
-            log.error("Failed to open terminate event for pid %d", self.pid)
+            log.error("failed to open terminate event for %s", self)
             return
 
         # recreate event for monitor 'reply'
         self.terminate_event_handle = KERNEL32.CreateEventW(0, False, False, event_name)
         if not self.terminate_event_handle:
-            log.error("Failed to create terminate-reply event for process %d", self.pid)
+            log.error("failed to create terminate-reply event for %s", self)
             return
 
         KERNEL32.WaitForSingleObject(self.terminate_event_handle, 5000)
-        log.info("Termination confirmed for process %d", self.pid)
+        log.info("termination confirmed for %s", self)
         KERNEL32.CloseHandle(self.terminate_event_handle)
 
     def terminate(self):
@@ -494,10 +534,10 @@ class Process:
             self.open()
 
         if KERNEL32.TerminateProcess(self.h_process, 1):
-            log.info("Successfully terminated process with pid %d", self.pid)
+            log.info("successfully terminated %s", self)
             return True
         else:
-            log.error("Failed to terminate process with pid %d", self.pid)
+            log.error("failed to terminate %s", self)
             return False
 
     def is_64bit(self):
@@ -517,7 +557,7 @@ class Process:
     def write_monitor_config(self, interest=None, nosleepskip=False):
 
         config_path = os.path.join(Path.cwd(), "dll", f"{self.pid}.ini")
-        log.info("Monitor config for process %s: %s", self.pid, config_path)
+        log.info("monitor config for %s: %s", self, config_path)
 
         # start the logserver for this monitored process
         logserver_path = f"{LOGSERVER_PREFIX}{self.pid}"
@@ -585,7 +625,7 @@ class Process:
 
         thread_id = self.thread_id or 0
         if not self.is_alive():
-            log.warning("The process with pid %d is not alive, injection aborted", self.pid)
+            log.warning("the %s is not alive, injection aborted", self)
             return False
 
         if self.is_64bit():
@@ -601,12 +641,12 @@ class Process:
         dll = os.path.join(Path.cwd(), dll)
 
         if not os.path.exists(bin_name):
-            log.warning("Invalid loader path %s for injecting DLL in process with pid %d, injection aborted", bin_name, self.pid)
+            log.warning("invalid loader path %s for injecting DLL in %s, injection aborted", bin_name, self)
             log.error("Please ensure the %s loader is in analyzer/windows/bin in order to analyze %s binaries", bit_str, bit_str)
             return False
 
         if not os.path.exists(dll):
-            log.warning("Invalid path %s for monitor DLL to be injected in process with pid %d, injection aborted", dll, self.pid)
+            log.warning("invalid path %s for monitor DLL to be injected in %s, injection aborted", dll, self)
             return False
 
         self.write_monitor_config(interest, nosleepskip)
@@ -619,9 +659,9 @@ class Process:
             if ret.returncode == 0:
                 return True
             elif ret.returncode == 1:
-                log.info("Injected into %s process with pid %d", bit_str, self.pid)
+                log.info("injected into %s %s", bit_str, self)
             else:
-                log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
+                log.error("unable to inject into %s %s, error: %d", bit_str, self, ret.returncode)
             return False
         except Exception as e:
             log.error("Error running process: %s", e)
@@ -642,6 +682,11 @@ class Process:
             log.error(e, exc_info=True)
             log.error(os.path.join("memory", f"{self.pid}.dmp"))
             log.error(file_path)
-        log.info("Memory dump of process %d uploaded", self.pid)
+        log.info("memory dump of %s uploaded", self)
 
         return True
+
+    def __str__(self):
+        """Get a string representation of this process."""
+        image_name = self.get_image_name() or "???"
+        return f"<{self.__class__.__name__} {self.pid} {image_name}>"

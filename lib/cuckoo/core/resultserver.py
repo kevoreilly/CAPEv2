@@ -9,24 +9,13 @@ import struct
 import os
 import socket
 from threading import Lock, Thread
+from contextlib import suppress
 
-try:
+
+HAVE_BSON = False
+with suppress(ImportError):
     import bson
-
     HAVE_BSON = True
-except ImportError:
-    HAVE_BSON = False
-else:
-    # The BSON module provided by pymongo works through its "BSON" class.
-    if hasattr(bson, "BSON"):
-        def bson_decode(d):
-            return bson.decode(d)
-    # The BSON module provided by "pip3 install bson" works through the "loads" function (just like pickle etc.)
-    elif hasattr(bson, "loads"):
-        def bson_decode(d):
-            return bson.loads(d)
-    else:
-        HAVE_BSON = False
 
 import gevent.pool
 import gevent.server
@@ -345,6 +334,7 @@ class BsonStore(ProtocolHandler):
         if not HAVE_BSON:
             log.debug("Task #%s is sending a BSON stream for pid %d", self.task_id, self.version)
             return
+
         while True:
             data = buffer[:4]
             if not data:
@@ -359,7 +349,7 @@ class BsonStore(ProtocolHandler):
                 return
 
             try:
-                dec = bson_decode(data)
+                dec = bson.decode(data)
             except Exception as e:
                 log.warning("BsonParser decoding problem %s on data[:50] %s", e, data[:50])
                 return

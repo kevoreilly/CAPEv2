@@ -1285,7 +1285,7 @@ class CommandPipeHandler:
                     else:
                         interest = self.analyzer.config.target
                     if filepath.lower() in self.analyzer.files.files:
-                        self.analyzer.files.delete_file(file_path, process_id)
+                        self.analyzer.files.delete_file(filepath, process_id)
                     is_64bit = proc.is_64bit()
                     filename = os.path.basename(filepath)
                     if self.analyzer.SERVICES_PID and process_id == self.analyzer.SERVICES_PID:

@@ -384,7 +384,7 @@ class BsonStore(ProtocolHandler):
 
                 if apiname == "__process__":
 
-                    pid = argdict["ProcessIdentifier"]
+                    # pid = argdict["ProcessIdentifier"]
                     ppid = argdict["ParentProcessIdentifier"]
                     modulepath = argdict["ModulePath"]
                     procname = path_get_filename(modulepath)

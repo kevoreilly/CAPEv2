@@ -5,16 +5,16 @@
 import errno
 import json
 import logging
-import struct
 import os
 import socket
-from threading import Lock, Thread
+import struct
 from contextlib import suppress
-
+from threading import Lock, Thread
 
 HAVE_BSON = False
 with suppress(ImportError):
     import bson
+
     HAVE_BSON = True
 
 import gevent.pool
@@ -31,7 +31,7 @@ from lib.cuckoo.common.files import open_exclusive, open_inclusive
 from lib.cuckoo.common.path_utils import path_exists, path_get_filename
 
 # from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.utils import Singleton, create_folder, load_categories, default_converter
+from lib.cuckoo.common.utils import Singleton, create_folder, default_converter, load_categories
 from lib.cuckoo.core.log import task_log_start, task_log_stop
 
 log = logging.getLogger(__name__)
@@ -389,8 +389,14 @@ class BsonStore(ProtocolHandler):
                     modulepath = argdict["ModulePath"]
                     procname = path_get_filename(modulepath)
 
-                    log.info("Task %d: Process %d (parent %d): %s, path %s", self.task_id, self.version, ppid, procname, modulepath.decode())
-
+                    log.info(
+                        "Task %d: Process %d (parent %d): %s, path %s",
+                        self.task_id,
+                        self.version,
+                        ppid,
+                        procname,
+                        modulepath.decode(),
+                    )
 
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and

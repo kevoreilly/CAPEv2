@@ -1,3 +1,10 @@
+### [12.03.2023] Linux suport and configs
+* Linux support details can be seen in this [Pull Request](https://github.com/kevoreilly/CAPEv2/pull/2001)
+* We remove all `x.conf` to finish the mess with the configs.
+    * DO NOT EDIT `.conf.default` files. cape2.sh makes a copy of them removing `.default`.
+    * If you don't use `cape2.sh`.
+        * Run: `for filename in conf/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g')";  done`
+
 ### [29.02.2024]
 * TLP fields added to distributed database. Requires db upgrade: `cd utils/db_migration_db && alembic upgrade head`
 * Monitor fixes

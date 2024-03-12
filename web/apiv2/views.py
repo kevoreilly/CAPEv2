@@ -1603,6 +1603,7 @@ def tasks_evtx(request, task_id):
         resp = {"error": True, "error_value": "EVTX does not exist"}
         return Response(resp)
 
+
 @csrf_exempt
 @api_view(["GET"])
 def tasks_dropped(request, task_id):

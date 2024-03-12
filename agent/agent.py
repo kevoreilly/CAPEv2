@@ -40,7 +40,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.16"
+AGENT_VERSION = "0.17"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -49,6 +49,8 @@ AGENT_FEATURES = [
     "largefile",
     "unicodepath",
 ]
+BASE_64_ENCODING = "base64"
+
 if sys.platform == "win32":
     AGENT_FEATURES.append("mutex")
     MUTEX_TIMEOUT_MS = 500
@@ -257,26 +259,30 @@ class send_file:
     """Wrapper that represents Flask.send_file functionality."""
 
     def __init__(self, path, encoding):
+        self.length = None
         self.path = path
         self.status_code = 200
         self.encoding = encoding
 
+    def okay_to_send(self):
+        return os.path.isfile(self.path) and os.access(self.path, os.R_OK)
+
     def init(self):
-        if os.path.isfile(self.path) and os.access(self.path, os.R_OK):
-            self.length = os.path.getsize(self.path)
+        if self.okay_to_send():
+            if self.encoding != BASE_64_ENCODING:
+                self.length = os.path.getsize(self.path)
         else:
             self.status_code = 404
-            self.length = 0
 
     def write(self, httplog, sock):
-        if not self.length:
+        if not self.okay_to_send():
             return
 
         try:
             with open(self.path, "rb") as f:
                 buf = f.read(1024 * 1024)
                 while buf:
-                    if self.encoding == "base64":
+                    if self.encoding == BASE_64_ENCODING:
                         buf = base64.b64encode(buf)
                     sock.write(buf)
                     buf = f.read(1024 * 1024)
@@ -632,7 +638,7 @@ def do_execute():
         else:
             p = subprocess.Popen(command_to_execute, shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
-            if request.form.get("encoding", "") == "base64":
+            if request.form.get("encoding", "") == BASE_64_ENCODING:
                 stdout = base64.b64encode(stdout)
                 stderr = base64.b64encode(stderr)
     except Exception as ex:
@@ -693,7 +699,7 @@ def do_execpy():
 
     # Execute the command asynchronously? As a shell command?
     async_exec = "async" in request.form
-    base64_encode = request.form.get("encoding", "") == "base64"
+    base64_encode = request.form.get("encoding", "") == BASE_64_ENCODING
 
     cwd = request.form.get("cwd")
 

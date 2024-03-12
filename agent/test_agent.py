@@ -1,5 +1,5 @@
 """Tests for the agent."""
-
+import base64
 import datetime
 import io
 import json
@@ -473,6 +473,14 @@ class TestAgent:
         assert r.status_code == 200
         assert first_line in r.text
         assert last_line in r.text
+        # Also test the base64-encoded retrieval.
+        form["encoding"] = "base64"
+        r = requests.post(f"{BASE_URL}/retrieve", data=form)
+        assert r.status_code == 200
+        decoded = base64.b64decode(r.text + "==").decode()
+        assert "test data" in decoded
+        assert first_line in decoded
+        assert last_line in decoded
 
     def test_retrieve_invalid(self):
         js = self.post_form("retrieve", {}, 400)

@@ -1,3 +1,6 @@
+### [12.03.2024]
+* Monitor update: Initial IPv6 support - thanks @cccs-mog
+
 ### [07.03.2024]
 * Monitor updates:
     * Countermeasure for NtCreateUserProcess block-non-Microsoft-DLLs mitigation policy affecting monitoring

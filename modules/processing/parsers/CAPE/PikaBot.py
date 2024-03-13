@@ -1,6 +1,5 @@
 import base64
 import logging
-import os
 import re
 import struct
 import yara
@@ -8,8 +7,6 @@ from contextlib import suppress
 from io import BytesIO
 
 import pefile
-
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 rule_source = """
 rule PikaBot

@@ -109,7 +109,7 @@ class Config(_BaseConfig, metaclass=ConfigMeta):
     def _get_files_to_read(self, fname_base):
         # Allows test workflows to ignore custom root configs
         include_root_configs = "CAPE_DISABLE_ROOT_CONFIGS" not in os.environ
-        files = [os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf.default")]
+        files = [os.path.join(CUCKOO_ROOT, "conf", "default", f"{fname_base}.conf.default")]
         if include_root_configs:
             files.append(os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf"))
             files.extend(sorted(glob.glob(os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf.d", "*.conf"))))

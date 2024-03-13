@@ -104,13 +104,13 @@ def get_config(input_data):
     c2s = get_c2s(data, number_of_c2s)
 
     return {
-        "version": version,
-        "campaign_name": campaign_name,
-        "registry_key": registry_key,
-        "user_agent": user_agent,
+        "Version": version,
+        "Campaign Name": campaign_name,
+        "Registry Key": registry_key,
+        "User Agent": user_agent,
         # "request_headers": request_headers,
         # "api_cmds": api_cmds,
-        "c2s": c2s,
+        "C2s": c2s,
     }
 
 
@@ -173,6 +173,8 @@ def extract_config(filebuf):
 
         if cfg_offset:
             data = filebuf[cfg_offset : cfg_offset + cfg_length]
+            if data[4:8] == b"\x00\x00\x00\x00":
+                return
             with suppress(Exception):
                 config = get_config(data)
                 return config

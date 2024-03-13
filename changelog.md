@@ -1,9 +1,17 @@
-### [12.03.2023] Linux suport and configs
+### [12.03.2024]
+* Monitor update: Initial IPv6 support - thanks @cccs-mog
 * Linux support details can be seen in this [Pull Request](https://github.com/kevoreilly/CAPEv2/pull/2001)
 * We remove all `x.conf` to finish the mess with the configs.
     * DO NOT EDIT `.conf.default` files. cape2.sh makes a copy of them removing `.default`.
     * If you don't use `cape2.sh`.
         * Run: `for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done`
+
+### [07.03.2024]
+* Monitor updates:
+    * Countermeasure for NtCreateUserProcess block-non-Microsoft-DLLs mitigation policy affecting monitoring
+    * Expand 'syscall' breakpoints to handle indirect syscalls (sysbpmode=1)
+    * Small fixes & improvements
+* Pikabot detection update & anti-hook bypass
 
 ### [29.02.2024]
 * TLP fields added to distributed database. Requires db upgrade: `cd utils/db_migration_db && alembic upgrade head`

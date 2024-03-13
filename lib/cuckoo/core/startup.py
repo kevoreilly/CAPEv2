@@ -21,7 +21,9 @@ import modules.auxiliary
 import modules.feeds
 import modules.processing
 import modules.reporting
-import modules.signatures
+import modules.signatures.all
+import modules.signatures.linux
+import modules.signatures.windows
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -272,7 +274,9 @@ def init_modules():
     # Import all processing modules.
     import_package(modules.processing)
     # Import all signatures.
-    import_package(modules.signatures)
+    import_package(modules.signatures.all)
+    import_package(modules.signatures.windows)
+    import_package(modules.signatures.linux)
     # Import all private signatures
     import_package(custom.signatures)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:

@@ -1011,7 +1011,7 @@ class Pcap2:
                         req_sha1 = sha1(sent.body).hexdigest()
                         req_sha256 = sha256(sent.body).hexdigest()
 
-                        req_path = os.path.join(self.network_path, req_sha1)
+                        req_path = os.path.join(self.network_path, req_sha256)
                         _ = path_write_file(req_path, sent.body)
 
                         # It's not perfect yet, but it'll have to do.

@@ -2,11 +2,11 @@ import base64
 import logging
 import re
 import struct
-import yara
 from contextlib import suppress
 from io import BytesIO
 
 import pefile
+import yara
 
 rule_source = """
 rule PikaBot
@@ -164,15 +164,15 @@ def extract_config(filebuf):
                 for item in hit.strings:
                     if "$config" == item.identifier:
                         offset = item.instances[0].offset
-                        cfg_va = filebuf[offset + 12: offset + 16]
+                        cfg_va = filebuf[offset + 12 : offset + 16]
                 with suppress(Exception):
                     pe = pefile.PE(data=filebuf, fast_load=True)
                     cfg_offset = pe.get_offset_from_rva(struct.unpack("I", cfg_va)[0] - pe.OPTIONAL_HEADER.ImageBase)
-                    cfg_length = struct.unpack("H", filebuf[offset + 4: offset + 6])[0]
+                    cfg_length = struct.unpack("H", filebuf[offset + 4 : offset + 6])[0]
                     break
 
         if cfg_offset:
-            data = filebuf[cfg_offset: cfg_offset + cfg_length]
+            data = filebuf[cfg_offset : cfg_offset + cfg_length]
             with suppress(Exception):
                 config = get_config(data)
                 return config

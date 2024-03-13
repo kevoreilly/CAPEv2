@@ -151,8 +151,8 @@ class Package:
     def strace_analysis(self):
         kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
         log.info(self.target)
-        
-        target_cmd = f'{self.target}'
+
+        target_cmd = f"{self.target}"
         if "args" in kwargs:
             target_cmd += f' {" ".join(kwargs["args"])}'
 
@@ -188,6 +188,7 @@ class Package:
                 for chunk in f:
                     nf.sock.sendall(chunk)  # dirty direct send, no reconnecting
             nf.close()
+
 
 def _string_to_bool(raw):
     if not isinstance(raw, str):

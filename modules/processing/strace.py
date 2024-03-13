@@ -1,7 +1,7 @@
-import logging
-import re
 import json
+import logging
 import os
+import re
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.path_utils import path_exists
@@ -72,11 +72,11 @@ class ParseProcessLog(list):
             self.fetch_calls(syscalls_info)
 
     def __iter__(self):
-       return iter(super().__iter__())
+        return iter(super().__iter__())
 
     def __repr__(self):
         return f"<ParseProcessLog log-path: {self._log_path}>"
-    
+
     def begin_reporting(self):
         pass
 

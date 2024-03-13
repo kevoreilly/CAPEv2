@@ -311,7 +311,7 @@ class Analyzer:
             for file in os.listdir(PATHS["logs"]):
                 upload_to_host(os.path.join(PATHS["logs"], file), os.path.join("logs", file))
         except Exception as e:
-            log.warning('The strace log failed to transfer:', e)
+            log.warning("The strace log failed to transfer:", e)
 
         # Terminate the Auxiliary modules.
         log.info("Stopping auxiliary modules")

@@ -289,7 +289,7 @@ class Guest(Base):
     status = Column(String(16), nullable=False)
     name = Column(String(255), nullable=False)
     label = Column(String(255), nullable=False)
-    platform =  Column(String(255), nullable=False)
+    platform = Column(String(255), nullable=False)
     manager = Column(String(255), nullable=False)
     started_on = Column(DateTime(timezone=False), default=datetime.now, nullable=False)
     shutdown_on = Column(DateTime(timezone=False), nullable=True)

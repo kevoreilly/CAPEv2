@@ -1192,7 +1192,7 @@ function install_CAPE() {
     sudo usermod -aG libvirt ${USER}
 
     # copy *.conf.default to *.conf so we have all properly updated fields, as we can't ignore old configs in repository
-    for filename in conf/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g')";  done
+    for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done
 
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" conf/cuckoo.conf
     # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" conf/routing.conf

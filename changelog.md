@@ -1,5 +1,10 @@
 ### [12.03.2024]
 * Monitor update: Initial IPv6 support - thanks @cccs-mog
+* Linux support details can be seen in this [Pull Request](https://github.com/kevoreilly/CAPEv2/pull/2001)
+* We remove all `x.conf` to finish the mess with the configs.
+    * DO NOT EDIT `.conf.default` files. cape2.sh makes a copy of them removing `.default`.
+    * If you don't use `cape2.sh`.
+        * Run: `for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done`
 
 ### [07.03.2024]
 * Monitor updates:

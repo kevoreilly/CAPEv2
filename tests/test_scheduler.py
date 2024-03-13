@@ -378,7 +378,6 @@ class TestAnalysisManager:
             "usage": False,
             "human_linux": False,
             "human_windows": True,
-            "stap": False,
             "id": 1234,
             "do_upload_max_size": 0,
             "upload_max_size": 100000000,

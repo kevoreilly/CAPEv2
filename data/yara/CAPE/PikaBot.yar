@@ -10,8 +10,9 @@ rule PikaBot
         $int2d = {B8 00 00 00 00 CD 2D 90 C3 CC CC CC CC CC CC CC}
         $subsys = {64 A1 30 00 00 00 8B 40 18 C3}
         $rijndael = {EB 0F 0F B6 04 3? FE C? 8A 80 [4] 88 04 3? 0F B6 [3] 7C EA 5? 5? C9 C3}
+        $config = {C7 44 24 [3] 00 00 C7 44 24 [4] 00 89 34 24 89 7D ?? E8 [4] 31 C0 C7 44 24 [3] 00 00 89 44 24 ?? C7 04 24 [4] E8}
     condition:
-        uint16(0) == 0x5A4D and 3 of them
+        uint16(0) == 0x5A4D and 3 of them or $config
 }
 
 rule Pikasys

@@ -10,9 +10,8 @@ rule PikaBot
         $int2d = {B8 00 00 00 00 CD 2D 90 C3 CC CC CC CC CC CC CC}
         $subsys = {64 A1 30 00 00 00 8B 40 18 C3}
         $rijndael = {EB 0F 0F B6 04 3? FE C? 8A 80 [4] 88 04 3? 0F B6 [3] 7C EA 5? 5? C9 C3}
-        $config = {C7 44 24 [3] 00 00 C7 44 24 [4] 00 89 34 24 89 7D ?? E8 [4] 31 C0 C7 44 24 [3] 00 00 89 44 24 ?? C7 04 24 [4] E8}
     condition:
-        uint16(0) == 0x5A4D and 3 of them or $config
+        uint16(0) == 0x5A4D and 3 of them
 }
 
 rule Pikasys
@@ -27,6 +26,7 @@ rule Pikasys
         $sysenter1 = {89 44 24 08 8D 85 20 FC FF FF C7 44 24 04 FF FF 1F 00 89 04 24 E8}
         $sysenter2 = {C7 44 24 0C 00 00 00 02 C7 44 24 08 00 00 00 02 8B 45 0C 89 44 24 04 8B 45 08 89 04 24 E8}
         $decode = {29 D1 01 4B ?? 8D 0C 10 89 4B ?? 85 F6 74 02 89 16 83 C4 ?? 5B 5E [0-1] 5D C3}
+        $config = {C7 44 24 [3] 00 00 C7 44 24 [4] 00 89 34 24 89 7D ?? E8 [4] 31 C0 C7 44 24 [3] 00 00 89 44 24 ?? C7 04 24 [4] E8}
     condition:
         uint16(0) == 0x5A4D and 2 of them
 }

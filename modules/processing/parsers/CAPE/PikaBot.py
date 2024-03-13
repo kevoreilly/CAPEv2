@@ -11,9 +11,21 @@ import pefile
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
-yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "PikaBot.yar")
-with open(yara_path, "r") as yara_rule:
-    yara_rules = yara.compile(source=yara_rule.read())
+rule_source = """
+rule PikaBot
+{
+    meta:
+        author = "enzo"
+        description = "Pikabot config extraction"
+        packed = ""
+    strings:
+        $config = {C7 44 24 [3] 00 00 C7 44 24 [4] 00 89 34 24 89 7D ?? E8 [4] 31 C0 C7 44 24 [3] 00 00 89 44 24 ?? C7 04 24 [4] E8}
+    condition:
+        uint16(0) == 0x5A4D and all of them
+}
+"""
+
+yara_rules = yara.compile(source=rule_source)
 
 log = logging.getLogger(__name__)
 

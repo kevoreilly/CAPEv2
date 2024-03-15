@@ -385,7 +385,7 @@ class GuestManager:
                 continue
 
             if status["status"] in ("complete", "failed"):
-                completed_as = "completed successfully" if status["status"] = "complete" else "failed"
+                completed_as = "completed successfully" if status["status"] == "complete" else "failed"
                 log.info("Task #%s: Analysis %s (id=%s, ip=%s)", completed_as, self.task_id, self.vmid, self.ipaddr)
                 db.guest_set_status(self.task_id, "complete")
                 return

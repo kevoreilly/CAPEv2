@@ -236,7 +236,7 @@ class Process:
         image_name_buf = c_buffer(MAX_PATH)
         n = PSAPI.GetProcessImageFileNameA(self.h_process, image_name_buf, MAX_PATH)
         if not n:
-            log.debug("Failed getting image name for pid %s", self.pid)
+            log.debug("Failed getting image name for pid %d", self.pid)
             return ret
         image_name = image_name_buf.value.decode()
         return image_name.split("\\")[-1]

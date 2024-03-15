@@ -147,7 +147,7 @@ class Process:
                 self.h_process = KERNEL32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
                 if not self.h_process:
                     log.warning("OpenProcess(PROCESS_ALL_ACCESS, ...) failed for process %d", self.pid)
-                    log.debug("opening process with limited info %d", self.pid)
+                    log.debug("Opening process with limited info %d", self.pid)
                     self.h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, self.pid)
 
             ret = True
@@ -193,7 +193,7 @@ class Process:
         exit_code = c_ulong(0)
         ok = KERNEL32.GetExitCodeProcess(self.h_process, byref(exit_code))
         if not ok:
-            log.debug("failed getting exit code for %s", self)
+            log.debug("Failed getting exit code for %s", self)
             return None
         # Uncommenting the lines below will spam the analyzer.log file.
         # if exit_code.value == STILL_ACTIVE:
@@ -236,7 +236,7 @@ class Process:
         image_name_buf = c_buffer(MAX_PATH)
         n = PSAPI.GetProcessImageFileNameA(self.h_process, image_name_buf, MAX_PATH)
         if not n:
-            log.debug("failed getting image name for pid %s", self.pid)
+            log.debug("Failed getting image name for pid %s", self.pid)
             return ret
         image_name = image_name_buf.value.decode()
         return image_name.split("\\")[-1]

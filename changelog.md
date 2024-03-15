@@ -1,3 +1,6 @@
+### [15.03.2024]
+* Monitor update: Further unpacker refinement: Improve filter for unwanted .NET payloads to avoid missing interesting payloads
+
 ### [14.03.2024]
 * Monitor update: Unpacker refinement for e.g. Shikata Ga Nai - thanks @para0x0dise
 

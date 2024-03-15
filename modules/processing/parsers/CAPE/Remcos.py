@@ -77,11 +77,11 @@ idx_list = {
     51: "Unknown51",
     52: "Unknown52",
     53: "Unknown53",
-    54: "Keylog file max size",
-    55: "Unknown55",
-    56: "TLS client certificate",
-    57: "TLS client private key",
-    58: "TLS server certificate",
+    54: "Keylog file max size (base64)",
+    55: "Unknown55 (base64)",
+    56: "TLS client certificate (base64)",
+    57: "TLS client private key (base64)",
+    58: "TLS server certificate (base64)",
     59: "Unknown59",
     60: "Unknown60",
     61: "Unknown61",
@@ -180,7 +180,7 @@ def extract_config(filebuf):
                         p_data[idx_list[i]] = setup_list[int(chr(cont[0]))]
                     else:
                         p_data[idx_list[i]] = setup_list[cont[0]]
-                elif i in (56, 57, 58):
+                elif i in (54, 55, 56, 57, 58):
                     p_data[idx_list[i]] = base64.b64encode(cont)
                 elif i == 0:
                     # various separators have been observed

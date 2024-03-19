@@ -2715,8 +2715,8 @@ class Database(object, metaclass=Singleton):
                         # hash validation and if exist
                         samples = [file_path for file_path in samples if path_exists(file_path)]
                         for path in samples:
-                            with open(path, "rb").read() as f:
-                                if sample_hash == sizes[len(sample_hash)](f).hexdigest():
+                            with open(path, "rb") as f:
+                                if sample_hash == sizes[len(sample_hash)](f.read()).hexdigest():
                                     sample = [path]
                                     break
 

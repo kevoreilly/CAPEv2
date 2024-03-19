@@ -494,10 +494,10 @@ class Process:
 
         if KERNEL32.ResumeThread(self.h_thread) != -1:
             self.suspended = False
-            log.info("successfully resumed %s", self)
+            log.info("Successfully resumed %s", self)
             return True
         else:
-            log.error("failed to resume %s", self)
+            log.error("Failed to resume %s", self)
             return False
 
     def set_terminate_event(self):
@@ -510,20 +510,20 @@ class Process:
         if self.terminate_event_handle:
             # make sure process is aware of the termination
             KERNEL32.SetEvent(self.terminate_event_handle)
-            log.info("terminate event set for %s", self)
+            log.info("Terminate event set for %s", self)
             KERNEL32.CloseHandle(self.terminate_event_handle)
         else:
-            log.error("failed to open terminate event for %s", self)
+            log.error("Failed to open terminate event for %s", self)
             return
 
         # recreate event for monitor 'reply'
         self.terminate_event_handle = KERNEL32.CreateEventW(0, False, False, event_name)
         if not self.terminate_event_handle:
-            log.error("failed to create terminate-reply event for %s", self)
+            log.error("Failed to create terminate-reply event for %s", self)
             return
 
         KERNEL32.WaitForSingleObject(self.terminate_event_handle, 5000)
-        log.info("termination confirmed for %s", self)
+        log.info("Termination confirmed for %s", self)
         KERNEL32.CloseHandle(self.terminate_event_handle)
 
     def terminate(self):
@@ -534,10 +534,10 @@ class Process:
             self.open()
 
         if KERNEL32.TerminateProcess(self.h_process, 1):
-            log.info("successfully terminated %s", self)
+            log.info("Successfully terminated %s", self)
             return True
         else:
-            log.error("failed to terminate %s", self)
+            log.error("Failed to terminate %s", self)
             return False
 
     def is_64bit(self):
@@ -557,7 +557,7 @@ class Process:
     def write_monitor_config(self, interest=None, nosleepskip=False):
 
         config_path = os.path.join(Path.cwd(), "dll", f"{self.pid}.ini")
-        log.info("monitor config for %s: %s", self, config_path)
+        log.info("Monitor config for %s: %s", self, config_path)
 
         # start the logserver for this monitored process
         logserver_path = f"{LOGSERVER_PREFIX}{self.pid}"
@@ -659,9 +659,9 @@ class Process:
             if ret.returncode == 0:
                 return True
             elif ret.returncode == 1:
-                log.info("injected into %s %s", bit_str, self)
+                log.info("Injected into %s %s", bit_str, self)
             else:
-                log.error("unable to inject into %s %s, error: %d", bit_str, self, ret.returncode)
+                log.error("Unable to inject into %s %s, error: %d", bit_str, self, ret.returncode)
             return False
         except Exception as e:
             log.error("Error running process: %s", e)
@@ -682,7 +682,7 @@ class Process:
             log.error(e, exc_info=True)
             log.error(os.path.join("memory", f"{self.pid}.dmp"))
             log.error(file_path)
-        log.info("memory dump of %s uploaded", self)
+        log.info("Memory dump of %s uploaded", self)
 
         return True
 

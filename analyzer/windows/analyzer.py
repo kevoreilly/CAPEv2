@@ -119,12 +119,12 @@ def pids_from_image_names(suffixlist):
     for pid in pids:
         h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
         if not h_process:
-            #log.debug("kernel32.OpenProcess failed for pid: %d", pid)
+            # log.debug("kernel32.OpenProcess failed for pid: %d", pid)
             continue
         n = PSAPI.GetProcessImageFileNameA(h_process, image_name, MAX_PATH)
         KERNEL32.CloseHandle(h_process)
         if not n:
-            #log.debug("psapi.GetProcessImageFileNameA failed for pid: %d", pid)
+            # log.debug("psapi.GetProcessImageFileNameA failed for pid: %d", pid)
             continue
         image_name_pystr = image_name.value.decode().lower()
         # e.g., image name: "\device\harddiskvolume4\windows\system32\services.exe"

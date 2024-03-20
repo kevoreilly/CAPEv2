@@ -1,4 +1,5 @@
 """Tests for the agent."""
+
 import base64
 import datetime
 import io

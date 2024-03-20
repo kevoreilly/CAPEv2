@@ -1,6 +1,5 @@
 """Ensure our version check and architecture check function as desired."""
 
-
 import sys
 
 import pytest

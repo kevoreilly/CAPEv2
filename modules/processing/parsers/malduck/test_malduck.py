@@ -5,7 +5,6 @@ __version__ = "1.0.0"
 
 
 class TEST_MALDUCK(Extractor):
-
     """
     TEST Configuration Extractor
     """

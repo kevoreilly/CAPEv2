@@ -61,20 +61,20 @@ def init_mitre_attck(online: bool = False):
             save_config=False,
             config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
             data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
-            enterprise_attck_json=config.enterprise_attck_json
-            if online
-            else os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json"),
+            enterprise_attck_json=(
+                config.enterprise_attck_json if online else os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json")
+            ),
             pre_attck_json=config.pre_attck_json if online else os.path.join(CUCKOO_ROOT, "data", "mitre", "pre_attck_json.json"),
-            mobile_attck_json=config.mobile_attck_json
-            if online
-            else os.path.join(CUCKOO_ROOT, "data", "mitre", "mobile_attck_json.json"),
+            mobile_attck_json=(
+                config.mobile_attck_json if online else os.path.join(CUCKOO_ROOT, "data", "mitre", "mobile_attck_json.json")
+            ),
             ics_attck_json=config.ics_attck_json if online else os.path.join(CUCKOO_ROOT, "data", "mitre", "ics_attck_json.json"),
-            nist_controls_json=config.nist_controls_json
-            if online
-            else os.path.join(CUCKOO_ROOT, "data", "mitre", "nist_controls_json.json"),
-            generated_nist_json=config.generated_nist_json
-            if online
-            else os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_nist_json.json"),
+            nist_controls_json=(
+                config.nist_controls_json if online else os.path.join(CUCKOO_ROOT, "data", "mitre", "nist_controls_json.json")
+            ),
+            generated_nist_json=(
+                config.generated_nist_json if online else os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_nist_json.json")
+            ),
         )
     except Exception as e:
         log.error("Can't initialize mitre's Attck class: %s", str(e))

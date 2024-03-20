@@ -413,7 +413,7 @@ def main():
         decrypt_memory(file_path)
 
     if dir_path and os.path.isdir(dir_path):
-        for (dirpath, _, filenames) in os.walk(dir_path):
+        for dirpath, _, filenames in os.walk(dir_path):
             for file in filenames:
                 decrypt_memory(os.path.join(dirpath, file))
 

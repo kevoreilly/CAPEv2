@@ -198,14 +198,14 @@ def static_config_parsers(cape_name, file_path, file_data):
             else:
                 cape_configraw = cape_malware_parsers[cape_name].config(file_data)
             if isinstance(cape_configraw, list):
-                for (key, value) in cape_configraw[0].items():
+                for key, value in cape_configraw[0].items():
                     # python3 map object returns iterator by default, not list and not serializeable in JSON.
                     if isinstance(value, map):
                         value = list(value)
                     cape_config[cape_name].update({key: [value]})
                 parser_loaded = True
             elif isinstance(cape_configraw, dict):
-                for (key, value) in cape_configraw.items():
+                for key, value in cape_configraw.items():
                     # python3 map object returns iterator by default, not list and not serializeable in JSON.
                     if isinstance(value, map):
                         value = list(value)
@@ -269,10 +269,10 @@ def static_config_parsers(cape_name, file_path, file_data):
                 malwareconfig_config = module.config
                 # ToDo remove
                 if isinstance(malwareconfig_config, list):
-                    for (key, value) in malwareconfig_config[0].items():
+                    for key, value in malwareconfig_config[0].items():
                         cape_config[cape_name].update({key: [value]})
                 elif isinstance(malwareconfig_config, dict):
-                    for (key, value) in malwareconfig_config.items():
+                    for key, value in malwareconfig_config.items():
                         cape_config[cape_name].update({key: [value]})
         except Exception as e:
             if "rules" in str(e):
@@ -307,7 +307,7 @@ def static_config_parsers(cape_name, file_path, file_data):
         tmp_config = ext.config
         del ext
         if tmp_config:
-            for (key, value) in tmp_config[0].items():
+            for key, value in tmp_config[0].items():
                 cape_config[cape_name].update({key: [value]})
 
     if not cape_config[cape_name]:

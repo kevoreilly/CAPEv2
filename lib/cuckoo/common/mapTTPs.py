@@ -12,6 +12,7 @@ if os.path.exists(ttps_map_file):
     except Exception as e:
         print("Can't load TTPs.json file", e)
 
+
 # Read the config file
 def mapTTP(oldTTPs: list, mbcs: list):
     ttpsList = []

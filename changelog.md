@@ -1,5 +1,6 @@
 ### [20.03.2024]
 * Formbook: ntdll remap bypass & config extraction updates
+* Monitor update: Trace GetRegister() tweak
 
 ### [15.03.2024]
 * Monitor update: Further unpacker refinement: Improve filter for unwanted .NET payloads to avoid missing interesting payloads

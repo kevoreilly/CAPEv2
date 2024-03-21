@@ -40,16 +40,18 @@ def extract_config(data):
                 if lines[base + x - 2].isdigit() and len(lines[base + x - 2]) <= 5:  # check if length <= highest Port 65535
                     # minchars 3 so Ports < 100 do not appear in strings / TBD: michars < 3
                     config_dict["Port"] = lines[base + x - 2]
+                elif lines[base + x - 2] in {"true", "false"} and lines[base + x - 3].isdigit() and len(lines[base + x - 3]) <= 5:
+                    config_dict["Port"] = lines[base + x - 3]
                 config_dict["C2"] = lines[base + +x - 1]
                 config_dict["Username"] = lines[base + x]
                 config_dict["Password"] = lines[base + x + 1]
                 if "@" in lines[base + x + 2]:
                     config_dict["EmailTo"] = lines[base + x + 2]
                 break
-        # Get Payload Filename
-        for x in range(2, 13):
+        # Get Persistence Payload Filename
+        for x in range(2, 22):
             if ".exe" in lines[base + x]:
-                config_dict["Filename"] = lines[base + x]
+                config_dict["Persistence_Filename"] = lines[base + x]
                 break
         # Get External IP Check Services
         externalipcheckservices = []

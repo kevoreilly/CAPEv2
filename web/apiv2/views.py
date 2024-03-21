@@ -1092,7 +1092,7 @@ def tasks_status(request, task_id):
                 complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
                 # ToDo proper OS version join
                 dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
-                r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder})
+                r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder}, exist_ok=True)
                 resp = {"error": r.status_code == 200, "data": r.text}
             except requests.exceptions.ConnectionError as e:
                 log.error(e)

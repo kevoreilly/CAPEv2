@@ -505,7 +505,7 @@ def do_mkdir():
     try:
         mode = int(request.form.get("mode", 0o777))
 
-        os.makedirs(request.form["dirpath"], mode=mode)
+        os.makedirs(request.form["dirpath"], mode=mode, exist_ok=True)
     except Exception as ex:
         print(f"error creating dir {ex}")
         return json_exception("Error creating directory")

@@ -184,15 +184,6 @@ rule AgentTeslaV5 {
         $mozilla_browser6 = "360Chrome\\Chrome\\User Data" fullword wide
         $mozilla_browser7 = "\\Mozilla\\Firefox\\" fullword wide
 
-        $configvariable1 = "PublicIpAddressGrab" fullword ascii
-        $configvariable2 = "EnableClipboardLogger" fullword ascii
-        $configvariable3 = "EnableTorPanel" fullword ascii
-        $configvariable4 = "EnableKeylogger" fullword ascii
-        $configvariable5 = "EnableSmartLogger" fullword ascii
-        $configvariable6 = "DeleteBackspace" fullword ascii
-        $configvariable7 = "StartupInstallationName" fullword ascii
-        $configvariable8 = "PublicUserAgent" fullword ascii
-
         $database1 = "Berkelet DB" fullword wide
         $database2 = " 1.85 (Hash, version 2, native byte-order)" fullword wide
         $database3 = "00061561" fullword wide
@@ -212,5 +203,5 @@ rule AgentTeslaV5 {
         $software9 = "NordVPN" fullword wide
         $software10 = "JDownloader 2.0\\cfg" fullword wide
     condition:
-        uint16(0) == 0x5a4d and 4 of ($template*) and 3 of ($chromium_browser*) and 3 of ($mozilla_browser*) and 4 of ($configvariable*) and 3 of ($database*) and 5 of ($software*)
+        uint16(0) == 0x5a4d and 4 of ($template*) and 3 of ($chromium_browser*) and 3 of ($mozilla_browser*) and 3 of ($database*) and 5 of ($software*)
 }

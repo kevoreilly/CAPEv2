@@ -1,3 +1,7 @@
+### [25.03.2024]
+* Bypass for variant of Heaven's Gate direct syscall seen in ecrime loader
+* Monitor updates: misc fixes (see capemon repo for details)
+
 ### [20.03.2024]
 * Formbook: ntdll remap bypass & config extraction updates
 * Monitor update: Trace GetRegister() tweak

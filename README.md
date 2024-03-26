@@ -45,7 +45,7 @@ created by Jurriaan Bremer.
 Around the same time, a fork called [Cuckoo-modified](https://github.com/spender-sandbox/cuckoo-modified)
 was created by Brad 'Spender' Spengler continuing development of the original
 monitor with significant improvements including 64-bit support and importantly
-introducting Microsoft's Visual Studio compiler.
+introducing Microsoft's Visual Studio compiler.
 
 During that same year development of a dynamic command-line configuration and payload
 extraction tool called CAPE was begun at Context Information Security by Kevin O'Reilly.
@@ -118,14 +118,18 @@ CAPE can be programmed via YARA signature to unpack specific packers. For exampl
 
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/76b2c800-1d96-4ea5-ae86-c261b3946424)
 
-The `dump-on-api` option allows a module to be dumped when it calls a specific API function that can be specified in the web interface (e.g. dump-on-api=DnsQuery_A).
+The `dump-on-api` option allows a module to be dumped when it calls a specific API function that can be specified in the web interface (e.g. `dump-on-api=DnsQuery_A`).
 
 ### [Debugger](https://capev2.readthedocs.io/en/latest/usage/monitor.html)
 The debugger has allowed CAPE to continue to evolve beyond its original capabilities, which now include dynamic anti-evasion bypasses. Since modern malware commonly tries to evade analysis within sandboxes, for example by using timing traps for virtualisation or API hook detection, CAPE allows dynamic countermeasures to be developed combining debugger actions within Yara signatures to detect evasive malware as it detonates, and perform control-flow manipulation to force the sample to detonate fully or skip evasive actions.
 
+![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/801fb4d3-2569-44aa-b40e-d3d5cc7d8bb3)
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/d76da82f-38b7-4cdf-ad9d-f16e8d2dfa66)
 
-Quick access to the debugger is made possible with the breakpoint options `bp0` through `bp3` accepting RVA or VA values to set breakpoints, whereupon a short instruction trace will be output, governed by `count` and `depth` options (e.g. bp0=0x1234,depth=1,count=100). To set a breakpoint at the module entry point, `ep` is used instead of an address (e.g. bp0=ep). Alternatively `break-on-return` allows for a breakpoint on the return address of a hooked API (e.g. break-on-return=NtGetContextThread). An optional `base-on-api` parameter allows the image base for RVA breakpoints to be set by API call (e.g. base-on-api=NtReadFile,bp0=0x2345).
+Quick access to the debugger is made possible with the submission options `bp0` through `bp3` accepting RVA or VA values to set breakpoints, whereupon a short instruction trace will be output, governed by `count` and `depth` options (e.g. `bp0=0x1234,depth=1,count=100`).
+![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/6aa3d31e-cd52-4549-997f-734fb755f10b)
+
+To set a breakpoint at the module entry point, `ep` is used instead of an address (e.g. `bp0=ep`). Alternatively `break-on-return` allows for a breakpoint on the return address of a hooked API (e.g. `break-on-return=NtGetContextThread`). An optional `base-on-api` parameter allows the image base for RVA breakpoints to be set by API call (e.g. `base-on-api=NtReadFile,bp0=0x2345`).
 
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/3acfbde2-68e1-479d-a829-0c9142fb1be7)
 

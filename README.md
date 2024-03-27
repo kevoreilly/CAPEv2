@@ -1,7 +1,7 @@
 ## CAPE: Malware Configuration And Payload Extraction - [Documentation](https://capev2.readthedocs.io/en/latest/#)
 
 ### CAPE is a malware sandbox.
-A sandbox is used to execute malicious files in an isolated enviornment
+A sandbox is used to execute malicious files in an isolated environment
 whilst instrumenting their dynamic behaviour and collecting forensic artefacts.
 
 CAPE was derived from Cuckoo v1 which features the following core capabilities
@@ -92,11 +92,11 @@ Malware can be classified in CAPE via three mechanisms:
 
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/a44f2f8a-10df-47cc-9690-5ef08f04ea6b)
 
-Parsing can be done using either of CAPE's, [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/) framework.
+Parsing can be done using CAPE's own framework, alternatively the following frameworks are supported: [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/)
 
 #### Special note about config parsing frameworks:
 * Due to the nature of malware, since it changes constantly when any new version is released, something might become broken!
-* We suggest using only pure Python with entry point `def config(data):` that will be called by `cape_utils.py` and 0 complications.
+* We suggest using CAPE's framework which is simply pure Python with entry point `def extract_config(data):` that will be called by `cape_utils.py` and 0 complications.
     * As a bonus, you can reuse your extractors in other projects.
 
 ### Automated Unpacking
@@ -154,7 +154,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 ## Installation recommendations and scripts for optimal performance
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 1. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/) and __do read ALL__ config files inside of `conf` folder!
-2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download)
+2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download) and using Windows 10 21H2 as target.
 3. `kvm-qemu.sh` and `cape2.sh` __SHOULD BE__ executed from `tmux` session to prevent any OS problems if ``ssh`` connections breaks.
 4. [KVM](https://github.com/kevoreilly/CAPEv2/blob/master/installer/kvm-qemu.sh) is recommended as the hypervisor.
  * Replace `<username>` with a real pattern.

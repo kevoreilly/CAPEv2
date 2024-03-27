@@ -509,3 +509,19 @@ def check_tcpdump_permissions():
             {user} ALL=NOPASSWD: {tcpdump}
             """
         )
+
+
+def check_vms_n_resultserver_networking():
+    vms = {}
+    resultserver_block = cuckoo.resultserver.ip.rsplit(".", 2)[0]
+    machinery = cuckoo.cuckoo.machinery
+    if machinery == "multi":
+        for mmachinery in Config(machinery).multi.get("machinery").split(","):
+            vms.update({x.strip(): [getattr(Config(mmachinery), x).ip, getattr(getattr(Config(mmachinery), x), "resultserver", "")] for x in getattr(Config(mmachinery), mmachinery).get("machines").split(",") if x.strip()})
+    else:
+        vms.update({x.strip(): [getattr(Config(machinery), x).ip.rsplit(".", 2)[0], getattr(getattr(Config(machinery), x), "resultserver", "".rsplit(".", 2)[0])] for x in getattr(Config(machinery), machinery).get("machines").split(",") if x.strip()})
+    for vm, network in vms.items():
+        vm_ip, vm_rs = network
+        # is there are better way to check networkrange without range CIDR?
+        if not resultserver_block.startswith(vm_ip) or (vm_rs and not vm_rs.startswith(vm_ip)):
+            log.error(f"Your resultserver and VM:{vm} are in different nework ranges. This might give you: CuckooDeadMachine")

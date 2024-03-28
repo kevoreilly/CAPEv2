@@ -1355,12 +1355,10 @@ def get_hash_list(hashes):
         hashlist = hashes.split()
 
     for i in range(len(hashlist)):
-        if hashlist[i].endswith("/"):
-            hashlist[i] = hashlist[i].rstrip("/")
-        if hashlist[i].startswith("http"):
-            start = hashlist[i].rfind("/")
-            if start and start != -1:
-                hashlist[i] = hashlist[i][start+1:]
+        if hashlist[i].startswith("http") and hashlist[i].endswith("/"):
+            hash = hashlist[i].split("/")[-2]
+            if len(hash) in (32, 40, 64):
+                hashlist[i] = hash
 
     return hashlist
 

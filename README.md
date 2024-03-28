@@ -220,6 +220,9 @@ git push
 ### How to cite this work
 If you use CAPEv2 in your work, please cite it as specified in the "Cite this repository" GitHub menu.
 
+### Deploying CAPEv2 to AWS.
+* [Deploying CAPEv2 on AWS - A Comprehensive Guide](https://y4nush.com/posts/installation-of-capev2-sandbox-on-aws/)
+
 ### Special note about 3rd part dependencies:
 * They becoming a headache, specially those that using `pefile` as each pins version that they want.
     * Our suggestion is clone/fork them, remove `pefile` dependency as you already have it installed. Volia no more pain.

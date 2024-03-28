@@ -268,7 +268,12 @@ class TestAnalysisManager:
             def availables(self):
                 return False
 
-            def acquire(self, machine_id, platform, tags, ):
+            def acquire(
+                self,
+                machine_id,
+                platform,
+                tags,
+            ):
                 class mock_acquire:
                     name = "mock_mach"
                     label = "mock_label"

@@ -904,7 +904,7 @@ class Database(object, metaclass=Singleton):
             # There are? Awesome!
             if set_status:
                 self.set_status(task_id=task.id, status=TASK_RUNNING)
-                assigned = vms[0] #Take the first vm which could be assigned
+                assigned = vms[0]  # Take the first vm which could be assigned
                 self.set_machine_status(assigned.label, MACHINE_SCHEDULED)
             return True
         return False

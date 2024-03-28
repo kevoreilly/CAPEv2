@@ -506,3 +506,7 @@ try:
 except NameError:
     with suppress(ImportError):
         from .local_settings import *  # noqa: F403
+
+from lib.cuckoo.core.database import init_database
+
+init_database()

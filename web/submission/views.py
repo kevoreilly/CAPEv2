@@ -23,12 +23,12 @@ from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
-    all_nodes_exits_list,
-    all_vms_tags,
     download_file,
     download_from_bazaar,
     download_from_vt,
     get_file_content,
+    load_vms_exits,
+    load_vms_tags,
     parse_request_arguments,
     perform_search,
     process_new_dlnexec_task,
@@ -122,7 +122,6 @@ def get_platform(magic):
 def index(request, task_id=None, resubmit_hash=None):
     remote_console = False
     if request.method == "POST":
-
         (
             static,
             package,
@@ -530,6 +529,8 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["pre_script"] = web_conf.pre_script.enabled
         enabledconf["during_script"] = web_conf.during_script.enabled
 
+        all_vms_tags = load_vms_tags()
+
         if all_vms_tags:
             enabledconf["tags"] = True
 
@@ -618,9 +619,9 @@ def index(request, task_id=None, resubmit_hash=None):
                 "tor": routing.tor.enabled,
                 "config": enabledconf,
                 "resubmit": resubmit_hash,
-                "tags": sorted(list(set(all_vms_tags))),
+                "tags": all_vms_tags,
                 "existent_tasks": existent_tasks,
-                "all_exitnodes": all_nodes_exits_list,
+                "all_exitnodes": list(sorted(load_vms_exits())),
             },
         )
 

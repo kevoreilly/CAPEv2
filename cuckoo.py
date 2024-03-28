@@ -9,6 +9,8 @@ import os
 import sys
 from pathlib import Path
 
+from lib.cuckoo.core.database import init_database
+
 if sys.version_info[:2] < (3, 8):
     sys.exit("You are running an incompatible version of Python, please use >= 3.8")
 
@@ -56,6 +58,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     check_working_directory()
     check_configs()
     create_structure()
+    init_database()
 
     if artwork:
         import time

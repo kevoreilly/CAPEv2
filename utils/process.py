@@ -37,7 +37,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import free_space_monitor, get_options
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task, init_database
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
 
@@ -181,7 +181,6 @@ def set_formatter_fmt(task_id=None, main_task_id=None):
 
 
 def init_logging(tid=0, debug=False):
-
     # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
     # If basicConfig was already called by something and had a StreamHandler added,
     # replace it with a ConsoleHandler.
@@ -280,7 +279,6 @@ def autoprocess(
         with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
             # CAUTION - big ugly loop ahead.
             while count < maxcount or not maxcount:
-
                 # If not enough free disk space is available, then we print an
                 # error message and wait another round (this check is ignored
                 # when the freespace configuration variable is set to zero).
@@ -352,7 +350,6 @@ def autoprocess(
 
 
 def _load_report(task_id: int):
-
     if repconf.mongodb.enabled:
         analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
         for process in analysis.get("behavior", {}).get("processes", []):
@@ -459,6 +456,7 @@ def main():
     )
     args = parser.parse_args()
 
+    init_database()
     init_modules()
     if args.id == "auto":
         autoprocess(

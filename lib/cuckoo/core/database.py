@@ -12,6 +12,7 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta
+from typing import Any, Optional
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
@@ -22,11 +23,11 @@ from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.demux import demux_sample
-from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError, CuckooStartupError
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder
+from lib.cuckoo.common.utils import SuperLock, classlock, create_folder
 
 try:
     from sqlalchemy import (
@@ -549,7 +550,7 @@ class AlembicVersion(Base):
     version_num = Column(String(32), nullable=False, primary_key=True)
 
 
-class Database(object, metaclass=Singleton):
+class _Database:
     """Analysis queue database.
 
     This class handles the creation of the database user for internal queue
@@ -1434,7 +1435,6 @@ class Database(object, metaclass=Singleton):
         @return: cursor or None.
         """
         with self.Session() as session:
-
             # Convert empty strings and None values to a valid int
             if not timeout:
                 timeout = 0
@@ -2169,7 +2169,7 @@ class Database(object, metaclass=Singleton):
                         .first()
                     )
                 else:
-                    if not Database.find_sample(self, sha256=sha256):
+                    if not self.find_sample(sha256=sha256):
                         uniq = False
                     else:
                         uniq = True
@@ -2879,3 +2879,31 @@ class Database(object, metaclass=Singleton):
 
         self.set_status(task_id, TASK_COMPLETED)
         return False, "", task.status
+
+
+_DATABASE: Optional[_Database] = None
+
+
+class Database:
+    def __getattr__(self, attr: str) -> Any:
+        if _DATABASE is None:
+            raise CuckooStartupError(
+                "The database has not been initialized yet. You must call init_database before attempting to use it."
+            )
+        return getattr(_DATABASE, attr)
+
+
+def init_database(*args, exists_ok=False, **kwargs) -> Database:
+    global _DATABASE
+    if _DATABASE is not None:
+        if exists_ok:
+            return _DATABASE
+        raise RuntimeError("The database has already been initialized!")
+    _DATABASE = _Database(*args, **kwargs)
+    return _DATABASE
+
+
+def reset_database():
+    """Used for testing."""
+    global _DATABASE
+    _DATABASE = None

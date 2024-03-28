@@ -213,7 +213,7 @@ class TestAnalysisManager:
             def availables(self, label, platform, tags, arch, os_version):
                 return True
 
-            def acquire(self, machine_id, platform, tags, arch, os_version):
+            def acquire(self, machine_id, platform, tags, arch, os_version, need_scheduled):
                 class mock_acquire:
                     name = "mock_mach"
                     label = "mock_label"
@@ -268,10 +268,11 @@ class TestAnalysisManager:
             def availables(self):
                 return False
 
-            def acquire(self, machine_id, platform, tags):
+            def acquire(self, machine_id, platform, tags, ):
                 class mock_acquire:
                     name = "mock_mach"
                     label = "mock_label"
+                    need_scheduled = True
 
                 return mock_acquire()
 
@@ -284,11 +285,15 @@ class TestAnalysisManager:
         class mock_tags:
             tags = "tags"
 
+        class mock_need_scheduled:
+            arch = True
+
         setup_machinery(mock_machinery())
         mock_task_machine = mock_task()
         mock_task_machine.machine = mock_machine()
         mock_task_machine.platform = mock_plat()
         mock_task_machine.tags = mock_tags()
+        mock_task_machine.need_scheduled = mock_need_scheduled()
 
         analysis_man = AnalysisManager(task=mock_task_machine, error_queue=queue.Queue())
 

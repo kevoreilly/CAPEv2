@@ -810,7 +810,8 @@ class Azure(Machinery):
             "is_scaling_down": False,
             "wait": False,
         }
-        self._add_machines_to_db(vmss_name)
+        with self.db.session.begin():
+            self._add_machines_to_db(vmss_name)
 
     def _thr_reimage_vmss(self, vmss_name):
         """
@@ -840,7 +841,8 @@ class Azure(Machinery):
             else:
                 log.error(repr(e), exc_info=True)
                 raise
-        self._add_machines_to_db(vmss_name)
+        with self.db.session.begin():
+            self._add_machines_to_db(vmss_name)
 
     def _thr_scale_machine_pool(self, tag, per_platform=False):
         """
@@ -849,6 +851,10 @@ class Azure(Machinery):
         @param per_platform: A boolean flag indicating that we should scale machine pools "per platform" vs. "per tag"
         @return: Ends method call
         """
+        with self.db.session.begin():
+            return self._scale_machine_pool(tag, per_platform=per_platform)
+
+    def _scale_machine_pool(self, tag, per_platform=False):
         global machine_pools, is_platform_scaling, current_vmss_operations
 
         platform = None

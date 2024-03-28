@@ -463,7 +463,8 @@ class AnalysisManager(threading.Thread):
             log.debug("Failed to initialize the analysis folder")
             return False
 
-        category_early_escape = self.category_checks()
+        with self.db.session.begin():
+            category_early_escape = self.category_checks()
         if isinstance(category_early_escape, bool):
             return category_early_escape
 
@@ -476,15 +477,20 @@ class AnalysisManager(threading.Thread):
 
         # Acquire analysis machine.
         try:
-            self.acquire_machine()
-            guest_log = self.db.set_task_vm_and_guest_start(
-                self.task.id,
-                self.machine.name,
-                self.machine.label,
-                self.task.platform,
-                self.machine.id,
-                machinery.__class__.__name__,
-            )
+            with self.db.session.begin():
+                self.acquire_machine()
+                self.set_machine_specific_options()
+                guest_log = self.db.set_task_vm_and_guest_start(
+                    self.task.id,
+                    self.machine.name,
+                    self.machine.label,
+                    self.task.platform,
+                    self.machine.id,
+                    machinery.__class__.__name__,
+                    self.task.options,
+                )
+                self.db.session.flush()
+                self.db.session.expunge(self.machine)
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
@@ -496,7 +502,8 @@ class AnalysisManager(threading.Thread):
 
             # Mark the selected analysis machine in the database as started.
             # Start the machine.
-            machinery.start(self.machine.label)
+            with self.db.session.begin():
+                machinery.start(self.machine.label)
 
             # By the time start returns it will have fully started the Virtual
             # Machine. We can now safely release the machine lock.
@@ -512,7 +519,8 @@ class AnalysisManager(threading.Thread):
             try:
                 ResultServer().add_task(self.task, self.machine)
             except Exception as e:
-                machinery.release(self.machine.label)
+                with self.db.session.begin():
+                    machinery.release(self.machine.label)
                 log.exception(e, exc_info=True)
                 self.errors.put(e)
 
@@ -521,19 +529,22 @@ class AnalysisManager(threading.Thread):
             # Enable network routing.
             self.route_network()
 
-            aux.start()
+            with self.db.session.begin():
+                aux.start()
 
             # Initialize the guest manager.
             guest = GuestManager(self.machine.name, self.machine.ip, self.machine.platform, self.task.id, self)
 
-            options["clock"] = self.db.update_clock(self.task.id)
-            self.db.guest_set_status(self.task.id, "starting")
+            with self.db.session.begin():
+                options["clock"] = self.db.update_clock(self.task.id)
+                self.db.guest_set_status(self.task.id, "starting")
             # Start the analysis.
             guest.start_analysis(options)
-            if self.db.guest_get_status(self.task.id) == "starting":
-                self.db.guest_set_status(self.task.id, "running")
+            if guest.get_status_from_db() == "starting":
+                guest.set_status_in_db("running")
                 guest.wait_for_completion()
-            self.db.guest_set_status(self.task.id, "stopping")
+
+            guest.set_status_in_db("stopping")
             succeeded = True
         except (CuckooMachineError, CuckooGuestCriticalTimeout) as e:
             if not unlocked:
@@ -547,7 +558,8 @@ class AnalysisManager(threading.Thread):
         finally:
             # Stop Auxiliary modules.
             if aux:
-                aux.stop()
+                with self.db.session.begin():
+                    aux.stop()
 
             # Take a memory dump of the machine before shutting it off.
             if self.cfg.cuckoo.memory_dump or self.task.memory:
@@ -566,7 +578,8 @@ class AnalysisManager(threading.Thread):
 
             try:
                 # Stop the analysis machine.
-                machinery.stop(self.machine.label)
+                with self.db.session.begin():
+                    machinery.stop(self.machine.label)
 
             except CuckooMachineError as e:
                 log.warning("Task #%s: Unable to stop machine %s: %s", self.task.id, self.machine.label, e)
@@ -574,7 +587,8 @@ class AnalysisManager(threading.Thread):
             # Mark the machine in the database as stopped. Unless this machine
             # has been marked as dead, we just keep it as "started" in the
             # database so it'll not be used later on in this session.
-            self.db.guest_stop(guest_log)
+            with self.db.session.begin():
+                self.db.guest_stop(guest_log)
 
             # After all this, we can make the ResultServer forget about the
             # internal state for this analysis task.
@@ -586,8 +600,9 @@ class AnalysisManager(threading.Thread):
             if dead_machine:
                 # Remove the guest from the database, so that we can assign a
                 # new guest when the task is being analyzed with another machine.
-                self.db.guest_remove(guest_log)
-                machinery.delete_machine(self.machine.name)
+                with self.db.session.begin():
+                    self.db.guest_remove(guest_log)
+                    machinery.delete_machine(self.machine.name)
 
                 # Remove the analysis directory that has been created so
                 # far, as launch_analysis() is going to be doing that again.
@@ -600,7 +615,8 @@ class AnalysisManager(threading.Thread):
 
             try:
                 # Release the analysis machine. But only if the machine has not turned dead yet.
-                machinery.release(self.machine.label)
+                with self.db.session.begin():
+                    machinery.release(self.machine.label)
 
             except CuckooMachineError as e:
                 log.error(
@@ -611,6 +627,12 @@ class AnalysisManager(threading.Thread):
                 )
 
         return succeeded
+
+    def set_machine_specific_options(self):
+        """This function may be used to update self.task.options based on the machine
+        that has been selected (self.machine).
+        """
+        return
 
     def run(self):
         """Run manager thread."""
@@ -628,13 +650,15 @@ class AnalysisManager(threading.Thread):
 
                 break
 
-            self.db.set_status(self.task.id, TASK_COMPLETED)
+            with self.db.session.begin():
+                self.db.set_status(self.task.id, TASK_COMPLETED)
 
-            # If the task is still available in the database, update our task
-            # variable with what's in the database, as otherwise we're missing
-            # out on the status and completed_on change. This would then in
-            # turn thrown an exception in the analysisinfo processing module.
-            self.task = self.db.view_task(self.task.id) or self.task
+                # If the task is still available in the database, update our task
+                # variable with what's in the database, as otherwise we're missing
+                # out on the status and completed_on change. This would then in
+                # turn thrown an exception in the analysisinfo processing module.
+                self.task = self.db.view_task(self.task.id) or self.task
+                self.db.session.expunge(self.task)
 
             log.debug("Task #%s: Released database task with status %s", self.task.id, success)
 
@@ -662,7 +686,8 @@ class AnalysisManager(threading.Thread):
         except Exception as e:
             log.exception("Task #%s: Failure in AnalysisManager.run: %s", self.task.id, e)
         finally:
-            self.db.set_status(self.task.id, TASK_COMPLETED)
+            with self.db.session.begin():
+                self.db.set_status(self.task.id, TASK_COMPLETED)
             task_log_stop(self.task.id)
             active_analysis_count_lock.acquire()
             active_analysis_count -= 1
@@ -962,7 +987,8 @@ class Scheduler:
 
     def start(self):
         """Start scheduler."""
-        self.initialize()
+        with self.db.session.begin():
+            self.initialize()
 
         log.info("Waiting for analysis tasks")
 
@@ -993,6 +1019,9 @@ class Scheduler:
 
         self.loop_state = LoopState.RUNNING
         while self.loop_state in (LoopState.RUNNING, LoopState.PAUSED, LoopState.STOPPING):
+            # Avoid high CPU utilization due to a tight loop under certain conditions
+            time.sleep(0.5)
+
             if self.loop_state == LoopState.STOPPING:
                 # Wait for analyses to finish before stopping
                 while self.analysis_threads:
@@ -1042,108 +1071,116 @@ class Scheduler:
                     )
                     continue
 
-            # Have we limited the number of concurrently executing machines?
-            if self.cfg.cuckoo.max_machines_count > 0 and self.categories_need_VM:
-                # Are too many running?
-                if len(machinery.running()) >= self.cfg.cuckoo.max_machines_count:
-                    continue
+            with self.db.session.begin():
+                # Have we limited the number of concurrently executing machines?
+                if self.cfg.cuckoo.max_machines_count > 0 and self.categories_need_VM:
+                    # Are too many running?
+                    if len(machinery.running()) >= self.cfg.cuckoo.max_machines_count:
+                        continue
 
-            # If no machines are available, it's pointless to fetch for pending tasks. Loop over.
-            # But if we analyze pcaps/static only it's fine
-            if self.categories_need_VM and not machinery.availables(include_reserved=True):
-                continue
-            # Exits if max_analysis_count is defined in the configuration
-            # file and has been reached.
-            if self.maxcount and self.total_analysis_count >= self.maxcount:
-                if active_analysis_count <= 0:
-                    log.info("Maximum analysis count has been reached, shutting down.")
-                    self.stop()
-            else:
-                if self.cfg.cuckoo.batch_scheduling:
-                    tasks_to_create = []
-                    if self.categories_need_VM:
-                        # First things first, are there pending tasks?
-                        if not self.db.count_tasks(status=TASK_PENDING):
-                            continue
-                        # There are? Great, let's get them, ordered by priority and then oldest to newest
-                        tasks_with_relevant_machine_available = []
-                        for task in self.db.list_tasks(
-                            status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
-                        ):
-                            # Can this task ever be serviced?
-                            if not self.db.is_serviceable(task):
-                                if self.cfg.cuckoo.fail_unserviceable:
-                                    log.debug("Task #%s: Failing unserviceable task", task.id)
-                                    self.db.set_status(task.id, TASK_FAILED_ANALYSIS)
-                                    continue
-                                log.debug("Task #%s: Unserviceable task", task.id)
-                            if self.db.is_relevant_machine_available(task=task, set_status=False):
-                                tasks_with_relevant_machine_available.append(task)
-                        # The batching number is the number of tasks that will be considered to mapping to machines for starting
-                        # Max_batch_scheduling_count is referring to the batch_scheduling config however this number
-                        # is the maximum and capped for each usage by the number of locks available which refer to
-                        # the number of expected available machines.
-                        batching_number = (
-                            max_batch_scheduling_count if machine_lock._value > max_batch_scheduling_count else machine_lock._value
-                        )
-                        if len(tasks_with_relevant_machine_available) > batching_number:
-                            tasks_with_relevant_machine_available = tasks_with_relevant_machine_available[:batching_number]
-                        tasks_to_create = self.db.map_tasks_to_available_machines(tasks_with_relevant_machine_available)
-                    else:
-                        tasks_to_create = []
-                        while True:
-                            task = self.db.fetch_task(self.analyzing_categories)
-                            if not task:
-                                break
-                            else:
-                                tasks_to_create.append(task)
-                    for task in tasks_to_create:
-                        task = self.db.view_task(task.id)
-                        log.debug("Task #%s: Processing task", task.id)
-                        self.total_analysis_count += 1
-                        # Initialize and start the analysis manager.
-                        analysis = AnalysisManager(task, errors)
-                        analysis.daemon = True
-                        analysis.start()
-                        self.analysis_threads.append(analysis)
-                    # We only want to keep track of active threads
-                    self.analysis_threads = [t for t in self.analysis_threads if t.is_alive()]
+                # If no machines are available, it's pointless to fetch for pending tasks. Loop over.
+                # But if we analyze pcaps/static only it's fine
+                # ToDo verify that it works with static and file/url
+                if self.categories_need_VM and not machinery.availables(include_reserved=True):
+                    continue
+                # Exits if max_analysis_count is defined in the configuration
+                # file and has been reached.
+                if self.maxcount and self.total_analysis_count >= self.maxcount:
+                    if active_analysis_count <= 0:
+                        log.info("Maximum analysis count has been reached, shutting down.")
+                        self.stop()
                 else:
-                    if self.categories_need_VM:
-                        # First things first, are there pending tasks?
-                        if not self.db.count_tasks(status=TASK_PENDING):
-                            continue
-                        relevant_machine_is_available = False
-                        # There are? Great, let's get them, ordered by priority and then oldest to newest
-                        for task in self.db.list_tasks(
-                            status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
-                        ):
-                            # Can this task ever be serviced?
-                            if not self.db.is_serviceable(task):
-                                if self.cfg.cuckoo.fail_unserviceable:
-                                    log.debug("Task #%s: Failing unserviceable task", task.id)
-                                    self.db.set_status(task.id, TASK_FAILED_ANALYSIS)
-                                    continue
-                                log.debug("Task #%s: Unserviceable task", task.id)
-                            relevant_machine_is_available = self.db.is_relevant_machine_available(task)
-                            if relevant_machine_is_available:
-                                break
-                        if not relevant_machine_is_available:
-                            task = None
+                    if self.cfg.cuckoo.batch_scheduling:
+                        tasks_to_create = []
+                        if self.categories_need_VM:
+                            # First things first, are there pending tasks?
+                            if not self.db.count_tasks(status=TASK_PENDING):
+                                continue
+                            # There are? Great, let's get them, ordered by priority and then oldest to newest
+                            tasks_with_relevant_machine_available = []
+                            for task in self.db.list_tasks(
+                                status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
+                            ):
+                                # Can this task ever be serviced?
+                                if not self.db.is_serviceable(task):
+                                    if self.cfg.cuckoo.fail_unserviceable:
+                                        log.info("Task #%s: Failing unserviceable task", task.id)
+                                        self.db.set_status(task.id, TASK_FAILED_ANALYSIS)
+                                        continue
+                                    log.info("Task #%s: Unserviceable task", task.id)
+                                if self.db.is_relevant_machine_available(task=task, set_status=False):
+                                    tasks_with_relevant_machine_available.append(task)
+                            # The batching number is the number of tasks that will be considered to mapping to machines for starting
+                            # Max_batch_scheduling_count is referring to the batch_scheduling config however this number
+                            # is the maximum and capped for each usage by the number of locks available which refer to
+                            # the number of expected available machines.
+                            batching_number = (
+                                max_batch_scheduling_count
+                                if machine_lock._value > max_batch_scheduling_count
+                                else machine_lock._value
+                            )
+                            if len(tasks_with_relevant_machine_available) > batching_number:
+                                tasks_with_relevant_machine_available = tasks_with_relevant_machine_available[:batching_number]
+                            tasks_to_create = self.db.map_tasks_to_available_machines(tasks_with_relevant_machine_available)
                         else:
+                            tasks_to_create = []
+                            while True:
+                                task = self.db.fetch_task(self.analyzing_categories)
+                                if not task:
+                                    break
+                                else:
+                                    tasks_to_create.append(task)
+                        for task in tasks_to_create:
                             task = self.db.view_task(task.id)
+                            log.debug("Task #%s: Processing task", task.id)
+                            self.total_analysis_count += 1
+                            # Initialize and start the analysis manager.
+                            analysis = AnalysisManager(task, errors)
+                            analysis.daemon = True
+                            analysis.start()
+                            self.analysis_threads.append(analysis)
+                        # We only want to keep track of active threads
+                        self.analysis_threads = [t for t in self.analysis_threads if t.is_alive()]
                     else:
-                        task = self.db.fetch_task(self.analyzing_categories)
-                    if task:
-                        log.debug("Task #%s: Processing task", task.id)
-                        self.total_analysis_count += 1
-                        # Initialize and start the analysis manager.
-                        analysis = AnalysisManager(task, errors)
-                        analysis.daemon = True
-                        analysis.start()
-                        self.analysis_threads.append(analysis)
-                    # We only want to keep track of active threads
-                    self.analysis_threads = [t for t in self.analysis_threads if t.is_alive()]
+                        if self.categories_need_VM:
+                            # First things first, are there pending tasks?
+                            if not self.db.count_tasks(status=TASK_PENDING):
+                                continue
+                            relevant_machine_is_available = False
+                            # There are? Great, let's get them, ordered by priority and then oldest to newest
+                            for task in self.db.list_tasks(
+                                status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
+                            ):
+                                # Can this task ever be serviced?
+                                if not self.db.is_serviceable(task):
+                                    if self.cfg.cuckoo.fail_unserviceable:
+                                        log.debug("Task #%s: Failing unserviceable task", task.id)
+                                        self.db.set_status(task.id, TASK_FAILED_ANALYSIS)
+                                        continue
+                                    log.debug("Task #%s: Unserviceable task", task.id)
+                                relevant_machine_is_available = self.db.is_relevant_machine_available(task)
+                                if relevant_machine_is_available:
+                                    break
+                            if not relevant_machine_is_available:
+                                task = None
+                            else:
+                                task = self.db.view_task(task.id)
+                        else:
+                            task = self.db.fetch_task(self.analyzing_categories)
+                        if task:
+                            # Make sure that changes to the status of the task is flushed to the
+                            # database before passing the object off to the child thread.
+                            self.db.session.flush()
+                            self.db.session.expunge_all()
+                            log.debug("Task #%s: Processing task", task.id)
+                            self.total_analysis_count += 1
+                            # Initialize and start the analysis manager.
+                            analysis = AnalysisManager(task, errors)
+                            analysis.daemon = True
+                            analysis.start()
+                            self.analysis_threads.append(analysis)
+                        # We only want to keep track of active threads
+                        self.analysis_threads = [t for t in self.analysis_threads if t.is_alive()]
 
             # Deal with errors.
             try:
@@ -1153,7 +1190,6 @@ class Scheduler:
         self.loop_state = LoopState.INACTIVE
 
     def _thr_periodic_log(self):
-        global active_analysis_count
         specific_available_machine_counts = defaultdict(int)
         for machine in self.db.get_available_machines():
             for tag in machine.tags:

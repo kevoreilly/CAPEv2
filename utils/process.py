@@ -119,7 +119,8 @@ def process(
     if memory_debugging:
         gc.collect()
         log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-    RunProcessing(task=task_dict, results=results).run()
+    with db.session.begin():
+        RunProcessing(task=task_dict, results=results).run()
     if memory_debugging:
         gc.collect()
         log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
@@ -136,7 +137,8 @@ def process(
             reprocess = report
 
         RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
-        Database().set_status(task_id, TASK_REPORTED)
+        with db.session.begin():
+            db.set_status(task_id, TASK_REPORTED)
 
         if auto:
             # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
@@ -145,8 +147,11 @@ def process(
 
             if cfg.cuckoo.delete_bin_copy:
                 copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
-                if path_exists(copy_path) and not db.sample_still_used(sample_sha256, task_id):
-                    path_delete(copy_path)
+                if path_exists(copy_path):
+                    with db.session.begin():
+                        is_still_used = db.sample_still_used(sample_sha256, task_id)
+                    if not is_still_used:
+                        path_delete(copy_path)
 
     if memory_debugging:
         gc.collect()
@@ -247,18 +252,19 @@ def init_logging(tid=0, debug=False):
 
 def processing_finished(future):
     task_id = pending_future_map.get(future)
-    try:
-        _ = future.result()
-        log.info("Reports generation completed")
-    except TimeoutError as error:
-        log.error("Processing Timeout %s. Function: %s", error, error.args[1])
-        Database().set_status(task_id, TASK_FAILED_PROCESSING)
-    except pebble.ProcessExpired as error:
-        log.error("Exception when processing task: %s", error, exc_info=True)
-        Database().set_status(task_id, TASK_FAILED_PROCESSING)
-    except Exception as error:
-        log.error("Exception when processing task: %s", error, exc_info=True)
-        Database().set_status(task_id, TASK_FAILED_PROCESSING)
+    with db.session.begin():
+        try:
+            _ = future.result()
+            log.info("Reports generation completed")
+        except TimeoutError as error:
+            log.error("Processing Timeout %s. Function: %s", error, error.args[1])
+            db.set_status(task_id, TASK_FAILED_PROCESSING)
+        except pebble.ProcessExpired as error:
+            log.error("Exception when processing task: %s", error, exc_info=True)
+            db.set_status(task_id, TASK_FAILED_PROCESSING)
+        except Exception as error:
+            log.error("Exception when processing task: %s", error, exc_info=True)
+            db.set_status(task_id, TASK_FAILED_PROCESSING)
 
     pending_future_map.pop(future)
     pending_task_id_map.pop(task_id)
@@ -292,10 +298,12 @@ def autoprocess(
                 if len(pending_task_id_map) >= parallel:
                     time.sleep(5)
                     continue
-                if failed_processing:
-                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
-                else:
-                    tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+                with db.session.begin():
+                    if failed_processing:
+                        tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
+                    else:
+                        tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+                    db.session.expunge_all()
                 added = False
                 # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
                 for task in tasks:
@@ -306,9 +314,10 @@ def autoprocess(
                     log.info("Processing analysis data for Task #%d", task.id)
                     sample_hash = ""
                     if task.category != "url":
-                        sample = db.view_sample(task.sample_id)
-                        if sample:
-                            sample_hash = sample.sha256
+                        with db.session.begin():
+                            sample = db.view_sample(task.sample_id)
+                            if sample:
+                                sample_hash = sample.sha256
 
                     args = task.target, sample_hash
                     kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging, debug=debug)
@@ -475,18 +484,20 @@ def main():
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
                     print(red(f"\n[{num}] Analysis folder doesn't exist anymore\n"))
                     continue
-                task = Database().view_task(num)
-                if task is None:
-                    task = {"id": num, "target": None}
-                    print("Task not in database")
-                else:
-                    # Add sample lookup as we point to sample from TMP. Case when delete_original=on
-                    if not path_exists(task.target):
-                        samples = Database().sample_path_by_hash(task_id=task.id)
-                        for sample in samples:
-                            if path_exists(sample):
-                                task.__setattr__("target", sample)
-                                break
+                with db.session.begin():
+                    task = db.view_task(num)
+                    if task is None:
+                        task = {"id": num, "target": None}
+                        print("Task not in database")
+                    else:
+                        # Add sample lookup as we point to sample from TMP. Case when delete_original=on
+                        if not path_exists(task.target):
+                            samples = db.sample_path_by_hash(task_id=task.id)
+                            for sample in samples:
+                                if path_exists(sample):
+                                    task.__setattr__("target", sample)
+                                    break
+                    db.session.expunge_all()
 
                 if args.signatures:
                     report = False

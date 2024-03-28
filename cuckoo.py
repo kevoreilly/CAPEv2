@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-from lib.cuckoo.core.database import init_database
+from lib.cuckoo.core.database import Database, init_database
 
 if sys.version_info[:2] < (3, 8):
     sys.exit("You are running an incompatible version of Python, please use >= 3.8")
@@ -81,7 +81,8 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
 
     check_webgui_mongo()
     init_modules()
-    init_tasks()
+    with Database().session.begin():
+        init_tasks()
     init_rooter()
     init_routing()
     check_tcpdump_permissions()

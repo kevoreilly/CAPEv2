@@ -358,6 +358,7 @@ class AnalysisManager(threading.Thread):
                     tags=task_tags,
                     arch=task_archs,
                     os_version=os_version,
+                    need_scheduled=True,
                 )
 
             # If no machine is available at this moment, wait for one second and try again.

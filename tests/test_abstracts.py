@@ -66,6 +66,7 @@ class TestReport:
             rep.run()
 
 
+@pytest.mark.usefixtures("db")
 class TestScreenshotMachinery:
     def test_missing_screenshot_method(self):
         class MockMachinery(abstracts.Machinery):

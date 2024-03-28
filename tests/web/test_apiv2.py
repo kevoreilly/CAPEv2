@@ -19,9 +19,8 @@ from lib.cuckoo.core.database import (
 )
 
 
-@pytest.mark.usefixtures("tmp_cuckoo_root")
+@pytest.mark.usefixtures("db", "tmp_cuckoo_root")
 class ReprocessTask(SimpleTestCase):
-
     taskprocess_config = "lib.cuckoo.common.web_utils.apiconf.taskreprocess"
     """API configuration to patch in each test case."""
 
@@ -35,7 +34,7 @@ class ReprocessTask(SimpleTestCase):
 
     @patch.dict(taskprocess_config, {"enabled": True})
     def test_task_does_not_exist(self):
-        patch_target = "lib.cuckoo.core.database.Database.view_task"
+        patch_target = "lib.cuckoo.core.database._Database.view_task"
         with patch(patch_target, return_value=None):
             response = self.client.get("/apiv2/tasks/reprocess/1/")
         assert response.status_code == 200
@@ -47,7 +46,7 @@ class ReprocessTask(SimpleTestCase):
     def test_can_reprocess(self):
         task = Task()
         valid_status = (TASK_REPORTED, TASK_RECOVERED, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING)
-        patch_target = "lib.cuckoo.core.database.Database.view_task"
+        patch_target = "lib.cuckoo.core.database._Database.view_task"
         with patch(patch_target, return_value=task):
             for status in valid_status:
                 expected_response = {"error": False, "data": f"Task ID 1 with status {status} marked for reprocessing"}
@@ -70,7 +69,7 @@ class ReprocessTask(SimpleTestCase):
             TASK_RUNNING,
             TASK_DISTRIBUTED,
         )
-        patch_target = "lib.cuckoo.core.database.Database.view_task"
+        patch_target = "lib.cuckoo.core.database._Database.view_task"
         with patch(patch_target, return_value=task):
             for status in invalid_status:
                 expected_response = {"error": True, "error_value": f"Task ID 1 cannot be reprocessed in status {status}"}

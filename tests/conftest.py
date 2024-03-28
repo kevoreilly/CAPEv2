@@ -5,6 +5,19 @@ import pytest
 import lib.cuckoo.common.config
 import lib.cuckoo.core.database
 from lib.cuckoo.common.config import ConfigMeta
+from lib.cuckoo.core.database import Database, init_database, reset_database_FOR_TESTING_ONLY
+
+
+@pytest.fixture
+def db():
+    reset_database_FOR_TESTING_ONLY()
+    try:
+        init_database(dsn="sqlite://")
+        retval = Database()
+        retval.engine.echo = True
+        yield retval
+    finally:
+        reset_database_FOR_TESTING_ONLY()
 
 
 @pytest.fixture

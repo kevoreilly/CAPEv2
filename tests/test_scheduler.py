@@ -219,6 +219,7 @@ class TestAnalysisManager:
                     label = "mock_label"
                     platform = "mock_platform"
                     arch = "x64"
+                    need_scheduled = True
 
                 return mock_acquire()
 

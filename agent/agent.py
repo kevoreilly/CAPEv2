@@ -414,7 +414,7 @@ def release_mutex(hndl_mutex):
 
 @app.route("/status")
 def get_status():
-    if state.get("async_subprocess") is not None:
+    if state["status"] != Status.COMPLETE and state.get("async_subprocess") is not None:
         return get_subprocess_status()
     return json_success("Analysis status", status=str(state.get("status")), description=state.get("description"))
 

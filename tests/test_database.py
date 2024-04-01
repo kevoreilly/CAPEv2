@@ -294,6 +294,44 @@ class TestDatabaseEngine:
                 "reserved": True,
             }
 
+    def test_find_machine_to_service_task_tags_reserved(self, db: _Database):
+        with db.session.begin():
+            self.add_machine(db, name="name0", label="label0", tags="tag1,x64", reserved=False)
+            self.add_machine(db, name="name1", label="label1", tags="tag1,x64", reserved=True)
+            self.add_machine(db, name="name2", label="label2", tags="tag1,tag2,x64", reserved=True)
+            self.add_machine(db, name="name3", label="label3", tags="tag3,x64", locked=True)
+            self.add_machine(db, name="name4", label="label4", tags="tag4,x64", locked=True, reserved=True)
+        task1 = Task()
+        task1.tags = [Tag("tag1")]
+        task2 = Task()
+        task2.tags = [Tag("tag2")]
+        task3 = Task()
+        task3.machine = "label0"
+        task4 = Task()
+        task4.machine = "label1"
+        task5 = Task()
+        task5.tags = [Tag("tag3")]
+        task6 = Task()
+        task6.tags = [Tag("tag4")]
+        task7 = Task()
+        task7.tags = [Tag("idontexist")]
+        with db.session.begin():
+            # A task with a tag. An unreserved, unlocked machine exists.
+            assert db.find_machine_to_service_task(task1).name == "name0"
+            # A task with a tag. A reserved, unlocked machine exists.
+            assert db.find_machine_to_service_task(task2).name == "name2"
+            # A task with a requested machine that is unreserved and unlocked.
+            assert db.find_machine_to_service_task(task3).name == "name0"
+            # A task with a requested machine that is reserved and unlocked.
+            assert db.find_machine_to_service_task(task4).name == "name1"
+            # A task with a tag. An unreserved, locked machine exists.
+            assert db.find_machine_to_service_task(task5) is None
+            # A task with a tag. A reserved, locked machine exists.
+            assert db.find_machine_to_service_task(task6) is None
+            # A task with a tag that doesn't match any machines.
+            with pytest.raises(CuckooUnserviceableTaskError):
+                db.find_machine_to_service_task(task7)
+
     def test_clean_machines(self, db: _Database):
         """Add a couple machines and make sure that clean_machines removes them and their tags."""
         with db.session.begin():
@@ -1380,29 +1418,3 @@ class TestDatabaseEngine:
                 assert len(output_machines) == expected_result
             else:
                 assert output_machines.count() == expected_result
-
-    @pytest.mark.parametrize(
-        "task,expected_result",
-        # @param task : dictionary describing the task to be validated
-        # @param expected_result : expected_result of the function tested
-        (
-            # No parameters
-            ({"label": None, "platform": None, "tags": None}, True),
-            # Only label
-            ({"label": "task1", "platform": None, "tags": None}, True),
-            # Only platform
-            ({"label": None, "platform": "windows", "tags": None}, True),
-            # Only tags
-            ({"label": None, "platform": None, "tags": "tag1"}, True),
-            # Label and platform
-            ({"label": "task1", "platform": "windows", "tags": None}, False),
-            # Label and tags
-            ({"label": "task1", "platform": None, "tags": "tag1"}, False),
-            # Platform and tags
-            ({"label": None, "platform": "windows", "tags": "tag1"}, True),
-            # Label, Platform and tags
-            ({"label": "task1", "platform": "windows", "tags": "tag1"}, False),
-        ),
-    )
-    def test_validate_task_parameters(self, task, expected_result, db: _Database):
-        assert db.validate_task_parameters(label=task["label"], platform=task["platform"], tags=task["tags"]) == expected_result

@@ -54,7 +54,7 @@ try:
         select,
     )
     from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-    from sqlalchemy.orm import backref, declarative_base, joinedload, relationship, scoped_session, sessionmaker
+    from sqlalchemy.orm import Query, backref, declarative_base, joinedload, relationship, scoped_session, sessionmaker
 
     Base = declarative_base()
 except ImportError:  # pragma: no cover
@@ -805,22 +805,6 @@ class _Database:
 
         return task_archs, task_tags
 
-    def validate_task_parameters(self, label: str, platform: str, tags: list) -> bool:
-        """Checks if a task is invalid based on parameters mismatch
-        @param label: label of the machine asked for by the task
-        @param platform: platform of the machine asked for by the task
-        @param tags: tags of task
-        @return: boolean indicating if a task is valid
-        """
-        # Preventive checks.
-        if label and platform:
-            # Wrong usage.
-            return False
-        elif label and tags:
-            # Also wrong usage.
-            return False
-        return True
-
     def find_machine_to_service_task(self, task: Task) -> Optional[Machine]:
         """Find a machine that is able to service the given task.
         Returns: The Machine if an available machine was found; None if there is at least 1 machine
@@ -830,23 +814,33 @@ class _Database:
         """
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
-        if not self.validate_task_parameters(label=task.machine, platform=task.platform, tags=task_tags):
-            raise CuckooUnserviceableTaskError("Invalid task parameters")
+
+        def get_first_machine(query: Query) -> Optional[Machine]:
+            # Select for update a machine, preferring one that is available and was the one that was used the
+            # longest time ago. This will give us a machine that can get locked or, if there are none that are
+            # currently available, we'll at least know that the task is serviceable.
+            return cast(
+                Optional[Machine], query.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine).first()
+            )
+
         machines = self.session.query(Machine).options(joinedload(Machine.tags))
-        machines = self.filter_machines_to_task(
-            machines=machines,
-            label=task.machine,
-            platform=task.platform,
-            tags=task_tags,
-            archs=task_archs,
-            os_version=os_version,
-        )
-        # Select for update a machine, preferring one that is available and was the one that was used the
-        # longest time ago. This will give us a machine that can get locked or, if there are none that are
-        # currently available, we'll at least know that the task is serviceable.
-        machine = cast(
-            Optional[Machine], machines.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine).first()
-        )
+        filter_kwargs = {
+            "machines": machines,
+            "label": task.machine,
+            "platform": task.platform,
+            "tags": task_tags,
+            "archs": task_archs,
+            "os_version": os_version,
+        }
+        filtered_machines = self.filter_machines_to_task(include_reserved=False, **filter_kwargs)
+        machine = get_first_machine(filtered_machines)
+        if machine is None and not task.machine and task_tags:
+            # The task was given at least 1 tag, but there are no non-reserved machines
+            # that could satisfy the request. So let's see if there are any "reserved"
+            # machines that can satisfy it.
+            filtered_machines = self.filter_machines_to_task(include_reserved=True, **filter_kwargs)
+            machine = get_first_machine(filtered_machines)
+
         if machine is None:
             raise CuckooUnserviceableTaskError
         if machine.locked:
@@ -923,10 +917,10 @@ class _Database:
         return machines
 
     def filter_machines_to_task(
-        self, machines: list, label=None, platform=None, tags=None, archs=None, os_version=None, include_reserved=False
-    ) -> list:
+        self, machines: Query, label=None, platform=None, tags=None, archs=None, os_version=None, include_reserved=False
+    ) -> Query:
         """Add filters to the given query based on the task
-        @param machines: List of machines where the filter will be applied
+        @param machines: Query object for the machines
         @param label: label of the machine(s) expected for the task
         @param platform: platform of the machine(s) expected for the task
         @param tags: tags of the machine(s) expected for the task

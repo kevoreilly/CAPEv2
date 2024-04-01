@@ -223,7 +223,7 @@ def load_vms_tags(force=False):
             except Exception as e:
                 print(e)
 
-        for machine in Database().list_machines():
+        for machine in Database().list_machines(include_reserved=True):
             all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
 
         _all_vms_tags = list(sorted(set(all_tags)))

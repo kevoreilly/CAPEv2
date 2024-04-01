@@ -167,6 +167,8 @@ def process(
 
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+    # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
+    db.engine.dispose(close=False)
 
 
 def get_formatter_fmt(task_id=None, main_task_id=None):

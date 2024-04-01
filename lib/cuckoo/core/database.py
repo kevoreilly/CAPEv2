@@ -12,7 +12,7 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union, cast
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
@@ -28,6 +28,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooDatabaseInitializationError,
     CuckooDependencyError,
     CuckooOperationalError,
+    CuckooUnserviceableTaskError,
 )
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
@@ -50,14 +51,13 @@ try:
         event,
         func,
         not_,
-        or_,
         select,
     )
     from sqlalchemy.exc import IntegrityError, SQLAlchemyError
     from sqlalchemy.orm import backref, declarative_base, joinedload, relationship, scoped_session, sessionmaker
 
     Base = declarative_base()
-except ImportError:
+except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry run pip install sqlalchemy`)")
 
 
@@ -156,7 +156,6 @@ ALL_DB_STATUSES = (
 )
 
 MACHINE_RUNNING = "running"
-MACHINE_SCHEDULED = "scheduled"
 
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
@@ -234,7 +233,7 @@ class Machine(Base):
     reserved = Column(Boolean(), nullable=False, default=False)
 
     def __repr__(self):
-        return f"<Machine('{self.id}','{self.name}')>"
+        return f"<Machine({self.id},'{self.name}')>"
 
     def to_dict(self):
         """Converts object to dict.
@@ -280,7 +279,7 @@ class Tag(Base):
     name = Column(String(255), nullable=False, unique=True)
 
     def __repr__(self):
-        return f"<Tag('{self.id}','{self.name}')>"
+        return f"<Tag({self.id},'{self.name}')>"
 
     def __init__(self, name):
         self.name = name
@@ -302,7 +301,7 @@ class Guest(Base):
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, unique=True)
 
     def __repr__(self):
-        return f"<Guest('{self.id}','{self.name}')>"
+        return f"<Guest({self.id}, '{self.name}')>"
 
     def to_dict(self):
         """Converts object to dict.
@@ -323,11 +322,12 @@ class Guest(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, name, label, platform, manager):
+    def __init__(self, name, label, platform, manager, task_id):
         self.name = name
         self.label = label
         self.platform = platform
         self.manager = manager
+        self.task_id = task_id
 
 
 class Sample(Base):
@@ -353,7 +353,7 @@ class Sample(Base):
     )
 
     def __repr__(self):
-        return f"<Sample('{self.id}','{self.sha256}')>"
+        return f"<Sample({self.id},'{self.sha256}')>"
 
     def to_dict(self):
         """Converts object to dict.
@@ -423,7 +423,7 @@ class Error(Base):
         self.task_id = task_id
 
     def __repr__(self):
-        return f"<Error('{self.id}','{self.message}','{self.task_id}')>"
+        return f"<Error({self.id},'{self.message}','{self.task_id}')>"
 
 
 class Task(Base):
@@ -544,7 +544,7 @@ class Task(Base):
         self.target = target
 
     def __repr__(self):
-        return f"<Task('{self.id}','{self.target}')>"
+        return f"<Task({self.id},'{self.target}')>"
 
 
 class AlembicVersion(Base):
@@ -574,7 +574,7 @@ class _Database:
             self._connect_database(self.cfg.database.connection)
         else:
             file_path = os.path.join(CUCKOO_ROOT, "db", "cuckoo.db")
-            if not path_exists(file_path):
+            if not path_exists(file_path):  # pragma: no cover
                 db_dir = os.path.dirname(file_path)
                 if not path_exists(db_dir):
                     try:
@@ -594,12 +594,13 @@ class _Database:
         # Create schema.
         try:
             Base.metadata.create_all(self.engine)
-        except SQLAlchemyError as e:
+        except SQLAlchemyError as e:  # pragma: no cover
             raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
 
         # Get db session.
-        self.session = scoped_session(sessionmaker(bind=self.engine))
+        self.session = scoped_session(sessionmaker(bind=self.engine, expire_on_commit=False))
 
+        # There should be a better way to clean up orphans. This runs after every flush, which is crazy.
         @event.listens_for(self.session, "after_flush")
         def delete_tag_orphans(session, ctx):
             session.query(Tag).filter(~Tag.tasks.any()).filter(~Tag.machines.any()).delete(synchronize_session=False)
@@ -613,12 +614,12 @@ class _Database:
                 tmp_session.add(AlembicVersion(version_num=SCHEMA_VERSION))
                 try:
                     tmp_session.commit()
-                except SQLAlchemyError as e:
+                except SQLAlchemyError as e:  # pragma: no cover
                     tmp_session.rollback()
                     raise CuckooDatabaseError(f"Unable to set schema version: {e}")
             else:
                 # Check if db version is the expected one.
-                if last.version_num != SCHEMA_VERSION and schema_check:
+                if last.version_num != SCHEMA_VERSION and schema_check:  # pragma: no cover
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )
@@ -647,7 +648,7 @@ class _Database:
                 )
             else:
                 self.engine = create_engine(connection_string)
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             lib = e.message.rsplit(maxsplit=1)[-1]
             raise CuckooDependencyError(f"Missing database driver, unable to import {lib} (install with `pip install {lib}`)")
 
@@ -662,6 +663,7 @@ class _Database:
             return instance
         else:
             instance = model(**kwargs)
+            self.session.add(instance)
             return instance
 
     def drop(self):
@@ -691,7 +693,9 @@ class _Database:
             log.warning(f"{name} does not exist in the database.")
             return False
 
-    def add_machine(self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port, reserved):
+    def add_machine(
+        self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port, reserved, locked=False
+    ) -> Machine:
         """Add a guest machine.
         @param name: machine id
         @param label: machine label
@@ -721,6 +725,8 @@ class _Database:
         if tags:
             for tag in tags.replace(" ", "").split(","):
                 machine.tags.append(self._get_or_create(Tag, name=tag))
+        if locked:
+            machine.locked = True
         self.session.add(machine)
         return machine
 
@@ -755,50 +761,36 @@ class _Database:
                 row.clock = datetime.utcnow()
         return row.clock
 
-    def set_status(self, task_id, status):
+    def set_task_status(self, task: Task, status) -> Task:
+        if status != TASK_DISTRIBUTED_COMPLETED:
+            task.status = status
+
+        if status in (TASK_RUNNING, TASK_DISTRIBUTED):
+            task.started_on = datetime.now()
+        elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
+            task.completed_on = datetime.now()
+
+        self.session.add(task)
+        return task
+
+    def set_status(self, task_id: int, status) -> Optional[Task]:
         """Set task status.
         @param task_id: task identifier
         @param status: status string
         @return: operation status
         """
-        row = self.session.get(Task, task_id)
+        task = self.session.get(Task, task_id)
 
-        if not row:
-            return
+        if not task:
+            return None
 
-        if status != TASK_DISTRIBUTED_COMPLETED:
-            row.status = status
+        return self.set_task_status(task, status)
 
-        if status in (TASK_RUNNING, TASK_DISTRIBUTED):
-            row.started_on = datetime.now()
-        elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
-            row.completed_on = datetime.now()
-
-    def set_task_vm_and_guest_start(self, task_id, vmname, vmlabel, vmplatform, vm_id, manager, options=None):
-        """Set task status and logs guest start.
-        @param task_id: task identifier
-        @param vmname: virtual vm name
-        @param label: vm label
-        @param manager: vm manager
-        @param options: optional task options
-        @return: guest row id
-        """
-        row = self.session.get(Task, task_id)
-
-        if not row:
-            return
-
-        # Use a nested transaction so that the Guest gets an id that can be stored in the Task row.
-        with self.session.begin_nested():
-            guest = Guest(vmname, vmlabel, vmplatform, manager)
-            guest.status = "init"
-            self.session.add(guest)
-            row.guest = guest
-        row.machine = vmname
-        row.machine_id = vm_id
-        if options:
-            row.options = options
-        return guest.id
+    def create_guest(self, machine: Machine, manager: str, task: Task) -> Guest:
+        guest = Guest(machine.name, machine.label, machine.platform, manager, task.id)
+        guest.status = "init"
+        self.session.add(guest)
+        return guest
 
     def _package_vm_requires_check(self, package: str) -> list:
         """
@@ -829,84 +821,39 @@ class _Database:
             return False
         return True
 
-    def is_relevant_machine_available(self, task: Task, set_status: bool = True) -> bool:
-        """Checks if a machine that is relevant to the given task is available
-        @param task: task to validate
-        @param set_status: boolean which indicate if the status of the task should be changed to TASK_RUNNING in the DB.
-        @return: boolean indicating if a relevant machine is available
+    def find_machine_to_service_task(self, task: Task) -> Optional[Machine]:
+        """Find a machine that is able to service the given task.
+        Returns: The Machine if an available machine was found; None if there is at least 1 machine
+            that *could* service it, but they are all currently in use.
+        Raises: CuckooUnserviceableTaskError if there are no machines in the pool that would be able
+            to service it.
         """
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
-        vms = self.list_machines(
-            locked=False,
+        if not self.validate_task_parameters(label=task.machine, platform=task.platform, tags=task_tags):
+            raise CuckooUnserviceableTaskError("Invalid task parameters")
+        machines = self.session.query(Machine).options(joinedload(Machine.tags))
+        machines = self.filter_machines_to_task(
+            machines=machines,
             label=task.machine,
             platform=task.platform,
             tags=task_tags,
-            arch=task_archs,
+            archs=task_archs,
             os_version=os_version,
-            include_scheduled=False,
         )
-        if len(vms) > 0:
-            # There are? Awesome!
-            if set_status:
-                self.set_status(task_id=task.id, status=TASK_RUNNING)
-                assigned = vms[0]  # Take the first vm which could be assigned
-                self.set_machine_status(assigned.label, MACHINE_SCHEDULED)
-            return True
-        return False
-
-    def map_tasks_to_available_machines(self, tasks: list) -> list:
-        """Map tasks to available_machines to schedule in batch and prevent double spending of machines
-        @param tasks: List of tasks to filter
-        @return: list of tasks that should be started by the scheduler
-        """
-        results = []
-        assigned_machines = []
-        for task in tasks:
-            task_archs, task_tags = self._task_arch_tags_helper(task)
-            os_version = self._package_vm_requires_check(task.package)
-            machine = None
-            if not self.validate_task_parameters(label=task.machine, platform=task.platform, tags=task_tags):
-                continue
-            machines = self.session.query(Machine).options(joinedload(Machine.tags)).filter_by(locked=False)
-            machines = self.filter_machines_to_task(
-                machines=machines,
-                label=task.machine,
-                platform=task.platform,
-                tags=task_tags,
-                archs=task_archs,
-                os_version=os_version,
-            )
-            # This loop is there in order to prevent double spending of machines by filtering
-            # out already mapped machines
-            for assigned in assigned_machines:
-                machines = machines.filter(Machine.label.notlike(assigned.label))
-            machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status == None))  # noqa: E711
-            # Get the first free machine.
-            machine = machines.first()
-            if machine:
-                assigned_machines.append(machine)
-                self.set_status(task_id=task.id, status=TASK_RUNNING)
-                results.append(task)
-        for assigned in assigned_machines:
-            self.set_machine_status(assigned.label, MACHINE_SCHEDULED)
-        return results
-
-    def is_serviceable(self, task: Task) -> bool:
-        """Checks if the task is serviceable.
-
-        This method is useful when there are tasks that will never be serviced
-        by any of the machines available. This allows callers to decide what to
-        do when tasks like this are created.
-
-        @return: boolean indicating if any machine could service the task in the future
-        """
-        task_archs, task_tags = self._task_arch_tags_helper(task)
-        os_version = self._package_vm_requires_check(task.package)
-        vms = self.list_machines(label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version)
-        if len(vms) > 0:
-            return True
-        return False
+        # Select for update a machine, preferring one that is available and was the one that was used the
+        # longest time ago. This will give us a machine that can get locked or, if there are none that are
+        # currently available, we'll at least know that the task is serviceable.
+        machine = cast(
+            Optional[Machine], machines.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine).first()
+        )
+        if machine is None:
+            raise CuckooUnserviceableTaskError
+        if machine.locked:
+            # There aren't any machines that can service the task NOW, but there is at least one in the pool
+            # that could service it once it's available.
+            return None
+        return machine
 
     def fetch_task(self, categories: list = None):
         """Fetches a task waiting to be processed and locks it for running.
@@ -951,7 +898,8 @@ class _Database:
     def guest_remove(self, guest_id):
         """Removes a guest start entry."""
         guest = self.session.get(Guest, guest_id)
-        self.session.delete(guest)
+        if guest:
+            self.session.delete(guest)
 
     def guest_stop(self, guest_id):
         """Logs guest stop.
@@ -1010,7 +958,6 @@ class _Database:
         arch=None,
         include_reserved=False,
         os_version=None,
-        include_scheduled=True,
     ) -> List[Machine]:
         """Lists virtual machines.
         @return: list of virtual machines
@@ -1033,49 +980,32 @@ class _Database:
             os_version=os_version,
             include_reserved=include_reserved,
         )
-        if not include_scheduled:
-            machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status == None))  # noqa: E711
         return machines.all()
 
-    def lock_machine(self, label=None, platform=None, tags=None, arch=None, os_version=None, need_scheduled=False):
+    def assign_machine_to_task(self, task: Task, machine: Optional[Machine]) -> Task:
+        if machine:
+            task.machine = machine.label
+            task.machine_id = machine.id
+        else:
+            task.machine = None
+            task.machine_id = None
+        self.session.add(task)
+        return task
+
+    def lock_machine(self, machine: Machine) -> Machine:
         """Places a lock on a free virtual machine.
-        @param label: optional virtual machine label
-        @param platform: optional virtual machine platform
-        @param tags: optional tags required (list)
-        @param arch: optional virtual machine arch
-        @param os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
-        @param need_scheduled: should the result be filtered on 'scheduled' machine status
+        @param machine: the Machine to lock
         @return: locked machine
         """
-        if not self.validate_task_parameters(label=label, platform=platform, tags=tags):
-            return None
-
-        machines = self.session.query(Machine)
-        machines = self.filter_machines_to_task(
-            machines=machines, label=label, platform=platform, tags=tags, archs=arch, os_version=os_version
-        )
-        # Check if there are any machines that satisfy the
-        # selection requirements.
-        if not machines.count():
-            raise CuckooOperationalError(
-                "No machines match selection criteria of label: '%s', platform: '%s', arch: '%s', tags: '%s'"
-                % (label, platform, arch, tags)
-            )
-        if need_scheduled:
-            machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
-        # Get the first free machine.
-        machine = machines.options(joinedload(Machine.tags)).filter_by(locked=False).with_for_update().first()
-
-        if machine:
-            machine.locked = True
-            machine.locked_changed_on = datetime.now()
-            # XXX I'm not sure that this should be set here.
-            self.set_machine_status(machine.label, MACHINE_RUNNING)
+        machine.locked = True
+        machine.locked_changed_on = datetime.now()
+        self.set_machine_status(machine, MACHINE_RUNNING)
+        self.session.add(machine)
 
         return machine
 
     def unlock_machine(self, machine: Machine) -> Machine:
-        """Remove lock form a virtual machine.
+        """Remove lock from a virtual machine.
         @param machine: The Machine to unlock.
         @return: unlocked machine
         """
@@ -1113,27 +1043,24 @@ class _Database:
         machines = self.session.query(Machine).options(joinedload(Machine.tags)).filter_by(locked=False).all()
         return machines
 
-    def get_machines_scheduled(self):
+    def count_machines_running(self) -> int:
         machines = self.session.query(Machine)
-        machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
+        machines = machines.filter_by(locked=True)
         return machines.count()
 
-    def set_machine_status(self, label, status):
+    def set_machine_status(self, machine_or_label: Union[str, Machine], status):
         """Set status for a virtual machine.
         @param label: virtual machine label
         @param status: new virtual machine status
         """
-        machine = self.session.query(Machine).filter_by(label=label).first()
+        if isinstance(machine_or_label, str):
+            machine = self.session.query(Machine).filter_by(label=machine_or_label).first()
+        else:
+            machine = machine_or_label
         if machine:
             machine.status = status
             machine.status_changed_on = datetime.now()
-
-    def check_machines_scheduled_timeout(self):
-        machines = self.session.query(Machine)
-        machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
-        for machine in machines:
-            if machine.status_changed_on + timedelta(seconds=30) < datetime.now():
-                self.set_machine_status(machine.label, MACHINE_RUNNING)
+            self.session.add(machine)
 
     def add_error(self, message, task_id):
         """Add an error related to a task.
@@ -1316,11 +1243,12 @@ class _Database:
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
             for tag in tags.split(","):
-                if tag.strip():
+                tag_name = tag.strip()
+                if tag_name and tag_name not in [tag.name for tag in task.tags]:
                     # "Task" object is being merged into a Session along the backref cascade path for relationship "Tag.tasks"; in SQLAlchemy 2.0, this reverse cascade will not take place.
                     # Set cascade_backrefs to False in either the relationship() or backref() function for the 2.0 behavior; or to set globally for the whole Session, set the future=True flag
                     # (Background on this error at: https://sqlalche.me/e/14/s9r1) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
-                    task.tags.append(self._get_or_create(Tag, name=tag.strip()))
+                    task.tags.append(self._get_or_create(Tag, name=tag_name))
 
         if clock:
             if isinstance(clock, str):
@@ -1972,6 +1900,7 @@ class _Database:
         task_ids=False,
         include_hashes=False,
         user_id=None,
+        for_update=False,
     ) -> List[Task]:
         """Retrieve list of task.
         @param limit: specify a limit of entries.
@@ -2046,7 +1975,10 @@ class _Database:
         else:
             search = search.order_by(Task.added_on.desc())
 
-        tasks = search.limit(limit).offset(offset).all()
+        search = search.limit(limit).offset(offset)
+        if for_update:
+            search = search.with_for_update(of=Task)
+        tasks = search.all()
 
         return tasks
 

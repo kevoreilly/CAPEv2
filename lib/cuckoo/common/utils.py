@@ -19,7 +19,7 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from typing import Tuple, Union
+from typing import Final, List, Tuple, Union
 
 from data.family_detection_names import family_detection_names
 from lib.cuckoo.common import utils_dicts
@@ -89,10 +89,12 @@ max_len = config.cuckoo.get("max_len", 100)
 sanitize_len = config.cuckoo.get("sanitize_len", 32)
 sanitize_to_len = config.cuckoo.get("sanitize_to_len", 24)
 
+CATEGORIES_NEEDING_VM: Final[Tuple[str]] = ("file", "url")
 
-def load_categories():
+
+def load_categories() -> Tuple[List[str], bool]:
     analyzing_categories = [category.strip() for category in config.cuckoo.categories.split(",")]
-    needs_VM = any([category in analyzing_categories for category in ("file", "url")])
+    needs_VM = any(category in analyzing_categories for category in CATEGORIES_NEEDING_VM)
     return analyzing_categories, needs_VM
 
 

@@ -303,6 +303,8 @@ def autoprocess(
                         tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
                     else:
                         tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+                    # Make sure the tasks are available as normal objects after the transaction ends, so that
+                    # sqlalchemy doesn't auto-initiate a new transaction the next time they are accessed.
                     db.session.expunge_all()
                 added = False
                 # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
@@ -497,6 +499,8 @@ def main():
                                 if path_exists(sample):
                                     task.__setattr__("target", sample)
                                     break
+                    # Make sure that SQLAlchemy doesn't auto-begin a new transaction the next time
+                    # these objects are accessed.
                     db.session.expunge_all()
 
                 if args.signatures:

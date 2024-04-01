@@ -358,17 +358,16 @@ class GuestManager:
         start = timeit.default_timer()
 
         while self.do_run and self.get_status_from_db() == "running":
+            time.sleep(1)
+
             if cfg.cuckoo.machinery_screenshots:
                 if count == 0:
                     # indicate screenshot captures have started
                     log.info("Task #%s: Started capturing screenshots for %s", self.task_id, self.vmid)
                 self.analysis_manager.screenshot_machine()
-            if count >= 5:
-                log.debug("Task #%s: Analysis is still running (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
-                count = 0
-
             count += 1
-            time.sleep(1)
+            if count % 5 == 0:
+                log.debug("Task #%s: Analysis is still running (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
 
             # If the analysis hits the critical timeout, just return straight
             # away and try to recover the analysis results from the guest.

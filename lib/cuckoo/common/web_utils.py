@@ -413,12 +413,14 @@ def statistics(s_days: int) -> dict:
             details[module_name.split(".")[-1]].setdefault(name, entry)
 
     top_samples = {}
-    session = db.Session()
     added_tasks = (
-        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+        db.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
     )
     tasks = (
-        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.completed_on.between(date_since, date_till)).all()
+        db.session.query(Task)
+        .join(Sample, Task.sample_id == Sample.id)
+        .filter(Task.completed_on.between(date_since, date_till))
+        .all()
     )
     details["total"] = len(tasks)
     details["average"] = f"{round(details['total'] / s_days, 2):.2f}"
@@ -487,7 +489,6 @@ def statistics(s_days: int) -> dict:
     details["detections"] = top_detections(date_since=date_since)
     details["asns"] = top_asn(date_since=date_since)
 
-    session.close()
     return details
 
 

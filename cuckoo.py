@@ -117,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--version", action="version", version="You are running Cuckoo Sandbox {0}".format(CUCKOO_VERSION))
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
-    parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
+    parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False, default=0)
     parser.add_argument(
         "-s",
         "--stop",

@@ -53,7 +53,7 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import TASK_RECOVERED, TASK_RUNNING, Database, Task
+from lib.cuckoo.core.database import TASK_RECOVERED, TASK_RUNNING, Database, Task, _Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 try:
@@ -99,7 +99,7 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     es_as_db = True
     es = elastic_handler
 
-db = Database()
+db: _Database = Database()
 
 
 # Conditional decorator for web authentication

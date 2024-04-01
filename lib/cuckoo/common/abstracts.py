@@ -115,14 +115,10 @@ class Machinery:
         self.options = None
         # Database pointer.
         self.db: _Database = Database()
+        self.set_options(self.read_config())
 
-        # Find its configuration file.
-        conf = os.path.join(CUCKOO_ROOT, "conf", f"{self.module_name}.conf")
-        if not path_exists(conf):
-            raise CuckooCriticalError(
-                f'The configuration file for machine manager "{self.module_name}" does not exist at path: {conf}'
-            )
-        self.set_options(Config(self.module_name))
+    def read_config(self) -> None:
+        return Config(self.module_name)
 
     def set_options(self, options: dict) -> None:
         """Set machine manager options.

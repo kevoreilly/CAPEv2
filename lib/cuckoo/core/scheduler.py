@@ -118,7 +118,11 @@ class Scheduler:
             log.info("Task #%s: Processing task", task.id)
             self.total_analysis_count += 1
             analysis_manager = AnalysisManager(
-                task, machine, self.machinery_manager, error_queue, done_callback=self.analysis_finished
+                task,
+                machine=machine,
+                machinery_manager=self.machinery_manager,
+                error_queue=error_queue,
+                done_callback=self.analysis_finished,
             )
             analysis_manager.prepare_task_and_machine_to_start()
         self.db.session.expunge_all()

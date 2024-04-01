@@ -94,9 +94,10 @@ class AnalysisManager(threading.Thread):
     def __init__(
         self,
         task: Task,
-        machine: Optional[Machine],
-        machinery_manager: Optional[MachineryManager],
-        error_queue: queue.Queue,
+        *,
+        machine: Optional[Machine] = None,
+        machinery_manager: Optional[MachineryManager] = None,
+        error_queue: Optional[queue.Queue] = None,
         done_callback: Optional[Callable[["AnalysisManager"], None]] = None,
     ):
         """@param task: task object containing the details for the analysis."""
@@ -111,8 +112,8 @@ class AnalysisManager(threading.Thread):
         self.guest: Optional[Guest] = None
         self.cfg = Config()
         self.aux_cfg = Config("auxiliary")
-        self.storage = ""
-        self.screenshot_path = ""
+        self.storage = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id))
+        self.screenshot_path = os.path.join(self.storage, "shots")
         self.num_screenshots = 0
         self.binary = ""
         self.interface = None
@@ -141,9 +142,6 @@ class AnalysisManager(threading.Thread):
 
     def init_storage(self):
         """Initialize analysis storage folder."""
-        self.storage = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id))
-        self.screenshot_path = os.path.join(self.storage, "shots")
-
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
         if path_exists(self.storage):
@@ -178,11 +176,13 @@ class AnalysisManager(threading.Thread):
             )
             return False
 
-        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
+        binaries_dir = os.path.join(CUCKOO_ROOT, "storage", "binaries")
+        self.binary = os.path.join(binaries_dir, sha256)
 
         if path_exists(self.binary):
             self.log.info("File already exists at '%s'", self.binary)
         else:
+            path_mkdir(binaries_dir, exist_ok=True)
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
                 shutil.copy(self.task.target, self.binary)
@@ -209,7 +209,7 @@ class AnalysisManager(threading.Thread):
         if not self.cfg.cuckoo.machinery_screenshots:
             return
         if self.machinery_manager is None or self.machine is None:
-            self.log.error("screenshot not possible, no machine acquired yet")
+            self.log.error("screenshot not possible, no machine is used for this analysis")
             return
 
         # same format and filename approach here as VM-based screenshots
@@ -365,7 +365,8 @@ class AnalysisManager(threading.Thread):
             ResultServer().add_task(self.task, self.machine)
         except Exception as e:
             self.log.exception("Failed to add task to result-server")
-            self.error_queue.put(e)
+            if self.error_queue:
+                self.error_queue.put(e)
             raise
         try:
             yield

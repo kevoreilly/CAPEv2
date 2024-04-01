@@ -9,14 +9,12 @@ import hashlib
 import os
 import pathlib
 import shutil
-from functools import partial
 from tempfile import NamedTemporaryFile
-from typing import Optional
 
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
 from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core import database
@@ -26,6 +24,7 @@ from lib.cuckoo.core.database import (
     TASK_PENDING,
     TASK_REPORTED,
     TASK_RUNNING,
+    Error,
     Guest,
     Machine,
     Sample,
@@ -94,7 +93,7 @@ class TestDatabaseEngine:
             interface="int0",
             snapshot="snap0",
             resultserver_ip="5.6.7.8",
-            resultserver_port=2043,
+            resultserver_port="2043",
             arch="x64",
             reserved=False,
         )
@@ -156,6 +155,11 @@ class TestDatabaseEngine:
 
         assert t1_tag_list == ["bar", "foo", "x86"]
         assert t2_tag_list == ["boo", "far", "x86"]
+
+    def test_truncate_error_msg(self, monkeypatch):
+        monkeypatch.setattr(Error, "MAX_LENGTH", 20)
+        err = Error("abcdefghijklmnopqrstuvwxyz", 1)
+        assert err.message == "abcdefgh...rstuvwxyz"
 
     def test_reschedule_file(self, db: _Database, temp_filename: str, storage: StorageLayout):
         with db.session.begin():
@@ -290,32 +294,6 @@ class TestDatabaseEngine:
                 "reserved": True,
             }
 
-    @pytest.mark.parametrize(
-        "reserved,requested_platform,requested_machine,is_serviceable",
-        (
-            (False, "windows", None, True),
-            (False, "linux", None, False),
-            (False, "windows", "label0", True),
-            (False, "linux", "label0", False),
-            (True, "windows", None, False),
-            (True, "linux", None, False),
-            (True, "windows", "label0", True),
-            (True, "linux", "label0", False),
-        ),
-    )
-    def test_serviceability(
-        self, db: _Database, reserved: bool, requested_platform: str, requested_machine: Optional[str], is_serviceable: bool
-    ):
-        with db.session.begin():
-            self.add_machine(db, reserved=reserved)
-        task = Task()
-        task.platform = requested_platform
-        task.machine = requested_machine
-        task.tags = [Tag("tag1")]
-        # tasks matching the available machines are serviceable
-        with db.session.begin():
-            assert db.is_serviceable(task) is is_serviceable
-
     def test_clean_machines(self, db: _Database):
         """Add a couple machines and make sure that clean_machines removes them and their tags."""
         with db.session.begin():
@@ -366,6 +344,21 @@ class TestDatabaseEngine:
         with db.session.begin():
             assert db.session.query(Machine).filter_by(label="label0").one().interface == intf
 
+    def test_set_vnc_port(self, db: _Database):
+        with db.session.begin():
+            id1 = db.add_url("http://foo.bar")
+            id2 = db.add_url("http://foo.bar", options="nomonitor=1")
+        with db.session.begin():
+            db.set_vnc_port(id1, 6001)
+            db.set_vnc_port(id2, 6002)
+            # Make sure that it doesn't fail if giving a task ID that doesn't exist.
+            db.set_vnc_port(id2 + 1, 6003)
+        with db.session.begin():
+            t1 = db.session.query(Task).filter_by(id=id1).first()
+            assert t1.options == "vnc_port=6001"
+            t2 = db.session.query(Task).filter_by(id=id2).first()
+            assert t2.options == "nomonitor=1,vnc_port=6002"
+
     def test_update_clock_file(self, db: _Database, temp_filename: str, monkeypatch, freezer):
         with db.session.begin():
             # This task ID doesn't exist.
@@ -414,43 +407,20 @@ class TestDatabaseEngine:
             assert task.started_on == now
             assert task.completed_on == new_now
 
-    def test_set_task_vm_and_guest_start(self, db: _Database, freezer):
+    def test_create_guest(self, db: _Database):
         with db.session.begin():
-            assert db.set_task_vm_and_guest_start(1, "vmname", "vmlabel", "vmplatform", 1, "kvm") is None
-            task_id = db.add_url("https://www.google.com")
             machine = self.add_machine(db)
-            db.session.expunge_all()
+            task_id = db.add_url("http://foo.bar")
         with db.session.begin():
-            guest_id = db.set_task_vm_and_guest_start(task_id, machine.name, machine.label, machine.platform, machine.id, "KVM")
-        assert guest_id is not None
-        with db.session.begin():
-            task = db.session.query(Task).filter_by(id=task_id).one()
-            guest = db.session.query(Guest).filter_by(id=guest_id).one()
-            assert task.guest == guest
-            assert task.machine == "name0"
-            assert task.machine_id == machine.id
-            assert guest.status == "init"
+            task = db.session.query(Task).filter_by(id=task_id).first()
+            guest = db.create_guest(machine, "kvm", task)
             assert guest.name == "name0"
             assert guest.label == "label0"
-            assert guest.manager == "KVM"
-            # The started_on time is generated in the database whereas datetime.now()
-            # is using the time given by freezegun when this test began.
-            assert guest.started_on >= datetime.datetime.now()
-            assert guest.shutdown_on is None
+            assert guest.manager == "kvm"
             assert guest.task_id == task_id
-
-    def test_guest_stop(self, db: _Database, freezer):
+            assert guest.status == "init"
         with db.session.begin():
-            db.guest_stop(1)
-            task_id = db.add_url("https://www.google.com")
-            machine = self.add_machine(db)
-            guest_id = db.set_task_vm_and_guest_start(task_id, machine.name, machine.label, machine.platform, machine.id, "KVM")
-        with db.session.begin():
-            new_time = datetime.datetime.now() + datetime.timedelta(minutes=1)
-            freezer.move_to(new_time)
-            db.guest_stop(guest_id)
-        with db.session.begin():
-            assert db.session.query(Guest).get(guest_id).shutdown_on == new_time
+            assert guest == db.session.query(Guest).first()
 
     @pytest.mark.parametrize(
         "kwargs,expected_machines",
@@ -490,37 +460,82 @@ class TestDatabaseEngine:
             actual_machines_set = set(actual_machines)
             assert actual_machines_set == expected_machines
 
+    def test_assign_machine_to_task(self, db: _Database):
+        with db.session.begin():
+            t1 = db.add_url("http://one.com")
+            t2 = db.add_url("http://two.com")
+            m1 = self.add_machine(db)
+        with db.session.begin():
+            task1 = db.session.get(Task, t1)
+            task2 = db.session.get(Task, t2)
+            db.assign_machine_to_task(task1, m1)
+            db.assign_machine_to_task(task2, None)
+        with db.session.begin():
+            task1 = db.session.get(Task, t1)
+            task2 = db.session.get(Task, t2)
+            assert task1.machine == "label0"
+            assert task1.machine_id == m1.id
+            assert task2.machine is None
+            assert task2.machine_id is None
+
+    def test_lock_machine(self, db: _Database, freezer):
+        with db.session.begin():
+            m1 = self.add_machine(db)
+        with db.session.begin():
+            db.lock_machine(m1)
+        with db.session.begin():
+            m1 = db.session.get(Machine, m1.id)
+            assert m1.locked
+            assert m1.locked_changed_on == datetime.datetime.now()
+            assert m1.status == "running"
+        freezer.move_to(datetime.datetime.now() + datetime.timedelta(minutes=5))
+        with db.session.begin():
+            assert db.count_machines_running() == 1
+            db.unlock_machine(m1)
+        with db.session.begin():
+            m1 = db.session.get(Machine, m1.id)
+            assert not m1.locked
+            assert m1.locked_changed_on == datetime.datetime.now()
+        with db.session.begin():
+            assert db.count_machines_running() == 0
+
     @pytest.mark.parametrize(
         "kwargs,expected_retval",
         (
-            ({"machine": "l1"}, False),
-            ({"machine": "l2"}, True),
-            ({"machine": "l3"}, True),
-            ({"machine": "foo"}, False),
-            ({"platform": "windows"}, True),
-            ({"platform": "osx"}, False),
-            ({"tags": "tag1"}, True),
-            ({"tags": "foo"}, False),
-            ({"tags": "x64"}, True),
-            ({"tags": ""}, True),
-            ({"tags": "arm"}, False),
+            ({"machine": "l1"}, None),  # The specified machine is in use.
+            ({"machine": "l2"}, "n2"),  # The specified machine is not in use.
+            ({"machine": "l3"}, "n3"),  # The specific machine is reserved but not in use.
+            ({"machine": "foo"}, CuckooUnserviceableTaskError),  # No such machine exists.
+            ({"platform": "windows"}, "n2"),
+            ({"platform": "osx"}, CuckooUnserviceableTaskError),
+            ({"tags": "tag1"}, "n2"),
+            ({"tags": "foo"}, CuckooUnserviceableTaskError),
+            ({"tags": "x64"}, "n2"),
+            ({"tags": ""}, "n2"),
+            ({"tags": "arm"}, CuckooUnserviceableTaskError),
             # msix requires a machine with the win10 or win11 tag.
-            ({"package": "msix"}, False),
-            ({"package": "foo"}, True),
+            ({"package": "msix"}, CuckooUnserviceableTaskError),
+            ({"package": "foo"}, "n2"),
         ),
     )
-    def test_is_relevant_machine_available(self, db: _Database, temp_filename: str, kwargs, expected_retval):
+    def test_find_machine_to_service_task(self, db: _Database, temp_filename: str, kwargs, expected_retval):
         with db.session.begin():
-            m = self.add_machine(db, name="n1", label="l1")
-            m.locked = True
+            self.add_machine(db, name="n1", label="l1", locked=True)
             self.add_machine(db, name="n2", label="l2", tags="tag1,x64")
             self.add_machine(db, name="n3", label="l3", reserved=True)
 
             task_id = db.add_path(temp_filename, **kwargs)
         with db.session.begin():
             task = db.session.get(Task, task_id)
-            assert db.is_relevant_machine_available(task) is expected_retval
-            assert (task.status == TASK_RUNNING) is expected_retval
+            if isinstance(expected_retval, type) and issubclass(expected_retval, Exception):
+                with pytest.raises(expected_retval):
+                    db.find_machine_to_service_task(task)
+            else:
+                result = db.find_machine_to_service_task(task)
+                if expected_retval is None:
+                    assert result is None
+                else:
+                    assert result.name == expected_retval
 
     @pytest.mark.parametrize(
         "categories,expected_task",
@@ -548,91 +563,29 @@ class TestDatabaseEngine:
                 assert task.id == tasks[expected_task]
                 assert task.status == TASK_RUNNING
 
-    def test_guest_get_status(self, db: _Database):
+    def test_guest(self, db: _Database, freezer):
         with db.session.begin():
-            task_id = db.add_url("https://www.google.com")
             machine = self.add_machine(db)
-            db.set_task_vm_and_guest_start(task_id, machine.name, machine.label, machine.platform, machine.id, "KVM")
+            task_id = db.add_url("http://foo.bar")
+            task = db.session.query(Task).filter_by(id=task_id).first()
+            guest = db.create_guest(machine, "kvm", task)
         with db.session.begin():
+            db.guest_set_status(task_id, "completed")
+            # Make sure it doesn't fall over when given a task that doesn't exist.
+            db.guest_set_status(task_id + 1, "completed")
+        with db.session.begin():
+            guest_id = guest.id
+            assert db.session.query(Guest).first().status == "completed"
+            assert db.guest_get_status(task_id) == "completed"
             assert db.guest_get_status(task_id + 1) is None
-            assert db.guest_get_status(task_id) == "init"
-
-    def test_guest_set_status(self, db: _Database):
+            db.guest_stop(guest_id)
         with db.session.begin():
-            task_id = db.add_url("https://www.google.com")
-            machine = self.add_machine(db)
-            db.set_task_vm_and_guest_start(task_id, machine.name, machine.label, machine.platform, machine.id, "KVM")
-        with db.session.begin():
-            db.guest_set_status(task_id, "failed")
-        with db.session.begin():
-            assert db.guest_get_status(task_id) == "failed"
-
-    def test_guest_remove(self, db: _Database):
-        with db.session.begin():
-            task_id = db.add_url("https://www.google.com")
-            machine = self.add_machine(db)
-            guest_id = db.set_task_vm_and_guest_start(task_id, machine.name, machine.label, machine.platform, machine.id, "KVM")
-        with db.session.begin():
+            assert db.session.query(Guest).first().shutdown_on == datetime.datetime.now()
+            db.guest_stop(guest_id + 1)
             db.guest_remove(guest_id)
-        assert db.session.query(Guest).count() == 0
-
-    @pytest.mark.parametrize(
-        "kwargs,expected_retval",
-        (
-            ({"label": "l1"}, None),
-            ({"label": "l2"}, {"l2"}),
-            ({"label": "l3"}, {"l3"}),
-            ({"label": "foo"}, CuckooOperationalError),
-            ({"platform": "windows"}, {"l2", "l4"}),
-            ({"platform": "osx"}, CuckooOperationalError),
-            ({"tags": ["tag1"]}, {"l2", "l4"}),
-            ({"tags": ["foo"]}, CuckooOperationalError),
-            ({"arch": ["x64"]}, {"l2"}),
-            ({"arch": ["x86"]}, {"l4"}),
-            ({"arch": ["arm"]}, CuckooOperationalError),
-            # msix requires a machine with the win10 or win11 tag.
-            ({"os_version": ["win10"]}, {"l4"}),
-            ({"os_version": ["foo"]}, CuckooOperationalError),
-            ({"label": "l2", "platform": "windows"}, None),
-            ({"label": "l2", "tags": ["tag1"]}, None),
-        ),
-    )
-    def test_lock_machine(self, db: _Database, kwargs, expected_retval, freezer):
         with db.session.begin():
-            m = self.add_machine(db, name="n1", label="l1")
-            m.locked = True
-            self.add_machine(db, name="n2", label="l2", tags="tag1,x64")
-            self.add_machine(db, name="n3", label="l3", reserved=True)
-            self.add_machine(db, name="n4", label="l4", tags="tag1,win10", arch="x86")
-        with db.session.begin():
-            if isinstance(expected_retval, type) and issubclass(expected_retval, Exception):
-                with pytest.raises(expected_retval):
-                    db.lock_machine(**kwargs)
-            else:
-                machine = db.lock_machine(**kwargs)
-                if expected_retval is None:
-                    assert machine is None
-                else:
-                    assert machine is not None
-                    assert machine.label in expected_retval
-                    assert machine.locked
-                    assert machine.locked_changed_on == datetime.datetime.now()
-
-    def test_unlock_machine(self, db: _Database, freezer):
-        with db.session.begin():
-            m1 = self.add_machine(db, name="n1", label="l1")
-            m1.locked = True
-            m2 = self.add_machine(db, name="n2", label="l2")
-            m2.locked = True
-        with db.session.begin():
-            machine = db.unlock_machine("l1")
-            assert machine.label == "l1"
-        with db.session.begin():
-            machine = db.session.query(Machine).filter_by(label="l1").one()
-            assert not machine.locked
-            assert machine.locked_changed_on == datetime.datetime.now()
-
-            assert db.unlock_machine("foo") is None
+            assert db.session.query(Guest).first() is None
+            db.guest_remove(guest_id + 1)
 
     @pytest.mark.parametrize(
         "kwargs,expected_retval",
@@ -1045,105 +998,6 @@ class TestDatabaseEngine:
             assert db.session.query(Task).get(t1).status == TASK_COMPLETED
 
     @pytest.mark.parametrize(
-        "task_instructions,machine_instructions,expected_results",
-        # @param task_instructions : list of tasks to be created, each tuple represent the tag to associate to tasks and the number of such tasks to create
-        # @param machine_instructions : list of machines to be created, each collections represent the parameters to associate to machines and the number of such machines to create
-        # @param expected_results : dictionary of expected tasks to be mapped to machines numbered by their tags
-        (
-            # No tasks, no machines
-            (
-                [],
-                [],
-                {},
-            ),
-            # Assign 10 tasks with the same tag to 10 available machines with that tag
-            (
-                [("tag1", 10)],
-                [("windows", "x64", "tag1", 10)],
-                {"tag1": 10},
-            ),
-            # Assign 10 tasks (8 with one tag, 2 with another) to 8 available machines with that tag and 2 available machines with the other tag
-            (
-                [("tag1", 8), ("tag2", 2)],
-                [("windows", "x64", "tag1,", 8), ("windows", "x86", "tag2,", 2)],
-                {"tag1": 8, "tag2": 2},
-            ),
-            # Assign 43 tasks total containing a variety of tags to 40/80 available machines with the first tag, 2/2 available machines with the second tag and 1/2 available machines with the third tag
-            (
-                [("tag1", 40), ("tag2", 2), ("tag3", 1)],
-                [("windows", "x64", "tag1", 80), ("windows", "x86", "tag2", 2), ("linux", "x64", "tag3", 2)],
-                {"tag1": 40, "tag2": 2, "tag3": 1},
-            ),
-        ),
-    )
-    def test_map_tasks_to_available_machines(
-        self, task_instructions, machine_instructions, expected_results, db: _Database, request
-    ):
-        tasks = []
-        machines = []
-
-        # Parsing machine instructions
-        with db.session.begin():
-            for machine_instruction in machine_instructions:
-                platform, archs, tags, num_of_machines = machine_instruction
-                for i in range(num_of_machines):
-                    machine_name = str(platform) + str(archs) + str(i)
-                    db.add_machine(
-                        name=machine_name,
-                        label=machine_name,
-                        ip="1.2.3.4",
-                        platform=platform,
-                        tags=tags,
-                        interface="int0",
-                        snapshot="snap0",
-                        resultserver_ip="5.6.7.8",
-                        resultserver_port=2043,
-                        arch=archs,
-                        reserved=False,
-                    )
-                    machines.append((machine_name, tags))
-            for machine, machine_tag in machines:
-                db.set_machine_status(machine, "running")
-            # Parsing tasks instructions
-            for task_instruction in task_instructions:
-                tags, num_of_tasks = task_instruction
-                for i in range(num_of_tasks):
-                    task_id = "Sample_%s_%s" % (tags, i)
-                    with open(task_id, "w") as f:
-                        f.write(task_id)
-                    request.addfinalizer(partial(os.remove, task_id))
-                    task = db.add_path(file_path=task_id, tags=tags)
-                    task = db.view_task(task)
-                    tasks.append(task)
-            db.session.expunge_all()
-
-        # Parse the expected results
-        total_task_to_be_assigned = 0
-        total_task_to_be_assigned = sum(expected_results.values())
-
-        total_task_assigned = 0
-        results = []
-        for tag in expected_results.keys():
-            results.append([tag, 0])
-        with db.session.begin():
-            relevant_tasks = db.map_tasks_to_available_machines(tasks)
-            db.session.expunge_all()
-        for task in relevant_tasks:
-            tags = [tag.name for tag in task.tags]
-            for result in results:
-                if result[0] == tags[0]:
-                    result[1] += 1
-                    break
-        total_task_assigned += len(relevant_tasks)
-
-        # Test results
-        assert total_task_assigned == total_task_to_be_assigned
-        for tag in expected_results.keys():
-            for result in results:
-                if tag == result[0]:
-                    assert expected_results[tag] == result[1]
-
-    @pytest.mark.parametrize(
         "task,machines,expected_result",
         # @param task : dictionary describing the task to be created
         # @param machines : list of machines to be created
@@ -1501,7 +1355,7 @@ class TestDatabaseEngine:
                     interface="int0",
                     snapshot="snap0",
                     resultserver_ip="5.6.7.8",
-                    resultserver_port=2043,
+                    resultserver_port="2043",
                     arch=machine["arch"],
                     reserved=machine["reserved"],
                 )

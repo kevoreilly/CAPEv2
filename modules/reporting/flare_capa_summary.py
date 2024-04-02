@@ -14,7 +14,7 @@ def generate_cape_analysis_summary(results):
     try:
         return flare_capa_details(results["target"]["file"]["path"], "static", on_demand=True, backend="cape", results=results)
     except Exception as e:
-        log.warning("Can't generate bingraph for %s: %s", results["target"]["file"]["path"], e)
+        log.warning("Can't generate FLARE CAPA for %s: %s", results["target"]["file"]["path"], e)
 
     return {}
 

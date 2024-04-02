@@ -64,6 +64,7 @@ pending_future_map = {}
 pending_task_id_map = {}
 original_proctitle = getproctitle()
 
+
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
 def memory_limit(percentage: float = 0.8):
     if platform.system() != "Linux":

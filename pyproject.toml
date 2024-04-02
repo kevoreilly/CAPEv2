@@ -35,7 +35,7 @@ pyzipper = "0.3.5"
 flare-capa = "7.0.1"
 Cython = "0.29.24"
 # pyre2 = "0.3.6" # Dead for python3.11
-Django = "4.2.10"
+Django = "4.2.11"
 SQLAlchemy = "1.4.50"
 SQLAlchemy-Utils = "0.41.1"
 Jinja2 = "^3.1.3"
@@ -91,7 +91,7 @@ setproctitle = "1.3.2"
 certifi = "2023.07.22"
 
 [tool.poetry.dev-dependencies]
-black = "^22.3.0"
+black = "^24.3.0"
 isort = "^5.10.1"
 pytest = "7.2.0"
 pytest-pretty = "1.1.0"
@@ -131,7 +131,7 @@ exclude = ".git,__pycache__,.cache,.venv"
 django_find_project = false
 DJANGO_SETTINGS_MODULE = "web.settings"
 pythonpath = [".", "web"]
-testpaths = "tests"
+testpaths = ["tests", "agent"]
 norecursedirs = "tests/zip_compound"
 
 [build-system]

@@ -2,93 +2,85 @@
 What is CAPE?
 ===============
 
-CAPE is an open-source automated malware analysis system.
+CAPE is an open-source malware sandbox.
 
-It's used to automatically run and analyze files and collect comprehensive
-analysis results that outline what the malware does while running inside an
-isolated Windows operating system.
+A sandbox is used to execute malicious files in an isolated enviornment
+whilst instrumenting their dynamic behaviour and collecting forensic artefacts.
 
-It can retrieve the following type of results:
+CAPE was derived from Cuckoo v1 which features the following core capabilities
+on the Windows platform:
 
-    * Traces of win32 API calls that were performed by all processes spawned by the malware.
-    * Files that were created, deleted, and downloaded by the malware during its execution.
-    * Memory dumps of the malware processes.
-    * Network traffic trace in PCAP format.
-    * Screenshots of Windows desktop taken during the execution of the malware.
-    * Full memory dumps of the machines.
+    * Behavioral instrumentation based on API hooking
+    * Capture of files created, modified and deleted during execution
+    * Network traffic capture in PCAP format
+    * Malware classification based on behavioral and network signatures
+    * Screenshots of the desktop taken during the execution of the malware
+    * Full memory dumps of the target system
+
+CAPE complements Cuckoo's traditional sandbox output with several key additions:
+
+    * Automated dynamic malware unpacking
+    * Malware classification based on YARA signatures of unpacked payloads
+    * Static & dynamic malware configuration extraction
+    * Automated debugger programmable via YARA signatures, allowing:
+        * Custom unpacking/config extractors
+        * Dynamic anti-sandbox countermeasures
+        * Instruction traces
+    * Interactive desktop
 
 Some History
 ============
 
 Cuckoo Sandbox started as a `Google Summer of Code`_ project in 2010 within
-`The Honeynet Project`_.
-It was originally designed and developed by *Claudio “nex” Guarnieri*, who is
-still the main developer and coordinates all efforts from joined developers and
-contributors.
+`The Honeynet Project`_. It was originally designed and developed by Claudio
+Guarnieri, the first beta release was published in 2011. In January 2014,
+Cuckoo v1.0 was released.
 
-After initial work during the summer of 2010, the first beta release was published
-on Feb. 5th, 2011, when Cuckoo was publicly announced and distributed for the
-first time.
+2015 was a pivotal year, with a significant fork in Cuckoo's history.
+Development of the original monitor and API hooking method was halted in the
+main Cuckoo project. It was replaced by alternative monitor using a
+``restructuredText``-based signature format compiled via Linux toolchain,
+created by Jurriaan Bremer.
 
-In March 2011, Cuckoo had been selected again as a supported project during
-Google Summer of Code 2011 with The Honeynet Project, during which
-*Dario Fernandes* joined the project and extended its functionality.
-
-On November 2nd, 2011, version 0.2 of Cuckoo was released to the public as the
-first real stable release.
-In late November 2011, *Alessandro "jekil" Tanasi* joined the team expanding
-Cuckoo's processing and reporting functionality.
-
-In December 2011 Cuckoo v0.3 was released and quickly hit release 0.3.2 in
-early February.
-
-In late January 2012, we opened `Malwr.com`_, a free and public running Cuckoo
-Sandbox instance provided with a full-fledged interface through which people
-could submit files to be analyzed and results were returned.
-
-In March 2012 Cuckoo Sandbox won the first round of the `Magnificent7`_ program
-organized by `Rapid7`_.
-
-During the Summer of 2012 *Jurriaan "skier" Bremer* joined the development team,
-refactoring the Windows analysis component sensibly and improving the analysis'
-quality.
-
-On July 24th, 2012, Cuckoo Sandbox 0.4 was released.
-
-On December 20th, 2012, Cuckoo Sandbox 0.5 "To The End Of The World" was released.
-
-On April 15th, 2013, we released Cuckoo Sandbox 0.6, shortly after having launched
-the second version of `Malwr.com`_.
-
-On August 1st, 2013, *Claudio “nex” Guarnieri*, *Jurriaan "skier" Bremer* and
-*Mark "rep" Schloesser* presented `Mo' Malware Mo' Problems - Cuckoo Sandbox to the rescue`_
-at Black Hat Las Vegas.
-
-On January 9th, 2014, Cuckoo Sandbox 1.0 was released.
-
-In March 2014, `Cuckoo Foundation`_ was born as a non-profit organization dedicated to the growth of Cuckoo Sandbox and the
-surrounding projects and initiatives.
-
-On April 7th, 2014, Cuckoo Sandbox 1.1 was released.
-
-.. _`Google Summer of Code`: http://www.google-melange.com
-.. _`The Honeynet Project`: http://www.honeynet.org
-.. _`Malwr.com`: http://malwr.com
-.. _`Magnificent7`: http://community.rapid7.com/community/open_source/magnificent7
-.. _`Mo' Malware Mo' Problems - Cuckoo Sandbox to the rescue`: https://media.blackhat.com/us-13/US-13-Bremer-Mo-Malware-Mo-Problems-Cuckoo-Sandbox-Slides.pdf
-.. _`Rapid7`: http://www.rapid7.com
-.. _`Cuckoo Foundation`: http://cuckoofoundation.org/
-
-On November 30th, 2015, Cuckoo-modified was moved to Brad's repository, which got huge improvements to monitor and other parts of the core system
+Around the same time, a fork called cuckoo-modified was created by Brad 'Spender'
+Spengler continuing development of the original monitor with significant improvements
+including 64-bit support and importantly introducting Microsoft's Visual Studio compiler.
 .. _ `Cuckoo-modified`: https://github.com/spender-sandbox/cuckoo-modified
 
-On September 16th, 2016, CAPE(Configuration And Payload Extraction) was born
-.. _ `CAPE CTXIS`: https://github.com/ctxis/CAPE
-.. _ `CAPE upstream`: https://github.com/kevoreilly/CAPE
+During that same year development of a dynamic command-line configuration and payload
+extraction tool called CAPE was begun at Context Information Security by Kevin O'Reilly.
+The name was coined as an acronym of 'Config And Payload Extraction' and the original
+research focused on using API hooks provided by Microsoft's Detours library to capture
+unpacked malware payloads and configuration. However, it became apparent that API hooks
+alone provide insufficient power and precision to allow for unpacking of payloads or
+configs from arbitrary malware.
 
-On October 20th, 2019, CAPEv2 Python3
+For this reason research began into a novel debugger concept to allow malware to be
+precisely controlled and instrumented whilst avoiding use of Microsoft debugging
+interfaces, in order to be as stealthy as possible. This debugger was integrated
+into the proof-of-concept Detours-based command-line tool, combining with API hooks
+and resulting in very powerful capabilities.
+
+When initial work showed that it would be possible to replace Microsoft Detours
+with cuckoo-modified's API hooking engine, the idea for CAPE Sandbox was born.
+With the addition of the debugger, automated unpacking, YARA-based classification
+and integrated config extraction, in September 2016 at 44con, CAPE Sandbox was
+publicly released for the first time:
+.. _ `CAPE CTXIS`: https://github.com/ctxis/CAPE
+
+In the summer of 2018 the project was fortunate to see the beginning of huge
+contributions from Andriy 'doomedraven' Brukhovetskyy, a long-time Cuckoo
+contributor. In 2019 he began the mammoth task of porting CAPE to Python 3
+and in October of that year CAPEv2 was released:
 .. _ `CAPEv2 upstream`: https://github.com/kevoreilly/CAPEv2
 
+CAPE has been continuously developed and improved to keep pace with advancements
+in both malware and operating system capabilities. In 2021, the ability to program
+CAPE's debugger during detonation via dynamic YARA scans was added, allowing for
+dynamic bypasses to be created for anti-sandbox techniques. Windows 10 became the
+default operating system, and other significant additions include interactive desktop,
+AMSI (Anti-Malware Scan Interface) payload capture, 'syscall hooking' based on Microsoft
+Nirvana and debugger-based direct/indirect syscall countermeasures.
 
 Use Cases
 =========

@@ -1,0 +1,7 @@
+{% if strace %}
+    {% include "analysis/strace/_tree.html" %}
+    <hr />
+    {% include "analysis/strace/_processes.html" %}
+{% else %}
+    <div class="alert alert-primary"><b>Sorry!</b> No strace.</div>
+{% endif %}

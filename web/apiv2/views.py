@@ -1576,6 +1576,36 @@ def tasks_pcap(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_evtx(request, task_id):
+    if not apiconf.taskevtx.get("enabled"):
+        resp = {"error": True, "error_value": "EVTX download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    evtxfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "evtx", "evtx.zip")
+    if not os.path.normpath(evtxfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(evtxfile)}"})
+    if path_exists(evtxfile):
+        fname = "%s_evtx.zip" % task_id
+        resp = StreamingHttpResponse(FileWrapper(open(evtxfile, "rb")), content_type="application/zip")
+        resp["Content-Length"] = os.path.getsize(evtxfile)
+        resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
+    else:
+        resp = {"error": True, "error_value": "EVTX does not exist"}
+        return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_dropped(request, task_id):
     if not apiconf.taskdropped.get("enabled"):
         resp = {"error": True, "error_value": "Dropped File download API is disabled"}

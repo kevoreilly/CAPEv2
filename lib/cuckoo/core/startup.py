@@ -21,7 +21,9 @@ import modules.auxiliary
 import modules.feeds
 import modules.processing
 import modules.reporting
-import modules.signatures
+import modules.signatures.all
+import modules.signatures.linux
+import modules.signatures.windows
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -116,9 +118,9 @@ def check_configs():
     @raise CuckooStartupError: if config files do not exist.
     """
     configs = [
-        os.path.join(CUCKOO_ROOT, "conf", "cuckoo.conf"),
-        os.path.join(CUCKOO_ROOT, "conf", "reporting.conf"),
-        os.path.join(CUCKOO_ROOT, "conf", "auxiliary.conf"),
+        os.path.join(CUCKOO_ROOT, "conf", "default", "cuckoo.conf.default"),
+        os.path.join(CUCKOO_ROOT, "conf", "default", "reporting.conf.default"),
+        os.path.join(CUCKOO_ROOT, "conf", "default", "auxiliary.conf.default"),
     ]
 
     for config in configs:
@@ -272,7 +274,9 @@ def init_modules():
     # Import all processing modules.
     import_package(modules.processing)
     # Import all signatures.
-    import_package(modules.signatures)
+    import_package(modules.signatures.all)
+    import_package(modules.signatures.windows)
+    import_package(modules.signatures.linux)
     # Import all private signatures
     import_package(custom.signatures)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
@@ -505,3 +509,34 @@ def check_tcpdump_permissions():
             {user} ALL=NOPASSWD: {tcpdump}
             """
         )
+
+
+def check_vms_n_resultserver_networking():
+    vms = {}
+    resultserver_block = cuckoo.resultserver.ip.rsplit(".", 2)[0]
+    machinery = cuckoo.cuckoo.machinery
+    if machinery == "multi":
+        for mmachinery in Config(machinery).multi.get("machinery").split(","):
+            vms.update(
+                {
+                    x.strip(): [getattr(Config(mmachinery), x).ip, getattr(getattr(Config(mmachinery), x), "resultserver", "")]
+                    for x in getattr(Config(mmachinery), mmachinery).get("machines").split(",")
+                    if x.strip()
+                }
+            )
+    else:
+        vms.update(
+            {
+                x.strip(): [
+                    getattr(Config(machinery), x).ip.rsplit(".", 2)[0],
+                    getattr(getattr(Config(machinery), x), "resultserver", "".rsplit(".", 2)[0]),
+                ]
+                for x in getattr(Config(machinery), machinery).get("machines").split(",")
+                if x.strip()
+            }
+        )
+    for vm, network in vms.items():
+        vm_ip, vm_rs = network
+        # is there are better way to check networkrange without range CIDR?
+        if not resultserver_block.startswith(vm_ip) or (vm_rs and not vm_rs.startswith(vm_ip)):
+            log.error(f"Your resultserver and VM:{vm} are in different nework ranges. This might give you: CuckooDeadMachine")

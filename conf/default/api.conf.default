@@ -1,0 +1,360 @@
+[api]
+# IP-based rate limiting
+ratelimit = yes
+
+# Default throttle limits at the user and subscription-level.
+# token_auth_enabled must be enabled
+default_user_ratelimit = 5/m
+default_subscription_ratelimit = 5/m
+
+# IP/Domain to be used for help page + callback URL's
+url = http://example.tld
+
+# APIv2 - Enable token autorization?
+token_auth_enabled = no
+
+[list_exitnodes]
+enabled = no
+
+# Details about N of tasks(reported/failed) and time spend on each module
+[statistics]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 5/m
+
+# Download any file from CAPE webgui
+[download_file]
+enabled = yes
+rps = 1/s
+rpm = 5/m
+
+[filereport]
+enabled = yes
+auth_only = no
+rps = 1/s
+rpm = 5/m
+
+# Submit Download & execute - category tasks to Cuckoo.
+[dlnexeccreate]
+enabled = no
+auth_only = no
+allmachines = no
+status = yes
+rps = 2/s
+rpm = 2/m
+
+[staticextraction]
+enabled = yes
+auth_only = no
+rps = 5/s
+rpm = 5/m
+
+
+# Submit file-category tasks to Cuckoo.
+[filecreate]
+enabled = yes
+auth_only = no
+# Allow machines=all option which will submit the file to all virtuals.
+allmachines = no
+# Accept multiple files submitted at the same time
+# If set to 'no' we only accept the first file
+multifile = no
+# Provide a 'callback' URL to the status page (url variable)
+status = yes
+# Configuration variables for requests per minute and requests per second.
+rps = 1/s
+rpm = 2/m
+
+# Submit URL-category tasks to Cuckoo.
+[urlcreate]
+enabled = yes
+auth_only = no
+allmachines = no
+status = yes
+rps = 1/s
+rpm = 2/m
+
+# Submit VTDL tasks to Cuckoo.
+[vtdl]
+enabled = no
+auth_only = no
+allmachines = no
+status = yes
+rps = 1/s
+rpm = 2/m
+
+# Pull sample information from the Sample table.
+[fileview]
+# Enable the file view API
+enabled = yes
+auth_only = no
+# Enable file view by search type
+md5 = yes
+sha1 = yes
+sha256 = yes
+id = yes
+rps = 2/s
+rpm = 10/m
+
+[web_search]
+enabled = yes
+auth_only = no
+rps = 2/s
+rpm = 10/m
+
+# Pull Task ID's by searching for a hash.
+[tasksearch]
+# Enable the task search API.
+enabled = yes
+auth_only = no
+# Enable task search by hash type.
+md5 = yes
+sha1 = yes
+sha256 = yes
+rps = 2/s
+rpm = 10/m
+
+# Pull Task ID's using the same search functions as Django's search.
+[extendedtasksearch]
+enabled = yes
+auth_only = no
+rps = 1/s
+rpm = 10/m
+
+# Pull Task information for a range of Task ID's.
+# Note: Pulling a large amount of Task ID's can produce slow responses.
+[tasklist]
+enabled = yes
+auth_only = no
+# Set a hard limit (prevent large task listings)
+maxwindow = 1440
+maxlimit = 50
+defaultlimit = 10
+rps = 1/s
+rpm = 5/m
+
+# Pull task, sample, guest, and error information from a specific Task ID.
+[taskview]
+enabled = yes
+auth_only = no
+rps = 1/s
+rpm = 10/m
+
+# Configure the ability reschedule a broken task.
+[taskresched]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 5/m
+
+# Configure the ability to reprocess a task.
+[taskreprocess]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 5/m
+
+# Configure the ability to delete a specified Task ID.
+[taskdelete]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 5/m
+
+# Configure the ability to  poll for a task status
+[taskstatus]
+enabled = yes
+auth_only = no
+rps = 4/s
+#rpm = 100/m
+
+# Configure the ability to download reports generated from any of the
+# reporting modules
+[taskreport]
+enabled = yes
+auth_only = no
+# Allow all reports to be downloaded as a tar.gz file
+all = yes
+rps = 1/s
+rpm = 6/m
+
+# Configure the ability to pull a summarized version of data stored in MongoDB
+# which contains potentially actionable data.
+[taskiocs]
+enabled = yes
+auth_only = no
+# If jsondump is enabled, we can use this report to get the same information
+# This is useful if you want to return data even if it has been deleted from
+# the Mongo collection.
+jsonoverwrite = no
+rps = 1/s
+rpm = 4/m
+
+# Pull screenshots from a specific task.
+[taskscreenshot]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 100/m
+
+# Pull a PCAP from a specific task
+[taskpcap]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+
+# Pull a EVTX from a specific task
+[taskevtx]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+
+# Pull the dropped files from a specific task
+[taskdropped]
+enabled = yes
+auth_only = no
+rps = 1/s
+rpm = 20/m
+
+# Pull the captured suricata files from a specific task
+[tasksurifile]
+enabled = yes
+auth_only = no
+rps = 1/s
+rpm = 20/m
+
+[taskprocdump]
+enabled = yes
+rps = 1/s
+rpm = 4/m
+
+# Download process memory dumps from a specific Task ID.
+[taskprocmemory]
+enabled = yes
+auth_only = no
+# Allow user to download all pids, compressed into tar.bz2
+# Note: This can be CPU intensive if enabled
+all = no
+# Allow compression of single pid dumps
+compress = no
+rps = 1/s
+rpm = 4/m
+
+# Download a VM full memory dump from a specific Task ID.
+[taskfullmemory]
+enabled = no
+auth_only = no
+# Note: This can be CPU intensive if enabled
+compress = no
+rps = 1/s
+rpm = 2/m
+
+# Download a sample from a specific Task ID.
+[sampledl]
+enabled = no
+auth_only = no
+rps = 2/s
+#rpm = 100/m
+
+# List all/available virtual machines.
+[machinelist]
+enabled = no
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+
+# Pull information about a specific virtual machine.
+[machineview]
+enabled = no
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+
+# Pull information about the Cuckoo host server.
+[cuckoostatus]
+enabled = no
+auth_only = no
+rps = 2/s
+#rpm = 100/m
+
+[rollingsuri]
+enabled = no
+auth_only = no
+#our max query window for rolling logs in minutes
+windowmax = 1440
+rps = 2/s
+
+[rollingshrike]
+enabled = no
+auth_only = no
+#our max query window for rolling logs in minutes
+windowmax = 10080
+rps = 2/s
+
+# Configure the ability to retrieve CAPE extracted config as JSON
+[capeconfig]
+enabled = yes
+auth_only = yes
+# If jsondump is enabled, we can use this report to get the same information
+# This is useful if you want to return data even if it has been deleted from
+# the Mongo collection.
+jsonoverwrite = no
+rps = 1/s
+rpm = 4/m
+
+# Configure the ability to download CAPE procdump files.
+[procdumpfiles]
+enabled = no
+auth_only = no
+# Allow retrieve all files
+all_files = no
+rps = 1/s
+rpm = 4/m
+
+# Configure the ability to download CAPE payload files.
+[payloadfiles]
+enabled = yes
+auth_only = no
+# Allow retrieve all files
+all_files = no
+rps = 1/s
+rpm = 4/m
+
+# Get ids of last X hours
+[tasks_latest]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+
+# Get summary of tasks per hours for last 24h
+[task_x_hours]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+
+[full_memory_dump_file]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+
+[full_memory_dump_file_strings]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+
+[comments]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+
+# Allow to request stop of the analysis inside of the VM
+[user_stop]
+enabled = no

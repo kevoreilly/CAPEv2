@@ -8,7 +8,6 @@ from lib.common.exceptions import CuckooPackageError
 
 
 class DOC_ANTIVM(Package):
-
     """Word analysis package, with anti-VM technique prevention."""
 
     PATHS = [

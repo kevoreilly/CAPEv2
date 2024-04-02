@@ -166,6 +166,7 @@ h4, .h4 {
     font-size: 18px;
 }
 
+/* Windows API categories */
 .filesystem {
     background-color: #ffe3c5;
     color: black;
@@ -210,6 +211,52 @@ h4, .h4 {
     background-color: #f0f2c5;
     color: black;
 }
+/* Linux Syscall Categories */
+.kernel {
+    background-color: #ffc5c5;
+    color: black;
+}
+
+.fs {
+    color: black;
+    background-color: #ffe3c5;
+}
+
+.mm {
+    background-color: #d3ffc5;
+    color: black;
+}
+
+.net {
+    background-color: #c5e0ff;
+    color: black;
+}
+
+.ipc {
+    background-color: #d3e0ff;
+    color: black;
+}
+
+.security {
+    background-color: #ccc5ff;
+    color: black;
+}
+
+.drivers {
+    background-color: #d3c5cc;
+    color: black;
+}
+
+.io_uring {
+    background-color: #f9c5ff;
+    color: black;
+}
+
+.block {
+    background-color: #dfffdf;
+    color: black;
+}
+
 .system {
     background-color: #fffcc5;
     color: black;

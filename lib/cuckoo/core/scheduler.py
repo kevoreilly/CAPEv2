@@ -358,6 +358,7 @@ class AnalysisManager(threading.Thread):
                     tags=task_tags,
                     arch=task_archs,
                     os_version=os_version,
+                    need_scheduled=True,
                 )
 
             # If no machine is available at this moment, wait for one second and try again.
@@ -477,7 +478,12 @@ class AnalysisManager(threading.Thread):
         try:
             self.acquire_machine()
             guest_log = self.db.set_task_vm_and_guest_start(
-                self.task.id, self.machine.name, self.machine.label, self.machine.id, machinery.__class__.__name__
+                self.task.id,
+                self.machine.name,
+                self.machine.label,
+                self.task.platform,
+                self.machine.id,
+                machinery.__class__.__name__,
             )
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
@@ -872,14 +878,6 @@ class Scheduler:
         plugin = list_plugins("machinery")[0]
         # Initialize the machine manager.
         machinery = plugin()
-
-        # Find its configuration file.
-        conf = os.path.join(CUCKOO_ROOT, "conf", f"{machinery_name}.conf")
-
-        if not path_exists(conf):
-            raise CuckooCriticalError(
-                f'The configuration file for machine manager "{machinery_name}" does not exist at path: {conf}'
-            )
 
         # Provide a dictionary with the configuration options to the
         # machine manager instance.

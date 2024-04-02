@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import pathlib
 from typing import Generator
@@ -136,7 +137,8 @@ class TestAnalysisManager:
 
     def test_logger(self, task: Task, caplog: pytest.LogCaptureFixture):
         mgr = AnalysisManager(task=task)
-        mgr.log.info("Test")
+        with caplog.at_level(logging.INFO):
+            mgr.log.info("Test")
         assert any((record.message == f"Task #{task.id}: Test") for record in caplog.records)
 
     def test_prepare_task_and_machine_to_start_no_machinery(self, db: _Database, task: Task):
@@ -230,7 +232,8 @@ class TestAnalysisManager:
         bin_path = tmp_cuckoo_root / "storage" / "binaries" / "sha256"
         bin_path.parent.mkdir()
         bin_path.touch()
-        assert analysis_man.store_file(sha256="sha256") is True
+        with caplog.at_level(logging.INFO):
+            assert analysis_man.store_file(sha256="sha256") is True
         assert "File already exists" in caplog.text
         assert os.readlink(tmp_cuckoo_root / "storage" / "analyses" / str(task.id) / "binary") == str(bin_path)
 
@@ -317,6 +320,7 @@ class TestAnalysisManager:
             "enforce_timeout": 1,
             "evtx": False,
             "exports": "",
+            "filecollector": True,
             "file_name": "sample.py",
             "file_pickup": False,
             "file_type": "Python script, ASCII text executable",
@@ -333,8 +337,6 @@ class TestAnalysisManager:
             "recentfiles": False,
             "screenshots_linux": True,
             "screenshots_windows": True,
-            "stap": False,
-            "stds_view": True,
             "sysmon_linux": False,
             "sysmon_windows": False,
             "target": str(tmp_path / "sample.py"),
@@ -349,7 +351,9 @@ class TestAnalysisManager:
     def test_build_options_pe(
         self, db: _Database, tmp_path: pathlib.Path, task: Task, machine: Machine, machinery_manager: MachineryManager
     ):
-        sample_location = get_test_object_path(pathlib.Path("test_samples_sources/HelloWorld32.exe"))
+        sample_location = get_test_object_path(
+            pathlib.Path("data/core/5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b")
+        )
         with db.session.begin():
             task = db.session.merge(task)
             task.package = "file"
@@ -374,7 +378,8 @@ class TestAnalysisManager:
             "enforce_timeout": 1,
             "evtx": False,
             "exports": "",
-            "file_name": "HelloWorld32.exe",
+            "filecollector": True,
+            "file_name": sample_location.name,
             "file_pickup": False,
             "file_type": "PE32 executable (console) Intel 80386, for MS Windows",
             "human_linux": False,
@@ -390,8 +395,6 @@ class TestAnalysisManager:
             "recentfiles": False,
             "screenshots_linux": True,
             "screenshots_windows": True,
-            "stap": False,
-            "stds_view": True,
             "sysmon_linux": False,
             "sysmon_windows": False,
             "target": str(sample_location),
@@ -406,12 +409,12 @@ class TestAnalysisManager:
     def test_category_checks(
         self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
     ):
-        sample_sha256 = "05ec45d230d2a55b059f0ba7a0f0b4085f8ab6a73c1ffa33c7693f5ef48e22e5"
+        sample_sha256 = "5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b"
 
         class mock_sample:
             sha256 = sample_sha256
 
-        sample_location = get_test_object_path(pathlib.Path("test_samples") / sample_sha256)
+        sample_location = get_test_object_path(pathlib.Path("data/core") / sample_sha256)
         with db.session.begin():
             task = db.session.merge(task)
             task.target = str(sample_location)
@@ -425,12 +428,12 @@ class TestAnalysisManager:
     def test_category_checks_modified_file(
         self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
     ):
-        sample_sha256 = "05ec45d230d2a55b059f0ba7a0f0b4085f8ab6a73c1ffa33c7693f5ef48e22e5"
+        sample_sha256 = "5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b"
 
         class mock_sample:
             sha256 = "123"
 
-        sample_location = get_test_object_path(pathlib.Path("test_samples") / sample_sha256)
+        sample_location = get_test_object_path(pathlib.Path("data/core") / sample_sha256)
         with db.session.begin():
             task = db.session.merge(task)
             task.target = str(sample_location)
@@ -444,12 +447,12 @@ class TestAnalysisManager:
     def test_category_checks_no_store_file(
         self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
     ):
-        sample_sha256 = "05ec45d230d2a55b059f0ba7a0f0b4085f8ab6a73c1ffa33c7693f5ef48e22e5"
+        sample_sha256 = "5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b"
 
         class mock_sample:
             sha256 = sample_sha256
 
-        sample_location = get_test_object_path(pathlib.Path("test_samples") / sample_sha256)
+        sample_location = get_test_object_path(pathlib.Path("data/core") / sample_sha256)
         with db.session.begin():
             task = db.session.merge(task)
             task.target = str(sample_location)
@@ -463,12 +466,12 @@ class TestAnalysisManager:
     def test_category_checks_pcap(
         self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
     ):
-        sample_sha256 = "05ec45d230d2a55b059f0ba7a0f0b4085f8ab6a73c1ffa33c7693f5ef48e22e5"
+        sample_sha256 = "5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b"
 
         class mock_sample:
             sha256 = sample_sha256
 
-        sample_location = get_test_object_path(pathlib.Path("test_samples") / sample_sha256)
+        sample_location = get_test_object_path(pathlib.Path("data/core") / sample_sha256)
         with db.session.begin():
             task = db.session.merge(task)
             task.target = str(sample_location)

@@ -1038,15 +1038,7 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path, analysis=True) # return_value=True,
-                if need_space:
-                    if not printed_need_space_error:
-                        log.error(
-                            "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
-                            space_available,
-                        )
-                        printed_need_space_error = True
-                    continue
+                free_space_monitor(dir_path, analysis=True)
 
             # Have we limited the number of concurrently executing machines?
             if self.cfg.cuckoo.max_machines_count > 0 and self.categories_need_VM:

@@ -67,14 +67,14 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     """
 
     cleanup_dict = {
-        "delete_mongo": config.cleanup.mongo,
+        "delete_mongo": config.cleaner.mongo,
     }
     if config.cleaner.binaries_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleanup.binaries_days)
+        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleaner.binaries_days)
     if config.cleaner.tmp_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleanup.tmp_days)
+        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleaner.tmp_days)
     if config.cleaner.analysis_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleanup.analysis_days)
+        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleaner.analysis_days)
 
     need_space, space_available = False, 0
     # Calculate the free disk space in megabytes.

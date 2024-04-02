@@ -554,7 +554,7 @@ class AnalysisManager(threading.Thread):
             if self.cfg.cuckoo.memory_dump or self.task.memory:
                 try:
                     dump_path = get_memdump_path(self.task.id)
-                    need_space, space_available = free_space_monitor(os.path.dirname(dump_path)) #, return_value=True)
+                    need_space, space_available = free_space_monitor(os.path.dirname(dump_path), return_value=True)
                     if need_space:
                         if not printed_need_space_error:
                             log.error("Not enough free disk space! Could not dump ram (Only %d MB!)", space_available)

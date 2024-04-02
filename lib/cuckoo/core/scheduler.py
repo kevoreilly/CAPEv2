@@ -32,7 +32,7 @@ from lib.cuckoo.core.log import task_log_stop
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
-from lib.cuckoo.cleaners_utils import free_space_monitor
+from lib.cuckoo.common.cleaners_utils import free_space_monitor
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False

@@ -40,7 +40,7 @@ from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
-from lib.cuckoo.cleaners_utils import free_space_monitor
+from lib.cuckoo.common.cleaners_utils import free_space_monitor
 
 cfg = Config()
 logconf = Config("logging")

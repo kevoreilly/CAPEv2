@@ -556,9 +556,7 @@ class AnalysisManager(threading.Thread):
                     dump_path = get_memdump_path(self.task.id)
                     need_space, space_available = free_space_monitor(os.path.dirname(dump_path), return_value=True)
                     if need_space:
-                        if not printed_need_space_error:
-                            log.error("Not enough free disk space! Could not dump ram (Only %d MB!)", space_available)
-                            printed_need_space_error = True
+                        log.error("Not enough free disk space! Could not dump ram (Only %d MB!)", space_available)
                     else:
                         machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
@@ -995,7 +993,6 @@ class Scheduler:
         # This loop runs forever.
 
         self.loop_state = LoopState.RUNNING
-        printed_need_space_error = False
         while self.loop_state in (LoopState.RUNNING, LoopState.PAUSED, LoopState.STOPPING):
             if self.loop_state == LoopState.STOPPING:
                 # Wait for analyses to finish before stopping

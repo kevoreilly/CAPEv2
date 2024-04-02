@@ -554,9 +554,11 @@ class AnalysisManager(threading.Thread):
             if self.cfg.cuckoo.memory_dump or self.task.memory:
                 try:
                     dump_path = get_memdump_path(self.task.id)
-                    need_space, space_available = free_space_monitor(os.path.dirname(dump_path), return_value=True)
+                    need_space, space_available = free_space_monitor(os.path.dirname(dump_path)) #, return_value=True)
                     if need_space:
-                        log.error("Not enough free disk space! Could not dump ram (Only %d MB!)", space_available)
+                        if not printed_need_space_error:
+                            log.error("Not enough free disk space! Could not dump ram (Only %d MB!)", space_available)
+                            printed_need_space_error = True
                     else:
                         machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
@@ -993,6 +995,7 @@ class Scheduler:
         # This loop runs forever.
 
         self.loop_state = LoopState.RUNNING
+        printed_need_space_error = False
         while self.loop_state in (LoopState.RUNNING, LoopState.PAUSED, LoopState.STOPPING):
             if self.loop_state == LoopState.STOPPING:
                 # Wait for analyses to finish before stopping
@@ -1035,12 +1038,14 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path, return_value=True, analysis=True)
+                need_space, space_available = free_space_monitor(dir_path, analysis=True) # return_value=True,
                 if need_space:
-                    log.error(
-                        "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
-                        space_available,
-                    )
+                    if not printed_need_space_error:
+                        log.error(
+                            "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
+                            space_available,
+                        )
+                        printed_need_space_error = True
                     continue
 
             # Have we limited the number of concurrently executing machines?

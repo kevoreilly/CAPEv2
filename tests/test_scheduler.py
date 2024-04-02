@@ -162,20 +162,22 @@ class TestAnalysisManager:
         assert analysis_man.init_storage() is False
         assert "Unable to create analysis folder" in caplog.text
 
+    @pytest.mark.usefixtures("db")
     def test_check_file(self, mocker):
         class mock_sample:
             sha256 = "e3b"
 
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
-        mocker.patch("lib.cuckoo.core.database.Database.view_sample", return_value=mock_sample())
+        mocker.patch("lib.cuckoo.core.database._Database.view_sample", return_value=mock_sample())
         assert analysis_man.check_file("e3b") is True
 
+    @pytest.mark.usefixtures("db")
     def test_check_file_err(self, mocker):
         class mock_sample:
             sha256 = "f3b"
 
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
-        mocker.patch("lib.cuckoo.core.database.Database.view_sample", return_value=mock_sample())
+        mocker.patch("lib.cuckoo.core.database._Database.view_sample", return_value=mock_sample())
         assert analysis_man.check_file("e3b") is False
 
     @pytest.mark.skip(reason="TODO")
@@ -208,6 +210,7 @@ class TestAnalysisManager:
         analysis_man.store_file(sha256="e3be3b")
         assert "Unable to create symlink/copy" in caplog.text
 
+    @pytest.mark.usefixtures("db")
     def test_acquire_machine(self, setup_machinery, setup_machine_lock):
         class mock_machinery:
             def availables(self, label, platform, tags, arch, os_version):
@@ -486,7 +489,7 @@ class TestAnalysisManager:
 
         analysis_man = AnalysisManager(task=mock_task_cat, error_queue=queue.Queue())
         assert analysis_man.init_storage() is True
-        mocker.patch("lib.cuckoo.core.scheduler.Database.view_sample", return_value=mock_sample())
+        mocker.patch("lib.cuckoo.core.database._Database.view_sample", return_value=mock_sample())
 
         assert analysis_man.category_checks() is None
 
@@ -497,7 +500,7 @@ class TestAnalysisManager:
 
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
         assert analysis_man.init_storage() is True
-        mocker.patch("lib.cuckoo.core.scheduler.Database.view_sample", return_value=mock_sample())
+        mocker.patch("lib.cuckoo.core.database._Database.view_sample", return_value=mock_sample())
 
         assert analysis_man.category_checks() is False
 
@@ -511,7 +514,7 @@ class TestAnalysisManager:
         mock_task_cat.target = sample_location
         analysis_man = AnalysisManager(task=mock_task_cat, error_queue=queue.Queue())
         assert analysis_man.init_storage() is True
-        mocker.patch("lib.cuckoo.core.scheduler.Database.view_sample", return_value=mock_sample())
+        mocker.patch("lib.cuckoo.core.database._Database.view_sample", return_value=mock_sample())
         mocker.patch("lib.cuckoo.core.scheduler.AnalysisManager.store_file", return_value=False)
 
         assert analysis_man.category_checks() is False
@@ -528,6 +531,6 @@ class TestAnalysisManager:
 
         analysis_man = AnalysisManager(task=mock_task_cat, error_queue=queue.Queue())
         assert analysis_man.init_storage() is True
-        mocker.patch("lib.cuckoo.core.scheduler.Database.view_sample", return_value=mock_sample())
+        mocker.patch("lib.cuckoo.core.database._Database.view_sample", return_value=mock_sample())
 
         assert analysis_man.category_checks() is True

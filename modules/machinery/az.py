@@ -88,6 +88,7 @@ current_vmss_operations = 0
 
 
 class Azure(Machinery):
+    module_name = "az"
 
     # Resource tag that indicates auto-scaling.
     AUTO_SCALE_CAPE_KEY = "AUTO_SCALE_CAPE"
@@ -103,15 +104,14 @@ class Azure(Machinery):
     WINDOWS_PLATFORM = "windows"
     LINUX_PLATFORM = "linux"
 
-    def _initialize(self, module_name):
+    def _initialize(self):
         """
         Overloading abstracts.py:_initialize()
         Read configuration.
         @param module_name: module name
         @raise CuckooDependencyError: if there is a problem with the dependencies call
         """
-        self.module_name = module_name
-        mmanager_opts = self.options.get(module_name)
+        mmanager_opts = self.options.get(self.module_name)
         if not isinstance(mmanager_opts["scale_sets"], list):
             mmanager_opts["scale_sets"] = mmanager_opts["scale_sets"].strip().split(",")
 
@@ -150,7 +150,6 @@ class Azure(Machinery):
         """
         Overloading abstracts.py:_initialize_check()
         Running checks against Azure that the configuration is correct.
-        @param module_name: module name, currently not used be required
         @raise CuckooDependencyError: if there is a problem with the dependencies call
         """
         if not HAVE_AZURE:
@@ -483,31 +482,6 @@ class Azure(Machinery):
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[], need_scheduled=False):
-        """
-        Overloading abstracts.py:acquire() to utilize the auto-scale option.
-        @param machine_id: the name of the machine to be acquired
-        @param platform: the platform of the machine's operating system to be acquired
-        @param tags: any tags that are associated with the machine to be acquired
-        @param arch: the architecture of the operating system
-        @return: dict representing machine object from DB
-        """
-        base_class_return_value = super(Azure, self).acquire(
-            machine_id=machine_id, platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled
-        )
-        if base_class_return_value and base_class_return_value.name:
-            vmss_name, _ = base_class_return_value.name.split("_")
-
-            # Get the VMSS name by the tag
-            if not machine_pools[vmss_name]["is_scaling"]:
-                # Start it and forget about it
-                threading.Thread(
-                    target=self._thr_scale_machine_pool,
-                    args=(self.options.az.scale_sets[vmss_name].pool_tag, True if platform else False),
-                ).start()
-
-        return base_class_return_value
-
     def _add_machines_to_db(self, vmss_name):
         """
         Adding machines to database that did not exist there before.
@@ -810,7 +784,8 @@ class Azure(Machinery):
             "is_scaling_down": False,
             "wait": False,
         }
-        self._add_machines_to_db(vmss_name)
+        with self.db.session.begin():
+            self._add_machines_to_db(vmss_name)
 
     def _thr_reimage_vmss(self, vmss_name):
         """
@@ -840,7 +815,8 @@ class Azure(Machinery):
             else:
                 log.error(repr(e), exc_info=True)
                 raise
-        self._add_machines_to_db(vmss_name)
+        with self.db.session.begin():
+            self._add_machines_to_db(vmss_name)
 
     def _thr_scale_machine_pool(self, tag, per_platform=False):
         """
@@ -849,6 +825,10 @@ class Azure(Machinery):
         @param per_platform: A boolean flag indicating that we should scale machine pools "per platform" vs. "per tag"
         @return: Ends method call
         """
+        with self.db.session.begin():
+            return self._scale_machine_pool(tag, per_platform=per_platform)
+
+    def _scale_machine_pool(self, tag, per_platform=False):
         global machine_pools, is_platform_scaling, current_vmss_operations
 
         platform = None

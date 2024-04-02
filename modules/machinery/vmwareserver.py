@@ -16,6 +16,8 @@ log = logging.getLogger(__name__)
 class VMwareServer(Machinery):
     """Virtualization layer for remote VMware Workstation Server using vmrun utility."""
 
+    module_name = "vmwareserver"
+
     LABEL = "vmx_path"
 
     def _initialize_check(self):

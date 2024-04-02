@@ -11,6 +11,8 @@ from lib.cuckoo.common.exceptions import CuckooMachineError
 class KVM(LibVirtMachinery):
     """Virtualization layer for KVM based on python-libvirt."""
 
+    module_name = "kvm"
+
     def _initialize_check(self):
         """Runs all checks when a machine manager is initialized.
         @raise CuckooMachineError: if configuration is invalid

@@ -18,6 +18,8 @@ s.verify = False
 class VMwareREST(Machinery):
     """Virtualization layer for remote VMware REST Server."""
 
+    module_name = "vmwarerest"
+
     LABEL = "id"
 
     def _initialize_check(self):

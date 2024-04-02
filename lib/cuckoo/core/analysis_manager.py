@@ -666,8 +666,9 @@ class AnalysisManager(threading.Thread):
 
         self._rooter_response_check()
 
-    def set_machine_specific_options(self):
-        """This function may be used to update self.task.options based on the machine
-        that has been selected (self.machine).
+    def get_machine_specific_options(self, task_opts: str) -> str:
+        """This function may be used to return an updated version of the
+        provided options string based on the machine that has been selected
+        (self.machine).
         """
-        return
+        return task_opts

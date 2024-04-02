@@ -639,7 +639,16 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
-    return render(request, "submission/status.html", {"completed": completed, "status": status, "task_id": task_id})
+    response = {"completed": completed, "status": status, "task_id": task_id, "session_data": ""}
+    if settings.REMOTE_SESSION:
+        machine = db.view_machine_by_label(task.machine)
+        if machine:
+            guest_ip = machine.ip
+            session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
+            session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+            response["session_data"] = session_data
+
+    return render(request, "submission/status.html", response)
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

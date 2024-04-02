@@ -58,6 +58,7 @@ if web_cfg.web_reporting.get("enabled", True):
 
 WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
 WEB_OAUTH = web_cfg.oauth
+REMOTE_SESSION = web_cfg.guacamole.enabled
 
 # Get connection options from reporting.conf.
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")

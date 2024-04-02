@@ -1,8 +1,8 @@
+import ctypes
 import logging
 import os
 import sys
-import ctypes
-from ctypes import wintypes, POINTER
+from ctypes import POINTER, wintypes
 from ctypes.wintypes import BOOL, HANDLE
 from functools import wraps
 
@@ -20,7 +20,7 @@ def check_file_extension(path: str, ext: str) -> str:
 
 
 def disable_wow64_redirection(func):
-    if os.name == 'nt' and sys.maxsize == 2**31 - 1:
+    if os.name == "nt" and sys.maxsize == 2**31 - 1:
         log.info("disable_wow64_redirection")
         kernel32 = ctypes.windll.kernel32
 
@@ -36,7 +36,7 @@ def disable_wow64_redirection(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if os.name == 'nt' and sys.maxsize == 2**31 - 1:
+        if os.name == "nt" and sys.maxsize == 2**31 - 1:
             log.info("wrapping")
             old_value = wintypes.HANDLE()
             Wow64DisableWow64FsRedirection(ctypes.byref(old_value))

@@ -3,19 +3,20 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import glob
+import importlib
+import inspect
 import logging
 import os
 import shutil
-import importlib
-import inspect
-# from typing import Dict, Any
 
 from lib.api.process import Process
-from lib.common.common import check_file_extension
+from lib.common.common import check_file_extension, disable_wow64_redirection
 from lib.common.exceptions import CuckooPackageError
 from lib.common.parse_pe import choose_dll_export, is_pe_image
 from lib.core.compound import create_custom_folders
-from lib.common.common import disable_wow64_redirection
+
+# from typing import Dict, Any
+
 
 log = logging.getLogger(__name__)
 

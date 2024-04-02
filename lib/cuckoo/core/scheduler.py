@@ -679,6 +679,7 @@ class AnalysisManager(threading.Thread):
         elif self.route == "internet" and routing.routing.internet != "none":
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
+            self.no_local_routing = routing.routing.no_local_routing
             if routing.routing.reject_segments != "none":
                 self.reject_segments = routing.routing.reject_segments
             if routing.routing.reject_hostports != "none":
@@ -745,43 +746,77 @@ class AnalysisManager(threading.Thread):
             self.rt_table = None
             self.route = "drop"
 
-        if self.interface:
-            self.rooter_response = rooter("forward_enable", self.machine.interface, self.interface, self.machine.ip)
+        if self.interface: 
+            if self.no_local_routing:
+                input_interface = "dirty-line"
+                # Traffic from lan to machine
+                self.rooter_response = rooter("forward_enable", input_interface, self.machine.interface, "0.0.0.0/0", self.machine.ip)
+                # Traffic outbound from machine
+                self.rooter_response = rooter("forward_enable", input_interface, self.interface, self.machine.ip)
+            else:
+                input_interface = self.machine.interface
+                self.rooter_response = rooter("forward_enable", input_interface, self.interface, self.machine.ip)
             self._rooter_response_check()
             if self.reject_segments:
                 self.rooter_response = rooter(
-                    "forward_reject_enable", self.machine.interface, self.interface, self.machine.ip, self.reject_segments
+                    "forward_reject_enable", input_interface, self.interface, self.machine.ip, self.reject_segments
                 )
+                if self.no_local_routing:
+                    # Need for forward traffic between sandbox and CAPE
+                    self.rooter_response = rooter(
+                        "forward_enable", input_interface, self.interface, self.machine.ip, self.cfg.resultserver.ip, "tcp", str(self.cfg.resultserver.port)
+                    )
+                    self.rooter_response = rooter(
+                        "forward_enable", input_interface, self.machine.interface, self.cfg.resultserver.ip, self.machine.ip
+                    )
                 self._rooter_response_check()
             if self.reject_hostports:
                 self.rooter_response = rooter(
-                    "hostports_reject_enable", self.machine.interface, self.machine.ip, self.reject_hostports
+                    "hostports_reject_enable", input_interface, self.machine.ip, self.reject_hostports
                 )
                 self._rooter_response_check()
 
         log.info("Enabled route '%s'.", self.route)
-
-        if self.rt_table:
+        if self.no_local_routing:
+            rooter("add_dev_to_vrf", self.machine.interface)
+        elif self.rt_table:
             self.rooter_response = rooter("srcroute_enable", self.rt_table, self.machine.ip)
             self._rooter_response_check()
 
     def unroute_network(self):
         if self.interface:
-            self.rooter_response = rooter("forward_disable", self.machine.interface, self.interface, self.machine.ip)
+            if self.no_local_routing:
+                input_interface = "dirty-line"
+                # Traffic from lan to machine
+                self.rooter_response = rooter("forward_disable", input_interface, self.machine.interface, "0.0.0.0/0", self.machine.ip)
+                # Traffic outbound from machine
+                self.rooter_response = rooter("forward_disable", input_interface, self.machine.interface, self.machine.ip)
+            else:
+                input_interface = self.machine.interface
+                self.rooter_response = rooter("forward_disable", input_interface, self.interface, self.machine.ip)
             self._rooter_response_check()
             if self.reject_segments:
                 self.rooter_response = rooter(
-                    "forward_reject_disable", self.machine.interface, self.interface, self.machine.ip, self.reject_segments
+                    "forward_reject_disable", input_interface, self.interface, self.machine.ip, self.reject_segments
                 )
+                if self.no_local_routing:
+                    self.rooter_response = rooter(
+                        "forward_disable", input_interface, self.interface, self.machine.ip, self.cfg.resultserver.ip, "tcp", str(self.cfg.resultserver.port)
+                    )
+                    self.rooter_response = rooter(
+                        "forward_disable", input_interface, self.machine.interface, self.cfg.resultserver.ip, self.machine.ip
+                    )
                 self._rooter_response_check()
             if self.reject_hostports:
                 self.rooter_response = rooter(
-                    "hostports_reject_disable", self.machine.interface, self.machine.ip, self.reject_hostports
+                    "hostports_reject_disable", input_interface, self.machine.ip, self.reject_hostports
                 )
                 self._rooter_response_check()
             log.info("Disabled route '%s'", self.route)
 
-        if self.rt_table:
+        if self.no_local_routing:
+            rooter("delete_dev_from_vrf", self.machine.interface)
+        elif self.rt_table:
             self.rooter_response = rooter("srcroute_disable", self.rt_table, self.machine.ip)
             self._rooter_response_check()
 

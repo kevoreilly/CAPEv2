@@ -6,6 +6,8 @@
 import argparse
 import errno
 import grp
+import ipaddress
+import psutil
 import json
 import logging.handlers
 import os
@@ -84,6 +86,13 @@ def cleanup_rooter():
     p = subprocess.Popen([s.iptables_restore], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(input="\n".join(cleaned))
 
+    run_iptables("-F", "CAPE_ACCEPTED_SEGMENTS")
+    run_iptables("-F", "CAPE_REJECTED_SEGMENTS")
+    run_iptables("-N", "CAPE_ACCEPTED_SEGMENTS")
+    run_iptables("-N", "CAPE_REJECTED_SEGMENTS")
+    run_iptables("-I", "FORWARD", "-j", "CAPE_REJECTED_SEGMENTS")
+    run_iptables("-I", "FORWARD", "-j", "CAPE_ACCEPTED_SEGMENTS")
+    
 
 def nic_available(interface):
     """Check if specified network interface is available."""
@@ -108,6 +117,44 @@ def rt_available(rt_table):
         return True
     except subprocess.CalledProcessError:
         return False
+    
+
+def init_vrf(rt_table, dirty_line_dev):
+    # interfaces = psutil.net_if_addrs()           
+    # dirty_dev = interfaces[dirty_line_dev]
+    # dirty_net = ipaddress.ip_network(f"{dirty_dev[0].address}/{dirty_dev[0].netmask}", strict=False)
+    # dirty_gateway = dirty_net.network_address+1
+    
+    #with open("/etc/iproute2/rt_tables.d/dirty_line.conf", "w") as rt_filte:
+    #    rt_filte.write("1001\tdirty-line")
+    run(s.ip, "link", "add", "dirty-line", "type", "vrf", "table", rt_table)
+    run(s.ip, "link", "set", "dev", "dirty-line", "up")
+    run(s.ip, "rule", "add", "l3mdev", "proto", "kernel", "prio", "1000")
+    run(s.ip, "rule", "add", "l3mdev", "proto", "kernel", "unreachable", "prio", "1001")
+    run(s.ip, "rule", "add", "lookup", "local", "proto", "kernel", "prio", "32765")
+    run(s.ip, "rule", "delete", "lookup", "local", "prio", "0")
+    #run(s.ip, "route", "add", "default", "via", str(dirty_gateway), "dev", dirty_line_dev, "table", rt_table)
+    run(s.ip, "link", "set", "dev", dirty_line_dev, "master", "dirty-line")
+
+
+def cleanup_vrf(dirty_line_dev):
+    run(s.ip, "rule", "add", "lookup", "local", "proto", "kernel", "prio", "0")
+    run(s.ip, "rule", "delete", "lookup", "local", "prio", "32765")
+    run(s.ip, "rule", "delete", "l3mdev", "prio", "1000")
+    run(s.ip, "rule", "delete", "l3mdev", "unreachable", "prio", "1001")
+    run(s.ip, "link", "set", "dev", dirty_line_dev, "nomaster")
+    run(s.ip, "link", "set", "dev", "dirty-line", "down")
+    run(s.ip, "link", "del", "dirty-line")
+    #if os.path.exists("/etc/iproute2/rt_tables.d/dirty_line.conf"):
+    #    os.remove("/etc/iproute2/rt_tables.d/dirty_line.conf")
+
+
+def add_dev_to_vrf(dev):
+    run(s.ip, "link", "set", "dev", dev, "master", "dirty-line")
+
+
+def delete_dev_from_vrf(dev):
+    run(s.ip, "link", "set", "dev", dev, "nomaster")
 
 
 def vpn_status(name):
@@ -129,12 +176,16 @@ def forward_drop():
 def state_enable():
     """Enable stateful connection tracking."""
     run_iptables("-A", "INPUT", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
+    run_iptables("-I", "CAPE_ACCEPTED_SEGMENTS", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
 
 
 def state_disable():
     """Disable stateful connection tracking."""
     while True:
         _, err = run_iptables("-D", "INPUT", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
+        if err:
+            break
+        _, err = run_iptables("-D", "CAPE_ACCEPTED_SEGMENTS", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
         if err:
             break
 
@@ -160,6 +211,14 @@ def init_rttable(rt_table, interface):
         args = ["route", "add"] + [x for x in line.split(" ") if x]
         args += ["dev", interface, "table", rt_table]
         run(settings.ip, *args)
+    
+    stdout, _ = run(settings.ip, "route", "list", "default", "table", rt_table)
+    if(len(stdout.split("\n")) == 1):
+        interfaces = psutil.net_if_addrs()           
+        dirty_dev = interfaces[interface]
+        dirty_net = ipaddress.ip_network(f"{dirty_dev[0].address}/{dirty_dev[0].netmask}", strict=False)
+        dirty_gateway = dirty_net.network_address+1
+        run(settings.ip, "route", "add", "default", "via", str(dirty_gateway), "dev", interface, "table", rt_table)
 
 
 def flush_rttable(rt_table):
@@ -170,35 +229,90 @@ def flush_rttable(rt_table):
     run(settings.ip, "route", "flush", "table", rt_table)
 
 
-def forward_enable(src, dst, ipaddr):
-    """Enable forwarding a specific IP address from one interface into
-    another."""
+def forward_enable(src, dst, ipaddr, accept_segments=None, proto=None, ports=None):
+    """Enable forwarding a specific IP address from one interface into another."""
     # Delete libvirt's default FORWARD REJECT rules. e.g.:
     # -A FORWARD -o virbr0 -j REJECT --reject-with icmp-port-unreachable
     # -A FORWARD -i virbr0 -j REJECT --reject-with icmp-port-unreachable
     run_iptables("-D", "FORWARD", "-i", src, "-j", "REJECT")
     run_iptables("-D", "FORWARD", "-o", src, "-j", "REJECT")
-    run_iptables("-I", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "-j", "ACCEPT")
-    run_iptables("-I", "FORWARD", "-i", dst, "-o", src, "--destination", ipaddr, "-j", "ACCEPT")
+    if ports and (not proto or proto not in ["tcp", "udp"]):
+        log.debug("Invalid protocol of transport layer")
+        return False
+    if ports:
+        if "-" in ports:
+            # We need a single hyphen to indicate that it is a range
+            if ports.count("-") != 1:
+                log.debug("Invalid ports range entry: %s", ports)
+                return False
+            else:
+                start_port, end_port = ports.split("-")
+                if not start_port.isdigit() or not end_port.isdigit() or start_port > end_port:
+                    log.debug("Invalid port range entry: %s", ports)
+                    return False
+                else:
+                    # Good to go! iptables takes port ranges as start:end
+                    ports = ports.replace("-", ":")
+        # Handle a single port
+        else:
+            if not ports.isdigit():
+                log.debug("Invalid port entry: %s", ports)
+                return False
+    
+    args = ["-I", "CAPE_ACCEPTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr]
+    if accept_segments:
+        args += ["--destination", accept_segments]
+    if ports:
+        args += ["-p", proto, "-m", "multiport", "--dport", ports]
+    args += ["-j", "ACCEPT"]
+    run_iptables(*args)
 
 
-def forward_disable(src, dst, ipaddr):
+def forward_disable(src, dst, ipaddr, accept_segments=None, proto=None, ports=None):
     """Disable forwarding of a specific IP address from one interface into
     another."""
-    run_iptables("-D", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "-j", "ACCEPT")
-    run_iptables("-D", "FORWARD", "-i", dst, "-o", src, "--destination", ipaddr, "-j", "ACCEPT")
-
+    if ports and (not proto or proto not in ["tcp", "udp"]):
+        log.debug("Invalid protocol of transport layer")
+        return False
+    if ports:
+        if "-" in ports:
+            # We need a single hyphen to indicate that it is a range
+            if ports.count("-") != 1:
+                log.debug("Invalid ports range entry: %s", ports)
+                return False
+            else:
+                start_port, end_port = ports.split("-")
+                if not start_port.isdigit() or not end_port.isdigit() or start_port > end_port:
+                    log.debug("Invalid port range entry: %s", ports)
+                    return False
+                else:
+                    # Good to go! iptables takes port ranges as start:end
+                    ports = ports.replace("-", ":")
+        # Handle a single port
+        else:
+            if not ports.isdigit():
+                log.debug("Invalid port entry: %s", ports)
+                return False
+    
+    args = ["-D", "CAPE_ACCEPTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr]
+    if accept_segments:
+        args += ["--destination", accept_segments]
+    if ports:
+        args += ["-p", proto, "-m", "multiport", "--dport", ports]
+    args += ["-j", "ACCEPT"]
+    run_iptables(*args)
+    
 
 def forward_reject_enable(src, dst, ipaddr, reject_segments):
     """Enable forwarding a specific IP address from one interface into another
     but reject some targets network segments."""
-    run_iptables("-I", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
+    run_iptables("-I", "CAPE_REJECTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
 
 
 def forward_reject_disable(src, dst, ipaddr, reject_segments):
     """Disable forwarding a specific IP address from one interface into another
     but reject some targets network segments."""
-    run_iptables("-D", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
+    run_iptables("-D", "CAPE_REJECTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
 
 
 def hostports_reject_enable(src, ipaddr, reject_hostports):
@@ -572,6 +686,10 @@ handlers = {
     "drop_enable": drop_enable,
     "drop_disable": drop_disable,
     "cleanup_rooter": cleanup_rooter,
+    "init_vrf": init_vrf,
+    "cleanup_vrf": cleanup_vrf,
+    "add_dev_to_vrf": add_dev_to_vrf,
+    "delete_dev_from_vrf": delete_dev_from_vrf,
 }
 
 if __name__ == "__main__":

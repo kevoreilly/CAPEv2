@@ -453,10 +453,10 @@ class Retriever(threading.Thread):
         # error message and wait another round (this check is ignored
         # when the freespace configuration variable is set to zero).
         if cfg.cuckoo.freespace:
+            # Resolve the full base path to the analysis folder, just in
+            # case somebody decides to make a symbolic link out of it.
+            dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
             while True:
-                # Resolve the full base path to the analysis folder, just in
-                # case somebody decides to make a symbolic link out of it.
-                dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
                 free_space_monitor(dir_path, analysis=True)
                 time.sleep(600)
 

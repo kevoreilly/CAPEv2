@@ -25,13 +25,14 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
-from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
+from lib.cuckoo.common.utils import convert_to_printable, create_folder, get_memdump_path, load_categories
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Task
 from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.log import task_log_stop
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
+from lib.cuckoo.common.cleaners_utils import free_space_monitor
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False
@@ -1034,13 +1035,7 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path, return_value=True, analysis=True)
-                if need_space:
-                    log.error(
-                        "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
-                        space_available,
-                    )
-                    continue
+                free_space_monitor(dir_path, analysis=True)
 
             # Have we limited the number of concurrently executing machines?
             if self.cfg.cuckoo.max_machines_count > 0 and self.categories_need_VM:

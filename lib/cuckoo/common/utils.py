@@ -12,7 +12,6 @@ import shutil
 import socket
 import string
 import struct
-import sys
 import tempfile
 import time
 import xmlrpc.client
@@ -179,70 +178,6 @@ def create_zip(files=False, folder=False, encrypted=False):
 
     mem_zip.seek(0)
     return mem_zip
-
-
-def free_space_monitor(path=False, return_value=False, processing=False, analysis=False):
-    """
-    @param path: path to check
-    @param return_value: return available size
-    @param processing: size from cuckoo.conf -> freespace_processing.
-    @param analysis: check the main storage size
-    """
-    """
-    cleanup_dict = {
-        "delete_mongo": config.cleanup.mongo,
-    }
-    if config.cleaner.binaries_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.binaries_days
-    if config.cleaner.tmp_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.tmp_days
-    if config.cleaner.analysis_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.analysis_days
-    """
-
-    need_space, space_available = False, 0
-    # Calculate the free disk space in megabytes.
-    # Check main FS if processing
-    if processing:
-        free_space = config.cuckoo.freespace_processing
-    elif not analysis and HAVE_TMPFS and tmpfs.enabled:
-        path = tmpfs.path
-        free_space = tmpfs.freespace
-    else:
-        free_space = config.cuckoo.freespace
-
-    if path and not path_exists(path):
-        sys.exit("Restart daemon/process, happens after full cleanup")
-
-    printed_error = False
-    while True:
-        try:
-            space_available = shutil.disk_usage(path).free >> 20
-            need_space = space_available < free_space
-        except FileNotFoundError:
-            log.error("Folder doesn't exist, maybe due to clean")
-            path_mkdir(path)
-            continue
-
-        if return_value:
-            return need_space, space_available
-
-        if need_space:
-            if not printed_error:
-                log.error(
-                    "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
-                    space_available,
-                )
-                printed_error = True
-            """
-            # Invoke cleaups here if enabled
-            if config.cleaner.invoke_cleanup:
-                # prepare dict on startup
-                execute_cleanup(cleanup_dict)
-            """
-            time.sleep(5)
-        else:
-            break
 
 
 def get_memdump_path(memdump_id, analysis_folder=False):

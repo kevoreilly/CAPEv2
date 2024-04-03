@@ -32,11 +32,12 @@ log = logging.getLogger()
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from concurrent.futures import TimeoutError
 
+from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
-from lib.cuckoo.common.utils import free_space_monitor, get_options
+from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task, init_database
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules

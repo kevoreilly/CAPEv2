@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from contextlib import suppress
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
@@ -12,7 +13,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir, path_mkdir
 from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
@@ -28,11 +29,16 @@ from lib.cuckoo.core.startup import create_structure, init_console_logging
 
 log = logging.getLogger(__name__)
 
-cuckoo = Config()
+config = Config()
 repconf = Config("reporting")
 webconf = Config("web")
 resolver_pool = ThreadPool(50)
 atexit.register(resolver_pool.close)
+
+HAVE_TMPFS = False
+if hasattr(config, "tmpfs"):
+    tmpfs = config.tmpfs
+    HAVE_TMPFS = True
 
 # Initialize the database connection.
 db = Database()
@@ -50,6 +56,77 @@ if repconf.mongodb.enabled:
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
+
+
+def free_space_monitor(path=False, return_value=False, processing=False, analysis=False):
+    """
+    @param path: path to check
+    @param return_value: return available size
+    @param processing: size from cuckoo.conf -> freespace_processing.
+    @param analysis: check the main storage size
+    """
+
+    cleanup_dict = {
+        "delete_mongo": config.cleaner.mongo,
+    }
+    if config.cleaner.binaries_days:
+        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleaner.binaries_days)
+    if config.cleaner.tmp_days:
+        cleanup_dict["delete_tmp_items_older_than_days"] = int(config.cleaner.tmp_days)
+    if config.cleaner.analysis_days:
+        cleanup_dict["delete_older_than_days"] = int(config.cleaner.analysis_days)
+
+    need_space, space_available = False, 0
+    # Calculate the free disk space in megabytes.
+    # Check main FS if processing
+    if processing:
+        free_space = config.cuckoo.freespace_processing
+    elif not analysis and HAVE_TMPFS and tmpfs.enabled:
+        path = tmpfs.path
+        free_space = tmpfs.freespace
+    else:
+        free_space = config.cuckoo.freespace
+
+    if path and not path_exists(path):
+        sys.exit("Restart daemon/process, happens after full cleanup")
+
+    printed_error = False
+    while True:
+        try:
+            space_available = shutil.disk_usage(path).free >> 20
+            need_space = space_available < free_space
+        except FileNotFoundError:
+            log.error("Folder doesn't exist, maybe due to clean")
+            path_mkdir(path)
+            continue
+
+        if return_value:
+            return need_space, space_available
+
+        if need_space:
+            if not printed_error:
+                log.error(
+                    "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
+                    space_available,
+                )
+                printed_error = True
+
+            # Invoke cleaups here if enabled
+            if config.cleaner.enabled:
+                # prepare dict on startup
+                execute_cleanup(cleanup_dict)
+
+                # rest 1 day
+                if config.cleaner.binaries_days and cleanup_dict["delete_binaries_items_older_than_days"]:
+                    cleanup_dict["delete_binaries_items_older_than_days"] -= 1
+                if config.cleaner.tmp_days and cleanup_dict["delete_tmp_items_older_than_days"]:
+                    cleanup_dict["delete_tmp_items_older_than_days"] -= 1
+                if config.cleaner.analysis_days and cleanup_dict["delete_older_than_days"]:
+                    cleanup_dict["delete_older_than_days"] -= 1
+
+            time.sleep(5)
+        else:
+            break
 
 
 def delete_folder(folder):
@@ -351,7 +428,7 @@ def tmp_clean_before_day(days: int):
     init_console_logging()
 
     today = datetime.today()
-    tmp_folder_path = cuckoo.cuckoo.get("tmppath")
+    tmp_folder_path = config.cuckoo.get("tmppath")
 
     for folder in ("cuckoo-tmp", "cape-external"):
         for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
@@ -576,6 +653,8 @@ def binaries_clean_before_day(days: int):
     for _, _, filenames in os.walk(binaries_folder):
         for sha256 in filenames:
             bin_path = os.path.join(binaries_folder, sha256)
+            if not os.path.exists(bin_path):
+                continue
             st_ctime = path_get_date(bin_path)
             file_time = today - datetime.fromtimestamp(st_ctime)
             if file_time.days > days:

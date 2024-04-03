@@ -128,6 +128,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
         else:
             break
 
+
 def delete_folder(folder):
     """Delete a folder and all its subdirectories.
     @param folder: path to delete.

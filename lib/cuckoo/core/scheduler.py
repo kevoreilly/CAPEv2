@@ -13,6 +13,7 @@ import time
 from collections import defaultdict
 from time import monotonic as _time
 
+from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import (
@@ -32,7 +33,6 @@ from lib.cuckoo.core.log import task_log_stop
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
-from lib.cuckoo.common.cleaners_utils import free_space_monitor
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False

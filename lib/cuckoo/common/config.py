@@ -126,6 +126,10 @@ class Config(_BaseConfig, metaclass=ConfigMeta):
             files.extend(sorted(glob.glob(os.path.join(CUCKOO_ROOT, "conf", f"{self._fname_base}.conf.d", "*.conf"))))
         files.append(os.path.join(CUSTOM_CONF_DIR, f"{self._fname_base}.conf"))
         files.extend(sorted(glob.glob(os.path.join(CUSTOM_CONF_DIR, f"{self._fname_base}.conf.d", "*.conf"))))
+
+        if "CAPE_CD" in os.environ:
+            files.append(os.path.join(os.environ["CAPE_CD"], f"{self._fname_base}.conf"))
+
         if not files:
             raise CuckooCriticalError(f"No {self._fname_base} config files could be found!")
         return files

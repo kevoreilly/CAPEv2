@@ -53,6 +53,7 @@ from lib.cuckoo.core.database import (
 )
 from lib.cuckoo.core.database import Task as MD_Task
 from lib.cuckoo.core.database import init_database
+from lib.cuckoo.common.cleaners_utils import free_space_monitor
 
 dist_conf = Config("distributed")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")
@@ -447,7 +448,6 @@ class Retriever(threading.Thread):
                 log.exception(e)
             time.sleep(60)
 
-    # import from utils
     def free_space_mon(self):
         # If not enough free disk space is available, then we print an
         # error message and wait another round (this check is ignored
@@ -457,22 +457,8 @@ class Retriever(threading.Thread):
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-
-                if hasattr(os, "statvfs") and path_exists(dir_path):
-                    dir_stats = os.statvfs(dir_path)
-
-                    # Calculate the free disk space in megabytes.
-                    space_available = dir_stats.f_bavail * dir_stats.f_frsize
-                    space_available /= 1024 * 1024
-
-                    if space_available < cfg.cuckoo.freespace:
-                        log.error("Not enough free disk space! (Only %d MB!)", space_available)
-                        self.stop_dist.set()
-                        continue
-                    else:
-                        self.stop_dist.clear()
-
-                time.sleep(60)
+                free_space_monitor(dir_path, analysis=True)
+                time.sleep(600)
 
     def notification_loop(self):
         urls = reporting_conf.callback.url.split(",")

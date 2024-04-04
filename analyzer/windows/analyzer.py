@@ -999,6 +999,7 @@ class CommandPipeHandler:
             proc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id)
             filepath = proc.get_filepath()
             filename = os.path.basename(filepath)
+            # BUG(njb) potentially; in_protected_path only plays well with bytes
             if not in_protected_path(filename):
                 self.analyzer.process_list.add_pid(process_id)
                 log.info("Announce process name : %s", filename)
@@ -1225,6 +1226,7 @@ class CommandPipeHandler:
             return
 
         # Open the process and inject the DLL. Hope it enjoys it.
+        # BUG(njb) tid= not a kwarg
         proc = Process(pid=process_id, tid=thread_id)
 
         filepath = proc.get_filepath()
@@ -1290,6 +1292,7 @@ class CommandPipeHandler:
                         self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
+                    # BUG(njb) potentially; in_protected_path only plays well with bytes
                     if not in_protected_path(filename):
                         _ = proc.inject(interest)
                         self.LASTINJECT_TIME = timeit.default_timer()
@@ -1481,6 +1484,7 @@ if __name__ == "__main__":
     finally:
         try:
             # Let's invoke the completion procedure.
+            # BUG(njb) potentially; analyzer is bound in above try and could fail
             analyzer.complete()
         except Exception:
             complete_excp = traceback.format_exc()

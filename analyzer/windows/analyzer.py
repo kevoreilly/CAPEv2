@@ -186,7 +186,7 @@ def upload_files(folder):
         log.warning('Unable to access folder at path "%s": %s', log_folder, e)
         return
 
-    for root, dirs, files in os.walk(log_folder):
+    for root, _, files in os.walk(log_folder):
         for file in files:
             file_path = os.path.join(root, file)
             upload_path = os.path.join(folder, file)
@@ -357,7 +357,7 @@ class Analyzer:
         """Run analysis.
         @return: operation status.
         """
-        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64, ANALYSIS_TIMED_OUT
+        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64
 
         log.debug("Starting analyzer from: %s", Path.cwd())
         log.debug("Storing results at: %s", PATHS["root"])
@@ -409,7 +409,7 @@ class Analyzer:
         except IndexError as e:
             raise CuckooError(f"Unable to select package class (package={self.package_name}): {e}") from e
         except Exception as e:
-            log.exception(e)
+            raise CuckooError("error enumerating package subclasses: %s", e) from e
 
         # Initialize the analysis package.
         log.debug('Initializing analysis package "%s"...', package)
@@ -494,10 +494,7 @@ class Analyzer:
         # if self.options.get("disable_screens") == "0":
         #    disable_screens = False
 
-        for loader, name, ispkg in pkgutil.iter_modules(auxiliary.__path__, prefix):
-            # if ispkg or (name=="modules.auxiliary.screenshots" and disable_screens):
-            #    continue
-            # Import the auxiliary module.
+        for _, name, _ in pkgutil.iter_modules(auxiliary.__path__, prefix):
             try:
                 log.debug('Importing auxiliary module "%s"...', name)
                 __import__(name, globals(), locals(), ["dummy"])
@@ -532,25 +529,6 @@ class Analyzer:
             else:
                 log.debug("Started auxiliary module %s", module.__name__)
                 AUX_ENABLED.append(aux)
-
-        """
-        # Inform zer0m0n of the ResultServer address.
-        zer0m0n.resultserver(self.config.ip, self.config.port)
-
-        # Forward the command pipe and logpipe names on to zer0m0n.
-        zer0m0n.cmdpipe(self.config.pipe)
-        zer0m0n.channel(self.config.logpipe)
-
-        # Hide the Cuckoo Analyzer & Cuckoo Agent.
-        zer0m0n.hidepid(self.pid)
-        zer0m0n.hidepid(self.ppid)
-
-        # Initialize zer0m0n with our compiled Yara rules.
-        zer0m0n.yarald("bin/rules.yarac")
-
-        # Propagate the requested dump interval, if set.
-        zer0m0n.dumpint(int(self.options.get("dumpint", 0)))
-        """
 
         # log.info("Stopping WMI Service")
         subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)

@@ -218,3 +218,5 @@ tmp_days = 5
 analysis_days = 5
 # Delete mongo data
 mongo = no
+# Clean orphan files in mongodb
+unused_files_in_mongodb = no

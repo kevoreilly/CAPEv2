@@ -580,6 +580,9 @@ class Analyzer:
             log.info("Enabled timeout enforce, running for the full timeout")
             self.pid_check = False
 
+        # next phase; go to the analysis loop
+        self.analysis_loop(aux_modules)
+
     def analysis_loop(self, aux_modules):
         global ANALYSIS_TIMED_OUT
         time_start = timeit.default_timer()

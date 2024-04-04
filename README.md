@@ -116,6 +116,8 @@ In addition to CAPE's default 'passive' unpacking mechanisms, it is possible to 
 
 CAPE can be programmed via YARA signature to unpack specific packers. For example, UPX-type packers are very common and, although in CAPE these result in unpacked payloads being passively captured, the default capture is made after the unpacked payload has begun executing. Therefore by detecting UPX-derived packers dynamically via custom YARA signature and setting a breakpoint on the final packer instruction, it is possible to capture the payload at its original entry point (OEP) before it has begun executing.
 
+![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/daf702c8-a658-48fe-850a-d86f0a89dc82)
+
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/76b2c800-1d96-4ea5-ae86-c261b3946424)
 
 The `dump-on-api` option allows a module to be dumped when it calls a specific API function that can be specified in the web interface (e.g. `dump-on-api=DnsQuery_A`).

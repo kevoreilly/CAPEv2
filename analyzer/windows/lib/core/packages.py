@@ -128,7 +128,7 @@ def choose_package(file_type, file_name, exports, target):
     elif (
         file_name.endswith((".vbs", ".vbe"))
         or re.findall(rb"\s?Dim\s", file_content, re.I)
-        or re.findall(b"\s?\x00D\x00i\x00m\x00\s", file_content, re.I)
+        or re.findall(rb"\s?\x00D\x00i\x00m\x00\s", file_content, re.I)
     ):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:

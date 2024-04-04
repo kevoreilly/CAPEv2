@@ -133,7 +133,7 @@ def pids_from_image_names(suffixlist):
     return retpids
 
 
-def in_protected_path(fname):
+def in_protected_path(fname: bytes):
     """Checks file name against some protected names."""
     if not fname:
         return False
@@ -165,7 +165,7 @@ def del_pid_from_aux_modules(pid):
             continue
 
 
-def add_protected_path(name):
+def add_protected_path(name: bytes):
     """Adds a pathname to the protected list"""
     if os.path.isdir(name) and name[-1] != b"\\":
         PROTECTED_PATH_LIST.append(name.lower() + b"\\")
@@ -235,13 +235,6 @@ class Analyzer:
         self.LASTINJECT_TIME = None
         self.NUM_INJECTED = 0
 
-    def get_pipe_path(self, name):
-        """Return \\\\.\\PIPE on Windows XP and \\??\\PIPE elsewhere."""
-        version = sys.getwindowsversion()
-        if version.major == 5 and version.minor == 1:
-            return f"\\\\.\\PIPE\\{name}"
-        return f"\\??\\PIPE\\{name}"
-
     def prepare(self):
         """Prepare env for analysis."""
         global MONITOR_DLL, MONITOR_DLL_64, HIDE_PIDS
@@ -274,10 +267,7 @@ class Analyzer:
         # Set the default DLL to be used for this analysis.
         self.default_dll = self.options.get("dll")
 
-        # self.get_pipe_path(self.options.get("pipe", random_string(16, 32)))
         self.config.pipe = PIPE
-        # Generate a random name for the logging pipe server.
-        # self.get_pipe_path(random_string(16, 32))
         self.config.logpipe = LOGSERVER_PREFIX
         # Set virtual machine clock.
         set_clock(self.config.clock, self.config.timeout)

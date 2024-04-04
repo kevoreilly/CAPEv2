@@ -397,7 +397,7 @@ class Analyzer:
         except Exception as e:
             log.exception(e)
         # Initialize the package parent abstract.
-        Package()
+        Package(package_name)
         # Enumerate the abstract subclasses.
         try:
             package_class = Package.__subclasses__()[0]

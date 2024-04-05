@@ -29,9 +29,8 @@ class Package:
     PATHS = []
     default_curdir = None
 
-    def __init__(self, name: str, options=None, config=None):
+    def __init__(self, options=None, config=None):
         """@param options: options dict."""
-        self.name = name
         if options is None:
             options = {}
         self.config = config
@@ -80,7 +79,8 @@ class Package:
          - AttributeError if the module configure function is invalid.
          - ModuleNotFoundError if the module does not support configuration from data
         """
-        module_name = f"data.packages.{self.name}"
+        package_module_name = self.__class__.__module__.split('.')[-1]
+        module_name = f"data.packages.{package_module_name}"
         try:
             m = importlib.import_module(module_name)
         except Exception as e:

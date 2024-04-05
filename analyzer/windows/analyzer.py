@@ -397,7 +397,7 @@ class Analyzer:
         except Exception as e:
             log.exception(e)
         # Initialize the package parent abstract.
-        Package(package_name)
+        Package()
         # Enumerate the abstract subclasses.
         try:
             package_class = Package.__subclasses__()[0]
@@ -408,7 +408,7 @@ class Analyzer:
 
         # Initialize the analysis package.
         log.debug('Initializing analysis package "%s"...', package)
-        self.package = package_class(package_name, self.options, self.config)
+        self.package = package_class(self.options, self.config)
         # log.debug('Initialized analysis package "%s"', package)
 
         # Move the sample to the current working directory as provided by the

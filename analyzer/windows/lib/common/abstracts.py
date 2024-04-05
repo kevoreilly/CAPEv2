@@ -79,7 +79,7 @@ class Package:
          - AttributeError if the module configure function is invalid.
          - ModuleNotFoundError if the module does not support configuration from data
         """
-        package_module_name = self.__class__.__module__.split('.')[-1]
+        package_module_name = self.__class__.__module__.split(".")[-1]
         module_name = f"data.packages.{package_module_name}"
         try:
             m = importlib.import_module(module_name)

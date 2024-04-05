@@ -8,7 +8,7 @@ class TestPS1(unittest.TestCase):
         """By default, the first path should be powershell.exe"""
         package_name = "modules.packages.ps1"
         __import__(package_name, globals(), locals(), ["dummy"])
-        ps1_module = PS1(package_name)
+        ps1_module = PS1()
         paths = ps1_module.get_paths()
         assert paths[0][-1] == "powershell.exe"
         all_paths = set([path[-1] for path in paths])
@@ -19,7 +19,7 @@ class TestPS1(unittest.TestCase):
         options = {"pwsh": True}
         package_name = "modules.packages.ps1"
         __import__(package_name, globals(), locals(), ["dummy"])
-        ps1_module = PS1(package_name, options=options)
+        ps1_module = PS1(options=options)
         paths = ps1_module.get_paths()
         assert paths[0][-1] == "pwsh.exe"
         all_paths = set([path[-1] for path in paths])

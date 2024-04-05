@@ -9,7 +9,7 @@ class TestPackageConfiguration(unittest.TestCase):
 
     def test_private_package_configuration(self):
         # test analysis package
-        package_module = "configuration_package"
+        package_module = self.__class__.__module__
         # and its private configuration module
         module_name = f"data.packages.{package_module}"
 

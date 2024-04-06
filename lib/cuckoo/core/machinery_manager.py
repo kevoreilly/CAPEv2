@@ -251,7 +251,7 @@ class MachineryManager:
         # Cuckoo was terminated for some reason and various forwarding rules
         # have thus not been dropped yet.
         for machine in available_machines:
-            rooter("inetsim_disable", machine.ip)
+            rooter("inetsim_disable", machine.ip, routing.inetsim.server, str(routing.inetsim.dnsport), str(self.cfg.resultserver.port), str(routing.inetsim.ports))
             if not machine.interface:
                 log.info(
                     "Unable to determine the network interface for VM with name %s, Cape will not be able to give it "

@@ -95,7 +95,7 @@ def extract_config(filebuf):
                         continue
                     if "http" in decoded:
                         if "\r\n" in decoded:
-                            c2.extend(list(filter(None(decoded.split("\r\n")))))
+                            c2.extend(list(filter(None, decoded.split("\r\n"))))
                         else:
                             c2.append(decoded)
                     elif "dll_version" in decoded:

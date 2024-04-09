@@ -32,4 +32,12 @@ class TestModule(unittest.TestCase):
 
 class TestAnalyzer(unittest.TestCase):
     def test___init__(self):
-        analyzer.Analyzer()
+        _ = analyzer.Analyzer()
+
+    @patch("analyzer.PipeServer")
+    @patch("analyzer.Config")
+    @patch("analyzer.init_logging")
+    @patch("analyzer.set_clock")
+    def test_prepare(self, set_lock, init_logging, config, pipeserver):
+        test = analyzer.Analyzer()
+        test.prepare()

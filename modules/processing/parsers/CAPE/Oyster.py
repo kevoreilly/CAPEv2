@@ -25,6 +25,9 @@ import yara
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "Oyster.yar")
+if not os.path.exists(yara_path):
+    yara_path = os.path.join(CUCKOO_ROOT, "custom", "yara", "CAPE", "Oyster.yar")
+
 with open(yara_path, "r") as yara_rule:
     yara_rules = yara.compile(source=yara_rule.read())
 

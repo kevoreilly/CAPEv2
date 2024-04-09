@@ -48,7 +48,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Shellcode-Unpacker"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Shellcode-Unpacker", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_Shellcode(self):
         test = analyzer.Analyzer()
@@ -57,7 +57,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Shellcode"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Shellcode", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_Shellcode_x64(self):
         test = analyzer.Analyzer()
@@ -66,7 +66,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Shellcode_x64"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Shellcode_x64", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_Unpacker(self):
         test = analyzer.Analyzer()
@@ -75,7 +75,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Unpacker"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Unpacker", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_Unpacker_dll(self):
         test = analyzer.Analyzer()
@@ -84,7 +84,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Unpacker_dll"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Unpacker_dll", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_Unpacker_js(self):
         test = analyzer.Analyzer()
@@ -93,7 +93,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Unpacker_js"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Unpacker_js", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_Unpacker_ps1(self):
         test = analyzer.Analyzer()
@@ -102,7 +102,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Unpacker_ps1"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Unpacker_ps1", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_Unpacker_regsvr(self):
         test = analyzer.Analyzer()
@@ -111,7 +111,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Unpacker_regsvr"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Unpacker_regsvr", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_Unpacker_zip(self):
         test = analyzer.Analyzer()
@@ -120,7 +120,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "Unpacker_zip"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.Unpacker_zip", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_access(self):
         test = analyzer.Analyzer()
@@ -129,7 +129,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "access"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.access", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_applet(self):
         test = analyzer.Analyzer()
@@ -138,7 +138,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "applet"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.applet", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_archive(self):
         test = analyzer.Analyzer()
@@ -147,7 +147,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "archive"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.archive", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_autoit(self):
         test = analyzer.Analyzer()
@@ -156,7 +156,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "autoit"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.autoit", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_chm(self):
         test = analyzer.Analyzer()
@@ -165,7 +165,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "chm"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.chm", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_chrome(self):
         test = analyzer.Analyzer()
@@ -174,7 +174,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "chrome"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.chrome", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_chromium(self):
         test = analyzer.Analyzer()
@@ -183,7 +183,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "chromium"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.chromium", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_cpl(self):
         test = analyzer.Analyzer()
@@ -192,7 +192,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "cpl"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.cpl", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_dll(self):
         test = analyzer.Analyzer()
@@ -201,7 +201,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "dll"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.dll", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_doc(self):
         test = analyzer.Analyzer()
@@ -210,7 +210,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "doc"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.doc", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_doc2016(self):
         test = analyzer.Analyzer()
@@ -219,7 +219,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "doc2016"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.doc2016", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_doc_antivm(self):
         test = analyzer.Analyzer()
@@ -228,7 +228,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "doc_antivm"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.doc_antivm", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_edge(self):
         test = analyzer.Analyzer()
@@ -237,7 +237,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "edge"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.edge", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_eml(self):
         test = analyzer.Analyzer()
@@ -246,7 +246,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "eml"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.eml", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_exe(self):
         test = analyzer.Analyzer()
@@ -255,7 +255,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "exe"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.exe", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_firefox(self):
         test = analyzer.Analyzer()
@@ -264,7 +264,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "firefox"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.firefox", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_generic(self):
         test = analyzer.Analyzer()
@@ -273,7 +273,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "generic"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.generic", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_hta(self):
         test = analyzer.Analyzer()
@@ -282,7 +282,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "hta"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.hta", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_hwp(self):
         test = analyzer.Analyzer()
@@ -291,7 +291,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "hwp"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.hwp", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_ichitaro(self):
         test = analyzer.Analyzer()
@@ -300,7 +300,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "ichitaro"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.ichitaro", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_ie(self):
         test = analyzer.Analyzer()
@@ -309,7 +309,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "ie"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.ie", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_inf(self):
         test = analyzer.Analyzer()
@@ -318,7 +318,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "inf"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.inf", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_inp(self):
         test = analyzer.Analyzer()
@@ -327,7 +327,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "inp"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.inp", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_jar(self):
         test = analyzer.Analyzer()
@@ -336,7 +336,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "jar"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.jar", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_js(self):
         test = analyzer.Analyzer()
@@ -345,7 +345,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "js"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.js", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_js_antivm(self):
         test = analyzer.Analyzer()
@@ -354,7 +354,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "js_antivm"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.js_antivm", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_lnk(self):
         test = analyzer.Analyzer()
@@ -363,7 +363,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "lnk"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.lnk", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_mht(self):
         test = analyzer.Analyzer()
@@ -372,7 +372,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "mht"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.mht", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_msbuild(self):
         test = analyzer.Analyzer()
@@ -381,7 +381,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "msbuild"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.msbuild", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_msg(self):
         test = analyzer.Analyzer()
@@ -390,7 +390,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "msg"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.msg", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_msi(self):
         test = analyzer.Analyzer()
@@ -399,7 +399,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "msi"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.msi", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_msix(self):
         test = analyzer.Analyzer()
@@ -408,7 +408,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "msix"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.msix", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_nsis(self):
         test = analyzer.Analyzer()
@@ -417,7 +417,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "nsis"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.nsis", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_ollydbg(self):
         test = analyzer.Analyzer()
@@ -426,7 +426,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "ollydbg"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.ollydbg", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_one(self):
         test = analyzer.Analyzer()
@@ -435,7 +435,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "one"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.one", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_pdf(self):
         test = analyzer.Analyzer()
@@ -444,7 +444,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "pdf"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.pdf", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_ppt(self):
         test = analyzer.Analyzer()
@@ -453,7 +453,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "ppt"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.ppt", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_ppt2016(self):
         test = analyzer.Analyzer()
@@ -462,7 +462,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "ppt2016"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.ppt2016", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_ps1(self):
         test = analyzer.Analyzer()
@@ -471,7 +471,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "ps1"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.ps1", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_pub(self):
         test = analyzer.Analyzer()
@@ -480,7 +480,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "pub"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.pub", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_pub2016(self):
         test = analyzer.Analyzer()
@@ -489,7 +489,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "pub2016"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.pub2016", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_python(self):
         test = analyzer.Analyzer()
@@ -498,7 +498,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "python"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.python", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_rar(self):
         test = analyzer.Analyzer()
@@ -507,7 +507,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "rar"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.rar", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_reg(self):
         test = analyzer.Analyzer()
@@ -516,7 +516,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "reg"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.reg", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_regsvr(self):
         test = analyzer.Analyzer()
@@ -525,7 +525,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "regsvr"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.regsvr", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_sct(self):
         test = analyzer.Analyzer()
@@ -534,7 +534,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "sct"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.sct", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_service(self):
         test = analyzer.Analyzer()
@@ -543,7 +543,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "service"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.service", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_service_dll(self):
         test = analyzer.Analyzer()
@@ -552,7 +552,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "service_dll"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.service_dll", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_swf(self):
         test = analyzer.Analyzer()
@@ -561,7 +561,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "swf"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.swf", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_vawtrak(self):
         test = analyzer.Analyzer()
@@ -570,7 +570,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "vawtrak"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.vawtrak", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_vbejse(self):
         test = analyzer.Analyzer()
@@ -579,7 +579,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "vbejse"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.vbejse", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_vbs(self):
         test = analyzer.Analyzer()
@@ -588,7 +588,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "vbs"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.vbs", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_wsf(self):
         test = analyzer.Analyzer()
@@ -597,7 +597,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "wsf"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.wsf", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_xls(self):
         test = analyzer.Analyzer()
@@ -606,7 +606,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "xls"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.xls", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_xls2016(self):
         test = analyzer.Analyzer()
@@ -615,7 +615,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "xls2016"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.xls2016", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_xps(self):
         test = analyzer.Analyzer()
@@ -624,7 +624,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "xps"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.xps", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_xslt(self):
         test = analyzer.Analyzer()
@@ -633,7 +633,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "xslt"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.xslt", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_zip(self):
         test = analyzer.Analyzer()
@@ -642,7 +642,7 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "zip"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.zip", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 
     def test_choose_package_zip_compound(self):
         test = analyzer.Analyzer()
@@ -651,5 +651,5 @@ class TestAnalyzer(unittest.TestCase):
         test.config.package = "zip_compound"
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.zip_compound", pkg_name)
-        self.assertIsInstance(pkg_class.__class__.__name__, "PDF")
+        self.assertEqual(pkg_class.__class__.__name__, "PDF")
 

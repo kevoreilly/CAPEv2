@@ -159,7 +159,7 @@ class MachineryManager:
             self,
             self.cfg.cuckoo.max_machines_count,
         )
-        self.machine_lock: MachineryLockType = self.create_machine_lock()
+        self.machine_lock: Optional[MachineryLockType] = None
 
     def __str__(self):
         return f"{self.__class__.__name__}[{self.machinery_name}]"
@@ -187,7 +187,7 @@ class MachineryManager:
             if machines_limit:
                 # The ScalingBoundedSemaphore is used to keep feeding available machines from the pending tasks queue
                 log.info("upper limit for ScalingBoundedSemaphore = %d", machines_limit)
-                retval = ScalingBoundedSemaphore(value=len(machinery_opts["machines"]), upper_limit=machines_limit)
+                retval = ScalingBoundedSemaphore(value=len(self.machinery.machines()), upper_limit=machines_limit)
             else:
                 log.warning(
                     "scaling_semaphore is set but the %s machinery does not set the machines limit. Ignoring scaling semaphore.",
@@ -251,7 +251,14 @@ class MachineryManager:
         # Cuckoo was terminated for some reason and various forwarding rules
         # have thus not been dropped yet.
         for machine in available_machines:
-            rooter("inetsim_disable", machine.ip, routing.inetsim.server, str(routing.inetsim.dnsport), str(self.cfg.resultserver.port), str(routing.inetsim.ports))
+            rooter(
+                "inetsim_disable",
+                machine.ip,
+                routing.inetsim.server,
+                str(routing.inetsim.dnsport),
+                str(self.cfg.resultserver.port),
+                str(routing.inetsim.ports),
+            )
             if not machine.interface:
                 log.info(
                     "Unable to determine the network interface for VM with name %s, Cape will not be able to give it "
@@ -269,6 +276,7 @@ class MachineryManager:
             if routing.routing.internet != "none":
                 rooter("forward_disable", machine.interface, routing.routing.internet, machine.ip)
 
+        self.machine_lock = self.create_machine_lock()
         threading.Thread(target=self.thr_maintain_scaling_bounded_semaphore, daemon=True)
 
     def running_machines_max_reached(self) -> bool:

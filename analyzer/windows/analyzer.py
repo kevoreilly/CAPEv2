@@ -9,6 +9,8 @@ import logging
 import os
 import pkgutil
 import socket
+import inspect
+import importlib
 import struct
 import subprocess
 import sys
@@ -343,6 +345,57 @@ class Analyzer:
     def get_completion_key(self):
         return getattr(self.config, "completion_key", "")
 
+    def choose_package(self):
+        # If no analysis package was specified at submission, we try to select one automatically.
+        if not self.config.package:
+            log.debug("no analysis package configured, picking one for you")
+
+            # If the analysis target is a file, we choose the package according to the file format.
+            if self.config.category == "file":
+                package = choose_package(self.config.file_type, self.config.file_name, self.config.exports, self.target)
+            # If it's a URL, we'll just use the default Internet Explorer package.
+            else:
+                package = "ie"
+
+            # If we weren't able to automatically determine the proper package, we need to abort the analysis.
+            if not package:
+                raise CuckooError(f"no analysis package was found for file type: {self.config.file_type}")
+
+            # Otherwise just select the specified package.
+            log.info('analysis package selected: "%s"', package)
+
+        else:
+            package = self.config.package
+            log.info('analysis package specified: "%s"', package)
+
+        # Generate the package path.
+        package_name = f"modules.packages.{package}"
+        # Try to import the analysis package.
+        try:
+            log.debug('importing analysis package module: "%s"...', package_name)
+            pkg_module = importlib.import_module(package_name)
+            log.debug('imported analysis package "%s"', package)
+        except ImportError as e:
+            raise CuckooError(f'unable to import package "{package_name}", does not exist') from e
+        except Exception as e:
+            raise CuckooError(f'Unable to import package "{package_name}", does not exist') from e
+
+        # get the members inside the module
+        members = inspect.getmembers(pkg_module)
+        # now just the classes
+        member_classes = [m[1] for m in members if inspect.isclass(m[1])]
+        # now find the Package subclass
+        pkg_classes = [c for c in member_classes if issubclass(c, Package) and c != Package]
+
+        num_pkg_classes = len(pkg_classes)
+        if num_pkg_classes != 1:
+            raise CuckooError(f'expected a single Package subclass in {package_name}, got {num_pkg_classes}')
+
+        # Initialize the single analysis package class
+        log.debug('initializing analysis package "%s"...', package)
+        package_class = pkg_classes[0](self.options, self.config)
+        return package_name, package_class
+
     def run(self):
         """Run analysis.
         @return: operation status.
@@ -359,52 +412,7 @@ class Analyzer:
         else:
             log.info("analysis running as a normal user")
 
-        # If no analysis package was specified at submission, we try to select one automatically.
-        if not self.config.package:
-            log.debug("No analysis package specified, trying to detect it automagically")
-
-            # If the analysis target is a file, we choose the package according to the file format.
-            if self.config.category == "file":
-                package = choose_package(self.config.file_type, self.config.file_name, self.config.exports, self.target)
-            # If it's an URL, we'll just use the default Internet Explorer package.
-            else:
-                package = "ie"
-
-            # If we weren't able to automatically determine the proper package, we need to abort the analysis.
-            if not package:
-                raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
-
-            log.info('Automatically selected analysis package "%s"', package)
-            # Otherwise just select the specified package.
-        else:
-            package = self.config.package
-            log.info('Analysis package "%s" has been specified', package)
-
-        # Generate the package path.
-        self.package_name = f"modules.packages.{package}"
-        # Try to import the analysis package.
-        try:
-            log.debug('Importing analysis package "%s"...', package)
-            __import__(self.package_name, globals(), locals(), ["dummy"])
-            # log.debug('Imported analysis package "%s"', package)
-        except ImportError as e:
-            raise CuckooError(f'Unable to import package "{self.package_name}", does not exist') from e
-        except Exception as e:
-            log.exception(e)
-        # Initialize the package parent abstract.
-        Package()
-        # Enumerate the abstract subclasses.
-        try:
-            package_class = Package.__subclasses__()[0]
-        except IndexError as e:
-            raise CuckooError(f"Unable to select package class (package={self.package_name}): {e}") from e
-        except Exception as e:
-            raise CuckooError("error enumerating package subclasses: %s", e) from e
-
-        # Initialize the analysis package.
-        log.debug('Initializing analysis package "%s"...', package)
-        self.package = package_class(self.options, self.config)
-        # log.debug('Initialized analysis package "%s"', package)
+        self.package_name, self.package = self.choose_package()
 
         # Move the sample to the current working directory as provided by the
         # task - one is able to override the starting path of the sample.

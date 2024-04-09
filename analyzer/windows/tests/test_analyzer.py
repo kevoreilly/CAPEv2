@@ -3,9 +3,10 @@ import os
 import pathlib
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import analyzer
+import modules.packages.pdf
 
 
 class TestModule(unittest.TestCase):
@@ -41,3 +42,12 @@ class TestAnalyzer(unittest.TestCase):
     def test_prepare(self, set_lock, init_logging, config, pipeserver):
         test = analyzer.Analyzer()
         test.prepare()
+
+    def test_choose_package_pdf(self):
+        test = analyzer.Analyzer()
+        test.config = MagicMock()
+        test.options = MagicMock()
+        test.config.package = "pdf"
+        pkg_name, pkg_class = test.choose_package()
+        self.assertEqual('modules.packages.pdf', pkg_name)
+        self.assertIsInstance(pkg_class, modules.packages.pdf.PDF)

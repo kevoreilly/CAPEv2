@@ -125,9 +125,9 @@ def extract_config(data):
             lines = data.decode().split("\n")
             if "," in lines[0]:
                 c2_list = lines[0].split(",")
-                config_dict["C2s"]  = c2_list
+                config_dict["C2s"] = c2_list
             else:
-                config_dict["C2"]  = lines[0]
+                config_dict["C2"] = lines[0]
             config_dict["Port"] = lines[1]
             config_dict["AES Key (connections)"] = lines[2]
             config_dict["SPL"] = lines[3]

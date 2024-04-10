@@ -1633,6 +1633,7 @@ class Signature:
         return dict(
             name=self.name,
             description=self.description,
+            categories=self.categories,
             severity=self.severity,
             weight=self.weight,
             confidence=self.confidence,

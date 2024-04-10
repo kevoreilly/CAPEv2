@@ -277,7 +277,7 @@ class MachineryManager:
                 rooter("forward_disable", machine.interface, routing.routing.internet, machine.ip)
 
         self.machine_lock = self.create_machine_lock()
-        threading.Thread(target=self.thr_maintain_scaling_bounded_semaphore, daemon=True)
+        threading.Thread(target=self.thr_maintain_scaling_bounded_semaphore, daemon=True).start()
 
     def running_machines_max_reached(self) -> bool:
         """Return true if we've reached the maximum number of running machines."""

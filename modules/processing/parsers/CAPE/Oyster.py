@@ -25,6 +25,9 @@ import yara
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "Oyster.yar")
+if not os.path.exists(yara_path):
+    yara_path = os.path.join(CUCKOO_ROOT, "custom", "yara", "CAPE", "Oyster.yar")
+
 with open(yara_path, "r") as yara_rule:
     yara_rules = yara.compile(source=yara_rule.read())
 
@@ -91,7 +94,10 @@ def extract_config(filebuf):
                     if not decoded:
                         continue
                     if "http" in decoded:
-                        c2.append(decoded)
+                        if "\r\n" in decoded:
+                            c2.extend(list(filter(None, decoded.split("\r\n"))))
+                        else:
+                            c2.append(decoded)
                     elif "dll_version" in decoded:
                         dll_version = decoded.split('":"')[-1]
                     elif "api" in decoded or "Content-Type" in decoded:

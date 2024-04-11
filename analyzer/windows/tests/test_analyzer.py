@@ -1,11 +1,13 @@
 """Tests for the analyzer."""
+
 import os
 import pathlib
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import analyzer
+
 
 class TestModule(unittest.TestCase):
     def test_pid_from_service_name(self):
@@ -17,15 +19,15 @@ class TestModule(unittest.TestCase):
         _ = analyzer.get_explorer_pid()
 
     def test_pids_from_image_names(self):
-        pids = analyzer.pids_from_image_names('python.exe')
+        pids = analyzer.pids_from_image_names("python.exe")
         # should be at least one Python process running
-        self.assertGreaterEqual(len(pids),1)
+        self.assertGreaterEqual(len(pids), 1)
         self.assertIn(os.getpid(), pids)
 
     def test_protected_path(self):
         with tempfile.NamedTemporaryFile() as ntf:
             protected_paths = [str(pathlib.Path(ntf.name)).lower().encode()]
-            with patch('analyzer.PROTECTED_PATH_LIST', protected_paths):
+            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
                 self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
 
 
@@ -654,4 +656,3 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.zip_compound", pkg_name)
         self.assertEqual(pkg_class.__class__.__name__, "ZipCompound")
-

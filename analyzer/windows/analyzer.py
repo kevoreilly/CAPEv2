@@ -1443,6 +1443,7 @@ if __name__ == "__main__":
     error = ""
     completion_key = ""
     data = {}
+    analyzer = None
     try:
         # Initialize the main analyzer class.
         analyzer = Analyzer()
@@ -1491,8 +1492,8 @@ if __name__ == "__main__":
     finally:
         try:
             # Let's invoke the completion procedure.
-            # BUG(njb) potentially; analyzer is bound in above try and could fail
-            analyzer.complete()
+            if analyzer is not None:
+                analyzer.complete()
         except Exception:
             complete_excp = traceback.format_exc()
             data["status"] = "exception"

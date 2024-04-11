@@ -1,13 +1,10 @@
 """Tests for the analyzer."""
-
 import os
-import pathlib
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch, MagicMock
 
 import analyzer
-
 
 class TestModule(unittest.TestCase):
     def test_pid_from_service_name(self):
@@ -19,62 +16,46 @@ class TestModule(unittest.TestCase):
         _ = analyzer.get_explorer_pid()
 
     def test_pids_from_image_names(self):
-        pids = analyzer.pids_from_image_names("python.exe")
+        pids = analyzer.pids_from_image_names('python.exe')
         # should be at least one Python process running
-        self.assertGreaterEqual(len(pids), 1)
+        self.assertGreaterEqual(len(pids),1)
         self.assertIn(os.getpid(), pids)
 
     def test_protected_path_file(self):
         with tempfile.NamedTemporaryFile() as ntf:
             # test protecting bytes-based paths
-            protected_path = str(pathlib.Path(ntf.name)).lower().encode()
-            protected_paths = [protected_path]
-            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
-                self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
+            analyzer.add_protected_path(ntf.name.encode())
+            self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
 
-            # test protected str-based paths
-            protected_path = str(pathlib.Path(ntf.name)).lower()
-            protected_paths = [protected_path]
-            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
-                self.assertTrue(analyzer.in_protected_path(ntf.name))
+            # test protecting str-based paths
+            analyzer.add_protected_path(ntf.name)
+            self.assertTrue(analyzer.in_protected_path(ntf.name))
 
             # test protecting bytes-based paths, asking for str's
-            protected_path = str(pathlib.Path(ntf.name)).lower().encode()
-            protected_paths = [protected_path]
-            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
-                self.assertTrue(analyzer.in_protected_path(ntf.name))
+            analyzer.add_protected_path(ntf.name.encode())
+            self.assertTrue(analyzer.in_protected_path(ntf.name))
 
             # test protected str-based paths, asking for bytes
-            protected_path = str(pathlib.Path(ntf.name)).lower()
-            protected_paths = [protected_path]
-            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
-                self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
+            analyzer.add_protected_path(ntf.name)
+            self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
 
     def test_protected_path_dir(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            # test protecting bytes-based dirs
-            protected_path = tmpdir.lower().encode()
-            protected_paths = [protected_path]
-            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
-                self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
+            # test protecting bytes-based paths
+            analyzer.add_protected_path(tmpdir.encode())
+            self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
 
-            # test protected str-based paths
-            protected_path = tmpdir.lower()
-            protected_paths = [protected_path]
-            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
-                self.assertTrue(analyzer.in_protected_path(tmpdir))
+            # test protecting str-based paths
+            analyzer.add_protected_path(tmpdir)
+            self.assertTrue(analyzer.in_protected_path(tmpdir))
 
             # test protecting bytes-based paths, asking for str's
-            protected_path = tmpdir.lower().encode()
-            protected_paths = [protected_path]
-            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
-                self.assertTrue(analyzer.in_protected_path(tmpdir))
+            analyzer.add_protected_path(tmpdir.encode())
+            self.assertTrue(analyzer.in_protected_path(tmpdir))
 
             # test protected str-based paths, asking for bytes
-            protected_path = tmpdir.lower()
-            protected_paths = [protected_path]
-            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
-                self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
+            analyzer.add_protected_path(tmpdir)
+            self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
 
 
 class TestAnalyzerInternals(unittest.TestCase):
@@ -702,3 +683,4 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.zip_compound", pkg_name)
         self.assertEqual(pkg_class.__class__.__name__, "ZipCompound")
+

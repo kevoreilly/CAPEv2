@@ -5,12 +5,12 @@
 #  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
 
 import hashlib
+import importlib
+import inspect
 import logging
 import os
 import pkgutil
 import socket
-import inspect
-import importlib
 import struct
 import subprocess
 import sys
@@ -135,20 +135,30 @@ def pids_from_image_names(suffixlist):
     return retpids
 
 
-def in_protected_path(fname: bytes):
-    """Checks file name against some protected names."""
-    if not fname:
+def _normalized_protected_path(path: str | bytes) -> bytes:
+    if isinstance(path, str):
+        path = path.encode()
+    if os.path.isdir(path) and path[-1] != b"\\":
+        path += b"\\"
+    return path.lower()
+
+
+def in_protected_path(path: str | bytes) -> bool:
+    """Checks if a path is protected."""
+    if not path:
         return False
-
-    fnamelower = fname.lower()
-
-    for name in PROTECTED_PATH_LIST:
-        if name[-1] == "\\" and fnamelower.startswith(name):
+    path = _normalized_protected_path(path)
+    for protected_path in PROTECTED_PATH_LIST:
+        if protected_path[-1] == "\\" and path.starswith(protected_path):
             return True
-        elif fnamelower == name:
+        if protected_path == path:
             return True
-
     return False
+
+
+def add_protected_path(name: str | bytes):
+    """Adds a pathname to the protected list"""
+    PROTECTED_PATH_LIST.append(_normalized_protected_path(name))
 
 
 def add_pid_to_aux_modules(pid):
@@ -165,14 +175,6 @@ def del_pid_from_aux_modules(pid):
             aux.del_pid(pid)
         except Exception:
             continue
-
-
-def add_protected_path(name: bytes):
-    """Adds a pathname to the protected list"""
-    if os.path.isdir(name) and name[-1] != b"\\":
-        PROTECTED_PATH_LIST.append(name.lower() + b"\\")
-    else:
-        PROTECTED_PATH_LIST.append(name.lower())
 
 
 def upload_files(folder):
@@ -389,7 +391,7 @@ class Analyzer:
 
         num_pkg_classes = len(pkg_classes)
         if num_pkg_classes != 1:
-            raise CuckooError(f'expected a single Package subclass in {package_name}, got {num_pkg_classes}')
+            raise CuckooError(f"expected a single Package subclass in {package_name}, got {num_pkg_classes}")
 
         # Initialize the single analysis package class
         log.debug('initializing analysis package "%s"...', package)
@@ -1007,7 +1009,6 @@ class CommandPipeHandler:
             proc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id)
             filepath = proc.get_filepath()
             filename = os.path.basename(filepath)
-            # BUG(njb) potentially; in_protected_path only plays well with bytes
             if not in_protected_path(filename):
                 self.analyzer.process_list.add_pid(process_id)
                 log.info("Announce process name : %s", filename)
@@ -1300,7 +1301,6 @@ class CommandPipeHandler:
                         self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
-                    # BUG(njb) potentially; in_protected_path only plays well with bytes
                     if not in_protected_path(filename):
                         _ = proc.inject(interest)
                         self.LASTINJECT_TIME = timeit.default_timer()

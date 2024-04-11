@@ -1235,8 +1235,7 @@ class CommandPipeHandler:
             return
 
         # Open the process and inject the DLL. Hope it enjoys it.
-        # BUG(njb) tid= not a kwarg
-        proc = Process(pid=process_id, tid=thread_id)
+        proc = Process(pid=process_id, thread_id=thread_id)
 
         filepath = proc.get_filepath()
         filename = os.path.basename(filepath)

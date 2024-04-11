@@ -29,7 +29,7 @@ class TestModule(unittest.TestCase):
                 self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
 
 
-class TestAnalyzer(unittest.TestCase):
+class TestAnalyzerInternals(unittest.TestCase):
     def test___init__(self):
         _ = analyzer.Analyzer()
 
@@ -41,6 +41,8 @@ class TestAnalyzer(unittest.TestCase):
         test = analyzer.Analyzer()
         test.prepare()
 
+
+class TestAnalyzerChoosePackage(unittest.TestCase):
     def test_choose_package_Shellcode_Unpacker(self):
         test = analyzer.Analyzer()
         test.config = MagicMock()

@@ -24,11 +24,33 @@ class TestModule(unittest.TestCase):
         self.assertGreaterEqual(len(pids), 1)
         self.assertIn(os.getpid(), pids)
 
-    def test_protected_path(self):
+    def test_protected_path_file(self):
         with tempfile.NamedTemporaryFile() as ntf:
-            protected_paths = [str(pathlib.Path(ntf.name)).lower().encode()]
+            # test protecting bytes-based paths
+            protected_path = str(pathlib.Path(ntf.name)).lower().encode()
+            protected_paths = [protected_path]
             with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
                 self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
+
+            # test protected str-based paths
+            protected_path = str(pathlib.Path(ntf.name)).lower()
+            protected_paths = [protected_path]
+            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
+                self.assertTrue(analyzer.in_protected_path(ntf.name))
+
+    def test_protected_path_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # test protecting bytes-based dirs
+            protected_path = tmpdir.lower().encode()
+            protected_paths = [protected_path]
+            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
+                self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
+
+            # test protected str-based paths
+            protected_path = tmpdir.lower()
+            protected_paths = [protected_path]
+            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
+                self.assertTrue(analyzer.in_protected_path(tmpdir))
 
 
 class TestAnalyzerInternals(unittest.TestCase):

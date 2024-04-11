@@ -11,4 +11,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build ./docker --file Dockerfile --tag capev2:$(date +%s)
+      run: docker build ./docker --file docker/Dockerfile --tag capev2:$(date +%s)

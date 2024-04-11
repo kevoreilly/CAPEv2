@@ -38,6 +38,18 @@ class TestModule(unittest.TestCase):
             with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
                 self.assertTrue(analyzer.in_protected_path(ntf.name))
 
+            # test protecting bytes-based paths, asking for str's
+            protected_path = str(pathlib.Path(ntf.name)).lower().encode()
+            protected_paths = [protected_path]
+            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
+                self.assertTrue(analyzer.in_protected_path(ntf.name))
+
+            # test protected str-based paths, asking for bytes
+            protected_path = str(pathlib.Path(ntf.name)).lower()
+            protected_paths = [protected_path]
+            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
+                self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
+
     def test_protected_path_dir(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             # test protecting bytes-based dirs
@@ -51,6 +63,18 @@ class TestModule(unittest.TestCase):
             protected_paths = [protected_path]
             with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
                 self.assertTrue(analyzer.in_protected_path(tmpdir))
+
+            # test protecting bytes-based paths, asking for str's
+            protected_path = tmpdir.lower().encode()
+            protected_paths = [protected_path]
+            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
+                self.assertTrue(analyzer.in_protected_path(tmpdir))
+
+            # test protected str-based paths, asking for bytes
+            protected_path = tmpdir.lower()
+            protected_paths = [protected_path]
+            with patch("analyzer.PROTECTED_PATH_LIST", protected_paths):
+                self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
 
 
 class TestAnalyzerInternals(unittest.TestCase):

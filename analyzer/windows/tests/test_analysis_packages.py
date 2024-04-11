@@ -2,13 +2,8 @@
 
 import importlib
 import inspect
-import os
-import pathlib
-import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
 
-import analyzer
 from lib.common.abstracts import Package
 
 

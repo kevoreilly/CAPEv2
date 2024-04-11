@@ -5,6 +5,8 @@
 #  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
 
 import hashlib
+import importlib
+import inspect
 import logging
 import os
 import pkgutil
@@ -133,20 +135,30 @@ def pids_from_image_names(suffixlist):
     return retpids
 
 
-def in_protected_path(fname):
-    """Checks file name against some protected names."""
-    if not fname:
+def _normalized_protected_path(path: str | bytes) -> bytes:
+    if isinstance(path, str):
+        path = path.encode()
+    if os.path.isdir(path) and path[-1] != b"\\":
+        path += b"\\"
+    return path.lower()
+
+
+def in_protected_path(path: str | bytes) -> bool:
+    """Checks if a path is protected."""
+    if not path:
         return False
-
-    fnamelower = fname.lower()
-
-    for name in PROTECTED_PATH_LIST:
-        if name[-1] == "\\" and fnamelower.startswith(name):
+    path = _normalized_protected_path(path)
+    for protected_path in PROTECTED_PATH_LIST:
+        if protected_path[-1] == "\\" and path.starswith(protected_path):
             return True
-        elif fnamelower == name:
+        if protected_path == path:
             return True
-
     return False
+
+
+def add_protected_path(name: str | bytes):
+    """Adds a pathname to the protected list"""
+    PROTECTED_PATH_LIST.append(_normalized_protected_path(name))
 
 
 def add_pid_to_aux_modules(pid):
@@ -165,14 +177,6 @@ def del_pid_from_aux_modules(pid):
             continue
 
 
-def add_protected_path(name):
-    """Adds a pathname to the protected list"""
-    if os.path.isdir(name) and name[-1] != b"\\":
-        PROTECTED_PATH_LIST.append(name.lower() + b"\\")
-    else:
-        PROTECTED_PATH_LIST.append(name.lower())
-
-
 def upload_files(folder):
     """Create a copy of the given file path."""
     log_folder = f"{PATHS['root']}\\{folder}"
@@ -186,7 +190,7 @@ def upload_files(folder):
         log.warning('Unable to access folder at path "%s": %s', log_folder, e)
         return
 
-    for root, dirs, files in os.walk(log_folder):
+    for root, _, files in os.walk(log_folder):
         for file in files:
             file_path = os.path.join(root, file)
             upload_path = os.path.join(folder, file)
@@ -215,10 +219,15 @@ class Analyzer:
         self.process_lock = Lock()
         self.files_list_lock = Lock()
         self.pid = os.getpid()
+        self.pid_check = False
         self.ppid = Process(pid=self.pid).get_parent_pid()
         self.files = Files()
         self.process_list = ProcessList()
+
+        # analysis package class
         self.package = None
+        # analysis package name
+        self.package_name = None
 
         self.CRITICAL_PROCESS_LIST = []
         self.SERVICES_PID = None
@@ -229,13 +238,6 @@ class Analyzer:
         self.MONITORED_BITS = False
         self.LASTINJECT_TIME = None
         self.NUM_INJECTED = 0
-
-    def get_pipe_path(self, name):
-        """Return \\\\.\\PIPE on Windows XP and \\??\\PIPE elsewhere."""
-        version = sys.getwindowsversion()
-        if version.major == 5 and version.minor == 1:
-            return f"\\\\.\\PIPE\\{name}"
-        return f"\\??\\PIPE\\{name}"
 
     def prepare(self):
         """Prepare env for analysis."""
@@ -269,10 +271,7 @@ class Analyzer:
         # Set the default DLL to be used for this analysis.
         self.default_dll = self.options.get("dll")
 
-        # self.get_pipe_path(self.options.get("pipe", random_string(16, 32)))
         self.config.pipe = PIPE
-        # Generate a random name for the logging pipe server.
-        # self.get_pipe_path(random_string(16, 32))
         self.config.logpipe = LOGSERVER_PREFIX
         # Set virtual machine clock.
         set_clock(self.config.clock, self.config.timeout)
@@ -348,11 +347,62 @@ class Analyzer:
     def get_completion_key(self):
         return getattr(self.config, "completion_key", "")
 
+    def choose_package(self):
+        # If no analysis package was specified at submission, we try to select one automatically.
+        if not self.config.package:
+            log.debug("no analysis package configured, picking one for you")
+
+            # If the analysis target is a file, we choose the package according to the file format.
+            if self.config.category == "file":
+                package = choose_package(self.config.file_type, self.config.file_name, self.config.exports, self.target)
+            # If it's a URL, we'll just use the default Internet Explorer package.
+            else:
+                package = "ie"
+
+            # If we weren't able to automatically determine the proper package, we need to abort the analysis.
+            if not package:
+                raise CuckooError(f"no analysis package was found for file type: {self.config.file_type}")
+
+            # Otherwise just select the specified package.
+            log.info('analysis package selected: "%s"', package)
+
+        else:
+            package = self.config.package
+            log.info('analysis package specified: "%s"', package)
+
+        # Generate the package path.
+        package_name = f"modules.packages.{package}"
+        # Try to import the analysis package.
+        try:
+            log.debug('importing analysis package module: "%s"...', package_name)
+            pkg_module = importlib.import_module(package_name)
+            log.debug('imported analysis package "%s"', package)
+        except ImportError as e:
+            raise CuckooError(f'unable to import package "{package_name}", does not exist') from e
+        except Exception as e:
+            raise CuckooError(f'Unable to import package "{package_name}", does not exist') from e
+
+        # get the members inside the module
+        members = inspect.getmembers(pkg_module)
+        # now just the classes
+        member_classes = [m[1] for m in members if inspect.isclass(m[1])]
+        # now find the Package subclass
+        pkg_classes = [c for c in member_classes if issubclass(c, Package) and c != Package]
+
+        num_pkg_classes = len(pkg_classes)
+        if num_pkg_classes != 1:
+            raise CuckooError(f"expected a single Package subclass in {package_name}, got {num_pkg_classes}")
+
+        # Initialize the single analysis package class
+        log.debug('initializing analysis package "%s"...', package)
+        package_class = pkg_classes[0](self.options, self.config)
+        return package_name, package_class
+
     def run(self):
         """Run analysis.
         @return: operation status.
         """
-        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64, ANALYSIS_TIMED_OUT
+        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64
 
         log.debug("Starting analyzer from: %s", Path.cwd())
         log.debug("Storing results at: %s", PATHS["root"])
@@ -364,52 +414,7 @@ class Analyzer:
         else:
             log.info("analysis running as a normal user")
 
-        # If no analysis package was specified at submission, we try to select one automatically.
-        if not self.config.package:
-            log.debug("No analysis package specified, trying to detect it automagically")
-
-            # If the analysis target is a file, we choose the package according to the file format.
-            if self.config.category == "file":
-                package = choose_package(self.config.file_type, self.config.file_name, self.config.exports, self.target)
-            # If it's an URL, we'll just use the default Internet Explorer package.
-            else:
-                package = "ie"
-
-            # If we weren't able to automatically determine the proper package, we need to abort the analysis.
-            if not package:
-                raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
-
-            log.info('Automatically selected analysis package "%s"', package)
-            # Otherwise just select the specified package.
-        else:
-            package = self.config.package
-            log.info('Analysis package "%s" has been specified', package)
-
-        # Generate the package path.
-        package_name = f"modules.packages.{package}"
-        # Try to import the analysis package.
-        try:
-            log.debug('Importing analysis package "%s"...', package)
-            __import__(package_name, globals(), locals(), ["dummy"])
-            # log.debug('Imported analysis package "%s"', package)
-        except ImportError as e:
-            raise CuckooError(f'Unable to import package "{package_name}", does not exist') from e
-        except Exception as e:
-            log.exception(e)
-        # Initialize the package parent abstract.
-        Package(package_name)
-        # Enumerate the abstract subclasses.
-        try:
-            package_class = Package.__subclasses__()[0]
-        except IndexError as e:
-            raise CuckooError(f"Unable to select package class (package={package_name}): {e}") from e
-        except Exception as e:
-            log.exception(e)
-
-        # Initialize the analysis package.
-        log.debug('Initializing analysis package "%s"...', package)
-        self.package = package_class(self.options, self.config)
-        # log.debug('Initialized analysis package "%s"', package)
+        self.package_name, self.package = self.choose_package()
 
         # Move the sample to the current working directory as provided by the
         # task - one is able to override the starting path of the sample.
@@ -422,30 +427,30 @@ class Analyzer:
         # Set the DLL to that specified by package
         if self.package.options.get("dll") is not None:
             MONITOR_DLL = self.package.options["dll"]
-            log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, package_name)
+            log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, self.package_name)
         else:
-            log.info("Analyzer: Package %s does not specify a DLL option", package_name)
+            log.info("Analyzer: Package %s does not specify a DLL option", self.package_name)
 
         # Set the DLL_64 to that specified by package
         if self.package.options.get("dll_64") is not None:
             MONITOR_DLL_64 = self.package.options["dll_64"]
-            log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, package_name)
+            log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, self.package_name)
         else:
-            log.info("Analyzer: Package %s does not specify a DLL_64 option", package_name)
+            log.info("Analyzer: Package %s does not specify a DLL_64 option", self.package_name)
 
         # Set the loader to that specified by package
         if self.package.options.get("loader") is not None:
             LOADER32 = self.package.options["loader"]
-            log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
+            log.info("Analyzer: Loader set to %s from package %s", LOADER32, self.package_name)
         else:
-            log.info("Analyzer: Package %s does not specify a loader option", package_name)
+            log.info("Analyzer: Package %s does not specify a loader option", self.package_name)
 
         # Set the loader_64 to that specified by package
         if self.package.options.get("loader_64") is not None:
             LOADER64 = self.package.options["loader_64"]
-            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
+            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, self.package_name)
         else:
-            log.info("Analyzer: Package %s does not specify a loader_64 option", package_name)
+            log.info("Analyzer: Package %s does not specify a loader_64 option", self.package_name)
 
         # randomize monitor DLL and loader executable names
         if MONITOR_DLL is not None:
@@ -489,10 +494,7 @@ class Analyzer:
         # if self.options.get("disable_screens") == "0":
         #    disable_screens = False
 
-        for loader, name, ispkg in pkgutil.iter_modules(auxiliary.__path__, prefix):
-            # if ispkg or (name=="modules.auxiliary.screenshots" and disable_screens):
-            #    continue
-            # Import the auxiliary module.
+        for _, name, _ in pkgutil.iter_modules(auxiliary.__path__, prefix):
             try:
                 log.debug('Importing auxiliary module "%s"...', name)
                 __import__(name, globals(), locals(), ["dummy"])
@@ -500,7 +502,7 @@ class Analyzer:
             except ImportError as e:
                 log.warning('Unable to import the auxiliary module "%s": %s', name, e)
         # Walk through the available auxiliary modules.
-        aux_avail = []
+        aux_modules = []
 
         for module in sorted(Auxiliary.__subclasses__(), key=lambda x: x.start_priority, reverse=True):
             # Try to start the auxiliary module.
@@ -509,7 +511,7 @@ class Analyzer:
             try:
                 aux = module(self.options, self.config)
                 log.debug('Initialized auxiliary module "%s"', module.__name__)
-                aux_avail.append(aux)
+                aux_modules.append(aux)
 
                 # The following commented out code causes the monitor to not upload logs.
                 # If the auxiliary module is not enabled, we shouldn't start it
@@ -528,25 +530,6 @@ class Analyzer:
                 log.debug("Started auxiliary module %s", module.__name__)
                 AUX_ENABLED.append(aux)
 
-        """
-        # Inform zer0m0n of the ResultServer address.
-        zer0m0n.resultserver(self.config.ip, self.config.port)
-
-        # Forward the command pipe and logpipe names on to zer0m0n.
-        zer0m0n.cmdpipe(self.config.pipe)
-        zer0m0n.channel(self.config.logpipe)
-
-        # Hide the Cuckoo Analyzer & Cuckoo Agent.
-        zer0m0n.hidepid(self.pid)
-        zer0m0n.hidepid(self.ppid)
-
-        # Initialize zer0m0n with our compiled Yara rules.
-        zer0m0n.yarald("bin/rules.yarac")
-
-        # Propagate the requested dump interval, if set.
-        zer0m0n.dumpint(int(self.options.get("dumpint", 0)))
-        """
-
         # log.info("Stopping WMI Service")
         subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
         # log.info("Stopped WMI Service")
@@ -561,59 +544,63 @@ class Analyzer:
             self.package.configure(self.target)
         except NotImplementedError:
             # let it go, not every package is configurable
-            log.debug("package %s does not support configure, ignoring", package_name)
+            log.debug("package %s does not support configure, ignoring", self.package_name)
         except Exception as e:
-            raise CuckooPackageError("error configuring package %s: %s", package_name, e) from e
+            raise CuckooPackageError("error configuring package %s: %s", self.package_name, e) from e
 
-        # Do any package configuration stored in "data/packages/<package_name>"
+        # Do any package configuration stored in "data/packages/<self.package_name>"
         try:
             self.package.configure_from_data(self.target)
         except ModuleNotFoundError:
             # let it go, not every package is configurable from data
-            log.debug("package %s does not support data configuration, ignoring", package_name)
+            log.debug("package %s does not support data configuration, ignoring", self.package_name)
         except ImportError as ie:
             # let it go but emit a warning; assume a dependency is missing
-            log.warning("configuration error for package %s: %s", package_name, ie)
+            log.warning("configuration error for package %s: %s", self.package_name, ie)
         except Exception as e:
-            raise CuckooPackageError("error configuring package %s: %s", package_name, e) from e
+            raise CuckooPackageError("error configuring package %s: %s", self.package_name, e) from e
 
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:
             pids = self.package.start(self.target)
         except NotImplementedError as e:
-            raise CuckooError(f'The package "{package_name}" doesn\'t contain a start function') from e
+            raise CuckooError(f'The package "{self.package_name}" doesn\'t contain a start function') from e
         except CuckooPackageError as e:
-            raise CuckooError(f'The package "{package_name}" start function raised an error: {e}') from e
+            raise CuckooError(f'The package "{self.package_name}" start function raised an error: {e}') from e
         except Exception as e:
-            raise CuckooError(f'The package "{package_name}" start function encountered an unhandled exception: {e}') from e
+            raise CuckooError(f'The package "{self.package_name}" start function encountered an unhandled exception: {e}') from e
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
         if pids:
             self.process_list.add_pids(pids)
-            pid_check = True
+            self.pid_check = True
 
         # If the package didn't return any process ID (for example in the case
         # where the package isn't enabling any behavioral analysis), we don't
         # enable the process monitor.
         else:
             log.info("No process IDs returned by the package, running for the full timeout")
-            pid_check = False
+            self.pid_check = False
 
         # Check in the options if the user toggled the timeout enforce. If so,
         # we need to override pid_check and disable process monitor.
         if self.config.enforce_timeout:
             log.info("Enabled timeout enforce, running for the full timeout")
-            pid_check = False
+            self.pid_check = False
 
+        # next phase; go to the analysis loop
+        self.analysis_loop(aux_modules)
+
+    def analysis_loop(self, aux_modules):
+        global ANALYSIS_TIMED_OUT
         time_start = timeit.default_timer()
         kernel_analysis = self.options.get("kernel_analysis", False)
 
         emptytime = None
         complete_folder = hashlib.md5(f"cape-{self.config.id}".encode()).hexdigest()
         complete_analysis_pattern = os.path.join(os.environ["TMP"], complete_folder)
-        # log.info("Complete analysis folder is: %s", complete_analysis_pattern)
         while self.do_run:
             self.time_counter = timeit.default_timer() - time_start
             if self.time_counter >= int(self.config.timeout):
@@ -637,7 +624,7 @@ class Analyzer:
             try:
                 # If the process monitor is enabled we start checking whether
                 # the monitored processes are still alive.
-                if pid_check:
+                if self.pid_check:
                     # We also track the PIDs provided by zer0m0n.
                     # self.process_list.add_pids(zer0m0n.getpids())
                     if not kernel_analysis:
@@ -685,7 +672,7 @@ class Analyzer:
                 # we don't care, we can still proceed with the analysis but we
                 # throw a warning.
                 except Exception as e:
-                    log.warning('The package "%s" check function raised an exception: %s', package_name, e)
+                    log.warning('The package "%s" check function raised an exception: %s', self.package_name, e)
             finally:
                 # Zzz.
                 KERNEL32.Sleep(1000)
@@ -734,7 +721,7 @@ class Analyzer:
             # final operations through the finish() function.
             self.package.finish()
         except Exception as e:
-            log.warning('The package "%s" finish function raised an exception: %s', package_name, e)
+            log.warning('The package "%s" finish function raised an exception: %s', self.package_name, e)
 
         try:
             # Upload files the package created to package_files in the
@@ -742,7 +729,7 @@ class Analyzer:
             for path, name in self.package.package_files():
                 upload_to_host(path, os.path.join("package_files", name))
         except Exception as e:
-            log.warning('The package "%s" package_files function raised an exception: %s', package_name, e)
+            log.warning('The package "%s" package_files function raised an exception: %s', self.package_name, e)
 
         log.info("Stopping auxiliary modules")
         # Terminate the Auxiliary modules.
@@ -763,7 +750,7 @@ class Analyzer:
 
         log.info("Finishing auxiliary modules")
         # Run the finish callback of every available Auxiliary module.
-        for aux in aux_avail:
+        for aux in aux_modules:
             try:
                 aux.finish()
             except (NotImplementedError, AttributeError):
@@ -1248,7 +1235,7 @@ class CommandPipeHandler:
             return
 
         # Open the process and inject the DLL. Hope it enjoys it.
-        proc = Process(pid=process_id, tid=thread_id)
+        proc = Process(pid=process_id, thread_id=thread_id)
 
         filepath = proc.get_filepath()
         filename = os.path.basename(filepath)
@@ -1456,6 +1443,7 @@ if __name__ == "__main__":
     error = ""
     completion_key = ""
     data = {}
+    analyzer = None
     try:
         # Initialize the main analyzer class.
         analyzer = Analyzer()
@@ -1504,7 +1492,8 @@ if __name__ == "__main__":
     finally:
         try:
             # Let's invoke the completion procedure.
-            analyzer.complete()
+            if analyzer is not None:
+                analyzer.complete()
         except Exception:
             complete_excp = traceback.format_exc()
             data["status"] = "exception"

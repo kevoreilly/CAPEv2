@@ -1028,7 +1028,7 @@ def tasks_reprocess(request, task_id):
 def tasks_delete(request, task_id, status=False):
     """
     task_id: int or string if many
-    example: 1 or 1,2,3,4
+    example: 1 or 1,2,3,4 or 1-4
 
     """
     if not (apiconf.taskdelete.get("enabled") or request.user.is_staff):
@@ -1037,6 +1037,13 @@ def tasks_delete(request, task_id, status=False):
 
     if isinstance(task_id, int):
         task_id = [task_id]
+    elif "-" in task_id:
+        start, end = map(force_int, task_id.split("-"))
+        if start > end:
+            resp = {"error": True, "error_value": "Start Task ID is bigger than End Task ID"}
+            return Response(resp)
+        else:
+            task_id = list(range(start, end + 1))
     else:
         task_id = [force_int(task.strip()) for task in task_id.split(",")]
 

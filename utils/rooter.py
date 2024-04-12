@@ -120,20 +120,12 @@ def rt_available(rt_table):
     
 
 def init_vrf(rt_table, dirty_line_dev):
-    # interfaces = psutil.net_if_addrs()           
-    # dirty_dev = interfaces[dirty_line_dev]
-    # dirty_net = ipaddress.ip_network(f"{dirty_dev[0].address}/{dirty_dev[0].netmask}", strict=False)
-    # dirty_gateway = dirty_net.network_address+1
-    
-    #with open("/etc/iproute2/rt_tables.d/dirty_line.conf", "w") as rt_filte:
-    #    rt_filte.write("1001\tdirty-line")
     run(s.ip, "link", "add", "dirty-line", "type", "vrf", "table", rt_table)
     run(s.ip, "link", "set", "dev", "dirty-line", "up")
     run(s.ip, "rule", "add", "l3mdev", "proto", "kernel", "prio", "1000")
     run(s.ip, "rule", "add", "l3mdev", "proto", "kernel", "unreachable", "prio", "1001")
     run(s.ip, "rule", "add", "lookup", "local", "proto", "kernel", "prio", "32765")
     run(s.ip, "rule", "delete", "lookup", "local", "prio", "0")
-    #run(s.ip, "route", "add", "default", "via", str(dirty_gateway), "dev", dirty_line_dev, "table", rt_table)
     run(s.ip, "link", "set", "dev", dirty_line_dev, "master", "dirty-line")
 
 
@@ -145,8 +137,6 @@ def cleanup_vrf(dirty_line_dev):
     run(s.ip, "link", "set", "dev", dirty_line_dev, "nomaster")
     run(s.ip, "link", "set", "dev", "dirty-line", "down")
     run(s.ip, "link", "del", "dirty-line")
-    #if os.path.exists("/etc/iproute2/rt_tables.d/dirty_line.conf"):
-    #    os.remove("/etc/iproute2/rt_tables.d/dirty_line.conf")
 
 
 def add_dev_to_vrf(dev):
@@ -211,14 +201,6 @@ def init_rttable(rt_table, interface):
         args = ["route", "add"] + [x for x in line.split(" ") if x]
         args += ["dev", interface, "table", rt_table]
         run(settings.ip, *args)
-    
-    stdout, _ = run(settings.ip, "route", "list", "default", "table", rt_table)
-    if(len(stdout.split("\n")) == 1):
-        interfaces = psutil.net_if_addrs()           
-        dirty_dev = interfaces[interface]
-        dirty_net = ipaddress.ip_network(f"{dirty_dev[0].address}/{dirty_dev[0].netmask}", strict=False)
-        dirty_gateway = dirty_net.network_address+1
-        run(settings.ip, "route", "add", "default", "via", str(dirty_gateway), "dev", interface, "table", rt_table)
 
 
 def flush_rttable(rt_table):

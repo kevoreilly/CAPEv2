@@ -232,7 +232,6 @@ def init_logging(debug=False):
 
 
 def init_per_analysis_logging(tid=0, debug=False):
-
     """
     Handlers:
         - fhpa - file handler per analysis

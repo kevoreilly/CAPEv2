@@ -83,7 +83,11 @@
         });
     }
     function load_filtered_chunk(pid, category, caller, tid) {
-        var encodedlist = ($("#apifilter_" + pid).val() == "") ? encodeURI("!null") : encodeURI($("#apifilter_" + pid).val());
+        // Trim leading and trailing spaces
+        var inputValue = $("#apifilter_" + pid).val().trim(); 
+        // Split input by commas, trim spaces, and join back with commas
+        var apis = inputValue.split(',').map(api => api.trim()).join(','); 
+        var encodedlist = (apis === "") ? encodeURI("!null") : encodeURI(apis);
 
         $("#process_" + pid + " div.calltable").load("/analysis/filtered/{{id}}/" + pid + "/" + category + "/" + encodedlist + "/" + caller + "/" + tid + "/", function (data, status, xhr) {
             if (status == "error") {
@@ -149,11 +153,9 @@
                             <div class="input-group">
                                 <label class="sr-only" for="form_search">API Filter</label>
                                 <input type="text" class="form-control rounded-left" id="apifilter_{{process.process_id}}" name="apifilter" size=35 placeholder="API(list) separated by ',' Precede with '!' for exclusion" />
-                                <a class="input-group-prepend text-decoration-none" id="badge_all_{{process.process_id}}" role="button">
-                                    <div class="input-group-text rounded-right">
-                                        <i class="fas fa-search"></i>
-                                    </div>
-                                </a>
+                                <button class="btn btn-outline-secondary rounded-right" id="search_button_{{process.process_id}}" type="button">
+                                    <i class="fas fa-search"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -182,11 +184,19 @@
 
                     event.preventDefault();
                 });
+                
                 // Filter on enter key in input field
                 $("#apifilter_{{process.process_id}}").keypress(function(e) {
                     if (e.which == 13) {
                         load_filtered_chunk({{process.process_id}}, "all", "null", 0);
                     }
+                })
+
+                // Filter on search button click
+                $("#search_button_{{process.process_id}}").click(function() {
+                    var pid = {{process.process_id}};
+                    var apiFilterValue = $("#apifilter_" + pid).val();
+                    load_filtered_chunk(pid, "all", "null", 0);
                 })
             });
             </script>

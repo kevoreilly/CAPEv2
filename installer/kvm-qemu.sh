@@ -903,6 +903,29 @@ function install_qemu() {
             # Public version
             replace_qemu_clues_public
         fi
+
+        cd qemu-$qemu_version/roms/ || exit 1
+        echo '[+] Making bios.bin ...'
+        sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' config.seabios-microvm
+        sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' config.seabios-128k
+        sed -i 's/PYTHON=python/PYTHON=python3/g' seabios/Makefile
+        make bios
+        if [ $? -eq 0 ]; then
+            echo '[+] Completed '
+        else
+            echo '[-] Failed $?'
+        fi
+
+        echo '[+] Making vgabios bins...'
+        make vgabios
+        if [ $? -eq 0 ]; then
+            echo '[+] Completed '
+        else
+            echo '[-] Failed $?'
+        fi
+
+        cd -
+        
         # ToDo reintroduce it?
         #if [ $fail -eq 0 ]; then
             echo '[+] Starting compile it'

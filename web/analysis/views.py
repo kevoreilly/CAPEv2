@@ -1646,6 +1646,7 @@ zip_categories = (
     "procdumpzipall",
     "CAPEzipall",
     "capeyarazipall",
+    "logszipall",
 )
 category_map = {
     "CAPE": "CAPE",
@@ -1792,6 +1793,11 @@ def file(request, category, task_id, dlfile):
         # search in mongo and get the path
         if enabledconf["mongodb"] and web_cfg.zipped_download.download_all:
             path = _file_search_all_files(category.replace("zipall", ""), dlfile)
+    elif category == "logszipall":
+        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs")
+        path = []
+        for dfile in os.listdir(buf):
+            path.append(os.path.join(buf, dfile))
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 

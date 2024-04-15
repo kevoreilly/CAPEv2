@@ -8,6 +8,17 @@ interface = virbr0
 # To connect to local or remote host
 dsn = qemu:///system
 
+# To allow copy & paste. For details see example below
+[cape1]
+label = cape1
+platform = windows
+ip = 192.168.122.105
+arch = x86
+# tags = winxp,acrobat_reader_6
+# snapshot = Snapshot1
+# resultserver_ip = 192.168.122.101
+# reserved = no
+
 [cuckoo1]
 # Specify the label name of the current machine as specified in your
 # libvirt configuration.

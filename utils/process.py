@@ -110,7 +110,7 @@ def process(
         main_task_id = get_options(task_dict["options"]).get("main_task_id", 0)
 
     # ToDo new logger here
-    handlers = init_logging(tid=str(task_id), debug=debug)
+    per_analysis_handler = init_per_analysis_logging(tid=str(task_id), debug=debug)
     set_formatter_fmt(task_id, main_task_id)
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
@@ -160,10 +160,7 @@ def process(
         for i, obj in enumerate(gc.garbage):
             log.info("(garbage) GC object #%d: type=%s", i, type(obj).__name__)
 
-    for handler in handlers:
-        if not handler:
-            continue
-        log.removeHandler(handler)
+    log.removeHandler(per_analysis_handler)
 
 
 def init_worker():
@@ -187,8 +184,7 @@ FORMATTER = logging.Formatter(get_formatter_fmt())
 def set_formatter_fmt(task_id=None, main_task_id=None):
     FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
 
-
-def init_logging(tid=0, debug=False):
+def init_logging(debug=False):
     # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
     # If basicConfig was already called by something and had a StreamHandler added,
     # replace it with a ConsoleHandler.
@@ -202,7 +198,6 @@ def init_logging(tid=0, debug=False):
         - ch - console handler
         - slh - syslog handler
         - fh - file handle -> process.log
-        - fhpa - file handler per analysis
     """
 
     ch = ConsoleHandler()
@@ -210,7 +205,6 @@ def init_logging(tid=0, debug=False):
     log.addHandler(ch)
 
     slh = False
-    fhpa = False
 
     if logconf.logger.syslog_process:
         slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
@@ -230,6 +224,29 @@ def init_logging(tid=0, debug=False):
 
         fh.setFormatter(FORMATTER)
         log.addHandler(fh)
+    except PermissionError:
+        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
+
+    if debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.INFO)
+
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    return ch, fh, slh
+
+
+def init_per_analysis_logging(tid=0, debug=False):
+    """
+    Handlers:
+        - fhpa - file handler per analysis
+    """
+
+    fhpa = False
+
+    try:
+        if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
+            path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
 
         if logconf.logger.process_analysis_folder:
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
@@ -249,25 +266,23 @@ def init_logging(tid=0, debug=False):
     else:
         log.setLevel(logging.INFO)
 
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    return ch, fh, slh, fhpa
+    return fhpa
 
 
 def processing_finished(future):
     task_id = pending_future_map.get(future)
-    with db.session.begin():
-        try:
-            _ = future.result()
-            log.info("Reports generation completed")
-        except TimeoutError as error:
-            log.error("Processing Timeout %s. Function: %s", error, error.args[1])
-            db.set_status(task_id, TASK_FAILED_PROCESSING)
-        except pebble.ProcessExpired as error:
-            log.error("Exception when processing task: %s", error, exc_info=True)
-            db.set_status(task_id, TASK_FAILED_PROCESSING)
-        except Exception as error:
-            log.error("Exception when processing task: %s", error, exc_info=True)
-            db.set_status(task_id, TASK_FAILED_PROCESSING)
+    try:
+        _ = future.result()
+        log.info("Reports generation completed for Task #%d", task_id)
+    except TimeoutError as error:
+        log.error("Processing Timeout %s. Function: %s", error, error.args[1])
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
+    except pebble.ProcessExpired as error:
+        log.error("Exception when processing task: %s", error, exc_info=True)
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
+    except Exception as error:
+        log.error("Exception when processing task: %s", error, exc_info=True)
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
 
     pending_future_map.pop(future)
     pending_task_id_map.pop(task_id)
@@ -471,6 +486,7 @@ def main():
     args = parser.parse_args()
 
     init_database()
+    handlers = init_logging(debug=args.debug)
     init_modules()
     if args.id == "auto":
         autoprocess(
@@ -540,6 +556,11 @@ def main():
                     )
                 log.debug("Finished processing task")
                 set_formatter_fmt()
+
+    for handler in handlers:
+        if not handler:
+            continue
+        log.removeHandler(handler)
 
 
 if __name__ == "__main__":

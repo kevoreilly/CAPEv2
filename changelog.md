@@ -1,3 +1,9 @@
+### [11.04.2024]
+* Monitor updates:
+    * YARA upgrade to 4.5.0 (& disabled assertion dialogs)
+    * Enable 64-bit 'native' hooks to avoid SSN overwriting
+    * Expand YARA options to allow offsets relative to the end of a pattern to be specified using asterisk (e.g. bp0=$code*+6)
+
 ### [25.03.2024]
 * Bypass for variant of Heaven's Gate direct syscall seen in ecrime loader
 * Monitor updates: misc fixes (see capemon repo for details)

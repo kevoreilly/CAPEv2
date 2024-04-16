@@ -41,7 +41,6 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
-    stream_subprocess_output,
 )
 from lib.cuckoo.common.web_utils import (
     apiconf,
@@ -1811,7 +1810,7 @@ def tasks_procmemory(request, task_id, pid="all"):
             zip_path = os.path.join(analysis_dir, 'procdumps.zip')
             try:
                 subprocess.check_call([
-                    "/usr/bin/7z", "-pinfected", "a", zip_path, srcdir])
+                    "/usr/bin/7z", f"-p{settings.ZIP_PWD}", "a", zip_path, srcdir])
             except subprocess.CalledProcessError:
                 resp = {"error": True, "error_value": "error compressing file"}
                 return Response(resp)
@@ -1834,7 +1833,7 @@ def tasks_procmemory(request, task_id, pid="all"):
                 zip_path = os.path.join(analysis_dir, f'{task_id}-{pid}_dmp.zip')
                 try:
                     subprocess.check_call([
-                        SEVENZIP_PATH, "-pinfected", "a", f"{task_id}-{pid}_dmp.zip", filepath])
+                        SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", f"{task_id}-{pid}_dmp.zip", filepath])
                 except subprocess.CalledProcessError:
                     resp = {"error": True, "error_value": "error compressing file"}
                     return Response(resp)

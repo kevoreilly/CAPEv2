@@ -1651,6 +1651,7 @@ zip_categories = (
     "procdumpzipall",
     "CAPEzipall",
     "capeyarazipall",
+    "logszipall",
 )
 category_map = {
     "CAPE": "CAPE",

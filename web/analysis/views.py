@@ -5,9 +5,11 @@
 import base64
 import collections
 import datetime
+from http.client import USE_PROXY
 import json
 import os
 import sys
+import subprocess
 import tempfile
 import zipfile
 from contextlib import suppress
@@ -1825,13 +1827,24 @@ def file(request, category, task_id, dlfile):
             if not isinstance(path, list):
                 path = [path]
             if USE_SEVENZIP:
+                zip_path = os.path.join(
+                    CUCKOO_ROOT, "storage", "analysis",
+                    f"{task_id}", f"{file_name}.zip")
                 sevenZipArgs = [
-                    SEVENZIP_PATH, '-an', '-ttar', '-so', 'a']
+                    SEVENZIP_PATH, f'-pinfected', 'a', zip_path]
                 sevenZipArgs.extend(path)
+                try:
+                    subprocess.check_call(sevenZipArgs)
+                except subprocess.CalledProcessError:
+                    return render(
+                        request,
+                        "error.html",
+                        {"error": "error compressing file"}
+                    )
+                zip_fd = open(zip_path, 'rb')
                 resp = StreamingHttpResponse(
-                    stream_subprocess_output(sevenZipArgs),
-                    content_type='application/x-tar')
-                resp["Content-Disposition"] = f"attachment; filename={file_name}.tar"
+                    zip_fd, content_type='application/zip')
+                resp["Content-Disposition"] = f"attachment; filename={file_name}.zip"
                 return resp
             else:
                 mem_zip = BytesIO()

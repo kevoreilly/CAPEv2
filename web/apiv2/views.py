@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import socket
+import subprocess
 import sys
 import zipfile
 from datetime import datetime, timedelta
@@ -82,12 +83,20 @@ except ImportError:
 repconf = Config("reporting")
 web_conf = Config("web")
 routing_conf = Config("routing")
+reporting_conf = Config("reporting")
 
 zlib_compresion = False
 if repconf.compression.enabled:
     from zlib import decompress
 
     zlib_compresion = True
+
+USE_SEVENZIP = False
+if reporting_conf.compression.compressiontool.strip() == '7zip':
+    USE_SEVENZIP = True
+    SEVENZIP_PATH = (
+        reporting_conf.compression.sevenzippath.strip() or '/usr/bin/7z')
+
 
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_delete_data, mongo_find, mongo_find_one, mongo_find_one_and_update
@@ -1784,37 +1793,61 @@ def tasks_procmemory(request, task_id, pid="all"):
         task_id = rtid
 
     # Check if any process memory dumps exist
-    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "memory")
+    srcdir = os.path.join(
+        CUCKOO_ROOT, "storage", "analyses", f"{task_id}", "memory")
     if not path_exists(srcdir):
         resp = {"error": True, "error_value": "No memory dumps saved"}
         return Response(resp)
 
     parent_folder = os.path.dirname(srcdir)
+    analysis_dir = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}")
     if pid == "all":
         if not apiconf.taskprocmemory.get("all"):
             resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
             return Response(resp)
-
-        mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if mem_zip is False:
-            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
-            return Response(resp)
-
-        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-        resp["Content-Length"] = len(mem_zip.getvalue())
-        resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.zip"
-        return resp
-
-    else:
-        filepath = os.path.join(parent_folder, pid + ".dmp")
-        if path_exists(filepath):
-            mem_zip = create_zip(files=filepath, encrypted=True)
+        if USE_SEVENZIP:
+            zip_path = os.path.join(analysis_dir, 'procdumps.zip')
+            try:
+                subprocess.check_call([
+                    "/usr/bin/7z", f"-p{settings.ZIP_PWD}", "a", zip_path, srcdir])
+            except subprocess.CalledProcessError:
+                resp = {"error": True, "error_value": "error compressing file"}
+                return Response(resp)
+            # using `with` prematurely closes the file
+            zip_fd = open(zip_path, "rb")
+            resp = StreamingHttpResponse(zip_fd, content_type="application/zip")
+            resp["Content-Length"] = os.path.getsize(zip_path)
+        else:
+            mem_zip = create_zip(folder=srcdir, encrypted=True)
             if mem_zip is False:
                 resp = {"error": True, "error_value": "Can't create zip archive for report file"}
                 return Response(resp)
-
             resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
             resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.zip"
+        return resp
+    else:
+        filepath = os.path.join(parent_folder, pid + ".dmp")
+        if path_exists(filepath):
+            if USE_SEVENZIP:
+                zip_path = os.path.join(analysis_dir, f'{task_id}-{pid}_dmp.zip')
+                try:
+                    subprocess.check_call([
+                        SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, filepath])
+                except subprocess.CalledProcessError:
+                    resp = {"error": True, "error_value": "error compressing file"}
+                    return Response(resp)
+                zip_fd = open(zip_path, 'rb')
+                resp = StreamingHttpResponse(
+                    zip_fd, content_type="application/zip")
+                resp["Content-Length"] = os.path.getsize(zip_path)
+            else:
+                mem_zip = create_zip(files=filepath, encrypted=True)
+                if mem_zip is False:
+                    resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+                    return Response(resp)
+                resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+                resp["Content-Length"] = len(mem_zip.getvalue())
             resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
             return resp
         else:
@@ -1893,14 +1926,34 @@ def file(request, stype, value):
         if request.GET.get("encrypted"):
             # Check if file exists in temp folder
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
-            if not file_exists:
+            zip_path = f"/tmp/{file_hash}.zip"
+            if file_exists:
+                resp = StreamingHttpResponse(FileWrapper(open(zip_path, "rb"), 8096), content_type="application/zip")
+                resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+                return resp
+
+            if USE_SEVENZIP:
+                try:
+                    subprocess.check_call([
+                        SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, sample])
+                except subprocess.CalledProcessError:
+                    resp = {"error": True, "error_value": "error compressing file"}
+                    return Response(resp)
+                zip_fd = open(zip_path, 'rb')
+                resp = StreamingHttpResponse(
+                    zip_fd, content_type='application/zip')
+                resp["Content-Length"] = os.path.getsize(zip_path)
+                resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+                return resp
+            else:
                 # If files does not exist encrypt and move to tmp folder
                 with pyzipper.AESZipFile(f"{file_hash}.zip", "w", encryption=pyzipper.WZ_AES) as zf:
                     zf.setpassword(b"infected")
                     zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
                 shutil.move(f"{file_hash}.zip", "/tmp")
-            resp = StreamingHttpResponse(FileWrapper(open(f"/tmp/{file_hash}.zip", "rb"), 8096), content_type="application/zip")
-            resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+                resp = StreamingHttpResponse(FileWrapper(open(f"/tmp/{file_hash}.zip", "rb"), 8096), content_type="application/zip")
+                resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+            return resp
         else:
             resp = StreamingHttpResponse(FileWrapper(open(sample, "rb"), 8096), content_type="application/octet-stream")
             resp["Content-Length"] = os.path.getsize(sample)

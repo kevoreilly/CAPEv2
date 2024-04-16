@@ -7,8 +7,8 @@ import collections
 import datetime
 import json
 import os
-import sys
 import subprocess
+import sys
 import tempfile
 import zipfile
 from contextlib import suppress
@@ -118,9 +118,9 @@ if processing_cfg.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 USE_SEVENZIP = False
-if reporting_cfg.compression.compressiontool == '7zip':
+if reporting_cfg.compression.compressiontool == "7zip":
     USE_SEVENZIP = True
-    SEVENZIP_PATH = reporting_cfg.compression.sevenzippath.strip() or '/usr/bin/7z'
+    SEVENZIP_PATH = reporting_cfg.compression.sevenzippath.strip() or "/usr/bin/7z"
 
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
@@ -1832,22 +1832,15 @@ def file(request, category, task_id, dlfile):
             if not isinstance(path, list):
                 path = [path]
             if USE_SEVENZIP:
-                zip_path = os.path.join(
-                    CUCKOO_ROOT, "storage", "analysis",
-                    f"{task_id}", f"{file_name}.zip")
-                sevenZipArgs = [
-                    SEVENZIP_PATH, f'-p{settings.ZIP_PWD}', 'a', zip_path]
+                zip_path = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}", f"{file_name}.zip")
+                sevenZipArgs = [SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path]
                 sevenZipArgs.extend(path)
                 try:
                     subprocess.check_call(sevenZipArgs)
                 except subprocess.CalledProcessError:
-                    return render(
-                        request,
-                        "error.html",
-                        {"error": "error compressing file"})
-                zip_fd = open(zip_path, 'rb')
-                resp = StreamingHttpResponse(
-                    zip_fd, content_type='application/zip')
+                    return render(request, "error.html", {"error": "error compressing file"})
+                zip_fd = open(zip_path, "rb")
+                resp = StreamingHttpResponse(zip_fd, content_type="application/zip")
                 resp["Content-Length"] = os.path.getsize(zip_path)
                 resp["Content-Disposition"] = f"attachment; filename={file_name}.zip"
                 return resp

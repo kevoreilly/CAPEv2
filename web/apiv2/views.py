@@ -92,10 +92,9 @@ if repconf.compression.enabled:
     zlib_compresion = True
 
 USE_SEVENZIP = False
-if reporting_conf.compression.compressiontool.strip() == '7zip':
+if reporting_conf.compression.compressiontool.strip() == "7zip":
     USE_SEVENZIP = True
-    SEVENZIP_PATH = (
-        reporting_conf.compression.sevenzippath.strip() or '/usr/bin/7z')
+    SEVENZIP_PATH = reporting_conf.compression.sevenzippath.strip() or "/usr/bin/7z"
 
 
 if repconf.mongodb.enabled:
@@ -1793,8 +1792,7 @@ def tasks_procmemory(request, task_id, pid="all"):
         task_id = rtid
 
     # Check if any process memory dumps exist
-    srcdir = os.path.join(
-        CUCKOO_ROOT, "storage", "analyses", f"{task_id}", "memory")
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", "memory")
     if not path_exists(srcdir):
         resp = {"error": True, "error_value": "No memory dumps saved"}
         return Response(resp)
@@ -1806,10 +1804,9 @@ def tasks_procmemory(request, task_id, pid="all"):
             resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
             return Response(resp)
         if USE_SEVENZIP:
-            zip_path = os.path.join(analysis_dir, 'procdumps.zip')
+            zip_path = os.path.join(analysis_dir, "procdumps.zip")
             try:
-                subprocess.check_call([
-                    "/usr/bin/7z", f"-p{settings.ZIP_PWD}", "a", zip_path, srcdir])
+                subprocess.check_call(["/usr/bin/7z", f"-p{settings.ZIP_PWD}", "a", zip_path, srcdir])
             except subprocess.CalledProcessError:
                 resp = {"error": True, "error_value": "error compressing file"}
                 return Response(resp)
@@ -1830,16 +1827,14 @@ def tasks_procmemory(request, task_id, pid="all"):
         filepath = os.path.join(parent_folder, pid + ".dmp")
         if path_exists(filepath):
             if USE_SEVENZIP:
-                zip_path = os.path.join(analysis_dir, f'{task_id}-{pid}_dmp.zip')
+                zip_path = os.path.join(analysis_dir, f"{task_id}-{pid}_dmp.zip")
                 try:
-                    subprocess.check_call([
-                        SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, filepath])
+                    subprocess.check_call([SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, filepath])
                 except subprocess.CalledProcessError:
                     resp = {"error": True, "error_value": "error compressing file"}
                     return Response(resp)
-                zip_fd = open(zip_path, 'rb')
-                resp = StreamingHttpResponse(
-                    zip_fd, content_type="application/zip")
+                zip_fd = open(zip_path, "rb")
+                resp = StreamingHttpResponse(zip_fd, content_type="application/zip")
                 resp["Content-Length"] = os.path.getsize(zip_path)
             else:
                 mem_zip = create_zip(files=filepath, encrypted=True)
@@ -1934,14 +1929,12 @@ def file(request, stype, value):
 
             if USE_SEVENZIP:
                 try:
-                    subprocess.check_call([
-                        SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, sample])
+                    subprocess.check_call([SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, sample])
                 except subprocess.CalledProcessError:
                     resp = {"error": True, "error_value": "error compressing file"}
                     return Response(resp)
-                zip_fd = open(zip_path, 'rb')
-                resp = StreamingHttpResponse(
-                    zip_fd, content_type='application/zip')
+                zip_fd = open(zip_path, "rb")
+                resp = StreamingHttpResponse(zip_fd, content_type="application/zip")
                 resp["Content-Length"] = os.path.getsize(zip_path)
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
                 return resp

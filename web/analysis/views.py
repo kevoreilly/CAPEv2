@@ -5,7 +5,6 @@
 import base64
 import collections
 import datetime
-from http.client import USE_PROXY
 import json
 import os
 import sys
@@ -1827,7 +1826,7 @@ def file(request, category, task_id, dlfile):
                 path = [path]
             if USE_SEVENZIP:
                 sevenZipArgs = [
-                    SEVENZIP_PATH, '-an', '-ttar', f'-pinfected', '-so', 'a']
+                    SEVENZIP_PATH, '-an', '-ttar', '-pinfected', '-so', 'a']
                 sevenZipArgs.extend(path)
                 resp = StreamingHttpResponse(
                     stream_subprocess_output(sevenZipArgs),

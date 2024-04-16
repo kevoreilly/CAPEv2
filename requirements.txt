@@ -1637,9 +1637,9 @@ sqlalchemy==1.4.50 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:f5b1fb2943d13aba17795a770d22a2ec2214fc65cff46c487790192dda3a3ee7 \
     --hash=sha256:fb9adc4c6752d62c6078c107d23327aa3023ef737938d0135ece8ffb67d07030 \
     --hash=sha256:fbaf6643a604aa17e7a7afd74f665f9db882df5c297bdd86c38368f2c471f37d
-sqlparse==0.4.4 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:5430a4fe2ac7d0f93e66f1efc6e1338a41884b7ddf2a350cedd20ccc4d9d28f3 \
-    --hash=sha256:d446183e84b8349fa3061f0fe7f06ca94ba65b426946ffebe6e3e8295332420c
+sqlparse==0.5.0 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:714d0a4932c059d16189f58ef5411ec2287a4360f17cdd0edd2d09d4c5087c93 \
+    --hash=sha256:c204494cd97479d0e39f28c93d46c0b2d5959c7b9ab904762ea6c7af211c8663
 tabulate==0.9.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:0095b12bf5966de529c0feb1fa08671671b3368eec77d7ef7ab114be2c068b3c \
     --hash=sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f

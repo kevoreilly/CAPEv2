@@ -1818,7 +1818,7 @@ def tasks_procmemory(request, task_id, pid="all"):
                 return Response(resp)
             resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
             resp["Content-Length"] = len(mem_zip.getvalue())
-            resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.tar"
+            resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.zip"
             return resp
     else:
         filepath = os.path.join(parent_folder, pid + ".dmp")
@@ -1829,7 +1829,8 @@ def tasks_procmemory(request, task_id, pid="all"):
                 resp = StreamingHttpResponse(
                     stream_subprocess_output(sevenZipArgs),
                     content_type='application/x-tar')
-                resp['Content-Disposition'] = f"attachment; filename={task_id}-{pid}_dump.tar"
+                resp['Content-Disposition'] = f"attachment; filename={task_id}-{pid}_dmp.tar"
+                return resp
             else:
                 mem_zip = create_zip(files=filepath, encrypted=True)
                 if mem_zip is False:

@@ -14,6 +14,7 @@ import shutil
 import socket
 import string
 import struct
+import subprocess
 import tempfile
 import threading
 import time
@@ -63,6 +64,7 @@ def arg_name_clscontext(arg_val):
 
 config = Config()
 web_cfg = Config("web")
+
 
 HAVE_TMPFS = False
 if hasattr(config, "tmpfs"):
@@ -911,3 +913,13 @@ def yara_detected(name, results):
                         "XLMMacroDeobfuscator"
                     ]["info"]
         """
+
+
+def stream_subprocess_output(process_args: list[str], chunk_size=1024*1024):
+    """Stream process' stdout."""
+    process = subprocess.Popen(process_args, stdout=subprocess.PIPE, bufsize=1)
+    while True:
+      data = process.stdout.read(chunk_size)
+      if not data:
+        break
+      yield data

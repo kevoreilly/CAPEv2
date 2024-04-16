@@ -5,6 +5,7 @@
 import base64
 import collections
 import datetime
+from http.client import USE_PROXY
 import json
 import os
 import sys
@@ -31,7 +32,7 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
-from lib.cuckoo.common.utils import delete_folder, yara_detected
+from lib.cuckoo.common.utils import delete_folder, yara_detected, stream_subprocess_output
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
@@ -116,6 +117,10 @@ HAVE_FLOSS = False
 if processing_cfg.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
+USE_SEVENZIP = False
+if reporting_cfg.compression.compressiontool == '7zip':
+    USE_SEVENZIP = True
+    SEVENZIP_PATH = reporting_cfg.compression.sevenzippath.strip() or '/usr/bin/7z'
 
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
@@ -1646,7 +1651,6 @@ zip_categories = (
     "procdumpzipall",
     "CAPEzipall",
     "capeyarazipall",
-    "logszipall",
 )
 category_map = {
     "CAPE": "CAPE",
@@ -1793,11 +1797,6 @@ def file(request, category, task_id, dlfile):
         # search in mongo and get the path
         if enabledconf["mongodb"] and web_cfg.zipped_download.download_all:
             path = _file_search_all_files(category.replace("zipall", ""), dlfile)
-    elif category == "logszipall":
-        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs")
-        path = []
-        for dfile in os.listdir(buf):
-            path.append(os.path.join(buf, dfile))
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
@@ -1824,20 +1823,32 @@ def file(request, category, task_id, dlfile):
 
     try:
         if category in zip_categories:
-            mem_zip = BytesIO()
-            with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-                zf.setpassword(settings.ZIP_PWD)
-                if not isinstance(path, list):
-                    path = [path]
-                for file in path:
-                    with open(file, "rb") as f:
-                        zf.writestr(os.path.basename(file), f.read())
-            mem_zip.seek(0)
-            resp = StreamingHttpResponse(mem_zip, content_type=cd)
-            resp["Content-Length"] = len(mem_zip.getvalue())
-            file_name += ".zip"
-            path = os.path.join(tempfile.gettempdir(), file_name)
-            cd = "application/zip"
+            if not isinstance(path, list):
+                path = [path]
+            if USE_SEVENZIP:
+                sevenZipArgs = [
+                    SEVENZIP_PATH, '-an', '-ttar', f'-pinfected', '-so', 'a']
+                sevenZipArgs.extend(path)
+                resp = StreamingHttpResponse(
+                    stream_subprocess_output(sevenZipArgs),
+                    content_type='application/x-tar')
+                resp["Content-Disposition"] = f"attachment; filename={file_name}.tar"
+                return resp
+            else:
+                mem_zip = BytesIO()
+                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    zf.setpassword(settings.ZIP_PWD)
+                    if not isinstance(path, list):
+                        path = [path]
+                    for file in path:
+                        with open(file, "rb") as f:
+                            zf.writestr(os.path.basename(file), f.read())
+                mem_zip.seek(0)
+                resp = StreamingHttpResponse(mem_zip, content_type=cd)
+                resp["Content-Length"] = len(mem_zip.getvalue())
+                file_name += ".zip"
+                path = os.path.join(tempfile.gettempdir(), file_name)
+                cd = "application/zip"
         else:
             resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8091), content_type=cd)
             resp["Content-Length"] = Path(path).stat().st_size

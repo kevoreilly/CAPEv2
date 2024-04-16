@@ -39,6 +39,7 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
+    stream_subprocess_output,
 )
 from lib.cuckoo.common.web_utils import (
     apiconf,
@@ -82,12 +83,20 @@ except ImportError:
 repconf = Config("reporting")
 web_conf = Config("web")
 routing_conf = Config("routing")
+reporting_conf = Config("reporting")
 
 zlib_compresion = False
 if repconf.compression.enabled:
     from zlib import decompress
 
     zlib_compresion = True
+
+USE_SEVENZIP = False
+if reporting_conf.compression.compressiontool.strip() == '7zip':
+    USE_SEVENZIP = True
+    SEVENZIP_PATH = (
+        reporting_conf.compression.sevenzippath.strip() or '/usr/bin/7z')
+
 
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_delete_data, mongo_find, mongo_find_one, mongo_find_one_and_update
@@ -1794,29 +1803,43 @@ def tasks_procmemory(request, task_id, pid="all"):
         if not apiconf.taskprocmemory.get("all"):
             resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
             return Response(resp)
-
-        mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if mem_zip is False:
-            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
-            return Response(resp)
-
-        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-        resp["Content-Length"] = len(mem_zip.getvalue())
-        resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.zip"
-        return resp
-
-    else:
-        filepath = os.path.join(parent_folder, pid + ".dmp")
-        if path_exists(filepath):
-            mem_zip = create_zip(files=filepath, encrypted=True)
+        if USE_SEVENZIP:
+            sevenZipArgs = [
+                '/usr/bin/7z', '-an', '-ttar', '-so', 'a', srcdir]
+            resp = StreamingHttpResponse(
+                    stream_subprocess_output(sevenZipArgs),
+                    content_type='application/x-tar')
+            resp['Content-Disposition'] = f'attachment; filename={task_id}_procdumps.tar'
+            return resp
+        else:
+            mem_zip = create_zip(folder=srcdir, encrypted=True)
             if mem_zip is False:
                 resp = {"error": True, "error_value": "Can't create zip archive for report file"}
                 return Response(resp)
-
             resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
             resp["Content-Length"] = len(mem_zip.getvalue())
-            resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
+            resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.tar"
             return resp
+    else:
+        filepath = os.path.join(parent_folder, pid + ".dmp")
+        if path_exists(filepath):
+            if USE_SEVENZIP:
+                sevenZipArgs = [
+                    '/usr/bin/7z', '-an', '-ttar', '-so', 'a', filepath]
+                resp = StreamingHttpResponse(
+                    stream_subprocess_output(sevenZipArgs),
+                    content_type='application/x-tar')
+                resp['Content-Disposition'] = f"attachment; filename={task_id}-{pid}_dump.tar"
+            else:
+                mem_zip = create_zip(files=filepath, encrypted=True)
+                if mem_zip is False:
+                    resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+                    return Response(resp)
+
+                resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+                resp["Content-Length"] = len(mem_zip.getvalue())
+                resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
+                return resp
         else:
             resp = {"error": True, "error_value": "Process memory dump does not exist for pid %s" % pid}
             return Response(resp)
@@ -1893,14 +1916,23 @@ def file(request, stype, value):
         if request.GET.get("encrypted"):
             # Check if file exists in temp folder
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
-            if not file_exists:
-                # If files does not exist encrypt and move to tmp folder
-                with pyzipper.AESZipFile(f"{file_hash}.zip", "w", encryption=pyzipper.WZ_AES) as zf:
-                    zf.setpassword(b"infected")
-                    zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
-                shutil.move(f"{file_hash}.zip", "/tmp")
-            resp = StreamingHttpResponse(FileWrapper(open(f"/tmp/{file_hash}.zip", "rb"), 8096), content_type="application/zip")
-            resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+            if USE_SEVENZIP:
+                sevenZipArgs = [
+                    '/usr/bin/7z', '-an', '-ttar', '-pinfected' '-so', 'a', sample]
+                resp = StreamingHttpResponse(
+                    stream_subprocess_output(sevenZipArgs),
+                    content_type='application/gz')
+                resp["Content-Disposition"] = f"attachment; filename={file_hash}.gz"
+            else:
+                if not file_exists:
+                    # If files does not exist encrypt and move to tmp folder
+                    with pyzipper.AESZipFile(f"{file_hash}.zip", "w", encryption=pyzipper.WZ_AES) as zf:
+                        zf.setpassword(b"infected")
+                        zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
+                    shutil.move(f"{file_hash}.zip", "/tmp")
+                resp = StreamingHttpResponse(FileWrapper(open(f"/tmp/{file_hash}.zip", "rb"), 8096), content_type="application/zip")
+                resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+            return resp
         else:
             resp = StreamingHttpResponse(FileWrapper(open(sample, "rb"), 8096), content_type="application/octet-stream")
             resp["Content-Length"] = os.path.getsize(sample)

@@ -1926,8 +1926,13 @@ def file(request, stype, value):
         if request.GET.get("encrypted"):
             # Check if file exists in temp folder
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
+            zip_path = f"/tmp/{file_hash}.zip"
+            if file_exists:
+                resp = StreamingHttpResponse(FileWrapper(open(zip_path, "rb"), 8096), content_type="application/zip")
+                resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+                return response
+
             if USE_SEVENZIP:
-                zip_path = f"/tmp/{file_hash}.zip"
                 try:
                     subprocess.check_call([
                         SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, sample])
@@ -1941,12 +1946,11 @@ def file(request, stype, value):
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
                 return resp
             else:
-                if not file_exists:
-                    # If files does not exist encrypt and move to tmp folder
-                    with pyzipper.AESZipFile(f"{file_hash}.zip", "w", encryption=pyzipper.WZ_AES) as zf:
-                        zf.setpassword(b"infected")
-                        zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
-                    shutil.move(f"{file_hash}.zip", "/tmp")
+                # If files does not exist encrypt and move to tmp folder
+                with pyzipper.AESZipFile(f"{file_hash}.zip", "w", encryption=pyzipper.WZ_AES) as zf:
+                    zf.setpassword(b"infected")
+                    zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
+                shutil.move(f"{file_hash}.zip", "/tmp")
                 resp = StreamingHttpResponse(FileWrapper(open(f"/tmp/{file_hash}.zip", "rb"), 8096), content_type="application/zip")
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
             return resp

@@ -8,6 +8,8 @@ availability_zone = us-east-1a
 # Access keys consist of two parts: an access key ID (for example, AKIAIOSFODNN7EXAMPLE)
 # and a secret access key (for example, wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY).
 # To create access keys for your AWS account root user, you must use the AWS Management Console.
+# There is an option to attach an IAM role directly to the instance itself, instead of providing access and secret keys.
+# If access and secret keys are not provided, the machinery module will attempt to authenticate using IMDS.
 aws_access_key_id = AWS_ACCESS_KEY
 aws_secret_access_key = AWS_SECRET_KEY
 

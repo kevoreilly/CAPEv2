@@ -1838,11 +1838,11 @@ def file(request, category, task_id, dlfile):
                     return render(
                         request,
                         "error.html",
-                        {"error": "error compressing file"}
-                    )
+                        {"error": "error compressing file"})
                 zip_fd = open(zip_path, 'rb')
                 resp = StreamingHttpResponse(
                     zip_fd, content_type='application/zip')
+                resp["Content-Length"] = os.path.getsize(zip_path)
                 resp["Content-Disposition"] = f"attachment; filename={file_name}.zip"
                 return resp
             else:

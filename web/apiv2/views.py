@@ -7,7 +7,6 @@ import shutil
 import socket
 import subprocess
 import sys
-import tempfile
 import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -1817,6 +1816,7 @@ def tasks_procmemory(request, task_id, pid="all"):
             # using `with` prematurely closes the file
             zip_fd = open(zip_path, "rb")
             resp = StreamingHttpResponse(zip_fd, content_type="application/zip")
+            resp["Content-Length"] = os.path.getsize(zip_path)
         else:
             mem_zip = create_zip(folder=srcdir, encrypted=True)
             if mem_zip is False:
@@ -1833,15 +1833,14 @@ def tasks_procmemory(request, task_id, pid="all"):
                 zip_path = os.path.join(analysis_dir, f'{task_id}-{pid}_dmp.zip')
                 try:
                     subprocess.check_call([
-                        SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", f"{task_id}-{pid}_dmp.zip", filepath])
+                        SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, filepath])
                 except subprocess.CalledProcessError:
                     resp = {"error": True, "error_value": "error compressing file"}
                     return Response(resp)
                 zip_fd = open(zip_path, 'rb')
                 resp = StreamingHttpResponse(
                     zip_fd, content_type="application/zip")
-                resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
-                return
+                resp["Content-Length"] = os.path.getsize(zip_path)
             else:
                 mem_zip = create_zip(files=filepath, encrypted=True)
                 if mem_zip is False:
@@ -1849,7 +1848,7 @@ def tasks_procmemory(request, task_id, pid="all"):
                     return Response(resp)
                 resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
                 resp["Content-Length"] = len(mem_zip.getvalue())
-                resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
+            resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
             return resp
         else:
             resp = {"error": True, "error_value": "Process memory dump does not exist for pid %s" % pid}
@@ -1928,12 +1927,21 @@ def file(request, stype, value):
             # Check if file exists in temp folder
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
             if USE_SEVENZIP:
-                sevenZipArgs = [
-                    '/usr/bin/7z', '-an', '-ttar', '-pinfected' '-so', 'a', sample]
+                zip_path = os.path.join(
+                    CUCKOO_ROOT, "storage", "analyses", f"{task_id}", f"{file_hash}.zip")
+                try:
+                    subprocess.check_call([
+                        SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, sample])
+                except subprocess.CalledProcessError:
+                    resp = {"error": True, "error_value": "error compressing file"}
+                    return Response(resp)
+                zip_fd = open(zip_path, 'rb')
                 resp = StreamingHttpResponse(
-                    stream_subprocess_output(sevenZipArgs),
-                    content_type='application/gz')
-                resp["Content-Disposition"] = f"attachment; filename={file_hash}.gz"
+                    zip_fd,
+                    content_type='application/zip')
+                resp["Content-Length"] = os.path.getsize(zip_path)
+                resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
+                return resp
             else:
                 if not file_exists:
                     # If files does not exist encrypt and move to tmp folder

@@ -1927,8 +1927,7 @@ def file(request, stype, value):
             # Check if file exists in temp folder
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
             if USE_SEVENZIP:
-                zip_path = os.path.join(
-                    CUCKOO_ROOT, "storage", "analyses", f"{task_id}", f"{file_hash}.zip")
+                zip_path = f"/tmp/{file_hash}.zip"
                 try:
                     subprocess.check_call([
                         SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, sample])
@@ -1937,8 +1936,7 @@ def file(request, stype, value):
                     return Response(resp)
                 zip_fd = open(zip_path, 'rb')
                 resp = StreamingHttpResponse(
-                    zip_fd,
-                    content_type='application/zip')
+                    zip_fd, content_type='application/zip')
                 resp["Content-Length"] = os.path.getsize(zip_path)
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
                 return resp

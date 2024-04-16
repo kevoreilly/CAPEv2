@@ -45,8 +45,8 @@ class AWS(Machinery):
         log.info("connecting to AWS:{}".format(self.options.aws.region_name))
 
         # Performing a check to see if the access and secret keys were passed through the configuration file
-        access_key = getattr(self.options.aws, 'aws_access_key_id', None)
-        secret_key = getattr(self.options.aws, 'aws_secret_access_key', None)
+        access_key = getattr(self.options.aws, "aws_access_key_id", None)
+        secret_key = getattr(self.options.aws, "aws_secret_access_key", None)
 
         # Use the provided credentials if available; otherwise, fall back to the IAM role attached to the EC2 instance
         if access_key and secret_key:
@@ -59,10 +59,7 @@ class AWS(Machinery):
             )
         else:
             log.info("No AWS keys provided; attempting to use IAM Role through IMDSv2")
-            self.ec2_resource = boto3.resource(
-                "ec2",
-                region_name=self.options.aws.region_name
-            )
+            self.ec2_resource = boto3.resource("ec2", region_name=self.options.aws.region_name)
 
             # Iterate over all instances with tag that has a key of AUTOSCALE_CUCKOO
         for instance in self.ec2_resource.instances.filter(

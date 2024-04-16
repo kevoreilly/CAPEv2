@@ -1826,7 +1826,7 @@ def file(request, category, task_id, dlfile):
                 path = [path]
             if USE_SEVENZIP:
                 sevenZipArgs = [
-                    SEVENZIP_PATH, '-an', '-ttar', '-pinfected', '-so', 'a']
+                    SEVENZIP_PATH, '-an', '-ttar', '-so', 'a']
                 sevenZipArgs.extend(path)
                 resp = StreamingHttpResponse(
                     stream_subprocess_output(sevenZipArgs),

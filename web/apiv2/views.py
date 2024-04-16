@@ -1919,7 +1919,7 @@ def file(request, stype, value):
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
             if USE_SEVENZIP:
                 sevenZipArgs = [
-                    '/usr/bin/7z', '-an', '-ttar', '-pinfected' '-so', 'a', sample]
+                    '/usr/bin/7z', '-an', '-ttar', '-so', 'a', sample]
                 resp = StreamingHttpResponse(
                     stream_subprocess_output(sevenZipArgs),
                     content_type='application/gz')

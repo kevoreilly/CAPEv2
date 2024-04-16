@@ -1930,7 +1930,7 @@ def file(request, stype, value):
             if file_exists:
                 resp = StreamingHttpResponse(FileWrapper(open(zip_path, "rb"), 8096), content_type="application/zip")
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
-                return response
+                return resp
 
             if USE_SEVENZIP:
                 try:

@@ -3,7 +3,6 @@ import hashlib
 import json
 import logging
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -1920,8 +1919,8 @@ def file(request, stype, value):
     for sample in paths:
         if request.GET.get("encrypted"):
             # Check if file exists in temp folder
-            file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
             zip_path = f"/tmp/{file_hash}.zip"
+            file_exists = os.path.isfile(zip_path)
             if file_exists:
                 resp = StreamingHttpResponse(FileWrapper(open(zip_path, "rb"), 8096), content_type="application/zip")
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
@@ -1940,11 +1939,10 @@ def file(request, stype, value):
                 return resp
             else:
                 # If files does not exist encrypt and move to tmp folder
-                with pyzipper.AESZipFile(f"{file_hash}.zip", "w", encryption=pyzipper.WZ_AES) as zf:
+                with pyzipper.AESZipFile(zip_path, "w", encryption=pyzipper.WZ_AES) as zf:
                     zf.setpassword(b"infected")
                     zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
-                shutil.move(f"{file_hash}.zip", "/tmp")
-                resp = StreamingHttpResponse(FileWrapper(open(f"/tmp/{file_hash}.zip", "rb"), 8096), content_type="application/zip")
+                resp = StreamingHttpResponse(FileWrapper(open(zip_path, "rb"), 8096), content_type="application/zip")
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
             return resp
         else:

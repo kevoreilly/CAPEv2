@@ -115,10 +115,7 @@ class FileCollector(Auxiliary, Thread):
         # log.info("Generating message %s", method)
 
         # excluded files or directories
-        noisy_content = [
-                "sysmon",
-                "gvfs-metadata"
-        ]
+        noisy_content = ["sysmon", "gvfs-metadata"]
 
         def _method_name(self, event):
             try:
@@ -140,7 +137,7 @@ class FileCollector(Auxiliary, Thread):
                     return
 
                 if any(noisy in event.pathname for noisy in noisy_content):
-                    #log.info("Skipping noisy file %s", event.pathname)
+                    # log.info("Skipping noisy file %s", event.pathname)
                     return
 
                 try:

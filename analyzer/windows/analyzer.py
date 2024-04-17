@@ -72,6 +72,7 @@ MONITOR_DLL_64 = None
 LOADER32 = None
 LOADER64 = None
 ANALYSIS_TIMED_OUT = False
+INTERACTIVE_MODE = False
 
 PID = os.getpid()
 PPID = Process(pid=PID).get_parent_pid()
@@ -352,7 +353,7 @@ class Analyzer:
         """Run analysis.
         @return: operation status.
         """
-        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64, ANALYSIS_TIMED_OUT
+        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64, ANALYSIS_TIMED_OUT, INTERACTIVE_MODE
 
         log.debug("Starting analyzer from: %s", Path.cwd())
         log.debug("Storing results at: %s", PATHS["root"])
@@ -547,6 +548,27 @@ class Analyzer:
         zer0m0n.dumpint(int(self.options.get("dumpint", 0)))
         """
 
+        if self.options.get("interactive", False):
+            INTERACTIVE_MODE = True
+            log.info("Interactive mode enabled - injecting into explorer shell")
+            if self.config.category == "file":
+                try:
+                    dest_path = os.path.join(os.environ["HOMEPATH"], "Desktop", os.path.basename(self.config.file_name))
+                    copy(self.target, dest_path)
+                except:
+                    pass
+            # If it's an URL, we'll just use the default Internet Explorer package.
+            explorer_pid = get_explorer_pid()
+            if explorer_pid:
+                explorer = Process(options=self.options, config=self.config, pid=explorer_pid)
+                filepath = explorer.get_filepath()
+                explorer.inject(interest=filepath, nosleepskip=True)
+                self.LASTINJECT_TIME = timeit.default_timer()
+                explorer.close()
+                KERNEL32.Sleep(2000)
+        else:
+            INTERACTIVE_MODE = False
+
         # log.info("Stopping WMI Service")
         subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
         # log.info("Stopped WMI Service")
@@ -660,8 +682,11 @@ class Analyzer:
                             not self.LASTINJECT_TIME or (timeit.default_timer() >= (self.LASTINJECT_TIME + 15))  # Add 15 seconds
                         ):
                             if emptytime and (timeit.default_timer() >= (emptytime + 5)):  # Add 5 seconds
-                                log.info("Process list is empty, terminating analysis")
-                                break
+                                if INTERACTIVE_MODE:
+                                    continue
+                                else:
+                                    log.info("Process list is empty, terminating analysis")
+                                    break
                             elif not emptytime:
                                 emptytime = timeit.default_timer()
                         else:
@@ -1247,7 +1272,7 @@ class CommandPipeHandler:
             self.analyzer.process_lock.release()
             return
 
-        # Open the process and inject the DLL. Hope it enjoys it.
+        # Open the process and inject the monitor
         proc = Process(pid=process_id, tid=thread_id)
 
         filepath = proc.get_filepath()
@@ -1258,7 +1283,7 @@ class CommandPipeHandler:
             self.analyzer.process_list.add_pid(process_id)
 
             # We're done operating on the processes list,
-            # release the lock. Let the injection do its thing.
+            # release the lock
             self.analyzer.process_lock.release()
 
             proc.inject(interest=filepath, nosleepskip=True)

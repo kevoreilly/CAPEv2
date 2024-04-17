@@ -1065,6 +1065,11 @@ class Scheduler:
                         for task in self.db.list_tasks(
                             status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
                         ):
+                            # ToDo write a proper fix/place
+                            if self.task.category in ("file", "pcap", "static"):
+                                self.db.set_status(task.id, TASK_COMPLETED)
+                                continue
+
                             # Can this task ever be serviced?
                             if not self.db.is_serviceable(task):
                                 if self.cfg.cuckoo.fail_unserviceable:
@@ -1113,6 +1118,12 @@ class Scheduler:
                         for task in self.db.list_tasks(
                             status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
                         ):
+
+                            # ToDo write a proper fix/place
+                            if self.task.category in ("file", "pcap", "static"):
+                                self.db.set_status(task.id, TASK_COMPLETED)
+                                continue
+
                             # Can this task ever be serviced?
                             if not self.db.is_serviceable(task):
                                 if self.cfg.cuckoo.fail_unserviceable:

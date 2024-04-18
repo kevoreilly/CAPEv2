@@ -352,11 +352,12 @@ class Processes:
 
         concat_raw_logs = self.log_concat(unfinished_logs, resumed_logs)
         concat_logs = self.extract_logs(concat_raw_logs, log_pattern)
-        for pid in normal_logs.keys():
+        for pid in concat_logs.keys():
+            if pid not in normal_logs:
+                normal_logs[pid] = []
             normal_logs[pid].extend(concat_logs[pid])
-
-        for pid in normal_logs.keys():
             normal_logs[pid].sort(key=lambda d: d["time"])
+        
         return normal_logs
 
     def run(self):

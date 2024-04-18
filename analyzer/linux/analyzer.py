@@ -306,12 +306,6 @@ class Analyzer:
                     upload_to_host(package[0], os.path.join("files", package[1]))
         except Exception as e:
             log.warning('The package "%s" package_files function raised an exception: %s', package_class, e)
-        try:
-            # Upload the strace logs to host
-            for file in os.listdir(PATHS["logs"]):
-                upload_to_host(os.path.join(PATHS["logs"], file), os.path.join("logs", file))
-        except Exception as e:
-            log.warning("The strace log failed to transfer:", e)
 
         # Terminate the Auxiliary modules.
         log.info("Stopping auxiliary modules")

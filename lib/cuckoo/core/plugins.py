@@ -461,7 +461,7 @@ class RunSignatures:
         if platform in module:
             return True
 
-        if "all" in module:
+        if ".all." in module:
             return True
 
         if "custom" in module:

@@ -193,12 +193,6 @@ class VolatilityManager:
         self.memfile = memfile
         self.options = Config("memory")
 
-        conf_path = os.path.join(CUCKOO_ROOT, "conf", "memory.conf")
-        if not path_exists(conf_path):
-            log.error("Configuration file memory.conf not found")
-            self.options = False
-            return
-
         if isinstance(self.options.mask.pid_generic, int):
             self.mask_pid.append(self.options.mask.pid_generic)
         else:

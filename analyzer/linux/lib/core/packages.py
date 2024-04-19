@@ -10,11 +10,8 @@ from threading import Thread
 import timeit
 from os import environ, path, sys
 
-from lib.api.process import Process
-from lib.core.config import Config
 from lib.common.results import NetlogFile, append_buffer_to_host
 
-config = Config(cfg="analysis.conf")
 log = logging.getLogger(__name__)
 
 
@@ -168,7 +165,7 @@ class Package:
         target_cmd = f"{self.target}"
         if "args" in kwargs:
             target_cmd += f' {" ".join(kwargs["args"])}'
-        
+
         # Tricking strace into always showing PID on stderr output
         # https://github.com/strace/strace/issues/278#issuecomment-1815914576
         cmd = f"sudo strace -o /dev/stderr -ttf {target_cmd}"

@@ -48,6 +48,9 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Services\HTTP\Parameters\SslBindingInfo" 
 REM disable ClickToRunSvc
 sc stop "ClickToRunSvc"
 sc config "ClickToRunSvc" start= disabled
+REM disable monitor-timeout
+POWERCFG -CHANGE -monitor-timeout-ac 0
+POWERCFG -CHANGE -monitor-timeout-dc 0
 
 REM dr.watson
 reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug" /v AUTO /t REG_SZ /d 0 /f

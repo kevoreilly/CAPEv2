@@ -74,7 +74,7 @@ class ParseProcessLog(list):
         return iter(super().__iter__())
 
     def __repr__(self):
-        return f"<ParseProcessLog log-path: {self._log_path}>"
+        return f"<ParseProcessLog for pid: {self.process_id}>"
 
     def begin_reporting(self):
         pass
@@ -366,11 +366,11 @@ class Processes:
 
         if not path_exists(self._logs_path):
             log.warning('Strace logs does not exist at path "%s"', self._logs_path)
-            return self.results
+            return [1]
         
         if not os.stat(self._logs_path).st_size > 0:
             log.warning('Strace logs does not contain data at path "%s"', self._logs_path)
-            return self.results
+            return [2]
 
         processes = self.normalize_logs()
 

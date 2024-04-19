@@ -11,7 +11,7 @@ reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpd
 REM disable aero
 net stop uxsms
 REM disable the firewall
-netsh firewall set opmode mode=DISABLE
+netsh advfirewall set allprofiles state off
 REM disable IPv6
 netsh interface teredo set state disabled
 netsh interface ipv6 6to4 set state state=disabled undoonstop=disabled

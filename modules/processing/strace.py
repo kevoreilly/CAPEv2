@@ -67,7 +67,7 @@ class ParseProcessLog(list):
         self.options = options
         # Limit of API calls per process
         # self.api_limit = self.options.analysis_call_limit
-        
+
         self.fetch_calls(syscalls_info)
 
     def __iter__(self):
@@ -127,7 +127,7 @@ class ParseProcessLog(list):
             if syscall in ["fork", "vfork", "clone", "clone3"]:
                 # append children and the corresponding API call that spawns it
                 self.children_ids.append((int(retval), syscall + "(" + event["args"] + ")"))
-            
+
             self.calls.append(
                 {
                     "timestamp": time,
@@ -280,7 +280,6 @@ class Processes:
                         ):
                             call["arguments"][0]["value"] += f' ({fd["filename"]})'
 
-
     def update_parent_ids(self, relations):
         """
         Returns an updated process list with the matched parent IDs
@@ -313,7 +312,7 @@ class Processes:
             for head in unfinished[key]:
                 for tail in resumed[key]:
                     if head["syscall"] != tail["syscall"]:
-                      continue
+                        continue
                     data += " ".join([str(key), tail["time"], head["unfinished"] + tail["resumed"] + "\n"])
                     resumed[key].remove(tail)
                     break
@@ -357,7 +356,7 @@ class Processes:
                 normal_logs[pid] = []
             normal_logs[pid].extend(concat_logs[pid])
             normal_logs[pid].sort(key=lambda d: d["time"])
-        
+
         return normal_logs
 
     def run(self):
@@ -367,7 +366,7 @@ class Processes:
         if not path_exists(self._logs_path):
             log.warning('Strace logs does not exist at path "%s"', self._logs_path)
             return [1]
-        
+
         if not os.stat(self._logs_path).st_size > 0:
             log.warning('Strace logs does not contain data at path "%s"', self._logs_path)
             return [2]
@@ -376,7 +375,7 @@ class Processes:
 
         for pid in processes.keys():
             current_log = ParseProcessLog(pid, processes[pid], self.syscalls_info, self.options)
-            
+
             parent_child_relation[current_log.process_id] = current_log.children_ids
 
             self.results.append(

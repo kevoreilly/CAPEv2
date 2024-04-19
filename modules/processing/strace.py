@@ -125,8 +125,16 @@ class ParseProcessLog(list):
                 self.process_name = " ".join(eval(args[1]))
 
             if syscall in ["fork", "vfork", "clone", "clone3"]:
-                # append children and the corresponding API call that spawns it
-                self.children_ids.append((int(retval), syscall + "(" + event["args"] + ")"))
+                # Identify if thread or fork with reference to:
+                # https://github.com/mgedmin/strace-process-tree/blob/bb61f6273b91a7c98e73657a61c6bd69cfadb781/strace_process_tree.py#L328-#L332
+                if syscall.startswith("clone"):
+                    if "CLONE_THREAD" in event["args"]:
+                        self.children_ids.append((int(retval), "(thread)"))
+                    elif "flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD" in event["args"]:
+                        self.children_ids.append((int(retval), "(fork)"))
+                else:
+                    # append children and the corresponding API call that spawns it
+                    self.children_ids.append((int(retval), syscall + "(" + event["args"] + ")"))
 
             self.calls.append(
                 {

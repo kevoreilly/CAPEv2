@@ -373,11 +373,11 @@ class Processes:
 
         if not path_exists(self._logs_path):
             log.warning('Strace logs does not exist at path "%s"', self._logs_path)
-            return [1]
+            return self.results
 
         if not os.stat(self._logs_path).st_size > 0:
             log.warning('Strace logs does not contain data at path "%s"', self._logs_path)
-            return [2]
+            return self.results
 
         processes = self.normalize_logs()
 

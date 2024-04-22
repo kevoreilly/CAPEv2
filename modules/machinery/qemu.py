@@ -183,16 +183,45 @@ QEMU_ARGS = {
     "x64": {
         "cmdline": [
             "qemu-system-x86_64",
-            "-display",
-            "none",
+            "-monitor",
+            "stdio",
+            "-nodefaults",
+            "-smp",
+            "2",
+            "-M",
+            "q35",
+            "-vga",
+            "std",
+            "-overcommit",
+            "mem-lock=off",
+            "-rtc",
+            "base=localtime,driftfix=slew",
             "-m",
             "{memory}",
-            "-hda",
-            "{snapshot_path}",
             "-netdev",
-            "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "type=bridge,br=virbr0,id=net0",
             "-device",
-            "e1000,netdev=net_{vmname},mac={mac}",
+            "rtl8139,netdev=net0,mac={mac},bus=pcie.0,addr=3",
+            "-device",
+            "ich9-ahci,id=ahci",
+            "-device",
+            "ide-hd,bus=ahci.0,unit=0,drive=disk,bootindex=2",
+            "-device",
+            "ide-cd,bus=ahci.1,unit=0,drive=cdrom,bootindex=1",
+            "-device",
+            "usb-ehci,id=ehci",
+            "-device",
+            "usb-tablet,bus=ehci.0",
+            "-device",
+            "intel-hda",
+            "-device",
+            "hda-duplex",
+            "-drive",
+            "if=none,id=cdrom,readonly=on",
+            "-drive",
+            "file={snapshot_path},format=qcow2,if=none,id=disk",
+            "-display",
+            "none"
         ],
         "params": {
             "memory": "1024M",
@@ -445,7 +474,7 @@ class QEMU(Machinery):
         log.debug("Executing QEMU %s", final_cmdline)
 
         try:
-            proc = subprocess.Popen(final_cmdline, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(final_cmdline, universal_newlines=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.state[vm_info.name] = proc
         except OSError as e:
             raise CuckooMachineError(f"QEMU failed starting the machine: {e}")
@@ -485,3 +514,37 @@ class QEMU(Machinery):
         @return: status string.
         """
         return self.RUNNING if self.state.get(name) is not None else self.STOPPED
+
+    def dump_memory(self, label, path):
+        """create a memory dump of the virtual machine.
+        @param label: virtual machine label.
+        @raise CuckooMachineError: if unable to dump.
+        """
+        try:
+            # Create the memory dump file ourselves first so it doesn't end up root/root 0600
+            with open(path, "w"):
+                pass
+            log.debug("Trying to do a memory dump of vm %s", label)
+
+            vm_info = self.db.view_machine_by_label(label)
+
+            if self._status(vm_info.name) == self.STOPPED:
+                raise CuckooMachineError(f"Trying to do a memory dump on an already stopped vm {label}")
+
+            proc = self.state.get(vm_info.name)
+
+            log.debug("Freezing vm %s before the memory dump", label)
+            proc.stdin.write("stop\n")
+            log.debug("Doing the memory dump")
+            proc.stdin.write(f"dump-guest-memory \"{path}\"\n")
+            proc.stdin.write("quit\n")
+            log.debug("Flushing snapshot commands to qemu.")
+            proc.stdin.flush()
+            proc.wait()
+            log.debug("dump done")
+
+            if not os.path.isfile(path):
+                raise CuckooMachineError(f"Error dumping memory virtual machine {label}: file not found")
+
+        except Exception as e:
+            raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}") from e

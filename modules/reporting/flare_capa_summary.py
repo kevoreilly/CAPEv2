@@ -6,6 +6,7 @@ import logging
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
+reporting_conf = Config("reporting")
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class CAPASummary(Report):
     """Generate CAPE analysis summary by using FLARE CAPA"""
 
     def run(self, results):
-        if HAVE_FLARE_CAPA and self.options.flare_capa_summary.enabled and not self.options.flare_capa_summary.on_demand:
+        if HAVE_FLARE_CAPA and reporting_conf.flare_capa_summary.enabled and not reporting_conf.flare_capa_summary.on_demand:
             report = generate_cape_analysis_summary(results)
             if report:
                 results["capa_summary"] = report

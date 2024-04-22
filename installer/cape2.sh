@@ -1269,8 +1269,8 @@ function install_node_exporter() {
 
 function install_volatility3() {
     sudo apt-get install unzip
-    sudo pip3 install git+https://github.com/volatilityfoundation/volatility3
-    vol_path=$(python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    sudo -u ${USER} poetry run pip3 install git+https://github.com/volatilityfoundation/volatility3
+    vol_path=$(sudo -u ${USER} poetry run python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
     cd $vol_path || return
     wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
     unzip windows.zip

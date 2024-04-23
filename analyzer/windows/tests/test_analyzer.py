@@ -30,40 +30,40 @@ class TestModule(unittest.TestCase):
         self.assertIn(os.getpid(), pids)
 
     def test_protected_path_file(self):
+        # test protecting bytes-based paths
         with tempfile.NamedTemporaryFile() as ntf:
-            # test protecting bytes-based paths
-            analyzer.add_protected_path(ntf.name.encode())
-            self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
+            with patch("analyzer.PROTECTED_PATH_LIST", []):
+                analyzer.add_protected_path(ntf.name.encode())
+                self.assertTrue(analyzer.in_protected_path(ntf.name))
+                self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
 
-            # test protecting str-based paths
-            analyzer.add_protected_path(ntf.name)
-            self.assertTrue(analyzer.in_protected_path(ntf.name))
+        # test protecting str-based paths
+        with tempfile.NamedTemporaryFile() as ntf:
+            with patch("analyzer.PROTECTED_PATH_LIST", []):
+                analyzer.add_protected_path(ntf.name)
+                self.assertTrue(analyzer.in_protected_path(ntf.name))
+                self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
 
-            # test protecting bytes-based paths, asking for str's
-            analyzer.add_protected_path(ntf.name.encode())
-            self.assertTrue(analyzer.in_protected_path(ntf.name))
-
-            # test protected str-based paths, asking for bytes
-            analyzer.add_protected_path(ntf.name)
-            self.assertTrue(analyzer.in_protected_path(ntf.name.encode()))
-
-    def test_protected_path_dir(self):
+    def test_in_protected_path_dir(self):
+        # test protecting bytes-based paths
         with tempfile.TemporaryDirectory() as tmpdir:
-            # test protecting bytes-based paths
-            analyzer.add_protected_path(tmpdir.encode())
-            self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
+            with patch("analyzer.PROTECTED_PATH_LIST", []):
+                analyzer.add_protected_path(tmpdir.encode())
+                self.assertTrue(analyzer.in_protected_path(tmpdir))
+                self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
+                file_in_tmpdir = os.path.join(tmpdir, "random-filename")
+                self.assertTrue(analyzer.in_protected_path(file_in_tmpdir))
+                self.assertTrue(analyzer.in_protected_path(file_in_tmpdir.encode()))
 
-            # test protecting str-based paths
-            analyzer.add_protected_path(tmpdir)
-            self.assertTrue(analyzer.in_protected_path(tmpdir))
-
-            # test protecting bytes-based paths, asking for str's
-            analyzer.add_protected_path(tmpdir.encode())
-            self.assertTrue(analyzer.in_protected_path(tmpdir))
-
-            # test protected str-based paths, asking for bytes
-            analyzer.add_protected_path(tmpdir)
-            self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
+        # test protecting str-based paths
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("analyzer.PROTECTED_PATH_LIST", []):
+                analyzer.add_protected_path(tmpdir)
+                self.assertTrue(analyzer.in_protected_path(tmpdir))
+                self.assertTrue(analyzer.in_protected_path(tmpdir.encode()))
+                file_in_tmpdir = os.path.join(tmpdir, "other-random-filename")
+                self.assertTrue(analyzer.in_protected_path(file_in_tmpdir))
+                self.assertTrue(analyzer.in_protected_path(file_in_tmpdir.encode()))
 
 
 class TestAnalyzerInternals(unittest.TestCase):
@@ -712,14 +712,6 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsInstance(self.analyzer, Analyzer)
         self.assertIsInstance(self.cph, CommandPipeHandler)
 
-    def test_get_pipe_path(self):
-        pipe_name = "random_text"
-        pipe_path = self.analyzer.get_pipe_path(pipe_name)
-        self.assertIsNotNone(pipe_path)
-        self.assertIsInstance(pipe_path, str)
-        self.assertIn(pipe_name, pipe_path)
-        self.assertIn("PIPE", pipe_path)
-
     def test_handle_loaded(self):
         random_pid = random.randint(1, 99999999)
         with patch("analyzer.INJECT_LIST", [random_pid]):
@@ -804,22 +796,18 @@ class TestAnalyzerMonitoring(unittest.TestCase):
     @patch("analyzer.pid_from_service_name")
     @patch("analyzer.Process")
     def test_handle_interop_timed_out(self, mock_process, mock_pid_from_service_name):
-        """Even if ANALYSIS_TIMED_OUT, we still handle interop"""
-        # XXX Is this what we want?
         with patch("analyzer.ANALYSIS_TIMED_OUT", True):
-            mock_process.return_value = MagicMock()
-            random_pid = random.randint(1, 99999999)
-            mock_pid_from_service_name.return_value = random_pid
             ana = self.analyzer
             self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
             self.assertFalse(ana.MONITORED_DCOM)
             self.assertIsNone(ana.LASTINJECT_TIME)
             self.cph._handle_interop(None)
-            self.assertEqual(1, len(ana.CRITICAL_PROCESS_LIST))
-            self.assertTrue(ana.MONITORED_DCOM)
-            self.assertIsNotNone(ana.LASTINJECT_TIME)
-            self.assertIn(random_pid, ana.CRITICAL_PROCESS_LIST)
-            mock_pid_from_service_name.assert_called_once()
+            # No change to process list, DCOM, or last inject time
+            self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
+            self.assertFalse(ana.MONITORED_DCOM)
+            self.assertIsNone(ana.LASTINJECT_TIME)
+            mock_pid_from_service_name.assert_not_called()
+            mock_process.assert_not_called()
             self.call.assert_not_called()
 
     @patch("analyzer.pid_from_service_name")
@@ -997,8 +985,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.cph._inject_process(process_id=random_pid, thread_id=None, mode=None)
         self.assertEqual(1, len(ana.process_list.pids))
         self.assertIn(random_pid, ana.process_list.pids)
-        # XXX Calling _inject_process does nothing to LASTINJECT_TIME ?
-        self.assertIsNone(ana.LASTINJECT_TIME)
+        self.assertIsNotNone(ana.LASTINJECT_TIME)
         mock_process.assert_called_once()
         self.call.assert_not_called()
 

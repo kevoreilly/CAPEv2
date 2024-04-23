@@ -20,6 +20,7 @@ from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintype
 from pathlib import Path
 from shutil import copy
 from threading import Lock, Thread
+from typing import Union
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -135,7 +136,7 @@ def pids_from_image_names(suffixlist):
     return retpids
 
 
-def _normalized_protected_path(path: str | bytes) -> bytes:
+def _normalized_protected_path(path: Union[str, bytes]) -> bytes:
     if isinstance(path, str):
         path = path.encode()
     if os.path.isdir(path) and path[-1] != b"\\":
@@ -143,20 +144,21 @@ def _normalized_protected_path(path: str | bytes) -> bytes:
     return path.lower()
 
 
-def in_protected_path(path: str | bytes) -> bool:
+def in_protected_path(path: Union[str, bytes]) -> bool:
     """Checks if a path is protected."""
     if not path:
         return False
     path = _normalized_protected_path(path)
     for protected_path in PROTECTED_PATH_LIST:
-        if protected_path[-1] == "\\" and path.starswith(protected_path):
+        # protected_path is a list of bytes. The last one in the list is protected_path[-1:]
+        if protected_path[-1:] == b"\\" and path.startswith(protected_path):
             return True
         if protected_path == path:
             return True
     return False
 
 
-def add_protected_path(name: str | bytes):
+def add_protected_path(name: Union[str, bytes]):
     """Adds a pathname to the protected list"""
     PROTECTED_PATH_LIST.append(_normalized_protected_path(name))
 
@@ -1048,7 +1050,7 @@ class CommandPipeHandler:
             KERNEL32.Sleep(2000)
 
     def _handle_interop(self, data):
-        if not self.analyzer.MONITORED_DCOM:
+        if not self.analyzer.MONITORED_DCOM and not ANALYSIS_TIMED_OUT:
             self.analyzer.MONITORED_DCOM = True
             dcom_pid = pid_from_service_name("DcomLaunch")
             if dcom_pid:
@@ -1269,6 +1271,7 @@ class CommandPipeHandler:
             self.analyzer.process_lock.release()
 
             proc.inject(interest=filepath, nosleepskip=True)
+            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
             log.info("Injected into process with pid %s and name %s", proc.pid, filename)
 
     def _handle_process(self, data):

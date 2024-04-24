@@ -20,6 +20,7 @@ from shutil import copy
 from threading import Lock, Thread
 from urllib.parse import urlencode
 from urllib.request import urlopen
+from contextlib import suppress
 
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary, Package
@@ -552,11 +553,9 @@ class Analyzer:
             INTERACTIVE_MODE = True
             log.info("Interactive mode enabled - injecting into explorer shell")
             if self.config.category == "file":
-                try:
+                with suppress(Exception):
                     dest_path = os.path.join(os.environ["HOMEPATH"], "Desktop", os.path.basename(self.config.file_name))
                     copy(self.target, dest_path)
-                except:
-                    pass
             # If it's an URL, we'll just use the default Internet Explorer package.
             explorer_pid = get_explorer_pid()
             if explorer_pid:

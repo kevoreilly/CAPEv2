@@ -1116,7 +1116,7 @@ class Scheduler:
                         ):
 
                             # ToDo write a proper fix/place
-                            if task.category in ("file", "pcap", "static"):
+                            if task.category in ("pcap", "static"):
                                 # Dirty hack
                                 relevant_machine_is_available = True
                                 break

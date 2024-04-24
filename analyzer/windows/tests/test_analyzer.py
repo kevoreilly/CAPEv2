@@ -695,7 +695,6 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
 
 class TestAnalyzerMonitoring(unittest.TestCase):
     def setUp(self):
-        self.patches = []
         patch_sleep = patch("lib.common.defines.KERNEL32.Sleep")
         _ = patch_sleep.start()
         self.addCleanup(patch_sleep.stop)
@@ -703,30 +702,30 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.call = patch_call.start()
         self.addCleanup(patch_call.stop)
         self.analyzer = Analyzer()
-        self.cph = CommandPipeHandler(self.analyzer)
+        self.pipe_handler = CommandPipeHandler(self.analyzer)
         # Since the CommandPipeHandler.ignore_list is a class variable,
         # we reset it between tests, so we get a fresh start.
-        self.cph.ignore_list = dict(pid=[])
+        self.pipe_handler.ignore_list = dict(pid=[])
 
     def test_can_instantiate(self):
         self.assertIsInstance(self.analyzer, Analyzer)
-        self.assertIsInstance(self.cph, CommandPipeHandler)
+        self.assertIsInstance(self.pipe_handler, CommandPipeHandler)
 
     def test_handle_loaded(self):
         random_pid = random.randint(1, 99999999)
+        ana = self.analyzer
         with patch("analyzer.INJECT_LIST", [random_pid]):
-            ana = self.analyzer
             self.assertEqual(1, len(analyzer.INJECT_LIST))
-            self.cph._handle_loaded(data=str(random_pid))
-            self.assertIn(random_pid, ana.process_list.pids)
+            self.pipe_handler._handle_loaded(data=str(random_pid))
             self.assertEqual(0, len(analyzer.INJECT_LIST))
+        self.assertIn(random_pid, ana.process_list.pids)
 
     def test_handle_kterminate(self):
         ana = self.analyzer
         random_pid = random.randint(1, 99999999)
         ana.process_list.pids.append(random_pid)
         self.assertEqual(1, len(ana.process_list.pids))
-        self.cph._handle_kterminate(data=str(random_pid))
+        self.pipe_handler._handle_kterminate(data=str(random_pid))
         self.assertEqual(0, len(ana.process_list.pids))
 
     @patch("analyzer.Process")
@@ -734,7 +733,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         ana = self.analyzer
         random_pid = random.randint(1, 99999999)
         self.assertEqual(0, len(ana.process_list.pids))
-        self.cph._handle_kprocess(data=str(random_pid))
+        self.pipe_handler._handle_kprocess(data=str(random_pid))
         self.assertEqual(1, len(ana.process_list.pids))
         self.assertIn(random_pid, ana.process_list.pids)
         mock_process.assert_called_once()
@@ -745,7 +744,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         random_pid2 = random.randint(1, 99999999)
         random_pid3 = random.randint(1, 99999999)
         ana.process_list.pids = [random_pid1, random_pid2, random_pid3]
-        self.cph._handle_ksubvert(data=None)
+        self.pipe_handler._handle_ksubvert(data=None)
         self.assertEqual(0, len(ana.process_list.pids))
 
     @patch("analyzer.Process")
@@ -756,7 +755,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         mock_get_explorer_pid.return_value = random_pid
         self.assertIsNone(ana.LASTINJECT_TIME)
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
-        self.cph._handle_shell(data=None)
+        self.pipe_handler._handle_shell(data=None)
         self.assertEqual(1, len(ana.CRITICAL_PROCESS_LIST))
         self.assertIn(random_pid, ana.CRITICAL_PROCESS_LIST)
         self.assertIsNotNone(ana.LASTINJECT_TIME)
@@ -772,7 +771,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
         self.assertFalse(ana.MONITORED_DCOM)
         self.assertIsNone(ana.LASTINJECT_TIME)
-        self.cph._handle_interop(None)
+        self.pipe_handler._handle_interop(None)
         self.assertEqual(1, len(ana.CRITICAL_PROCESS_LIST))
         self.assertTrue(ana.MONITORED_DCOM)
         self.assertIsNotNone(ana.LASTINJECT_TIME)
@@ -786,7 +785,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         ana = self.analyzer
         ana.MONITORED_DCOM = True
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
-        self.cph._handle_interop(None)
+        self.pipe_handler._handle_interop(None)
         # No change to process list or last inject time
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
         self.assertIsNone(ana.LASTINJECT_TIME)
@@ -796,19 +795,19 @@ class TestAnalyzerMonitoring(unittest.TestCase):
     @patch("analyzer.pid_from_service_name")
     @patch("analyzer.Process")
     def test_handle_interop_timed_out(self, mock_process, mock_pid_from_service_name):
+        ana = self.analyzer
+        self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
+        self.assertFalse(ana.MONITORED_DCOM)
+        self.assertIsNone(ana.LASTINJECT_TIME)
         with patch("analyzer.ANALYSIS_TIMED_OUT", True):
-            ana = self.analyzer
-            self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
-            self.assertFalse(ana.MONITORED_DCOM)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            self.cph._handle_interop(None)
-            # No change to process list, DCOM, or last inject time
-            self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
-            self.assertFalse(ana.MONITORED_DCOM)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            mock_pid_from_service_name.assert_not_called()
-            mock_process.assert_not_called()
-            self.call.assert_not_called()
+            self.pipe_handler._handle_interop(None)
+        # No change to process list, DCOM, or last inject time
+        self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
+        self.assertFalse(ana.MONITORED_DCOM)
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        mock_pid_from_service_name.assert_not_called()
+        mock_process.assert_not_called()
+        self.call.assert_not_called()
 
     @patch("analyzer.pid_from_service_name")
     def test_handle_wmi(self, mock_pid_from_service_name):
@@ -820,7 +819,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertFalse(ana.MONITORED_WMI)
         self.assertFalse(ana.MONITORED_DCOM)
         self.assertIsNone(ana.LASTINJECT_TIME)
-        self.cph._handle_wmi(None)
+        self.pipe_handler._handle_wmi(None)
         self.assertEqual(2, len(ana.CRITICAL_PROCESS_LIST))
         self.assertTrue(ana.MONITORED_WMI)
         self.assertTrue(ana.MONITORED_DCOM)
@@ -835,7 +834,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
         self.assertFalse(ana.MONITORED_DCOM)
         self.assertIsNone(ana.LASTINJECT_TIME)
-        self.cph._handle_wmi(None)
+        self.pipe_handler._handle_wmi(None)
         # Should be no change to DCOM or last inject time
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
         self.assertFalse(ana.MONITORED_DCOM)
@@ -844,17 +843,17 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.call.assert_not_called()
 
     def test_handle_wmi_timed_out(self):
+        ana = self.analyzer
+        self.assertFalse(ana.MONITORED_WMI)
+        self.assertFalse(ana.MONITORED_DCOM)
+        self.assertIsNone(ana.LASTINJECT_TIME)
         with patch("analyzer.ANALYSIS_TIMED_OUT", True):
-            ana = self.analyzer
-            self.assertFalse(ana.MONITORED_WMI)
-            self.assertFalse(ana.MONITORED_DCOM)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            self.cph._handle_wmi(data=None)
-            # Should be no change to DCOM, WMI, or last inject time
-            self.assertFalse(ana.MONITORED_WMI)
-            self.assertFalse(ana.MONITORED_DCOM)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            self.call.assert_not_called()
+            self.pipe_handler._handle_wmi(data=None)
+        # Should be no change to DCOM, WMI, or last inject time
+        self.assertFalse(ana.MONITORED_WMI)
+        self.assertFalse(ana.MONITORED_DCOM)
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        self.call.assert_not_called()
 
     @patch("analyzer.Process")
     @patch("analyzer.pid_from_service_name")
@@ -865,7 +864,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
         self.assertFalse(ana.MONITORED_TASKSCHED)
         self.assertIsNone(ana.LASTINJECT_TIME)
-        self.cph._handle_tasksched(data=None)
+        self.pipe_handler._handle_tasksched(data=None)
         self.assertEqual(1, len(ana.CRITICAL_PROCESS_LIST))
         self.assertIn(random_pid, ana.CRITICAL_PROCESS_LIST)
         self.assertTrue(ana.MONITORED_TASKSCHED)
@@ -875,21 +874,21 @@ class TestAnalyzerMonitoring(unittest.TestCase):
 
     def test_handle_tasksched_timed_out(self):
         ana = self.analyzer
+        self.assertFalse(ana.MONITORED_TASKSCHED)
+        self.assertIsNone(ana.LASTINJECT_TIME)
         with patch("analyzer.ANALYSIS_TIMED_OUT", True):
-            self.assertFalse(ana.MONITORED_TASKSCHED)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            self.cph._handle_tasksched(data=None)
-            # Should be no change to TASKSCHED or last inject time
-            self.assertFalse(ana.MONITORED_TASKSCHED)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            self.call.assert_not_called()
+            self.pipe_handler._handle_tasksched(data=None)
+        # Should be no change to TASKSCHED or last inject time
+        self.assertFalse(ana.MONITORED_TASKSCHED)
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        self.call.assert_not_called()
 
     @patch("analyzer.pid_from_service_name")
     def test_handle_tasksched_already(self, mock_pid_from_service_name):
         ana = self.analyzer
         ana.MONITORED_TASKSCHED = True
         self.assertIsNone(ana.LASTINJECT_TIME)
-        self.cph._handle_tasksched(data=None)
+        self.pipe_handler._handle_tasksched(data=None)
         # Should be no change to last inject time
         self.assertIsNone(ana.LASTINJECT_TIME)
         self.call.assert_not_called()
@@ -905,7 +904,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertFalse(ana.MONITORED_BITS)
         self.assertFalse(ana.MONITORED_DCOM)
         self.assertIsNone(ana.LASTINJECT_TIME)
-        self.cph._handle_bits(data=None)
+        self.pipe_handler._handle_bits(data=None)
         self.assertEqual(2, len(ana.CRITICAL_PROCESS_LIST))
         self.assertTrue(ana.MONITORED_BITS)
         self.assertTrue(ana.MONITORED_DCOM)
@@ -916,24 +915,24 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertFalse(ana.MONITORED_DCOM)
         self.assertIsNone(ana.LASTINJECT_TIME)
         ana.MONITORED_BITS = True
-        self.cph._handle_bits(data=None)
+        self.pipe_handler._handle_bits(data=None)
         # Should be no change to DCOM or last inject time
         self.assertFalse(ana.MONITORED_DCOM)
         self.assertIsNone(ana.LASTINJECT_TIME)
         self.call.assert_not_called()
 
     def test_handle_bits_timed_out(self):
-        with patch("analyzer.ANALYSIS_TIMED_OUT", True):
-            ana = self.analyzer
-            self.assertFalse(ana.MONITORED_BITS)
-            self.assertFalse(ana.MONITORED_DCOM)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            self.cph._handle_bits(data=None)
-            # Should be no change to DCOM, BITS, or last inject time
-            self.assertFalse(ana.MONITORED_BITS)
-            self.assertFalse(ana.MONITORED_DCOM)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            self.call.assert_not_called()
+        ana = self.analyzer
+        self.assertFalse(ana.MONITORED_BITS)
+        self.assertFalse(ana.MONITORED_DCOM)
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        with (patch("analyzer.ANALYSIS_TIMED_OUT", True)):
+            self.pipe_handler._handle_bits(data=None)
+        # Should be no change to DCOM, BITS, or last inject time
+        self.assertFalse(ana.MONITORED_BITS)
+        self.assertFalse(ana.MONITORED_DCOM)
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        self.call.assert_not_called()
 
     @patch("analyzer.Process")
     def test_handle_service(self, mock_process):
@@ -943,7 +942,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
         self.assertFalse(ana.MONITORED_SERVICES)
         self.assertIsNone(ana.LASTINJECT_TIME)
-        self.cph._handle_service(servname=b"random-service-name")
+        self.pipe_handler._handle_service(servname=b"random-service-name")
         self.assertEqual(1, len(ana.CRITICAL_PROCESS_LIST))
         self.assertTrue(ana.MONITORED_SERVICES)
         self.assertIsNotNone(ana.LASTINJECT_TIME)
@@ -955,7 +954,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         ana = self.analyzer
         self.assertIsNone(ana.LASTINJECT_TIME)
         ana.MONITORED_SERVICES = True
-        self.cph._handle_service(servname=b"any-name-can-go-here")
+        self.pipe_handler._handle_service(servname=b"any-name-can-go-here")
         # Should be no change to process list or last inject time
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
         self.assertIsNone(ana.LASTINJECT_TIME)
@@ -965,24 +964,24 @@ class TestAnalyzerMonitoring(unittest.TestCase):
 
     @patch("analyzer.Process")
     def test_handle_service_timed_out(self, mock_process):
+        ana = self.analyzer
+        self.assertFalse(ana.MONITORED_SERVICES)
+        self.assertIsNone(ana.LASTINJECT_TIME)
         with patch("analyzer.ANALYSIS_TIMED_OUT", True):
-            ana = self.analyzer
-            self.assertFalse(ana.MONITORED_SERVICES)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            self.cph._handle_service(servname="random-service-name")
-            # Should be no change to MONITORED_SERVICES or last inject time
-            self.assertFalse(ana.MONITORED_SERVICES)
-            self.assertIsNone(ana.LASTINJECT_TIME)
-            mock_process.assert_not_called()
-            self.call.assert_not_called()
+            self.pipe_handler._handle_service(servname="random-service-name")
+        # Should be no change to MONITORED_SERVICES or last inject time
+        self.assertFalse(ana.MONITORED_SERVICES)
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        mock_process.assert_not_called()
+        self.call.assert_not_called()
 
     @patch("analyzer.Process")
     def test_inject_process(self, mock_process):
         random_pid = random.randint(1, 99999999)
         ana = self.analyzer
         self.assertEqual(0, len(ana.process_list.pids))
-        self.assertEqual(0, len(self.cph.ignore_list["pid"]))
-        self.cph._inject_process(process_id=random_pid, thread_id=None, mode=None)
+        self.assertEqual(0, len(self.pipe_handler.ignore_list["pid"]))
+        self.pipe_handler._inject_process(process_id=random_pid, thread_id=None, mode=None)
         self.assertEqual(1, len(ana.process_list.pids))
         self.assertIn(random_pid, ana.process_list.pids)
         self.assertIsNotNone(ana.LASTINJECT_TIME)
@@ -995,10 +994,10 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         random_pid = random.randint(1, 99999999)
         ana = self.analyzer
         ana.pid = random_pid
-        self.assertEqual(0, len(self.cph.ignore_list["pid"]))
-        self.cph._inject_process(process_id=random_pid, thread_id=None, mode=None)
-        self.assertEqual(1, len(self.cph.ignore_list["pid"]))
-        self.assertIn(random_pid, self.cph.ignore_list["pid"])
+        self.assertEqual(0, len(self.pipe_handler.ignore_list["pid"]))
+        self.pipe_handler._inject_process(process_id=random_pid, thread_id=None, mode=None)
+        self.assertEqual(1, len(self.pipe_handler.ignore_list["pid"]))
+        self.assertIn(random_pid, self.pipe_handler.ignore_list["pid"])
         # Should be no change to last inject time
         self.assertIsNone(ana.LASTINJECT_TIME)
         mock_process.assert_not_called()
@@ -1010,10 +1009,10 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         random_pid = random.randint(1, 99999999)
         ana = self.analyzer
         ana.process_list.pids.append(random_pid)
-        self.assertEqual(0, len(self.cph.ignore_list["pid"]))
-        self.cph._inject_process(process_id=random_pid, thread_id=None, mode=None)
-        self.assertEqual(1, len(self.cph.ignore_list["pid"]))
-        self.assertIn(random_pid, self.cph.ignore_list["pid"])
+        self.assertEqual(0, len(self.pipe_handler.ignore_list["pid"]))
+        self.pipe_handler._inject_process(process_id=random_pid, thread_id=None, mode=None)
+        self.assertEqual(1, len(self.pipe_handler.ignore_list["pid"]))
+        self.assertIn(random_pid, self.pipe_handler.ignore_list["pid"])
         # Should be no change to last inject time
         self.assertIsNone(ana.LASTINJECT_TIME)
         mock_process.assert_not_called()
@@ -1028,11 +1027,11 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         random_pid = random.randint(1, 99999999)
         ana = self.analyzer
         ana.process_list.pids_notrack.append(random_pid)
-        self.assertEqual(0, len(self.cph.ignore_list["pid"]))
+        self.assertEqual(0, len(self.pipe_handler.ignore_list["pid"]))
         self.assertEqual(0, len(ana.process_list.pids))
-        self.cph._inject_process(process_id=random_pid, thread_id=None, mode=None)
-        self.assertEqual(1, len(self.cph.ignore_list["pid"]))
-        self.assertIn(random_pid, self.cph.ignore_list["pid"])
+        self.pipe_handler._inject_process(process_id=random_pid, thread_id=None, mode=None)
+        self.assertEqual(1, len(self.pipe_handler.ignore_list["pid"]))
+        self.assertIn(random_pid, self.pipe_handler.ignore_list["pid"])
         self.assertIn(random_pid, ana.process_list.pids)
         self.assertEqual(0, len(ana.process_list.pids_notrack))
         self.assertEqual(1, len(ana.process_list.pids))
@@ -1040,3 +1039,42 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsNone(ana.LASTINJECT_TIME)
         mock_process.assert_not_called()
         self.call.assert_not_called()
+
+    @patch("analyzer.Process")
+    def test_handle_process(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        self.assertEqual(0, ana.NUM_INJECTED)
+        # TODO add a couple of mocks
+        random_pid = random.randint(1, 99999999)
+        random_tid = random.randint(1, 9999999)
+        suspended = 1
+        data = bytes(f"{suspended}:{random_pid},{random_tid}".encode())
+        # This produces something like b"1:910271,1819029"
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=data)
+            self.assertEqual(1, len(analyzer.INJECT_LIST))
+            self.assertIn(random_pid, analyzer.INJECT_LIST)
+        self.assertIsNotNone(ana.LASTINJECT_TIME)
+        mock_process.assert_called_once()
+        self.assertEqual(1, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_handle_process_invalid_data(self, mock_process):
+        ana = self.analyzer
+        with self.assertRaises(ValueError):
+            data = bytes("does not have a colon".encode())
+            self.pipe_handler._handle_process(data=data)
+        with self.assertRaises(ValueError):
+            data = bytes("has:too:many:colons".encode())
+            self.pipe_handler._handle_process(data=data)
+
+        data = bytes("no_comma:non_digits".encode())
+        self.pipe_handler._handle_process(data=data)
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        mock_process.assert_not_called()
+
+        data = bytes("with_comma:non_digits,non_digits".encode())
+        self.pipe_handler._handle_process(data=data)
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        mock_process.assert_not_called()

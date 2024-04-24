@@ -58,9 +58,8 @@ def append_buffer_to_host(buffer, nc=None):
         while idx < size:
             nc.send(buffer[idx : idx + BUFSIZE], retry=True)
             idx += BUFSIZE
-    except Exception as e:
-        log.exception("Exception uploading buffer %s to host.")
-        log.exception(e)
+    except Exception:
+        log.exception("exception uploading buffer to host")
 
     nc.buffer_size += size
 

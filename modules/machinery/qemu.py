@@ -183,45 +183,16 @@ QEMU_ARGS = {
     "x64": {
         "cmdline": [
             "qemu-system-x86_64",
-            "-monitor",
-            "stdio",
-            "-nodefaults",
-            "-smp",
-            "2",
-            "-M",
-            "q35",
-            "-vga",
-            "std",
-            "-overcommit",
-            "mem-lock=off",
-            "-rtc",
-            "base=localtime,driftfix=slew",
+            "-display",
+            "none",
             "-m",
             "{memory}",
+            "-hda",
+            "{snapshot_path}",
             "-netdev",
-            "type=bridge,br=virbr0,id=net0",
+            "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
             "-device",
-            "rtl8139,netdev=net0,mac={mac},bus=pcie.0,addr=3",
-            "-device",
-            "ich9-ahci,id=ahci",
-            "-device",
-            "ide-hd,bus=ahci.0,unit=0,drive=disk,bootindex=2",
-            "-device",
-            "ide-cd,bus=ahci.1,unit=0,drive=cdrom,bootindex=1",
-            "-device",
-            "usb-ehci,id=ehci",
-            "-device",
-            "usb-tablet,bus=ehci.0",
-            "-device",
-            "intel-hda",
-            "-device",
-            "hda-duplex",
-            "-drive",
-            "if=none,id=cdrom,readonly=on",
-            "-drive",
-            "file={snapshot_path},format=qcow2,if=none,id=disk",
-            "-display",
-            "none"
+            "e1000,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
             "memory": "1024M",
@@ -542,9 +513,3 @@ class QEMU(Machinery):
             proc.stdin.flush()
             proc.wait()
             log.debug("dump done")
-
-            if not os.path.isfile(path):
-                raise CuckooMachineError(f"Error dumping memory virtual machine {label}: file not found")
-
-        except Exception as e:
-            raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}") from e

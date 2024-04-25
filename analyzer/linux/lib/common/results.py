@@ -53,13 +53,13 @@ def append_buffer_to_host(buffer, nc=None):
         log.warning("Buffer is too big: %d; max size: %d", size + nc.buffer_size, config.upload_max_size)
         return
 
-    try:
-        idx = 0
-        while idx < size:
-            nc.send(buffer[idx : idx + BUFSIZE], retry=True)
+    idx = 0
+    while idx < size:
+        try:
+            nc.send(buffer[idx : idx + BUFSIZE], retry=False)
             idx += BUFSIZE
-    except Exception:
-        log.exception("exception uploading buffer to host")
+        except Exception:
+            raise ConnectionResetError        
 
     nc.buffer_size += size
 

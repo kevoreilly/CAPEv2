@@ -239,6 +239,8 @@ class VolatilityManager:
 
         # if self.options.psxview.enabled:
         #    results["pstree"] = vol3.run("windows.pstree.PsTree")
+        if self.options.psscan.enabled:
+            results["psscan"] = vol3.run("windows.psscan.PsScan")
         if self.options.pslist.enabled:
             results["pslist"] = vol3.run("windows.pslist.PsList")
         if self.options.callbacks.enabled:

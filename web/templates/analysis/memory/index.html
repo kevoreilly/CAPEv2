@@ -6,6 +6,8 @@
     <div class="tabbable tabs">
         <ul class="nav nav-tabs" style="margin-bottom: 0;">
             {% if memory.pslist %}<li class="nav-item active"><a class="nav-link" href="#memory_pslist" data-toggle="tab">Process List</a></li>{% endif %}
+            {% if memory.psscan %}<li class="nav-item"><a class="nav-link" href="#memory_psscan" data-toggle="tab">Process Scan</a></li>{% endif %}
+            {% if memory.psscan and memory.pslist %}<li class="nav-item"><a class="nav-link" href="#memory_rootkit" data-toggle="tab">Rootkits</a></li>{% endif %}
             {% if memory.svcscan %}<li class="nav-item"><a class="nav-link" href="#memory_svcscan" data-toggle="tab">Services</a></li>{% endif %}
             {% if memory.modscan %}<li class="nav-item"><a class="nav-link" href="#memory_modscan" data-toggle="tab">Kernel Modules</a></li>{% endif %}
             {% if memory.devicetree %}<li class="nav-item"><a class="nav-link" href="#memory_devicetree" data-toggle="tab">Device Tree</a></li>{% endif %}
@@ -32,6 +34,16 @@
             {% if memory.pslist %}
             <div class="tab-pane fade show active" id="memory_pslist">
                 {% include "analysis/memory/_pslist.html" %}
+            </div>
+            {% endif %}
+            {% if memory.psscan %}
+            <div class="tab-pane fade show" id="memory_psscan">
+                {% include "analysis/memory/_psscan.html" %}
+            </div>
+            {% endif %}
+            {% if memory.psscan and memory.pslist %}
+            <div class="tab-pane fade show" id="memory_rootkit">
+                {% include "analysis/memory/_rootkit.html" %}
             </div>
             {% endif %}
             {% if memory.svcscan %}

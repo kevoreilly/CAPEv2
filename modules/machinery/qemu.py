@@ -513,3 +513,9 @@ class QEMU(Machinery):
             proc.stdin.flush()
             proc.wait()
             log.debug("dump done")
+
+            if not os.path.isfile(path):
+                raise CuckooMachineError(f"Error dumping memory virtual machine {label}: file not found")
+
+        except Exception as e:
+            raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}") from e

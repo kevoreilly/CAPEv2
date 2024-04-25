@@ -445,7 +445,9 @@ class QEMU(Machinery):
         log.debug("Executing QEMU %s", final_cmdline)
 
         try:
-            proc = subprocess.Popen(final_cmdline, universal_newlines=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(
+                final_cmdline, universal_newlines=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             self.state[vm_info.name] = proc
         except OSError as e:
             raise CuckooMachineError(f"QEMU failed starting the machine: {e}")
@@ -507,7 +509,7 @@ class QEMU(Machinery):
             log.debug("Freezing vm %s before the memory dump", label)
             proc.stdin.write("stop\n")
             log.debug("Doing the memory dump")
-            proc.stdin.write(f"dump-guest-memory \"{path}\"\n")
+            proc.stdin.write(f'dump-guest-memory "{path}"\n')
             proc.stdin.write("quit\n")
             log.debug("Flushing snapshot commands to qemu.")
             proc.stdin.flush()

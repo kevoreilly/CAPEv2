@@ -2,8 +2,8 @@ import contextlib
 import logging
 import mmap
 import os.path
-
 from pathlib import Path
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists

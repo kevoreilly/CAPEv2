@@ -110,8 +110,8 @@ def extract_config(filebuf):
     elif conf_type == "2" and decrypt_key:
         conf_va = struct.unpack("I", filebuf[decrypt_conf + cva : decrypt_conf + cva + 4])[0]
         conf_offset = pe.get_offset_from_rva(conf_va + pe.get_rva_from_offset(decrypt_conf) + cva + 4)
-        #if not conf_size:
-            #conf_size = struct.unpack("I", filebuf[decrypt_key + size_s : decrypt_key + size_s + 4])[0]
+        # if not conf_size:
+        # conf_size = struct.unpack("I", filebuf[decrypt_key + size_s : decrypt_key + size_s + 4])[0]
         key_va = struct.unpack("I", filebuf[decrypt_key + kva_s : decrypt_key + kva_s + 4])[0]
         key_offset = pe.get_offset_from_rva(key_va + pe.get_rva_from_offset(decrypt_key) + kva_s + 4)
         key = string_from_offset(filebuf, key_offset)

@@ -7,15 +7,16 @@ AUTHOR = "threathive, r1n9w0rm"
 
 import datetime
 import hashlib
-import logging
 import ipaddress
-import pefile
+import logging
 import socket
 import struct
-import yara
 from contextlib import suppress
-from Cryptodome.Hash import SHA256
+
+import pefile
+import yara
 from Cryptodome.Cipher import AES, ARC4
+from Cryptodome.Hash import SHA256
 from Cryptodome.Util.Padding import unpad
 
 try:
@@ -278,7 +279,7 @@ def get_sha256_hash(data):
 
 def decrypt_aes_cbc(encrypted_data, key, iv):
     decoded = ""
-    with (suppress(Exception)):
+    with suppress(Exception):
         cipher = AES.new(key, AES.MODE_CBC, iv)
         decrypted_data = cipher.decrypt(encrypted_data)
         decoded = (decrypted_data, AES.block_size)
@@ -288,11 +289,11 @@ def decrypt_aes_cbc(encrypted_data, key, iv):
 
 def get_ips(data):
     ip_addresses = []
-    segments = data.split(b'\x00')
+    segments = data.split(b"\x00")
 
     for segment in segments:
         with suppress(Exception):
-            (_, ip_int, port) = struct.unpack('!BIH', segment)
+            (_, ip_int, port) = struct.unpack("!BIH", segment)
             ip_addr = str(ipaddress.ip_address(ip_int))
             ip_addresses.append(f"{ip_addr}:{port}")
 
@@ -358,7 +359,7 @@ def extract_config(filebuf):
                 enc_xor = pe.get_data(enc_xor_rva, enc_xor_size)
                 enc_strs_disp = pe.get_dword_from_offset(decrypt_offset + 22)
                 enc_strs_rva = pe.get_rva_from_offset(decrypt_offset + 26) + enc_strs_disp
-                enc_strs_size =  pe.get_dword_from_offset(decrypt_offset + 45)
+                enc_strs_size = pe.get_dword_from_offset(decrypt_offset + 45)
                 enc_strs = pe.get_data(enc_strs_rva, enc_strs_size)
 
                 iv = enc_xor[:16]

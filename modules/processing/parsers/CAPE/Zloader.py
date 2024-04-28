@@ -36,6 +36,9 @@ rule Zloader
         $decrypt_conf = {e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? e8 ?? ?? ?? ?? 83 c4 08 e8 ?? ?? ?? ??}
         $decrypt_conf_1 = {48 8d [5] [0-6] e8 [4] 48 [3-4] 48 [3-4] 48 [6] E8}
         $decrypt_key_1 = {66 89 C2 4? 8D 0D [3] 00 4? B? FC 03 00 00 E8 [4] 4? 83 C4}
+		$decrypt_conf_2 = {48 8d [5] 4? [5] e8 [4] 48 [3-4] 48 8d [5] E8 [4] 48}
+		$decrypt_key_2 = {48 8d 0d [3] 00 66 89 ?? 4? 89 F0 4? [2-5] E8 [4-5] 4? 83 C4}
+		$decrypt_key_3 = {48 8d 0d [3] 00 e8 [4] 66 89 [3] b? [4] e8 [4] 66 8b}
     condition:
         uint16(0) == 0x5A4D and any of them
 }
@@ -63,6 +66,7 @@ def extract_config(filebuf):
         return
     conf_type = ""
     decrypt_key = ""
+    conf_size = 1020
     for match in matches:
         if match.rule != "Zloader":
             continue
@@ -74,10 +78,19 @@ def extract_config(filebuf):
                 decrypt_conf = item.instances[0].offset
                 cva = 3
                 conf_type = "2"
+            elif "$decrypt_conf_2" == item.identifier:
+                decrypt_conf = item.instances[0].offset
+                cva = 3
+                conf_type = "2"
             elif "$decrypt_key_1" == item.identifier:
                 decrypt_key = item.instances[0].offset
-                size_s = 12
                 kva_s = 6
+            elif "$decrypt_key_2" == item.identifier:
+                decrypt_key = item.instances[0].offset
+                kva_s = 3
+            elif "$decrypt_key_3" == item.identifier:
+                decrypt_key = item.instances[0].offset
+                kva_s = 3
 
     if conf_type == "1":
         va = struct.unpack("I", filebuf[decrypt_conf : decrypt_conf + 4])[0]
@@ -97,7 +110,8 @@ def extract_config(filebuf):
     elif conf_type == "2" and decrypt_key:
         conf_va = struct.unpack("I", filebuf[decrypt_conf + cva : decrypt_conf + cva + 4])[0]
         conf_offset = pe.get_offset_from_rva(conf_va + pe.get_rva_from_offset(decrypt_conf) + cva + 4)
-        conf_size = struct.unpack("I", filebuf[decrypt_key + size_s : decrypt_key + size_s + 4])[0]
+        #if not conf_size:
+            #conf_size = struct.unpack("I", filebuf[decrypt_key + size_s : decrypt_key + size_s + 4])[0]
         key_va = struct.unpack("I", filebuf[decrypt_key + kva_s : decrypt_key + kva_s + 4])[0]
         key_offset = pe.get_offset_from_rva(key_va + pe.get_rva_from_offset(decrypt_key) + kva_s + 4)
         key = string_from_offset(filebuf, key_offset)

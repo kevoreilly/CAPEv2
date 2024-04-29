@@ -6,7 +6,7 @@
 import inspect
 import logging
 import subprocess
-from threading import Thread
+from threading import Thread, Event
 import timeit
 from os import environ, path, sys
 
@@ -98,6 +98,8 @@ class Package:
         self.pids = []
         self.strace_output = kwargs.get("strace_ouput", "/tmp")
         self.nc = NetlogFile()
+        self.thread = None
+        self._read_ready_ev = Event()
 
     def set_pids(self, pids):
         """Update list of monitored PIDs in the package context.
@@ -121,7 +123,7 @@ class Package:
         self.prepare()
         self.strace_analysis()
         self.nc.init("logs/strace.log", False)
-        self.thread = Thread(target=self.thread_send_strace_buffer)
+        self.thread = Thread(target=self.thread_send_strace_buffer, daemon=True)
         self.thread.start()
 
         return self.proc.pid
@@ -138,6 +140,8 @@ class Package:
         return None
 
     def thread_send_strace_buffer(self):
+        # wait for the subprocess to start
+        self._read_ready_ev.wait()
         for line in self.proc.stderr:
             try:
                 append_buffer_to_host(line, self.nc)
@@ -173,6 +177,8 @@ class Package:
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
+        # give the reader thread a go-ahead
+        self._read_ready_ev.set()
         log.info("Process started with strace")
         return True
 

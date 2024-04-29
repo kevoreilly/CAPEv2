@@ -121,10 +121,10 @@ class Package:
             # Remove the trailing slash (if any)
             self.target = filepath.rstrip("/")
         self.prepare()
-        self.strace_analysis()
         self.nc.init("logs/strace.log", False)
         self.thread = Thread(target=self.thread_send_strace_buffer, daemon=True)
         self.thread.start()
+        self.strace_analysis()
 
         return self.proc.pid
 

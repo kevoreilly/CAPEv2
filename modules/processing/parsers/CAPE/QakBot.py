@@ -282,7 +282,7 @@ def decrypt_aes_cbc(encrypted_data, key, iv):
     with suppress(Exception):
         cipher = AES.new(key, AES.MODE_CBC, iv)
         decrypted_data = cipher.decrypt(encrypted_data)
-        decoded = (decrypted_data, AES.block_size)
+        decoded = unpad(decrypted_data, AES.block_size)
 
     return decoded
 

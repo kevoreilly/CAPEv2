@@ -1,0 +1,31 @@
+services:
+  cape-db:
+    image: postgres:bookworm
+    hostname: cape-db
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cape
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - /docker/pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "-d", "cape" ]
+      interval: 1s
+      timeout: 60s
+      retries: 5
+      start_period: 80s
+
+  cape-server:
+    build: ./docker/
+    hostname: cape-server
+    links:
+      - cape-db
+    depends_on:
+      cape-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:2042:2042" # result server
+      - "127.0.0.1:8000:8000" # web ui
+    volumes:
+      - ./docker/conf:/cape/conf

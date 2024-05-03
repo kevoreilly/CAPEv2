@@ -23,7 +23,7 @@ class CAPASummary(Report):
     """Generate CAPE analysis summary by using FLARE CAPA"""
 
     def run(self, results):
-        if HAVE_FLARE_CAPA and self.options.flare_capa_summary.enabled and not self.options.flare_capa_summary.on_demand:
+        if HAVE_FLARE_CAPA and self.options.enabled and not self.options.on_demand:
             report = generate_cape_analysis_summary(results)
             if report:
                 results["capa_summary"] = report

@@ -552,7 +552,7 @@ class Analyzer:
         if self.options.get("interactive", False):
             INTERACTIVE_MODE = True
             log.info("Interactive mode enabled - injecting into explorer shell")
-            if self.config.category == "file":
+            if self.config.category == "file" and self.options.get("manual_detonation", False):
                 with suppress(Exception):
                     dest_path = os.path.join(os.environ["HOMEPATH"], "Desktop", os.path.basename(self.config.file_name))
                     copy(self.target, dest_path)
@@ -598,35 +598,37 @@ class Analyzer:
         except Exception as e:
             raise CuckooPackageError("error configuring package %s: %s", package_name, e) from e
 
-        # Start analysis package. If for any reason, the execution of the
-        # analysis package fails, we have to abort the analysis.
-        try:
-            pids = self.package.start(self.target)
-        except NotImplementedError as e:
-            raise CuckooError(f'The package "{package_name}" doesn\'t contain a start function') from e
-        except CuckooPackageError as e:
-            raise CuckooError(f'The package "{package_name}" start function raised an error: {e}') from e
-        except Exception as e:
-            raise CuckooError(f'The package "{package_name}" start function encountered an unhandled exception: {e}') from e
-
-        # If the analysis package returned a list of process IDs, we add them
-        # to the list of monitored processes and enable the process monitor.
-        if pids:
-            self.process_list.add_pids(pids)
+        pid_check = False
+        if self.options.get("manual_detonation", False):
             pid_check = True
-
-        # If the package didn't return any process ID (for example in the case
-        # where the package isn't enabling any behavioral analysis), we don't
-        # enable the process monitor.
         else:
-            log.info("No process IDs returned by the package, running for the full timeout")
-            pid_check = False
+            # Start analysis package. If for any reason, the execution of the
+            # analysis package fails, we have to abort the analysis.
+            try:
+                pids = self.package.start(self.target)
+            except NotImplementedError as e:
+                raise CuckooError(f'The package "{package_name}" doesn\'t contain a start function') from e
+            except CuckooPackageError as e:
+                raise CuckooError(f'The package "{package_name}" start function raised an error: {e}') from e
+            except Exception as e:
+                raise CuckooError(f'The package "{package_name}" start function encountered an unhandled exception: {e}') from e
+
+            # If the analysis package returned a list of process IDs, we add them
+            # to the list of monitored processes and enable the process monitor.
+            if pids:
+                self.process_list.add_pids(pids)
+                pid_check = True
+
+            # If the package didn't return any process ID (for example in the case
+            # where the package isn't enabling any behavioral analysis), we don't
+            # enable the process monitor.
+            else:
+                log.info("No process IDs returned by the package, running for the full timeout")
 
         # Check in the options if the user toggled the timeout enforce. If so,
         # we need to override pid_check and disable process monitor.
         if self.config.enforce_timeout:
             log.info("Enabled timeout enforce, running for the full timeout")
-            pid_check = False
 
         time_start = timeit.default_timer()
         kernel_analysis = self.options.get("kernel_analysis", False)

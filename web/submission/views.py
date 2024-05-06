@@ -177,6 +177,8 @@ def index(request, task_id=None, resubmit_hash=None):
             options += "interactive=1,"
             if "nohuman=yes," not in options:
                 options += "nohuman=yes,"
+            if request.POST.get("manual_detonation"):
+                options += "manual_detonation=1,"
 
         if request.POST.get("tor"):
             options += "tor=yes,"

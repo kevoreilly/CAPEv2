@@ -22,16 +22,23 @@ enabled = no
 filter = on
 
 # Lists official processes. Does not detect hidden processes
-# http://code.google.com/p/volatility/wiki/CommandReference23#pslist
+# https://github.com/volatilityfoundation/volatility/wiki/Command-Reference#pslist
 [pslist]
 enabled = no
 filter = off
 
-# Lists hidden processes. Uses several tricks to identify them
-# http://code.google.com/p/volatility/wiki/CommandReferenceMal23#psxview
+# Process listing in tree form. Does not detect hidden processes (Don't work currently in CAPE)
+# https://github.com/volatilityfoundation/volatility/wiki/Command-Reference#pstree
 [pstree]
 enabled = no
 filter = off
+
+# Lists hidden processes. Enumerate processes in the Kernel memory using pool tag scanning _POOL_HEADER
+# https://github.com/volatilityfoundation/volatility/wiki/Command-Reference#psscan
+[psscan]
+enabled = no
+filter = off
+
 
 # Show callbacks
 # http://code.google.com/p/volatility/wiki/CommandReferenceMal23#callbacks

@@ -2,6 +2,7 @@ import contextlib
 import logging
 import mmap
 import os.path
+from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -13,6 +14,7 @@ HAVE_FLOSS = False
 try:
     HAVE_FLOSS = True
     import floss.main as fm
+    from floss.strings import extract_ascii_unicode_strings
 except ImportError:
     print("Missed dependency flare-floss: poetry run pip install -U flare-floss")
 
@@ -45,7 +47,7 @@ class Floss:
             return
 
         try:
-            if not fm.is_supported_file_type(self.file_path):
+            if not fm.is_supported_file_type(Path(self.file_path)):
                 if self.package == "Shellcode":
                     fileformat = "sc32"
                 elif self.package == "Shellcode_x64":
@@ -63,10 +65,10 @@ class Floss:
             if processing_cfg.floss.static_strings:
                 with open(self.file_path, "rb") as f:
                     with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
-                        tmpres["static_strings"] = list(fm.extract_ascii_unicode_strings(buf, min_length))
+                        tmpres["static_strings"] = list(extract_ascii_unicode_strings(buf, min_length))
 
-            sigspath = fm.get_signatures(os.path.join(CUCKOO_ROOT, processing_cfg.floss.sigs_path))
-            vw = fm.load_vw(self.file_path, fileformat, sigspath, False)
+            sigspath = fm.get_signatures(Path(os.path.join(CUCKOO_ROOT, processing_cfg.floss.sigs_path)))
+            vw = fm.load_vw(Path(self.file_path), fileformat, sigspath, False)
 
             try:
                 selected_functions = fm.select_functions(vw, None)

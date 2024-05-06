@@ -552,7 +552,7 @@ class Analyzer:
         if self.options.get("interactive", False):
             INTERACTIVE_MODE = True
             log.info("Interactive mode enabled - injecting into explorer shell")
-            if self.config.category == "file" and self.options.get("manual_detonation", False):
+            if self.config.category == "file" and self.options.get("manual", False):
                 with suppress(Exception):
                     dest_path = os.path.join(os.environ["HOMEPATH"], "Desktop", os.path.basename(self.config.file_name))
                     copy(self.target, dest_path)
@@ -599,7 +599,7 @@ class Analyzer:
             raise CuckooPackageError("error configuring package %s: %s", package_name, e) from e
 
         pid_check = False
-        if self.options.get("manual_detonation", False):
+        if self.options.get("manual", False):
             pid_check = True
         else:
             # Start analysis package. If for any reason, the execution of the

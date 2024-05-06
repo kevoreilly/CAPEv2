@@ -6,9 +6,9 @@
 import inspect
 import logging
 import subprocess
-from threading import Thread, Event
 import timeit
 from os import environ, path, sys
+from threading import Event, Thread
 
 from lib.common.results import NetlogFile, append_buffer_to_host
 

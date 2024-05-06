@@ -59,7 +59,7 @@ def append_buffer_to_host(buffer, nc=None):
             nc.send(buffer[idx : idx + BUFSIZE], retry=False)
             idx += BUFSIZE
         except Exception:
-            raise ConnectionResetError        
+            raise ConnectionResetError
 
     nc.buffer_size += size
 

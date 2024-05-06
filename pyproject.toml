@@ -73,7 +73,7 @@ psycopg2-binary = "^2.9.5"
 ruff = "0.0.290"
 paramiko = "3.4.0"
 
-Werkzeug = "3.0.1"
+Werkzeug = "3.0.3"
 packaging = "23.1"
 setuptools = "69.0.1"
 # command line config manipulation

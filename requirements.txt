@@ -1834,9 +1834,9 @@ websockets==11.0.3 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:f61bdb1df43dc9c131791fbc2355535f9024b9a04398d3bd0684fc16ab07df74 \
     --hash=sha256:fb06eea71a00a7af0ae6aefbb932fb8a7df3cb390cc217d51a9ad7343de1b8d0 \
     --hash=sha256:ffd7dcaf744f25f82190856bc26ed81721508fc5cbf2a330751e135ff1283564
-werkzeug==3.0.1 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:507e811ecea72b18a404947aded4b3390e1db8f826b494d76550ef45bb3b1dcc \
-    --hash=sha256:90a285dc0e42ad56b34e696398b8122ee4c681833fb35b8334a095d82c56da10
+werkzeug==3.0.3 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:097e5bfda9f0aba8da6b8545146def481d06aa7d3266e7448e2cccf67dd8bd18 \
+    --hash=sha256:fc9645dc43e03e4d630d23143a04a7f947a9a3b5727cd535fdfe155a17cc48c8
 win-unicode-console==0.5 ; platform_system == "Windows" and platform_python_implementation != "PyPy" and python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:d4142d4d56d46f449d6f00536a73625a871cba040f0bc1a2e305a04578f07d1e
 yara-python==4.5.0 ; python_version >= "3.10" and python_version < "4.0" \

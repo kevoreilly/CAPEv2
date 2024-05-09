@@ -40,7 +40,7 @@ rule Zloader
         $decrypt_key_2 = {48 8d 0d [3] 00 66 89 ?? 4? 89 F0 4? [2-5] E8 [4-5] 4? 83 C4}
         $decrypt_key_3 = {48 8d 0d [3] 00 e8 [4] 66 89 [3] b? [4] e8 [4] 66 8b}
     condition:
-        uint16(0) == 0x5A4D and (1 of ($decrypt_conf*) and 1 of (($decrypt_key*) or $rc4_init))
+        uint16(0) == 0x5A4D and 1 of ($decrypt_conf*) and (1 of ($decrypt_key*) or $rc4_init)
 }
 """
 MAX_STRING_SIZE = 32

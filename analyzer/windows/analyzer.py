@@ -648,8 +648,6 @@ class Analyzer:
                                         Process(pid=pid).upload_memdump()
                                     except Exception as e:
                                         log.error(e, exc_info=True)
-                                else:
-                                    log.info("Procdump not enabled")
                                 log.info("Process with pid %s appears to have terminated", pid)
                                 if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)

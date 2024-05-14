@@ -69,6 +69,9 @@ drop = no
 # Should check if the inteface is up
 verify_interface = yes
 
+# Should check if rt_table exists before initializing
+verify_rt_table = yes
+
 [inetsim]
 # Inetsim quick deploy, chose your vm manager if is not kvm
 # wget https://googledrive.com/host/0B6fULLT_NpxMQ1Rrb1drdW42SkE/remnux-6.0-ova-public.ova

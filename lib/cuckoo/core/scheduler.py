@@ -790,7 +790,7 @@ class AnalysisManager(threading.Thread):
                 # Traffic from lan to machine
                 self.rooter_response = rooter("forward_disable", input_interface, self.machine.interface, "0.0.0.0/0", self.machine.ip)
                 # Traffic outbound from machine
-                self.rooter_response = rooter("forward_disable", input_interface, self.machine.interface, self.machine.ip)
+                self.rooter_response = rooter("forward_disable", input_interface, self.interface, self.machine.ip)
             else:
                 input_interface = self.machine.interface
                 self.rooter_response = rooter("forward_disable", input_interface, self.interface, self.machine.ip)

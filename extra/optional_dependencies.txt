@@ -11,7 +11,7 @@ git+https://github.com/CAPESandbox/socks5man
 git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git
 git+https://github.com/DissectMalware/batch_deobfuscator
 graphviz>=0.8.4
-https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip#egg=peepdf==0.4.2
+git+https://github.com/digitalsleuth/peepdf-3
 mmh3
 networkx[default,extra]>=2.1
 olefile

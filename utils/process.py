@@ -356,7 +356,9 @@ def autoprocess(
         raise
     except (MemoryError, OSError):
         mem = get_memory() / 1024 / 1024
-        sys.stderr.write("\n\nERROR: Memory Exception\nRemain: %.2f GB\nYour system doesn't have enough FREE RAM to run processing!" % mem)
+        sys.stderr.write(
+            "\n\nERROR: Memory Exception\nRemain: %.2f GB\nYour system doesn't have enough FREE RAM to run processing!" % mem
+        )
         sys.exit(1)
     except Exception:
         import traceback

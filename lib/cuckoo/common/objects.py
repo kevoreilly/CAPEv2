@@ -74,6 +74,12 @@ except ImportError:
     print("Missed library. Run: poetry install")
     HAVE_YARA = False
 
+try:
+    import yara_x
+    HAVE_YARA_X = True
+except ImportError:
+    print("Missed library. Run: poetry install pip3 install yara-x")
+    HAVE_YARA_X = False
 
 log = logging.getLogger(__name__)
 
@@ -158,6 +164,7 @@ class File:
 
     # The yara rules should not change during one Cuckoo run and as such we're
     # caching 'em. This dictionary is filled during init_yara().
+    # ToDo find a way to get compiled YARA hash so we can loopup files if hash is the same
     yara_rules = {}
     yara_initialized = False
     # static fields which indicate whether the user has been
@@ -422,11 +429,13 @@ class File:
 
         return new
 
+
     @classmethod
     def init_yara(self):
         """Generates index for yara signatures."""
 
         categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
+        categories = ("CAPE",)
         log.debug("Initializing Yara...")
 
         # Generate root directory for yara rules.
@@ -454,35 +463,64 @@ class File:
             externals = {"filename": ""}
 
             while True:
-                try:
-                    File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-                    File.yara_initialized = True
-                    break
-                except yara.SyntaxError as e:
-                    bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
-                    log.debug(
-                        "Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule
-                    )
-                    if os.path.basename(bad_rule) not in indexed:
+                if HAVE_YARA_X:
+                    if category == "CAPE":
+                        import code; code.interact(local=dict(locals(), **globals()))
+                    compiler = yara_x.Compiler(relaxed_re_syntax=True)
+
+                    for name, path in rules.items():
+                        try:
+                            with open(path, "r") as f:
+                                compiler.new_namespace(name)
+                                compiler.add_source(f.read())
+                        except yara_x.CompileError as err:
+                            print(err, name)
+
+                    File.yara_rules[category] = yara_x.Scanner(compiler.build())
+
+                elif HAVE_YARA:
+                    try:
+                        File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                        File.yara_initialized = True
                         break
-                    for k, v in rules.items():
-                        if v == bad_rule:
-                            del rules[k]
-                            indexed.remove(os.path.basename(bad_rule))
-                            log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule)
+                    except yara.SyntaxError as e:
+                        bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
+                        log.debug(
+                            "Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule
+                        )
+                        if os.path.basename(bad_rule) not in indexed:
                             break
-                except yara.Error as e:
-                    log.error("There was a syntax error in one or more Yara rules: %s", e)
-                    break
+                        for k, v in rules.items():
+                            if v == bad_rule:
+                                del rules[k]
+                                indexed.remove(os.path.basename(bad_rule))
+                                log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule)
+                                break
+                    except yara.Error as e:
+                        log.error("There was a syntax error in one or more Yara rules: %s", e)
+                        break
             if category == "memory":
-                try:
-                    mem_rules = yara.compile(filepaths=rules, externals=externals)
-                    mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
-                except yara.Error as e:
-                    if "could not open file" in str(e):
-                        log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
-                    else:
-                        log.error(e)
+                index_memory = os.path.join(yara_root, "index_memory.yarc")
+                if HAVE_YARA_X:
+                    for name, path in rules.items():
+                        try:
+                            with open(path, "r") as f:
+                                compiler.new_namespace(name)
+                                compiler.add_source(f.read())
+                        except yara_x.CompileError as err:
+                            print(err, name)
+                    builded = compiler.build()
+                    with open(index_memory, "wb") as f:
+                        builded.serialize_into(f)
+                elif HAVE_YARA:
+                    try:
+                        mem_rules = yara.compile(filepaths=rules, externals=externals)
+                        mem_rules.save(index_memory)
+                    except yara.Error as e:
+                        if "could not open file" in str(e):
+                            log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
+                        else:
+                            log.error(e)
 
             indexed = sorted(indexed)
             for entry in indexed:
@@ -508,21 +546,38 @@ class File:
 
         try:
             results, rule = [], File.yara_rules[category]
-            for match in rule.match(self.file_path_ansii, externals=externals):
-                strings = []
-                addresses = {}
-                for yara_string in match.strings:
-                    for x in yara_string.instances:
-                        strings.extend({self._yara_encode_string(x.matched_data)})
-                        addresses.update({yara_string.identifier.strip("$"): x.offset})
-                results.append(
-                    {
-                        "name": match.rule,
-                        "meta": match.meta,
-                        "strings": strings,
-                        "addresses": addresses,
-                    }
-                )
+            if HAVE_YARA_X:
+                for match in rule.scan_file(self.file_path):
+                    strings = []
+                    addresses = {}
+                    for yara_string in match.strings:
+                        for x in yara_string.instances:
+                            strings.extend({self._yara_encode_string(x.matched_data)})
+                            addresses.update({yara_string.identifier.strip("$"): x.offset})
+                    results.append(
+                        {
+                            "name": match.rule,
+                            "meta": match.meta,
+                            "strings": strings,
+                            "addresses": addresses,
+                        }
+                    )
+            elif HAVE_YARA:
+                for match in rule.match(self.file_path_ansii, externals=externals):
+                    strings = []
+                    addresses = {}
+                    for yara_string in match.strings:
+                        for x in yara_string.instances:
+                            strings.extend({self._yara_encode_string(x.matched_data)})
+                            addresses.update({yara_string.identifier.strip("$"): x.offset})
+                    results.append(
+                        {
+                            "name": match.rule,
+                            "meta": match.meta,
+                            "strings": strings,
+                            "addresses": addresses,
+                        }
+                    )
         except Exception as e:
             errcode = str(e).rsplit(maxsplit=1)[-1]
             if errcode in yara_error:

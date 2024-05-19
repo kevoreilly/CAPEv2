@@ -1,0 +1,5 @@
+ # Nektos act runs tests as root. Without this environment variable
+ # being set, CAPE exits at line 10 of web/web/settings.py,
+ # and no tests are run.
+
+ --env CAPE_AS_ROOT=1

@@ -1,0 +1,66 @@
+# Requires dependencies of software in vm as by:
+# https://www.fireeye.com/blog/threat-research/2016/02/greater_visibilityt.html
+# Windows 7 SP1, .NET at least 4.5, powershell 5 preferly over v4
+# KB3109118 - Script block logging back port update for WMF4
+# x64 - https://cuckoo.sh/vmcloak/Windows6.1-KB3109118-v4-x64.msu
+# x32 - https://cuckoo.sh/vmcloak/Windows6.1-KB3109118-v4-x86.msu
+# KB2819745 - WMF 4 (Windows Management Framework version 4) update for Windows 7
+# x64 - https://cuckoo.sh/vmcloak/Windows6.1-KB2819745-x64-MultiPkg.msu
+# x32 - https://cuckoo.sh/vmcloak/Windows6.1-KB2819745-x86-MultiPkg.msu
+# KB3191566 - https://www.microsoft.com/en-us/download/details.aspx?id=54616
+# You should create following registry entries
+# reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames" /v * /t REG_SZ /d * /f /reg:64
+# reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 00000001 /f /reg:64
+# reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" /v EnableTranscripting /t REG_DWORD /d 00000001 /f /reg:64
+# reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" /v OutputDirectory /t REG_SZ /d C:\PSTranscipts /f /reg:64
+# reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" /v EnableInvocationHeader /t REG_DWORD /d 00000001 /f /reg:64
+
+# Modules to be enabled or not inside of the VM
+[auxiliary_modules]
+amsi = no
+browser = yes
+curtain = no
+digisig = yes
+disguise = yes
+evtx = no
+human_windows = yes
+human_linux = no
+procmon = no
+recentfiles = no
+screenshots_windows = yes
+screenshots_linux = yes
+sysmon_windows = no
+sysmon_linux = no
+tlsdump = yes
+usage = no
+file_pickup = no
+permissions = no
+pre_script = no
+during_script = no
+filecollector = yes
+# This is only useful in case you use KVM's dnsmasq. You need to change your range inside of analyzer/windows/modules/auxiliary/disguise.py. Disguise must be enabled
+windows_static_route = no
+
+[sniffer]
+# Enable or disable the use of an external sniffer (tcpdump) [yes/no].
+enabled = yes
+
+# enable remote tcpdump support
+remote = no
+host = root@192.168.122.1
+
+# Specify the path to your local installation of tcpdump. Make sure this
+# path is correct.
+tcpdump = /usr/bin/tcpdump
+
+# Specify the network interface name on which tcpdump should monitor the
+# traffic. Make sure the interface is active.
+interface = virbr1
+
+# Specify a Berkeley packet filter to pass to tcpdump.
+bpf = not arp
+
+[gateways]
+#RTR1 = 192.168.1.254
+#RTR2 = 192.168.1.1
+#INETSIM = 192.168.1.2

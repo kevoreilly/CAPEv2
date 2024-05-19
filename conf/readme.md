@@ -2,7 +2,7 @@
 
 * Community tag before module section means that module is done/maintained by community, not core dev.
 
-* Do NOT edit `<name>.conf.default` it will contain the same as repo config and in case if new field is added you don't need to update your config
+* Do NOT edit files with this name schema `<name>.conf.default` it will contain the same as repo config and in case if new field is added you don't need to update your config
 * Now you can use any of the following path to edit your configuration:
     * `<name>.conf`
     * `<name>.conf.d`

@@ -34,7 +34,16 @@ from lib.common.constants import (
     SHUTDOWN_MUTEX,
     TERMINATE_EVENT,
 )
-from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, MAX_PATH, PROCESS_QUERY_LIMITED_INFORMATION, PSAPI, SHELL32
+from lib.common.defines import (
+    ADVAPI32,
+    EVENT_MODIFY_STATE,
+    KERNEL32,
+    MAX_PATH,
+    PROCESS_QUERY_LIMITED_INFORMATION,
+    PSAPI,
+    SHELL32,
+    USER32,
+)
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -81,6 +90,12 @@ def pid_from_service_name(servicename):
     return thepid
 
 
+def get_explorer_pid():
+    explorer_pid = c_int(0)
+    USER32.GetWindowThreadProcessId(USER32.GetShellWindow(), byref(explorer_pid))
+    return explorer_pid.value
+
+
 def pids_from_image_names(suffixlist):
     """Get PIDs for processes whose image name ends with one of the given suffixes.
 
@@ -104,12 +119,12 @@ def pids_from_image_names(suffixlist):
     for pid in pids:
         h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
         if not h_process:
-            log.debug("kernel.OpenProcess failed for PID: %d", pid)
+            # log.debug("kernel32.OpenProcess failed for pid: %d", pid)
             continue
         n = PSAPI.GetProcessImageFileNameA(h_process, image_name, MAX_PATH)
         KERNEL32.CloseHandle(h_process)
         if not n:
-            log.debug("psapi.GetProcessImageFileNameA failed for PID: %d", pid)
+            # log.debug("psapi.GetProcessImageFileNameA failed for pid: %d", pid)
             continue
         image_name_pystr = image_name.value.decode().lower()
         # e.g., image name: "\device\harddiskvolume4\windows\system32\services.exe"
@@ -541,6 +556,27 @@ class Analyzer:
         subprocess.call("net start winmgmt", startupinfo=si)
         # log.info("Started WMI Service")
 
+        # Do any analysis package configuration
+        try:
+            self.package.configure(self.target)
+        except NotImplementedError:
+            # let it go, not every package is configurable
+            log.debug("package %s does not support configure, ignoring", package_name)
+        except Exception as e:
+            raise CuckooPackageError("error configuring package %s: %s", package_name, e) from e
+
+        # Do any package configuration stored in "data/packages/<package_name>"
+        try:
+            self.package.configure_from_data(self.target)
+        except ModuleNotFoundError:
+            # let it go, not every package is configurable from data
+            log.debug("package %s does not support data configuration, ignoring", package_name)
+        except ImportError as ie:
+            # let it go but emit a warning; assume a dependency is missing
+            log.warning("configuration error for package %s: %s", package_name, ie)
+        except Exception as e:
+            raise CuckooPackageError("error configuring package %s: %s", package_name, e) from e
+
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:
@@ -612,8 +648,6 @@ class Analyzer:
                                         Process(pid=pid).upload_memdump()
                                     except Exception as e:
                                         log.error(e, exc_info=True)
-                                else:
-                                    log.info("Procdump not enabled")
                                 log.info("Process with pid %s appears to have terminated", pid)
                                 if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)
@@ -1000,6 +1034,17 @@ class CommandPipeHandler:
             log.info("Process with pid %s has terminated", pid)
             self.analyzer.process_list.remove_pid(pid)
 
+    def _handle_shell(self, data):
+        explorer_pid = get_explorer_pid()
+        if explorer_pid:
+            explorer = Process(options=self.analyzer.options, config=self.analyzer.config, pid=explorer_pid)
+            self.analyzer.CRITICAL_PROCESS_LIST.append(int(explorer_pid))
+            filepath = explorer.get_filepath()
+            explorer.inject(interest=filepath, nosleepskip=True)
+            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+            explorer.close()
+            KERNEL32.Sleep(2000)
+
     def _handle_interop(self, data):
         if not self.analyzer.MONITORED_DCOM:
             self.analyzer.MONITORED_DCOM = True
@@ -1258,6 +1303,8 @@ class CommandPipeHandler:
                         interest = filepath
                     else:
                         interest = self.analyzer.config.target
+                    if filepath.lower() in self.analyzer.files.files:
+                        self.analyzer.files.delete_file(filepath, process_id)
                     is_64bit = proc.is_64bit()
                     filename = os.path.basename(filepath)
                     if self.analyzer.SERVICES_PID and process_id == self.analyzer.SERVICES_PID:

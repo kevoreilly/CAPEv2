@@ -954,7 +954,6 @@ class Enhanced:
 
 
 class Anomaly:
-
     """Anomaly detected during analysis.
     For example: a malware tried to remove Cuckoo's hooks.
     """

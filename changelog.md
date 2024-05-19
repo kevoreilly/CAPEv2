@@ -1,3 +1,58 @@
+### [11.04.2024]
+* Monitor updates:
+    * YARA upgrade to 4.5.0 (& disabled assertion dialogs)
+    * Enable 64-bit 'native' hooks to avoid SSN overwriting
+    * Expand YARA options to allow offsets relative to the end of a pattern to be specified using asterisk (e.g. bp0=$code*+6)
+
+### [25.03.2024]
+* Bypass for variant of Heaven's Gate direct syscall seen in ecrime loader
+* Monitor updates: misc fixes (see capemon repo for details)
+
+### [20.03.2024]
+* Formbook: ntdll remap bypass & config extraction updates
+* Monitor update: Trace GetRegister() tweak
+
+### [15.03.2024]
+* Monitor update: Further unpacker refinement: Improve filter for unwanted .NET payloads to avoid missing interesting payloads
+
+### [14.03.2024]
+* Monitor update: Unpacker refinement for e.g. Shikata Ga Nai - thanks @para0x0dise
+
+### [12.03.2024]
+* Monitor update: Initial IPv6 support - thanks @cccs-mog
+* Linux support details can be seen in this [Pull Request](https://github.com/kevoreilly/CAPEv2/pull/2001)
+* We remove all `x.conf` to finish the mess with the configs.
+    * DO NOT EDIT `.conf.default` files. cape2.sh makes a copy of them removing `.default`.
+    * If you don't use `cape2.sh`.
+        * Run: `for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done`
+
+### [07.03.2024]
+* Monitor updates:
+    * Countermeasure for NtCreateUserProcess block-non-Microsoft-DLLs mitigation policy affecting monitoring
+    * Expand 'syscall' breakpoints to handle indirect syscalls (sysbpmode=1)
+    * Small fixes & improvements
+* Pikabot detection update & anti-hook bypass
+
+### [29.02.2024]
+* TLP fields added to distributed database. Requires db upgrade: `cd utils/db_migration_db && alembic upgrade head`
+* Monitor fixes
+
+### [28.02.2024]
+* Add 'ShellWindows' COM object injection mechanism (e.g. Latrodectus MSIs)
+* Monitor: add option to disable ntdll remap protection: ntdll-remap=0
+* Lumma direct systenter unmap crash bypass
+
+### [26.02.2024]
+* Monitor updates: Service injection delay for e.g. msi detonation & EnumDisplayDevices hooks & anti-vm (thanks @enzo)
+* Updated DarkGate config & payload extraction (thanks @enzo)
+* Latrodectus auto-export selection
+
+### [23.02.2024]
+* Monitor updates: Debugger/Trace enhancements
+
+### [14.02.2024]
+* Monitor update: Protect NtFreeVirtualMemory hook against spurious pointer values (e.g. f4bb0089dcf3629b1570fda839ef2f06c29cbf846c5134755d22d419015c8bd2)
+
 ### [08.02.2024] CAPA 7 + CAPE
 * [CAPA](https://github.com/mandiant/capa) allows to generate a summary of CAPE's analysis. This gives quick abstract summary of analysis. More details [CAPA v7 blogpost](https://www.mandiant.com/resources/blog/dynamic-capa-executable-behavior-cape-sandbox)
 * Monitor update: Fix logging bug causing rare buffer overflows (e.g. 780be7a70ce3567ef268f6c768fc5a3d2510310c603bf481ebffd65e4fe95ff3)

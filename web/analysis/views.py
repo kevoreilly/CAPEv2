@@ -7,6 +7,7 @@ import collections
 import datetime
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -116,6 +117,10 @@ HAVE_FLOSS = False
 if processing_cfg.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
+USE_SEVENZIP = False
+if reporting_cfg.compression.compressiontool == "7zip":
+    USE_SEVENZIP = True
+    SEVENZIP_PATH = reporting_cfg.compression.sevenzippath.strip() or "/usr/bin/7z"
 
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
@@ -568,14 +573,14 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
-    if is_ajax and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "procmemory", "memory"):
+    if is_ajax and category in ("CAPE", "dropped", "behavior", "strace", "debugger", "network", "procdump", "procmemory", "memory"):
         data = {}
         debugger_logs = {}
         bingraph_dict_content = {}
         vba2graph_dict_content = {}
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
-            if category in ("behavior", "debugger"):
+            if category in ("behavior", "debugger", "strace"):
                 data = mongo_find_one(
                     "analysis",
                     {"info.id": int(task_id)},
@@ -583,6 +588,8 @@ def load_files(request, task_id, category):
                 )
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
+                if category == "strace":
+                    data["strace"] = data["behavior"]
             elif category == "network":
                 data = mongo_find_one(
                     "analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}
@@ -599,6 +606,8 @@ def load_files(request, task_id, category):
 
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
+                if category == "strace":
+                    data["strace"] = data["behavior"]
             elif category == "network":
                 data = elastic_handler.search(
                     index=get_analysis_index(),
@@ -766,7 +775,7 @@ def chunk(request, task_id, pid, pagenum):
             record = mongo_find_one(
                 "analysis",
                 {"info.id": int(task_id), "behavior.processes.process_id": pid},
-                {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
+                {"info.machine.platform": 1, "behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
 
         if es_as_db:
@@ -777,7 +786,7 @@ def chunk(request, task_id, pid, pagenum):
                         "bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": task_id}}]}
                     }
                 },
-                _source=["behavior.processes.process_id", "behavior.processes.calls"],
+                _source=["info.machine.platform", "behavior.processes.process_id", "behavior.processes.calls"],
             )["hits"]["hits"][0]["_source"]
 
         if not record:
@@ -804,7 +813,10 @@ def chunk(request, task_id, pid, pagenum):
         else:
             chunk = dict(calls=[])
 
-        return render(request, "analysis/behavior/_chunk.html", {"chunk": chunk})
+        if record["info"]["machine"].get("platform", "") == "linux":
+            return render(request, "analysis/strace/_chunk.html", {"chunk": chunk})
+        else:
+            return render(request, "analysis/behavior/_chunk.html", {"chunk": chunk})
     else:
         raise PermissionDenied
 
@@ -825,7 +837,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
             record = mongo_find_one(
                 "analysis",
                 {"info.id": int(task_id), "behavior.processes.process_id": int(pid)},
-                {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
+                {"info.machine.platform": 1, "behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
         if es_as_db:
             record = es.search(
@@ -835,7 +847,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                         "bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": task_id}}]}
                     }
                 },
-                _source=["behavior.processes.process_id", "behavior.processes.calls"],
+                _source=["info.machine.platform", "behavior.processes.process_id", "behavior.processes.calls"],
             )["hits"]["hits"][0]["_source"]
 
         if not record:
@@ -876,7 +888,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                     if len(apis) > 0:
                         add_call = -1
                         for api in apis:
-                            if call["api"].lower() == api:
+                            if api in call["api"].lower():
                                 if exclude:
                                     add_call = 0
                                 else:
@@ -887,7 +899,10 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                     else:
                         filtered_process["calls"].append(call)
 
-        return render(request, "analysis/behavior/_chunk.html", {"chunk": filtered_process})
+        if record["info"]["machine"]["platform"] == "linux":
+            return render(request, "analysis/strace/_chunk.html", {"chunk": filtered_process})
+        else:
+            return render(request, "analysis/behavior/_chunk.html", {"chunk": filtered_process})
     else:
         raise PermissionDenied
 
@@ -1636,6 +1651,7 @@ zip_categories = (
     "procdumpzipall",
     "CAPEzipall",
     "capeyarazipall",
+    "logszipall",
 )
 category_map = {
     "CAPE": "CAPE",
@@ -1774,6 +1790,9 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
     elif category == "tlskeys":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "tlsdump", "tlsdump.log")
+    # linux sysmon url to download sysmon.data xml
+    elif category == "sysmon":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "sysmon", "sysmon.data")
     elif category == "evtx":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "evtx", "evtx.zip")
         file_name = f"{task_id}_evtx.zip"
@@ -1782,6 +1801,11 @@ def file(request, category, task_id, dlfile):
         # search in mongo and get the path
         if enabledconf["mongodb"] and web_cfg.zipped_download.download_all:
             path = _file_search_all_files(category.replace("zipall", ""), dlfile)
+    elif category == "logszipall":
+        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs")
+        path = []
+        for dfile in os.listdir(buf):
+            path.append(os.path.join(buf, dfile))
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
@@ -1808,20 +1832,36 @@ def file(request, category, task_id, dlfile):
 
     try:
         if category in zip_categories:
-            mem_zip = BytesIO()
-            with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-                zf.setpassword(settings.ZIP_PWD)
-                if not isinstance(path, list):
-                    path = [path]
-                for file in path:
-                    with open(file, "rb") as f:
-                        zf.writestr(os.path.basename(file), f.read())
-            mem_zip.seek(0)
-            resp = StreamingHttpResponse(mem_zip, content_type=cd)
-            resp["Content-Length"] = len(mem_zip.getvalue())
-            file_name += ".zip"
-            path = os.path.join(tempfile.gettempdir(), file_name)
-            cd = "application/zip"
+            if not isinstance(path, list):
+                path = [path]
+            if USE_SEVENZIP:
+                zip_path = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}", f"{file_name}.zip")
+                sevenZipArgs = [SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path]
+                sevenZipArgs.extend(path)
+                try:
+                    subprocess.check_call(sevenZipArgs)
+                except subprocess.CalledProcessError:
+                    return render(request, "error.html", {"error": "error compressing file"})
+                zip_fd = open(zip_path, "rb")
+                resp = StreamingHttpResponse(zip_fd, content_type="application/zip")
+                resp["Content-Length"] = os.path.getsize(zip_path)
+                resp["Content-Disposition"] = f"attachment; filename={file_name}.zip"
+                return resp
+            else:
+                mem_zip = BytesIO()
+                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    zf.setpassword(settings.ZIP_PWD)
+                    if not isinstance(path, list):
+                        path = [path]
+                    for file in path:
+                        with open(file, "rb") as f:
+                            zf.writestr(os.path.basename(file), f.read())
+                mem_zip.seek(0)
+                resp = StreamingHttpResponse(mem_zip, content_type=cd)
+                resp["Content-Length"] = len(mem_zip.getvalue())
+                file_name += ".zip"
+                path = os.path.join(tempfile.gettempdir(), file_name)
+                cd = "application/zip"
         else:
             resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8091), content_type=cd)
             resp["Content-Length"] = Path(path).stat().st_size

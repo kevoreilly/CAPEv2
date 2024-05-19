@@ -9,7 +9,7 @@ from sqlalchemy.types import TypeDecorator
 
 Base = declarative_base()
 
-schema = "b0fa23c3c9c0"
+schema = "83fd58842164"
 
 
 class ExitNodes(Base):
@@ -92,6 +92,7 @@ class Task(Base):
     memory = Column(Text)
     clock = Column(DateTime(timezone=False), default=datetime.now(), nullable=False)
     enforce_timeout = Column(Text)
+    tlp = Column(Text, nullable=True)
     # Cuckoo node and Task ID this has been submitted to.
     node_id = Column(Integer, ForeignKey("node.id"))
     task_id = Column(Integer)
@@ -100,6 +101,7 @@ class Task(Base):
     retrieved = Column(Boolean, nullable=False, default=False)
     notificated = Column(Boolean, nullable=True, default=False)
     deleted = Column(Boolean, nullable=False, default=False)
+
     __table_args__ = (
         Index("node_id_index", "node_id"),
         Index("task_id_index", "task_id"),
@@ -124,6 +126,7 @@ class Task(Base):
         main_task_id=None,
         retrieved=False,
         route=None,
+        tlp=None,
     ):
         self.path = path
         self.category = category
@@ -144,6 +147,7 @@ class Task(Base):
         self.finished = False
         self.retrieved = False
         self.route = route
+        self.tlp = tlp
 
 
 def create_session(db_connectionn: str, echo=False) -> sessionmaker:

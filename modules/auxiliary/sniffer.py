@@ -255,7 +255,7 @@ class Sniffer(Auxiliary):
                 term_func()
                 _, _ = self.proc.communicate()
             except Exception as e:
-                log.exception("Unable to stop the sniffer (first try) with pid %d: %s", pid, e)
+                log.error("Unable to stop the sniffer (first try) with pid %d: %s", pid, e)
                 try:
                     if not self.proc.poll():
                         log.debug("Killing sniffer")

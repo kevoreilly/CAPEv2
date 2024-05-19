@@ -1,0 +1,11 @@
+<td>{{process.time}}</td>
+<td>{{process.pid}}</td>
+<td><strong>{{process.syscall}}</strong></td>
+<td style="word-wrap: break-word;">
+    {% for argument in process.arguments %}
+        <span class="gray">{{argument.name}}:</span>
+        <span class="mono">{{argument.value}}</span>
+        <br />
+    {% endfor %}
+</td>
+<td style="word-wrap: break-word"><span class="mono">{{process.retval}}</span></td>

@@ -384,8 +384,9 @@ class GuestManager:
                 log.error("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e, exc_info=True)
                 continue
 
-            if status["status"] == "complete":
-                log.info("Task #%s: Analysis completed successfully (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
+            if status["status"] in ("complete", "failed"):
+                completed_as = "completed successfully" if status["status"] == "complete" else "failed"
+                log.info("Task #%s: Analysis %s (id=%s, ip=%s)", completed_as, self.task_id, self.vmid, self.ipaddr)
                 db.guest_set_status(self.task_id, "complete")
                 return
             elif status["status"] == "exception":

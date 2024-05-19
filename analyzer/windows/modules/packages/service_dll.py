@@ -79,11 +79,11 @@ class ServiceDll(Package):
         parameter_path = rf"System\CurrentControlSet\Services\{servicename}\Parameters"
 
         try:
-            log.info("Adding Parameters value: %s -> ServiceDll = %s", parameter_path, dllpath)
+            log.info("Setting 'ServiceDll' path: %s", dllpath)
             with CreateKeyEx(HKEY_LOCAL_MACHINE, parameter_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 SetValueEx(key, "ServiceDll", 0, REG_EXPAND_SZ, dllpath)
         except Exception as e:
-            log.info("Error setting registry value: %s", e)
+            log.info("Error setting 'ServiceDll' registry value: %s", e)
             return
 
         # try to remove the WOW64 field in service registry, which is created by CreateServiceA
@@ -91,15 +91,15 @@ class ServiceDll(Package):
             with OpenKeyEx(HKEY_LOCAL_MACHINE, service_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 DeleteValue(key, "WOW64")
         except Exception as e:
-            log.info("Error deleting registry value: %s", e)
+            log.info("Error deleting WOW64 registry value: %s", e)
             return
 
         try:
-            log.info("Adding capegroup value: capegroup = %s", servicename)
+            log.info("Setting 'servicename': %s", servicename)
             with CreateKeyEx(HKEY_LOCAL_MACHINE, svchost_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 SetValueEx(key, "capegroup", 0, REG_MULTI_SZ, [servicename])
         except Exception as e:
-            log.info("Error setting registry value: %s", e)
+            log.info("Error setting 'servicename' registry value: %s", e)
             return
 
     @disable_wow64_redirection
@@ -137,13 +137,13 @@ class ServiceDll(Package):
                 None,
             )
             if service_handle == 0:
-                log.info("Failed to create service")
+                log.info("Failed to create service '%s'", servicename.decode())
                 log.info(ctypes.FormatError())
                 return
-            log.info("Created service %s (handle: 0x%s)", servicename.decode(), service_handle)
+            log.info("Created service '%s'", servicename.decode())
             self.set_keys(servicename.decode(), dllpath)
             servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid)
-            servproc.inject(injectmode=0, interest=path, nosleepskip=True)
+            servproc.inject(interest=path, nosleepskip=True)
             servproc.close()
             KERNEL32.Sleep(1000)
             service_launched = ADVAPI32.StartServiceA(service_handle, 0, None)

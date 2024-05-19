@@ -168,7 +168,7 @@ class Analyzer:
         if not package_class:
             raise Exception("Could not find an appropriate analysis package")
         # Package initialization
-        kwargs = {"options": self.config.options, "timeout": self.config.timeout}
+        kwargs = {"options": self.config.options, "timeout": self.config.timeout, "strace_ouput": PATHS["logs"]}
 
         # Initialize the analysis package.
         # pack = package_class(self.config.get_options())

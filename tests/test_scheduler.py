@@ -213,12 +213,13 @@ class TestAnalysisManager:
             def availables(self, label, platform, tags, arch, os_version):
                 return True
 
-            def acquire(self, machine_id, platform, tags, arch, os_version):
+            def acquire(self, machine_id, platform, tags, arch, os_version, need_scheduled):
                 class mock_acquire:
                     name = "mock_mach"
                     label = "mock_label"
                     platform = "mock_platform"
                     arch = "x64"
+                    need_scheduled = True
 
                 return mock_acquire()
 
@@ -245,6 +246,9 @@ class TestAnalysisManager:
         class mock_arch:
             arch = "x64"
 
+        class mock_need_scheduled:
+            arch = True
+
         setup_machinery(mock_machinery())
         mock_task_machine = mock_task()
         mock_task_machine.machine = mock_machine()
@@ -252,6 +256,7 @@ class TestAnalysisManager:
         mock_task_machine.tags = mock_tags()
         mock_task_machine.arch = mock_arch()
         mock_task_machine.package = mock_package()
+        mock_task_machine.need_scheduled = mock_need_scheduled()
 
         analysis_man = AnalysisManager(task=mock_task_machine, error_queue=queue.Queue())
         analysis_man.acquire_machine()
@@ -263,10 +268,16 @@ class TestAnalysisManager:
             def availables(self):
                 return False
 
-            def acquire(self, machine_id, platform, tags):
+            def acquire(
+                self,
+                machine_id,
+                platform,
+                tags,
+            ):
                 class mock_acquire:
                     name = "mock_mach"
                     label = "mock_label"
+                    need_scheduled = True
 
                 return mock_acquire()
 
@@ -279,11 +290,15 @@ class TestAnalysisManager:
         class mock_tags:
             tags = "tags"
 
+        class mock_need_scheduled:
+            arch = True
+
         setup_machinery(mock_machinery())
         mock_task_machine = mock_task()
         mock_task_machine.machine = mock_machine()
         mock_task_machine.platform = mock_plat()
         mock_task_machine.tags = mock_tags()
+        mock_task_machine.need_scheduled = mock_need_scheduled()
 
         analysis_man = AnalysisManager(task=mock_task_machine, error_queue=queue.Queue())
 
@@ -378,7 +393,6 @@ class TestAnalysisManager:
             "usage": False,
             "human_linux": False,
             "human_windows": True,
-            "stap": False,
             "id": 1234,
             "do_upload_max_size": 0,
             "upload_max_size": 100000000,

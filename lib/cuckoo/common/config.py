@@ -10,7 +10,7 @@ from typing import Dict, Iterable
 from lib.cuckoo.common.colors import bold, red
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUSTOM_CONF_DIR
 from lib.cuckoo.common.dictionary import Dictionary
-from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
 
 
 def parse_options(options: str) -> Dict[str, str]:
@@ -107,13 +107,16 @@ class Config(_BaseConfig, metaclass=ConfigMeta):
         self._read_files(files)
 
     def _get_files_to_read(self, fname_base):
-        files = [
-            os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf.default"),
-            os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf"),
-            os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf"),
-        ]
-        files.extend(sorted(glob.glob(os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf.d", "*.conf"))))
+        # Allows test workflows to ignore custom root configs
+        include_root_configs = "CAPE_DISABLE_ROOT_CONFIGS" not in os.environ
+        files = [os.path.join(CUCKOO_ROOT, "conf", "default", f"{fname_base}.conf.default")]
+        if include_root_configs:
+            files.append(os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf"))
+            files.extend(sorted(glob.glob(os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf.d", "*.conf"))))
+        files.append(os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf"))
         files.extend(sorted(glob.glob(os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf.d", "*.conf"))))
+        if not files:
+            raise CuckooCriticalError(f"No {fname_base} config files could be found!")
         return files
 
 

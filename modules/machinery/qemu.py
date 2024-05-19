@@ -445,7 +445,9 @@ class QEMU(Machinery):
         log.debug("Executing QEMU %s", final_cmdline)
 
         try:
-            proc = subprocess.Popen(final_cmdline, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(
+                final_cmdline, universal_newlines=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             self.state[vm_info.name] = proc
         except OSError as e:
             raise CuckooMachineError(f"QEMU failed starting the machine: {e}")
@@ -485,3 +487,37 @@ class QEMU(Machinery):
         @return: status string.
         """
         return self.RUNNING if self.state.get(name) is not None else self.STOPPED
+
+    def dump_memory(self, label, path):
+        """create a memory dump of the virtual machine.
+        @param label: virtual machine label.
+        @raise CuckooMachineError: if unable to dump.
+        """
+        try:
+            # Create the memory dump file ourselves first so it doesn't end up root/root 0600
+            with open(path, "w"):
+                pass
+            log.debug("Trying to do a memory dump of vm %s", label)
+
+            vm_info = self.db.view_machine_by_label(label)
+
+            if self._status(vm_info.name) == self.STOPPED:
+                raise CuckooMachineError(f"Trying to do a memory dump on an already stopped vm {label}")
+
+            proc = self.state.get(vm_info.name)
+
+            log.debug("Freezing vm %s before the memory dump", label)
+            proc.stdin.write("stop\n")
+            log.debug("Doing the memory dump")
+            proc.stdin.write(f'dump-guest-memory "{path}"\n')
+            proc.stdin.write("quit\n")
+            log.debug("Flushing snapshot commands to qemu.")
+            proc.stdin.flush()
+            proc.wait()
+            log.debug("dump done")
+
+            if not os.path.isfile(path):
+                raise CuckooMachineError(f"Error dumping memory virtual machine {label}: file not found")
+
+        except Exception as e:
+            raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}") from e

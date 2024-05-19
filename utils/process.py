@@ -32,11 +32,12 @@ log = logging.getLogger()
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from concurrent.futures import TimeoutError
 
+from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
-from lib.cuckoo.common.utils import free_space_monitor, get_options
+from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
@@ -63,6 +64,7 @@ check_linux_dist()
 pending_future_map = {}
 pending_task_id_map = {}
 original_proctitle = getproctitle()
+
 
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
 def memory_limit(percentage: float = 0.8):
@@ -108,7 +110,7 @@ def process(
         main_task_id = get_options(task_dict["options"]).get("main_task_id", 0)
 
     # ToDo new logger here
-    handlers = init_logging(tid=str(task_id), debug=debug)
+    per_analysis_handler = init_per_analysis_logging(tid=str(task_id), debug=debug)
     set_formatter_fmt(task_id, main_task_id)
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
@@ -153,10 +155,7 @@ def process(
         for i, obj in enumerate(gc.garbage):
             log.info("(garbage) GC object #%d: type=%s", i, type(obj).__name__)
 
-    for handler in handlers:
-        if not handler:
-            continue
-        log.removeHandler(handler)
+    log.removeHandler(per_analysis_handler)
 
 
 def init_worker():
@@ -179,7 +178,7 @@ def set_formatter_fmt(task_id=None, main_task_id=None):
     FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
 
 
-def init_logging(tid=0, debug=False):
+def init_logging(debug=False):
 
     # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
     # If basicConfig was already called by something and had a StreamHandler added,
@@ -194,7 +193,6 @@ def init_logging(tid=0, debug=False):
         - ch - console handler
         - slh - syslog handler
         - fh - file handle -> process.log
-        - fhpa - file handler per analysis
     """
 
     ch = ConsoleHandler()
@@ -202,7 +200,6 @@ def init_logging(tid=0, debug=False):
     log.addHandler(ch)
 
     slh = False
-    fhpa = False
 
     if logconf.logger.syslog_process:
         slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
@@ -222,6 +219,29 @@ def init_logging(tid=0, debug=False):
 
         fh.setFormatter(FORMATTER)
         log.addHandler(fh)
+    except PermissionError:
+        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
+
+    if debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.INFO)
+
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    return ch, fh, slh
+
+
+def init_per_analysis_logging(tid=0, debug=False):
+    """
+    Handlers:
+        - fhpa - file handler per analysis
+    """
+
+    fhpa = False
+
+    try:
+        if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
+            path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
 
         if logconf.logger.process_analysis_folder:
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
@@ -241,15 +261,14 @@ def init_logging(tid=0, debug=False):
     else:
         log.setLevel(logging.INFO)
 
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    return ch, fh, slh, fhpa
+    return fhpa
 
 
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
         _ = future.result()
-        log.info("Reports generation completed")
+        log.info("Reports generation completed for Task #%d", task_id)
     except TimeoutError as error:
         log.error("Processing Timeout %s. Function: %s", error, error.args[1])
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
@@ -335,10 +354,11 @@ def autoprocess(
         # ToDo verify in finally
         # pool.terminate()
         raise
-    except MemoryError:
+    except (MemoryError, OSError):
         mem = get_memory() / 1024 / 1024
-        print("Remain: %.2f GB" % mem)
-        sys.stderr.write("\n\nERROR: Memory Exception\n")
+        sys.stderr.write(
+            "\n\nERROR: Memory Exception\nRemain: %.2f GB\nYour system doesn't have enough FREE RAM to run processing!" % mem
+        )
         sys.exit(1)
     except Exception:
         import traceback
@@ -400,7 +420,7 @@ def main():
     parser.add_argument(
         "id",
         type=parse_id,
-        help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10",
+        help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10 or 1,3,5,7",
     )
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
@@ -457,6 +477,8 @@ def main():
         required=False,
     )
     args = parser.parse_args()
+
+    handlers = init_logging(debug=args.debug)
 
     init_modules()
     if args.id == "auto":
@@ -523,6 +545,11 @@ def main():
                     )
                 log.debug("Finished processing task")
                 set_formatter_fmt()
+
+    for handler in handlers:
+        if not handler:
+            continue
+        log.removeHandler(handler)
 
 
 if __name__ == "__main__":

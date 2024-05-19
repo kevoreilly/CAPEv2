@@ -726,7 +726,7 @@ def download_file(**kwargs):
         parsed_options = get_options(kwargs["options"])
         node = parsed_options.get("node")
 
-        if node and route not in all_nodes_exits.get(node):
+        if node and node not in all_nodes_exits.get(route):
             return "error", {"error": f"Specified worker {node} doesn't support this route: {route}"}
         elif route not in all_nodes_exits_list:
             return "error", {"error": "Specified route doesn't exist on any worker"}
@@ -741,8 +741,8 @@ def download_file(**kwargs):
                     kwargs["options"] = f"node={choice(tmp_workers)}"
 
         # Remove workers prefixes
-        if route.startswith(("socks5:", "vpn:")):
-            route = route.replace("socks5:", "", 1).replace("vpn:", "", 1)
+        if route.startswith(("socks5:", "vpn:", "socks:")):
+            route = route.replace("socks5:", "", 1).replace("vpn:", "", 1).replace("socks:", "", 1)
 
     onesuccess = True
     magic_type = get_magic_type(kwargs["path"])
@@ -969,14 +969,14 @@ def validate_task(tid, status=TASK_REPORTED):
         return {"error": True, "error_value": "Specified wrong task status"}
     elif status == task.status:
         if tid != task_id:
-            return {"error": False, "rtid": task_id}
-        return {"error": False}
+            return {"error": False, "rtid": task_id, "tlp": task.tlp}
+        return {"error": False, "tlp": task.tlp}
     elif task.status in {TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING}:
         return {"error": True, "error_value": "Task failed"}
     elif task.status != TASK_REPORTED:
         return {"error": True, "error_value": "Task is still being analyzed"}
 
-    return {"error": False}
+    return {"error": False, "tlp": task.tlp}
 
 
 def validate_task_by_path(tid):
@@ -1353,6 +1353,12 @@ def get_hash_list(hashes):
         hashlist = filter(None, hashes.replace(" ", "").strip().split(","))
     else:
         hashlist = hashes.split()
+
+    for i in range(len(hashlist)):
+        if hashlist[i].startswith("http") and hashlist[i].endswith("/"):
+            hash = hashlist[i].split("/")[-2]
+            if len(hash) in (32, 40, 64):
+                hashlist[i] = hash
 
     return hashlist
 

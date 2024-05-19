@@ -49,16 +49,18 @@ def prng_seed(seed):
     return ((expr2 >> 31) | (2 * expr2)) & 0xFFFFFFFF
 
 
-def decrypt_string(data):
+def decrypt_string(data, type):
     seed = int.from_bytes(data[:4], "little") & 0xFFFFFFFF
     length = (int.from_bytes(data[4:6], "little")) ^ (int.from_bytes(data[:2], "little")) & 0xFFFF
     src = data[6:]
     result = bytearray()
 
     for i in range(length):
-        byteval = src[i]
-        seed = prng_seed(seed)
-        result.append((seed ^ byteval) & 0xFF)
+        if type == 1:
+            seed = prng_seed(seed)
+        elif type == 2:
+            seed += 1
+        result.append((seed ^ src[i]) & 0xFF)
     return result
 
 
@@ -81,23 +83,26 @@ def extract_config(filebuf):
                 if not data_sections:
                     return
                 data = data_sections[0].get_data()
-                if not data:
-                    return
                 hex_pattern = "".join([rf"{byte:02X}" for byte in data[:4]])
                 regex = re.compile(hex_pattern.lower())
                 matches = regex.finditer(data.hex())
                 str_vals = []
                 c2 = []
+
                 for match in matches:
+                    str_val = ""
                     i = match.start() // 2
                     with suppress(Exception):
-                        decoded = decrypt_string(data[i:])
-                        if decoded:
-                            str_val = decoded.decode("utf-8").replace("\00", "")
-                            if "http" in str_val:
-                                c2.append(str_val)
-                            else:
-                                str_vals.append(str_val)
+                        str_val = decrypt_string(data[i:], 1).decode("utf-8").replace("\00", "")
+                    if not str_val:
+                        with suppress(Exception):
+                            str_val = decrypt_string(data[i:], 2).decode("utf-8").replace("\00", "")
+                    if str_val:
+                        if "http" in str_val:
+                            c2.append(str_val)
+                        else:
+                            str_vals.append(str_val)
+
                 i = 0
                 for val in str_vals:
                     if "/files/" in val:

@@ -1,0 +1,43 @@
+name: Python tests on windows
+
+env:
+  COLUMNS: 120
+
+on:
+  push:
+    branches: [ master, staging ]
+  pull_request:
+    branches: [ master, staging ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        # Use x86 python because of https://github.com/kevoreilly/CAPEv2/issues/168
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          architecture: 'x86'
+
+      - name: Install dependencies
+        run: pip install --upgrade pytest requests
+
+      - name: Run analyzer unit tests
+        run: |
+          cd analyzer/windows
+          pytest -v .
+
+      - name: Run agent unit tests
+        run: |
+          cd agent
+          pytest -v .

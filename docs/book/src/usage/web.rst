@@ -206,6 +206,14 @@ Replace ``www.capesandbox.com`` with your actual hostname.
         }
     }
 
+Now enable the nginx configuration by executing the following: 
+
+.. code:: bash
+
+   rm -f /etc/nginx/sites-enabled/default
+   ln -s /etc/nginx/sites-available/cape /etc/nginx/sites-enabled/default
+
+
 If you want to block users from changing their own email addresses, add the following `location` directive inside of the `server` directive:
 
 .. code-block:: nginx

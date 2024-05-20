@@ -1,5 +1,5 @@
 ### [20.05.2024]
-* YARA-x support - https://virustotal.github.io/yara-x/
+* YARA-X support - https://virustotal.github.io/yara-x/
 
 ### [11.04.2024]
 * Monitor updates:

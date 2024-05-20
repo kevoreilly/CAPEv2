@@ -1302,7 +1302,7 @@ class CommandPipeHandler:
             return
 
         # Open the process and inject the monitor
-        proc = Process(pid=process_id, tid=thread_id)
+        proc = Process(pid=process_id, thread_id=thread_id)
 
         filepath = proc.get_filepath()
         filename = os.path.basename(filepath)

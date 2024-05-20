@@ -463,10 +463,7 @@ class File:
 
             while True:
                 if HAVE_YARA_X:
-                    if category == "CAPE":
-                        import code; code.interact(local=dict(locals(), **globals()))
                     compiler = yara_x.Compiler(relaxed_re_syntax=True)
-
                     for name, path in rules.items():
                         try:
                             with open(path, "r") as f:
@@ -474,6 +471,7 @@ class File:
                                 compiler.add_source(f.read())
                         except yara_x.CompileError as err:
                             print(err, name)
+                            # ToDo bad rule defense
 
                     File.yara_rules[category] = yara_x.Scanner(compiler.build())
 

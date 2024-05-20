@@ -163,6 +163,10 @@ class ConsoleHandler(logging.StreamHandler):
         elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
+            # Hack for pymongo.logger.LogMessage
+            if type(record.msg) != "str":
+                record.msg = str(record.msg)
+
             if "analysis procedure completed" in record.msg:
                 colored.msg = cyan(record.msg)
             else:
@@ -172,7 +176,7 @@ class ConsoleHandler(logging.StreamHandler):
 
 
 def check_linux_dist():
-    ubuntu_versions = ("20.04", "22.04")
+    ubuntu_versions = ("20.04", "22.04", "24.04")
     with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:

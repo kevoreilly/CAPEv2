@@ -16,6 +16,7 @@ import subprocess
 import sys
 import timeit
 import traceback
+from contextlib import suppress
 from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
@@ -75,6 +76,7 @@ MONITOR_DLL_64 = None
 LOADER32 = None
 LOADER64 = None
 ANALYSIS_TIMED_OUT = False
+INTERACTIVE_MODE = False
 
 PID = os.getpid()
 PPID = Process(pid=PID).get_parent_pid()
@@ -381,9 +383,9 @@ class Analyzer:
             pkg_module = importlib.import_module(package_name)
             log.debug('imported analysis package "%s"', package)
         except ImportError as e:
-            raise CuckooError(f'unable to import package "{package_name}", does not exist') from e
+            raise CuckooError(f'unable to import package "{self.package_name}", does not exist') from e
         except Exception as e:
-            raise CuckooError(f'Unable to import package "{package_name}", does not exist') from e
+            raise CuckooError(f'Unable to import package "{self.package_name}", does not exist') from e
 
         # get the members inside the module
         members = inspect.getmembers(pkg_module)
@@ -394,7 +396,7 @@ class Analyzer:
 
         num_pkg_classes = len(pkg_classes)
         if num_pkg_classes != 1:
-            raise CuckooError(f"expected a single Package subclass in {package_name}, got {num_pkg_classes}")
+            raise CuckooError(f"expected a single Package subclass in {self.package_name}, got {num_pkg_classes}")
 
         # Initialize the single analysis package class
         log.debug('initializing analysis package "%s"...', package)
@@ -405,7 +407,7 @@ class Analyzer:
         """Run analysis.
         @return: operation status.
         """
-        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64
+        global MONITOR_DLL, MONITOR_DLL_64, LOADER32, LOADER64, ANALYSIS_TIMED_OUT, INTERACTIVE_MODE
 
         log.debug("Starting analyzer from: %s", Path.cwd())
         log.debug("Storing results at: %s", PATHS["root"])
@@ -533,6 +535,44 @@ class Analyzer:
                 log.debug("Started auxiliary module %s", module.__name__)
                 AUX_ENABLED.append(aux)
 
+        """
+        # Inform zer0m0n of the ResultServer address.
+        zer0m0n.resultserver(self.config.ip, self.config.port)
+
+        # Forward the command pipe and logpipe names on to zer0m0n.
+        zer0m0n.cmdpipe(self.config.pipe)
+        zer0m0n.channel(self.config.logpipe)
+
+        # Hide the Cuckoo Analyzer & Cuckoo Agent.
+        zer0m0n.hidepid(self.pid)
+        zer0m0n.hidepid(self.ppid)
+
+        # Initialize zer0m0n with our compiled Yara rules.
+        zer0m0n.yarald("bin/rules.yarac")
+
+        # Propagate the requested dump interval, if set.
+        zer0m0n.dumpint(int(self.options.get("dumpint", 0)))
+        """
+
+        if self.options.get("interactive", False):
+            INTERACTIVE_MODE = True
+            log.info("Interactive mode enabled - injecting into explorer shell")
+            if self.config.category == "file" and self.options.get("manual", False):
+                with suppress(Exception):
+                    dest_path = os.path.join(os.environ["HOMEPATH"], "Desktop", os.path.basename(self.config.file_name))
+                    copy(self.target, dest_path)
+            # If it's an URL, we'll just use the default Internet Explorer package.
+            explorer_pid = get_explorer_pid()
+            if explorer_pid:
+                explorer = Process(options=self.options, config=self.config, pid=explorer_pid)
+                filepath = explorer.get_filepath()
+                explorer.inject(interest=filepath, nosleepskip=True)
+                self.LASTINJECT_TIME = timeit.default_timer()
+                explorer.close()
+                KERNEL32.Sleep(2000)
+        else:
+            INTERACTIVE_MODE = False
+
         # log.info("Stopping WMI Service")
         subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
         # log.info("Stopped WMI Service")
@@ -563,35 +603,37 @@ class Analyzer:
         except Exception as e:
             raise CuckooPackageError("error configuring package %s: %s", self.package_name, e) from e
 
-        # Start analysis package. If for any reason, the execution of the
-        # analysis package fails, we have to abort the analysis.
-        try:
-            pids = self.package.start(self.target)
-        except NotImplementedError as e:
-            raise CuckooError(f'The package "{self.package_name}" doesn\'t contain a start function') from e
-        except CuckooPackageError as e:
-            raise CuckooError(f'The package "{self.package_name}" start function raised an error: {e}') from e
-        except Exception as e:
-            raise CuckooError(f'The package "{self.package_name}" start function encountered an unhandled exception: {e}') from e
-
-        # If the analysis package returned a list of process IDs, we add them
-        # to the list of monitored processes and enable the process monitor.
-        if pids:
-            self.process_list.add_pids(pids)
-            self.pid_check = True
-
-        # If the package didn't return any process ID (for example in the case
-        # where the package isn't enabling any behavioral analysis), we don't
-        # enable the process monitor.
+        pid_check = False
+        if self.options.get("manual", False):
+            pid_check = True
         else:
-            log.info("No process IDs returned by the package, running for the full timeout")
-            self.pid_check = False
+            # Start analysis package. If for any reason, the execution of the
+            # analysis package fails, we have to abort the analysis.
+            try:
+                pids = self.package.start(self.target)
+            except NotImplementedError as e:
+                raise CuckooError(f'The package "{self.package_name}" doesn\'t contain a start function') from e
+            except CuckooPackageError as e:
+                raise CuckooError(f'The package "{self.package_name}" start function raised an error: {e}') from e
+            except Exception as e:
+                raise CuckooError(f'The package "{self.package_name}" start function encountered an unhandled exception: {e}') from e
+
+            # If the analysis package returned a list of process IDs, we add them
+            # to the list of monitored processes and enable the process monitor.
+            if pids:
+                self.process_list.add_pids(pids)
+                pid_check = True
+
+            # If the package didn't return any process ID (for example in the case
+            # where the package isn't enabling any behavioral analysis), we don't
+            # enable the process monitor.
+            else:
+                log.info("No process IDs returned by the package, running for the full timeout")
 
         # Check in the options if the user toggled the timeout enforce. If so,
         # we need to override pid_check and disable process monitor.
         if self.config.enforce_timeout:
             log.info("Enabled timeout enforce, running for the full timeout")
-            self.pid_check = False
 
         # next phase; go to the analysis loop
         self.analysis_loop(aux_modules)
@@ -638,8 +680,6 @@ class Analyzer:
                                         Process(pid=pid).upload_memdump()
                                     except Exception as e:
                                         log.error(e, exc_info=True)
-                                else:
-                                    log.info("Procdump not enabled")
                                 log.info("Process with pid %s appears to have terminated", pid)
                                 if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)
@@ -650,8 +690,11 @@ class Analyzer:
                             not self.LASTINJECT_TIME or (timeit.default_timer() >= (self.LASTINJECT_TIME + 15))  # Add 15 seconds
                         ):
                             if emptytime and (timeit.default_timer() >= (emptytime + 5)):  # Add 5 seconds
-                                log.info("Process list is empty, terminating analysis")
-                                break
+                                if INTERACTIVE_MODE:
+                                    continue
+                                else:
+                                    log.info("Process list is empty, terminating analysis")
+                                    break
                             elif not emptytime:
                                 emptytime = timeit.default_timer()
                         else:
@@ -1256,8 +1299,8 @@ class CommandPipeHandler:
             self.analyzer.process_lock.release()
             return
 
-        # Open the process and inject the DLL. Hope it enjoys it.
-        proc = Process(pid=process_id, thread_id=thread_id)
+        # Open the process and inject the monitor
+        proc = Process(pid=process_id, tid=thread_id)
 
         filepath = proc.get_filepath()
         filename = os.path.basename(filepath)
@@ -1267,7 +1310,7 @@ class CommandPipeHandler:
             self.analyzer.process_list.add_pid(process_id)
 
             # We're done operating on the processes list,
-            # release the lock. Let the injection do its thing.
+            # release the lock
             self.analyzer.process_lock.release()
 
             proc.inject(interest=filepath, nosleepskip=True)

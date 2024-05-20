@@ -11,6 +11,8 @@ log = logging.getLogger(__name__)
 
 
 def generate_cape_analysis_summary(results):
+    if not results.get("target"):
+        return {}
     try:
         return flare_capa_details(results["target"]["file"]["path"], "static", on_demand=True, backend="cape", results=results)
     except Exception as e:

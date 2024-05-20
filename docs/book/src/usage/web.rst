@@ -143,7 +143,7 @@ Next, install NGINX and configure it to be a reverse proxy to Gunicorn.
 
    sudo apt install nginx
 
-Create a configuration file at ``/etc/nginx/sites-available/cape``
+Create a configuration file at ``/etc/nginx/conf.d/cape``
 
 Replace ``www.capesandbox.com`` with your actual hostname.
 
@@ -205,6 +205,14 @@ Replace ``www.capesandbox.com`` with your actual hostname.
             autoindex off;
         }
     }
+
+Now enable the nginx configuration by executing the following:
+
+.. code:: bash
+
+   rm -f /etc/nginx/conf.d/default
+   ln -s /etc/nginx/conf.d/cape /etc/nginx/conf.d/default
+
 
 If you want to block users from changing their own email addresses, add the following `location` directive inside of the `server` directive:
 

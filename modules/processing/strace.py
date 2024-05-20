@@ -55,10 +55,10 @@ fd_syscalls = [
 class ParseProcessLog(list):
     """Parses the process log file"""
 
-    def __init__(self, log_path, syscalls_info, options):
+    def __init__(self, process_id, logs, syscalls_info, options):
         """@param log_path: log file path."""
-        self._log_path = log_path
-        self.process_id = int(log_path.split(".")[-1])
+        self.logs = logs
+        self.process_id = process_id
         self.children_ids = []
         self.first_seen = None
         self.process_name = None
@@ -68,61 +68,16 @@ class ParseProcessLog(list):
         # Limit of API calls per process
         # self.api_limit = self.options.analysis_call_limit
 
-        if path_exists(log_path) and os.stat(log_path).st_size > 0:
-            self.fetch_calls(syscalls_info)
+        self.fetch_calls(syscalls_info)
 
     def __iter__(self):
         return iter(super().__iter__())
 
     def __repr__(self):
-        return f"<ParseProcessLog log-path: {self._log_path}>"
+        return f"<ParseProcessLog for pid: {self.process_id}>"
 
     def begin_reporting(self):
         pass
-
-    def log_concat(self, unfinished, resumed):
-        """
-        Concatenates all the respective unfinished and resumed strace logs into a string,
-        matching '<unfinished ...>' and '<... {syscall} resumed>' strings accordingly,
-        returns the `resumed` time as that is the completed syscall time.
-        """
-        data = ""
-        for head in unfinished:
-            for tail in resumed:
-                if head["syscall"] != tail["syscall"]:
-                    continue
-                data += " ".join([tail["time"], head["unfinished"] + tail["resumed"] + "\n"])
-                resumed.remove(tail)
-                break
-        return data
-
-    def extract_logs(self, raw_logs, pattern):
-        return [match.groupdict() for match in pattern.finditer(raw_logs)]
-
-    def normalize_logs(self):
-        """
-        Normalize the logs into a standard format to process the syscall information.
-        Returns a list of dictionaries containing syscall information.
-        """
-        log_pattern = re.compile(
-            r"(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+\d+\]\s+(?P<syscall>\w+)\((?P<args>.*)\)\s+=\s(?P<retval>.+)\n"
-        )
-        unfinished_pattern = re.compile(r"\d+:\d+:\d+\.\d+\s+(?P<unfinished>\[\s+\d+\]\s+(?P<syscall>\w+)\(.*)<unfinished\s...>\n")
-        resumed_pattern = re.compile(
-            r"(?P<time>\d+:\d+:\d+\.\d+)\s+\[\s+\d+\]\s+<\.\.\.\s(?P<syscall>\w+)\sresumed>(?P<resumed>.*)\n"
-        )
-        with open(self._log_path, "r") as log_file:
-            raw_logs = log_file.read()
-
-        normal_logs = self.extract_logs(raw_logs, log_pattern)
-        unfinished_logs = self.extract_logs(raw_logs, unfinished_pattern)
-        resumed_logs = self.extract_logs(raw_logs, resumed_pattern)
-
-        concat_logs = self.log_concat(unfinished_logs, resumed_logs)
-        normal_logs.extend(self.extract_logs(concat_logs, log_pattern))
-
-        normal_logs.sort(key=lambda d: d["time"])
-        return normal_logs
 
     def split_arguments(self, args_str):
         args = []
@@ -143,7 +98,7 @@ class ParseProcessLog(list):
         return [x.strip() for x in args if x.strip() != ""]
 
     def fetch_calls(self, syscalls_info):
-        for event in self.normalize_logs():
+        for event in self.logs:
             time = event["time"]
             category = "misc"
             syscall = event["syscall"]
@@ -165,10 +120,21 @@ class ParseProcessLog(list):
 
             if len(self.calls) == 0:
                 self.first_seen = time
-                self.process_name = syscall + "(" + event["args"] + ")"
+
+            if syscall == "execve":
+                self.process_name = " ".join(eval(args[1]))
 
             if syscall in ["fork", "vfork", "clone", "clone3"]:
-                self.children_ids.append((int(retval), syscall + "(" + event["args"] + ")"))
+                # Identify if thread or fork with reference to:
+                # https://github.com/mgedmin/strace-process-tree/blob/bb61f6273b91a7c98e73657a61c6bd69cfadb781/strace_process_tree.py#L328-#L332
+                if syscall.startswith("clone"):
+                    if "CLONE_THREAD" in event["args"]:
+                        self.children_ids.append((int(retval), "(thread)"))
+                    elif "flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD" in event["args"]:
+                        self.children_ids.append((int(retval), "(fork)"))
+                else:
+                    # append children and the corresponding API call that spawns it
+                    self.children_ids.append((int(retval), syscall + "(" + event["args"] + ")"))
 
             self.calls.append(
                 {
@@ -236,6 +202,7 @@ class Processes:
         self._logs_path = logs_path
         self.syscalls_info = self.load_syscalls_args()
         self.options = options
+        self.results = []
 
     def load_syscalls_args(self):
         """
@@ -253,7 +220,7 @@ class Processes:
             for syscall in syscalls_dict["syscalls"]
         }
 
-    def update_file_descriptors(self, process_list, fd_calls):
+    def update_file_descriptors(self, fd_calls):
         """
         Returns an updated process list where file-access related calls have
         the matching file descriptor at the time of it being opened.
@@ -279,9 +246,8 @@ class Processes:
                 "time_closed": None,
             },
         ]
-        sorted_fd_calls = sorted(fd_calls, key=lambda x: x["time"])
 
-        for fd_call in sorted_fd_calls:
+        for fd_call in fd_calls:
             # Retrieve the relevant informaton from syscalls that open/duplicate/close file descriptors
             match fd_call["syscall"]:
                 case syscall if syscall in ["open", "creat", "openat", "openat2"]:
@@ -309,7 +275,7 @@ class Processes:
                         if fd["time_closed"] is None and fd_call["fd"] == fd["fd"]:
                             fd["time_closed"] = fd_call["time"]
 
-        for process in process_list:
+        for process in self.results:
             for call in process["calls"]:
                 if call["api"] in fd_syscalls:
                     # append filename to file descriptor according to relevant time that fd is opened
@@ -322,14 +288,12 @@ class Processes:
                         ):
                             call["arguments"][0]["value"] += f' ({fd["filename"]})'
 
-        return process_list
-
-    def update_parent_ids(self, process_list, relations):
+    def update_parent_ids(self, relations):
         """
         Returns an updated process list with the matched parent IDs
         """
         # Create a dictionary to map process IDs to their respective entries
-        process_dict = {entry["process_id"]: entry for entry in process_list}
+        process_dict = {entry["process_id"]: entry for entry in self.results}
 
         # Iterate through the parent_relations dictionary
         for parent_id, children in relations.items():
@@ -339,39 +303,90 @@ class Processes:
                 for child_id, name in children:
                     if child_id in process_dict:
                         process_dict[child_id]["parent_id"] = parent_id
-                        process_dict[child_id]["process_name"] = name
+                        if process_dict[child_id]["process_name"] is None:
+                            process_dict[child_id]["process_name"] = name
 
         # Convert the dictionary back to a list of entries
-        updated_process_list = list(process_dict.values())
+        self.results = list(process_dict.values())
 
-        return updated_process_list
+    def log_concat(self, unfinished, resumed):
+        """
+        Concatenates all the respective unfinished and resumed strace logs into a string,
+        matching '<unfinished ...>' and '<... {syscall} resumed>' strings accordingly,
+        returns the `resumed` time as that is the completed syscall time.
+        """
+        data = ""
+        for key in unfinished.keys():
+            for head in unfinished[key]:
+                for tail in resumed[key]:
+                    if head["syscall"] != tail["syscall"]:
+                        continue
+                    data += " ".join([str(key), tail["time"], head["unfinished"] + tail["resumed"] + "\n"])
+                    resumed[key].remove(tail)
+                    break
+        return data
+
+    def extract_logs(self, raw_logs, pattern):
+        extracted_logs = dict()
+        for match in pattern.finditer(raw_logs):
+            match = match.groupdict()
+            pid = int(match.pop("pid"))
+            if pid not in extracted_logs:
+                extracted_logs[pid] = []
+            extracted_logs[pid].append(match)
+        return extracted_logs
+
+    def normalize_logs(self):
+        """
+        Normalize the logs into a standard format to process the syscall information.
+        Returns a list of dictionaries containing syscall information.
+        """
+        log_pattern = re.compile(
+            r"(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+(?P<syscall>\w+)\((?P<args>.*)\)\s+=\s(?P<retval>.+)\n"
+        )
+        unfinished_pattern = re.compile(
+            r"(?P<pid>\d+)\s+\d+:\d+:\d+\.\d+\s+(?P<unfinished>(?P<syscall>\w+)\(.*)\s+<unfinished\s...>\n"
+        )
+        resumed_pattern = re.compile(
+            r"(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+<\.\.\.\s(?P<syscall>\w+)\sresumed>(?P<resumed>.*)\n"
+        )
+        with open(self._logs_path, "r") as log_file:
+            raw_logs = log_file.read()
+
+        normal_logs = self.extract_logs(raw_logs, log_pattern)
+        unfinished_logs = self.extract_logs(raw_logs, unfinished_pattern)
+        resumed_logs = self.extract_logs(raw_logs, resumed_pattern)
+
+        concat_raw_logs = self.log_concat(unfinished_logs, resumed_logs)
+        concat_logs = self.extract_logs(concat_raw_logs, log_pattern)
+        for pid in concat_logs.keys():
+            if pid not in normal_logs:
+                normal_logs[pid] = []
+            normal_logs[pid].extend(concat_logs[pid])
+            normal_logs[pid].sort(key=lambda d: d["time"])
+
+        return normal_logs
 
     def run(self):
-        results = []
         parent_child_relation = {}
         fd = []
 
         if not path_exists(self._logs_path):
-            log.warning('Analysis results folder does not exist at path "%s"', self._logs_path)
-            return results
+            log.warning('Strace logs does not exist at path "%s"', self._logs_path)
+            return self.results
 
-        if len(os.listdir(self._logs_path)) == 0:
-            log.info("Analysis results folder does not contain any file or injection was disabled")
-            return results
+        if not os.stat(self._logs_path).st_size > 0:
+            log.warning('Strace logs does not contain data at path "%s"', self._logs_path)
+            return self.results
 
-        for file_name in os.listdir(self._logs_path):
-            file_path = os.path.join(self._logs_path, file_name)
+        processes = self.normalize_logs()
 
-            if os.path.isdir(file_path):
-                continue
-
-            current_log = ParseProcessLog(file_path, self.syscalls_info, self.options)
-            if current_log.process_id is None:
-                continue
+        for pid in processes.keys():
+            current_log = ParseProcessLog(pid, processes[pid], self.syscalls_info, self.options)
 
             parent_child_relation[current_log.process_id] = current_log.children_ids
 
-            results.append(
+            self.results.append(
                 {
                     "process_id": current_log.process_id,
                     "process_name": current_log.process_name,
@@ -383,14 +398,14 @@ class Processes:
 
             fd += current_log.file_descriptors
 
-        results = self.update_parent_ids(results, parent_child_relation)
-        results = self.update_file_descriptors(results, fd)
+        self.update_parent_ids(parent_child_relation)
+        self.update_file_descriptors(fd)
 
         # Sort the items in the results list chronologically. In this way we
         # can have a sequential order of spawned processes.
-        results.sort(key=lambda process: process["first_seen"])
+        self.results.sort(key=lambda process: process["first_seen"])
 
-        return results
+        return self.results
 
 
 class ProcessTree:
@@ -480,7 +495,7 @@ class StraceAnalysis(Processing):
         Run analysis on strace logs
         @return: results dict.
         """
-        strace = {"processes": Processes(self.logs_path, self.options).run()}
+        strace = {"processes": Processes(os.path.join(self.logs_path, "strace.log"), self.options).run()}
 
         instances = [
             ProcessTree(),

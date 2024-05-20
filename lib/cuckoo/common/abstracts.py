@@ -4,7 +4,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
-import inspect
 import io
 import logging
 import os
@@ -38,7 +37,7 @@ from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.database import Database, Machine, _Database
 
 try:
     import re2 as re
@@ -107,42 +106,44 @@ class Machinery:
     # Default label used in machinery configuration file to supply virtual
     # machine name/label/vmx path. Override it if you dubbed it in another
     # way.
-    LABEL = "label"
+    LABEL: str = "label"
+
+    # This must be defined in sub-classes.
+    module_name: str
 
     def __init__(self):
-        self.module_name = ""
         self.options = None
         # Database pointer.
-        self.db = Database()
-        # Machine table is cleaned to be filled from configuration file
-        # at each start.
-        self.db.clean_machines()
+        self.db: _Database = Database()
+        self.set_options(self.read_config())
 
-    def set_options(self, options: dict):
+    def read_config(self) -> None:
+        return Config(self.module_name)
+
+    def set_options(self, options: dict) -> None:
         """Set machine manager options.
         @param options: machine manager options dict.
         """
         self.options = options
+        mmanager_opts = self.options.get(self.module_name)
+        if not isinstance(mmanager_opts["machines"], list):
+            mmanager_opts["machines"] = str(mmanager_opts["machines"]).strip().split(",")
 
-    def initialize(self, module_name):
-        """Read, load, and verify machines configuration.
-        @param module_name: module name.
-        """
+    def initialize(self) -> None:
+        """Read, load, and verify machines configuration."""
+        # Machine table is cleaned to be filled from configuration file
+        # at each start.
+        self.db.clean_machines()
+
         # Load.
-        self._initialize(module_name)
+        self._initialize()
 
         # Run initialization checks.
         self._initialize_check()
 
-    def _initialize(self, module_name):
-        """Read configuration.
-        @param module_name: module name.
-        """
-        self.module_name = module_name
-        mmanager_opts = self.options.get(module_name)
-        if not isinstance(mmanager_opts["machines"], list):
-            mmanager_opts["machines"] = str(mmanager_opts["machines"]).strip().split(",")
-
+    def _initialize(self) -> None:
+        """Read configuration."""
+        mmanager_opts = self.options.get(self.module_name)
         for machine_id in mmanager_opts["machines"]:
             try:
                 machine_opts = self.options.get(machine_id.strip())
@@ -198,7 +199,7 @@ class Machinery:
                 log.warning("Configuration details about machine %s are missing: %s", machine_id.strip(), e)
                 continue
 
-    def _initialize_check(self):
+    def _initialize_check(self) -> None:
         """Runs checks against virtualization software when a machine manager is initialized.
         @note: in machine manager modules you may override or superclass his method.
         @raise CuckooMachineError: if a misconfiguration or a unkown vm state is found.
@@ -208,20 +209,24 @@ class Machinery:
         except NotImplementedError:
             return
 
-        # If machinery_screenshots are enabled, check the machinery supports it.
-        if cfg.cuckoo.machinery_screenshots:
-            # inspect function members available on the machinery class
-            cls_members = inspect.getmembers(self.__class__, predicate=inspect.isfunction)
-            for name, function in cls_members:
-                if name != Machinery.screenshot.__name__:
-                    continue
-                if Machinery.screenshot == function:
-                    msg = f"machinery {self.module_name} does not support machinery screenshots"
-                    raise CuckooCriticalError(msg)
-                break
-            else:
-                raise NotImplementedError(f"missing machinery method: {Machinery.screenshot.__name__}")
+        self.shutdown_running_machines(configured_vms)
+        self.check_screenshot_support()
 
+        if not cfg.timeouts.vm_state:
+            raise CuckooCriticalError("Virtual machine state change timeout setting not found, please add it to the config file")
+
+    def check_screenshot_support(self) -> None:
+        # If machinery_screenshots are enabled, check the machinery supports it.
+        if not cfg.cuckoo.machinery_screenshots:
+            return
+
+        # inspect function members available on the machinery class
+        func = getattr(self.__class__, "screenshot")
+        if func == Machinery.screenshot:
+            msg = f"machinery {self.module_name} does not support machinery screenshots"
+            raise CuckooCriticalError(msg)
+
+    def shutdown_running_machines(self, configured_vms: List[str]) -> None:
         for machine in self.machines():
             # If this machine is already in the "correct" state, then we
             # go on to the next machine.
@@ -236,16 +241,13 @@ class Machinery:
                 msg = f"Please update your configuration. Unable to shut '{machine.label}' down or find the machine in its proper state: {e}"
                 raise CuckooCriticalError(msg) from e
 
-        if not cfg.timeouts.vm_state:
-            raise CuckooCriticalError("Virtual machine state change timeout setting not found, please add it to the config file")
-
     def machines(self):
         """List virtual machines.
         @return: virtual machines list
         """
         return self.db.list_machines(include_reserved=True)
 
-    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
+    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None):
         """How many (relevant) machines are free.
         @param label: machine ID.
         @param platform: machine platform.
@@ -257,38 +259,24 @@ class Machinery:
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[], need_scheduled=False):
-        """Acquire a machine to start analysis.
-        @param machine_id: machine ID.
-        @param platform: machine platform.
-        @param tags: machine tags
-        @param arch: machine arch
-        @param os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
-        @param need_scheduled: should the result be filtered on 'scheduled' machine status
-        @return: machine or None.
-        """
-        if machine_id:
-            return self.db.lock_machine(label=machine_id, need_scheduled=need_scheduled)
-        elif platform:
-            return self.db.lock_machine(
-                platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled
-            )
-        return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
+    def scale_pool(self, machine: Machine) -> None:
+        """This can be overridden in sub-classes to scale the pool of machines once one has been acquired."""
+        return
 
-    def get_machines_scheduled(self):
-        return self.db.get_machines_scheduled()
-
-    def release(self, label=None):
+    def release(self, machine: Machine) -> Machine:
         """Release a machine.
         @param label: machine name.
         """
-        self.db.unlock_machine(label)
+        return self.db.unlock_machine(machine)
 
     def running(self):
         """Returns running virtual machines.
         @return: running virtual machines list.
         """
         return self.db.list_machines(locked=True)
+
+    def running_count(self):
+        return self.db.count_machines_running()
 
     def screenshot(self, label, path):
         """Screenshot a running virtual machine.
@@ -302,9 +290,10 @@ class Machinery:
         """Shutdown the machine manager. Kills all alive machines.
         @raise CuckooMachineError: if unable to stop machine.
         """
-        if len(self.running()) > 0:
-            log.info("Still %d guests still alive, shutting down...", len(self.running()))
-            for machine in self.running():
+        running = self.running()
+        if len(running) > 0:
+            log.info("Still %d guests still alive, shutting down...", len(running))
+            for machine in running:
                 try:
                     self.stop(machine.label)
                 except CuckooMachineError as e:
@@ -389,23 +378,12 @@ class LibVirtMachinery(Machinery):
     ABORTED = "abort"
 
     def __init__(self):
-
-        if not categories_need_VM:
-            return
-
         if not HAVE_LIBVIRT:
             raise CuckooDependencyError(
                 "Unable to import libvirt. Ensure that you properly installed it by running: cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/libvirt_installer.sh"
             )
 
-        super(LibVirtMachinery, self).__init__()
-
-    def initialize(self, module):
-        """Initialize machine manager module. Override default to set proper
-        connection string.
-        @param module:  machine manager module
-        """
-        super(LibVirtMachinery, self).initialize(module)
+        super().__init__()
 
     def _initialize_check(self):
         """Runs all checks when a machine manager is initialized.
@@ -420,7 +398,7 @@ class LibVirtMachinery(Machinery):
 
         # Base checks. Also attempts to shutdown any machines which are
         # currently still active.
-        super(LibVirtMachinery, self)._initialize_check()
+        super()._initialize_check()
 
     def start(self, label):
         """Starts a virtual machine.
@@ -429,13 +407,16 @@ class LibVirtMachinery(Machinery):
         """
         log.debug("Starting machine %s", label)
 
+        vm_info = self.db.view_machine_by_label(label)
+        if vm_info is None:
+            msg = f"Unable to find machine with label {label} in database."
+            raise CuckooMachineError(msg)
+
         if self._status(label) != self.POWEROFF:
             msg = f"Trying to start a virtual machine that has not been turned off {label}"
             raise CuckooMachineError(msg)
 
         conn = self._connect(label)
-
-        vm_info = self.db.view_machine_by_label(label)
 
         snapshot_list = self.vms[label].snapshotListNames(flags=0)
 

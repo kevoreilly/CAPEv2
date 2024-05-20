@@ -323,13 +323,15 @@ QEMU_ARGS = {
 class QEMU(Machinery):
     """Virtualization layer for QEMU (non-KVM)."""
 
+    module_name = "qemu"
+
     # VM states.
     RUNNING = "running"
     STOPPED = "stopped"
     ERROR = "machete"
 
     def __init__(self):
-        super(QEMU, self).__init__()
+        super().__init__()
         self.state = {}
 
     def _initialize_check(self):

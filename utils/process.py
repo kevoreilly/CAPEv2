@@ -38,7 +38,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import get_options
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task, init_database
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
 
@@ -120,7 +120,8 @@ def process(
     if memory_debugging:
         gc.collect()
         log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-    RunProcessing(task=task_dict, results=results).run()
+    with db.session.begin():
+        RunProcessing(task=task_dict, results=results).run()
     if memory_debugging:
         gc.collect()
         log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
@@ -137,7 +138,8 @@ def process(
             reprocess = report
 
         RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
-        Database().set_status(task_id, TASK_REPORTED)
+        with db.session.begin():
+            db.set_status(task_id, TASK_REPORTED)
 
         if auto:
             # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
@@ -146,8 +148,11 @@ def process(
 
             if cfg.cuckoo.delete_bin_copy:
                 copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
-                if path_exists(copy_path) and not db.sample_still_used(sample_sha256, task_id):
-                    path_delete(copy_path)
+                if path_exists(copy_path):
+                    with db.session.begin():
+                        is_still_used = db.sample_still_used(sample_sha256, task_id)
+                    if not is_still_used:
+                        path_delete(copy_path)
 
     if memory_debugging:
         gc.collect()
@@ -160,6 +165,8 @@ def process(
 
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+    # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
+    db.engine.dispose(close=False)
 
 
 def get_formatter_fmt(task_id=None, main_task_id=None):
@@ -177,9 +184,7 @@ FORMATTER = logging.Formatter(get_formatter_fmt())
 def set_formatter_fmt(task_id=None, main_task_id=None):
     FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
 
-
 def init_logging(debug=False):
-
     # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
     # If basicConfig was already called by something and had a StreamHandler added,
     # replace it with a ConsoleHandler.
@@ -298,7 +303,6 @@ def autoprocess(
         with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
             # CAUTION - big ugly loop ahead.
             while count < maxcount or not maxcount:
-
                 # If not enough free disk space is available, then we print an
                 # error message and wait another round (this check is ignored
                 # when the freespace configuration variable is set to zero).
@@ -312,10 +316,14 @@ def autoprocess(
                 if len(pending_task_id_map) >= parallel:
                     time.sleep(5)
                     continue
-                if failed_processing:
-                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
-                else:
-                    tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+                with db.session.begin():
+                    if failed_processing:
+                        tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
+                    else:
+                        tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+                    # Make sure the tasks are available as normal objects after the transaction ends, so that
+                    # sqlalchemy doesn't auto-initiate a new transaction the next time they are accessed.
+                    db.session.expunge_all()
                 added = False
                 # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
                 for task in tasks:
@@ -326,9 +334,10 @@ def autoprocess(
                     log.info("Processing analysis data for Task #%d", task.id)
                     sample_hash = ""
                     if task.category != "url":
-                        sample = db.view_sample(task.sample_id)
-                        if sample:
-                            sample_hash = sample.sha256
+                        with db.session.begin():
+                            sample = db.view_sample(task.sample_id)
+                            if sample:
+                                sample_hash = sample.sha256
 
                     args = task.target, sample_hash
                     kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging, debug=debug)
@@ -371,7 +380,6 @@ def autoprocess(
 
 
 def _load_report(task_id: int):
-
     if repconf.mongodb.enabled:
         analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
         for process in analysis.get("behavior", {}).get("processes", []):
@@ -478,8 +486,8 @@ def main():
     )
     args = parser.parse_args()
 
+    init_database()
     handlers = init_logging(debug=args.debug)
-
     init_modules()
     if args.id == "auto":
         autoprocess(
@@ -498,18 +506,22 @@ def main():
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
                     print(red(f"\n[{num}] Analysis folder doesn't exist anymore\n"))
                     continue
-                task = Database().view_task(num)
-                if task is None:
-                    task = {"id": num, "target": None}
-                    print("Task not in database")
-                else:
-                    # Add sample lookup as we point to sample from TMP. Case when delete_original=on
-                    if not path_exists(task.target):
-                        samples = Database().sample_path_by_hash(task_id=task.id)
-                        for sample in samples:
-                            if path_exists(sample):
-                                task.__setattr__("target", sample)
-                                break
+                with db.session.begin():
+                    task = db.view_task(num)
+                    if task is None:
+                        task = {"id": num, "target": None}
+                        print("Task not in database")
+                    else:
+                        # Add sample lookup as we point to sample from TMP. Case when delete_original=on
+                        if not path_exists(task.target):
+                            samples = db.sample_path_by_hash(task_id=task.id)
+                            for sample in samples:
+                                if path_exists(sample):
+                                    task.__setattr__("target", sample)
+                                    break
+                    # Make sure that SQLAlchemy doesn't auto-begin a new transaction the next time
+                    # these objects are accessed.
+                    db.session.expunge_all()
 
                 if args.signatures:
                     report = False

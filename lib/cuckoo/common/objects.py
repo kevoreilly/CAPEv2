@@ -76,6 +76,7 @@ except ImportError:
 
 try:
     import yara_x
+
     HAVE_YARA_X = True
 except ImportError:
     print("Missed library. Run: poetry install pip3 install yara-x")
@@ -429,7 +430,6 @@ class File:
 
         return new
 
-
     @classmethod
     def init_yara(self):
         """Generates index for yara signatures."""
@@ -491,7 +491,9 @@ class File:
                             if v == bad_rule:
                                 del rules[k]
                                 indexed.remove(os.path.basename(bad_rule))
-                                log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule)
+                                log.error(
+                                    "Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule
+                                )
                                 break
                     except yara.Error as e:
                         log.error("There was a syntax error in one or more Yara rules: %s", e)
@@ -556,7 +558,7 @@ class File:
                             {
                                 "name": match.identifier,
                                 # ToDo meta feature waiting
-                                "meta": "", # match.meta,
+                                "meta": "",  # match.meta,
                                 "strings": [],
                                 "addresses": addresses,
                             }

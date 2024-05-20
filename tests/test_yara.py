@@ -21,17 +21,20 @@ try:
 except ImportError:
     HAVE_YARA_X = False
 
+
 def test_yara_x():
     if not HAVE_YARA_X:
         return
 
-    rules = yara_x.compile('''
+    rules = yara_x.compile(
+        """
         rule test {
             strings:
             $a = "foobar"
             condition:
             $a
-        }''')
+        }"""
+    )
 
     results = rules.scan(b"foobar")
 

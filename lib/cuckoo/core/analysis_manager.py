@@ -405,7 +405,7 @@ class AnalysisManager(threading.Thread):
         guest_manager = GuestManager(self.machine.name, self.machine.ip, self.machine.platform, self.task.id, self)
 
         with self.db.session.begin():
-            if Config("web").guacamole.enabled and hasattr(self.machinery, "store_vnc_port"):
+            if Config("web").guacamole.enabled and hasattr(self.machinery_manager, "store_vnc_port"):
                 self.machinery.store_vnc_port(self.machine.label, self.task.id)
             options["clock"] = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")

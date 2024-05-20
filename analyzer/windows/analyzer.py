@@ -14,13 +14,13 @@ import subprocess
 import sys
 import timeit
 import traceback
+from contextlib import suppress
 from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
 from threading import Lock, Thread
 from urllib.parse import urlencode
 from urllib.request import urlopen
-from contextlib import suppress
 
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary, Package

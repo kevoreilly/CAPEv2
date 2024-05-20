@@ -4,6 +4,7 @@ Major components not yet tested:
 - Analyzer.run()
 - Analyzer.complete()
 """
+
 import os
 import random
 import tempfile
@@ -926,7 +927,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertFalse(ana.MONITORED_BITS)
         self.assertFalse(ana.MONITORED_DCOM)
         self.assertIsNone(ana.LASTINJECT_TIME)
-        with (patch("analyzer.ANALYSIS_TIMED_OUT", True)):
+        with patch("analyzer.ANALYSIS_TIMED_OUT", True):
             self.pipe_handler._handle_bits(data=None)
         # Should be no change to DCOM, BITS, or last inject time
         self.assertFalse(ana.MONITORED_BITS)

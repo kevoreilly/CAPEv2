@@ -652,7 +652,7 @@ def binaries_clean_before_day(days: int):
                     path_delete(bin_path)
 
 
-def execute_cleanup(args: dict, init_log = True):
+def execute_cleanup(args: dict, init_log=True):
 
     if init_log:
         init_console_logging()

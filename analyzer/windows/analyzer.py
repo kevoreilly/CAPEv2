@@ -616,7 +616,9 @@ class Analyzer:
             except CuckooPackageError as e:
                 raise CuckooError(f'The package "{self.package_name}" start function raised an error: {e}') from e
             except Exception as e:
-                raise CuckooError(f'The package "{self.package_name}" start function encountered an unhandled exception: {e}') from e
+                raise CuckooError(
+                    f'The package "{self.package_name}" start function encountered an unhandled exception: {e}'
+                ) from e
 
             # If the analysis package returned a list of process IDs, we add them
             # to the list of monitored processes and enable the process monitor.

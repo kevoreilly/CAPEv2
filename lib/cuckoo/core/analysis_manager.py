@@ -7,6 +7,7 @@ import shutil
 import threading
 from typing import Any, Callable, Generator, MutableMapping, Optional, Tuple
 
+from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import (
@@ -26,7 +27,6 @@ from lib.cuckoo.core.machinery_manager import MachineryManager
 from lib.cuckoo.core.plugins import RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
-from lib.cuckoo.common.cleaners_utils import free_space_monitor
 
 log = logging.getLogger(__name__)
 

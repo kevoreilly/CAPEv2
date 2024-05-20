@@ -1,4 +1,5 @@
 """Tests for analyzer.ProcessList class."""
+
 import unittest
 
 from analyzer import ProcessList

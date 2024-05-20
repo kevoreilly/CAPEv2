@@ -1,4 +1,5 @@
 """Tests for analyzer.Files class and for protected_path() functions."""
+
 import unittest
 
 from analyzer import Files

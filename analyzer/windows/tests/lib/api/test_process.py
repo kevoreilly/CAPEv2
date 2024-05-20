@@ -1,6 +1,6 @@
 import os
-import unittest
 import threading
+import unittest
 from unittest.mock import MagicMock, patch
 
 from lib.api.process import Process

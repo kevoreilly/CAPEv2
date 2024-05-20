@@ -1276,17 +1276,36 @@ def search_behavior(request, task_id):
         results = []
         search_pid = None
         search_tid = None
+        search_apicall = None
+        search_argname = None
+        search_procname = None
+
         match = re.search(r"pid=(?P<search_pid>\d+)", query)
         if match:
             search_pid = int(match.group("search_pid"))
         match = re.search(r"tid=(?P<search_tid>\d+)", query)
         if match:
             search_tid = match.group("search_tid")
+        match = re.search(r"apicall=(?P<search_apicall>[A-Za-z]+)", query)
+        if match:
+            search_apicall = match.group("search_apicall")
+        match = re.search(r"argname=(?P<search_argname>[A-Za-z]+)", query)
+        if match:
+            search_argname = match.group("search_argname")
+        match = re.search(r"procname=(?P<search_procname>[A-Za-z0-9\.\-]+)", query)
+        if match:
+            search_procname = match.group("search_procname")
 
         if search_pid:
             query = query.replace("pid=" + str(search_pid), "")
         if search_tid:
             query = query.replace("tid=" + search_tid, "")
+        if search_apicall:
+            query = query.replace("apicall=" + search_apicall, "")
+        if search_argname:
+            query = query.replace("argname=" + search_argname, "")
+        if search_procname:
+            query = query.replace("procname=" + search_procname, "")
 
         query = query.strip()
 
@@ -1302,6 +1321,8 @@ def search_behavior(request, task_id):
 
         # Loop through every process
         for process in record["behavior"]["processes"]:
+            if search_procname and process["process_name"].lower() != search_procname.lower():
+                continue
             if search_pid and process["process_id"] != search_pid:
                 continue
 
@@ -1321,15 +1342,17 @@ def search_behavior(request, task_id):
                 for call in chunk.get("calls", []):
                     if search_tid and call["thread_id"] != search_tid:
                         continue
-                    # TODO: ES can speed this up instead of parsing with
-                    # Python regex.
-                    if query.search(call["api"]):
-                        process_results.append(call)
-                    else:
-                        for argument in call["arguments"]:
-                            if query.search(argument["name"]) or query.search(argument["value"]):
-                                process_results.append(call)
-                                break
+                    if search_apicall and call["api"] != search_apicall:
+                        continue
+
+                    # TODO: ES can speed this up instead of parsing with Python regex.
+
+                    for argument in call["arguments"]:
+                        if search_argname and argument["name"] != search_argname:
+                            continue
+                        if query.search(argument["value"]):
+                            process_results.append(call)
+                            break
 
             if len(process_results) > 0:
                 results.append({"process": process, "signs": process_results})
@@ -1790,6 +1813,9 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
     elif category == "tlskeys":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "tlsdump", "tlsdump.log")
+    # linux sysmon url to download sysmon.data xml
+    elif category == "sysmon":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "sysmon", "sysmon.data")
     elif category == "evtx":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "evtx", "evtx.zip")
         file_name = f"{task_id}_evtx.zip"

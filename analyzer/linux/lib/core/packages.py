@@ -8,9 +8,9 @@ import logging
 import subprocess
 import timeit
 from os import environ, path, sys
+from threading import Event, Thread
 
-from lib.api.process import Process
-from lib.common.results import NetlogFile
+from lib.common.results import NetlogFile, append_buffer_to_host
 
 log = logging.getLogger(__name__)
 
@@ -97,6 +97,9 @@ class Package:
         self.proc = None
         self.pids = []
         self.strace_output = kwargs.get("strace_ouput", "/tmp")
+        self.nc = NetlogFile()
+        self.thread = None
+        self._read_ready_ev = Event()
 
     def set_pids(self, pids):
         """Update list of monitored PIDs in the package context.
@@ -118,8 +121,11 @@ class Package:
             # Remove the trailing slash (if any)
             self.target = filepath.rstrip("/")
         self.prepare()
-        # self.normal_analysis()
+        self.nc.init("logs/strace.log", False)
+        self.thread = Thread(target=self.thread_send_strace_buffer, daemon=True)
+        self.thread.start()
         self.strace_analysis()
+
         return self.proc.pid
 
     def check(self):
@@ -133,16 +139,24 @@ class Package:
         """
         return None
 
+    def thread_send_strace_buffer(self):
+        # wait for the subprocess to start
+        self._read_ready_ev.wait()
+        for line in self.proc.stderr:
+            try:
+                append_buffer_to_host(line, self.nc)
+            except ConnectionResetError:
+                log.info("Strace streaming connection has been closed")
+                return
+            except Exception as e:
+                log.exception("Exception occured: %s", e)
+
     def finish(self):
         """Finish run.
         If specified to do so, this method dumps the memory of
         all running processes.
         """
-        if self.options.get("procmemdump"):
-            for pid in self.pids:
-                p = Process(pid=pid)
-                p.dump_memory()
-
+        self.nc.close()
         return True
 
     def get_pids(self):
@@ -156,11 +170,15 @@ class Package:
         if "args" in kwargs:
             target_cmd += f' {" ".join(kwargs["args"])}'
 
-        cmd = f"sudo strace -ttffn -o {self.strace_output}/strace.log {target_cmd}"
+        # Tricking strace into always showing PID on stderr output
+        # https://github.com/strace/strace/issues/278#issuecomment-1815914576
+        cmd = f"sudo strace -o /dev/stderr -ttf {target_cmd}"
         log.info(cmd)
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
+        # give the reader thread a go-ahead
+        self._read_ready_ev.set()
         log.info("Process started with strace")
         return True
 

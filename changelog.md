@@ -1,3 +1,6 @@
+### [20.05.2024]
+* YARA-X support - https://virustotal.github.io/yara-x/
+
 ### [11.04.2024]
 * Monitor updates:
     * YARA upgrade to 4.5.0 (& disabled assertion dialogs)

@@ -425,7 +425,8 @@ class AnalysisManager(threading.Thread):
     def category_checks(self):
         if self.task.category in ("file", "pcap", "static"):
             sha256 = File(self.task.target).get_sha256()
-            # Check whether the file has been changed for some unknown reason.
+            # Check whethe
+            # r the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):
                 log.debug("check file")
@@ -1113,6 +1114,13 @@ class Scheduler:
                         for task in self.db.list_tasks(
                             status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
                         ):
+
+                            # ToDo write a proper fix/place
+                            if task.category in ("pcap", "static"):
+                                # Dirty hack
+                                relevant_machine_is_available = True
+                                break
+
                             # Can this task ever be serviced?
                             if not self.db.is_serviceable(task):
                                 if self.cfg.cuckoo.fail_unserviceable:

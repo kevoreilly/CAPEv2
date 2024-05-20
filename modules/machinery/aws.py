@@ -43,14 +43,25 @@ class AWS(Machinery):
         self.dynamic_machines_sequence = 0
         self.dynamic_machines_count = 0
         log.info("connecting to AWS:{}".format(self.options.aws.region_name))
-        self.ec2_resource = boto3.resource(
-            "ec2",
-            region_name=self.options.aws.region_name,
-            aws_access_key_id=self.options.aws.aws_access_key_id,
-            aws_secret_access_key=self.options.aws.aws_secret_access_key,
-        )
 
-        # Iterate over all instances with tag that has a key of AUTOSCALE_CUCKOO
+        # Performing a check to see if the access and secret keys were passed through the configuration file
+        access_key = getattr(self.options.aws, "aws_access_key_id", None)
+        secret_key = getattr(self.options.aws, "aws_secret_access_key", None)
+
+        # Use the provided credentials if available; otherwise, fall back to the IAM role attached to the EC2 instance
+        if access_key and secret_key:
+            log.info("Using provided AWS keys for authentication.")
+            self.ec2_resource = boto3.resource(
+                "ec2",
+                region_name=self.options.aws.region_name,
+                aws_access_key_id=self.options.aws.aws_access_key_id,
+                aws_secret_access_key=self.options.aws.aws_secret_access_key,
+            )
+        else:
+            log.info("No AWS keys provided; attempting to use IAM Role through IMDSv2")
+            self.ec2_resource = boto3.resource("ec2", region_name=self.options.aws.region_name)
+
+            # Iterate over all instances with tag that has a key of AUTOSCALE_CUCKOO
         for instance in self.ec2_resource.instances.filter(
             Filters=[
                 {

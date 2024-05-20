@@ -709,6 +709,15 @@ function install_suricata() {
     systemctl restart suricata
 }
 
+function insall_yara_x() {
+    curl https://sh.rustup.rs -sSf | sh
+    cd /tmp || return
+    git clone https://github.com/VirusTotal/yara-x
+    cd yara-x || return
+    cargo install --path cli
+    pip3 install yara-x
+}
+
 function install_yara() {
     echo '[+] Checking for old YARA version to uninstall'
     dpkg -l|grep "yara-v[0-9]\{1,2\}\.[0-9]\{1,2\}\.[0-9]\{1,2\}"|cut -d " " -f 3|sudo xargs dpkg --purge --force-all 2>/dev/null
@@ -1269,8 +1278,8 @@ function install_node_exporter() {
 
 function install_volatility3() {
     sudo apt-get install unzip
-    sudo pip3 install git+https://github.com/volatilityfoundation/volatility3
-    vol_path=$(python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    sudo -u ${USER} poetry run pip3 install git+https://github.com/volatilityfoundation/volatility3
+    vol_path=$(sudo -u ${USER} poetry run python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
     cd $vol_path || return
     wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
     unzip windows.zip
@@ -1290,7 +1299,7 @@ function install_guacamole() {
 
 
     if [ ! -d "/tmp/guac-build" ] ; then
-       mkdir /tmp/guac-build
+        mkdir /tmp/guac-build
     fi
     cd /tmp/guac-build || return
 

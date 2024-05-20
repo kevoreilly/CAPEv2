@@ -31,6 +31,7 @@ try:
     from volatility3 import framework
     from volatility3.cli.text_renderer import JsonRenderer
     from volatility3.framework import automagic, constants, contexts, interfaces, plugins
+    from volatility3.framework.exceptions import UnsatisfiedException
 
     # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True
@@ -193,12 +194,6 @@ class VolatilityManager:
         self.memfile = memfile
         self.options = Config("memory")
 
-        conf_path = os.path.join(CUCKOO_ROOT, "conf", "memory.conf")
-        if not path_exists(conf_path):
-            log.error("Configuration file memory.conf not found")
-            self.options = False
-            return
-
         if isinstance(self.options.mask.pid_generic, int):
             self.mask_pid.append(self.options.mask.pid_generic)
         else:
@@ -243,10 +238,16 @@ class VolatilityManager:
         vol_logger = logging.getLogger("volatility3")
         vol_logger.setLevel(logging.WARNING)
 
+        # ToDo rewrite this to for loop and key and names be in dict
         # if self.options.psxview.enabled:
         #    results["pstree"] = vol3.run("windows.pstree.PsTree")
+        if self.options.psscan.enabled:
+            results["psscan"] = vol3.run("windows.psscan.PsScan")
         if self.options.pslist.enabled:
-            results["pslist"] = vol3.run("windows.pslist.PsList")
+            try:
+                results["pslist"] = vol3.run("windows.pslist.PsList")
+            except UnsatisfiedException:
+                vol_logger.error("Failing PsList")
         if self.options.callbacks.enabled:
             results["callbacks"] = vol3.run("windows.callbacks.Callbacks")
         if self.options.ssdt.enabled:

@@ -902,7 +902,7 @@ class Pcap2:
             80: httpreplay.cut.http_handler,
             443: lambda: httpreplay.cut.https_handler(tlsmaster),
             465: httpreplay.cut.smtp_handler,
-            587: httpreplay.cut.smtp_handler,
+            587: lambda: httpreplay.cut.smtp_handler(tlsmaster),
             4443: lambda: httpreplay.cut.https_handler(tlsmaster),
             8000: httpreplay.cut.http_handler,
             8080: httpreplay.cut.http_handler,

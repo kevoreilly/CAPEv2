@@ -1500,6 +1500,11 @@ def init_logging(debug=False):
     formatter = logging.Formatter("%(asctime)s %(levelname)s:%(module)s:%(threadName)s - %(message)s")
     log = logging.getLogger()
 
+    for h in log.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log.removeHandler(h)
+            h.close()
+
     if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
         path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
     fh = handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "dist.log"), when="midnight", backupCount=10)

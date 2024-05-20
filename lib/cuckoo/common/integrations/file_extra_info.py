@@ -297,7 +297,9 @@ def trid_info(file_path: dict):
         )
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
     except PermissionError:
-        log.error("You have permission error. FIX IT! sudo chown cape:cape /opt/CAPEv2/data/trid -R")
+        log.error(
+            "You have permission error. FIX IT! sudo chown cape:cape /opt/CAPEv2/data/trid -R && sudo chmod a+x /opt/CAPEv2/data/trid/trid"
+        )
     except Exception as e:
         log.error("Trid error: %s", str(e))
 

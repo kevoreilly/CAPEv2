@@ -1299,7 +1299,7 @@ function install_guacamole() {
 
 
     if [ ! -d "/tmp/guac-build" ] ; then
-       mkdir /tmp/guac-build
+        mkdir /tmp/guac-build
     fi
     cd /tmp/guac-build || return
 

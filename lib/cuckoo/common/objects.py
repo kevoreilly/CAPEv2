@@ -435,7 +435,6 @@ class File:
         """Generates index for yara signatures."""
 
         categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
-        categories = ("CAPE",)
         log.debug("Initializing Yara...")
 
         # Generate root directory for yara rules.
@@ -533,37 +532,39 @@ class File:
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
-        if float(yara.__version__[:-2]) < 4.3:
-            log.error("You using outdated YARA version. run: poetry install")
+        if not HAVE_YARA_X and HAVE_YARA and float(yara.__version__[:-2]) < 4.3:
+            log.error("You using outdated YARA version. run: poetry run extra/yara_installer.sh")
             return []
 
         if not File.yara_initialized:
             File.init_yara()
 
-        results = []
         if not os.path.getsize(self.file_path):
-            return results
+            return []
 
+        results = []
         try:
-            results, rule = [], File.yara_rules[category]
+            rules = File.yara_rules[category]
             if HAVE_YARA_X:
-                for match in rule.scan_file(self.file_path):
-                    strings = []
-                    addresses = {}
-                    for yara_string in match.strings:
-                        for x in yara_string.instances:
-                            strings.extend({self._yara_encode_string(x.matched_data)})
-                            addresses.update({yara_string.identifier.strip("$"): x.offset})
-                    results.append(
-                        {
-                            "name": match.rule,
-                            "meta": match.meta,
-                            "strings": strings,
-                            "addresses": addresses,
-                        }
-                    )
+                for yara_results in rules.scan_file(self.file_path):
+                    for match in yara_results.matching_rules:
+                        strings = []
+                        addresses = {}
+                        for yara_string in match.patterns:
+                            for x in yara_string.matches:
+                                # strings.extend({self._yara_encode_string(x.matched_data)})
+                                addresses.update({yara_string.identifier.strip("$"): x.offset})
+                        results.append(
+                            {
+                                "name": match.identifier,
+                                # ToDo meta feature waiting
+                                "meta": "", # match.meta,
+                                "strings": [],
+                                "addresses": addresses,
+                            }
+                        )
             elif HAVE_YARA:
-                for match in rule.match(self.file_path_ansii, externals=externals):
+                for match in rules.match(self.file_path_ansii, externals=externals):
                     strings = []
                     addresses = {}
                     for yara_string in match.strings:

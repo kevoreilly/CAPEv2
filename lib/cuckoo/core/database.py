@@ -5,11 +5,11 @@
 # https://blog.miguelgrinberg.com/post/what-s-new-in-sqlalchemy-2-0
 # https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#
 
+import hashlib
 import json
 import logging
 import os
 import sys
-import hashlib
 from contextlib import suppress
 from datetime import datetime, timedelta
 from typing import Any, List, Optional, Union, cast

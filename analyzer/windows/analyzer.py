@@ -603,9 +603,8 @@ class Analyzer:
         except Exception as e:
             raise CuckooPackageError("error configuring package %s: %s", self.package_name, e) from e
 
-        pid_check = False
         if self.options.get("manual", False):
-            pid_check = True
+            self.pid_check = True
         else:
             # Start analysis package. If for any reason, the execution of the
             # analysis package fails, we have to abort the analysis.
@@ -624,7 +623,7 @@ class Analyzer:
             # to the list of monitored processes and enable the process monitor.
             if pids:
                 self.process_list.add_pids(pids)
-                pid_check = True
+                self.pid_check = True
 
             # If the package didn't return any process ID (for example in the case
             # where the package isn't enabling any behavioral analysis), we don't

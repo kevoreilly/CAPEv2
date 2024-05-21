@@ -223,7 +223,7 @@ class TestAnalysisManager:
         task.target = "idontexist"
         analysis_man = AnalysisManager(task=task)
         analysis_man.init_storage()
-        analysis_man.store_file(sha256="e3be3b") is False
+        assert analysis_man.store_file(sha256="e3be3b") is False
         assert "analysis aborted" in caplog.text
 
     def test_store_file_binary_already_exists(self, task: Task, tmp_cuckoo_root: pathlib.Path, caplog: pytest.LogCaptureFixture):

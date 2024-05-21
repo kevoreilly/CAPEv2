@@ -4,12 +4,12 @@
 
 # https://blog.miguelgrinberg.com/post/what-s-new-in-sqlalchemy-2-0
 # https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#
-# ToDO with session.begin():
 
 import json
 import logging
 import os
 import sys
+import hashlib
 from contextlib import suppress
 from datetime import datetime, timedelta
 from typing import Any, List, Optional, Union, cast
@@ -2151,6 +2151,13 @@ class _Database:
             128: Sample.sha512,
         }
 
+        hashlib_sizes = {
+            32: hashlib.md5,
+            40: hashlib.sha1,
+            64: hashlib.sha256,
+            128: hashlib.sha512,
+        }
+
         sizes_mongo = {
             32: "md5",
             40: "sha1",
@@ -2285,7 +2292,7 @@ class _Database:
                     samples = [file_path for file_path in samples if path_exists(file_path)]
                     for path in samples:
                         with open(path, "rb") as f:
-                            if sample_hash == sizes[len(sample_hash)](f.read()).hexdigest():
+                            if sample_hash == hashlib_sizes[len(sample_hash)](f.read()).hexdigest():
                                 sample = [path]
                                 break
 

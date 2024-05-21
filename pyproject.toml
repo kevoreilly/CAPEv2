@@ -13,7 +13,7 @@ greenlet = "3.0.0rc3"
 Pebble = "4.6.3"
 # pymisp = "2.4.144"
 cryptography = "42.0.4"
-requests = {version = "2.31.0", extras = ["security", "socks"]}
+requests = {version = "2.32.0", extras = ["security", "socks"]}
 pyOpenSSL = "24.0.0"
 pefile = "*"
 dnfile="0.14.1"

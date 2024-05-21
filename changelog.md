@@ -1,5 +1,9 @@
+### [21.05.2024]
+* Monitor update: Hook full set of service APIs in sechost.dll
+
 ### [20.05.2024]
 * YARA-X support - https://virustotal.github.io/yara-x/
+* Monitor update: Debugger fixes/improvements, misc other fixes (see capemon repo for details)
 
 ### [11.04.2024]
 * Monitor updates:

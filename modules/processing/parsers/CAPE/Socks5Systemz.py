@@ -1,5 +1,5 @@
-from contextlib import suppress
 import socket
+from contextlib import suppress
 
 
 def _is_ip(ip):

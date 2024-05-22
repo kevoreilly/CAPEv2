@@ -638,7 +638,9 @@ class Analyzer:
 
         # next phase; go to the analysis loop
         self.analysis_loop(aux_modules)
-
+        
+        return True
+        
     def analysis_loop(self, aux_modules):
         global ANALYSIS_TIMED_OUT
         time_start = timeit.default_timer()
@@ -806,8 +808,6 @@ class Analyzer:
                 log.warning("Exception running finish callback of auxiliary module %s: %s", aux.__class__.__name__, e)
 
         log.info("Shutting down pipe server and dumping dropped files")
-
-        return True
 
 
 class Files:

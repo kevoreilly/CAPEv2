@@ -48,6 +48,7 @@ if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabl
             from capa.features.common import FORMAT_AUTO, OS_AUTO
             from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
             from pydantic_core._pydantic_core import ValidationError
+
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
                 try:

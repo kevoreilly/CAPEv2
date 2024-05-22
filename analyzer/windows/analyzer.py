@@ -638,9 +638,9 @@ class Analyzer:
 
         # next phase; go to the analysis loop
         self.analysis_loop(aux_modules)
-        
+
         return True
-        
+
     def analysis_loop(self, aux_modules):
         global ANALYSIS_TIMED_OUT
         time_start = timeit.default_timer()

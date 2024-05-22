@@ -1,5 +1,6 @@
 ### [22.05.2024]
 * Monitor update: Enhance DnsQuery* hooks to capture DNS server lists (e.g. Socks5Systemz)
+* Socks5Systemz detection & config extraction
 
 ### [21.05.2024]
 * Monitor update: Hook full set of service APIs in sechost.dll

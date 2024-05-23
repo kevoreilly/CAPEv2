@@ -52,11 +52,11 @@ class RATConfigParser:
         rb"(?:\x7e.{3}\x04(?:\x6f.{3}\x0a){2}\x74.{3}\x01.+?\x2a.+?\x00{6,})"
     )
 
-    def __init__(self, file_path=False, file_data=False, yara_rule=None):
+    def __init__(self, file_data=False):
         self.report = {"config": {}}
         try:
 
-            self.dnpp = DotNetPEPayload(file_data,)
+            self.dnpp = DotNetPEPayload(file_data)
             # self.report["sha256"] = self.dnpp.sha256
             # self.report["possible_yara_family"] = self.dnpp.yara_match
             if self.dnpp.dotnetpe is None:

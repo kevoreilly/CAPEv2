@@ -1,3 +1,8 @@
+### [23.05.2024]
+* Integration of [rat_king_parser](https://github.com/jeFF0Falltrades/rat_king_parser) by @jeFF0Falltrades
+    * Requires `dnfile` upgrade. We can't update it in `pyporject` due to `flare-capa`.
+        * Upgrade `dnfile` by yourself by running: `poetry run pip3 install -U dnfile`
+
 ### [22.05.2024]
 * Monitor update: Enhance DnsQuery* hooks to capture DNS server lists (e.g. Socks5Systemz)
 * Socks5Systemz detection & config extraction

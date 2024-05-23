@@ -57,17 +57,22 @@ disable_warnings()
 logger = logging.getLogger(__name__)
 
 
-def get_form_data(platform):
-    files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
-    exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
+def get_form_data():
+    platforms = ["windows"]
+    if web_conf.linux.enabled:
+        platforms.append("linux")
 
-    packages = []
-    for name in files:
-        name = os.path.splitext(name)[0]
-        if name == "__init__":
-            continue
-        if name not in exclusions:
-            packages.append(name)
+    packages = set()
+    for platform in platforms:
+        files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
+        exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
+
+        for name in files:
+            name = os.path.splitext(name)[0]
+            if name == "__init__":
+                continue
+            if name not in exclusions:
+                packages.add(name)
 
     # Prepare a list of VM names, description label based on tags.
     machines = []
@@ -553,7 +558,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 if any(["tags" in list(getattr(Config(machinery), vmtag).keys()) for vmtag in vms]):
                     enabledconf["tags"] = True
 
-        packages, machines = get_form_data("windows")
+        packages, machines = get_form_data()
 
         socks5s = _load_socks5_operational()
 

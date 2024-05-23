@@ -74,7 +74,7 @@ class RATConfigParser:
                 else "None"
             )
         except Exception as e:
-            self.report["config"] = f"Exception encountered for {file_path}: {e}"
+            self.report["config"] = f"Exception encountered: {e}"
 
     # Decrypts/decodes values from an encrypted config
     def decrypt_and_decode_config(self, encrypted_config):

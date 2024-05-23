@@ -28,13 +28,14 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from .utils import config_item
-from .utils.dotnet_constants import OPCODE_RET
-from .utils.dotnetpe_payload import DotNetPEPayload
-from .utils.config_aes_decryptor import ConfigAESDecryptor
-from .utils.config_parser_exception import ConfigParserException
 from logging import getLogger
 from re import DOTALL, search
+
+from .utils import config_item
+from .utils.config_aes_decryptor import ConfigAESDecryptor
+from .utils.config_parser_exception import ConfigParserException
+from .utils.dotnet_constants import OPCODE_RET
+from .utils.dotnetpe_payload import DotNetPEPayload
 
 logger = getLogger(__name__)
 
@@ -48,9 +49,7 @@ class RATConfigParser:
         config_item.EncryptedStringConfigItem(),
     ]
     MIN_CONFIG_LEN = 10
-    PATTERN_VERIFY_HASH = (
-        rb"(?:\x7e.{3}\x04(?:\x6f.{3}\x0a){2}\x74.{3}\x01.+?\x2a.+?\x00{6,})"
-    )
+    PATTERN_VERIFY_HASH = rb"(?:\x7e.{3}\x04(?:\x6f.{3}\x0a){2}\x74.{3}\x01.+?\x2a.+?\x00{6,})"
 
     def __init__(self, file_data=False):
         self.report = {"config": {}}
@@ -63,16 +62,8 @@ class RATConfigParser:
                 raise ConfigParserException("Failed to load file as .NET executable")
             self.aes_decryptor = None  # Created in decrypt_and_decode_config()
             self.report["config"] = self.get_config()
-            self.report["config"]["aes_key"] = (
-                self.aes_decryptor.key.hex()
-                if self.aes_decryptor.key is not None
-                else "None"
-            )
-            self.report["config"]["aes_salt"] = (
-                self.aes_decryptor.salt.hex()
-                if self.aes_decryptor is not None
-                else "None"
-            )
+            self.report["config"]["aes_key"] = self.aes_decryptor.key.hex() if self.aes_decryptor.key is not None else "None"
+            self.report["config"]["aes_salt"] = self.aes_decryptor.salt.hex() if self.aes_decryptor is not None else "None"
         except Exception as e:
             self.report["config"] = f"Exception encountered: {e}"
 
@@ -105,9 +96,7 @@ class RATConfigParser:
             try:
                 config_start, decrypted_config = self.get_config_cctor_brute_force()
             except Exception as e:
-                raise ConfigParserException(
-                    "Could not identify encrypted config"
-                ) from e
+                raise ConfigParserException("Could not identify encrypted config") from e
         logger.debug(f"Encrypted config found at offset {hex(config_start)}...")
         return self.translate_config_field_names(decrypted_config)
 
@@ -119,17 +108,10 @@ class RATConfigParser:
         if len(candidates) == 0:
             raise ConfigParserException("No .cctor method could be found")
         # Get each .cctor method RVA and bytes content up to a RET op
-        candidate_data = {
-            rva: self.dnpp.string_from_offset(
-                self.dnpp.offset_from_rva(rva), OPCODE_RET
-            )
-            for rva in candidates
-        }
+        candidate_data = {rva: self.dnpp.string_from_offset(self.dnpp.offset_from_rva(rva), OPCODE_RET) for rva in candidates}
         config_start, decrypted_config = None, None
         for method_rva, method_ins in candidate_data.items():
-            logger.debug(
-                f"Attempting brute force at .cctor method at {hex(method_rva)}"
-            )
+            logger.debug(f"Attempting brute force at .cctor method at {hex(method_rva)}")
             try:
                 config_start, decrypted_config = (
                     method_rva,
@@ -140,9 +122,7 @@ class RATConfigParser:
                 logger.debug(e)
                 continue
         if decrypted_config is None:
-            raise ConfigParserException(
-                "No valid configuration could be parsed from any .cctor methods"
-            )
+            raise ConfigParserException("No valid configuration could be parsed from any .cctor methods")
         return config_start, decrypted_config
 
     # Attempts to retrieve the config via looking for a config section preceded
@@ -171,4 +151,3 @@ class RATConfigParser:
             translated_config[key] = field_value
             logger.debug(f"Config item parsed {key}: {field_value}")
         return translated_config
-

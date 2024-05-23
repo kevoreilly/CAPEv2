@@ -50,9 +50,7 @@ def decode_bytes(byte_str):
         else:
             result = byte_str.decode("utf-8")
     except Exception as e:
-        raise ConfigParserException(
-            f"Error decoding bytes object to Unicode: {byte_str}"
-        ) from e
+        raise ConfigParserException(f"Error decoding bytes object to Unicode: {byte_str}") from e
     return result
 
 

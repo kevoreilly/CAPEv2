@@ -28,19 +28,21 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from .config_parser_exception import ConfigParserException
-from .data_utils import bytes_to_int, decode_bytes, int_to_bytes
-from .dotnet_constants import OPCODE_LDSTR, OPCODE_LDTOKEN
 from base64 import b64decode
+from logging import getLogger
+from re import DOTALL, search
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers.algorithms import AES
 from cryptography.hazmat.primitives.ciphers.modes import CBC
-from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.primitives.hashes import SHA1
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from logging import getLogger
-from re import DOTALL, search
+from cryptography.hazmat.primitives.padding import PKCS7
+
+from .config_parser_exception import ConfigParserException
+from .data_utils import bytes_to_int, decode_bytes, int_to_bytes
+from .dotnet_constants import OPCODE_LDSTR, OPCODE_LDTOKEN
 
 logger = getLogger(__name__)
 
@@ -48,9 +50,7 @@ MIN_CIPHERTEXT_LEN = 48
 
 
 class ConfigAESDecryptor:
-    PATTERN_AES_KEY_AND_BLOCK_SIZE = (
-        b"[\x06-\x09]\x20(.{4})\x6f.{4}[\x06-\x09]\x20(.{4})"
-    )
+    PATTERN_AES_KEY_AND_BLOCK_SIZE = b"[\x06-\x09]\x20(.{4})\x6f.{4}[\x06-\x09]\x20(.{4})"
     PATTERN_AES_KEY_BASE = b"(.{3}\x04).%b"
     PATTERN_AES_SALT_ITER = b"[\x02-\x05]\x7e(.{4})\x20(.{4})\x73"
     PATTERN_AES_SALT_INIT = b"\x80%b\x2a"
@@ -58,17 +58,13 @@ class ConfigAESDecryptor:
     def __init__(self, payload, encrypted_config_strings):
         self.payload = payload
         self.encrypted_config_strings = encrypted_config_strings
-        self.key_size = self.block_size = self.iterations = self.salt = (
-            self.key_candidates
-        ) = self.key = None
+        self.key_size = self.block_size = self.iterations = self.salt = self.key_candidates = self.key = None
         self.aes_metadata = self.get_aes_metadata()
 
     # Given an initialization vector and ciphertext, creates a Cipher
     # object with the AES key and specified IV and decrypts the ciphertext
     def decrypt(self, iv, ciphertext):
-        logger.debug(
-            f"Decrypting {ciphertext} with key {self.key.hex()} and IV {iv.hex()}..."
-        )
+        logger.debug(f"Decrypting {ciphertext} with key {self.key.hex()} and IV {iv.hex()}...")
         aes_cipher = Cipher(AES(self.key), CBC(iv), backend=default_backend())
         decryptor = aes_cipher.decryptor()
         # Use a PKCS7 unpadder to remove padding from decrypted value
@@ -134,9 +130,7 @@ class ConfigAESDecryptor:
                 except ConfigParserException as e:
                     last_exc = e
             if result is None:
-                logger.debug(
-                    f"Decryption failed for item {v}: {last_exc}; Leaving as original value..."
-                )
+                logger.debug(f"Decryption failed for item {v}: {last_exc}; Leaving as original value...")
                 result = v
             logger.debug(f"Key: {k}, Value: {result}")
             decrypted_config_strings[k] = result
@@ -149,9 +143,7 @@ class ConfigAESDecryptor:
         keys = []
 
         # Get the RVA of the method that sets up AES256 metadata
-        metadata_method_rva = self.payload.next_method_from_instruction_offset(
-            metadata_ins_offset, step_back=1, by_token=True
-        )
+        metadata_method_rva = self.payload.next_method_from_instruction_offset(metadata_ins_offset, step_back=1, by_token=True)
 
         # Insert this RVA into the KEY_BASE pattern to find where the AES key
         # is initialized
@@ -185,9 +177,7 @@ class ConfigAESDecryptor:
             except Exception:
                 continue
         if len(keys) == 0:
-            raise ConfigParserException(
-                f"Could not derive key from passphrase candidates: {passphrase_candidates}"
-            )
+            raise ConfigParserException(f"Could not derive key from passphrase candidates: {passphrase_candidates}")
         return keys
 
     # Extracts the AES key and block size from the payload
@@ -235,9 +225,7 @@ class ConfigAESDecryptor:
         #
         # stsfld	uint8[] Client.Algorithm.Aes256::Salt
         # ret
-        aes_salt_initialization = self.payload.data.find(
-            self.PATTERN_AES_SALT_INIT % salt_rva
-        )
+        aes_salt_initialization = self.payload.data.find(self.PATTERN_AES_SALT_INIT % salt_rva)
         if aes_salt_initialization == -1:
             raise ConfigParserException("Could not identify AES salt initialization")
 
@@ -249,9 +237,7 @@ class ConfigAESDecryptor:
         salt_op = bytes([self.payload.data[salt_op_offset]])
 
         # Get the salt RVA from the 4 bytes following the initialization op
-        salt_strings_rva_packed = self.payload.data[
-            salt_op_offset + 1 : salt_op_offset + 5
-        ]
+        salt_strings_rva_packed = self.payload.data[salt_op_offset + 1 : salt_op_offset + 5]
         salt_strings_rva = bytes_to_int(salt_strings_rva_packed)
 
         # If the op is a ldstr op (0x72), just get the bytes value of the

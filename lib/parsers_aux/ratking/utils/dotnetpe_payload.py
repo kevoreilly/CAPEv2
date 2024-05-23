@@ -28,11 +28,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from .config_parser_exception import ConfigParserException
-from .dotnet_constants import MDT_FIELD_DEF, MDT_METHOD_DEF, MDT_STRING
-from dnfile import dnPE
 from hashlib import sha256
 from logging import getLogger
+
+from dnfile import dnPE
+
+from .config_parser_exception import ConfigParserException
+from .dotnet_constants import MDT_FIELD_DEF, MDT_METHOD_DEF, MDT_STRING
 
 logger = getLogger(__name__)
 
@@ -59,9 +61,7 @@ class DotNetPEPayload:
 
     # Given an RVA, derives the corresponding Field name from the RVA
     def field_name_from_rva(self, rva):
-        return self.dotnetpe.net.mdtables.Field.rows[
-            (rva ^ MDT_FIELD_DEF) - 1
-        ].Name.value
+        return self.dotnetpe.net.mdtables.Field.rows[(rva ^ MDT_FIELD_DEF) - 1].Name.value
 
     # Given an RVA, derives the corresponding FieldRVA value from the RVA
     def fieldrva_from_rva(self, rva):
@@ -78,9 +78,7 @@ class DotNetPEPayload:
             with open(self.file_path, "rb") as fp:
                 data = fp.read()
         except Exception as e:
-            raise ConfigParserException(
-                f"Error reading from path: {self.file_path}"
-            ) from e
+            raise ConfigParserException(f"Error reading from path: {self.file_path}") from e
         logger.debug("Successfully read data")
         return data
 
@@ -95,18 +93,12 @@ class DotNetPEPayload:
 
     # Given a method name, returns RVAs of methods matching that name
     def method_rvas_from_name(self, name):
-        return [
-            row.Rva
-            for row in self.dotnetpe.net.mdtables.MethodDef
-            if row.Name.value == name
-        ]
+        return [row.Rva for row in self.dotnetpe.net.mdtables.MethodDef if row.Name.value == name]
 
     # Given the offset to an instruction, reverses the instruction to its
     # parent Method, and then finds the subsequent Method in the MethodDef
     # table and returns its offset or index
-    def next_method_from_instruction_offset(
-        self, ins_offset, step_back=0, by_token=False
-    ):
+    def next_method_from_instruction_offset(self, ins_offset, step_back=0, by_token=False):
         # Translate the instruction offset to RVA
         ins_rva = self.dotnetpe.get_rva_from_offset(ins_offset)
         # Get both the regular MethodDef table and a sorted (by RVA) copy
@@ -122,13 +114,9 @@ class DotNetPEPayload:
                     # Add 1 to token ID as table starts at index 1, not 0
                     methods.index(sorted_methods[idx - step_back]) + 1 + MDT_METHOD_DEF
                     if by_token
-                    else self.offset_from_rva(
-                        methods[methods.index(sorted_methods[idx - step_back])].Rva
-                    )
+                    else self.offset_from_rva(methods[methods.index(sorted_methods[idx - step_back])].Rva)
                 )
-        raise ConfigParserException(
-            f"Could not find method from instruction offset {ins_offset}"
-        )
+        raise ConfigParserException(f"Could not find method from instruction offset {ins_offset}")
 
     # Given an RVA, returns a data/file offset
     def offset_from_rva(self, rva):
@@ -148,9 +136,7 @@ class DotNetPEPayload:
         try:
             return self.data[start_offset, end_offset]
         except Exception as e:
-            raise ConfigParserException(
-                f"Could not extract string value from range {hex(start_offset)}:{hex(end_offset)}"
-            ) from e
+            raise ConfigParserException(f"Could not extract string value from range {hex(start_offset)}:{hex(end_offset)}") from e
 
     # Given an RVA, derives the corresponding User String
     def user_string_from_rva(self, rva):

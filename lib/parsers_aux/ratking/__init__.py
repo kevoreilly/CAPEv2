@@ -60,9 +60,7 @@ class RATConfigParser:
             # self.report["sha256"] = self.dnpp.sha256
             # self.report["possible_yara_family"] = self.dnpp.yara_match
             if self.dnpp.dotnetpe is None:
-                raise ConfigParserException(
-                    f"Failed to load file as .NET executable"
-                )
+                raise ConfigParserException("Failed to load file as .NET executable")
             self.aes_decryptor = None  # Created in decrypt_and_decode_config()
             self.report["config"] = self.get_config()
             self.report["config"]["aes_key"] = (
@@ -174,8 +172,3 @@ class RATConfigParser:
             logger.debug(f"Config item parsed {key}: {field_value}")
         return translated_config
 
-
-### CAPE MODS
-
-def extract_config(data: bytes):
-    return RATConfigParser(data).report.get("config", {})

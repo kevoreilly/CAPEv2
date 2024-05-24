@@ -285,7 +285,7 @@ def processing_finished(future):
         except Exception as error:
             log.error("[%d] Exception when processing task: %s", task_id, error, exc_info=True)
             Database().set_status(task_id, TASK_FAILED_PROCESSING)
-    
+
     pending_future_map.pop(future)
     pending_task_id_map.pop(task_id)
     set_formatter_fmt()

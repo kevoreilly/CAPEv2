@@ -820,7 +820,7 @@ class Retriever(threading.Thread):
 
         while True:
             details = {}
-            print("cleaner size is ", self.cleaner_queue.qsize())
+            # print("cleaner size is ", self.cleaner_queue.qsize())
             for _ in range(self.cleaner_queue.qsize()):
                 node_id, task_id = self.cleaner_queue.get()
                 details.setdefault(node_id, []).append(str(task_id))

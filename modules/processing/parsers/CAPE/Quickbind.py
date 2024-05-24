@@ -36,7 +36,7 @@ def decrypt(sbox, data, size):
         temp_index2 = sbox[1] % 256 + 2
         sbox[temp_index1], sbox[temp_index2] = sbox[temp_index2], sbox[temp_index1]
         final_index = (sbox[temp_index2] + sbox[temp_index1]) % 256 + 2
-        decoded_string[i] = (sbox[final_index] ^ data[i])
+        decoded_string[i] = sbox[final_index] ^ data[i]
         i += 1
 
     return decoded_string
@@ -46,7 +46,7 @@ def is_hex(hex_string):
     if len(hex_string) % 2 != 0:
         return False
 
-    if not re.fullmatch(r'[0-9a-fA-F]+', hex_string):
+    if not re.fullmatch(r"[0-9a-fA-F]+", hex_string):
         return False
 
     return True

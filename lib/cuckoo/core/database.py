@@ -779,7 +779,11 @@ class _Database:
         @param status: status string
         @return: operation status
         """
-        task = self.session.get(Task, task_id)
+        task = False
+        try:
+            task = self.session.get(Task, task_id)
+        except PendingRollbackError:
+            self.session.rollback()
 
         if not task:
             return None

@@ -278,10 +278,8 @@ class AnalysisManager(threading.Thread):
                     os.symlink(self.binary, os.path.join(self.storage, "dump.pcap"))
                 else:
                     shutil.copy(self.binary, os.path.join(self.storage, "dump.pcap"))
-            # create the logs/files directories as
-            # normally the resultserver would do it
-            dirnames = ["logs", "files", "aux"]
-            for dirname in dirnames:
+            # create the logs/files directories as normally the resultserver would do it
+            for dirname in ("logs", "files", "aux"):
                 try:
                     path_mkdir(os.path.join(self.storage, dirname))
                 except Exception:

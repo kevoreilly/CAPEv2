@@ -100,15 +100,12 @@ class Scheduler:
 
         analysis_manager: Optional[AnalysisManager] = None
         with self.db.session.begin():
-            allow_static = False
             if self.machinery_manager and self.machinery_manager.running_machines_max_reached():
-                if self.cfg.cuckoo.allow_static:
-                    allow_static = True
-                else:
+                if not self.cfg.cuckoo.allow_static:
                     return SchedulerCycleDelay.MAX_MACHINES_RUNNING
 
             try:
-                task, machine = self.find_next_serviceable_task(allow_static)
+                task, machine = self.find_next_serviceable_task(self.cfg.cuckoo.allow_static)
             except Exception:
                 log.exception("Failed to find next serviceable task")
                 # Explicitly call rollback since we're not re-raising the exception and letting the

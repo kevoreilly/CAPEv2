@@ -107,6 +107,7 @@ class TestAnalysisManager:
         mgr = AnalysisManager(task=task)
 
         assert mgr.cfg.cuckoo == {
+            "allow_static": False,
             "categories": "static, pcap, url, file",
             "freespace": 50000,
             "delete_original": False,

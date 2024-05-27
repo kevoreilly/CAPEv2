@@ -22,9 +22,11 @@ from lib.cuckoo.core.database import (
     TASK_RECOVERED,
     TASK_REPORTED,
     Database,
+    _Database,
     Sample,
     Task,
 )
+
 from lib.cuckoo.core.startup import create_structure, init_console_logging
 
 log = logging.getLogger(__name__)
@@ -41,7 +43,7 @@ if hasattr(config, "tmpfs"):
     HAVE_TMPFS = True
 
 # Initialize the database connection.
-db = Database()
+db: _Database = Database()
 if repconf.mongodb.enabled:
     mdb = repconf.mongodb.get("db", "cuckoo")
     from dev_utils.mongo_hooks import delete_unused_file_docs
@@ -229,10 +231,11 @@ def delete_data(tid):
             delete_analysis_and_related_calls(tid)
     except Exception as e:
         log.error("failed to remove analysis info (may not exist) %s due to %s" % (tid, e), exc_info=True)
-    if db.delete_task(tid):
-        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
-    else:
-        log.info("failed to remove faile task %s from DB" % (tid))
+    with db.session.begin():
+        if db.delete_task(tid):
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
+        else:
+            log.info("failed to remove faile task %s from DB" % (tid))
 
 
 def dist_delete_data(data, dist_db):
@@ -419,7 +422,6 @@ def cuckoo_clean_lower_score(malscore: int):
 def tmp_clean_before_day(days: int):
     """Clean up tmp folder
     It deletes all items in tmp folder before now - days.
-    CAPE related only, is not our tasks to clean your TMP folder
     """
 
     today = datetime.today()

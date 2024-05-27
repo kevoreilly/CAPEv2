@@ -22,11 +22,10 @@ from lib.cuckoo.core.database import (
     TASK_RECOVERED,
     TASK_REPORTED,
     Database,
-    _Database,
     Sample,
     Task,
+    _Database,
 )
-
 from lib.cuckoo.core.startup import create_structure, init_console_logging
 
 log = logging.getLogger(__name__)

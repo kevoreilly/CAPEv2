@@ -70,6 +70,10 @@ max_machines_count = 10
 # set this value to 0.
 max_vmstartup_count = 5
 
+# Allow to schedule and analyze static jobs while all VMs are busy
+# it doesn't require VM, but by default logic it will be on hold
+allow_static = no
+
 # Minimum amount of free space (in MB) available before starting a new task.
 # This tries to avoid failing an analysis because the reports can't be written
 # due out-of-diskspace errors. Setting this value to 0 disables the check.

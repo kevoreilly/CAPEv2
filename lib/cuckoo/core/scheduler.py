@@ -101,10 +101,11 @@ class Scheduler:
         analysis_manager: Optional[AnalysisManager] = None
         with self.db.session.begin():
             if self.machinery_manager and self.machinery_manager.running_machines_max_reached():
-                return SchedulerCycleDelay.MAX_MACHINES_RUNNING
+                if not self.cfg.cuckoo.allow_static:
+                    return SchedulerCycleDelay.MAX_MACHINES_RUNNING
 
             try:
-                task, machine = self.find_next_serviceable_task()
+                task, machine = self.find_next_serviceable_task(self.cfg.cuckoo.allow_static)
             except Exception:
                 log.exception("Failed to find next serviceable task")
                 # Explicitly call rollback since we're not re-raising the exception and letting the
@@ -134,11 +135,11 @@ class Scheduler:
 
         return SchedulerCycleDelay.SUCCESS
 
-    def find_next_serviceable_task(self) -> Tuple[Optional[Task], Optional[Machine]]:
+    def find_next_serviceable_task(self, allow_static: bool = False) -> Tuple[Optional[Task], Optional[Machine]]:
         task: Optional[Task] = None
         machine: Optional[Machine] = None
 
-        if self.machinery_manager:
+        if self.machinery_manager and not allow_static:
             task, machine = self.find_pending_task_to_service()
         else:
             task = self.find_pending_task_not_requiring_machinery()

@@ -483,13 +483,13 @@ class QEMU(Machinery):
             stop_me = 0
             log.debug("Freezing vm %s before shutdown", label)
             proc.stdin.write("stop\n")
-            
+
             log.debug("Doing the shutdown")
             proc.stdin.write("quit\n")
-            
+
             log.debug("Flushing snapshot commands to qemu.")
             proc.stdin.flush()
-            
+
             proc.wait()
             log.debug("Shutdown done")
 
@@ -499,7 +499,7 @@ class QEMU(Machinery):
                 else:
                     log.debug("Stopping vm %s timed out, killing", label)
                     proc.stdin.write("stop\n")
-                    
+
                     log.debug("Force powerdown")
                     proc.stdin.write("system_powerdown\n")
 
@@ -507,7 +507,7 @@ class QEMU(Machinery):
                     proc.stdin.flush()
                     proc.wait(15)
                     proc.terminate()
-                    
+
                 time.sleep(1)
         except Exception as e:
             raise CuckooMachineError(f"Shutdown failed : virtual machine {label}: {e}") from e

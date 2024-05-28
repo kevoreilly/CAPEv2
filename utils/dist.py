@@ -284,7 +284,6 @@ def node_submit_task(task_id, node_id, main_task_id):
             if not path_exists(task.path):
                 task.finished = True
                 task.retrieved = True
-                # Missed? with main_db.session.begin():
                 main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
                 try:
                     db.commit()

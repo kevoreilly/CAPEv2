@@ -6,7 +6,9 @@ import datetime
 import logging
 import os
 import struct
+from copy import deepcopy
 from contextlib import suppress
+from collections import OrderedDict
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
@@ -1001,8 +1003,25 @@ class ProcessTree:
     key = "processtree"
 
     def __init__(self):
+
         self.processes = []
         self.tree = []
+        """
+        {
+            "pid_graph": {
+                <parent1>: [<child11>, <child12>, ...],
+                <parent2>: [<child21>, <child22>...],
+                ...
+            },
+            pid_map: {}
+        }
+        """
+        self.graph_tree = {
+            "pid_graph": OrderedDict(),
+            "pid_map": {},
+        }
+
+        # self.graph_tree["pid_map"][10664]
 
     def add_node(self, node, tree):
         """Add a node to a process tree.
@@ -1016,7 +1035,9 @@ class ProcessTree:
             # If the current process has the same ID of the parent process of
             # the provided one, append it the children.
             if process["pid"] == node["parent_id"]:
+                self.graph_tree["pid_graph"].setdefault(str(process["pid"]), list()).append(str(node["pid"]))
                 process["children"].append(node)
+                # self.graph_tree["pid_map"][node["pid"]] = node
                 ret = True
                 break
             # Otherwise try with the children of the current process.
@@ -1053,25 +1074,30 @@ class ProcessTree:
             for process_again in self.processes:
                 if process_again == process:
                     continue
-                # If we find a parent for the first process, we mark it as
-                # as a child.
+
+                str_pid = str(process["pid"])
+                # If we find a parent for the first process, we mark it as a child.
                 if process_again["pid"] == process["parent_id"]:
+                    self.graph_tree["pid_graph"][str_pid] = list()
+                    self.graph_tree["pid_map"][str_pid] = deepcopy(process)
                     has_parent = True
                     break
 
             # If the process has a parent, add it to the children list.
             if has_parent:
                 children.append(process)
+                self.graph_tree["pid_graph"][str_pid] = list()
+                self.graph_tree["pid_map"][str_pid] = deepcopy(process)
             # Otherwise it's an orphan and we add it to the tree root.
             else:
                 self.tree.append(process)
-
+                self.graph_tree["pid_graph"][str_pid] = list()
+                self.graph_tree["pid_map"][str_pid] = deepcopy(process)
         # Now we loop over the remaining child processes.
         for process in children:
             if not self.add_node(process, self.tree):
                 self.tree.append(process)
-
-        return self.tree
+        return self.graph_tree
 
 
 class EncryptedBuffers:

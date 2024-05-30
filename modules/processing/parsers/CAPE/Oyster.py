@@ -88,7 +88,7 @@ def extract_config(filebuf):
                 c2 = []
                 dll_version = ""
 
-                c2_pattern = r"[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}"
+                c2_pattern = r"\b[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.(?!txt\b|dll\b|exe\b)[a-zA-Z]{2,}"
 
                 for item in hex_strings:
                     with suppress(Exception):
@@ -104,7 +104,7 @@ def extract_config(filebuf):
                         dll_version = decoded.split('":"')[-1]
                     elif "api" in decoded or "Content-Type" in decoded:
                         str_vals.append(decoded)
-                    elif "\\" not in decoded:
+                    else:
                         c2_matches = re.findall(c2_pattern, decoded)
                         if c2_matches:
                             c2.extend(c2_matches)

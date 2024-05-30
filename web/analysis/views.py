@@ -1859,7 +1859,7 @@ def file(request, category, task_id, dlfile):
                 path = [path]
             if USE_SEVENZIP:
                 zip_path = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}", f"{file_name}.zip")
-                sevenZipArgs = [SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path]
+                sevenZipArgs = [SEVENZIP_PATH, f"-p{settings.ZIP_PWD.decode()}", "a", zip_path]
                 sevenZipArgs.extend(path)
                 try:
                     subprocess.check_call(sevenZipArgs)

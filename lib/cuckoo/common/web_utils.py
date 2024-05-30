@@ -1365,7 +1365,7 @@ def parse_request_arguments(request, keyword="POST"):
 def get_hash_list(hashes):
     hashlist = []
     if "," in hashes:
-        hashlist = filter(None, hashes.replace(" ", "").strip().split(","))
+        hashlist = list(filter(None, hashes.replace(" ", "").strip().split(",")))
     else:
         hashlist = hashes.split()
 

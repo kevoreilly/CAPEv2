@@ -714,6 +714,7 @@ function insall_yara_x() {
     cd /tmp || return
     git clone https://github.com/VirusTotal/yara-x
     cd yara-x || return
+    source "$HOME/.cargo/env"
     cargo install --path cli
     pip3 install yara-x
 }

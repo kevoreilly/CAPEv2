@@ -236,7 +236,7 @@ class RunProcessing:
         # break processing.
         if options.platform != self.task.get("platform", ""):
             return None
-        
+
         # Give it path to the analysis results.
         current.set_path(self.analysis_path)
         # Give it the analysis task object.

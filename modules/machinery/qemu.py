@@ -183,6 +183,8 @@ QEMU_ARGS = {
     "x64": {
         "cmdline": [
             "qemu-system-x86_64",
+            "-monitor",
+            "stdio",
             "-display",
             "none",
             "-m",
@@ -201,6 +203,8 @@ QEMU_ARGS = {
     "x86": {
         "cmdline": [
             "qemu-system-i386",
+            "-monitor",
+            "stdio",
             "-display",
             "none",
             "-m",
@@ -323,13 +327,15 @@ QEMU_ARGS = {
 class QEMU(Machinery):
     """Virtualization layer for QEMU (non-KVM)."""
 
+    module_name = "qemu"
+
     # VM states.
     RUNNING = "running"
     STOPPED = "stopped"
     ERROR = "machete"
 
     def __init__(self):
-        super(QEMU, self).__init__()
+        super().__init__()
         self.state = {}
 
     def _initialize_check(self):
@@ -464,20 +470,47 @@ class QEMU(Machinery):
         if self._status(vm_info.name) == self.STOPPED:
             raise CuckooMachineError(f"Trying to stop an already stopped vm {label}")
 
-        proc = self.state.get(vm_info.name)
-        proc.kill()
+        try:
+            log.debug("Trying to stop the vm %s", label)
 
-        stop_me = 0
-        while proc.poll() is None:
-            if stop_me < cfg.timeouts.vm_state:
-                stop_me += 1
-            else:
-                log.debug("Stopping vm %s timed out, killing", label)
-                proc.terminate()
-            time.sleep(1)
+            vm_info = self.db.view_machine_by_label(label)
 
-        # if proc.returncode != 0 and stop_me < cfg.timeouts.vm_state:
-        #     log.debug("QEMU exited with error powering off the machine")
+            if self._status(vm_info.name) == self.STOPPED:
+                raise CuckooMachineError(f"Trying to do a memory dump on an already stopped vm {label}")
+
+            proc = self.state.get(vm_info.name)
+
+            stop_me = 0
+            log.debug("Freezing vm %s before shutdown", label)
+            proc.stdin.write("stop\n")
+
+            log.debug("Doing the shutdown")
+            proc.stdin.write("quit\n")
+
+            log.debug("Flushing snapshot commands to qemu.")
+            proc.stdin.flush()
+
+            proc.wait()
+            log.debug("Shutdown done")
+
+            while proc.poll() is None:
+                if stop_me < cfg.timeouts.vm_state:
+                    stop_me += 1
+                else:
+                    log.debug("Stopping vm %s timed out, killing", label)
+                    proc.stdin.write("stop\n")
+
+                    log.debug("Force powerdown")
+                    proc.stdin.write("system_powerdown\n")
+
+                    log.debug("Flushing snapshot commands to qemu.")
+                    proc.stdin.flush()
+                    proc.wait(15)
+                    proc.terminate()
+
+                time.sleep(1)
+        except Exception as e:
+            raise CuckooMachineError(f"Shutdown failed : virtual machine {label}: {e}") from e
 
         self.state[vm_info.name] = None
 

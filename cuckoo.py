@@ -9,6 +9,8 @@ import os
 import sys
 from pathlib import Path
 
+from lib.cuckoo.core.database import Database, init_database
+
 if sys.version_info[:2] < (3, 8):
     sys.exit("You are running an incompatible version of Python, please use >= 3.8")
 
@@ -56,6 +58,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     check_working_directory()
     check_configs()
     create_structure()
+    init_database()
 
     if artwork:
         import time
@@ -78,7 +81,8 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
 
     check_webgui_mongo()
     init_modules()
-    init_tasks()
+    with Database().session.begin():
+        init_tasks()
     init_rooter()
     init_routing()
     check_tcpdump_permissions()
@@ -113,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--version", action="version", version="You are running Cuckoo Sandbox {0}".format(CUCKOO_VERSION))
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
-    parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
+    parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False, default=0)
     parser.add_argument(
         "-s",
         "--stop",

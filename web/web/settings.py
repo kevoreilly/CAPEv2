@@ -218,8 +218,9 @@ MIDDLEWARE = [
     #'web.middleware.ExceptionMiddleware',
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # 'django_otp.middleware.OTPMiddleware',
-    # in case you want custom auth, place logic in web/web/middleware.py
+    # in case you want custom auth, place logic in web/web/middleware/custom_auth.py
     # "web.middleware.CustomAuth",
+    "web.middleware.DBTransactionMiddleware",
 ]
 
 OTP_TOTP_ISSUER = "CAPE Sandbox"
@@ -507,3 +508,7 @@ try:
 except NameError:
     with suppress(ImportError):
         from .local_settings import *  # noqa: F403
+
+from lib.cuckoo.core.database import init_database
+
+init_database()

@@ -5,12 +5,14 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 import time
 from collections import OrderedDict
 from contextlib import suppress
 from datetime import datetime, timedelta
 from pathlib import Path
 from random import choice
+from typing import Dict, List, Optional
 
 import magic
 import requests
@@ -177,45 +179,55 @@ def my_rate_minutes(group, request):
     return rpm
 
 
-def load_vms_exits():
-    all_exits = {}
-    if HAVE_DIST and dist_conf.distributed.enabled:
-        try:
-            db = dist_session()
-            for node in db.query(Node).all():
-                if hasattr(node, "exitnodes"):
-                    for exit in node.exitnodes:
-                        all_exits.setdefault(exit.name, []).append(node.name)
-            db.close()
-        except Exception as e:
-            print(e)
-
-    return all_exits
+_all_nodes_exits: Optional[Dict[str, List[str]]] = None
+_load_vms_exits_lock = threading.Lock()
 
 
-def load_vms_tags():
-    all_tags = []
-    if HAVE_DIST and dist_conf.distributed.enabled:
-        try:
-            db = dist_session()
-            for vm in db.query(Machine).all():
-                all_tags += vm.tags
-            all_tags = sorted(filter(None, all_tags))
-            db.close()
-        except Exception as e:
-            print(e)
+def load_vms_exits(force=False):
+    global _all_nodes_exits
+    with _load_vms_exits_lock:
+        if _all_nodes_exits is not None and not force:
+            return _all_nodes_exits
+        _all_nodes_exits = {}
+        if HAVE_DIST and dist_conf.distributed.enabled:
+            try:
+                db = dist_session()
+                for node in db.query(Node).all():
+                    if hasattr(node, "exitnodes"):
+                        for exit in node.exitnodes:
+                            _all_nodes_exits.setdefault(exit.name, []).append(node.name)
+                db.close()
+            except Exception as e:
+                print(e)
 
-    for machine in Database().list_machines():
-        all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
-
-    return list(set(all_tags))
+        return _all_nodes_exits
 
 
-all_nodes_exits = load_vms_exits()
-all_nodes_exits_list = list(all_nodes_exits.keys())
+_all_vms_tags: Optional[List[str]] = None
+_load_vms_tags_lock = threading.Lock()
 
-all_vms_tags = load_vms_tags()
-all_vms_tags_str = ",".join(all_vms_tags)
+
+def load_vms_tags(force=False):
+    global _all_vms_tags
+    with _load_vms_tags_lock:
+        if _all_vms_tags is not None and not force:
+            return _all_vms_tags
+        all_tags = []
+        if HAVE_DIST and dist_conf.distributed.enabled:
+            try:
+                db = dist_session()
+                for vm in db.query(Machine).all():
+                    all_tags += vm.tags
+                all_tags = sorted(filter(None, all_tags))
+                db.close()
+            except Exception as e:
+                print(e)
+
+        for machine in Database().list_machines(include_reserved=True):
+            all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
+
+        _all_vms_tags = list(sorted(set(all_tags)))
+        return _all_vms_tags
 
 
 def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
@@ -401,12 +413,14 @@ def statistics(s_days: int) -> dict:
             details[module_name.split(".")[-1]].setdefault(name, entry)
 
     top_samples = {}
-    session = db.Session()
     added_tasks = (
-        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+        db.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
     )
     tasks = (
-        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.completed_on.between(date_since, date_till)).all()
+        db.session.query(Task)
+        .join(Sample, Task.sample_id == Sample.id)
+        .filter(Task.completed_on.between(date_since, date_till))
+        .all()
     )
     details["total"] = len(tasks)
     details["average"] = f"{round(details['total'] / s_days, 2):.2f}"
@@ -475,7 +489,6 @@ def statistics(s_days: int) -> dict:
     details["detections"] = top_detections(date_since=date_since)
     details["asns"] = top_asn(date_since=date_since)
 
-    session.close()
     return details
 
 
@@ -676,9 +689,10 @@ def download_file(**kwargs):
             route = socks5s_random
 
     if tags:
+        all_vms_tags = load_vms_tags()
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {
-                "error": f"Check Tags help, you have introduced incorrect tag(s). Your tags: {tags} - Supported tags: {all_vms_tags_str}"
+                "error": f"Check Tags help, you have introduced incorrect tag(s). Your tags: {tags} - Supported tags: {','.join(all_vms_tags)}"
             }
         elif all([tag in tags for tag in ("x64", "x86")]):
             return "error", {"error": "Check Tags help, you have introduced x86 and x64 tags for the same task, choose only 1"}
@@ -722,13 +736,14 @@ def download_file(**kwargs):
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
 
     # Distribute task based on route support by worker
-    if route and route not in ("none", "None") and all_nodes_exits_list:
+    all_nodes_exits = load_vms_exits()
+    if route and route not in ("none", "None") and all_nodes_exits:
         parsed_options = get_options(kwargs["options"])
         node = parsed_options.get("node")
 
         if node and node not in all_nodes_exits.get(route):
             return "error", {"error": f"Specified worker {node} doesn't support this route: {route}"}
-        elif route not in all_nodes_exits_list:
+        elif route not in all_nodes_exits:
             return "error", {"error": "Specified route doesn't exist on any worker"}
 
         if not node:
@@ -1350,7 +1365,7 @@ def parse_request_arguments(request, keyword="POST"):
 def get_hash_list(hashes):
     hashlist = []
     if "," in hashes:
-        hashlist = filter(None, hashes.replace(" ", "").strip().split(","))
+        hashlist = list(filter(None, hashes.replace(" ", "").strip().split(",")))
     else:
         hashlist = hashes.split()
 

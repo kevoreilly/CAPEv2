@@ -28,6 +28,13 @@ def parse_options(options: str) -> Dict[str, str]:
 class _BaseConfig:
     """Configuration file parser."""
 
+    def __init__(self):
+        self.fullconfig = None
+        self.refresh()
+
+    def _get_files_to_read(self):
+        raise NotImplementedError
+
     def get(self, section):
         """Get options for the given section.
         @param section: section to fetch.
@@ -41,6 +48,9 @@ class _BaseConfig:
 
     def get_config(self):
         return self.fullconfig
+
+    def refresh(self):
+        self.fullconfig = self._read_files(self._get_files_to_read())._sections
 
     def _read_files(self, files: Iterable[str]):
         # Escape the percent signs so that ConfigParser doesn't try to do
@@ -59,8 +69,6 @@ class _BaseConfig:
                 )
             )
             raise
-
-        self.fullconfig = config._sections
 
         for section in config.sections():
             dct = Dictionary()
@@ -83,6 +91,8 @@ class _BaseConfig:
                 setattr(dct, name, value)
             setattr(self, section, dct)
 
+        return config
+
 
 class ConfigMeta(type):
     """Only create one instance of a Config for each (non-analysis) config file."""
@@ -96,31 +106,39 @@ class ConfigMeta(type):
         return self.configs[fname_base]
 
     @classmethod
-    def reset(cls):
+    def refresh(cls):
         """This should really only be needed for testing."""
-        cls.configs.clear()
+        for config in cls.configs.values():
+            config.refresh()
 
 
 class Config(_BaseConfig, metaclass=ConfigMeta):
     def __init__(self, fname_base: str = "cuckoo"):
-        files = self._get_files_to_read(fname_base)
-        self._read_files(files)
+        self._fname_base = fname_base
+        super().__init__()
 
-    def _get_files_to_read(self, fname_base):
+    def _get_files_to_read(self):
         # Allows test workflows to ignore custom root configs
         include_root_configs = "CAPE_DISABLE_ROOT_CONFIGS" not in os.environ
-        files = [os.path.join(CUCKOO_ROOT, "conf", "default", f"{fname_base}.conf.default")]
+        files = [os.path.join(CUCKOO_ROOT, "conf", "default", f"{self._fname_base}.conf.default")]
         if include_root_configs:
-            files.append(os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf"))
-            files.extend(sorted(glob.glob(os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf.d", "*.conf"))))
-        files.append(os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf"))
-        files.extend(sorted(glob.glob(os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf.d", "*.conf"))))
+            files.append(os.path.join(CUCKOO_ROOT, "conf", f"{self._fname_base}.conf"))
+            files.extend(sorted(glob.glob(os.path.join(CUCKOO_ROOT, "conf", f"{self._fname_base}.conf.d", "*.conf"))))
+        files.append(os.path.join(CUSTOM_CONF_DIR, f"{self._fname_base}.conf"))
+        files.extend(sorted(glob.glob(os.path.join(CUSTOM_CONF_DIR, f"{self._fname_base}.conf.d", "*.conf"))))
+
+        if "CAPE_CD" in os.environ:
+            files.append(os.path.join(os.environ["CAPE_CD"], f"{self._fname_base}.conf"))
+
         if not files:
-            raise CuckooCriticalError(f"No {fname_base} config files could be found!")
+            raise CuckooCriticalError(f"No {self._fname_base} config files could be found!")
         return files
 
 
 class AnalysisConfig(_BaseConfig):
     def __init__(self, cfg="analysis.conf"):
-        files = (cfg,)
-        self._read_files(files)
+        self._cfg = cfg
+        super().__init__()
+
+    def _get_files_to_read(self):
+        return (self._cfg,)

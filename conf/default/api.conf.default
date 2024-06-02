@@ -10,7 +10,7 @@ default_subscription_ratelimit = 5/m
 # IP/Domain to be used for help page + callback URL's
 url = http://example.tld
 
-# APIv2 - Enable token autorization?
+# APIv2 - Enable token autorization? User limit settings at http://127.0.0.1:8000/admin/auth/user/
 token_auth_enabled = no
 
 [list_exitnodes]

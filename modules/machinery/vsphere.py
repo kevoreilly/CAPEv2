@@ -31,6 +31,8 @@ cfg = Config()
 class vSphere(Machinery):
     """vSphere/ESXi machinery class based on pyVmomi Python SDK."""
 
+    module_name = "vsphere"
+
     # VM states
     RUNNING = "poweredOn"
     POWEROFF = "poweredOff"
@@ -41,13 +43,13 @@ class vSphere(Machinery):
         if not HAVE_PYVMOMI:
             raise CuckooDependencyError("Couldn't import pyVmomi. Please install using 'pip3 install --upgrade pyvmomi'")
 
-        super(vSphere, self).__init__()
+        super().__init__()
 
-    def _initialize(self, module_name):
+    def _initialize(self):
         """Read configuration.
         @param module_name: module name.
         """
-        super(vSphere, self)._initialize(module_name)
+        super(vSphere, self)._initialize()
 
         # Initialize random number generator
         random.seed()

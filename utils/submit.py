@@ -23,7 +23,7 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import sanitize_filename, store_temp_file, to_unicode
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.startup import check_user_permissions
 
 check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
@@ -131,6 +131,7 @@ def main():
     if args.quiet:
         logging.disable(logging.WARNING)
 
+    init_database()
     db = Database()
 
     target = to_unicode(args.target)
@@ -205,21 +206,22 @@ def main():
             json = response.json()
             task_id = json["task_id"]
         else:
-            task_id = db.add_url(
-                target,
-                package=args.package,
-                timeout=sane_timeout,
-                options=args.options,
-                priority=args.priority,
-                machine=args.machine,
-                platform=args.platform,
-                custom=args.custom,
-                memory=args.memory,
-                enforce_timeout=args.enforce_timeout,
-                clock=args.clock,
-                tags=args.tags,
-                route=args.route,
-            )
+            with db.session.begin():
+                task_id = db.add_url(
+                    target,
+                    package=args.package,
+                    timeout=sane_timeout,
+                    options=args.options,
+                    priority=args.priority,
+                    machine=args.machine,
+                    platform=args.platform,
+                    custom=args.custom,
+                    memory=args.memory,
+                    enforce_timeout=args.enforce_timeout,
+                    clock=args.clock,
+                    tags=args.tags,
+                    route=args.route,
+                )
 
         if task_id:
             if not args.quiet:
@@ -331,29 +333,33 @@ def main():
                 task_ids = json["data"].get("task_ids")
 
             else:
-                if args.unique and db.check_file_uniq(File(file_path).get_sha256()):
-                    msg = ": Sample {0} (skipping file)".format(file_path)
-                    if not args.quiet:
-                        print((bold(yellow("Duplicate")) + msg))
-                    continue
+                if args.unique:
+                    with db.session.begin():
+                        already_exists = db.check_file_uniq(File(file_path).get_sha256())
+                    if already_exists:
+                        msg = ": Sample {0} (skipping file)".format(file_path)
+                        if not args.quiet:
+                            print((bold(yellow("Duplicate")) + msg))
+                        continue
 
                 try:
                     tmp_path = store_temp_file(open(file_path, "rb").read(), sanitize_filename(os.path.basename(file_path)))
-                    task_ids, extra_details = db.demux_sample_and_add_to_db(
-                        file_path=tmp_path,
-                        package=args.package,
-                        timeout=sane_timeout,
-                        options=args.options,
-                        priority=args.priority,
-                        machine=args.machine,
-                        platform=args.platform,
-                        memory=args.memory,
-                        custom=args.custom,
-                        enforce_timeout=args.enforce_timeout,
-                        clock=args.clock,
-                        tags=args.tags,
-                        route=args.route,
-                    )
+                    with db.session.begin():
+                        task_ids, extra_details = db.demux_sample_and_add_to_db(
+                            file_path=tmp_path,
+                            package=args.package,
+                            timeout=sane_timeout,
+                            options=args.options,
+                            priority=args.priority,
+                            machine=args.machine,
+                            platform=args.platform,
+                            memory=args.memory,
+                            custom=args.custom,
+                            enforce_timeout=args.enforce_timeout,
+                            clock=args.clock,
+                            tags=args.tags,
+                            route=args.route,
+                        )
                 except CuckooDemuxError as e:
                     task_ids = []
                     print((bold(red("Error")) + ": {0}".format(e)))

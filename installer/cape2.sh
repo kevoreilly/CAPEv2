@@ -709,6 +709,16 @@ function install_suricata() {
     systemctl restart suricata
 }
 
+function insall_yara_x() {
+    curl https://sh.rustup.rs -sSf | sh
+    cd /tmp || return
+    git clone https://github.com/VirusTotal/yara-x
+    cd yara-x || return
+    source "$HOME/.cargo/env"
+    cargo install --path cli
+    pip3 install yara-x
+}
+
 function install_yara() {
     echo '[+] Checking for old YARA version to uninstall'
     dpkg -l|grep "yara-v[0-9]\{1,2\}\.[0-9]\{1,2\}\.[0-9]\{1,2\}"|cut -d " " -f 3|sudo xargs dpkg --purge --force-all 2>/dev/null
@@ -1290,7 +1300,7 @@ function install_guacamole() {
 
 
     if [ ! -d "/tmp/guac-build" ] ; then
-       mkdir /tmp/guac-build
+        mkdir /tmp/guac-build
     fi
     cd /tmp/guac-build || return
 

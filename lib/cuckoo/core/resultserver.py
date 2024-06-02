@@ -223,7 +223,7 @@ class FileUpload(ProtocolHandler):
         else:
             filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
-        log.debug("Task #%s: Trying to upload file %s", self.task_id, dump_path.decode())
+        log.debug("Task #%s: Uploading file %s", self.task_id, dump_path.decode())
         if not duplicated:
             file_path = os.path.join(self.storagepath, dump_path.decode())
 

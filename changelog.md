@@ -1,3 +1,19 @@
+### [23.05.2024]
+* Integration of [rat_king_parser](https://github.com/jeFF0Falltrades/rat_king_parser) by @jeFF0Falltrades
+    * Requires `dnfile` upgrade. We can't update it in `pyporject` due to `flare-capa`.
+        * Upgrade `dnfile` by yourself by running: `poetry run pip3 install -U dnfile`
+
+### [22.05.2024]
+* Monitor update: Enhance DnsQuery* hooks to capture DNS server lists (e.g. Socks5Systemz)
+* Socks5Systemz detection & config extraction
+
+### [21.05.2024]
+* Monitor update: Hook full set of service APIs in sechost.dll
+
+### [20.05.2024]
+* YARA-X support - https://virustotal.github.io/yara-x/
+* Monitor update: Debugger fixes/improvements, misc other fixes (see capemon repo for details)
+
 ### [11.04.2024]
 * Monitor updates:
     * YARA upgrade to 4.5.0 (& disabled assertion dialogs)

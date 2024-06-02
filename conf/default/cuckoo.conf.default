@@ -32,11 +32,6 @@ machinery_screenshots = off
 scaling_semaphore = off
 # A configurable wait time between updating the limit value of the scaling bounded semaphore
 scaling_semaphore_update_timer = 10
-# Allow more than one task scheduled to be assigned at once for better scaling
-# A switch to allow batch task assignment, a method that can more efficiently assign tasks to available machines
-batch_scheduling = off
-# The maximum number of tasks assigned to machines per batch, optimal value dependent on deployment
-max_batch_count = 20
 
 # Enable creation of memory dump of the analysis machine before shutting
 # down. Even if turned off, this functionality can also be enabled at
@@ -74,6 +69,10 @@ max_machines_count = 10
 # If you are using an auto-scaling machinery such as Azure or AWS,
 # set this value to 0.
 max_vmstartup_count = 5
+
+# Allow to schedule and analyze static jobs while all VMs are busy
+# it doesn't require VM, but by default logic it will be on hold
+allow_static = no
 
 # Minimum amount of free space (in MB) available before starting a new task.
 # This tries to avoid failing an analysis because the reports can't be written
@@ -223,3 +222,5 @@ tmp_days = 5
 analysis_days = 5
 # Delete mongo data
 mongo = no
+# Clean orphan files in mongodb
+unused_files_in_mongodb = no

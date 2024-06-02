@@ -12,6 +12,8 @@ from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 class ESX(LibVirtMachinery):
     """Virtualization layer for ESXi/ESX based on python-libvirt."""
 
+    module_name = "esx"
+
     def _initialize_check(self):
         """Runs all checks when a machine manager is initialized.
         @raise CuckooMachineError: if configuration is invalid

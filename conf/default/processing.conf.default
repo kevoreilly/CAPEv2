@@ -71,6 +71,8 @@ replace_patterns = no
 enabled = no
 # Toggle specific modules within the StraceAnalysis class
 processtree = no
+# Platform specific
+platform = linux
 
 [debug]
 enabled = yes

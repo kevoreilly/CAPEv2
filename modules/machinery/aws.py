@@ -2,6 +2,8 @@ import logging
 import sys
 import time
 
+from lib.cuckoo.core.database import Machine
+
 try:
     import boto3
 except ImportError:
@@ -30,8 +32,7 @@ class AWS(Machinery):
 
     AUTOSCALE_CUCKOO = "AUTOSCALE_CUCKOO"
 
-    def __init__(self):
-        super(AWS, self).__init__()
+    module_name = "aws"
 
     """override Machinery method"""
 
@@ -187,13 +188,11 @@ class AWS(Machinery):
 
     """override Machinery method"""
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=None, need_scheduled=False):
+    def scale_pool(self, machine: Machine) -> None:
         """
         override Machinery method to utilize the auto scale option
         """
-        base_class_return_value = super(AWS, self).acquire(machine_id, platform, tags, need_scheduled=need_scheduled)
         self._start_or_create_machines()  # prepare another machine
-        return base_class_return_value
 
     def _start_or_create_machines(self):
         """
@@ -306,14 +305,15 @@ class AWS(Machinery):
 
     """override Machinery method"""
 
-    def release(self, label=None):
+    def release(self, machine: Machine) -> Machine:
         """
         we override it to have the ability to run start_or_create_machines() after unlocking the last machine
         Release a machine.
         @param label: machine label.
         """
-        super(AWS, self).release(label)
+        retval = super(AWS, self).release(machine)
         self._start_or_create_machines()
+        return retval
 
     def _create_instance(self, tags):
         """

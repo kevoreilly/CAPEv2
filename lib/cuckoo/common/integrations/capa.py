@@ -47,6 +47,7 @@ if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabl
             from capa.exceptions import EmptyReportError, UnsupportedFormatError
             from capa.features.common import FORMAT_AUTO, OS_AUTO
             from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
+            from pydantic_core._pydantic_core import ValidationError
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
@@ -256,7 +257,11 @@ def flare_capa_details(
                     file_path_object, FORMAT_AUTO, OS_AUTO, capa.loader.BACKEND_VIV, [], False, disable_progress=disable_progress
                 )
             elif backend == "cape" and results:
-                extractor = capa.features.extractors.cape.extractor.CapeExtractor.from_report(results)
+                try:
+                    extractor = capa.features.extractors.cape.extractor.CapeExtractor.from_report(results)
+                except ValidationError as e:
+                    log.error("CAPA ValidationError %s", e)
+                    return {}
             else:
                 log.error("CAPA: Missed results probably")
                 return {}

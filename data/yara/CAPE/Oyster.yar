@@ -6,7 +6,7 @@ rule Oyster
         cape_type = "Oyster Payload"
         hash = "8bae0fa9f589cd434a689eebd7a1fde949cc09e6a65e1b56bb620998246a1650"
     strings:
-		$start_exit = {05 00 00 00 2E 96 1E A6}
+		$start_exit = {(05 | 00) 00 00 00 2E 96 1E A6}
 		$content_type = {F6 CE 56 F4 76 F6 96 2E 86 C6 96 36 0E 0E 86 04 5C A6 0E 9E 2A B4 2E 76 A6 2E 76 F6 C2}
         $domain = {44 5C 44 76 96 86 B6 F6 26 44 34 44}
         $id = {44 5C 44 64 96 44 DE}

@@ -152,17 +152,6 @@ def create_structure():
         )
 
 
-class DatabaseHandler(logging.Handler):
-    """Logging to database handler.
-    Used to log errors related to tasks in database.
-    """
-
-    def emit(self, record):
-        if hasattr(record, "task_id"):
-            db = Database()
-            db.add_error(record.msg, int(record.task_id))
-
-
 class ConsoleHandler(logging.StreamHandler):
     """Logging to console handler."""
 

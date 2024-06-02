@@ -149,11 +149,11 @@ Please contribute to this project by helping create new signatures, parsers, or 
 
 A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 
+## Installation recommendations and scripts for optimal performance
 * Python3
     * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
     * host tested with python3 version 3.7, 3.8, 3.10, but newer versions should work too
 
-## Installation recommendations and scripts for optimal performance
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 1. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/) and __do read ALL__ config files inside of `conf` folder!
 2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download) and using Windows 10 21H2 as target.

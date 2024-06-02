@@ -28,6 +28,8 @@ def import_plugin(name):
 
 
 class MultiMachinery(Machinery):
+    module_name = "multi"
+
     LABEL = "mm_label"
 
     _machineries = {}

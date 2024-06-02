@@ -1060,6 +1060,20 @@ build = ["build (==1.0.3)", "pyinstaller (==6.3.0)", "setuptools (==69.0.3)"]
 dev = ["black (==24.1.1)", "flake8 (==7.0.0)", "flake8-bugbear (==24.1.17)", "flake8-comprehensions (==3.14.0)", "flake8-copyright (==0.2.4)", "flake8-encodings (==0.5.1)", "flake8-logging-format (==0.9.0)", "flake8-no-implicit-concat (==0.3.5)", "flake8-print (==5.0.0)", "flake8-simplify (==0.21.0)", "flake8-todos (==0.3.0)", "flake8-use-pathlib (==0.3.0)", "isort (==5.13.2)", "mypy (==1.8.0)", "mypy-protobuf (==3.5.0)", "pre-commit (==3.5.0)", "psutil (==5.9.2)", "pytest (==8.0.0)", "pytest-cov (==4.1.0)", "pytest-instafail (==0.5.0)", "pytest-sugar (==0.9.7)", "requests (==2.31.0)", "ruff (==0.1.14)", "stix2 (==3.0.1)", "types-PyYAML (==6.0.8)", "types-backports (==0.1.3)", "types-colorama (==0.4.15.11)", "types-protobuf (==4.23.0.3)", "types-psutil (==5.8.23)", "types-requests (==2.31.0.20240125)", "types-tabulate (==0.9.0.20240106)", "types-termcolor (==1.1.4)"]
 
 [[package]]
+name = "freezegun"
+version = "1.4.0"
+description = "Let your Python tests travel through time"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "freezegun-1.4.0-py3-none-any.whl", hash = "sha256:55e0fc3c84ebf0a96a5aa23ff8b53d70246479e9a68863f1fcac5a3e52f19dd6"},
+    {file = "freezegun-1.4.0.tar.gz", hash = "sha256:10939b0ba0ff5adaecf3b06a5c2f73071d9678e507c5eaedb23c761d56ac774b"},
+]
+
+[package.dependencies]
+python-dateutil = ">=2.7"
+
+[[package]]
 name = "func-timeout"
 version = "4.3.5"
 description = "Python module which allows you to specify timeouts when calling any existing function. Also provides support for stoppable-threads"
@@ -2820,6 +2834,21 @@ docs = ["sphinx", "sphinx-rtd-theme"]
 testing = ["Django", "django-configurations (>=2.0)"]
 
 [[package]]
+name = "pytest-freezer"
+version = "0.4.8"
+description = "Pytest plugin providing a fixture interface for spulec/freezegun"
+optional = false
+python-versions = ">= 3.6"
+files = [
+    {file = "pytest_freezer-0.4.8-py3-none-any.whl", hash = "sha256:644ce7ddb8ba52b92a1df0a80a699bad2b93514c55cf92e9f2517b68ebe74814"},
+    {file = "pytest_freezer-0.4.8.tar.gz", hash = "sha256:8ee2f724b3ff3540523fa355958a22e6f4c1c819928b78a7a183ae4248ce6ee6"},
+]
+
+[package.dependencies]
+freezegun = ">=1.0"
+pytest = ">=3.6"
+
+[[package]]
 name = "pytest-mock"
 version = "3.7.0"
 description = "Thin-wrapper around the mock package for easier use with pytest"
@@ -3159,13 +3188,13 @@ files = [
 
 [[package]]
 name = "requests"
-version = "2.31.0"
+version = "2.32.0"
 description = "Python HTTP for Humans."
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "requests-2.31.0-py3-none-any.whl", hash = "sha256:58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"},
-    {file = "requests-2.31.0.tar.gz", hash = "sha256:942c5a758f98d790eaed1a29cb6eefc7ffb0d1cf7af05c3d2791656dbd6ad1e1"},
+    {file = "requests-2.32.0-py3-none-any.whl", hash = "sha256:f2c3881dddb70d056c5bd7600a4fae312b2a300e39be6a118d30b90bd27262b5"},
+    {file = "requests-2.32.0.tar.gz", hash = "sha256:fa5490319474c82ef1d2c9bc459d3652e3ae4ef4c4ebdd18a21145a47ca4b6b8"},
 ]
 
 [package.dependencies]
@@ -4316,4 +4345,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "b17bb6db42abefb3edc6be736179d8096fb4a324663a9e00cd9125471e56b22e"
+content-hash = "ff5ad5722e3199a1b1862caea8ffa34f2411e8b3fb29f4a2c13c9aa4a98e5241"

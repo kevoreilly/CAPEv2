@@ -124,12 +124,12 @@ class Process:
 
     def __del__(self):
         """Close open handles."""
-        if self.h_process and self.h_process != KERNEL32.GetCurrentProcess():
+        if hasattr(self, "h_process") and self.h_process != KERNEL32.GetCurrentProcess():
             KERNEL32.CloseHandle(self.h_process)
-        if self.h_thread:
+        if hasattr(self, "h_thread") and self.h_thread != 0:
             KERNEL32.CloseHandle(self.h_thread)
 
-    def get_system_info(self):
+    def fill_system_info(self):
         """Get system information."""
         KERNEL32.GetSystemInfo(byref(self.system_info))
 
@@ -605,7 +605,6 @@ class Process:
                 "pre_script_args",
                 "pre_script_timeout",
                 "during_script_args",
-                "interactive_desktop",
             ]
 
             for optname, option in self.options.items():

@@ -23,12 +23,12 @@ from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
-    all_nodes_exits_list,
-    all_vms_tags,
     download_file,
     download_from_bazaar,
     download_from_vt,
     get_file_content,
+    load_vms_exits,
+    load_vms_tags,
     parse_request_arguments,
     perform_search,
     process_new_dlnexec_task,
@@ -57,17 +57,22 @@ disable_warnings()
 logger = logging.getLogger(__name__)
 
 
-def get_form_data(platform):
-    files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
-    exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
+def get_form_data():
+    platforms = ["windows"]
+    if web_conf.linux.enabled:
+        platforms.append("linux")
 
-    packages = []
-    for name in files:
-        name = os.path.splitext(name)[0]
-        if name == "__init__":
-            continue
-        if name not in exclusions:
-            packages.append(name)
+    packages = set()
+    for platform in platforms:
+        files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
+        exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
+
+        for name in files:
+            name = os.path.splitext(name)[0]
+            if name == "__init__":
+                continue
+            if name not in exclusions:
+                packages.add(name)
 
     # Prepare a list of VM names, description label based on tags.
     machines = []
@@ -122,7 +127,6 @@ def get_platform(magic):
 def index(request, task_id=None, resubmit_hash=None):
     remote_console = False
     if request.method == "POST":
-
         (
             static,
             package,
@@ -172,11 +176,13 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
 
-        if web_conf.guacamole.enabled and request.POST.get("interactive_desktop"):
+        if web_conf.guacamole.enabled and request.POST.get("interactive"):
             remote_console = True
-            options += "interactive_desktop=yes,"
+            options += "interactive=1,"
             if "nohuman=yes," not in options:
                 options += "nohuman=yes,"
+            if request.POST.get("manual"):
+                options += "manual=1,"
 
         if request.POST.get("tor"):
             options += "tor=yes,"
@@ -530,6 +536,8 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["pre_script"] = web_conf.pre_script.enabled
         enabledconf["during_script"] = web_conf.during_script.enabled
 
+        all_vms_tags = load_vms_tags()
+
         if all_vms_tags:
             enabledconf["tags"] = True
 
@@ -550,7 +558,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 if any(["tags" in list(getattr(Config(machinery), vmtag).keys()) for vmtag in vms]):
                     enabledconf["tags"] = True
 
-        packages, machines = get_form_data("windows")
+        packages, machines = get_form_data()
 
         socks5s = _load_socks5_operational()
 
@@ -618,9 +626,9 @@ def index(request, task_id=None, resubmit_hash=None):
                 "tor": routing.tor.enabled,
                 "config": enabledconf,
                 "resubmit": resubmit_hash,
-                "tags": sorted(list(set(all_vms_tags))),
+                "tags": all_vms_tags,
                 "existent_tasks": existent_tasks,
-                "all_exitnodes": all_nodes_exits_list,
+                "all_exitnodes": list(sorted(load_vms_exits())),
             },
         )
 
@@ -661,13 +669,13 @@ def remote_session(request, task_id):
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine_by_label(task.machine)
+        machine = db.view_machine(task.machine)
         if not machine:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
         guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-        session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+        session_data = urlsafe_b64encode(f"{session_id}|{machine.label}|{guest_ip}".encode("utf8")).decode("utf8")
 
     return render(
         request,

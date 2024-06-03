@@ -635,6 +635,7 @@ class Analyzer:
         # we need to override pid_check and disable process monitor.
         if self.config.enforce_timeout:
             log.info("Enabled timeout enforce, running for the full timeout")
+            self.pid_check = False
 
         # next phase; go to the analysis loop
         self.analysis_loop(aux_modules)

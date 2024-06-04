@@ -1097,8 +1097,7 @@ def tasks_status(request, task_id):
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
     elif request.method == "POST" and apiconf.user_stop.enabled and request.data.get("status", "") == "finish":
-        machine_name = task.guest.name
-        machine = db.view_machine(machine_name)
+        machine = db.view_machine(task.guest.name)
         # Todo probably add task status if pending
         if machine.status == "running":
             try:

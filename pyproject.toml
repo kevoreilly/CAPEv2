@@ -13,7 +13,7 @@ greenlet = "3.0.0rc3"
 Pebble = "4.6.3"
 # pymisp = "2.4.144"
 cryptography = "42.0.4"
-requests = {version = "2.32.0", extras = ["security", "socks"]}
+requests = {version = "2.32.2", extras = ["security", "socks"]}
 pyOpenSSL = "24.0.0"
 pefile = "*"
 dnfile="0.14.1"
@@ -28,7 +28,7 @@ requests-file = "1.5.1"
 orjson = "3.9.15"
 # maec = "4.1.0.17"
 regex = "2021.7.6"
-SFlock2 = {version = "0.3.57", extras = ["shellcode"]}
+SFlock2 = {version = "0.3.59", extras = ["shellcode"]}
 # volatility3 = "2.0.0"
 # XLMMacroDeobfuscator = "0.2.7"
 pyzipper = "0.3.5"

@@ -1,3 +1,6 @@
+### [04.06.2024]
+* Monitor update: New hooks (GetAddrInfoExW, CLSIDFromProgIDEx), 64-bit hooking fixes
+
 ### [23.05.2024]
 * Integration of [rat_king_parser](https://github.com/jeFF0Falltrades/rat_king_parser) by @jeFF0Falltrades
     * Requires `dnfile` upgrade. We can't update it in `pyporject` due to `flare-capa`.

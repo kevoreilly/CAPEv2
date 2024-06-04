@@ -146,8 +146,6 @@ class Process:
             else:
                 self.h_process = KERNEL32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
                 if not self.h_process:
-                    log.warning("OpenProcess(PROCESS_ALL_ACCESS, ...) failed for process %d", self.pid)
-                    log.debug("Opening process with limited info %d", self.pid)
                     self.h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, self.pid)
 
             ret = True

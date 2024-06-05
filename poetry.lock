@@ -3441,12 +3441,12 @@ testing-integration = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "jar
 
 [[package]]
 name = "sflock2"
-version = "0.3.60"
+version = "0.3.61"
 description = "Sample staging and detonation utility"
 optional = false
 python-versions = "*"
 files = [
-    {file = "SFlock2-0.3.60.tar.gz", hash = "sha256:de0188c830bc54d687085f4f555ea08c33b00755b92202cee9ecbf0263ef031d"},
+    {file = "SFlock2-0.3.61.tar.gz", hash = "sha256:572549e86b5123c6cccd329a13ad20c2bc7e00158c9d96a5b51c97dd9b028a5b"},
 ]
 
 [package.dependencies]
@@ -4289,4 +4289,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "958b7fa51087e66902873244a1bbbe0f4fa23a62144d62fa4d189da886f666c5"
+content-hash = "7c1582db8690ddd87c9c29c31e319baae19a79f4796e5bbcc9cb656040211dbc"

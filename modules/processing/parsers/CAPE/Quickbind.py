@@ -2,9 +2,9 @@ import logging
 import re
 import struct
 from contextlib import suppress
-from Cryptodome.Cipher import ARC4
 
 import pefile
+from Cryptodome.Cipher import ARC4
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -48,12 +48,7 @@ def extract_config(filebuf):
         offset += padding
 
         with suppress(IndexError, UnicodeDecodeError, ValueError):
-            decrypted_result = (
-                ARC4.new(key)
-                .decrypt(encrypted_string)
-                .replace(b"\x00", b"")
-                .decode("utf-8")
-            )
+            decrypted_result = ARC4.new(key).decrypt(encrypted_string).replace(b"\x00", b"").decode("utf-8")
             if decrypted_result and len(decrypted_result) > 1:
                 entries.append(decrypted_result)
 

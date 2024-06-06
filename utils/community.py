@@ -123,7 +123,6 @@ def install(enabled, force, rewrite, clean, filepath: str = False, access_token=
             print(f"\n Deleting the folder content of the category {colors.cyan(category.upper())}")
             shutil.rmtree(folder)
 
-
         # E.g., "community-master/modules/signatures".
         name_start = f"{directory}/{folder}"
         for member in members:

@@ -1,3 +1,4 @@
+import ast
 import json
 import logging
 import os
@@ -122,7 +123,10 @@ class ParseProcessLog(list):
                 self.first_seen = time
 
             if syscall == "execve":
-                self.process_name = " ".join(eval(args[1]))
+                try:
+                    self.process_name = " ".join(ast.literal_eval(args[1]))
+                except Exception:
+                    self.process_name = str(args[1])
 
             if syscall in ["fork", "vfork", "clone", "clone3"]:
                 # Identify if thread or fork with reference to:
@@ -155,7 +159,7 @@ class ParseProcessLog(list):
                                 "time": time,
                                 "syscall": syscall,
                                 "fd": retval,
-                                "filename": eval(args[0]),
+                                "filename": ast.literal_eval(args[0]),
                             }
                         )
                     case call if call in ["openat", "openat2"]:
@@ -164,7 +168,7 @@ class ParseProcessLog(list):
                                 "time": time,
                                 "syscall": syscall,
                                 "fd": retval,
-                                "filename": eval(args[1]),
+                                "filename": ast.literal_eval(args[1]),
                             }
                         )
                     case call if call in ["dup", "dup2", "dup3"]:

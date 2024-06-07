@@ -596,17 +596,6 @@ def do_retrieve():
                      request.form.get("streaming", "")
                      )
 
-@app.route("/stream_file", methods=["POST"])
-def do_retrieve():
-    if "filepath" not in request.form:
-        return json_error(400, "No filepath has been provided")
-
-    return send_file(request.form["filepath"],
-                     request.form.get("encoding", ""),
-                     request.form.get("streaming", "")
-                     )
-
-
 
 @app.route("/extract", methods=["POST"])
 def do_extract():

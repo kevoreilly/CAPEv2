@@ -125,7 +125,7 @@ class ParseProcessLog(list):
             if syscall == "execve":
                 try:
                     self.process_name = " ".join(ast.literal_eval(args[1]))
-                except SyntaxError:
+                except Exception:
                     self.process_name = str(args[1])
 
             if syscall in ["fork", "vfork", "clone", "clone3"]:

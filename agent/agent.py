@@ -290,7 +290,7 @@ class send_file:
                     continue
                 try:
                     sock.write(line)
-                except BrokenPipeError:
+                except (BrokenPipeError, ConnectionResetError):
                     httplog.log_message(f"Client disconnected while reading {self.path}")
                     break
 

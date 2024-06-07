@@ -1419,9 +1419,6 @@ class _Database:
         task_ids = []
         config = {}
         sample_parent_id = None
-        # force auto package for linux files
-        if platform == "linux":
-            package = ""
 
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()

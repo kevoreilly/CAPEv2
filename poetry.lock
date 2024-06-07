@@ -2969,6 +2969,17 @@ files = [
 dev = ["black (==22.10.0)", "isort (==5.10.1)", "maturin", "mypy (==0.982)", "pycodestyle (==2.9.1)", "pytest (==7.1.3)", "pytest-cov (==4.0.0)", "pytest-instafail (==0.4.2)", "pytest-sugar (==0.9.4)"]
 
 [[package]]
+name = "python-magic"
+version = "0.4.27"
+description = "File type identification using libmagic"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+files = [
+    {file = "python-magic-0.4.27.tar.gz", hash = "sha256:c1ba14b08e4a5f5c31a302b7721239695b2f0f058d125bd5ce1ee36b9d9d3c3b"},
+    {file = "python_magic-0.4.27-py2.py3-none-any.whl", hash = "sha256:c212960ad306f700aa0d01e5d7a325d20548ff97eb9920dcd29513174f0294d3"},
+]
+
+[[package]]
 name = "python-tlsh"
 version = "4.5.0"
 description = "TLSH (C++ Python extension)"
@@ -3441,12 +3452,12 @@ testing-integration = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "jar
 
 [[package]]
 name = "sflock2"
-version = "0.3.61"
+version = "0.3.62"
 description = "Sample staging and detonation utility"
 optional = false
 python-versions = "*"
 files = [
-    {file = "SFlock2-0.3.61.tar.gz", hash = "sha256:572549e86b5123c6cccd329a13ad20c2bc7e00158c9d96a5b51c97dd9b028a5b"},
+    {file = "SFlock2-0.3.62.tar.gz", hash = "sha256:8ee99e16ca957669f158accd3bf1d92dac51895e5c76304219410a26251b55d1"},
 ]
 
 [package.dependencies]
@@ -3454,6 +3465,7 @@ click = "*"
 cryptography = ">=2.1"
 olefile = ">=0.43"
 pefile = "*"
+python-magic = ">=0.4.13"
 unicorn = {version = ">=2.0.0", optional = true, markers = "extra == \"shellcode\""}
 yara-python = {version = ">=4.1.0", optional = true, markers = "extra == \"shellcode\""}
 
@@ -4289,4 +4301,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "7c1582db8690ddd87c9c29c31e319baae19a79f4796e5bbcc9cb656040211dbc"
+content-hash = "ab9c8ee37000b3e3c76a5fb99684939b4f5280051a8f20d4f8c8ec07e5b3bf75"

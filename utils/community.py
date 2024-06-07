@@ -67,7 +67,7 @@ def flare_capa(proxy=None):
         print(e)
 
 
-def install(enabled, force, rewrite, clean, filepath: str = False, access_token=None, proxy=False, url: str = False):
+def install(enabled, force, rewrite, clean=False, filepath: str = False, access_token=None, proxy=False, url: str = False):
     if filepath and path_exists(filepath):
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:

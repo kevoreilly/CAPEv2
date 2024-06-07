@@ -175,8 +175,8 @@ class MiniHTTPServer:
         port: int = 8000,
         event: multiprocessing.Event = None,
     ):
-        socketserver.TCPServer.allow_reuse_address = True
-        self.s = socketserver.TCPServer((host, port), self.handler)
+        socketserver.ThreadingTCPServer.allow_reuse_address = True
+        self.s = socketserver.ThreadingTCPServer((host, port), self.handler)
 
         # tell anyone waiting that they're good to go
         if event:
@@ -220,6 +220,7 @@ class MiniHTTPServer:
             self.close_connection = True
 
     def shutdown(self):
+
         # BaseServer also features a .shutdown() method, but you can't use
         # that from the same thread as that will deadlock the whole thing.
         if hasattr(self, "s"):
@@ -267,8 +268,6 @@ class send_file:
         self.streaming = False
         if streaming == "1":
             self.streaming = True
-
-        print(f'streaming: {self.streaming}')
 
     def okay_to_send(self):
         return os.path.isfile(self.path) and os.access(self.path, os.R_OK)

@@ -1,10 +1,11 @@
 # Copyright (C) 2010-2019 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+# Part of the code are from https://gist.github.com/JamesTheAwesomeDude/e6aa18c02ecb49b1d65d5bf70ae0222b
 
+import re
 import argparse
 import base64
-import cgi
 import enum
 import http.server
 import ipaddress
@@ -24,14 +25,14 @@ import traceback
 from io import StringIO
 from typing import Iterable
 from zipfile import ZipFile
+import email.message, email.parser, email.policy
+import urllib.parse
+from collections import namedtuple
 
-try:
-    import re2 as re
-except ImportError:
-    import re
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+
+if sys.version_info[:2] < (3, 8):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
 
 # You must run x86 version not x64
 # The analysis process interacts with low-level Windows libraries that need a
@@ -40,7 +41,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.17"
+AGENT_VERSION = "0.18"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -50,6 +51,12 @@ AGENT_FEATURES = [
     "unicodepath",
 ]
 BASE_64_ENCODING = "base64"
+
+FieldEntry = namedtuple('FieldEntry', ["name", "value", "filename", "MIME_type"])
+# Definitionally: isinstance(fileField.filename, str) and (nonFileField.filename is None)
+# MIME_type is *usually* made up by the browser, guessed from thin air off the file extension alone,
+# but it may be set to a meaningful value by client applications such as cURL or JS' fetch()
+
 
 if sys.platform == "win32":
     AGENT_FEATURES.append("mutex")
@@ -98,6 +105,15 @@ state = {
     "mutexes": agent_mutexes,
 }
 
+_QSSPLIT = re.compile(r'(?:^|&)([^&]*)')
+_QSPARAM = re.compile(r'^(.*?)(?:=(.*))?$', re.DOTALL)
+def _parse_qs(qs):
+    for p in (m.group(1) for m in _QSSPLIT.finditer(qs)):
+        k, v = _QSPARAM.match(p).groups()
+        k = urllib.parse.unquote_plus(k)
+        v = urllib.parse.unquote_to_bytes(v.replace('+', ' ')) if v is not None else v
+        yield k, v
+
 
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "CAPE Agent"
@@ -110,48 +126,87 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         self.httpd.handle(self)
 
+    def parse_data(self, payload):
+        # https://gist.github.com/JamesTheAwesomeDude/e6aa18c02ecb49b1d65d5bf70ae0222b
+        m = email.message.Message()
+        m.set_default_type(None)  # TODO can this be handled by email.policy somehow?
+        ct_header = self.headers.get("Content-Type")
+        if self.headers.get("Content-Type") is not None:
+            m.add_header('Content-Type', ct_header)
+        match m.get_content_type():  # Union[str, Literal[None]]
+            case None:
+                # Codepath 1: GET or other body-less requests
+                # e.g. <form>
+                for k, v in _parse_qs(payload):
+                    yield FieldEntry(k, v, None, None)
+                return
+
+            case 'application/x-www-form-urlencoded':
+                # Codepath 2: url-encoded bodies
+                # e.g. <form method="POST">
+                for k, v in _parse_qs(payload.decode('latin-1')):
+                    yield FieldEntry(k, v, None, None)
+                return
+
+            case 'multipart/form-data':
+                # Codepath 3: multipart bodies
+                # e.g. <form method="POST" enctype="multipart/form-data">
+                # NOTE: this is the only protocol Chrome and Firefox will permit <input type="file"> with!
+                p = email.parser.BytesFeedParser(policy=email.policy.HTTP)
+                p.feed(('Content-Type: %s\r\n' % ct_header).encode('utf-8', errors='surrogateescape'))
+                p.feed('\r\n'.encode('utf-8'))
+                for chunk in payload:
+                    # TODO stream each element to the caller as they arrive
+                    # rather than loading them all into RAM at the same time
+                    p.feed(chunk)
+                m = p.close()
+                del p
+                assert m.is_multipart()
+                for part in m.iter_parts():
+                    part.set_default_type(None)
+                    yield FieldEntry(
+                        part.get_param('name', header='content-disposition'),
+                        part.get_payload(decode=True),
+                        part.get_filename(None),
+                        part.get_content_type()
+                    )
+
+            case ct:
+                raise ValueError('unexpected Content-Type: %s' % ct)
+
     def do_POST(self):
         environ = {
             "REQUEST_METHOD": "POST",
             "CONTENT_TYPE": self.headers.get("Content-Type"),
+            "CONTENT_LENGH": int(self.headers.get('Content-Length', 0)),
         }
-
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
 
         request.client_ip, request.client_port = self.client_address
         request.form = {}
         request.files = {}
         request.method = "POST"
+        payload = self.rfile.read(environ["CONTENT_LENGH"])
 
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
+        for value in self.parse_data(payload):
+            request.form[value.name] = value.value
         self.httpd.handle(self)
 
     def do_DELETE(self):
         environ = {
             "REQUEST_METHOD": "DELETE",
             "CONTENT_TYPE": self.headers.get("Content-Type"),
+            "CONTENT_LENGH": int(self.headers.get('Content-Length', 0)),
         }
-
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
 
         request.client_ip, request.client_port = self.client_address
         request.form = {}
         request.files = {}
         request.method = "DELETE"
+        payload = self.rfile.read(environ["CONTENT_LENGH"]).decode()
 
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
+
+        for value in self.parse_data(payload):
+            request.form[value.name] = value.value
         self.httpd.handle(self)
 
 

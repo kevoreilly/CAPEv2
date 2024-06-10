@@ -206,7 +206,6 @@ class TestAgent:
             r = requests.get(f"{BASE_URL}/kill")
             assert r.status_code == 200
             assert r.json()["message"] == "Quit the CAPE Agent"
-            self.agent_process.terminate()
         except requests.exceptions.ConnectionError:
             pass
         shutil.rmtree(DIRPATH, ignore_errors=True)

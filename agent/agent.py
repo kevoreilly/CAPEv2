@@ -4,7 +4,6 @@
 
 import argparse
 import base64
-import cgi
 import enum
 import http.server
 import ipaddress
@@ -24,6 +23,7 @@ import traceback
 from io import StringIO
 from typing import Iterable
 from zipfile import ZipFile
+from email.parser import HeaderParser
 
 try:
     import re2 as re
@@ -111,47 +111,57 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.httpd.handle(self)
 
     def do_POST(self):
+        """
         environ = {
             "REQUEST_METHOD": "POST",
             "CONTENT_TYPE": self.headers.get("Content-Type"),
         }
+        """
 
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
+        # form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
+        msg = HeaderParser().parsestr("Content-Type: " + self.rfile)
+        # self._content_type = msg.get_content_type()
+        params = msg.get_params()
+        form = dict(params[1:])
 
         request.client_ip, request.client_port = self.client_address
         request.form = {}
         request.files = {}
         request.method = "POST"
 
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
+        for key in form.keys():
+            value = form[key]
+            if value.filename:
+                request.files[key] = value.file
+            else:
+                request.form[key] = value.value
         self.httpd.handle(self)
 
     def do_DELETE(self):
+        """
         environ = {
             "REQUEST_METHOD": "DELETE",
             "CONTENT_TYPE": self.headers.get("Content-Type"),
         }
+        """
 
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
+        # form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
+        msg = HeaderParser().parsestr("Content-Type: " + self.rfile)
+        # self._content_type = msg.get_content_type()
+        params = msg.get_params()
+        form = dict(params[1:])
 
         request.client_ip, request.client_port = self.client_address
         request.form = {}
         request.files = {}
         request.method = "DELETE"
 
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
+        for key in form.keys():
+            value = form[key]
+            if value.filename:
+                request.files[key] = value.file
+            else:
+                request.form[key] = value.value
         self.httpd.handle(self)
 
 

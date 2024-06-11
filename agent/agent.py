@@ -19,8 +19,8 @@ import socketserver
 import stat
 import subprocess
 import sys
-import time
 import tempfile
+import time
 import traceback
 from io import StringIO
 from typing import Iterable
@@ -293,7 +293,6 @@ class send_file:
                 except (BrokenPipeError, ConnectionResetError):
                     httplog.log_message(f"Client disconnected while reading {self.path}")
                     break
-
 
     def write(self, httplog, sock):
         if not self.okay_to_send():
@@ -590,10 +589,7 @@ def do_retrieve():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
 
-    return send_file(request.form["filepath"],
-                     request.form.get("encoding", ""),
-                     request.form.get("streaming", "")
-                     )
+    return send_file(request.form["filepath"], request.form.get("encoding", ""), request.form.get("streaming", ""))
 
 
 @app.route("/extract", methods=["POST"])

@@ -19,7 +19,7 @@ from io import StringIO
 from zipfile import ZipFile
 
 try:
-    from flask import Flask, send_file, request, jsonify
+    from flask import Flask, request, jsonify  # send_file
 except ImportError:
     sys.exit("Missed dependency: pip3 install flask")
 

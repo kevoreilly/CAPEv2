@@ -149,10 +149,6 @@ class Scheduler:
         return task, machine
 
     def find_pending_task_not_requiring_machinery(self) -> Optional[Task]:
-        # This function must only be called when we're configured to not process any tasks
-        # that require machinery.
-        assert not self.machinery_manager
-
         task: Optional[Task] = None
         tasks = self.db.list_tasks(
             category=[category for category in self.analyzing_categories if category not in CATEGORIES_NEEDING_VM],

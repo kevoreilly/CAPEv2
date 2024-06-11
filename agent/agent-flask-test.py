@@ -21,7 +21,7 @@ from urllib.parse import urljoin
 import pytest
 import requests
 
-import agent
+import agent_flask as agent
 
 HOST = "127.0.0.1"
 PORT = 8000

@@ -19,7 +19,7 @@ from io import StringIO
 from zipfile import ZipFile
 
 try:
-    from flask import Flask, request, jsonify  # send_file
+    from flask import Flask, request, jsonify, send_file
 except ImportError:
     sys.exit("Missed dependency: pip3 install flask")
 
@@ -107,31 +107,6 @@ def shutdown_server():
     func()
 
 '''
-class jsonify:
-    """Wrapper that represents Flask.jsonify functionality."""
-
-    def __init__(self, status_code=200, **kwargs):
-        self.status_code = status_code
-        self.values = kwargs
-
-    def init(self):
-        pass
-
-    def json(self):
-        for valkey in self.values:
-            if isinstance(self.values[valkey], bytes):
-                self.values[valkey] = self.values[valkey].decode("utf8", "replace")
-        try:
-            retdata = json.dumps(self.values)
-        except Exception as ex:
-            retdata = json.dumps({"error": f"Error serializing json data: {ex.args[0]}"})
-
-        return retdata
-
-    def headers(self, obj):
-        pass
-'''
-
 class send_file:
     """Wrapper that represents Flask.send_file functionality."""
 
@@ -168,7 +143,7 @@ class send_file:
 
     def headers(self, obj):
         obj.send_header("Content-Length", self.length)
-
+'''
 
 def isAdmin():
     is_admin = None
@@ -428,7 +403,7 @@ def do_retrieve():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
 
-    return send_file(request.form["filepath"], request.form.get("encoding", ""))
+    return send_file(request.form["filepath"], mimetype=request.form.get("encoding", ""))
 
 
 @app.route("/extract", methods=["POST"])

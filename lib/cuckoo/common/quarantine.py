@@ -710,7 +710,6 @@ def unquarantine(f):
 
 
 if __name__ == "__main__":
-    import hashlib
     import sys
 
     tmp_path = unquarantine(sys.argv[1])

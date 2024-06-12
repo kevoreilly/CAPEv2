@@ -714,8 +714,8 @@ if __name__ == "__main__":
 
     tmp_path = unquarantine(sys.argv[1])
     if tmp_path:
-        original = hashlib.sha256(open(sys.argv[1], "rb")).hexdigest()
-        unq = hashlib.sha256(open(tmp_path, "rb")).hexdigest()
+        original = hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()
+        unq = hashlib.sha256(open(tmp_path, "rb").read()).hexdigest()
         if original == unq:
             print("Unsuported quarantine file format")
         else:

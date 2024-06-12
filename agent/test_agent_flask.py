@@ -263,7 +263,7 @@ class TestAgent:
     def store_file(cls, tmp, file_contents):
         """Store a file via the API, with the given contents. Return the filepath."""
         contents = os.linesep.join(file_contents)
-        tmp.write(contents.encode())
+        tmp.write(contents)
         tmp.seek(0)
         upload_file = {"file": tmp.name}
         # filepath = os.path.join(DIRPATH, make_temp_name() + ".py")

@@ -458,7 +458,7 @@ class TestAgent:
     def test_store(self):
         sample_text = make_temp_name()
 
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
             tmp.write(os.linesep.join(("test data", sample_text, "test data")))
             form = {"filepath": tmp.name, "file":  tmp.name}
 
@@ -475,17 +475,15 @@ class TestAgent:
         assert js["message"] == "No file has been provided"
 
         # missing filepath
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            with open(tmp.name, "wb") as f:
-                f.write(b"test data\ntest data\n")
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
+            tmp.write("test data\ntest data\n")
             upload_file = {"file": tmp.name}
             js = self.post_form("store", {}, 400, files=upload_file)
             assert js["message"] == "No filepath has been provided"
 
         # destination file path is invalid
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            with open(tmp.name, "wb") as f:
-                f.write(b"test data\ntest data\n")
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
+            tmp.write("test data\ntest data\n")
             upload_file = {"file": tmp.name}
             form = {"filepath": os.path.join(DIRPATH, make_temp_name(), "tmp")}
             js = self.post_form("store", form, 500, files=upload_file)
@@ -538,8 +536,7 @@ class TestAgent:
         zfile.seek(0)
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            with open(tmp.name, "wb") as f:
-                f.write(zfile.read())
+            tmp.write(zfile.read())
             upload_file = {"zipfile":  tmp.name}
             form = {"dirpath": DIRPATH}
 
@@ -556,9 +553,8 @@ class TestAgent:
         js = self.post_form("extract", form, 400)
         assert js["message"] == "No zip file has been provided"
 
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            with open(tmp.name, "wb") as f:
-                f.write(b"dummy data")
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
+            tmp.write("dummy data")
             upload_file = {"zipfile":  tmp.name}
             js = self.post_form("extract", {}, 400, files=upload_file)
             assert js["message"] == "No dirpath has been provided"
@@ -611,7 +607,7 @@ class TestAgent:
             "time.sleep(1)",
             "sys.exit(0)",
         )
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
             filepath = self.store_file(tmp, file_contents)
             form = {"filepath": filepath, "async": 1}
             js = self.post_form("execpy", form)
@@ -630,7 +626,7 @@ class TestAgent:
             "print('hello world')",
             "sys.exit(0)",
         )
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
             filepath = self.store_file(tmp, file_contents)
             form = {"filepath": filepath, "async": 1}
 
@@ -654,7 +650,7 @@ class TestAgent:
             "sys.exit(0)",
         )
 
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
             filepath = self.store_file(tmp, file_contents)
             form = {"filepath": filepath, "async": 1}
 
@@ -701,7 +697,7 @@ class TestAgent:
             "print('hello world')",
             "print('goodbye world', file=sys.stderr)",
         )
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
             filepath = self.store_file(tmp, file_contents)
 
             form = {"filepath": filepath}
@@ -734,7 +730,7 @@ class TestAgent:
             "print('hello world')",
             "sys.exit(3)",
         )
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as tmp:
             filepath = self.store_file(tmp, file_contents)
             form = {"filepath": filepath}
             js = self.post_form("execpy", form, expected_status=400)

@@ -501,7 +501,7 @@ class TestAgent:
             # Can't use self.post_form here as no json will be returned.
             r = app.test_client().post(f"{BASE_URL}/retrieve", data=form)
             # assert r.status_code == 200
-            assert file_contents.encode() in r.data
+            assert file_contents in r.data
             # assert last_line.encode() in r.data
             # Also test the base64-encoded retrieval.
             """ToDo base64 not supported yet

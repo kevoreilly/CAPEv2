@@ -283,9 +283,7 @@ class TestAgent:
         if files:
             form_data.update(files)
         # r = requests.post(url, data=form_data, files=files)
-        print(url, form_data)
         r = app.test_client().post(url, data=form_data)
-        print(r)
         assert r.status_code == expected_status
         js = r.json
         return js

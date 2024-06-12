@@ -708,9 +708,11 @@ def unquarantine(f):
             if quarfile:
                 return quarfile
 
+
 if __name__ == "__main__":
-    import sys
     import hashlib
+    import sys
+
     tmp_path = unquarantine(sys.argv[1])
     if tmp_path:
         original = hashlib.sha256(open(sys.argv[1], "rb")).hexdigest()

@@ -263,9 +263,8 @@ class TestAgent:
     def store_file(cls, tmp, file_contents):
         """Store a file via the API, with the given contents. Return the filepath."""
         contents = os.linesep.join(file_contents)
-        with open(tmp.name, "wb") as f:
-            f.write(contents.encode())
-            f.seek(0)
+        tmp.write(contents.encode())
+        tmp.seek(0)
         upload_file = {"file": tmp.name}
         # filepath = os.path.join(DIRPATH, make_temp_name() + ".py")
         filepath = tmp.name
@@ -459,9 +458,8 @@ class TestAgent:
     def test_store(self):
         sample_text = make_temp_name()
 
-        with tempfile.NamedTemporaryFile() as tmp:
-            with open(tmp.name, "w") as f:
-                f.write(os.linesep.join(("test data", sample_text, "test data")))
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(os.linesep.join(("test data", sample_text, "test data")))
             form = {"filepath": tmp.name, "file":  tmp.name}
 
             js = self.post_form("store", form)
@@ -477,7 +475,7 @@ class TestAgent:
         assert js["message"] == "No file has been provided"
 
         # missing filepath
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             with open(tmp.name, "wb") as f:
                 f.write(b"test data\ntest data\n")
             upload_file = {"file": tmp.name}
@@ -485,7 +483,7 @@ class TestAgent:
             assert js["message"] == "No filepath has been provided"
 
         # destination file path is invalid
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             with open(tmp.name, "wb") as f:
                 f.write(b"test data\ntest data\n")
             upload_file = {"file": tmp.name}
@@ -499,7 +497,7 @@ class TestAgent:
         last_line = make_temp_name()
         file_contents = os.linesep.join((first_line, "test data", last_line))
         # file_path = os.path.join(DIRPATH, make_temp_name() + ".tmp")
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             self.create_file(tmp.name, file_contents)
             form = {"filepath": tmp.name}
             # Can't use self.post_form here as no json will be returned.
@@ -539,7 +537,7 @@ class TestAgent:
         zf.close()
         zfile.seek(0)
 
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             with open(tmp.name, "wb") as f:
                 f.write(zfile.read())
             upload_file = {"zipfile":  tmp.name}
@@ -558,7 +556,7 @@ class TestAgent:
         js = self.post_form("extract", form, 400)
         assert js["message"] == "No zip file has been provided"
 
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             with open(tmp.name, "wb") as f:
                 f.write(b"dummy data")
             upload_file = {"zipfile":  tmp.name}
@@ -613,7 +611,7 @@ class TestAgent:
             "time.sleep(1)",
             "sys.exit(0)",
         )
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             filepath = self.store_file(tmp, file_contents)
             form = {"filepath": filepath, "async": 1}
             js = self.post_form("execpy", form)
@@ -632,7 +630,7 @@ class TestAgent:
             "print('hello world')",
             "sys.exit(0)",
         )
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             filepath = self.store_file(tmp, file_contents)
             form = {"filepath": filepath, "async": 1}
 
@@ -656,7 +654,7 @@ class TestAgent:
             "sys.exit(0)",
         )
 
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             filepath = self.store_file(tmp, file_contents)
             form = {"filepath": filepath, "async": 1}
 
@@ -703,7 +701,7 @@ class TestAgent:
             "print('hello world')",
             "print('goodbye world', file=sys.stderr)",
         )
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             filepath = self.store_file(tmp, file_contents)
 
             form = {"filepath": filepath}
@@ -736,7 +734,7 @@ class TestAgent:
             "print('hello world')",
             "sys.exit(3)",
         )
-        with tempfile.NamedTemporaryFile() as tmp:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
             filepath = self.store_file(tmp, file_contents)
             form = {"filepath": filepath}
             js = self.post_form("execpy", form, expected_status=400)

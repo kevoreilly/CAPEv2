@@ -1,9 +1,9 @@
 """Tests for the agent."""
 
-import base64
+# import base64
 import datetime
 import io
-import json
+# import json
 import multiprocessing
 import os
 import pathlib

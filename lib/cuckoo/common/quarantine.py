@@ -719,6 +719,6 @@ if __name__ == "__main__":
         if original == unq:
             print("Unsuported quarantine file format")
         else:
-            print("Suported quarantine file format")
+            print("Suported quarantine file format: \n Original: {original} - unqarantined: {unq}")
     else:
         print("Unsuported quarantine file format")

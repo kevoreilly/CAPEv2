@@ -26,7 +26,7 @@ from agent_flask import app
 
 
 HOST = "127.0.0.1"
-PORT = 8010
+PORT = 8000
 BASE_URL = f"http://{HOST}:{PORT}"
 
 DIRPATH = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))

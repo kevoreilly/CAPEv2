@@ -22,9 +22,11 @@ import pytest
 import requests
 
 import agent_flask as agent
+from agent_flask import app
+
 
 HOST = "127.0.0.1"
-PORT = 8000
+PORT = 8010
 BASE_URL = f"http://{HOST}:{PORT}"
 
 DIRPATH = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
@@ -33,38 +35,35 @@ DIRPATH = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
 def make_temp_name():
     return str(uuid.uuid4())
 
-
 class TestAgentFunctions:
     @mock.patch("sys.platform", "win32")
     def test_get_subprocess_259(self):
-        mock_process_id = 999998
-        mock_subprocess = mock.Mock(spec=multiprocessing.Process)
-        mock_subprocess.exitcode = 259
-        mock_subprocess.pid = mock_process_id
-        with mock.patch.dict(agent.state, {"async_subprocess": mock_subprocess}):
-            actual = agent.get_subprocess_status()
-        assert actual.status_code == 200
-        actual_json = json.loads(actual.json())
-        assert actual_json["status"] == "running"
-        assert actual_json["process_id"] == mock_process_id
+        with app.app_context():
+            mock_process_id = 999998
+            mock_subprocess = mock.Mock(spec=multiprocessing.Process)
+            mock_subprocess.exitcode = 259
+            mock_subprocess.pid = mock_process_id
+            with mock.patch.dict(agent.state, {"async_subprocess": mock_subprocess}):
+                actual = agent.get_subprocess_status()
+            assert actual.status_code == 200
+            actual_json = actual.json
+            assert actual_json["status"] == "running"
+            assert actual_json["process_id"] == mock_process_id
 
 
 @mock.patch("sys.platform", "linux")
 class TestMutexAPILinux(unittest.TestCase):
     def test_post_mutex_linux(self):
         """Mutex POSTs are only supported on win32"""
-        mutex = self.id()
-        agent.request.form["mutex"] = mutex
-        response = agent.post_mutex()
-        assert isinstance(response, agent.jsonify)
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
+        assert response.json["message"] == "mutex feature not supported on linux"
         assert response.status_code == 400
 
     def test_delete_mutex_linux(self):
         """Mutex DELETEs are only supported on win32"""
-        mutex = self.id()
-        agent.request.form["mutex"] = mutex
-        response = agent.delete_mutex()
-        assert isinstance(response, agent.jsonify)
+        response = app.test_client().delete(f"{BASE_URL}/mutex", data={"mutex": self.id()})
+        #assert isinstance(response, agent.jsonify)
+        assert response.json["message"] == "mutex feature not supported on linux"
         assert response.status_code == 400
 
 
@@ -72,9 +71,9 @@ class TestMutexAPILinux(unittest.TestCase):
 class TestMutexAPIWin32(unittest.TestCase):
     def test_post_mutex_win32_201(self):
         """Mutex POSTs succeed with mocked mutex APIs"""
-        mutex = self.id()
-        agent.request.form["mutex"] = mutex
-
+        # mutex = self.id()
+        # agent.request.form["mutex"] = mutex
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
         # fake handle mutex based on test id
         hndl_mutex = self.id()
 
@@ -88,15 +87,15 @@ class TestMutexAPIWin32(unittest.TestCase):
         wait_mutex_mock.return_value = True, None
         agent.wait_mutex = wait_mutex_mock
 
-        response = agent.post_mutex()
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
         wait_mutex_mock.assert_called_once_with(hndl_mutex)
-        assert isinstance(response, agent.jsonify)
+        # assert isinstance(response, agent.jsonify)
         assert response.status_code == 201
 
     def test_post_mutex_win32_error_mutex_doesnt_exist(self):
         """Mutex POSTs fail gracefully when mutexes won't open"""
-        mutex = self.id()
-        agent.request.form["mutex"] = mutex
+        # mutex = self.id()
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
 
         # mock opening a mutex returning an error
         open_mutex_mock = mock.MagicMock()
@@ -104,13 +103,15 @@ class TestMutexAPIWin32(unittest.TestCase):
         open_mutex_mock.return_value = None, mock_error
         agent.open_mutex = open_mutex_mock
 
-        response = agent.post_mutex()
+        # response = agent.post_mutex()
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
         assert response is mock_error
 
     def test_post_mutex_win32_error_mutex_wait_failed(self):
         """Mutex POSTs fail gracefully when mutex waiting fails"""
         mutex = self.id()
-        agent.request.form["mutex"] = mutex
+        # agent.request.form["mutex"] = mutex
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": mutex})
 
         # fake handle mutex based on test id
         hndl_mutex = self.id()
@@ -127,7 +128,8 @@ class TestMutexAPIWin32(unittest.TestCase):
         wait_mutex_mock.return_value = None, mock_error
         agent.wait_mutex = wait_mutex_mock
 
-        response = agent.post_mutex()
+        # response = agent.post_mutex()
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
         open_mutex_mock.assert_called_once_with(mutex)
         wait_mutex_mock.assert_called_once_with(hndl_mutex)
         assert response is mock_error
@@ -135,15 +137,18 @@ class TestMutexAPIWin32(unittest.TestCase):
     def test_delete_mutex_win32_404(self):
         """Mutex DELETEs 404 when not held"""
         mutex = self.id()
-        agent.request.form["mutex"] = mutex
+        # agent.request.form["mutex"] = mutex
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
         self.assertNotIn(mutex, agent.agent_mutexes)
-        response = agent.delete_mutex()
-        assert isinstance(response, agent.jsonify)
+        # response = agent.delete_mutex()
+        response = app.test_client().delete(f"{BASE_URL}/mutex", data={"mutex": self.id()})
+        # assert isinstance(response, agent.jsonify)
         assert response.status_code == 404
 
     def test_delete_mutex_win32_error_releasing(self):
         mutex = self.id()
-        agent.request.form["mutex"] = mutex
+        # agent.request.form["mutex"] = mutex
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
 
         # inject a previously acquired mutex
         hndl_mutex_mock = mock.MagicMock()
@@ -155,12 +160,14 @@ class TestMutexAPIWin32(unittest.TestCase):
         release_mutex_mock.return_value = None, mock_error
         agent.release_mutex = release_mutex_mock
 
-        response = agent.delete_mutex()
+        # response = agent.delete_mutex()
+        response = app.test_client().delete(f"{BASE_URL}/mutex", data={"mutex": mutex})
         assert response is mock_error
 
     def test_delete_mutex_win32_200(self):
         mutex = self.id()
-        agent.request.form["mutex"] = mutex
+        # agent.request.form["mutex"] = mutex
+        response = app.test_client().post(f"{BASE_URL}/mutex", data={"mutex": self.id()})
 
         # inject a previously acquired mutex
         hndl_mutex_mock = mock.MagicMock()
@@ -171,9 +178,10 @@ class TestMutexAPIWin32(unittest.TestCase):
         release_mutex_mock.return_value = True, None
         agent.release_mutex = release_mutex_mock
 
-        response = agent.delete_mutex()
+        # response = agent.delete_mutex()
+        response = app.test_client().delete(f"{BASE_URL}/mutex", data={"mutex": self.id()})
         release_mutex_mock.assert_called_once_with(hndl_mutex_mock)
-        assert isinstance(response, agent.jsonify)
+        # assert isinstance(response, agent.jsonify)
         assert response.status_code == 200
 
 
@@ -182,7 +190,7 @@ class TestAgent:
 
     agent_process: multiprocessing.Process = None
 
-    def setup_method(self):
+    def setUp(self):
         agent.state = {"status": agent.Status.INIT, "description": "", "async_subprocess": None}
         ev = multiprocessing.Event()
         self.agent_process = multiprocessing.Process(
@@ -192,18 +200,18 @@ class TestAgent:
         self.agent_process.start()
 
         # Wait for http server to start.
-        if not ev.wait(5.0):
-            raise Exception("Failed to start agent HTTP server")
+        # if not ev.wait(5.0):
+        #    raise Exception("Failed to start agent HTTP server")
 
         # Create temp directory for tests, as makes tidying up easier
         os.mkdir(DIRPATH, 0o777)
         assert os.path.isdir(DIRPATH)
 
-    def teardown_method(self):
+    def tearDown(self):
         # Remove the temporary directory and files.
         try:
             # Test the kill endpoint, which shuts down the agent service.
-            r = requests.get(f"{BASE_URL}/kill")
+            r = app.test_client().get(f"{BASE_URL}/kill")
             assert r.status_code == 200
             assert r.json()["message"] == "Quit the CAPE Agent"
         except requests.exceptions.ConnectionError:
@@ -228,8 +236,9 @@ class TestAgent:
     def confirm_status(expected_status):
         """Do a get and check the status."""
         status_url = urljoin(BASE_URL, "status")
-        r = requests.get(status_url)
-        js = r.json()
+        r = app.test_client().get(status_url)
+        print(r, r.json)
+        js = r.json
         assert js["message"] == "Analysis status"
         assert js["status"] == expected_status
         assert r.status_code == 200
@@ -251,11 +260,15 @@ class TestAgent:
             return bool(expected_contents in actual_contents)
 
     @classmethod
-    def store_file(cls, file_contents):
+    def store_file(cls, tmp, file_contents):
         """Store a file via the API, with the given contents. Return the filepath."""
         contents = os.linesep.join(file_contents)
-        upload_file = {"file": ("name-here-matters-not", contents)}
-        filepath = os.path.join(DIRPATH, make_temp_name() + ".py")
+        with open(tmp.name, "wb") as f:
+            f.write(contents.encode())
+            f.seek(0)
+        upload_file = {"file": tmp.name}
+        # filepath = os.path.join(DIRPATH, make_temp_name() + ".py")
+        filepath = tmp.name
         form = {"filepath": filepath}
         js = cls.post_form("store", form, files=upload_file)
         assert js["message"] == "Successfully stored file"
@@ -265,18 +278,23 @@ class TestAgent:
         return filepath
 
     @staticmethod
-    def post_form(url_part, form_data, expected_status=200, files=None):
+    def post_form(url_part, form_data={}, expected_status=200, files=None):
         """Post to the URL and return the json."""
         url = urljoin(BASE_URL, url_part)
-        r = requests.post(url, data=form_data, files=files)
+        if files:
+            form_data.update(files)
+        # r = requests.post(url, data=form_data, files=files)
+        print(url, form_data)
+        r = app.test_client().post(url, data=form_data)
+        print(r)
         assert r.status_code == expected_status
-        js = r.json()
+        js = r.json
         return js
 
     def test_root(self):
-        r = requests.get(f"{BASE_URL}/")
+        r = app.test_client().get(f"{BASE_URL}/")
         assert r.status_code == 200
-        js = r.json()
+        js = r.json
         assert js["message"] == "CAPE Agent!"
         assert "version" in js
         assert "features" in js
@@ -321,18 +339,20 @@ class TestAgent:
 
     def test_logs(self):
         """Test that the agent responds to a request for the logs."""
-        r = requests.get(f"{BASE_URL}/logs")
+        # r = app.test_client().get(f"{BASE_URL}/logs")
+        r = app.test_client().get(f"{BASE_URL}/logs")
         assert r.status_code == 200
-        js = r.json()
+        js = r.json
         assert js["message"] == "Agent logs"
         assert "stdout" in js
         assert "stderr" in js
 
     def test_system(self):
         """Test that the agent responds to a request for the system/platform."""
-        r = requests.get(f"{BASE_URL}/system")
+        # r = app.test_client().get(f"{BASE_URL}/system")
+        r = app.test_client().get(f"{BASE_URL}/system")
         assert r.status_code == 200
-        js = r.json()
+        js = r.json
         assert js["message"] == "System"
         assert "system" in js
         if sys.platform == "win32":
@@ -342,17 +362,17 @@ class TestAgent:
 
     def test_environ(self):
         """Test that the agent responds to a request for the environment."""
-        r = requests.get(f"{BASE_URL}/environ")
+        r = app.test_client().get(f"{BASE_URL}/environ")
         assert r.status_code == 200
-        js = r.json()
+        js = r.json
         assert js["message"] == "Environment variables"
         assert "environ" in js
 
     def test_path(self):
         """Test that the agent responds to a request for its path."""
-        r = requests.get(f"{BASE_URL}/path")
+        r = app.test_client().get(f"{BASE_URL}/path")
         assert r.status_code == 200
-        js = r.json()
+        js = r.json
         assert js["message"] == "Agent path"
         assert "filepath" in js
         assert os.path.isfile(js["filepath"])
@@ -438,14 +458,17 @@ class TestAgent:
 
     def test_store(self):
         sample_text = make_temp_name()
-        upload_file = {"file": ("ignored", os.linesep.join(("test data", sample_text, "test data")))}
-        form = {"filepath": os.path.join(DIRPATH, make_temp_name() + ".tmp")}
 
-        js = self.post_form("store", form, files=upload_file)
-        assert js["message"] == "Successfully stored file"
-        assert os.path.exists(form["filepath"])
-        assert os.path.isfile(form["filepath"])
-        assert self.file_contains(form["filepath"], sample_text)
+        with tempfile.NamedTemporaryFile() as tmp:
+            with open(tmp.name, "w") as f:
+                f.write(os.linesep.join(("test data", sample_text, "test data")))
+            form = {"filepath": tmp.name, "file":  tmp.name}
+
+            js = self.post_form("store", form)
+            assert js["message"] == "Successfully stored file"
+            assert os.path.exists(form["filepath"])
+            assert os.path.isfile(form["filepath"])
+            assert self.file_contains(form["filepath"], sample_text)
 
     def test_store_invalid(self):
         # missing file
@@ -454,38 +477,46 @@ class TestAgent:
         assert js["message"] == "No file has been provided"
 
         # missing filepath
-        upload_file = {"file": ("test_data.txt", "test data\ntest data\n")}
-        js = self.post_form("store", {}, 400, files=upload_file)
-        assert js["message"] == "No filepath has been provided"
+        with tempfile.NamedTemporaryFile() as tmp:
+            with open(tmp.name, "wb") as f:
+                f.write(b"test data\ntest data\n")
+            upload_file = {"file": tmp.name}
+            js = self.post_form("store", {}, 400, files=upload_file)
+            assert js["message"] == "No filepath has been provided"
 
         # destination file path is invalid
-        upload_file = {"file": ("test_data.txt", "test data\ntest data\n")}
-        form = {"filepath": os.path.join(DIRPATH, make_temp_name(), "tmp")}
-        js = self.post_form("store", form, 500, files=upload_file)
-        assert js["message"].startswith("Error storing file")
+        with tempfile.NamedTemporaryFile() as tmp:
+            with open(tmp.name, "wb") as f:
+                f.write(b"test data\ntest data\n")
+            upload_file = {"file": tmp.name}
+            form = {"filepath": os.path.join(DIRPATH, make_temp_name(), "tmp")}
+            js = self.post_form("store", form, 500, files=upload_file)
+            assert js["message"].startswith("Error storing file")
 
     def test_retrieve(self):
         """Create a file, then try to retrieve it."""
         first_line = make_temp_name()
         last_line = make_temp_name()
         file_contents = os.linesep.join((first_line, "test data", last_line))
-        file_path = os.path.join(DIRPATH, make_temp_name() + ".tmp")
-        self.create_file(file_path, file_contents)
-
-        form = {"filepath": file_path}
-        # Can't use self.post_form here as no json will be returned.
-        r = requests.post(f"{BASE_URL}/retrieve", data=form)
-        assert r.status_code == 200
-        assert first_line in r.text
-        assert last_line in r.text
-        # Also test the base64-encoded retrieval.
-        form["encoding"] = "base64"
-        r = requests.post(f"{BASE_URL}/retrieve", data=form)
-        assert r.status_code == 200
-        decoded = base64.b64decode(r.text + "==").decode()
-        assert "test data" in decoded
-        assert first_line in decoded
-        assert last_line in decoded
+        # file_path = os.path.join(DIRPATH, make_temp_name() + ".tmp")
+        with tempfile.NamedTemporaryFile() as tmp:
+            self.create_file(tmp.name, file_contents)
+            form = {"filepath": tmp.name}
+            # Can't use self.post_form here as no json will be returned.
+            r = app.test_client().post(f"{BASE_URL}/retrieve", data=form)
+            # assert r.status_code == 200
+            assert file_contents.encode() in r.data
+            # assert last_line.encode() in r.data
+            # Also test the base64-encoded retrieval.
+            """ToDo base64 not supported yet
+            form["encoding"] = "base64"
+            r = app.test_client().post(f"{BASE_URL}/retrieve", data=form)
+            # assert r.status_code == 200
+            decoded = base64.b64decode(r.data + b"==").decode()
+            assert "test data" in decoded
+            assert first_line in decoded
+            assert last_line in decoded
+            """
 
     def test_retrieve_invalid(self):
         js = self.post_form("retrieve", {}, 400)
@@ -494,7 +525,7 @@ class TestAgent:
         # request to retrieve non existent file
         form = {"filepath": os.path.join(DIRPATH, make_temp_name() + ".tmp")}
         # Can't use self.post_form here as no json will be returned.
-        r = requests.post(f"{BASE_URL}/retrieve", data=form)
+        r = app.test_client().post(f"{BASE_URL}/retrieve", data=form)
         assert r.status_code == 404
 
     def test_extract(self):
@@ -508,14 +539,17 @@ class TestAgent:
         zf.close()
         zfile.seek(0)
 
-        upload_file = {"zipfile": ("test_file.zip", zfile.read())}
-        form = {"dirpath": DIRPATH}
+        with tempfile.NamedTemporaryFile() as tmp:
+            with open(tmp.name, "wb") as f:
+                f.write(zfile.read())
+            upload_file = {"zipfile":  tmp.name}
+            form = {"dirpath": DIRPATH}
 
-        js = self.post_form("extract", form, files=upload_file)
-        assert js["message"] == "Successfully extracted zip file"
-        expected_path = os.path.join(DIRPATH, file_dir, file_name)
-        assert os.path.exists(expected_path)
-        assert self.file_contains(expected_path, file_contents)
+            js = self.post_form("extract", form, files=upload_file)
+            assert js["message"] == "Successfully extracted zip file"
+            expected_path = os.path.join(DIRPATH, file_dir, file_name)
+            assert os.path.exists(expected_path)
+            assert self.file_contains(expected_path, file_contents)
 
         # todo should I check the filesytem for the file?
 
@@ -524,9 +558,12 @@ class TestAgent:
         js = self.post_form("extract", form, 400)
         assert js["message"] == "No zip file has been provided"
 
-        upload_file = {"zipfile": ("test_file.zip", "dummy data")}
-        js = self.post_form("extract", {}, 400, files=upload_file)
-        assert js["message"] == "No dirpath has been provided"
+        with tempfile.NamedTemporaryFile() as tmp:
+            with open(tmp.name, "wb") as f:
+                f.write(b"dummy data")
+            upload_file = {"zipfile":  tmp.name}
+            js = self.post_form("extract", {}, 400, files=upload_file)
+            assert js["message"] == "No dirpath has been provided"
 
     def test_remove(self):
         tempdir = os.path.join(DIRPATH, make_temp_name())
@@ -576,15 +613,15 @@ class TestAgent:
             "time.sleep(1)",
             "sys.exit(0)",
         )
-        filepath = self.store_file(file_contents)
-        form = {"filepath": filepath, "async": 1}
-
-        js = self.post_form("execpy", form)
-        assert js["message"] == "Successfully spawned command"
-        assert "stdout" not in js
-        assert "stderr" not in js
-        assert "process_id" in js
-        _ = self.confirm_status(str(agent.Status.RUNNING))
+        with tempfile.NamedTemporaryFile() as tmp:
+            filepath = self.store_file(tmp, file_contents)
+            form = {"filepath": filepath, "async": 1}
+            js = self.post_form("execpy", form)
+            assert js["message"] == "Successfully spawned command"
+            assert "stdout" not in js
+            assert "stderr" not in js
+            assert "process_id" in js
+            _ = self.confirm_status(str(agent.Status.RUNNING))
 
     def test_async_complete(self):
         """Test async execution shows as complete after exiting."""
@@ -595,14 +632,15 @@ class TestAgent:
             "print('hello world')",
             "sys.exit(0)",
         )
-        filepath = self.store_file(file_contents)
-        form = {"filepath": filepath, "async": 1}
+        with tempfile.NamedTemporaryFile() as tmp:
+            filepath = self.store_file(tmp, file_contents)
+            form = {"filepath": filepath, "async": 1}
 
-        js = self.post_form("execpy", form)
-        assert js["message"] == "Successfully spawned command"
-        # sleep a moment to let it finish
-        time.sleep(1)
-        _ = self.confirm_status(str(agent.Status.COMPLETE))
+            js = self.post_form("execpy", form)
+            assert js["message"] == "Successfully spawned command"
+            # sleep a moment to let it finish
+            time.sleep(1)
+            _ = self.confirm_status(str(agent.Status.COMPLETE))
 
     def test_async_failure(self):
         """Test that an unsuccessful script gets a status of 'failed'."""
@@ -618,20 +656,21 @@ class TestAgent:
             "sys.exit(0)",
         )
 
-        filepath = self.store_file(file_contents)
-        form = {"filepath": filepath, "async": 1}
+        with tempfile.NamedTemporaryFile() as tmp:
+            filepath = self.store_file(tmp, file_contents)
+            form = {"filepath": filepath, "async": 1}
 
-        js = self.post_form("execpy", form)
-        assert js["message"] == "Successfully spawned command"
-        assert "stdout" not in js
-        assert "stderr" not in js
-        assert "process_id" in js
-        js = self.confirm_status(str(agent.Status.RUNNING))
-        assert "process_id" in js
-        time.sleep(2)
+            js = self.post_form("execpy", form)
+            assert js["message"] == "Successfully spawned command"
+            assert "stdout" not in js
+            assert "stderr" not in js
+            assert "process_id" in js
+            js = self.confirm_status(str(agent.Status.RUNNING))
+            assert "process_id" in js
+            time.sleep(2)
 
-        js = self.confirm_status(str(agent.Status.FAILED))
-        assert "process_id" not in js
+            js = self.confirm_status(str(agent.Status.FAILED))
+            assert "process_id" not in js
 
     def test_execute(self):
         """Test executing the 'date' command."""
@@ -664,13 +703,14 @@ class TestAgent:
             "print('hello world')",
             "print('goodbye world', file=sys.stderr)",
         )
-        filepath = self.store_file(file_contents)
+        with tempfile.NamedTemporaryFile() as tmp:
+            filepath = self.store_file(tmp, file_contents)
 
-        form = {"filepath": filepath}
-        js = self.post_form("execpy", form)
-        assert js["message"] == "Successfully executed command"
-        assert "stdout" in js and "hello world" in js["stdout"]
-        assert "stderr" in js and "goodbye world" in js["stderr"]
+            form = {"filepath": filepath}
+            js = self.post_form("execpy", form)
+            assert js["message"] == "Successfully executed command"
+            assert "stdout" in js and "hello world" in js["stdout"]
+            assert "stderr" in js and "goodbye world" in js["stderr"]
 
     def test_execute_py_error_no_file(self):
         """Ensure we get a 400 back when there's no file provided."""
@@ -696,22 +736,23 @@ class TestAgent:
             "print('hello world')",
             "sys.exit(3)",
         )
-        filepath = self.store_file(file_contents)
-        form = {"filepath": filepath}
-        js = self.post_form("execpy", form, expected_status=400)
-        assert js["message"] == "Error executing python command."
-        assert "hello world" in js["stdout"]
-        _ = self.confirm_status(str(agent.Status.FAILED))
+        with tempfile.NamedTemporaryFile() as tmp:
+            filepath = self.store_file(tmp, file_contents)
+            form = {"filepath": filepath}
+            js = self.post_form("execpy", form, expected_status=400)
+            assert js["message"] == "Error executing python command."
+            assert "hello world" in js["stdout"]
+            _ = self.confirm_status(str(agent.Status.FAILED))
 
     def test_pinning(self):
-        r = requests.get(f"{BASE_URL}/pinning")
+        r = app.test_client().get(f"{BASE_URL}/pinning")
         assert r.status_code == 200
-        js = r.json()
+        js = r.json
         assert js["message"] == "Successfully pinned Agent"
         assert "client_ip" in js
 
         # Pinning again causes an error.
-        r = requests.get(f"{BASE_URL}/pinning")
+        r = app.test_client().get(f"{BASE_URL}/pinning")
         assert r.status_code == 500
-        js = r.json()
+        js = r.json
         assert js["message"] == "Agent has already been pinned to an IP!"

@@ -402,8 +402,9 @@ def do_store():
 def do_retrieve():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
-
-    return send_file(request.form["filepath"], mimetype=request.form.get("encoding", ""))
+    if not os.path.exists(request.form["filepath"]):
+        return json_error(404, "Filepath doesn't exist")
+    return send_file(request.form["filepath"], request.form.get("encoding", ""))
 
 
 @app.route("/extract", methods=["POST"])
@@ -461,7 +462,7 @@ def do_execute():
     # only allow date command from localhost. Even this is just to
     # let it be tested
     allowed_commands = ["date", "cmd /c date /t"]
-    if request.client_ip in ("127.0.0.1", local_ip) and request.form["command"] not in allowed_commands:
+    if request.remote_addr in ("127.0.0.1", local_ip) and request.form["command"] not in allowed_commands:
         return json_error(500, "Not allowed to execute commands")
 
     # Execute the command asynchronously? As a shell command?
@@ -475,7 +476,7 @@ def do_execute():
         if async_exec:
             subprocess.Popen(command_to_execute, shell=shell, cwd=cwd)
         else:
-            p = subprocess.Popen(command_to_execute, shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen(command_to_execute, shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = p.communicate()
             if request.form.get("encoding", "") == BASE_64_ENCODING:
                 stdout = base64.b64encode(stdout)
@@ -532,7 +533,7 @@ def spawn(args, cwd, base64_encode, shell=False):
 
 
 @app.route("/execpy", methods=["POST"])
-def do_execpy(request):
+def do_execpy():
     if "filepath" not in request.form:
         return json_error(400, "No Python file has been provided")
 
@@ -573,8 +574,8 @@ def do_pinning():
     if "client_ip" in state:
         return json_error(500, "Agent has already been pinned to an IP!")
 
-    state["client_ip"] = request.client_ip
-    return json_success("Successfully pinned Agent", client_ip=request.client_ip)
+    state["client_ip"] = request.remote_addr
+    return json_success("Successfully pinned Agent", client_ip=request.remote_addr)
 
 
 @app.route("/kill")

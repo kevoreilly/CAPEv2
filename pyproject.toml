@@ -16,7 +16,6 @@ cryptography = "42.0.4"
 requests = {version = "2.32.2", extras = ["security", "socks"]}
 pyOpenSSL = "24.0.0"
 pefile = "*"
-dnfile="0.14.1"
 tldextract = "3.5.0"
 oletools = "0.60"
 olefile = "0.46"
@@ -32,7 +31,7 @@ SFlock2 = {version = "0.3.62", extras = ["shellcode"]}
 # volatility3 = "2.0.0"
 # XLMMacroDeobfuscator = "0.2.7"
 pyzipper = "0.3.5"
-flare-capa = "7.0.1"
+flare-capa = "7.1.0"
 Cython = "0.29.24"
 # pyre2 = "0.3.6" # Dead for python3.11
 Django = "4.2.11"

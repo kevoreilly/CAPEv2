@@ -515,20 +515,6 @@ files = [
 ]
 
 [[package]]
-name = "commonmark"
-version = "0.9.1"
-description = "Python parser for the CommonMark Markdown spec"
-optional = false
-python-versions = "*"
-files = [
-    {file = "commonmark-0.9.1-py2.py3-none-any.whl", hash = "sha256:da2f38c92590f83de410ba1a3cbceafbc74fee9def35f9251ba9a971d6d66fd9"},
-    {file = "commonmark-0.9.1.tar.gz", hash = "sha256:452f9dc859be7f06631ddcb328b6919c67984aca654e5fefb3914d54691aed60"},
-]
-
-[package.extras]
-test = ["flake8 (==3.7.8)", "hypothesis (==3.55.3)"]
-
-[[package]]
 name = "constantly"
 version = "15.1.0"
 description = "Symbolic constants in Python"
@@ -926,13 +912,13 @@ dev = ["black (==22.12.0)", "dnfile (==0.12.0)", "hexdump (==3.3.0)", "isort (==
 
 [[package]]
 name = "dnfile"
-version = "0.14.1"
+version = "0.15.0"
 description = "Parse .NET executable files."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "dnfile-0.14.1-py3-none-any.whl", hash = "sha256:9c6a1497768d7a90a2c3fc301875a90d4f97c6a36496680453bc8a092c143c77"},
-    {file = "dnfile-0.14.1.tar.gz", hash = "sha256:d394a5511253398892157735b66e446388449fe807926243749778deadf2ea8c"},
+    {file = "dnfile-0.15.0-py3-none-any.whl", hash = "sha256:d60239de76035bed22f3c131925cf8d484f44a9da03c19659a01a615309add55"},
+    {file = "dnfile-0.15.0.tar.gz", hash = "sha256:e4ae8803a59d8f845c11524e8b007104b43c90adc2fb0a81dcdc2972c47dfc80"},
 ]
 
 [package.dependencies]
@@ -1026,38 +1012,40 @@ typing = ["typing-extensions (>=4.7.1)"]
 
 [[package]]
 name = "flare-capa"
-version = "7.0.1"
+version = "7.1.0"
 description = "The FLARE team's open-source tool to identify capabilities in executable files."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "flare-capa-7.0.1.tar.gz", hash = "sha256:02021bdfd8c3bdb3c1e5d72778e3a7cf72e7bf3f2652a34778f25f1037e22400"},
-    {file = "flare_capa-7.0.1-py3-none-any.whl", hash = "sha256:2d0ad6225d4b0aaf7c824de6d75957d78c4733ee8232175d69f2c54a9a4add90"},
+    {file = "flare_capa-7.1.0-py3-none-any.whl", hash = "sha256:1c636b2409e0ce4739af4137fb1f4abee73d8c4de36e7ac5637046a8f8d1d20c"},
+    {file = "flare_capa-7.1.0.tar.gz", hash = "sha256:bad56842fe29c877fa47a0d70a63732f57e67a45beb6e4004d1ea56d3196d6fa"},
 ]
 
 [package.dependencies]
-colorama = "0.4.6"
-dncil = "1.0.2"
-dnfile = "0.14.1"
-halo = "0.0.31"
-ida-settings = "2.1.0"
-networkx = "3.1"
-pefile = "2023.2.7"
-protobuf = "4.23.4"
-pydantic = "2.4.0"
-pyelftools = "0.30"
-pyyaml = "6.0.1"
-"ruamel.yaml" = "0.18.5"
-tabulate = "0.9.0"
-termcolor = "2.4.0"
-tqdm = "4.66.1"
-viv-utils = {version = "0.7.9", extras = ["flirt"]}
-vivisect = "1.1.1"
-wcwidth = "0.2.13"
+colorama = ">=0.4"
+dncil = ">=1.0.2"
+dnfile = ">=0.15.0"
+humanize = ">=4"
+ida-settings = ">=2"
+networkx = ">=3,<3.2"
+pefile = ">=2023.2.7"
+protobuf = ">=5"
+pydantic = ">=2"
+pyelftools = ">=0.31"
+pyyaml = ">=6"
+rich = ">=13"
+"ruamel.yaml" = ">=0.18"
+tabulate = ">=0.9"
+termcolor = ">=2"
+tqdm = ">=4"
+viv-utils = {version = ">=0.7.9", extras = ["flirt"]}
+vivisect = ">=1.1.1"
+wcwidth = ">=0.2"
 
 [package.extras]
-build = ["build (==1.0.3)", "pyinstaller (==6.3.0)", "setuptools (==69.0.3)"]
-dev = ["black (==24.1.1)", "flake8 (==7.0.0)", "flake8-bugbear (==24.1.17)", "flake8-comprehensions (==3.14.0)", "flake8-copyright (==0.2.4)", "flake8-encodings (==0.5.1)", "flake8-logging-format (==0.9.0)", "flake8-no-implicit-concat (==0.3.5)", "flake8-print (==5.0.0)", "flake8-simplify (==0.21.0)", "flake8-todos (==0.3.0)", "flake8-use-pathlib (==0.3.0)", "isort (==5.13.2)", "mypy (==1.8.0)", "mypy-protobuf (==3.5.0)", "pre-commit (==3.5.0)", "psutil (==5.9.2)", "pytest (==8.0.0)", "pytest-cov (==4.1.0)", "pytest-instafail (==0.5.0)", "pytest-sugar (==0.9.7)", "requests (==2.31.0)", "ruff (==0.1.14)", "stix2 (==3.0.1)", "types-PyYAML (==6.0.8)", "types-backports (==0.1.3)", "types-colorama (==0.4.15.11)", "types-protobuf (==4.23.0.3)", "types-psutil (==5.8.23)", "types-requests (==2.31.0.20240125)", "types-tabulate (==0.9.0.20240106)", "types-termcolor (==1.1.4)"]
+build = ["build (==1.2.1)", "pyinstaller (==6.8.0)", "setuptools (==70.0.0)"]
+dev = ["PyGithub (==2.3.0)", "black (==24.4.2)", "deptry (==0.16.1)", "flake8 (==7.0.0)", "flake8-bugbear (==24.4.26)", "flake8-comprehensions (==3.14.0)", "flake8-copyright (==0.2.4)", "flake8-encodings (==0.5.1)", "flake8-logging-format (==0.9.0)", "flake8-no-implicit-concat (==0.3.5)", "flake8-print (==5.0.0)", "flake8-simplify (==0.21.0)", "flake8-todos (==0.3.1)", "flake8-use-pathlib (==0.3.0)", "isort (==5.13.2)", "mypy (==1.10.0)", "mypy-protobuf (==3.6.0)", "pre-commit (==3.5.0)", "pytest (==8.0.0)", "pytest-cov (==5.0.0)", "pytest-instafail (==0.5.0)", "pytest-sugar (==1.0.0)", "ruff (==0.4.8)", "types-PyYAML (==6.0.8)", "types-backports (==0.1.3)", "types-colorama (==0.4.15.11)", "types-protobuf (==5.26.0.20240422)", "types-psutil (==5.8.23)", "types-requests (==2.32.0.20240602)", "types-tabulate (==0.9.0.20240106)", "types-termcolor (==1.1.4)"]
+scripts = ["jschema-to-python (==1.2.3)", "psutil (==5.9.2)", "requests (==2.31.0)", "sarif-om (==1.0.4)", "stix2 (==3.0.1)"]
 
 [[package]]
 name = "freezegun"
@@ -1273,27 +1261,6 @@ files = [
 ]
 
 [[package]]
-name = "halo"
-version = "0.0.31"
-description = "Beautiful terminal spinners in Python"
-optional = false
-python-versions = ">=3.4"
-files = [
-    {file = "halo-0.0.31-py2-none-any.whl", hash = "sha256:5350488fb7d2aa7c31a1344120cee67a872901ce8858f60da7946cef96c208ab"},
-    {file = "halo-0.0.31.tar.gz", hash = "sha256:7b67a3521ee91d53b7152d4ee3452811e1d2a6321975137762eb3d70063cc9d6"},
-]
-
-[package.dependencies]
-colorama = ">=0.3.9"
-log-symbols = ">=0.0.14"
-six = ">=1.12.0"
-spinners = ">=0.0.24"
-termcolor = ">=1.1.0"
-
-[package.extras]
-ipython = ["IPython (==5.7.0)", "ipywidgets (==7.1.0)"]
-
-[[package]]
 name = "httpretty"
 version = "1.1.4"
 description = "HTTP client mock for Python"
@@ -1349,6 +1316,20 @@ files = [
 
 [package.extras]
 test = ["Cython (>=0.29.24,<0.30.0)"]
+
+[[package]]
+name = "humanize"
+version = "4.9.0"
+description = "Python humanize utilities"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "humanize-4.9.0-py3-none-any.whl", hash = "sha256:ce284a76d5b1377fd8836733b983bfb0b76f1aa1c090de2566fcf008d7f6ab16"},
+    {file = "humanize-4.9.0.tar.gz", hash = "sha256:582a265c931c683a7e9b8ed9559089dea7edcf6cc95be39a3cbc2c5d5ac2bcfa"},
+]
+
+[package.extras]
+tests = ["freezegun", "pytest", "pytest-cov"]
 
 [[package]]
 name = "hyperlink"
@@ -1518,20 +1499,6 @@ files = [
 ]
 
 [[package]]
-name = "log-symbols"
-version = "0.0.14"
-description = "Colored symbols for various log levels for Python"
-optional = false
-python-versions = "*"
-files = [
-    {file = "log_symbols-0.0.14-py3-none-any.whl", hash = "sha256:4952106ff8b605ab7d5081dd2c7e6ca7374584eff7086f499c06edd1ce56dcca"},
-    {file = "log_symbols-0.0.14.tar.gz", hash = "sha256:cf0bbc6fe1a8e53f0d174a716bc625c4f87043cc21eb55dd8a740cfe22680556"},
-]
-
-[package.dependencies]
-colorama = ">=0.3.9"
-
-[[package]]
 name = "mako"
 version = "1.2.4"
 description = "A super-fast templating language that borrows the best ideas from the existing templating languages."
@@ -1549,6 +1516,30 @@ MarkupSafe = ">=0.9.2"
 babel = ["Babel"]
 lingua = ["lingua"]
 testing = ["pytest"]
+
+[[package]]
+name = "markdown-it-py"
+version = "3.0.0"
+description = "Python port of markdown-it. Markdown parsing, done right!"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "markdown-it-py-3.0.0.tar.gz", hash = "sha256:e3f60a94fa066dc52ec76661e37c851cb232d92f9886b15cb560aaada2df8feb"},
+    {file = "markdown_it_py-3.0.0-py3-none-any.whl", hash = "sha256:355216845c60bd96232cd8d8c40e8f9765cc86f46880e43a8fd22dc1a1a8cab1"},
+]
+
+[package.dependencies]
+mdurl = ">=0.1,<1.0"
+
+[package.extras]
+benchmarking = ["psutil", "pytest", "pytest-benchmark"]
+code-style = ["pre-commit (>=3.0,<4.0)"]
+compare = ["commonmark (>=0.9,<1.0)", "markdown (>=3.4,<4.0)", "mistletoe (>=1.0,<2.0)", "mistune (>=2.0,<3.0)", "panflute (>=2.3,<3.0)"]
+linkify = ["linkify-it-py (>=1,<3)"]
+plugins = ["mdit-py-plugins"]
+profiling = ["gprof2dot"]
+rtd = ["jupyter_sphinx", "mdit-py-plugins", "myst-parser", "pyyaml", "sphinx", "sphinx-copybutton", "sphinx-design", "sphinx_book_theme"]
+testing = ["coverage", "pytest", "pytest-cov", "pytest-regressions"]
 
 [[package]]
 name = "markupsafe"
@@ -1668,6 +1659,17 @@ files = [
 
 [package.dependencies]
 setuptools = ">=68.2.2"
+
+[[package]]
+name = "mdurl"
+version = "0.1.2"
+description = "Markdown URL utilities"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"},
+    {file = "mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba"},
+]
 
 [[package]]
 name = "msgpack"
@@ -2132,24 +2134,22 @@ virtualenv = ">=20.10.0"
 
 [[package]]
 name = "protobuf"
-version = "4.23.4"
+version = "5.27.1"
 description = ""
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "protobuf-4.23.4-cp310-abi3-win32.whl", hash = "sha256:5fea3c64d41ea5ecf5697b83e41d09b9589e6f20b677ab3c48e5f242d9b7897b"},
-    {file = "protobuf-4.23.4-cp310-abi3-win_amd64.whl", hash = "sha256:7b19b6266d92ca6a2a87effa88ecc4af73ebc5cfde194dc737cf8ef23a9a3b12"},
-    {file = "protobuf-4.23.4-cp37-abi3-macosx_10_9_universal2.whl", hash = "sha256:8547bf44fe8cec3c69e3042f5c4fb3e36eb2a7a013bb0a44c018fc1e427aafbd"},
-    {file = "protobuf-4.23.4-cp37-abi3-manylinux2014_aarch64.whl", hash = "sha256:fee88269a090ada09ca63551bf2f573eb2424035bcf2cb1b121895b01a46594a"},
-    {file = "protobuf-4.23.4-cp37-abi3-manylinux2014_x86_64.whl", hash = "sha256:effeac51ab79332d44fba74660d40ae79985901ac21bca408f8dc335a81aa597"},
-    {file = "protobuf-4.23.4-cp37-cp37m-win32.whl", hash = "sha256:c3e0939433c40796ca4cfc0fac08af50b00eb66a40bbbc5dee711998fb0bbc1e"},
-    {file = "protobuf-4.23.4-cp37-cp37m-win_amd64.whl", hash = "sha256:9053df6df8e5a76c84339ee4a9f5a2661ceee4a0dab019e8663c50ba324208b0"},
-    {file = "protobuf-4.23.4-cp38-cp38-win32.whl", hash = "sha256:e1c915778d8ced71e26fcf43c0866d7499891bca14c4368448a82edc61fdbc70"},
-    {file = "protobuf-4.23.4-cp38-cp38-win_amd64.whl", hash = "sha256:351cc90f7d10839c480aeb9b870a211e322bf05f6ab3f55fcb2f51331f80a7d2"},
-    {file = "protobuf-4.23.4-cp39-cp39-win32.whl", hash = "sha256:6dd9b9940e3f17077e820b75851126615ee38643c2c5332aa7a359988820c720"},
-    {file = "protobuf-4.23.4-cp39-cp39-win_amd64.whl", hash = "sha256:0a5759f5696895de8cc913f084e27fd4125e8fb0914bb729a17816a33819f474"},
-    {file = "protobuf-4.23.4-py3-none-any.whl", hash = "sha256:e9d0be5bf34b275b9f87ba7407796556abeeba635455d036c7351f7c183ef8ff"},
-    {file = "protobuf-4.23.4.tar.gz", hash = "sha256:ccd9430c0719dce806b93f89c91de7977304729e55377f872a92465d548329a9"},
+    {file = "protobuf-5.27.1-cp310-abi3-win32.whl", hash = "sha256:3adc15ec0ff35c5b2d0992f9345b04a540c1e73bfee3ff1643db43cc1d734333"},
+    {file = "protobuf-5.27.1-cp310-abi3-win_amd64.whl", hash = "sha256:25236b69ab4ce1bec413fd4b68a15ef8141794427e0b4dc173e9d5d9dffc3bcd"},
+    {file = "protobuf-5.27.1-cp38-abi3-macosx_10_9_universal2.whl", hash = "sha256:4e38fc29d7df32e01a41cf118b5a968b1efd46b9c41ff515234e794011c78b17"},
+    {file = "protobuf-5.27.1-cp38-abi3-manylinux2014_aarch64.whl", hash = "sha256:917ed03c3eb8a2d51c3496359f5b53b4e4b7e40edfbdd3d3f34336e0eef6825a"},
+    {file = "protobuf-5.27.1-cp38-abi3-manylinux2014_x86_64.whl", hash = "sha256:ee52874a9e69a30271649be88ecbe69d374232e8fd0b4e4b0aaaa87f429f1631"},
+    {file = "protobuf-5.27.1-cp38-cp38-win32.whl", hash = "sha256:7a97b9c5aed86b9ca289eb5148df6c208ab5bb6906930590961e08f097258107"},
+    {file = "protobuf-5.27.1-cp38-cp38-win_amd64.whl", hash = "sha256:f6abd0f69968792da7460d3c2cfa7d94fd74e1c21df321eb6345b963f9ec3d8d"},
+    {file = "protobuf-5.27.1-cp39-cp39-win32.whl", hash = "sha256:dfddb7537f789002cc4eb00752c92e67885badcc7005566f2c5de9d969d3282d"},
+    {file = "protobuf-5.27.1-cp39-cp39-win_amd64.whl", hash = "sha256:39309898b912ca6febb0084ea912e976482834f401be35840a008da12d189340"},
+    {file = "protobuf-5.27.1-py3-none-any.whl", hash = "sha256:4ac7249a1530a2ed50e24201d6630125ced04b30619262f06224616e0030b6cf"},
+    {file = "protobuf-5.27.1.tar.gz", hash = "sha256:df5e5b8e39b7d1c25b186ffdf9f44f40f810bbcc9d2b71d9d3156fee5a9adf15"},
 ]
 
 [[package]]
@@ -2499,13 +2499,13 @@ files = [
 
 [[package]]
 name = "pyelftools"
-version = "0.30"
+version = "0.31"
 description = "Library for analyzing ELF files and DWARF debugging information"
 optional = false
 python-versions = "*"
 files = [
-    {file = "pyelftools-0.30-py2.py3-none-any.whl", hash = "sha256:544c3440eddb9a0dce70b6611de0b28163d71def759d2ed57a0d00118fc5da86"},
-    {file = "pyelftools-0.30.tar.gz", hash = "sha256:2fc92b0d534f8b081f58c7c370967379123d8e00984deb53c209364efd575b40"},
+    {file = "pyelftools-0.31-py3-none-any.whl", hash = "sha256:f52de7b3c7e8c64c8abc04a79a1cf37ac5fb0b8a49809827130b858944840607"},
+    {file = "pyelftools-0.31.tar.gz", hash = "sha256:c774416b10310156879443b81187d182d8d9ee499660380e645918b50bc88f99"},
 ]
 
 [[package]]
@@ -3220,21 +3220,21 @@ rsa = ["oauthlib[signedtoken] (>=3.0.0)"]
 
 [[package]]
 name = "rich"
-version = "12.6.0"
+version = "13.7.1"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 optional = false
-python-versions = ">=3.6.3,<4.0.0"
+python-versions = ">=3.7.0"
 files = [
-    {file = "rich-12.6.0-py3-none-any.whl", hash = "sha256:a4eb26484f2c82589bd9a17c73d32a010b1e29d89f1604cd9bf3a2097b81bb5e"},
-    {file = "rich-12.6.0.tar.gz", hash = "sha256:ba3a3775974105c221d31141f2c116f4fd65c5ceb0698657a11e9f295ec93fd0"},
+    {file = "rich-13.7.1-py3-none-any.whl", hash = "sha256:4edbae314f59eb482f54e9e30bf00d33350aaa94f4bfcd4e9e3110e64d0d7222"},
+    {file = "rich-13.7.1.tar.gz", hash = "sha256:9be308cb1fe2f1f57d67ce99e95af38a1e2bc71ad9813b0e247cf7ffbcc3a432"},
 ]
 
 [package.dependencies]
-commonmark = ">=0.9.0,<0.10.0"
-pygments = ">=2.6.0,<3.0.0"
+markdown-it-py = ">=2.2.0"
+pygments = ">=2.13.0,<3.0.0"
 
 [package.extras]
-jupyter = ["ipywidgets (>=7.5.1,<8.0.0)"]
+jupyter = ["ipywidgets (>=7.5.1,<9)"]
 
 [[package]]
 name = "ruamel-yaml"
@@ -3515,17 +3515,6 @@ python-versions = ">=3.8"
 files = [
     {file = "soupsieve-2.5-py3-none-any.whl", hash = "sha256:eaa337ff55a1579b6549dc679565eac1e3d000563bcb1c8ab0d0fefbc0c2cdc7"},
     {file = "soupsieve-2.5.tar.gz", hash = "sha256:5663d5a7b3bfaeee0bc4372e7fc48f9cff4940b3eec54a6451cc5299f1097690"},
-]
-
-[[package]]
-name = "spinners"
-version = "0.0.24"
-description = "Spinners for terminals"
-optional = false
-python-versions = "*"
-files = [
-    {file = "spinners-0.0.24-py3-none-any.whl", hash = "sha256:2fa30d0b72c9650ad12bbe031c9943b8d441e41b4f5602b0ec977a19f3290e98"},
-    {file = "spinners-0.0.24.tar.gz", hash = "sha256:1eb6aeb4781d72ab42ed8a01dcf20f3002bf50740d7154d12fb8c9769bf9e27f"},
 ]
 
 [[package]]
@@ -4301,4 +4290,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "ab9c8ee37000b3e3c76a5fb99684939b4f5280051a8f20d4f8c8ec07e5b3bf75"
+content-hash = "4de95364f07f4cf6432588d757a2464e53076e18e931b8a2b5bed2edeca3c838"

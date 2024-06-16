@@ -1858,7 +1858,7 @@ def file(request, category, task_id, dlfile):
             if not isinstance(path, list):
                 path = [path]
             if USE_SEVENZIP:
-                zip_path = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}", f"{file_name}.zip")
+                zip_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", f"{file_name}.zip")
                 sevenZipArgs = [SEVENZIP_PATH, f"-p{settings.ZIP_PWD.decode()}", "a", zip_path]
                 sevenZipArgs.extend(path)
                 try:

@@ -1796,7 +1796,7 @@ def tasks_procmemory(request, task_id, pid="all"):
         return Response(resp)
 
     parent_folder = os.path.dirname(srcdir)
-    analysis_dir = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}")
+    analysis_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}")
     if pid == "all":
         if not apiconf.taskprocmemory.get("all"):
             resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}

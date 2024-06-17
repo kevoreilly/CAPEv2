@@ -54,7 +54,7 @@ class DnfileParse:
     def read_dotnet_user_string(pe, token):
         """read user string from #US stream"""
         try:
-            user_string = pe.net.user_strings.get_us(token.rid)
+            user_string = pe.net.user_strings.get(token.rid)
         except UnicodeDecodeError:
             return InvalidToken(token.value)
 

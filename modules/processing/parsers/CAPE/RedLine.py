@@ -146,7 +146,7 @@ def extract_config(data):
                 extracted = []
                 for match in p.findall(data):
                     for item in match:
-                        user_string = dn.net.user_strings.get_us(int.from_bytes(item, "little")).value
+                        user_string = dn.net.user_strings.get(int.from_bytes(item, "little")).value
                         if user_string:
                             extracted.append(user_string)
                 if extracted:

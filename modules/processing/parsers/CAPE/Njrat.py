@@ -92,9 +92,8 @@ def get_config_dict(parser, data):
             field_index = int.from_bytes(match[1], "little")
 
             # get each string variable name and value
-            field_name = parser.get_field_name_from_index(field_index)
-            field_value = parser.get_user_string_from_index(string_index)
-
+            field_name = parser.get_field_name_from_index(field_index).__str__()
+            field_value = parser.get_user_string_from_index(string_index).__str__()
             config_dict[field_name] = field_value
 
         return config_dict

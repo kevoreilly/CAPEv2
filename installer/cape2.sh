@@ -931,11 +931,11 @@ function dependencies() {
     git submodule update --init rules
     pip3 install .
 
-    # re2
-    apt-get install libre2-dev -y
+    # re2 - dead on py3.11
+    # apt-get install libre2-dev -y
     #re2 for py3
-    pip3 install cython
-    pip3 install git+https://github.com/andreasvc/pyre2.git
+    # pip3 install cython
+    # pip3 install git+https://github.com/andreasvc/pyre2.git
 
     install_postgresql
 

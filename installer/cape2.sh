@@ -725,7 +725,7 @@ function install_yara() {
 
     echo '[+] Installing Yara'
 
-    apt-get install libtool libjansson-dev libmagic1 libmagic-dev jq autoconf -y
+    apt-get install libtool libjansson-dev libmagic1 libmagic-dev jq autoconf libyara-dev -y
 
     cd /tmp || return
     yara_info=$(curl -s https://api.github.com/repos/VirusTotal/yara/releases/latest)

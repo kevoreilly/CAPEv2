@@ -1,3 +1,6 @@
+### [21.06.2024]
+* Monitor updates: misc enhancements & fixes (see capemon repo for details)
+
 ### [12.06.2024]
 * Monitor update: Unpacker enhancement: capture modified mapped images
 

@@ -172,7 +172,7 @@ class Package:
 
         # Tricking strace into always showing PID on stderr output
         # https://github.com/strace/strace/issues/278#issuecomment-1815914576
-        cmd = f"sudo strace -o /dev/stderr -ttf {target_cmd}"
+        cmd = f"sudo strace -o /dev/stderr -s 800 -ttf {target_cmd}"
         log.info(cmd)
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True

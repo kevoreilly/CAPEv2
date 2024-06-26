@@ -1,3 +1,6 @@
+### [26.06.2024]
+* Monitor updates: debugger/trace enhancements
+
 ### [21.06.2024]
 * Monitor updates: misc enhancements & fixes (see capemon repo for details)
 

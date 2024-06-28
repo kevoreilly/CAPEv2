@@ -331,8 +331,6 @@ def _extracted_files_metadata(
                 continue
 
             file = File(full_path)
-            sha256 = file.get_sha256()
-
             file_info, pefile_object = file.get_all()
             if pefile_object:
                 results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)

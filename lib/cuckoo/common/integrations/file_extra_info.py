@@ -497,9 +497,7 @@ def generic_file_extractors(
             if old_tool_name:
                 log.debug("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
                 continue
-            metadata = _extracted_files_metadata(
-                tempdir, destination_folder, files=extracted_files, results=results
-            )
+            metadata = _extracted_files_metadata(tempdir, destination_folder, files=extracted_files, results=results)
             data_dictionary.update(
                 {
                     "extracted_files": metadata,

@@ -111,7 +111,7 @@ def extract_config(filebuf):
                         break
                     else:
                         i += 1
-                    
+
                 cfg = {
                     "C2": c2,
                     "Group name": campaign,

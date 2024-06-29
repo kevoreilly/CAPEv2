@@ -2042,7 +2042,7 @@ class _Database:
 
         return task
 
-    # TODO This function doesn't appear to be used. Can we pull it?
+    # This function is used by the runstatistics community module.
     def add_statistics_to_task(self, task_id, details):  # pragma: no cover
         """add statistic to task
         @param task_id: ID of the task to query.

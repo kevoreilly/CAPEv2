@@ -228,6 +228,29 @@ class TestFiles:
     def test_get_yara_no_categories(self, test_files):
         assert not test_files[0]["download_location"].get_yara()
 
+    def test_get_platform_windows(self, temp_pe32, temp_pe64):
+        assert "windows" == File(temp_pe32).get_platform()
+        assert "windows" == File(temp_pe64).get_platform()
+
+    def test_get_platform_linux(self, temp_elf32, temp_elf64):
+        assert "linux" == File(temp_elf32).get_platform()
+        assert "linux" == File(temp_elf64).get_platform()
+
+    def test_get_platform_darwin(self, temp_macho_arm64):
+        assert "darwin" == File(temp_macho_arm64).get_platform()
+
+    def test_predict_arch_x86(self, temp_pe32, temp_elf32):
+        assert "x86" == File(temp_pe32).predict_arch()
+        assert "x86" == File(temp_elf32).predict_arch()
+
+    def test_predict_arch_x64(self, temp_pe64, temp_elf64, temp_macho_arm64):
+        assert "x64" == File(temp_pe64).predict_arch()
+        assert "x64" == File(temp_elf64).predict_arch()
+        assert "x64" == File(temp_macho_arm64).predict_arch()
+
+    def test_predict_arch_none(self, empty_file):
+        assert None is empty_file["file"].predict_arch()
+
 
 class TestMisc:
     def test_yara_encode_string_deal_with_error(self):

@@ -163,6 +163,9 @@ class URL:
 class File:
     """Basic file object class with all useful utilities."""
 
+    LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
+    DARWIN_TYPES = {"Mach-O"}
+
     # The yara rules should not change during one Cuckoo run and as such we're
     # caching 'em. This dictionary is filled during init_yara().
     # ToDo find a way to get compiled YARA hash so we can loopup files if hash is the same
@@ -710,6 +713,48 @@ class File:
         }
 
         return infos, self.pe
+
+    def get_platform(self):
+        retval = "windows"
+        ftype = self.get_type()
+        if isinstance(ftype, str):
+            if any(x in ftype for x in File.LINUX_TYPES):
+                retval = "linux"
+            elif any(x in ftype for x in File.DARWIN_TYPES):
+                retval = "darwin"
+        return retval
+
+    def predict_arch(self):
+        ftype = self.get_type()
+        if isinstance(ftype, str):
+            if (
+                "ARM" in ftype
+                or "arm executable" in ftype
+                or "Aarch64" in ftype
+            ):
+                return "arm"
+            elif "MIPSEL" in ftype:
+                return "mipsel"
+            elif "MIPS" in ftype:
+                return "mips"
+            elif "SPARC" in ftype:
+                return "sparc"
+            elif "PowerPC" in ftype:
+                return "powerpc"
+            elif (
+                "PE32+" in ftype
+                or "64-bit" in ftype
+                or "x86-64" in ftype
+            ):
+                return "x64"
+            elif (
+                "PE32" in ftype
+                or "32-bit" in ftype
+                or "x86" in ftype
+                or "80386" in ftype
+            ):
+                return "x86"
+        return None
 
 
 class Static(File):

@@ -85,6 +85,7 @@ Packet = namedtuple("Packet", ["raw", "ts"])
 log = logging.getLogger(__name__)
 cfg = Config()
 proc_cfg = Config("processing")
+routing_cfg = Config("routing")
 enabled_passlist = proc_cfg.network.dnswhitelist
 passlist_file = proc_cfg.network.dnswhitelist_file
 
@@ -503,6 +504,8 @@ class Pcap:
                 for reject in domain_passlist_re:
                     if re.search(reject, query["request"]):
                         for addip in query["answers"]:
+                            if routing_cfg.inetsim.enabled and addip["data"] == routing_cfg.inetsim.server:
+                                continue
                             if addip["type"] in ("A", "AAAA"):
                                 ip_passlist.add(addip["data"])
                         return True
@@ -953,9 +956,13 @@ class Pcap2:
                 elif protocol in ("http", "https"):
                     hostname = sent.headers.get("host")
 
+                included_to_passlist = False
                 for reject in domain_passlist_re:
                     if hostname and re.search(reject, hostname):
-                        return False
+                        included_to_passlist = True
+
+                if included_to_passlist:
+                    continue
 
             if protocol == "smtp":
                 results["smtp_ex"].append(

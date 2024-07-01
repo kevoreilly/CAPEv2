@@ -66,6 +66,7 @@ analysis_call_limit = 0
 ram_boost = no
 # https://capev2.readthedocs.io/en/latest/usage/patterns_replacement.html
 replace_patterns = no
+file_activities = no
 
 [strace]
 enabled = no

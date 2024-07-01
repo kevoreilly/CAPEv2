@@ -2,6 +2,7 @@
 
 host = 192.168.52.1
 port = 8697
+enable_tls = no
 
 interface = ens33
 

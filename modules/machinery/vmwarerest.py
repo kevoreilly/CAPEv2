@@ -32,6 +32,12 @@ class VMwareREST(Machinery):
         if not self.options.vmwarerest.port:
             raise CuckooMachineError("VMwareREST server port address missing, please add it to vmwarerest.conf")
         self.port = str(self.options.vmwarerest.port)
+
+        if self.options.vmwarerest.enable_tls:
+            self.api_url = f"https://{self.host}:{self.port}/api"
+        else:
+            self.api_url = f"http://{self.host}:{self.port}/api"
+
         if not self.options.vmwarerest.username:
             raise CuckooMachineError("VMwareREST username missing, please add it to vmwarerest.conf")
         self.username = self.options.vmwarerest.username
@@ -44,7 +50,7 @@ class VMwareREST(Machinery):
         log.info("VMwareREST machinery module initialised (%s:%s)", self.host, self.port)
 
     def get_vms(self):
-        vms = s.get(f"https://{self.host}:{self.port}/api/vms", auth=(self.username, self.password))
+        vms = s.get(f"{self.api_url}/vms", auth=(self.username, self.password))
         if "Authentication failed" in vms.text:
             log.info("Authentication failed, please check credentials in vmwarerest.conf")
             return None
@@ -62,7 +68,7 @@ class VMwareREST(Machinery):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
             status = s.put(
-                f"https://{self.host}:{self.port}/api/vms/{vmmoid}",
+                f"{self.api_url}/vms/{vmmoid}",
                 data=json.dumps({}),
                 auth=(self.username, self.password),
             )
@@ -75,7 +81,7 @@ class VMwareREST(Machinery):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
             return s.get(
-                f"https://{self.host}:{self.port}/api/vms/{vmmoid}",
+                f"{self.api_url}/vms/{vmmoid}",
                 auth=(self.username, self.password),
             )
 
@@ -86,7 +92,7 @@ class VMwareREST(Machinery):
         if vmmoid:
             log.info("Powering on vm %s", id)
             status = s.put(
-                f"https://{self.host}:{self.port}/api/vms/{vmmoid}/power",
+                f"{self.api_url}/vms/{vmmoid}/power",
                 auth=(self.username, self.password),
                 data="on",
                 headers={"content-type": "application/vnd.vmware.vmw.rest-v1+json"},
@@ -102,7 +108,7 @@ class VMwareREST(Machinery):
         if vmmoid:
             log.info("Powering off vm %s", id)
             return s.put(
-                f"https://{self.host}:{self.port}/api/vms/{vmmoid}/power",
+                f"{self.api_url}/vms/{vmmoid}/power",
                 auth=(self.username, self.password),
                 data="off",
                 headers={"content-type": "application/vnd.vmware.vmw.rest-v1+json"},
@@ -113,7 +119,7 @@ class VMwareREST(Machinery):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
             return s.get(
-                f"https://{self.host}:{self.port}/api/vms/{vmmoid}/power",
+                f"{self.api_url}/vms/{vmmoid}/power",
                 auth=(self.username, self.password),
             )
 

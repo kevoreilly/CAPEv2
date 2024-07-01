@@ -76,4 +76,3 @@ def find_function_xrefs(data, start, end):
             function_xrefs.setdefault(target, []).append(rva)
             # log.debug("Found a CALL instruction: %#x -> %#x", rva + ib, target + ib)
     return function_xrefs
-

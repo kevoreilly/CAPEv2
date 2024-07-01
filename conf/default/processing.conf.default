@@ -104,9 +104,6 @@ enabled = no
 enabled = yes
 sort_pcap = no
 # DNS whitelisting to ignore domains/IPs configured in network.py
-# This should be disabled when utilizing InetSim/Remnux as we end up resolving
-# the IP from fakedns which would then remove all domains associated with that
-# resolved IP
 dnswhitelist = yes
 # additional entries
 dnswhitelist_file = extra/whitelist_domains.txt

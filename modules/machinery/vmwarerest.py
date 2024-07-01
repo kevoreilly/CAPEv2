@@ -64,29 +64,6 @@ class VMwareREST(Machinery):
                     return vm["id"]
         log.info("There was a problem getting vmmoid for vm %s", id)
 
-    def set_vm_settings(self, id):
-        vmmoid = self.get_vmmoid(id)
-        if vmmoid:
-            status = s.put(
-                f"{self.api_url}/vms/{vmmoid}",
-                data=json.dumps({}),
-                auth=(self.username, self.password),
-            )
-            if "Authentication failed" in status.text:
-                log.info("Authentication failed, please check credentials in vmwarerest.conf")
-                return None
-        log.info("There was a problem setting settings for vm %s", id)
-
-    def get_vm_settings(self, id):
-        vmmoid = self.get_vmmoid(id)
-        if vmmoid:
-            return s.get(
-                f"{self.api_url}/vms/{vmmoid}",
-                auth=(self.username, self.password),
-            )
-
-        log.info("There was a problem getting settings for vm %s", id)
-
     def poweron_vm(self, id):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
@@ -134,10 +111,6 @@ class VMwareREST(Machinery):
         if self._is_running(id):
             log.info("Stopping vm %s", id)
             self.poweroff_vm(id)
-
-    def _revert(self, id, snapshot):
-        log.info("Revert snapshot for vm %s: %s", id, snapshot)
-        self.poweroff_vm(id)
 
     def _is_running(self, id):
         log.info("Checking vm %s", id)

@@ -636,8 +636,8 @@ class Summary:
                     and (access & 0x40000000 or access & 0x10000000 or access & 0x02000000 or access & 0x6)
                     and filename not in self.write_files
                 ):
-                    self._filtering_helper(self.write_files, srcfilename)
-                    self._add_file_activity(process, "write_files", srcfilename)
+                    self._filtering_helper(self.write_files, srcfilename or filename)
+                    self._add_file_activity(process, "write_files", srcfilename or filename)
                 if filename not in self.files:
                     self._filtering_helper(self.files, filename)
             if srcfilename:

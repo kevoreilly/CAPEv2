@@ -557,8 +557,7 @@ class File:
                         results.append(
                             {
                                 "name": match.identifier,
-                                # ToDo meta feature waiting
-                                "meta": "",  # match.meta,
+                                "meta": dict(match.metadata),
                                 "strings": [],
                                 "addresses": addresses,
                             }

@@ -27,7 +27,7 @@ from lib.cuckoo.common.defines import (
     PAGE_WRITECOPY,
 )
 from lib.cuckoo.common.integrations.clamav import get_clamav
-from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
+from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386, IsPEImage
 from lib.cuckoo.common.path_utils import path_exists
 
 try:
@@ -386,7 +386,8 @@ class File:
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
                             log.debug("Unable to instantiate pefile on image: %s", self.file_path)
-                        if self.pe:
+                        emulated_isa = {IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386}
+                        if self.pe and self.pe.FILE_HEADER.Machine in emulated_isa:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
@@ -409,6 +410,7 @@ class File:
                                 self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string}, for MS Windows"
                             else:
                                 self.file_type = f"PE32 executable ({gui_type}) Intel 80386{dotnet_string}, for MS Windows"
+                            log.info("file type set using basic heuristics for: %s", self.file_path)
                     elif not File.notified_pefile:
                         File.notified_pefile = True
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")

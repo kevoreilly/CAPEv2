@@ -174,36 +174,6 @@ tasks_tags = Table(
 )
 
 
-VALID_LINUX_TYPES = ("Bourne-Again", "POSIX shell script", "ELF", "Python")
-
-
-def _get_linux_vm_tag(mgtype):
-    mgtype = mgtype.lower()
-    if mgtype.startswith(VALID_LINUX_TYPES) and "motorola" not in mgtype and "renesas" not in mgtype:
-        return False
-    if "mipsel" in mgtype:
-        return "mipsel"
-    elif "mips" in mgtype:
-        return "mips"
-    elif "arm" in mgtype:
-        return "arm"
-    # elif "armhl" in mgtype:
-    #    return {"tags":"armhl"}
-    elif "sparc" in mgtype:
-        return "sparc"
-    # elif "motorola" in mgtype:
-    #    return "motorola"
-    # elif "renesas sh" in mgtype:
-    #    return "renesassh"
-    elif "powerpc" in mgtype:
-        return "powerpc"
-    elif "32-bit" in mgtype:
-        return "x64"
-    elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
-        return "x64"
-    return "x64"
-
-
 def get_count(q, property):
     count_q = q.statement.with_only_columns(func.count(property)).order_by(None)
     count = q.session.execute(count_q).scalar()
@@ -1182,25 +1152,15 @@ class _Database:
 
             if DYNAMIC_ARCH_DETERMINATION:
                 # Assign architecture to task to fetch correct VM type
-                # This isn't 100% full proof
-                if "PE32+" in file_type or "64-bit" in file_type or package.endswith("_x64"):
-                    if tags:
-                        tags += ",x64"
-                    else:
-                        tags = "x64"
-                else:
-                    if LINUX_ENABLED and platform == "linux":
-                        linux_arch = _get_linux_vm_tag(file_type)
-                        if linux_arch:
-                            if tags:
-                                tags += f",{linux_arch}"
-                            else:
-                                tags = linux_arch
-                    else:
-                        if tags:
-                            tags += ",x86"
-                        else:
-                            tags = "x86"
+
+                # This isn't 100% fool proof
+                _tags = tags.split(",") if isinstance(tags, str) else []
+                arch_tag = fileobj.predict_arch()
+                if package.endswith("_x64"):
+                    _tags.append("x64")
+                elif arch_tag:
+                    _tags.append(arch_tag)
+                tags = ",".join(set(_tags))
             task = Task(obj.file_path)
             task.sample_id = sample.id
 

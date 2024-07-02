@@ -153,8 +153,32 @@ class TestDatabaseEngine:
         t1_tag_list.sort()
         t2_tag_list.sort()
 
-        assert t1_tag_list == ["bar", "foo", "x86"]
-        assert t2_tag_list == ["boo", "far", "x86"]
+        assert t1_tag_list == ["bar", "foo"]
+        assert t2_tag_list == ["boo", "far"]
+
+    def test_task_tags_pe32(self, db: _Database, temp_pe32: str):
+        with db.session.begin():
+            t1 = db.add_path(temp_pe32, tags="")
+
+        with db.session.begin():
+            task = db.view_task(t1)
+            assert ["x86"] == [str(x.name) for x in list(task.tags)]
+
+    def test_task_tags_pe64(self, db: _Database, temp_pe64: str):
+        with db.session.begin():
+            t1 = db.add_path(temp_pe64, tags="")
+
+        with db.session.begin():
+            task = db.view_task(t1)
+            assert ["x64"] == [str(x.name) for x in list(task.tags)]
+
+    def test_task_tags_elf(self, db: _Database, temp_elf64: str):
+        with db.session.begin():
+            t1 = db.add_path(temp_elf64, tags="")
+
+        with db.session.begin():
+            task = db.view_task(t1)
+            assert ["x64"] == [str(x.name) for x in list(task.tags)]
 
     def test_truncate_error_msg(self, monkeypatch):
         monkeypatch.setattr(Error, "MAX_LENGTH", 20)

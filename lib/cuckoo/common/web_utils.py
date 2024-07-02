@@ -34,7 +34,6 @@ from lib.cuckoo.common.utils import (
     generate_fake_name,
     get_ip_address,
     get_options,
-    get_platform,
     get_user_filename,
     sanitize_filename,
     store_temp_file,
@@ -810,7 +809,7 @@ def download_file(**kwargs):
         kwargs["task_machines"] = [None]
 
     if DYNAMIC_PLATFORM_DETERMINATION:
-        platform = get_platform(magic_type)
+        platform = File(kwargs["path"]).get_platform()
     if platform == "linux" and not linux_enabled and "Python" not in magic_type:
         return "error", {"error": "Linux binaries analysis isn't enabled"}
 

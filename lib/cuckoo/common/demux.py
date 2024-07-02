@@ -13,7 +13,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
-from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename
+from lib.cuckoo.common.utils import get_options, sanitize_filename
 
 sfFile = False
 sf_version = ""
@@ -110,8 +110,7 @@ whitelist_extensions = {"doc", "xls", "ppt", "pub", "jar"}
 blacklist_extensions = {"apk", "dmg"}
 
 # list of valid file types to extract - TODO: add more types
-VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut", "PDF document"}
-VALID_LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
+VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut", "PDF document", *File.LINUX_TYPES}
 VALID_PACKAGES = {"doc", "xls", "ppt", "pdf"}
 OFFICE_TYPES = [
     "Composite Document File",
@@ -157,7 +156,6 @@ def demux_office(filename: bytes, password: str, platform: str) -> List[bytes]:
 
 def is_valid_type(magic: str) -> bool:
     # check for valid file types and don't rely just on file extension
-    VALID_TYPES.update(VALID_LINUX_TYPES)
     return any(ftype in magic for ftype in VALID_TYPES)
 
 
@@ -275,7 +273,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         or "Java archive data" in magic
         or "PE32" in magic
         or "MS-DOS executable" in magic
-        or any(x in magic for x in VALID_LINUX_TYPES)
+        or any(x in magic for x in File.LINUX_TYPES)
     ):
         retlist = []
         if File(filename).get_size() <= web_cfg.general.max_sample_size or (
@@ -297,12 +295,13 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     else:
         for filename in retlist:
             # verify not Windows binaries here:
-            magic_type = File(filename).get_type()
-            platform = get_platform(magic_type)
+            file = File(filename)
+            magic_type = file.get_type()
+            platform = file.get_platform()
             if platform == "linux" and not linux_enabled and "Python" not in magic_type:
                 continue
 
-            if File(filename).get_size() > web_cfg.general.max_sample_size and not (
+            if file.get_size() > web_cfg.general.max_sample_size and not (
                 web_cfg.general.allow_ignore_size and "ignore_size_check" in options
             ):
                 if web_cfg.general.enable_trim:

@@ -46,8 +46,6 @@ processing = Config("processing")
 aux_conf = Config("auxiliary")
 web_conf = Config("web")
 
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
-
 db = Database()
 
 from urllib3 import disable_warnings
@@ -115,12 +113,6 @@ def force_int(value):
         value = 0
     finally:
         return value
-
-
-def get_platform(magic):
-    if magic and any(x in magic for x in VALID_LINUX_TYPES):
-        return "linux"
-    return "windows"
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

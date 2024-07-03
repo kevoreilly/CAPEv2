@@ -271,6 +271,7 @@ rps = 1/s
 enabled = no
 auth_only = no
 rps = 1/s
+fetch_vnc_port = no
 #rpm = 10/m
 
 # Pull information about the Cuckoo host server.

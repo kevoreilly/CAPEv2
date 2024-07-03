@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
+from xml.etree import ElementTree as ET
 
 import pyzipper
 import requests
@@ -63,6 +64,14 @@ try:
 except ImportError:
     HAVE_PSUTIL = False
     print("Missed psutil dependency: poetry run pip install -U psutil")
+
+try:
+    import libvirt
+
+    HAVE_LIBVIRT = True
+except ImportError:
+    HAVE_LIBVIRT = False
+    print("Missed python-libvirt. Use extra/poetry_libvirt_installer.sh")
 
 log = logging.getLogger(__name__)
 
@@ -1998,6 +2007,27 @@ def machines_view(request, name=None):
     machine = db.view_machine(name=name)
     if machine:
         resp["data"] = machine.to_dict()
+
+        if apiconf.machineview.get("fetch_vnc_port"):
+            resp["data"]["vnc_port"] = None
+            try:
+                if HAVE_LIBVIRT:
+                    conn = libvirt.open("qemu:///system")
+                    if conn:
+                        dom = conn.lookupByName(name)
+
+                        state = dom.state(flags=0)
+                        # Check if the machine is online
+                        if state[0] == 1:
+                            vmXml = dom.XMLDesc(0)
+                            root = ET.fromstring(vmXml)
+                            graphics = root.find('./devices/graphics[@type="vnc"]')
+                            port = graphics.get("port") if graphics else None
+                            if port and port.isnumeric():
+                                resp["data"]["vnc_port"] = int(port)
+            except libvirt.libvirtError:
+                pass
+
         resp["error"] = False
     else:
         resp["error"] = True

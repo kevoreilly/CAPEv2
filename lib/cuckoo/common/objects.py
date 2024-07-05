@@ -728,11 +728,7 @@ class File:
     def predict_arch(self):
         ftype = self.get_type()
         if isinstance(ftype, str):
-            if (
-                "ARM" in ftype
-                or "arm executable" in ftype
-                or "Aarch64" in ftype
-            ):
+            if "ARM" in ftype or "arm executable" in ftype or "Aarch64" in ftype:
                 return "arm"
             elif "MIPSEL" in ftype:
                 return "mipsel"
@@ -742,18 +738,9 @@ class File:
                 return "sparc"
             elif "PowerPC" in ftype:
                 return "powerpc"
-            elif (
-                "PE32+" in ftype
-                or "64-bit" in ftype
-                or "x86-64" in ftype
-            ):
+            elif "PE32+" in ftype or "64-bit" in ftype or "x86-64" in ftype:
                 return "x64"
-            elif (
-                "PE32" in ftype
-                or "32-bit" in ftype
-                or "x86" in ftype
-                or "80386" in ftype
-            ):
+            elif "PE32" in ftype or "32-bit" in ftype or "x86" in ftype or "80386" in ftype:
                 return "x86"
         return None
 

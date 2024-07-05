@@ -218,16 +218,15 @@ class TestFiles:
             assert sample["download_location"].get_type() == sample["get_type_str"]
             print(("Verified that " + sample["download_location"].file_path + " == " + sample["get_type_str"]))
 
-
     @pytest.mark.parametrize(
         "file_fixture,expected,is_pe",
         [
-            ('temp_pe32', "PE32 executable (GUI) Intel 80386, for MS Windows", True), # emulated magic type
-            ('temp_pe64', "PE32+ executable (GUI) x86-64, for MS Windows", True), # emulated magic type
-            ('temp_pe_aarch64', "MS-DOS executable PE32 executable Aarch64, for MS Windows", True),
-            ('temp_elf32', "ELF 32-bit LSB", False),
-            ('temp_elf64', "ELF 64-bit LSB", False),
-            ('temp_macho_arm64', "Mach-O 64-bit arm64 executable", False),
+            ("temp_pe32", "PE32 executable (GUI) Intel 80386, for MS Windows", True),  # emulated magic type
+            ("temp_pe64", "PE32+ executable (GUI) x86-64, for MS Windows", True),  # emulated magic type
+            ("temp_pe_aarch64", "MS-DOS executable PE32 executable Aarch64, for MS Windows", True),
+            ("temp_elf32", "ELF 32-bit LSB", False),
+            ("temp_elf64", "ELF 64-bit LSB", False),
+            ("temp_macho_arm64", "Mach-O 64-bit arm64 executable", False),
         ],
     )
     def test_get_type_pe(self, file_fixture, expected, is_pe, request):

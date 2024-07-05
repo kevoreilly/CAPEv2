@@ -1,8 +1,8 @@
 import os
 import pathlib
+import tempfile
 
 import pytest
-import tempfile
 
 import lib.cuckoo.common.config
 import lib.cuckoo.core.analysis_manager
@@ -42,7 +42,7 @@ def custom_conf_path(request, monkeypatch, tmp_cuckoo_root):
 
 @pytest.fixture
 def temp_pe32(tmp_path):
-    """ Writes a temporary file that libmagic identifies as:
+    """Writes a temporary file that libmagic identifies as:
     'MS-DOS executable PE32 executable Intel 80386, for MS Windows'
     """
     with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=tmp_path) as f:
@@ -51,9 +51,10 @@ def temp_pe32(tmp_path):
     yield f.name
     os.unlink(f.name)
 
+
 @pytest.fixture
 def temp_pe64(tmp_path):
-    """ Writes a temporary file that libmagic identifies as:
+    """Writes a temporary file that libmagic identifies as:
     'MS-DOS executable PE32+ executable x86-64, for MS Windows'
     """
     with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=tmp_path) as f:
@@ -62,9 +63,10 @@ def temp_pe64(tmp_path):
     yield f.name
     os.unlink(f.name)
 
+
 @pytest.fixture
 def temp_pe_aarch64(tmp_path):
-    """ Writes a temporary file that libmagic identifies as:
+    """Writes a temporary file that libmagic identifies as:
     'MS-DOS executable PE32+ executable Aarch64, for MS Windows'
     """
     with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=tmp_path) as f:
@@ -72,6 +74,7 @@ def temp_pe_aarch64(tmp_path):
         f.write(pe_header)
     yield f.name
     os.unlink(f.name)
+
 
 @pytest.fixture
 def temp_elf32(tmp_path):
@@ -83,6 +86,7 @@ def temp_elf32(tmp_path):
     yield f.name
     os.unlink(f.name)
 
+
 @pytest.fixture
 def temp_elf64(tmp_path):
     """Writes a temporary file that libmagic identifies as:
@@ -92,6 +96,7 @@ def temp_elf64(tmp_path):
         f.write(b"\x7f\x45\x4c\x46\x02\x01\x01")
     yield f.name
     os.unlink(f.name)
+
 
 @pytest.fixture
 def temp_macho_arm64(tmp_path):

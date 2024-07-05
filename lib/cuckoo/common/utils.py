@@ -106,15 +106,6 @@ texttypes = [
 ]
 
 
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
-
-
-def get_platform(magic):
-    if magic and any(x in magic for x in VALID_LINUX_TYPES):
-        return "linux"
-    return "windows"
-
-
 # this doesn't work for bytes
 # textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))

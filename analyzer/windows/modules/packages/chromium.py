@@ -20,4 +20,4 @@ class Chromium(Package):
         ]
         args.append('"{}"'.format(url))
         args = " ".join(args)
-        return self.execute(chrome, args)
+        return self.execute(chrome, args, url)

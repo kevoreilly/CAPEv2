@@ -1,6 +1,7 @@
 import json
 import logging
 
+import os
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -120,7 +121,8 @@ class VMwareREST(Machinery):
         vms = self.get_vms()
         if vms:
             for vm in vms:
-                if vm["path"].endswith(f"{id}.vmx"):
+                vmx_filename = os.path.basename(vm["path"].replace("\\", os.sep))
+                if vmx_filename == f"{id}.vmx":
                     return vm["id"]
         raise CuckooMachineError("There was a problem getting vmmoid for vm %s", id)
 

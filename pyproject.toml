@@ -87,7 +87,7 @@ channels = "^3.0.5"
 setproctitle = "1.3.2"
 
 # tmp dependency to fix vuln
-certifi = "2023.07.22"
+certifi = "2024.7.4"
 
 [tool.poetry.dev-dependencies]
 black = "^24.3.0"

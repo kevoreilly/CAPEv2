@@ -1,4 +1,3 @@
-import json
 import logging
 
 import os
@@ -81,7 +80,7 @@ class VMwareREST(Machinery):
                 },
             )
         except Exception:
-            raise CuckooMachineError(f"VMwareREST: Couldn't connect to vmrest server.")
+            raise CuckooMachineError("VMwareREST: Couldn't connect to vmrest server.")
 
         return self.check_response(response)
 
@@ -96,7 +95,7 @@ class VMwareREST(Machinery):
                 },
             )
         except Exception:
-            raise CuckooMachineError(f"VMwareREST: Couldn't connect to vmrest server.")
+            raise CuckooMachineError("VMwareREST: Couldn't connect to vmrest server.")
 
         return self.check_response(response)
 
@@ -113,7 +112,7 @@ class VMwareREST(Machinery):
                 },
             )
         except Exception:
-            raise CuckooMachineError(f"VMwareREST: Couldn't connect to vmrest server.")
+            raise CuckooMachineError("VMwareREST: Couldn't connect to vmrest server.")
 
         return self.check_response(response)
 

@@ -1,6 +1,6 @@
 import logging
-
 import os
+
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -75,9 +75,7 @@ class VMwareREST(Machinery):
             response = s.get(
                 f"{self.api_url}/vms",
                 auth=(self.username, self.password),
-                headers={
-                    "Accept": "application/vnd.vmware.vmw.rest-v1+json"
-                },
+                headers={"Accept": "application/vnd.vmware.vmw.rest-v1+json"},
             )
         except Exception:
             raise CuckooMachineError("VMwareREST: Couldn't connect to vmrest server.")
@@ -90,9 +88,7 @@ class VMwareREST(Machinery):
             response = s.get(
                 f"{self.api_url}/vms/{vmmoid}/power",
                 auth=(self.username, self.password),
-                headers={
-                    "Accept": "application/vnd.vmware.vmw.rest-v1+json"
-                },
+                headers={"Accept": "application/vnd.vmware.vmw.rest-v1+json"},
             )
         except Exception:
             raise CuckooMachineError("VMwareREST: Couldn't connect to vmrest server.")

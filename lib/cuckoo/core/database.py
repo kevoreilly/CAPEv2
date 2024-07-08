@@ -1370,6 +1370,7 @@ class _Database:
         cape=False,
         user_id=0,
         username=False,
+        category=None,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1382,6 +1383,13 @@ class _Database:
 
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
+
+        if category == "static":
+            # force change of category
+            task_ids += self.add_static(
+                file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+            )
+            return task_ids, details
 
         if not package:
             if "file=" in options:

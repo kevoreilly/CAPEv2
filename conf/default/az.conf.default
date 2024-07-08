@@ -9,6 +9,19 @@ region_name = <region_name>
 vnet_resource_group = <resource_group>
 sandbox_resource_group = <resource_group>
 
+#Sniffer configurations
+# New sniffer logic implementing Azure Watchers packet capture with either local or blob storage file locations 
+# the configurations for AzSniffer module will be used to create the dump.pcap file needed for network analysis when using Azure VMSS for Guest VMs
+resource_group = 
+#Storage account where the .cap  file will be placed by the Azure Packet Capture, soon the local file path logic will be implemented too 
+storage_account = 
+vmss_name = 
+#location of the network watcher (region name)
+location =  
+tenant_id = 
+client_secret = 
+connection_string =
+
 # Subscription ID for Azure
 subscription_id = <subscription_id>
 

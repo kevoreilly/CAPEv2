@@ -152,7 +152,7 @@ def static_file_info(
         return
 
     options_dict = get_options(options)
-    if "static_file_info" in options_dict and options_dict["static_file_info"] == "off":
+    if options_dict.get("static_file_info", "") == "off":
         return
 
     if (

@@ -1,6 +1,5 @@
 import logging
 import os
-import json
 from urllib.parse import urlparse
 import subprocess
 try:
@@ -9,7 +8,7 @@ try:
     from azure.mgmt.network.models import PacketCapture, PacketCaptureStorageLocation
     from azure.mgmt.storage import StorageManagementClient
     from azure.storage.blob import BlobServiceClient
-    from azure.core.exceptions import AzureError, HttpResponseError
+    from azure.core.exceptions import AzureError
 
     HAVE_AZURE = True
 except ImportError:
@@ -19,13 +18,16 @@ except ImportError:
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 log = logging.getLogger(__name__)
 
 class AzSniffer(Auxiliary):
     def __init__(self):
         super().__init__()
+
+        if not HAVE_AZURE:
+            return
+
         self.cfg = Config("az")
         self.az_config = self.cfg.get("az")
         self.capture_name = None
@@ -44,7 +46,7 @@ class AzSniffer(Auxiliary):
         self.storage_client = StorageManagementClient(self.credentials, self.subscription_id)
         self.blob_service_client = BlobServiceClient.from_connection_string(self.connection_string)
         self.blob_url = None
-    
+
     def _clean_connection_string(self, connection_string):
         return connection_string.strip('"')
 
@@ -54,7 +56,7 @@ class AzSniffer(Auxiliary):
             client_id=self.client_id,
             client_secret=self.client_secret
         )
-    
+
     def start(self):
         self.capture_name = f"PacketCapture_{self.task.id}"
         custom_filters = []
@@ -161,7 +163,7 @@ class AzSniffer(Auxiliary):
         output_dir = f"/opt/CAPEv2/storage/analyses/{self.task.id}"
         pcap_file_path = os.path.join(output_dir, "dump.pcap")
         convert_cmd = ["editcap", "-F", "pcap", cap_file_path, pcap_file_path]
-        
+
         try:
             os.makedirs(output_dir, exist_ok=True)
             subprocess.run(convert_cmd, check=True, capture_output=True, text=True)

@@ -1379,6 +1379,7 @@ class _Database:
         task_id = False
         task_ids = []
         config = {}
+        details = {}
         sample_parent_id = None
 
         if not isinstance(file_path, bytes):
@@ -1387,7 +1388,7 @@ class _Database:
         if category == "static":
             # force change of category
             task_ids += self.add_static(
-                file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+                file_path=file_path, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
             )
             return task_ids, details
 
@@ -1481,7 +1482,6 @@ class _Database:
             if task_id:
                 task_ids.append(task_id)
 
-        details = {}
         if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}
         # this is aim to return custom data, think of this as kwargs

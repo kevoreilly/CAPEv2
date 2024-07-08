@@ -1,25 +1,29 @@
 import logging
 import os
-from urllib.parse import urlparse
 import subprocess
+from urllib.parse import urlparse
+
 try:
+    from azure.core.exceptions import AzureError
     from azure.identity import ClientSecretCredential
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.network.models import PacketCapture, PacketCaptureStorageLocation
     from azure.mgmt.storage import StorageManagementClient
     from azure.storage.blob import BlobServiceClient
-    from azure.core.exceptions import AzureError
 
     HAVE_AZURE = True
 except ImportError:
     HAVE_AZURE = False
     print("Missing machinery-required libraries.")
-    print("poetry run python -m pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network azure-mgmt-storage azure-storage-blob")
+    print(
+        "poetry run python -m pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network azure-mgmt-storage azure-storage-blob"
+    )
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
+
 
 class AzSniffer(Auxiliary):
     def __init__(self):
@@ -51,11 +55,7 @@ class AzSniffer(Auxiliary):
         return connection_string.strip('"')
 
     def _get_credentials(self):
-        return ClientSecretCredential(
-            tenant_id=self.tenant_id,
-            client_id=self.client_id,
-            client_secret=self.client_secret
-        )
+        return ClientSecretCredential(tenant_id=self.tenant_id, client_id=self.client_id, client_secret=self.client_secret)
 
     def start(self):
         self.capture_name = f"PacketCapture_{self.task.id}"
@@ -65,7 +65,7 @@ class AzSniffer(Auxiliary):
     def create_packet_capture(self, custom_filters):
         storage_location = PacketCaptureStorageLocation(
             storage_id=f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.Storage/storageAccounts/{self.storage_account}",
-            storage_path=f"https://{self.storage_account}.blob.core.windows.net/network-watcher-logs/{self.capture_name}.cap"
+            storage_path=f"https://{self.storage_account}.blob.core.windows.net/network-watcher-logs/{self.capture_name}.cap",
         )
 
         packet_capture = PacketCapture(
@@ -73,7 +73,7 @@ class AzSniffer(Auxiliary):
             storage_location=storage_location,
             time_limit_in_seconds=18000,
             total_bytes_per_session=1073741824,
-            filters=custom_filters
+            filters=custom_filters,
         )
 
         try:
@@ -81,7 +81,7 @@ class AzSniffer(Auxiliary):
                 resource_group_name=self.resource_group,
                 network_watcher_name=f"NetworkWatcher_{self.location}",
                 packet_capture_name=self.capture_name,
-                parameters=packet_capture
+                parameters=packet_capture,
             )
             result = poller.result()
 
@@ -109,7 +109,7 @@ class AzSniffer(Auxiliary):
             poller = self.network_client.packet_captures.begin_stop(
                 resource_group_name=self.resource_group,
                 network_watcher_name=f"NetworkWatcher_{self.location}",
-                packet_capture_name=self.capture_name
+                packet_capture_name=self.capture_name,
             )
             poller.result()
             log.info(f"Stopped Azure Network Watcher packet capture: {self.capture_name}")
@@ -129,8 +129,8 @@ class AzSniffer(Auxiliary):
 
         try:
             parsed_url = urlparse(self.blob_url)
-            container_name = parsed_url.path.split('/')[1]
-            blob_name = '/'.join(parsed_url.path.split('/')[2:]).strip('"')
+            container_name = parsed_url.path.split("/")[1]
+            blob_name = "/".join(parsed_url.path.split("/")[2:]).strip('"')
 
             blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
 
@@ -158,7 +158,6 @@ class AzSniffer(Auxiliary):
             download_stream = blob_client.download_blob()
             file.write(download_stream.readall())
 
-
     def convert_cap_to_pcap(self, cap_file_path):
         output_dir = f"/opt/CAPEv2/storage/analyses/{self.task.id}"
         pcap_file_path = os.path.join(output_dir, "dump.pcap")
@@ -179,7 +178,7 @@ class AzSniffer(Auxiliary):
             poller = self.network_client.packet_captures.begin_delete(
                 resource_group_name=self.resource_group,
                 network_watcher_name=f"NetworkWatcher_{self.location}",
-                packet_capture_name=self.capture_name
+                packet_capture_name=self.capture_name,
             )
             poller.result()
             log.info(f"Deleted Azure Network Watcher packet capture: {self.capture_name}")
@@ -187,7 +186,6 @@ class AzSniffer(Auxiliary):
             log.error(f"Azure error occurred while deleting packet capture: {str(e)}")
         except Exception as e:
             log.error(f"Unexpected error occurred while deleting packet capture: {str(e)}")
-
 
     def set_task(self, task):
         self.task = task

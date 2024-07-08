@@ -1370,6 +1370,7 @@ class _Database:
         cape=False,
         user_id=0,
         username=False,
+        category=None,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1378,10 +1379,18 @@ class _Database:
         task_id = False
         task_ids = []
         config = {}
+        details = {}
         sample_parent_id = None
 
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
+
+        if category == "static":
+            # force change of category
+            task_ids += self.add_static(
+                file_path=file_path, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+            )
+            return task_ids, details
 
         if not package:
             if "file=" in options:
@@ -1473,7 +1482,6 @@ class _Database:
             if task_id:
                 task_ids.append(task_id)
 
-        details = {}
         if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}
         # this is aim to return custom data, think of this as kwargs

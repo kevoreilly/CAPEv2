@@ -12,6 +12,9 @@ class MHT(Package):
     PATHS = [
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
+    summary = "Open a .mht file with Internet Explorer."
+    description = """Use 'iexplore.exe <sample>' to open a .mht file.
+    The .mht filename extension will be added automatically."""
 
     def start(self, path):
         iexplore = self.get_path("iexplore.exe")

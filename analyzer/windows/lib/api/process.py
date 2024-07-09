@@ -56,6 +56,7 @@ if sys.platform == "win32":
     )
     from lib.core.log import LogServer
 
+from lib.common.constants import OPT_CURDIR, OPT_EXECUTIONDIR
 from lib.common.errors import get_error_string
 from lib.common.rand import random_string
 from lib.common.results import upload_to_host
@@ -445,10 +446,10 @@ class Process:
 
         # Use the custom execution directory if provided, otherwise launch in the same location
         # where the sample resides (default %TEMP%)
-        if "executiondir" in self.options.keys():
-            execution_directory = self.options["executiondir"]
-        elif "curdir" in self.options.keys():
-            execution_directory = self.options["curdir"]
+        if OPT_EXECUTIONDIR in self.options.keys():
+            execution_directory = self.options[OPT_EXECUTIONDIR]
+        elif OPT_CURDIR in self.options.keys():
+            execution_directory = self.options[OPT_CURDIR]
         else:
             execution_directory = os.getenv("TEMP")
 

@@ -12,6 +12,8 @@ class Chromium(Package):
         ("LOCALAPPDATA", "Chromium", "Application", "chrome.exe"),
         ("ProgramFiles", "Google", "Chrome", "Application", "chrome.exe"),
     ]
+    summary = "Open the URL in Chromium."
+    description = """Use 'chrome.exe --disable-features=RendererCodeIntegrity "<url>"' to open the supplied url."""
 
     def start(self, url):
         chrome = self.get_path("chrome.exe")

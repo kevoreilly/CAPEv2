@@ -11,6 +11,8 @@ class Firefox(Package):
     PATHS = [
         ("ProgramFiles", "Mozilla Firefox", "firefox.exe"),
     ]
+    summary = "Open the URL in firefox."
+    description = """Use firefox.exe to open the supplied url."""
 
     def start(self, url):
         firefox = self.get_path("firefox.exe")

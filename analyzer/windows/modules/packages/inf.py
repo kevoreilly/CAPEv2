@@ -19,6 +19,10 @@ class INF(Package):
         ("SystemRoot", "System32", "cmstp.exe"),
         ("SystemRoot", "SysWOW64", "cmstp.exe"),
     ]
+    summary = "Open the sample with cmstp.exe."
+    description = """Use 'cmstp.exe /f <sample>' to open the sample
+    as a Connection Manager service profile.
+    The .inf filename extension will be added automatically."""
 
     def start(self, path):
         cmstp = self.get_path_glob("cmstp.exe")

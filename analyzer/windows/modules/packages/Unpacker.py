@@ -4,6 +4,7 @@
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import OPT_ARGUMENTS, OPT_INJECTION, OPT_PROCDUMP, OPT_UNPACKER
 
 
 class Unpacker(Package):
@@ -12,6 +13,11 @@ class Unpacker(Package):
     # PATHS = [
     #    ("SystemRoot", "system32"),
     # ]
+    summary = "Execute a .exe file with the unpacker option."
+    description = f"""Execute the sample passing 'arguments' if any, using the 'unpacker' option.
+    Turn off the '{OPT_PROCDUMP}' and '{OPT_INJECTION}' options.
+    The .exe filename extension will be added automatically."""
+    option_names = (OPT_ARGUMENTS,)
 
     def __init__(self, options=None, config=None):
         """@param options: options dict."""
@@ -20,12 +26,12 @@ class Unpacker(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["unpacker"] = "1"
-        self.options["procdump"] = "0"
-        self.options["injection"] = "0"
+        self.options[OPT_UNPACKER] = "1"
+        self.options[OPT_PROCDUMP] = "0"
+        self.options[OPT_INJECTION] = "0"
 
     def start(self, path):
-        arguments = self.options.get("arguments")
+        arguments = self.options.get(OPT_ARGUMENTS)
 
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw

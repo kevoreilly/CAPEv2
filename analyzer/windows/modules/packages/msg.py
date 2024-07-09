@@ -13,6 +13,8 @@ class MSG(Package):
         ("ProgramFiles", "Microsoft Office", "Office*", "OUTLOOK.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "OUTLOOK.EXE"),
     ]
+    summary = "Open a .msg file with MS Outlook."
+    description = """Use 'OUTLOOK.EXE /f <sample>' to open a .msg file."""
 
     def start(self, path):
         outlook = self.get_path_glob("OUTLOOK.EXE")

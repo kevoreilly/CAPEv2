@@ -16,6 +16,8 @@ class MSBUILD(Package):
     PATHS = [
         ("SystemRoot", "Microsoft.NET", "Framework", "v4.0.30319", "msbuild.exe"),
     ]
+    summary = "Open a dotnet project file with MSBuild."
+    description = """Use 'MSBUILD.EXE <sample>' to open a dotnet project file."""
 
     def start(self, path):
         msbuild = self.get_path_glob("msbuild.exe")

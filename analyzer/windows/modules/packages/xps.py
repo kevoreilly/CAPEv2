@@ -11,6 +11,8 @@ class Xps(Package):
     PATHS = [
         ("SystemRoot", "system32", "xpsrchvw.exe"),
     ]
+    summary = "Open the sample file with xpsrchvw.exe."
+    description = """Use xpsrchvw.exe to open the supplied sample."""
 
     def start(self, path):
         xpsrchvw_path = self.get_path("xpsrchvw.exe")

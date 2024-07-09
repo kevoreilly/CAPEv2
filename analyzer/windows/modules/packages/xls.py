@@ -4,7 +4,7 @@
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
-from lib.common.constants import MSOFFICE_TRUSTED_PATH
+from lib.common.constants import MSOFFICE_TRUSTED_PATH, TRUSTED_PATH_TEXT
 
 
 class XLS(Package):
@@ -23,6 +23,10 @@ class XLS(Package):
         ("ProgramFiles", "Microsoft Office", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
     ]
+    summary = "Open the supplied document with EXCEL.EXE."
+    description = f"""Use 'EXCEL.EXE <path> /dde' to open the file.
+    {TRUSTED_PATH_TEXT}
+    The .xls filename extension will be added automatically."""
 
     def start(self, path):
         if not path.endswith((".xls", ".xlsx")):

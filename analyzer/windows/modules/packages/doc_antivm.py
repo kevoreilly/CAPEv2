@@ -3,7 +3,7 @@ import time
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
-from lib.common.constants import MSOFFICE_TRUSTED_PATH
+from lib.common.constants import MSOFFICE_TRUSTED_PATH, TRUSTED_PATH_TEXT
 from lib.common.exceptions import CuckooPackageError
 
 
@@ -17,6 +17,11 @@ class DOC_ANTIVM(Package):
         ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
     ]
     default_curdir = MSOFFICE_TRUSTED_PATH
+    summary = "Open a document file with WINWORD.EXE."
+    description = f"""Use 'WINWORD.EXE <sample> /q', or if unavailable, 'WORDVIEW.EXE <sample> /q'.
+    {TRUSTED_PATH_TEXT}
+    First start up 20 calc.exe windows, and other standard applications, to thwart some antivm measures.
+    The .doc filename extension will be added automatically."""
 
     def start(self, path):
         # Determine if the submitter wants the sample to be monitored

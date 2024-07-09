@@ -23,6 +23,11 @@ class PUB(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "MSPUB.EXE"),
         ("ProgramFiles", "Microsoft Office", "MSPUB.EXE"),
     ]
+    summary = "Open a .pub file with MS Publisher."
+    description = """Use MSPUB.EXE to open a .pub file.
+    Before execution, set these registry values in the key 'MS Office\\Publisher\\Security';
+    VBAWarnings=1, AccessVBOM=1, ExtensionHardening=0
+    The .pub filename extension will be added automatically."""
 
     def set_keys(self):
 

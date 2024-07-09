@@ -15,5 +15,8 @@ class SWF(Package):
     You want the debug folder (in the zip). The filename will have 'sa' (stand-alone) in it
     """
 
+    summary = "Open an .swf file using flashplayer.exe."
+    description = """Use bin\\flashplayer.exe to open a shockwave flash (.swf) file."""
+
     def start(self, path):
         return self.execute("bin/flashplayer.exe", path, path)

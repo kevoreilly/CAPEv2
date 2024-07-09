@@ -33,6 +33,8 @@ from lib.common.constants import (
     LOADER32_NAME,
     LOADER64_NAME,
     LOGSERVER_PREFIX,
+    OPT_CURDIR,
+    OPT_EXECUTIONDIR,
     PATHS,
     PIPE,
     SHUTDOWN_MUTEX,
@@ -269,7 +271,7 @@ class Analyzer:
         self.options = self.config.get_options()
 
         # Resolve the paths first in case some other part of the code needs those (fullpath) parameters.
-        for option_name in ("curdir", "executiondir"):
+        for option_name in (OPT_CURDIR, OPT_EXECUTIONDIR):
             if option_name in self.options:
                 self.options[option_name] = os.path.expandvars(self.options[option_name])
 

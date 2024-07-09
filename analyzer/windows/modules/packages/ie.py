@@ -11,6 +11,8 @@ class IE(Package):
     PATHS = [
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
+    summary = "Open the URL in Internet Explorer."
+    description = """Use iexplore.exe to open the supplied url."""
 
     def start(self, url):
         iexplore = self.get_path("Internet Explorer")

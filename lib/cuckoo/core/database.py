@@ -1342,14 +1342,6 @@ class _Database:
 
         return package, tmp_package
 
-    def _aux_add_options(self, options, option, value):
-        if options:
-            options += f",{option}={value}"
-        else:
-            options += "{option}={value}"
-
-        return options
-
     # Submission hooks to manipulate arguments of tasks execution
     def recon(
         self,
@@ -1381,7 +1373,7 @@ class _Database:
 
         lowered_filename = filename.lower()
 
-        sfx = File(filename).is_sfx()
+        # sfx = File(filename).is_sfx()
 
         if "malware_name" in lowered_filename:
             orig_options += "<options_here>"
@@ -1397,21 +1389,22 @@ class _Database:
                 if not cape_name.endswith(("Crypter", "Packer", "Obfuscator", "Loader", "Payload")):
                     continue
 
+                orig_options_parsed = get_options(orig_options)
                 parsed_options = get_options(hit["meta"].get("cape_options", ""))
                 if "tags" in parsed_options:
                     tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
+                    del parsed_options["tags"]
                 # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
                 if "package" in parsed_options:
                     package = parsed_options["package"]
+                    del parsed_options["package"]
 
                 if "category" in parsed_options:
                     category = parsed_options["category"]
+                    del parsed_options["category"]
 
-                if "static_file_info" in parsed_options:
-                    orig_options = self._aux_add_options(orig_options, "static_file_info", parsed_options["static_file_info"])
-
-                if "ignore_size_check" in parsed_options:
-                    orig_options = self._aux_add_options(orig_options, "ignore_size_check", parsed_options["ignore_size_check"])
+                orig_options_parsed.update(parsed_options)
+                orig_options = ",".join([f"{k}={v}" for k,v in orig_options_parsed.items()])
 
         return (
             static,
@@ -1434,6 +1427,7 @@ class _Database:
             tags,
             category,
         )
+
 
     def demux_sample_and_add_to_db(
         self,
@@ -1503,13 +1497,7 @@ class _Database:
         if category == "static":
             # force change of category
             task_ids += self.add_static(
-                file_path=file_path,
-                priority=priority,
-                tlp=tlp,
-                user_id=user_id,
-                username=username,
-                options=options,
-                package=package,
+                file_path=file_path, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options, package=package,
             )
             return task_ids, details
 

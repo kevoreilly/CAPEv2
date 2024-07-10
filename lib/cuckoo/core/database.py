@@ -1383,12 +1383,12 @@ class _Database:
 
         sfx = File(filename).is_sfx()
 
-        if "shellsting" in lowered_filename or "bumblebee" in lowered_filename:
-            orig_options += ",dump-on-api=WSAStartup,procmemdump=1,unpacker=2"
-        if sfx:
-            orig_options += ",timeout=500,enforce_timeout=1,procmemdump=1,procdump=1"
-            timeout = 500
-            enforce_timeout = True
+        if "malware_name" in lowered_filename:
+            orig_options += "<options_here>"
+        # if sfx:
+        #    orig_options += ",timeout=500,enforce_timeout=1,procmemdump=1,procdump=1"
+        #    timeout = 500
+        #    enforce_timeout = True
 
         if web_conf.general.yara_recon:
             hits = File(filename).get_yara("binaries")

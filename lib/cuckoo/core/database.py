@@ -33,7 +33,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.utils import create_folder, bytes2str, get_options
+from lib.cuckoo.common.utils import bytes2str, create_folder, get_options
 
 try:
     from sqlalchemy import (
@@ -1344,9 +1344,9 @@ class _Database:
 
     def _aux_add_options(self, options, option, value):
         if options:
-            options += f',{option}={value}'
+            options += f",{option}={value}"
         else:
-            options += '{option}={value}'
+            options += "{option}={value}"
 
         return options
 
@@ -1435,7 +1435,6 @@ class _Database:
             category,
         )
 
-
     def demux_sample_and_add_to_db(
         self,
         file_path,
@@ -1504,7 +1503,13 @@ class _Database:
         if category == "static":
             # force change of category
             task_ids += self.add_static(
-                file_path=file_path, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options, package=package,
+                file_path=file_path,
+                priority=priority,
+                tlp=tlp,
+                user_id=user_id,
+                username=username,
+                options=options,
+                package=package,
             )
             return task_ids, details
 

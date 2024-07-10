@@ -242,7 +242,7 @@ def malware_config(obj, *args, **kwargs):
             else:
                 result.write(malware_config(obj[0]))
     else:
-        result.write('<pre style="margin: 0">' + escape(str(obj)) + "</pre>")
+        result.write(escape(str(obj)))
 
     ret_result = result.getvalue()
     result.close()

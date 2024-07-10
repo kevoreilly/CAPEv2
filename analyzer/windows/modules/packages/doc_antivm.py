@@ -17,10 +17,10 @@ class DOC_ANTIVM(Package):
         ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
     ]
     default_curdir = MSOFFICE_TRUSTED_PATH
-    summary = "Open a document file with WINWORD.EXE."
-    description = f"""Use 'WINWORD.EXE <sample> /q', or if unavailable, 'WORDVIEW.EXE <sample> /q'.
+    summary = "Opens a document file with WINWORD.EXE."
+    description = f"""Uses 'WINWORD.EXE <sample> /q', or if unavailable, 'WORDVIEW.EXE <sample> /q'.
     {TRUSTED_PATH_TEXT}
-    First start up 20 calc.exe windows, and other standard applications, to thwart some antivm measures.
+    First starts up 20 calc.exe windows, and other standard applications, to thwart some anti-vm measures.
     The .doc filename extension will be added automatically."""
 
     def start(self, path):

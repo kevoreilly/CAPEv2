@@ -14,10 +14,10 @@ class JS(Package):
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
-    summary = "Execute a .JS file using wscript.exe."
-    description = """Use 'wscript.exe <sample>' to run a .js/.jse file.
+    summary = "Executes a .JS file using wscript.exe."
+    description = """Uses 'wscript.exe <sample>' to run a .js/.jse file.
     In the case of '.jse' files, first start up 20 calc.exe windows, to thwart
-    some antivm measures.
+    some anti-vm measures.
     The appropriate file extension will be added automatically."""
 
     def start(self, path):

@@ -22,8 +22,8 @@ class PPT(Package):
         ("ProgramFiles", "Microsoft Office", "Office*", "POWERPNT.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "POWERPNT.EXE"),
     ]
-    summary = "Open sample file with Powerpoint."
-    description = f"""Use 'POWERPNT.EXE /s <sample>' to open a powerpoint presentation file.
+    summary = "Opens sample file with Powerpoint."
+    description = f"""Uses 'POWERPNT.EXE /s <sample>' to open a powerpoint presentation file.
     {TRUSTED_PATH_TEXT}
     """
 

@@ -18,10 +18,10 @@ _OPT_MAX_DLL_EXPORTS = "max_dll_exports"
 _OPT_USE_EXPORT_NAME = "use_export_name"
 MAX_DLL_EXPORTS_DEFAULT = 8
 
-DLL_OPTION_TEXT = """
-Use the 'dllloader' option to set the name of the process loading the DLL (defaults to rundll32.exe).
-Use the 'arguments' option to set the arguments to be passed to the exported function(s).
-Use the 'function' option to set the name of the exported function/ordinal to execute.
+DLL_OPTION_TEXT = f"""
+Use the '{OPT_DLLLOADER}' option to set the name of the process loading the DLL (defaults to rundll32.exe).
+Use the '{OPT_ARGUMENTS}' option to set the arguments to be passed to the exported function(s).
+Use the '{OPT_FUNCTION}' option to set the name of the exported function/ordinal to execute.
 The default function is '#1'.
 Can be multiple function/ordinals split by colon. Ex: function=#1:#3 or #2-4
 """
@@ -33,8 +33,8 @@ class Dll(Package):
     PATHS = [
         ("SystemRoot", "System32", "rundll32.exe"),
     ]
-    summary = "Execute a .DLL file using rundll32.exe."
-    description = f"""Use rundll32.exe to execute a function or functions in the DLL file.
+    summary = "Executes a .DLL file using rundll32.exe."
+    description = f"""Uses rundll32.exe to execute a function or functions in the DLL file.
     {DLL_OPTION_TEXT}
 
     Functions to execute may be specified by number, the default is '#1'.

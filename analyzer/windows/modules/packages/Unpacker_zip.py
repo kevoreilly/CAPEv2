@@ -36,10 +36,11 @@ class Unpacker_zip(Package):
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),
     ]
-    summary = "Unzip a file with the supplied password, execute its contents."
-    description = f"""Extract the sample from a zip file. If the file name is not
+    summary = "Unzips a file with the supplied password, execute its contents."
+    description = f"""Extracts the sample from a zip file. If the file name is not
     supplied in the '{OPT_FILE}" option, the first file in the zip is taken.
-    Set options '{OPT_UNPACKER}=1', '{OPT_PROCDUMP}=0' and '{OPT_INJECTION}=0'.
+    Turns off '{OPT_PROCDUMP}' and '{OPT_INJECTION}'.
+    Turns on '{OPT_UNPACKER}'.
     The execution method is chosen based on the filename extension."""
     option_names = sorted(set(ARCHIVE_OPTIONS + DLL_OPTIONS))
 

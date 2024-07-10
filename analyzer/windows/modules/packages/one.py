@@ -31,13 +31,13 @@ class ONE(Package):
         ("ProgramFiles", "Microsoft Office", "Office*", "ONENOTE.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "ONENOTE.EXE"),
     ]
-    summary = "Open a sample file with ONENOTE.EXE."
-    description = f"""Use 'ONENOTE.EXE /nologo /navigate <sample>'
+    summary = "Opens a sample file with ONENOTE.EXE."
+    description = f"""Uses 'ONENOTE.EXE /nologo /navigate <sample>'
     to open a onenote .one file.
-    Set option '{_OPT_YARASCAN}=0' is disabled.
-    Set options '{_OPT_OFFICE}=1' and '{_OPT_NO_IAT}=1'.
-    Before execution, modify the registry entries LowRiskFileTypes and DefaultFileTypeRisk,
-    to encourage detonation.
+    Turns off '{_OPT_YARASCAN}'.
+    Turns on '{_OPT_OFFICE}' and '{_OPT_NO_IAT}'.
+    Before execution, modifies the registry entries LowRiskFileTypes and DefaultFileTypeRisk,
+    to encourage execution.
     The .one filename extension will be added automatically."""
 
     def start(self, path):

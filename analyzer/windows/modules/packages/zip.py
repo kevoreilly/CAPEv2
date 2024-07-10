@@ -6,7 +6,16 @@ import logging
 import os
 
 from lib.common.abstracts import Package
-from lib.common.constants import ARCHIVE_OPTIONS, OPT_APPDATA, OPT_ARGUMENTS, OPT_FILE, OPT_MULTI_PASSWORD, OPT_PASSWORD
+from lib.common.constants import (
+    ARCHIVE_OPTIONS,
+    OPT_APPDATA,
+    OPT_ARGUMENTS,
+    OPT_DLLLOADER,
+    OPT_FILE,
+    OPT_FUNCTION,
+    OPT_MULTI_PASSWORD,
+    OPT_PASSWORD,
+)
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
     attempt_multiple_passwords,
@@ -41,13 +50,13 @@ class Zip(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
-    summary = "Unpack a .zip archive with the given password and execute the contents appropriately."
-    description = """Extract the contents of a .zip file. If the file name is not
+    summary = "Unpacks a .zip archive with the given password and execute the contents appropriately."
+    description = f"""Extracts the contents of a .zip file. If the file name is not
     supplied in the 'file" option, examine the archive for files that look executable.
     If none can be found, the first file in the archive is taken.
     The default zipfile password is 'infected'.
-    If the 'appdata' option is specified, run the executable from the APPDATA directory.
-    If the archive contains .dll files, then options 'function', 'arguments' and 'dllloader' will take effect.
+    If the '{OPT_APPDATA}' option is specified, run the executable from the APPDATA directory.
+    If the archive contains .dll files, then options '{OPT_FUNCTION}', '{OPT_ARGUMENTS}' and '{OPT_DLLLOADER}' will take effect.
     """
     option_names = sorted(set(ARCHIVE_OPTIONS + DLL_OPTIONS + (OPT_APPDATA, OPT_ARGUMENTS, OPT_MULTI_PASSWORD)))
 

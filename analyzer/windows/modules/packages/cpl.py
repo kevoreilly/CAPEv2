@@ -11,8 +11,8 @@ class CPL(Package):
     PATHS = [
         ("SystemRoot", "system32", "control.exe"),
     ]
-    summary = "Open the sample using the control panel."
-    description = """Use control.exe to open the sample."""
+    summary = "Opens the sample using the control panel."
+    description = """Uses control.exe to open the sample."""
 
     def start(self, path):
         control = self.get_path("control.exe")

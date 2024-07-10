@@ -14,9 +14,10 @@ class Unpacker_JS(Package):
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
-    summary = "Execute a .JS file using wscript.exe."
-    description = f"""Use wscript.exe to run a .js/.jse file.
-    Turn off the '{OPT_PROCDUMP}' and {OPT_INJECTION} options.
+    summary = "Executes a .JS file using wscript.exe."
+    description = f"""Uses wscript.exe to run a .js/.jse file.
+    Turns off '{OPT_PROCDUMP}' and '{OPT_INJECTION}'.
+    Turns on '{OPT_UNPACKER}'.
     The appropriate filename extension will be added automatically."""
 
     def __init__(self, options=None, config=None):

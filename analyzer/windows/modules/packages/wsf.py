@@ -13,8 +13,8 @@ class WSF(Package):
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
-    summary = "Execute a .wsf file using wscript.exe."
-    description = """Use wscript.exe to run a .wsf file.
+    summary = "Executes a .wsf file using wscript.exe."
+    description = """Uses wscript.exe to run a .wsf file.
     The .wsf filename extension will be added automatically."""
 
     def start(self, path):

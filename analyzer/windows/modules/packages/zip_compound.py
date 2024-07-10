@@ -8,7 +8,16 @@ import shutil
 from typing import Tuple
 
 from lib.common.abstracts import Package
-from lib.common.constants import DLL_OPTIONS, OPT_APPDATA, OPT_CURDIR, OPT_FILE, OPT_PASSWORD
+from lib.common.constants import (
+    DLL_OPTIONS,
+    OPT_APPDATA,
+    OPT_ARGUMENTS,
+    OPT_CURDIR,
+    OPT_DLLLOADER,
+    OPT_FILE,
+    OPT_FUNCTION,
+    OPT_PASSWORD,
+)
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import extract_zip
 from lib.core.compound import create_custom_folders, extract_json_data
@@ -35,8 +44,8 @@ class ZipCompound(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
-    summary = "Unpack a .zip archive with the given password and execute the contents appropriately."
-    description = f"""Extract the contents of a .zip file.
+    summary = "Unpacks a .zip archive with the given password and execute the contents appropriately."
+    description = f"""Extracts the contents of a .zip file.
     Supply '{OPT_PASSWORD}' if the .zip file is encrypted (defaults to blank).
     *NB*: Either '{OPT_FILE}' option must be set, or a '__configuration.json' file must be present in the zip file.
     Sample json file:
@@ -52,7 +61,7 @@ class ZipCompound(Package):
     If the '{OPT_CURDIR}' option is specified, use that as the current directory.
     Else, if the '{OPT_APPDATA}' option is specified, run the executable from the APPDATA directory.
     The execution method is chosen based on the filename extension.
-    If executing a .dll file, then options 'function', 'arguments' and 'dllloader' will take effect.
+    If executing a .dll file, then options '{OPT_FUNCTION}', '{OPT_ARGUMENTS}' and '{OPT_DLLLOADER}' will take effect.
     """
     option_names = sorted(set(DLL_OPTIONS + (OPT_CURDIR, OPT_FILE, OPT_PASSWORD, OPT_APPDATA)))
 

@@ -14,8 +14,8 @@ from lib.common.constants import OPT_APPDATA, OPT_ARGUMENTS, OPT_EXECUTIONDIR, O
 class Exe(Package):
     """EXE analysis package."""
 
-    summary = "Run the supplied executable."
-    description = f"""Execute the given sample, passing '{OPT_ARGUMENTS}' if specified.
+    summary = "Runs the supplied executable."
+    description = f"""Executes the given sample, passing '{OPT_ARGUMENTS}' if specified.
     Use the '{OPT_APPDATA}' option to run the executable from the APPDATA directory.
     Use the '{OPT_RUNASX86}' option to set the 32BITREQUIRED flag in the PE header,
     using 'CorFlags.exe /32bit+'.

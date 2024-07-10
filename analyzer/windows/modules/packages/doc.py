@@ -25,8 +25,8 @@ class DOC(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
     ]
-    summary = "Open a document file with WINWORD.EXE."
-    description = f"""Use 'WINWORD.EXE /q', or if unavailable, 'WORDVIEW.EXE /q'.
+    summary = "Opens a document file with WINWORD.EXE."
+    description = f"""Uses 'WINWORD.EXE /q', or if unavailable, 'WORDVIEW.EXE /q'.
     {TRUSTED_PATH_TEXT}
     The .doc filename extension will be added automatically."""
 

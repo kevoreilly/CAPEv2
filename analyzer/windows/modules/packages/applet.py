@@ -16,8 +16,8 @@ class Applet(Package):
         ("ProgramFiles", "Mozilla Firefox", "firefox.exe"),
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
-    summary = "Open a java applet using firefox (or iexplore)."
-    description = f"""Create an HTML wrapper around the applet file.
+    summary = "Opens a java applet using firefox (or iexplore)."
+    description = f"""Creates an HTML wrapper around the applet file.
     The '{OPT_CLASS}' option is required; the applet will execute the
     named class.  Opens the HTML file with firefox, or iexplore if firefox
     is not available."""

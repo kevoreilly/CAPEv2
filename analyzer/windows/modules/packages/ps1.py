@@ -20,8 +20,8 @@ class PS1(Package):
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v*.0", "powershell.exe"),
         ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
-    summary = "Execute a sample file with powershell."
-    description = f"""Use 'powershell -NoProfile -ExecutionPolicy bypass -File <sample>'
+    summary = "Executes a sample file with powershell."
+    description = f"""Uses 'powershell -NoProfile -ExecutionPolicy bypass -File <sample>'
     to run a .ps1 file.
     If the '{_OPT_PWSH}' option is set, Powershell Core (PS v7) will be preferred.
     The .ps1 filename extension will be added automatically."""

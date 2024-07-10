@@ -25,8 +25,8 @@ class INP(Package):
         ("ProgramFiles", "InPage Urdu Professional", "Inpage.exe"),
         ("ProgramFiles", "Concept Software Pvt. Ltd", "InPage Urdu Professional", "Inpage.exe"),
     ]
-    summary = "Open a .inp file using InPage Urdu Professional."
-    description = """Use 'Inpage.exe <sample>' to open a .inp file.
+    summary = "Opens a .inp file using InPage Urdu Professional."
+    description = """Uses 'Inpage.exe <sample>' to open a .inp file.
     The .inp file extension will be added automatically."""
 
     def start(self, path):

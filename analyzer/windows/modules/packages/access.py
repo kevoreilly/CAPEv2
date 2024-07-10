@@ -21,8 +21,8 @@ class ACCESS(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "MSACCESS.EXE"),
         ("ProgramFiles", "Microsoft Office", "MSACCESS.EXE"),
     ]
-    summary = "Open an .accdr file using MSACCESS.EXE."
-    description = """Use MSACCESS.EXE to open a .accdr file.
+    summary = "Opens an .accdr file using MSACCESS.EXE."
+    description = """Uses MSACCESS.EXE to open a .accdr file.
     The .accdr filename extension will be added automatically."""
 
     def start(self, path):

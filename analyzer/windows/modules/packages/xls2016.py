@@ -19,8 +19,8 @@ class XLS2207(Package):
     PATHS = [
         ("ProgramFiles", "Microsoft Office*", "root", "Office16", "EXCEL.EXE"),
     ]
-    summary = "Open the supplied document with Office16\\EXCEL.EXE."
-    description = f"""Use 'EXCEL.EXE <path> /dde' to open the file.
+    summary = "Opens the supplied document with Office16\\EXCEL.EXE."
+    description = f"""Uses 'EXCEL.EXE <path> /dde' to open the file.
     {TRUSTED_PATH_TEXT}
     The .xls filename extension will be added automatically."""
 

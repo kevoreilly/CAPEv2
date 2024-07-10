@@ -11,9 +11,9 @@ class Python(Package):
     """Python analysis package."""
 
     PATHS = [("HomeDrive", "Python*", "python.exe"), ("SystemRoot", "py.exe")]
-    summary = "Execute sample file with python."
-    description = """Use python.exe or py.exe to run a python script.
-    If the 'arguments' option is set, the contents will be used as arguments to the python script."""
+    summary = "Executes sample file with python."
+    description = f"""Uses python.exe or py.exe to run a python script.
+    If the '{OPT_ARGUMENTS}' option is set, the contents will be used as arguments to the python script."""
     option_names = (OPT_ARGUMENTS,)
 
     def start(self, path):

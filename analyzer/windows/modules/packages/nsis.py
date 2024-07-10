@@ -14,7 +14,7 @@ class NSIS(Package):
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),
     ]
-    summary = "Execute the sample file with cmd.exe /NCRC"
+    summary = "Executes the sample file with cmd.exe /NCRC"
     description = """Uses 'cmd.exe /c start /wait "" "path" /NCRC' to execute sample files.
     For context behind this command:
     /C          Carries out the command specified by string and then terminates

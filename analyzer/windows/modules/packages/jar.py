@@ -12,8 +12,8 @@ class Jar(Package):
     PATHS = [
         ("ProgramFiles", "Java", "jre*", "bin", "java.exe"),
     ]
-    summary = "Execute a java class using java.exe."
-    description = f"""Use 'java.exe -jar [path]' to run the given sample.
+    summary = "Executes a java class using java.exe."
+    description = f"""Uses 'java.exe -jar [path]' to run the given sample.
     However, if the '{OPT_CLASS}' option is specified, use
     'java.exe -cp [path] [class]' to run the named java class."""
     option_names = (OPT_CLASS,)

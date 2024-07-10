@@ -8,7 +8,15 @@ import shutil
 from pathlib import Path
 
 from lib.common.abstracts import Package
-from lib.common.constants import ARCHIVE_OPTIONS, OPT_FILE, OPT_MULTI_PASSWORD, OPT_PASSWORD
+from lib.common.constants import (
+    ARCHIVE_OPTIONS,
+    OPT_ARGUMENTS,
+    OPT_DLLLOADER,
+    OPT_FILE,
+    OPT_FUNCTION,
+    OPT_MULTI_PASSWORD,
+    OPT_PASSWORD,
+)
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
     attempt_multiple_passwords,
@@ -44,8 +52,8 @@ class Archive(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
-    summary = "Look for executables inside an archive."
-    description = f"""Use 7z.exe to unpack the archive with the supplied '{OPT_PASSWORD}' option.
+    summary = "Looks for executables inside an archive."
+    description = f"""Uses 7z.exe to unpack the archive with the supplied '{OPT_PASSWORD}' option.
     The default password is 'infected.'
     If the '{OPT_MULTI_PASSWORD}' option is set, the '{OPT_PASSWORD}' option can contain
     several possible passwords, colon-separated.
@@ -54,8 +62,8 @@ class Archive(Package):
     and attempt to execute it. Else, attempt to execute all executables in the archive.
     For each execution attempt, choose the appropriate method based on the file extension.
     Various options apply depending on the file type.
-    The options 'function' and 'dllloader' will be applied to .DLL execution attempts.
-    The option 'arguments' will be applied to a .DLL or a PE executable.
+    The options '{OPT_FUNCTION}' and '{OPT_DLLLOADER}' will be applied to .DLL execution attempts.
+    The option '{OPT_ARGUMENTS}' will be applied to a .DLL or a PE executable.
     """
     option_names = sorted(set(DLL_OPTIONS + ARCHIVE_OPTIONS + (OPT_MULTI_PASSWORD,)))
 

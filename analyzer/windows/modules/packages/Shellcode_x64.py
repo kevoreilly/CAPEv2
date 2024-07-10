@@ -12,10 +12,10 @@ from lib.common.constants import OPT_OFFSET, OPT_PROCDUMP
 class Shellcode_x64(Package):
     """64-bit Shellcode analysis package."""
 
-    summary = "Execute 64-bit Shellcode using loader_x64.exe."
-    description = f"""Use bin\\loader_x64.exe shellcode [offset] <sample> to execute 64-bit Shellcode."
+    summary = "Executes 64-bit Shellcode using loader_x64.exe."
+    description = f"""Uses bin\\loader_x64.exe shellcode [offset] <sample> to execute 64-bit Shellcode."
     Use the '{OPT_OFFSET}' option to set the offset.
-    Set the option '{OPT_PROCDUMP}=0'."""
+    Turns off '{OPT_PROCDUMP}'."""
     option_names = (OPT_OFFSET,)
 
     def __init__(self, options=None, config=None):

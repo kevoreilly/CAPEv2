@@ -22,8 +22,8 @@ class ichitaro(Package):
     """Ichitaro (Japanese) Word Processor analysis package."""
 
     PATHS = [("ProgramFiles", "JustSystems", "TaroView", "TAROVIEW.EXE")]
-    summary = "Open a .jtd file using Ichitaro viewer."
-    description = """Use 'TaroView\\TAROVIEW.EXE <sample>' to open a .jtd file.
+    summary = "Opens a .jtd file using Ichitaro viewer."
+    description = """Uses 'TaroView\\TAROVIEW.EXE <sample>' to open a .jtd file.
     The .jtd file extension will be added automatically."""
 
     def start(self, path):

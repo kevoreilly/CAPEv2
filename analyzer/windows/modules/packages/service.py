@@ -63,8 +63,8 @@ class Service(Package):
     PATHS = [
         ("SystemRoot", "system32", "sc.exe"),
     ]
-    summary = "Launch the given sample as a service."
-    description = """Use 'svchost.exe -k capegroup <sample> [arguments]' to launch the sample
+    summary = "Launches the given sample as a service."
+    description = """Uses 'svchost.exe -k capegroup <sample> [arguments]' to launch the sample
     as a service.
     The .exe filename extension will be added automatically."""
     option_names = SERVICE_OPTIONS

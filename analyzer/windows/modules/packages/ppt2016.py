@@ -20,8 +20,8 @@ class PPT2007(Package):
     PATHS = [
         ("ProgramFiles", "Microsoft Office*", "root", "Office16", "POWERPNT.EXE"),
     ]
-    summary = "Open sample file with Powerpoint."
-    description = f"""Use 'Office16\\POWERPNT.EXE /s <sample>' to open a powerpoint presentation file.
+    summary = "Opens sample file with Powerpoint."
+    description = f"""Uses 'Office16\\POWERPNT.EXE /s <sample>' to open a powerpoint presentation file.
     {TRUSTED_PATH_TEXT}
     """
 

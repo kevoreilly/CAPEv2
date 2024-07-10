@@ -13,8 +13,8 @@ class CHM(Package):
     PATHS = [
         ("SystemRoot", "hh.exe"),
     ]
-    summary = "Open the compiled help file with hh.exe."
-    description = """Use 'hh.exe <sample>' to open the sample.
+    summary = "Opens the compiled help file with hh.exe."
+    description = """Uses 'hh.exe <sample>' to open the sample.
     The .chm filename extension will be added automatically."""
     option_names = (OPT_ARGUMENTS,)
 

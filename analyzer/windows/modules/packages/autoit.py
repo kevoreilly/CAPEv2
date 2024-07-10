@@ -5,9 +5,9 @@ from lib.common.constants import OPT_ARGUMENTS
 class AutoIT(Package):
     """AutoIT analysis package."""
 
-    summary = "Execute the sample with autoit3."
-    description = """Use 'bin\\autoit3.exe <sample> [arguments]' to execute the sample,
-    Use the 'arguments' option to provide additional arguments."""
+    summary = "Executes the sample with autoit3."
+    description = f"""Uses 'bin\\autoit3.exe <sample> [arguments]' to execute the sample,
+    Set the '{OPT_ARGUMENTS}' option to provide additional arguments."""
     option_names = (OPT_ARGUMENTS,)
 
     def start(self, path):

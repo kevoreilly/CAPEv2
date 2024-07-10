@@ -13,8 +13,8 @@ class XSLT(Package):
         ("SystemRoot", "system32", "wbem", "wmic.exe"),
         ("SystemRoot", "SysWOW64", "wbem", "wmic.exe"),
     ]
-    summary = "Open sample file using wmic.exe."
-    description = """Use 'wmic.exe process LIST /FORMAT:"<sample>"' to detonate any
+    summary = "Opens sample file using wmic.exe."
+    description = """Uses 'wmic.exe process LIST /FORMAT:"<sample>"' to execute any
     code embedded in the xml sample.
     The .xsl filename extension will be added automatically."""
 

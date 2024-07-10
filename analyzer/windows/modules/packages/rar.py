@@ -15,7 +15,7 @@ except ImportError:
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
-from lib.common.constants import ARCHIVE_OPTIONS, DLL_OPTIONS, OPT_FILE, OPT_PASSWORD
+from lib.common.constants import ARCHIVE_OPTIONS, DLL_OPTIONS, OPT_ARGUMENTS, OPT_DLLLOADER, OPT_FILE, OPT_FUNCTION, OPT_PASSWORD
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import get_interesting_files, upload_extracted_files
 
@@ -41,11 +41,11 @@ class Rar(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
-    summary = "Unpack a .rar archive with the given password and execute the contents appropriately."
-    description = f"""Extract the contents of a .rar file. If the file name is not
-    supplied in the '{OPT_FILE}" option, examine the archive for files that look executable.
+    summary = "Unpacks a .rar archive with the given password and execute the contents appropriately."
+    description = f"""Extracts the contents of a .rar file. If the file name is not
+    supplied in the '{OPT_FILE}" option, examines the archive for files that look executable.
     If none can be found, the first file in the archive is taken.
-    If the archive contains .dll files, then options 'function', 'arguments' and 'dllloader' will take effect.
+    If the archive contains .dll files, then options '{OPT_FUNCTION}', '{OPT_ARGUMENTS}' and '{OPT_DLLLOADER}' will take effect.
     The execution method is chosen based on the filename extension."""
     option_names = sorted(set(ARCHIVE_OPTIONS + DLL_OPTIONS))
 

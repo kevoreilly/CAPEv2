@@ -17,10 +17,10 @@ _OPT_DUMP_CALLER_REGIONS = "dump-caller-regions"
 class Shellcode_Unpacker(Package):
     """32-bit Shellcode Unpacker package."""
 
-    summary = "Execute 32-bit Shellcode using loader.exe with the unpacker option."
-    description = f"""Use 'bin\\loader.exe shellcode <sample>' to execute 32-bit Shellcode.
-    Set the option '{OPT_UNPACKER}=1'.
-    Set the option '{OPT_PROCDUMP}=0' and '{_OPT_DUMP_CALLER_REGIONS}=0'."""
+    summary = "Executes 32-bit Shellcode using loader.exe with the unpacker option."
+    description = f"""Uses 'bin\\loader.exe shellcode <sample>' to execute 32-bit Shellcode.
+    Turns off '{OPT_PROCDUMP}' and '{_OPT_DUMP_CALLER_REGIONS}'.
+    Turns on '{OPT_UNPACKER}'."""
 
     def __init__(self, options=None, config=None):
         """@param options: options dict."""

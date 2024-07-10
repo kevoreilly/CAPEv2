@@ -12,8 +12,8 @@ class LNK(Package):
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),
     ]
-    summary = "Execute a .lnk file using cmd.exe."
-    description = """Use cmd.exe with the "/wait" option to run a .lnk file.
+    summary = "Executes a .lnk file using cmd.exe."
+    description = """Uses cmd.exe with the "/wait" option to run a .lnk file.
     For context behind this command:
     /C          Carries out the command specified by string and then terminates
     START       Starts a separate window to run a specified program or command.

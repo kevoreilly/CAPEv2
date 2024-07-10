@@ -15,9 +15,9 @@ class IE(Package):
     PATHS = [
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
-    summary = "Run the supplied executable."
-    description = f"""First run 'iexplore.exe about:blank' to open Internet Explorer.
-    Then, execute the given sample, passing '{OPT_ARGUMENTS}' if specified.
+    summary = "Runs the supplied executable."
+    description = f"""First runs 'iexplore.exe about:blank' to open Internet Explorer.
+    Next executes the given sample, passing '{OPT_ARGUMENTS}' if specified.
     Use the '{OPT_APPDATA}' option to run the executable from the APPDATA directory.
     Use the '{OPT_RUNASX86}' option to set the 32BITREQUIRED flag in the PE header,
     using 'CorFlags.exe /32bit+'.

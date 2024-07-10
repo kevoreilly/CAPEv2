@@ -1404,7 +1404,7 @@ class _Database:
                     del parsed_options["category"]
 
                 orig_options_parsed.update(parsed_options)
-                orig_options = ",".join([f"{k}={v}" for k,v in orig_options_parsed.items()])
+                orig_options = ",".join([f"{k}={v}" for k, v in orig_options_parsed.items()])
 
         return (
             static,
@@ -1427,7 +1427,6 @@ class _Database:
             tags,
             category,
         )
-
 
     def demux_sample_and_add_to_db(
         self,
@@ -1497,7 +1496,13 @@ class _Database:
         if category == "static":
             # force change of category
             task_ids += self.add_static(
-                file_path=file_path, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options, package=package,
+                file_path=file_path,
+                priority=priority,
+                tlp=tlp,
+                user_id=user_id,
+                username=username,
+                options=options,
+                package=package,
             )
             return task_ids, details
 

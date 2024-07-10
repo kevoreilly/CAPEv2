@@ -545,6 +545,7 @@ class File:
             File.init_yara()
 
         if not os.path.getsize(self.file_path):
+            log.error("YARA scan ignored, file is empty: %s", self.file_path)
             return []
 
         results = []

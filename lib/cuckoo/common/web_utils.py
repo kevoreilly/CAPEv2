@@ -535,79 +535,6 @@ def fix_section_permission(path):
         log.info(e)
 
 
-# Submission hooks to manipulate arguments of tasks execution
-def recon(
-    filename,
-    orig_options,
-    timeout,
-    enforce_timeout,
-    package,
-    tags,
-    static,
-    priority,
-    machine,
-    platform,
-    custom,
-    memory,
-    clock,
-    unique,
-    referrer,
-    tlp,
-    tags_tasks,
-    route,
-    cape,
-    category=None,
-):
-    if not isinstance(filename, str):
-        filename = bytes2str(filename)
-
-    lowered_filename = filename.lower()
-
-    if web_cfg.general.yara_recon:
-        hits = File(filename).get_yara("binaries")
-        for hit in hits:
-            cape_name = hit["meta"].get("cape_type", "")
-            if not cape_name.endswith(("Crypter", "Packer", "Obfuscator", "Loader")):
-                continue
-
-            parsed_options = get_options(hit["meta"].get("cape_options", ""))
-            if "tags" in parsed_options:
-                tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
-            # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
-            if "package" in parsed_options:
-                package = parsed_options["package"]
-
-            if "category" in parsed_options:
-                category = parsed_options["category"]
-
-    if "name" in lowered_filename:
-        orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
-        timeout = 400
-        enforce_timeout = True
-
-    return (
-        static,
-        priority,
-        machine,
-        platform,
-        custom,
-        memory,
-        clock,
-        unique,
-        referrer,
-        tlp,
-        tags_tasks,
-        route,
-        cape,
-        orig_options,
-        timeout,
-        enforce_timeout,
-        package,
-        tags,
-        category,
-    )
-
-
 def get_magic_type(data):
     try:
         if path_exists(data):
@@ -768,48 +695,6 @@ def download_file(**kwargs):
     if disable_x64 and kwargs["path"] and magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
-
-    (
-        static,
-        priority,
-        machine,
-        platform,
-        custom,
-        memory,
-        clock,
-        unique,
-        referrer,
-        tlp,
-        tags_tasks,
-        route,
-        cape,
-        kwargs["options"],
-        timeout,
-        enforce_timeout,
-        package,
-        tags,
-        category,
-    ) = recon(
-        kwargs["path"],
-        kwargs["options"],
-        timeout,
-        enforce_timeout,
-        package,
-        tags,
-        static,
-        priority,
-        machine,
-        platform,
-        custom,
-        memory,
-        clock,
-        unique,
-        referrer,
-        tlp,
-        tags_tasks,
-        route,
-        cape,
-    )
 
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]

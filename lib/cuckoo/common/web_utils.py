@@ -30,7 +30,6 @@ from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefi
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import (
-    bytes2str,
     generate_fake_name,
     get_ip_address,
     get_options,
@@ -750,7 +749,6 @@ def download_file(**kwargs):
             username=username,
             source_url=kwargs.get("source_url", False),
             # parent_id=kwargs.get("parent_id"),
-            category=category,
         )
 
         try:

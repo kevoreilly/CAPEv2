@@ -183,7 +183,7 @@ def get_vt_consensus(namelist: list):
     return ""
 
 
-# https://developers.virustotal.com/v3.0/reference#file-info
+# https://docs.virustotal.com/reference/files
 def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = False):
     if not processing_conf.virustotal.enabled or processing_conf.virustotal.get("on_demand", False) and not on_demand:
         return {}

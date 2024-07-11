@@ -8,8 +8,8 @@ import shlex
 import shutil
 import signal
 import subprocess
-from typing import DefaultDict, List, Optional, Set, Union
 from contextlib import suppress
+from typing import DefaultDict, List, Optional, Set, Union
 
 import pebble
 
@@ -72,6 +72,7 @@ except ImportError:
 HAVE_DIE = False
 with suppress(ImportError):
     import die
+
     HAVE_DIE = True
 
 
@@ -268,7 +269,7 @@ def detect_it_easy_info(file_path: str):
 
     try:
         try:
-            result_json = die.scan_file(file_path, die.ScanFlags.RESULT_AS_JSON, str(die.database_path/'db') )
+            result_json = die.scan_file(file_path, die.ScanFlags.RESULT_AS_JSON, str(die.database_path / "db"))
         except Exception as e:
             log.error("DIE error: %s", str(e))
 

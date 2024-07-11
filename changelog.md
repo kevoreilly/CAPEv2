@@ -1,3 +1,8 @@
+### [11.07.2024]
+* Monitor updates:
+    * (in)direct syscall handling enhancements
+    * unpacking & scanning: improved entropy checks
+
 ### [26.06.2024]
 * Monitor updates: debugger/trace enhancements
 

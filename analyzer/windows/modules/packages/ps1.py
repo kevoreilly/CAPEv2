@@ -5,6 +5,8 @@
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
+_OPT_PWSH = "pwsh"
+
 
 class PS1(Package):
     """PowerShell analysis package."""
@@ -18,6 +20,12 @@ class PS1(Package):
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v*.0", "powershell.exe"),
         ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
+    summary = "Executes a sample file with powershell."
+    description = f"""Uses 'powershell -NoProfile -ExecutionPolicy bypass -File <sample>'
+    to run a .ps1 file.
+    If the '{_OPT_PWSH}' option is set, Powershell Core (PS v7) will be preferred.
+    The .ps1 filename extension will be added automatically."""
+    option_names = (_OPT_PWSH,)
 
     def get_paths(self):
         """Return list of paths to search for the PowerShell executable.
@@ -25,7 +33,7 @@ class PS1(Package):
         If the user selected the option, insert PowerShell Core path at the start of
         the list.
         """
-        if self.options.get("pwsh"):
+        if self.options.get(_OPT_PWSH):
             return self.POWERSHELL_CORE + self.PATHS
         return self.PATHS
 

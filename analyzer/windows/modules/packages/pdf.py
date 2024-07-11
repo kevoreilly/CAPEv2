@@ -13,6 +13,9 @@ class PDF(Package):
         ("ProgramFiles", "Adobe", "*a*", "Reader", "AcroRd32.exe"),
         ("ProgramFiles", "Adobe", "Acrobat DC", "Acrobat", "Acrobat.exe"),
     ]
+    summary = "Opens .pdf file with Adobe Reader / Acrobat."
+    description = """Uses AcroRd32.exe or Acrobat.exe to open a PDF file.
+    The 'pdf' option is set automatically."""
 
     def __init__(self, options=None, config=None):
         """@param options: options dict."""

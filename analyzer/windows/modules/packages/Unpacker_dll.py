@@ -7,6 +7,8 @@ import shutil
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import OPT_ARGUMENTS, OPT_DLLLOADER, OPT_FUNCTION, OPT_INJECTION, OPT_UNPACKER
+from modules.packages.dll import DLL_OPTION_TEXT, DLL_OPTIONS
 
 
 class Unpacker_dll(Package):
@@ -15,6 +17,13 @@ class Unpacker_dll(Package):
     PATHS = [
         ("SystemRoot", "system32", "rundll32.exe"),
     ]
+    summary = "Unpacks a .dll file using rundll32.exe as the loader."
+    description = f"""Uses rundll32.exe with the '/wait' option to run a .lnk file.
+    {DLL_OPTION_TEXT}
+    Turns off '{OPT_INJECTION}'.
+    Turns on '{OPT_UNPACKER}'.
+    The .dll filename extension will be added automatically."""
+    option_names = DLL_OPTIONS
 
     def __init__(self, options=None, config=None):
         """@param options: options dict."""
@@ -22,14 +31,14 @@ class Unpacker_dll(Package):
             options = {}
         self.config = config
         self.options = options
-        self.options["unpacker"] = "1"
-        self.options["injection"] = "0"
+        self.options[OPT_UNPACKER] = "1"
+        self.options[OPT_INJECTION] = "0"
 
     def start(self, path):
         rundll32 = self.get_path("rundll32.exe")
-        function = self.options.get("function", "#1")
-        arguments = self.options.get("arguments")
-        dllloader = self.options.get("dllloader")
+        function = self.options.get(OPT_FUNCTION, "#1")
+        arguments = self.options.get(OPT_ARGUMENTS)
+        dllloader = self.options.get(OPT_DLLLOADER)
 
         # If the file doesn't have the proper .dll extension force it
         # and rename it. This is needed for rundll32 to execute correctly.

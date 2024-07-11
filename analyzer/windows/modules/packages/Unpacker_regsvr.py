@@ -4,6 +4,7 @@
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import OPT_ARGUMENTS, OPT_INJECTION, OPT_PROCDUMP, OPT_UNPACKER
 
 
 class Unpacker_Regsvr(Package):
@@ -12,6 +13,12 @@ class Unpacker_Regsvr(Package):
     PATHS = [
         ("SystemRoot", "system32", "regsvr32.exe"),
     ]
+    summary = "Executes function(s) in a DLL file using regsvr32.exe."
+    description = f"""Uses regsvr32.exe to run one or more functions in a .dll file.
+    Turns off '{OPT_PROCDUMP}' and '{OPT_INJECTION}'.
+    Turns on '{OPT_UNPACKER}'.
+    The .dll filename extension will be added automatically."""
+    option_names = (OPT_ARGUMENTS,)
 
     def __init__(self, options=None, config=None):
         """@param options: options dict."""
@@ -19,13 +26,13 @@ class Unpacker_Regsvr(Package):
             options = {}
         self.config = config
         self.options = options
-        self.options["unpacker"] = "1"
-        self.options["procdump"] = "0"
-        self.options["injection"] = "0"
+        self.options[OPT_UNPACKER] = "1"
+        self.options[OPT_PROCDUMP] = "0"
+        self.options[OPT_INJECTION] = "0"
 
     def start(self, path):
         regsvr32 = self.get_path("regsvr32.exe")
-        arguments = self.options.get("arguments")
+        arguments = self.options.get(OPT_ARGUMENTS)
 
         # If the file doesn't have the proper .dll extension force it
         # and rename it. This is needed for rundll32 to execute correctly.

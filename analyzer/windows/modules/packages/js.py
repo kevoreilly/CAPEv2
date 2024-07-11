@@ -5,6 +5,7 @@
 import os
 
 from lib.common.abstracts import Package
+from lib.common.constants import OPT_FREE
 
 
 class JS(Package):
@@ -13,10 +14,14 @@ class JS(Package):
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
+    summary = "Executes a .JS file using wscript.exe."
+    description = """Uses 'wscript.exe <sample>' to run a .js/.jse file.
+    In the case of '.jse' files, first start up 20 calc.exe windows, to thwart
+    some anti-vm measures.
+    The appropriate file extension will be added automatically."""
 
     def start(self, path):
         wscript = self.get_path("wscript.exe")
-        args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
         if ext not in (".js", ".jse"):
             if ext == ".jse" or os.path.isfile(path) and open(path, "rt").read(4) == "#@~^":
@@ -30,9 +35,9 @@ class JS(Package):
 
         if ext == ".jse":
             # antivm fix
-            free = self.options.get("free", False)
+            free = self.options.get(OPT_FREE, False)
             # to not track calcs
-            self.options["free"] = 1
+            self.options[OPT_FREE] = 1
             # fuck antivm
             for _ in range(20):
                 # calc
@@ -40,7 +45,7 @@ class JS(Package):
                 # cl = Process()
                 self.execute(calc, "", path)
             if not free:
-                self.options["free"] = 0
+                self.options[OPT_FREE] = 0
 
         args = f'"{path}"'
         return self.execute(wscript, args, path)

@@ -272,15 +272,15 @@ def detect_it_easy_info(file_path: str):
         except Exception as e:
             log.error("DIE error: %s", str(e))
 
-        if "detects" not in output:
+        if "detects" not in result_json:
             return []
 
-        if "Invalid signature" in output and "{" in output:
-            start = output.find("{")
+        if "Invalid signature" in result_json and "{" in result_json:
+            start = result_json.find("{")
             if start != -1:
-                output = output[start:]
+                result_json = result_json[start:]
 
-        strings = [sub["string"] for block in json.loads(output).get("detects", []) for sub in block.get("values", [])]
+        strings = [sub["string"] for block in json.loads(result_json).get("detects", []) for sub in block.get("values", [])]
 
         if strings:
             return strings

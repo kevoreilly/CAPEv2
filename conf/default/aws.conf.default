@@ -1,3 +1,5 @@
+# https://y4nush.com/posts/installation-of-capev2-sandbox-on-aws/
+
 [aws]
 # Specify the AWS Region (for example, us-west-1)
 region_name = us-east-1

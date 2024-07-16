@@ -264,9 +264,6 @@ def static_file_info(
 
 
 def detect_it_easy_info(file_path: str):
-    if not path_exists(processing_conf.die.binary):
-        return []
-
     try:
         try:
             result_json = die.scan_file(file_path, die.ScanFlags.RESULT_AS_JSON, str(die.database_path / "db"))
@@ -347,7 +344,7 @@ def _extracted_files_metadata(
             if processing_conf.trid.enabled:
                 file_info["trid"] = trid_info(full_path)
 
-            if processing_conf.die.enabled:
+            if processing_conf.die.enabled and HAVE_DIE:
                 file_info["die"] = detect_it_easy_info(full_path)
 
             dest_path = os.path.join(destination_folder, file_info["sha256"])

@@ -258,12 +258,13 @@ def have_enough_memory_for_unicorn():
     - https://github.com/unicorn-engine/unicorn/pull/1629
     """
     try:
-        from mmap import mmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE
+        from mmap import MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, mmap
 
         mm = mmap(
             -1,
             1024 * 1024 * 1024,
-            MAP_PRIVATE | MAP_ANON, PROT_WRITE | PROT_READ | PROT_EXEC,
+            MAP_PRIVATE | MAP_ANON,
+            PROT_WRITE | PROT_READ | PROT_EXEC,
         )
         mm.close()
         return True

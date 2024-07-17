@@ -1,9 +1,9 @@
+import base64
 import json
 import logging
 import os
-import zlib
-import base64
 import subprocess
+import zlib
 
 from lib.cuckoo.common.abstracts import Processing
 

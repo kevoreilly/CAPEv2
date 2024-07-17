@@ -86,7 +86,6 @@ class TraceeAnalysis(Processing):
         ln = f.readline()
 
         output = { "metadata": { "security_events": [] }, "syscalls": [] } # trace security events and store process tree
-        # outfile = open(os.path.join(self.analysis_path, "tracee", "tracee-syscalls.jsonl"), "w") # all syscalls - originally i was planning this to be a streaming kinda thing
         all_syscalls = output["syscalls"]
         output_metadata = output["metadata"]
         ev_idx = -1
@@ -137,8 +136,4 @@ class TraceeAnalysis(Processing):
 
         output_metadata["proctree"] = tree.to_dict()
 
-        # with gzip.open(os.path.join(self.analysis_path, "tracee", "tracee-processed.json.gz"), "wb") as f:
-        #     f.write(bytearray(json.dumps(output), "utf-8"))
-
         return str(base64.b64encode(zlib.compress(bytearray(json.dumps(output), "utf-8"))), "ascii")
-        # return "yes"

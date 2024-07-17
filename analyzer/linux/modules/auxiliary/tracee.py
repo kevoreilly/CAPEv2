@@ -60,7 +60,6 @@ def start_docker_container(container_name, tracee_version):
             f"-v /etc/os-release:/etc/os-release-host:ro -v {os.getcwd()}/tracee-artifacts/:/tmp/tracee/out/host -v /var/run:/var/run:ro -v {os.getcwd()}/modules/auxiliary/tracee:/policy " + 
             "aquasec/tracee:latest --output json --output option:parse-arguments,exec-env,exec-hash --policy /policy/policy.yml --cache cache-type=mem --cache mem-cache-size=1024 " +
             "--capture bpf --capture module"
-            # "aquasec/tracee:latest --output json --output option:parse-arguments,exec-env,exec-hash --events kernel_module_loading,hooked_syscall,syscall_hooking --cache cache-type=mem --cache mem-cache-size=1024",
         ][0]
 
         log.debug(tracee_cmd)
@@ -125,11 +124,9 @@ class Docker(Thread, Auxiliary):
         log.info(result.stdout)
         result = subprocess.run("sudo docker inspect tracee", shell=True, capture_output=True, text=True)
         container_details = json.loads(result.stdout)[0]
-        # log.info(container_details["LogPath"])
         logpath = container_details["LogPath"]
 
         cmd = f"sudo tail +1f {logpath}"
-        # cmd = f"sudo head {logpath}"
         log.info(cmd)
         
         try:

@@ -143,7 +143,6 @@ and its usage could be suspicious as it can give visibility into low-level syste
                 ];
                 
                 if (call.args[0] && call.args[0].name == "triggeredBy") {
-                    // console.log(call.args[0]);
                     row[2] += `<b>Triggered By:</b><br>`;
                     call.args = call.args[0].value.args;
                 }
@@ -154,15 +153,7 @@ and its usage could be suspicious as it can give visibility into low-level syste
                     const arg = call.args[i];
                     searchArgs += `${arg.type} ${arg.name} ${JSON.stringify(arg.value)}\n`;
                     row[2] += SaferHTML`<span class="gray">${arg.type} ${arg.name}:</span><span class="mono">${JSON.stringify(arg.value)}</span><br>`;
-
-                    // if (i == 4 && call.args.length > 5) {
-                    //     row[2] += `<details><summary>More...</summary><div>`;
-                    // }
                 }
-
-                // if (call.args.length > 5) {
-                //     row[2] += `</div></details>`;
-                // }
 
                 if (call.metadata) {
                     row[2] += SaferHTML`<details class="mt-2"><summary class="alert alert-info p-2 bold">Details &amp; MITRE ATTACK</summary><div class="alert alert-secondary p-2">${call.metadata.Description}<br><pre>${JSON.stringify(call.metadata.Properties, null, 2)}</pre></div></details>`;
@@ -199,7 +190,6 @@ and its usage could be suspicious as it can give visibility into low-level syste
                     data: preparedTraceeData,
 
                     scrollCollapse: true,
-                    // scroller: true,
                     scrollY: 800,
                     stateSave: false,
                     pageLength: 200,
@@ -242,6 +232,7 @@ and its usage could be suspicious as it can give visibility into low-level syste
                         },
                         {
                             target: 1,
+                            /* min-height: 1200px !important; */
                             data: null,
                             width: "150px",
                             render: {
@@ -272,15 +263,10 @@ and its usage could be suspicious as it can give visibility into low-level syste
                         {
                             target: 4,
                             visible: false,
-                            // searchable: false,
                         },
                         {
                             target: 5,
                             visible: false,
-                            // render: {
-                            //     _: '[, ].name',
-                            //     sp: '[].name'
-                            // },
                             searchPanes: {
                                 orthogonal: '_'
                             }
@@ -288,7 +274,6 @@ and its usage could be suspicious as it can give visibility into low-level syste
                         {
                             target: 6,
                             visible: false,
-                            // searchable: false,
                         },
                     ],
                 });
@@ -315,7 +300,6 @@ and its usage could be suspicious as it can give visibility into low-level syste
         }
 
         .dt-scroll-body:has(#tracee-mainTable) {
-            /* min-height: 1200px !important; */
             overflow-x: hidden;
         }
 

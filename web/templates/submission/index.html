@@ -56,6 +56,10 @@ $(document).ready( function() {
             document.getElementById('non-pcap-2').style.display = "block";
         }
     });
+    $('#form_package').change(function () {
+        let title = $('option:selected', this).attr('title');
+        $("#package_description").text(title);
+    });
 });
 </script>
 <div class="row">
@@ -177,8 +181,8 @@ $(document).ready( function() {
                                 {% endif %}
                                 {% if resubmit %}
                                     <div class="form-group">
-                                        <label for="form_package">Task Category</label>
-                                        <select class="form-control" id="form_package" name="job_category">
+                                        <label for="form_job_category">Task Category</label>
+                                        <select class="form-control" id="form_job_category" name="job_category">
                                             <option value="hash" checked>Resubmit</option>
                                             <option value="sample">Files</option>
                                             <option value="static">Static analysis</option>
@@ -190,13 +194,14 @@ $(document).ready( function() {
                                     </div>
                                 {% endif %}
                                 <div class="form-group">
-                                    <label for="form_package">Analysis Package</label>
+                                    <label for="form_package">Analysis Package (hover for more info)</label>
                                     <select class="form-control" id="form_package" name="package">
-                                        <option value="" active>Detect Automatically</option>
+                                        <option value="" title="">Detect Automatically</option>
                                         {% for package in packages %}
-                                        <option value="{{package}}">{{package}}</option>
+                                        <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{ package.summary }}</option>
                                         {% endfor %}
                                     </select>
+                                    <small id="package_description"></small>
                                 </div>
                                 {% if not config.dist_master_storage_only %}
                                     <div class="form-group">

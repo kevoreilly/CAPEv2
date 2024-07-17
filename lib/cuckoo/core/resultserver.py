@@ -66,6 +66,7 @@ RESULT_UPLOADABLE = (
     b"sysmon",
     b"evtx",
     b"htmldump",
+    b"tracee",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 

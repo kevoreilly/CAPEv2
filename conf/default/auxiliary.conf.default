@@ -68,3 +68,6 @@ bpf = not arp
 #RTR1 = 192.168.1.254
 #RTR2 = 192.168.1.1
 #INETSIM = 192.168.1.2
+
+[tracee]
+enabled = no

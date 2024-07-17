@@ -573,7 +573,7 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
-    if is_ajax and category in ("CAPE", "dropped", "behavior", "strace", "debugger", "network", "procdump", "procmemory", "memory"):
+    if is_ajax and category in ("CAPE", "dropped", "behavior", "strace", "debugger", "network", "procdump", "procmemory", "memory", "tracee"):
         data = {}
         debugger_logs = {}
         bingraph_dict_content = {}
@@ -590,6 +590,66 @@ def load_files(request, task_id, category):
                     data["debugger"] = data["behavior"]
                 if category == "strace":
                     data["strace"] = data["behavior"]
+            elif category == "tracee":
+                data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
+                tmp = data["tracee"]
+                data["tracee"] = {}
+                data["tracee"]["rawData"] = tmp
+                with open("/opt/CAPEv2/data/linux/linux-syscalls.json", "r") as f:
+                    data["tracee"]["syscalls_decoded"] = json.load(f)
+                    data["tracee"]["syscalls_decoded"]["syscalls"].extend([
+                        {"name": "stdio_over_socket", "cat": "SIGNATURISED"},
+                        {"name": "k8s_api_connection", "cat": "SIGNATURISED"},
+                        {"name": "aslr_inspection", "cat": "SIGNATURISED"},
+                        {"name": "proc_mem_code_injection", "cat": "SIGNATURISED"},
+                        {"name": "docker_abuse", "cat": "SIGNATURISED"},
+                        {"name": "scheduled_task_mod", "cat": "SIGNATURISED"},
+                        {"name": "ld_preload", "cat": "SIGNATURISED"},
+                        {"name": "cgroup_notify_on_release", "cat": "SIGNATURISED"},
+                        {"name": "default_loader_mod", "cat": "SIGNATURISED"},
+                        {"name": "sudoers_modification", "cat": "SIGNATURISED"},
+                        {"name": "sched_debug_recon", "cat": "SIGNATURISED"},
+                        {"name": "system_request_key_mod", "cat": "SIGNATURISED"},
+                        {"name": "cgroup_release_agent", "cat": "SIGNATURISED"},
+                        {"name": "rcd_modification", "cat": "SIGNATURISED"},
+                        {"name": "core_pattern_modification", "cat": "SIGNATURISED"},
+                        {"name": "proc_kcore_read", "cat": "SIGNATURISED"},
+                        {"name": "proc_mem_access", "cat": "SIGNATURISED"},
+                        {"name": "hidden_file_created", "cat": "SIGNATURISED"},
+                        {"name": "anti_debugging", "cat": "SIGNATURISED"},
+                        {"name": "ptrace_code_injection", "cat": "SIGNATURISED"},
+                        {"name": "process_vm_write_inject", "cat": "SIGNATURISED"},
+                        {"name": "disk_mount", "cat": "SIGNATURISED"},
+                        {"name": "dynamic_code_loading", "cat": "SIGNATURISED"},
+                        {"name": "fileless_execution", "cat": "SIGNATURISED"},
+                        {"name": "illegitimate_shell", "cat": "SIGNATURISED"},
+                        {"name": "kernel_module_loading", "cat": "SIGNATURISED"},
+                        {"name": "k8s_cert_theft", "cat": "SIGNATURISED"},
+                        {"name": "proc_fops_hooking", "cat": "SIGNATURISED"},
+                        {"name": "syscall_hooking", "cat": "SIGNATURISED"},
+                        {"name": "dropped_executable", "cat": "SIGNATURISED"},
+                        {"name": "sched_debug_recon", "cat": "SIGNATURISED"},
+                        {"name": "sched_process_exec", "cat": "SIGNATURISED"},
+
+                        {"name": "security_inode_unlink", "cat": "SIGNATURISED"},
+                        {"name": "security_bpf_prog", "cat": "SIGNATURISED"},
+                        {"name": "security_socket_connect", "cat": "SIGNATURISED"},
+                        {"name": "security_socket_accept", "cat": "SIGNATURISED"},
+                        {"name": "security_socket_bind", "cat": "SIGNATURISED"},
+                        {"name": "security_sb_mount", "cat": "SIGNATURISED"},
+                        {"name": "net_packet_icmp", "cat": "SIGNATURISED"},
+                        {"name": "net_packet_icmpv6", "cat": "SIGNATURISED"},
+                        {"name": "net_packet_dns_request", "cat": "SIGNATURISED"},
+                        {"name": "net_packet_dns_response", "cat": "SIGNATURISED"},
+                        {"name": "net_packet_http_request", "cat": "SIGNATURISED"},
+                        {"name": "net_packet_http_response", "cat": "SIGNATURISED"},
+                        {"name": "process_vm_readv", "cat": "SIGNATURISED"},
+                        {"name": "process_vm_writev", "cat": "SIGNATURISED"},
+                        {"name": "finit_module", "cat": "SIGNATURISED"},
+                        {"name": "memfd_create", "cat": "SIGNATURISED"}
+                    ])
+                data["tracee"]["syscalls"] = json.dumps(data["tracee"]["syscalls_decoded"])
+                data["tracee"]["cats"] = ["SIGNATURISED","kernel","fs","mm","net","ipc","security","drivers","io_uring","crypto","block"]
             elif category == "network":
                 data = mongo_find_one(
                     "analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}

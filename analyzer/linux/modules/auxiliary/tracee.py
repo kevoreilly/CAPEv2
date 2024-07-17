@@ -8,7 +8,7 @@ from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.exceptions import CuckooPackageError
-from lib.common.results import upload_to_host, NetlogFile, append_buffer_to_host
+from lib.common.results import NetlogFile, append_buffer_to_host
 
 # Set up logging
 log = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ __version__ = "1.0.0"
 DOCKER_LOG_NAME = "tracee.data"
 DOCKER_CONTAINER_NAME = "tracee"  # Name of the Docker container to monitor
 TRACEE_VERSION = "latest"
+
 
 def is_docker_installed() -> bool:
     """
@@ -56,10 +57,10 @@ def start_docker_container(container_name, tracee_version):
     try:
         # Checks
         tracee_cmd = [
-            "sudo docker run --name tracee -d --pid=host --cgroupns=host --privileged " + 
-            f"-v /etc/os-release:/etc/os-release-host:ro -v {os.getcwd()}/tracee-artifacts/:/tmp/tracee/out/host -v /var/run:/var/run:ro -v {os.getcwd()}/modules/auxiliary/tracee:/policy " + 
-            "aquasec/tracee:latest --output json --output option:parse-arguments,exec-env,exec-hash --policy /policy/policy.yml --cache cache-type=mem --cache mem-cache-size=1024 " +
-            "--capture bpf --capture module"
+            "sudo docker run --name tracee -d --pid=host --cgroupns=host --privileged "
+            + f"-v /etc/os-release:/etc/os-release-host:ro -v {os.getcwd()}/tracee-artifacts/:/tmp/tracee/out/host -v /var/run:/var/run:ro -v {os.getcwd()}/modules/auxiliary/tracee:/policy "
+            + "aquasec/tracee:latest --output json --output option:parse-arguments,exec-env,exec-hash --policy /policy/policy.yml --cache cache-type=mem --cache mem-cache-size=1024 "
+            + "--capture bpf --capture module"
         ][0]
 
         log.debug(tracee_cmd)
@@ -67,7 +68,9 @@ def start_docker_container(container_name, tracee_version):
         # Run Docker cmd to start the container
         result = subprocess.run(
             tracee_cmd,
-            shell=True, capture_output=True, text=True,
+            shell=True,
+            capture_output=True,
+            text=True,
         )
         log.debug(f"Docker container started: {result.stdout}")
 
@@ -128,10 +131,14 @@ class Docker(Thread, Auxiliary):
 
         cmd = f"sudo tail +1f {logpath}"
         log.info(cmd)
-        
+
         try:
             proc = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=True,
+                env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"},
             )
 
             for line in proc.stdout:
@@ -145,12 +152,10 @@ class Docker(Thread, Auxiliary):
         Start Docker container.
         """
         if not self.enabled:
-            return Falseresult.stdout
+            return False  # result.stdout
 
         if not is_docker_installed():
-            raise CuckooPackageError(
-                "Your VM needs to have Docker installed in order to use Docker functionality (tracee)."
-            )
+            raise CuckooPackageError("Your VM needs to have Docker installed in order to use Docker functionality (tracee).")
 
         # Check if the Docker container is already running
         if not is_docker_container_running(DOCKER_CONTAINER_NAME):
@@ -166,7 +171,7 @@ class Docker(Thread, Auxiliary):
         self.nc = NetlogFile()
         self.nc.init("logs/tracee.log", False)
         log.info(self.nc)
-        self.thread = Thread(target = self.thread_send_docker_buffer)
+        self.thread = Thread(target=self.thread_send_docker_buffer)
         self.thread.start()
 
         log.info("Streamstart")

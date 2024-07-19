@@ -191,7 +191,7 @@ def _sf_children(child: sfFile) -> bytes:
     return path_to_extract.encode()
 
 
-def demux_sflock(filename: bytes, options: str) -> List[bytes]:
+def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) -> List[bytes]:
     retlist = []
     # do not extract from .bin (downloaded from us)
     if os.path.splitext(filename)[1] == b".bin":
@@ -200,7 +200,7 @@ def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     try:
         password = options2passwd(options) or "infected"
         try:
-            unpacked = unpack(filename, password=password, check_shellcode=True)
+            unpacked = unpack(filename, password=password, check_shellcode=check_shellcode)
         except UnpackException:
             unpacked = unpack(filename, check_shellcode=True)
 
@@ -286,8 +286,13 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         return retlist
 
     new_retlist = []
+
+    check_shellcode = True
+    if options and "check_shellcode=0" in options:
+        check_shellcode = False
+
     # all in one unarchiver
-    retlist = demux_sflock(filename, options) if HAS_SFLOCK and use_sflock else []
+    retlist = demux_sflock(filename, options, check_shellcode) if HAS_SFLOCK and use_sflock else []
     # if it isn't a ZIP or an email, or we aren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:

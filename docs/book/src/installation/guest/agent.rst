@@ -50,6 +50,8 @@ agent not being able to work as intended.
 Windows 10+
 ===========
 
+.. note:: Using the shceduler as documented below is not **strictly necessary**. There are several ways to achieve execution of the analyzer for a given snapshot. For example, you could run the analyzer (let us call it ``pizza.pyw``) and create a snapshot with it already running. That would be more than enough.
+
 To start the script at boot, you will need to set the agent to be run
 as a scheduler task. Dropping it in
 ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp`` will

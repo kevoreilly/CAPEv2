@@ -238,7 +238,7 @@ class Azure(Machinery):
                 threading.Thread(target=self._thr_scale_machine_pool, args=(vals["tag"],)).start()
 
         # Check the machine pools every 5 minutes
-        threading.Timer(300, self._thr_machine_pool_monitor).start()
+        threading.Timer(self.options.az.monitor_rate, self._thr_machine_pool_monitor).start()
 
     def _set_vmss_stage(self):
         """
@@ -716,7 +716,10 @@ class Azure(Machinery):
             managed_disk=vmss_managed_disk,
             # Ephemeral disk time
             caching="ReadOnly",
-            diff_disk_settings=models.DiffDiskSettings(option="Local"),
+            diff_disk_settings=models.DiffDiskSettings(
+                option="Local",
+                placement=self.options.az.ephemeral_os_disk_placement
+            ),
         )
         vmss_storage_profile = models.VirtualMachineScaleSetStorageProfile(
             image_reference=vmss_image_ref,

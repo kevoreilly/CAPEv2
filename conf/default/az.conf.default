@@ -59,6 +59,11 @@ total_machines_limit = 50
 # Specify the machine's instance type(for example, Standard_F2s_v2, Standard_DS3_v2)
 instance_type = <instance_type>
 
+# Determines which type of ephemeral os disk to use. Be sure to research which machine supports which type and at what sizes.
+# Possible values are CacheDisk, ResourceDisk, and NvmeDisk. Defaults to CacheDisk
+# https://learn.microsoft.com/en-us/rest/api/compute/virtual-machines/list?view=rest-compute-2024-03-02&tabs=HTTP#diffdisksettings
+ephemeral_os_disk_placement =
+
 # This boolean flag is used to indicate if we want to programmatically determine how many cores are used
 # per VM of the instance_type mentioned above.
 # NOTE: If enabled, this is a long call that takes ~ 1 minute to complete. It takes place at
@@ -101,6 +106,9 @@ overprovision = 0
 # This time, in seconds, is used to build up a queue of machines that need to be reimaged,
 # such that we can perform bulk reimaging.
 wait_time_to_reimage = 4
+
+# This time, in seconds, is the wait between checking if VMSSs should be scaled up/down.
+monitor_rate = 300
 
 # This boolean value is used to indicate if we want to use Azure Spot instances rather than
 # normal instances

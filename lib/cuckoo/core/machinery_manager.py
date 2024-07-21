@@ -297,7 +297,7 @@ class MachineryManager:
     def start_machine(self, machine: Machine) -> None:
         if (
             isinstance(self.machine_lock, ScalingBoundedSemaphore)
-            and self.db.count_machines_running <= self.machines_limit
+            and self.db.count_machines_running() <= self.machines_limit
             and self.machine_lock._value == 0
         ):
             self.machine_lock.release()

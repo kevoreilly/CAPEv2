@@ -466,8 +466,9 @@ class Azure(Machinery):
                 time.sleep(5)
                 with reimage_lock:
                     label_in_reimage_vm_list = label in [f"{vm['vmss']}_{vm['id']}" for vm in reimage_vm_list]
-        else:
-            self.delete_machine(label)
+        # TODO: Find a way to enable machine deletion here without causing a sqlalchemy.orm.exc.StaleDataError
+        # else:
+        #     self.delete_machine(label)
 
     def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
         """

@@ -104,6 +104,15 @@ class Azure(Machinery):
     WINDOWS_PLATFORM = "windows"
     LINUX_PLATFORM = "linux"
 
+    def set_options(self, options: dict) -> None:
+        """Set machine manager options.
+        @param options: machine manager options dict.
+        """
+        self.options = options
+        mmanager_opts = self.options.get(self.module_name)
+        if not isinstance(mmanager_opts["scale_sets"], list):
+            mmanager_opts["scale_sets"] = str(mmanager_opts["scale_sets"]).strip().split(",")
+
     def _initialize(self):
         """
         Overloading abstracts.py:_initialize()
@@ -111,10 +120,6 @@ class Azure(Machinery):
         @param module_name: module name
         @raise CuckooDependencyError: if there is a problem with the dependencies call
         """
-        mmanager_opts = self.options.get(self.module_name)
-        if not isinstance(mmanager_opts["scale_sets"], list):
-            mmanager_opts["scale_sets"] = mmanager_opts["scale_sets"].strip().split(",")
-
         # Replace a list of IDs with dictionary representations
         scale_sets = mmanager_opts.pop("scale_sets")
         mmanager_opts["scale_sets"] = {}

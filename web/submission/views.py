@@ -537,15 +537,16 @@ def index(request, task_id=None, resubmit_hash=None):
             # load multi machinery tags:
             # Get enabled machinery
             machinery = cfg.cuckoo.get("machinery")
+            machinery_tags = "scale_sets" if machinery == "az" else "machines"
             if machinery == "multi":
                 for mmachinery in Config(machinery).multi.get("machinery").split(","):
-                    vms = [x.strip() for x in getattr(Config(mmachinery), mmachinery).get("machines").split(",") if x.strip()]
+                    vms = [x.strip() for x in getattr(Config(mmachinery), mmachinery).get(machinery_tags).split(",") if x.strip()]
                     if any(["tags" in list(getattr(Config(mmachinery), vmtag).keys()) for vmtag in vms]):
                         enabledconf["tags"] = True
                         break
             else:
                 # Get VM names for machinery config elements
-                vms = [x.strip() for x in str(getattr(Config(machinery), machinery).get("machines")).split(",") if x.strip()]
+                vms = [x.strip() for x in str(getattr(Config(machinery), machinery).get(machinery_tag)).split(",") if x.strip()]
                 # Check each VM config element for tags
                 if any(["tags" in list(getattr(Config(machinery), vmtag).keys()) for vmtag in vms]):
                     enabledconf["tags"] = True

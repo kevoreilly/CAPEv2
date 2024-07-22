@@ -202,7 +202,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) ->
         try:
             unpacked = unpack(filename, password=password, check_shellcode=check_shellcode)
         except UnpackException:
-            unpacked = unpack(filename, check_shellcode=True)
+            unpacked = unpack(filename, check_shellcode=check_shellcode)
 
         if unpacked.package in whitelist_extensions:
             return [filename]

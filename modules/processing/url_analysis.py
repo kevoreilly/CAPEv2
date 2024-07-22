@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
 
 HAVE_VIRUSTOTAL = False
 if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:

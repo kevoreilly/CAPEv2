@@ -4,13 +4,22 @@
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
+from lib.cuckoo.common.config import Config
+
+HAVE_VIRUSTOTAL = False
+if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
+    from lib.cuckoo.common.integrations.virustotal import vt_lookup
+
+    HAVE_VIRUSTOTAL = True
+
+processing_conf = Config("processing")
 
 
 class UrlAnalysis(Processing):
-    """General information about a file."""
+    """General information about a URL."""
 
     def run(self):
-        """Run file information gathering.
+        """Run URL information gathering.
         @return: information dict.
         """
         self.key = "url_analysis"
@@ -20,4 +29,10 @@ class UrlAnalysis(Processing):
             target_info["url"] = self.task["target"]
             if HAVE_WHOIS and self.options.whois:
                 self.results["url"] = URL(self.task["target"]).run()
+
+        if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
+            vt_details = vt_lookup("url", self.task["target"], self.results)
+            if vt_details:
+                self.results["virustotal"] = vt_details
+
         return target_info

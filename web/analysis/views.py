@@ -232,6 +232,7 @@ def get_analysis_info(db, id=-1, task=None):
             {
                 "info": 1,
                 "target.file.virustotal.summary": 1,
+                "url.virustotal.summary": 1,
                 "malscore": 1,
                 "detections": 1,
                 "network.pcap_sha256": 1,
@@ -255,6 +256,7 @@ def get_analysis_info(db, id=-1, task=None):
             _source=[
                 "info",
                 "target.file.virustotal.summary",
+                "url.virustotal.summary",
                 "malscore",
                 "detections",
                 "network.pcap_sha256",
@@ -310,6 +312,9 @@ def get_analysis_info(db, id=-1, task=None):
                     new[keyword] = rtmp["info"]["target"][keyword]
             if rtmp["target"]["file"].get("virustotal", {}).get("summary", False):
                 new["virustotal_summary"] = rtmp["target"]["file"]["virustotal"]["summary"]
+
+        if rtmp.get("url", {}).get("virustotal", {}).get("summary", False):
+            new["virustotal_summary"] = rtmp["url"]["virustotal"]["summary"]
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":
@@ -1181,7 +1186,7 @@ def antivirus(request, task_id):
         rtmp = mongo_find_one(
             "analysis",
             {"info.id": int(task_id)},
-            {"target.file.virustotal": 1, "target.url.virustotal": 1, "info.category": 1, "_id": 0},
+            {"target.file.virustotal": 1, "url.virustotal": 1, "info.category": 1, "_id": 0},
             sort=[("_id", -1)],
         )
     elif es_as_db:
@@ -1200,9 +1205,9 @@ def antivirus(request, task_id):
     if rtmp.get("target", {}).get("file"):
         rtmp["virustotal"] = rtmp.get("target", {}).get("file", {}).get("virustotal")
         del rtmp["target"]["file"]["virustotal"]
-    elif rtmp.get("target", {}).get("url"):
-        rtmp["virustotal"] = rtmp.get("target", {}).get("url", {}).get("virustotal")
-        del rtmp["target"]["url"]["virustotal"]
+    elif rtmp.get("url", {}).get("virustotal"):
+        rtmp["virustotal"] = rtmp.get("url", {}).get("virustotal")
+        del rtmp["url"]["virustotal"]
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":

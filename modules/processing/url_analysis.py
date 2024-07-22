@@ -30,9 +30,9 @@ class UrlAnalysis(Processing):
             if HAVE_WHOIS and self.options.whois:
                 self.results["url"] = URL(self.task["target"]).run()
 
-        if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
-            vt_details = vt_lookup("url", self.task["target"], self.results)
-            if vt_details:
-                self.results["virustotal"] = vt_details
+            if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
+                vt_details = vt_lookup("url", self.task["target"], self.results)
+                if vt_details:
+                    self.results["url"].setdefault("virustotal", vt_details)
 
         return target_info

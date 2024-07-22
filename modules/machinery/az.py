@@ -109,9 +109,6 @@ class Azure(Machinery):
         @param options: machine manager options dict.
         """
         self.options = options
-        mmanager_opts = self.options.get(self.module_name)
-        if not isinstance(mmanager_opts["scale_sets"], list):
-            mmanager_opts["scale_sets"] = str(mmanager_opts["scale_sets"]).strip().split(",")
 
     def _initialize(self):
         """
@@ -120,6 +117,11 @@ class Azure(Machinery):
         @param module_name: module name
         @raise CuckooDependencyError: if there is a problem with the dependencies call
         """
+        # Using "scale_sets" here instead of "machines" to avoid KeyError
+        mmanager_opts = self.options.get(self.module_name)
+        if not isinstance(mmanager_opts["scale_sets"], list):
+            mmanager_opts["scale_sets"] = str(mmanager_opts["scale_sets"]).strip().split(",")
+
         # Replace a list of IDs with dictionary representations
         scale_sets = mmanager_opts.pop("scale_sets")
         mmanager_opts["scale_sets"] = {}

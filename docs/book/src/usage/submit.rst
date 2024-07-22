@@ -165,6 +165,7 @@ some options (in this case a command line argument for the malware)::
 - ``pre_script_timeout``: pre_script_timeout will default to 60 seconds. Script will stop after timeout Example: pre_script_timeout=30
 - ``during_script_args``: Command line arguments for during_script. Example: during_script_args=file1 file2 file3
 - ``pwsh``: - for ps1 package: prefer PowerShell Core, if available in the vm
+- ``check_shellcode``: - Setting check_shellcode=0 will disable checking for shellcode during package identification and extracting from archive
 
 .. _webpy:
 

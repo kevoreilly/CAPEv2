@@ -1318,13 +1318,13 @@ class _Database:
             username=username,
         )
 
-    def _identify_aux_func(self, file: bytes, package: str) -> tuple:
+    def _identify_aux_func(self, file: bytes, package: str, check_shellcode: bool = True) -> tuple:
         # before demux we need to check as msix has zip mime and we don't want it to be extracted:
         tmp_package = False
         if not package:
             f = SflockFile.from_path(file)
             try:
-                tmp_package = sflock_identify(f, check_shellcode=True)
+                tmp_package = sflock_identify(f, check_shellcode=check_shellcode)
             except Exception as e:
                 log.error(f"Failed to sflock_ident due to {e}")
                 tmp_package = "generic"
@@ -1525,13 +1525,17 @@ class _Database:
             )
             return task_ids, details
 
+        check_shellcode = True
+        if options and "check_shellcode=0" in options:
+            check_shellcode = False
+
         if not package:
             if "file=" in options:
                 # set zip as package when specifying file= in options
                 package = "zip"
             else:
                 # Checking original file as some filetypes doesn't require demux
-                package, _ = self._identify_aux_func(file_path, package)
+                package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)
 
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options, platform=platform)
@@ -1559,7 +1563,7 @@ class _Database:
 
             if not config and not only_extraction:
                 if not package:
-                    package, tmp_package = self._identify_aux_func(file, "")
+                    package, tmp_package = self._identify_aux_func(file, "", check_shellcode=check_shellcode)
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)

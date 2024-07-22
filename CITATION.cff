@@ -8,8 +8,6 @@ authors:
   - given-names: Andriy
     family-names: Brukhovetskyy
 url: "https://github.com/kevoreilly/CAPEv2"
-repository-code: "https://github.com/kevoreilly/CAPEv2"
-url: "https://capev2.readthedocs.io/en/latest/#"
 version: 2
 abstract: >
   CAPEv2: Malware Configuration And Payload Extraction is a

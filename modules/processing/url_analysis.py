@@ -7,12 +7,12 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
 
 HAVE_VIRUSTOTAL = False
+processing_conf = Config("processing")
+
 if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
     from lib.cuckoo.common.integrations.virustotal import vt_lookup
 
     HAVE_VIRUSTOTAL = True
-
-processing_conf = Config("processing")
 
 
 class UrlAnalysis(Processing):

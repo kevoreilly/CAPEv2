@@ -33,7 +33,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooMachineError,
     CuckooOperationalError,
 )
-from lib.cuckoo.core.database import TASK_PENDING
+from lib.cuckoo.core.database import TASK_PENDING, Machine
 
 # Only log INFO or higher from imported python packages
 logging.getLogger("adal-python").setLevel(logging.INFO)
@@ -468,9 +468,13 @@ class Azure(Machinery):
                 time.sleep(5)
                 with reimage_lock:
                     label_in_reimage_vm_list = label in [f"{vm['vmss']}_{vm['id']}" for vm in reimage_vm_list]
-        # TODO: Find a way to enable machine deletion here without causing a sqlalchemy.orm.exc.StaleDataError
-        # else:
-        #     self.delete_machine(label)
+
+    def release(self, machine: Machine):
+        vmss_name = machine.label.split("_")[0]
+        if machine_pools[vmss_name]["is_scaling_down"]:
+            self.delete_machine(machine.label)
+        else:
+            _ = super(Azure, self).release(machine)
 
     def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
         """
@@ -627,7 +631,7 @@ class Azure(Machinery):
         """
         global vms_currently_being_deleted
 
-        _ = super(Azure, self).delete_machine(label)
+        super(Azure, self).delete_machine(label)
 
         if delete_from_vmss:
             vmss_name, instance_id = label.split("_")

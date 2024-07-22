@@ -231,6 +231,8 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
         r = requests.get(url, headers=headers, verify=True, timeout=timeout)
         if not r.ok:
             return {"error": True, "msg": f"Unable to complete connection to VirusTotal. Status code: {r.status_code}"}
+        if b"QuotaExceededError" in r.content:
+            return {"error": True, "msg": "QuotaExceededError"}
         vt_response = r.json()
         engines = vt_response.get("data", {}).get("attributes", {}).get("last_analysis_results", {})
         if not engines:

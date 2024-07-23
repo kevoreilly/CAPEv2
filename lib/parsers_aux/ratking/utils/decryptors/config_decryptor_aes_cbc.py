@@ -40,25 +40,25 @@ from cryptography.hazmat.primitives.hashes import SHA1
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.padding import PKCS7
 
-from .config_parser_exception import ConfigParserException
-from .data_utils import bytes_to_int, decode_bytes, int_to_bytes
-from .dotnet_constants import OPCODE_LDSTR, OPCODE_LDTOKEN
+from ..config_parser_exception import ConfigParserException
+from ..data_utils import bytes_to_int, decode_bytes, int_to_bytes
+from ..dotnet_constants import OPCODE_LDSTR, OPCODE_LDTOKEN
+from .config_decryptor import ConfigDecryptor
 
 logger = getLogger(__name__)
 
 MIN_CIPHERTEXT_LEN = 48
 
 
-class ConfigAESDecryptor:
+class ConfigDecryptorAESCBC(ConfigDecryptor):
     PATTERN_AES_KEY_AND_BLOCK_SIZE = b"[\x06-\x09]\x20(.{4})\x6f.{4}[\x06-\x09]\x20(.{4})"
     PATTERN_AES_KEY_BASE = b"(.{3}\x04).%b"
     PATTERN_AES_SALT_ITER = b"[\x02-\x05]\x7e(.{4})\x20(.{4})\x73"
     PATTERN_AES_SALT_INIT = b"\x80%b\x2a"
 
-    def __init__(self, payload, encrypted_config_strings):
-        self.payload = payload
-        self.encrypted_config_strings = encrypted_config_strings
-        self.key_size = self.block_size = self.iterations = self.salt = self.key_candidates = self.key = None
+    def __init__(self, payload, config_strings):
+        super().__init__(payload, config_strings)
+        self.key_size = self.block_size = self.iterations = self.key_candidates = None
         self.aes_metadata = self.get_aes_metadata()
 
     # Given an initialization vector and ciphertext, creates a Cipher
@@ -84,7 +84,7 @@ class ConfigAESDecryptor:
     # If a passphrase is base64-encoded, both its raw value and decoded value
     # will be added as candidates
     def derive_aes_passphrase_candidates(self, aes_key_rva):
-        key_val = self.encrypted_config_strings[aes_key_rva]
+        key_val = self.config_strings[aes_key_rva]
         passphrase_candidates = [key_val.encode()]
         try:
             passphrase_candidates.append(b64decode(key_val))
@@ -97,7 +97,7 @@ class ConfigAESDecryptor:
     def decrypt_encrypted_strings(self):
         logger.debug("Decrypting encrypted strings...")
         decrypted_config_strings = {}
-        for k, v in self.encrypted_config_strings.items():
+        for k, v in self.config_strings.items():
             # Leave empty strings as they are
             if len(v) == 0:
                 logger.debug(f"Key: {k}, Value: {v}")
@@ -251,18 +251,9 @@ class ConfigAESDecryptor:
         # If the op is a ldtoken (0xd0) operation, we need to get the salt
         # byte array value from the FieldRVA table
         elif salt_op == OPCODE_LDTOKEN:
-            salt = self.get_aes_salt_ldtoken_method(salt_strings_rva, salt_op_offset)
+            salt_size = self.payload.data[salt_op_offset - 7]
+            salt = self.payload.byte_array_from_size_and_rva(salt_size, salt_strings_rva)
         else:
             raise ConfigParserException(f"Unknown salt opcode found: {salt_op.hex()}")
         logger.debug(f"Found salt value: {salt.hex()}")
         return salt
-
-    # Derive the AES salt by loading the RVA of the salt from the FieldRVA
-    # table, converting it to a file offset, and reading the salt value from
-    # that offset
-    def get_aes_salt_ldtoken_method(self, salt_strings_rva, salt_op_offset):
-        salt_size = self.payload.data[salt_op_offset - 7]
-        salt_field_rva = self.payload.fieldrva_from_rva(salt_strings_rva)
-        salt_offset = self.payload.offset_from_rva(salt_field_rva)
-        salt_value = self.payload.data[salt_offset : salt_offset + salt_size]
-        return salt_value

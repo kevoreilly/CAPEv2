@@ -232,6 +232,7 @@ def get_analysis_info(db, id=-1, task=None):
             {
                 "info": 1,
                 "target.file.virustotal.summary": 1,
+                "url.virustotal.summary": 1,
                 "malscore": 1,
                 "detections": 1,
                 "network.pcap_sha256": 1,
@@ -255,6 +256,7 @@ def get_analysis_info(db, id=-1, task=None):
             _source=[
                 "info",
                 "target.file.virustotal.summary",
+                "url.virustotal.summary",
                 "malscore",
                 "detections",
                 "network.pcap_sha256",
@@ -310,6 +312,9 @@ def get_analysis_info(db, id=-1, task=None):
                     new[keyword] = rtmp["info"]["target"][keyword]
             if rtmp["target"]["file"].get("virustotal", {}).get("summary", False):
                 new["virustotal_summary"] = rtmp["target"]["file"]["virustotal"]["summary"]
+
+        if rtmp.get("url", {}).get("virustotal", {}).get("summary", False):
+            new["virustotal_summary"] = rtmp["url"]["virustotal"]["summary"]
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":
@@ -1176,6 +1181,48 @@ def gen_moloch_from_antivirus(virustotal):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def antivirus(request, task_id):
+    if enabledconf["mongodb"]:
+        rtmp = mongo_find_one(
+            "analysis",
+            {"info.id": int(task_id)},
+            {"target.file.virustotal": 1, "url.virustotal": 1, "info.category": 1, "_id": 0},
+            sort=[("_id", -1)],
+        )
+    elif es_as_db:
+        rtmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["virustotal", "info.category"])[
+            "hits"
+        ]["hits"]
+        if len(rtmp) == 0:
+            rtmp = None
+        else:
+            rtmp = rtmp[0]["_source"]
+    else:
+        rtmp = None
+    if not rtmp:
+        return render(request, "error.html", {"error": "The specified analysis does not exist"})
+
+    if rtmp.get("target", {}).get("file"):
+        rtmp["virustotal"] = rtmp.get("target", {}).get("file", {}).get("virustotal")
+        del rtmp["target"]["file"]["virustotal"]
+    elif rtmp.get("url", {}).get("virustotal"):
+        rtmp["virustotal"] = rtmp.get("url", {}).get("virustotal")
+        del rtmp["url"]["virustotal"]
+
+    if settings.MOLOCH_ENABLED:
+        if settings.MOLOCH_BASE[-1] != "/":
+            settings.MOLOCH_BASE += "/"
+        if "virustotal" in rtmp:
+            rtmp["virustotal"] = gen_moloch_from_antivirus(rtmp["virustotal"])
+
+    rtmp.setdefault("file", {}).setdefault("virustotal", rtmp["virustotal"])
+    del rtmp["virustotal"]
+
+    return render(request, "analysis/antivirus.html", rtmp)
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surialert(request, task_id):
     if enabledconf["mongodb"]:
         report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0}, sort=[("_id", -1)])
@@ -1322,34 +1369,6 @@ def surifiles(request, task_id):
         suricata = gen_moloch_from_suri_file_info(suricata)
 
     return render(request, "analysis/surifiles.html", {"analysis": report["suricata"], "config": enabledconf})
-
-
-@require_safe
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def antivirus(request, task_id):
-    if enabledconf["mongodb"]:
-        rtmp = mongo_find_one(
-            "analysis", {"info.id": int(task_id)}, {"virustotal": 1, "info.category": 1, "_id": 0}, sort=[("_id", -1)]
-        )
-    elif es_as_db:
-        rtmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["virustotal", "info.category"])[
-            "hits"
-        ]["hits"]
-        if len(rtmp) == 0:
-            rtmp = None
-        else:
-            rtmp = rtmp[0]["_source"]
-    else:
-        rtmp = None
-    if not rtmp:
-        return render(request, "error.html", {"error": "The specified analysis does not exist"})
-    if settings.MOLOCH_ENABLED:
-        if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE += "/"
-        if "virustotal" in rtmp:
-            rtmp["virustotal"] = gen_moloch_from_antivirus(rtmp["virustotal"])
-
-    return render(request, "analysis/antivirus.html", {"analysis": rtmp})
 
 
 @csrf_exempt

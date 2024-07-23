@@ -251,9 +251,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         # byte array value from the FieldRVA table
         elif salt_op == OPCODE_LDTOKEN:
             salt_size = self.payload.data[salt_op_offset - 7]
-            salt = self.payload.byte_array_from_size_and_rva(
-                salt_size, salt_strings_rva
-            )
+            salt = self.payload.byte_array_from_size_and_rva(salt_size, salt_strings_rva)
         else:
             raise ConfigParserException(f"Unknown salt opcode found: {salt_op.hex()}")
         logger.debug(f"Found salt value: {salt.hex()}")

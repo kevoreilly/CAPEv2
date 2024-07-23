@@ -28,8 +28,9 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from .config_decryptor import ConfigDecryptor
 from logging import getLogger
+
+from .config_decryptor import ConfigDecryptor
 
 logger = getLogger(__name__)
 
@@ -42,7 +43,5 @@ class ConfigDecryptorPlaintext(ConfigDecryptor):
         return ciphertext
 
     def decrypt_encrypted_strings(self):
-        logger.debug(
-            "Could not find applicable decryptor, returning found config as plaintext..."
-        )
+        logger.debug("Could not find applicable decryptor, returning found config as plaintext...")
         return self.config_strings

@@ -40,9 +40,10 @@ from cryptography.hazmat.primitives.hashes import SHA1
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.padding import PKCS7
 
-from .config_parser_exception import ConfigParserException
-from .data_utils import bytes_to_int, decode_bytes, int_to_bytes
-from .dotnet_constants import OPCODE_LDSTR, OPCODE_LDTOKEN
+from .config_decryptor import ConfigDecryptor
+from ..config_parser_exception import ConfigParserException
+from ..data_utils import bytes_to_int, decode_bytes, int_to_bytes
+from ..dotnet_constants import OPCODE_LDSTR, OPCODE_LDTOKEN
 
 logger = getLogger(__name__)
 
@@ -251,9 +252,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         # byte array value from the FieldRVA table
         elif salt_op == OPCODE_LDTOKEN:
             salt_size = self.payload.data[salt_op_offset - 7]
-            salt = self.payload.byte_array_from_size_and_rva(
-                salt_size, salt_strings_rva
-            )
+            salt = self.payload.byte_array_from_size_and_rva(salt_size, salt_strings_rva)
         else:
             raise ConfigParserException(f"Unknown salt opcode found: {salt_op.hex()}")
         logger.debug(f"Found salt value: {salt.hex()}")

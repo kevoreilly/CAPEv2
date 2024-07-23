@@ -36,7 +36,6 @@ from .utils.config_parser_exception import ConfigParserException
 from .utils.dotnet_constants import OPCODE_RET
 from .utils.dotnetpe_payload import DotNetPEPayload
 from .utils.decryptors import SUPPORTED_DECRYPTORS
-from .utils.config_parser_exception import ConfigParserException
 
 logger = getLogger(__name__)
 

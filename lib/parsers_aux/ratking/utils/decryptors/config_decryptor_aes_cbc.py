@@ -40,10 +40,10 @@ from cryptography.hazmat.primitives.hashes import SHA1
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.padding import PKCS7
 
-from .config_decryptor import ConfigDecryptor
 from ..config_parser_exception import ConfigParserException
 from ..data_utils import bytes_to_int, decode_bytes, int_to_bytes
 from ..dotnet_constants import OPCODE_LDSTR, OPCODE_LDTOKEN
+from .config_decryptor import ConfigDecryptor
 
 logger = getLogger(__name__)
 

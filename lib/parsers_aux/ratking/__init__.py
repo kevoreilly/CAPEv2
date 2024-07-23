@@ -33,9 +33,9 @@ from re import DOTALL, search
 
 from .utils import config_item
 from .utils.config_parser_exception import ConfigParserException
+from .utils.decryptors import SUPPORTED_DECRYPTORS
 from .utils.dotnet_constants import OPCODE_RET
 from .utils.dotnetpe_payload import DotNetPEPayload
-from .utils.decryptors import SUPPORTED_DECRYPTORS
 
 logger = getLogger(__name__)
 

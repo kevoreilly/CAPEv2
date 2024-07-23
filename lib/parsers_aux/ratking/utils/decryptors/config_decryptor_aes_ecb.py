@@ -27,18 +27,20 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from .config_decryptor import ConfigDecryptor
-from ..config_parser_exception import ConfigParserException
-from ..data_utils import bytes_to_int, decode_bytes
 from base64 import b64decode
+from hashlib import md5
+from logging import getLogger
+from re import DOTALL, search
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers.algorithms import AES
 from cryptography.hazmat.primitives.ciphers.modes import ECB
 from cryptography.hazmat.primitives.padding import PKCS7
-from hashlib import md5
-from logging import getLogger
-from re import DOTALL, search
+
+from ..config_parser_exception import ConfigParserException
+from ..data_utils import bytes_to_int, decode_bytes
+from .config_decryptor import ConfigDecryptor
 
 logger = getLogger(__name__)
 
@@ -65,9 +67,7 @@ class ConfigDecryptorAESECB(ConfigDecryptor):
             padded_text = decryptor.update(ciphertext) + decryptor.finalize()
             unpadded_text = unpadder.update(padded_text) + unpadder.finalize()
         except Exception as e:
-            raise ConfigParserException(
-                f"Error decrypting ciphertext {ciphertext} with key {self.key.hex()}"
-            ) from e
+            raise ConfigParserException(f"Error decrypting ciphertext {ciphertext} with key {self.key.hex()}") from e
         logger.debug(f"Decryption result: {unpadded_text}")
         return unpadded_text
 

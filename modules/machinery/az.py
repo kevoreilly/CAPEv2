@@ -728,10 +728,7 @@ class Azure(Machinery):
             managed_disk=vmss_managed_disk,
             # Ephemeral disk time
             caching="ReadOnly",
-            diff_disk_settings=models.DiffDiskSettings(
-                option="Local",
-                placement=self.options.az.ephemeral_os_disk_placement
-            ),
+            diff_disk_settings=models.DiffDiskSettings(option="Local", placement=self.options.az.ephemeral_os_disk_placement),
         )
         vmss_storage_profile = models.VirtualMachineScaleSetStorageProfile(
             image_reference=vmss_image_ref,

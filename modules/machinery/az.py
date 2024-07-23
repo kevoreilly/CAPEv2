@@ -20,7 +20,7 @@ try:
     HAVE_AZURE = True
 except ImportError:
     HAVE_AZURE = False
-    print("Missing machinery-required libraries.")
+    print("Missing AZURE machinery-required libraries.")
     print("poetry run python -m pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
 
 # Cuckoo-specific imports
@@ -1152,9 +1152,10 @@ class Azure(Machinery):
             try:
                 # Try to get the result with a short timeout
                 lro_poller_result = lro_poller_object.result(timeout=30)
-                time_taken = time.time() - start_time
+                # time_taken = time.time() - start_time
                 return lro_poller_result
             except Exception as e:
+                log.error(e)
                 current_time = time.time()
                 time_elapsed = current_time - start_time
                 

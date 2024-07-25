@@ -119,7 +119,6 @@ Optional dependencies
    sudo -u cape poetry run pip install -r extra/optional_dependencies.txt
 
 
-============================
 **ATTENTION!** ``cape`` user
 ============================
 

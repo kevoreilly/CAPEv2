@@ -143,13 +143,12 @@ class FileCollector(Auxiliary, Thread):
                 try:
                     # log.info("Trying to collect file %s", event.pathname)
                     sha256 = hash_file(hashlib.sha256, event.pathname)
-                    filename = f"{sha256[:16]}_{os.path.basename(event.pathname)}"
-                    if filename in self.uploadedHashes:
+                    if sha256 in self.uploadedHashes:
                         # log.info("Already collected file %s", event.pathname)
                         return
-                    upload_path = os.path.join("files", filename)
+                    upload_path = os.path.join("files", sha256)
                     upload_to_host(event.pathname, upload_path)
-                    self.uploadedHashes.append(filename)
+                    self.uploadedHashes.append(sha256)
                     return
                 except Exception as e:
                     log.info('Error dumping file from path "%s": %s', event.pathname, e)

@@ -103,6 +103,23 @@ After snapshotting the guest, you can shut it down.
 
             $ virsh snapshot-delete "<VM-Name>" "<Snapshot-Name>""
 
+Snapshot with Virtual Manager (``virt-manager``)
+------------------------------------------------
+
+If you are using virtual manager (``virt-manager``) to manage you VMs (as mentioned in the :ref:`installation_kvm` chapter), you can also use it to create the snapshots.
+
+    .. warning:: Virtual manager allows you to create either internal or external snapshots (which you can read more about `here <https://wiki.libvirt.org/I_created_an_external_snapshot_but_libvirt_will_not_let_me_delete_or_revert_to_it.html#background>`_). The arguably easier mode of operation are internal snapshots, given that external ones use individual files that may mess up your whole libvirt - qemu - kvm installation in case of name/path modification or loss.
+
+When creating a new snapshot, in newer versions of KVM you can select whether you want an internal or external or one:
+
+    .. image:: ../../_images/screenshots/create_kvm_snapshot.png
+        :align: center
+
+When any given snapshot is external, it's label will be suffixed with "*(External)*".
+
+    .. image:: ../../_images/screenshots/internal_external_snapshot.png
+        :align: center
+
 VirtualBox
 ==========
 

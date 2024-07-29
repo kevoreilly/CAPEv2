@@ -11,6 +11,8 @@ class Reg(Package):
     PATHS = [
         ("SystemRoot", "System32", "reg.exe"),
     ]
+    summary = "Opens a registry file with reg.exe."
+    description = """Uses 'reg.exe import <path>' to open the sample."""
 
     def start(self, path):
         regexe = self.get_path("reg.exe")

@@ -33,7 +33,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooMachineError,
     CuckooOperationalError,
 )
-from lib.cuckoo.core.database import TASK_PENDING
+from lib.cuckoo.core.database import TASK_PENDING, Machine
 
 # Only log INFO or higher from imported python packages
 logging.getLogger("adal-python").setLevel(logging.INFO)
@@ -104,6 +104,12 @@ class Azure(Machinery):
     WINDOWS_PLATFORM = "windows"
     LINUX_PLATFORM = "linux"
 
+    def set_options(self, options: dict) -> None:
+        """Set machine manager options.
+        @param options: machine manager options dict.
+        """
+        self.options = options
+
     def _initialize(self):
         """
         Overloading abstracts.py:_initialize()
@@ -111,9 +117,10 @@ class Azure(Machinery):
         @param module_name: module name
         @raise CuckooDependencyError: if there is a problem with the dependencies call
         """
+        # Using "scale_sets" here instead of "machines" to avoid KeyError
         mmanager_opts = self.options.get(self.module_name)
         if not isinstance(mmanager_opts["scale_sets"], list):
-            mmanager_opts["scale_sets"] = mmanager_opts["scale_sets"].strip().split(",")
+            mmanager_opts["scale_sets"] = str(mmanager_opts["scale_sets"]).strip().split(",")
 
         # Replace a list of IDs with dictionary representations
         scale_sets = mmanager_opts.pop("scale_sets")
@@ -238,7 +245,7 @@ class Azure(Machinery):
                 threading.Thread(target=self._thr_scale_machine_pool, args=(vals["tag"],)).start()
 
         # Check the machine pools every 5 minutes
-        threading.Timer(300, self._thr_machine_pool_monitor).start()
+        threading.Timer(self.options.az.monitor_rate, self._thr_machine_pool_monitor).start()
 
     def _set_vmss_stage(self):
         """
@@ -461,8 +468,13 @@ class Azure(Machinery):
                 time.sleep(5)
                 with reimage_lock:
                     label_in_reimage_vm_list = label in [f"{vm['vmss']}_{vm['id']}" for vm in reimage_vm_list]
+
+    def release(self, machine: Machine):
+        vmss_name = machine.label.split("_")[0]
+        if machine_pools[vmss_name]["is_scaling_down"]:
+            self.delete_machine(machine.label)
         else:
-            self.delete_machine(label)
+            _ = super(Azure, self).release(machine)
 
     def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
         """
@@ -619,7 +631,7 @@ class Azure(Machinery):
         """
         global vms_currently_being_deleted
 
-        _ = super(Azure, self).delete_machine(label)
+        super(Azure, self).delete_machine(label)
 
         if delete_from_vmss:
             vmss_name, instance_id = label.split("_")
@@ -716,7 +728,7 @@ class Azure(Machinery):
             managed_disk=vmss_managed_disk,
             # Ephemeral disk time
             caching="ReadOnly",
-            diff_disk_settings=models.DiffDiskSettings(option="Local"),
+            diff_disk_settings=models.DiffDiskSettings(option="Local", placement=self.options.az.ephemeral_os_disk_placement),
         )
         vmss_storage_profile = models.VirtualMachineScaleSetStorageProfile(
             image_reference=vmss_image_ref,
@@ -1110,7 +1122,7 @@ class Azure(Machinery):
         """
         # The number of relevant machines are those from the list of locked and unlocked machines
         # that have the correct tag in their name
-        return [machine for machine in self.db.list_machines() if tag in machine.label]
+        return [machine for machine in self.db.list_machines([tag])]
 
     @staticmethod
     def _wait_for_concurrent_operations_to_complete():

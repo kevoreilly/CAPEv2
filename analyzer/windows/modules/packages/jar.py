@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from lib.common.abstracts import Package
+from lib.common.constants import OPT_CLASS
 
 
 class Jar(Package):
@@ -11,6 +12,11 @@ class Jar(Package):
     PATHS = [
         ("ProgramFiles", "Java", "jre*", "bin", "java.exe"),
     ]
+    summary = "Executes a java class using java.exe."
+    description = f"""Uses 'java.exe -jar [path]' to run the given sample.
+    However, if the '{OPT_CLASS}' option is specified, use
+    'java.exe -cp [path] [class]' to run the named java class."""
+    option_names = (OPT_CLASS,)
 
     def start(self, path):
         java = self.get_path_glob("Java")

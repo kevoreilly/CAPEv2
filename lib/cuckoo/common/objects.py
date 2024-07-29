@@ -410,7 +410,7 @@ class File:
                                 self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string}, for MS Windows"
                             else:
                                 self.file_type = f"PE32 executable ({gui_type}) Intel 80386{dotnet_string}, for MS Windows"
-                            log.info("file type set using basic heuristics for: %s", self.file_path)
+                            log.debug("file type set using basic heuristics for: %s", self.file_path)
                     elif not File.notified_pefile:
                         File.notified_pefile = True
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")
@@ -545,6 +545,7 @@ class File:
             File.init_yara()
 
         if not os.path.getsize(self.file_path):
+            log.error("YARA scan ignored, file is empty: %s", self.file_path)
             return []
 
         results = []

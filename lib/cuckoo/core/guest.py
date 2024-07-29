@@ -393,7 +393,7 @@ class GuestManager:
 
             if status["status"] in ("complete", "failed"):
                 completed_as = "completed successfully" if status["status"] == "complete" else "failed"
-                log.info("Task #%s: Analysis %s (id=%s, ip=%s)", completed_as, self.task_id, self.vmid, self.ipaddr)
+                log.info("Task #%s: Analysis %s (id=%s, ip=%s)", self.task_id, completed_as, self.vmid, self.ipaddr)
                 self.set_status_in_db("complete")
                 return
             elif status["status"] == "exception":

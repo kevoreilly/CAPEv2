@@ -1,3 +1,14 @@
+### [25.07.2024]
+* Monitor update: Debugger and unpacker enhancements
+
+### [22.07.2024]
+* Monitor update: Enhancements to software (& syscall) breakpoint mechanism, add handling for Internet Shortcut CLSID (.url)
+
+### [11.07.2024]
+* Monitor updates:
+    * (in)direct syscall handling enhancements
+    * unpacking & scanning: improved entropy checks
+
 ### [26.06.2024]
 * Monitor updates: debugger/trace enhancements
 

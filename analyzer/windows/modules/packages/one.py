@@ -8,6 +8,10 @@ import time
 from lib.api.utils import Utils
 from lib.common.abstracts import Package
 
+_OPT_OFFICE = "office"
+_OPT_NO_IAT = "no-iat"
+_OPT_YARASCAN = "yarascan"
+
 util = Utils()
 
 
@@ -18,15 +22,23 @@ class ONE(Package):
         self.config = config
         self.options = options
         # self.options["exclude-apis"] = "memcpy"
-        self.options["office"] = 1
-        self.options["yarascan"] = 0
-        self.options["no-iat"] = 1
+        self.options[_OPT_OFFICE] = 1
+        self.options[_OPT_YARASCAN] = 0
+        self.options[_OPT_NO_IAT] = 1
 
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "ONENOTE.EXE"),
         ("ProgramFiles", "Microsoft Office", "Office*", "ONENOTE.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "ONENOTE.EXE"),
     ]
+    summary = "Opens a sample file with ONENOTE.EXE."
+    description = f"""Uses 'ONENOTE.EXE /nologo /navigate <sample>'
+    to open a onenote .one file.
+    Turns off '{_OPT_YARASCAN}'.
+    Turns on '{_OPT_OFFICE}' and '{_OPT_NO_IAT}'.
+    Before execution, modifies the registry entries LowRiskFileTypes and DefaultFileTypeRisk,
+    to encourage execution.
+    The .one filename extension will be added automatically."""
 
     def start(self, path):
         onenote = self.get_path_glob("ONENOTE.EXE")

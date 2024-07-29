@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 from lib.common.abstracts import CuckooPackageError, Package
+from lib.common.constants import OPT_CLASS
 
 
 class Applet(Package):
@@ -15,6 +16,12 @@ class Applet(Package):
         ("ProgramFiles", "Mozilla Firefox", "firefox.exe"),
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
+    summary = "Opens a java applet using firefox (or iexplore)."
+    description = f"""Creates an HTML wrapper around the applet file.
+    The '{OPT_CLASS}' option is required; the applet will execute the
+    named class.  Opens the HTML file with firefox, or iexplore if firefox
+    is not available."""
+    option_names = (OPT_CLASS,)
 
     def make_html(self, path, class_name):
         html = f"""
@@ -37,6 +44,6 @@ class Applet(Package):
         except CuckooPackageError:
             browser = self.get_path("iexplore.exe")
 
-        class_name = self.options.get("class")
+        class_name = self.options.get(OPT_CLASS)
         html_path = self.make_html(path, class_name)
         return self.execute(browser, f'"{html_path}"', html_path)

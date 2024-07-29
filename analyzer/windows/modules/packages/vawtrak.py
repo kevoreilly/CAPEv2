@@ -6,6 +6,7 @@ from subprocess import call
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import OPT_APPDATA, OPT_ARGUMENTS, OPT_RUNASX86
 
 
 class IE(Package):
@@ -14,15 +15,23 @@ class IE(Package):
     PATHS = [
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
+    summary = "Runs the supplied executable."
+    description = f"""First runs 'iexplore.exe about:blank' to open Internet Explorer.
+    Next executes the given sample, passing '{OPT_ARGUMENTS}' if specified.
+    Use the '{OPT_APPDATA}' option to run the executable from the APPDATA directory.
+    Use the '{OPT_RUNASX86}' option to set the 32BITREQUIRED flag in the PE header,
+    using 'CorFlags.exe /32bit+'.
+    The .exe filename extension will be added automatically."""
+    option_names = (OPT_ARGUMENTS, OPT_APPDATA, OPT_RUNASX86)
 
     def start(self, path):
         iexplore = self.get_path("iexplore.exe")
         # pass the URL instead of a filename in this case
         self.execute(iexplore, '"about:blank"', "about:blank")
 
-        args = self.options.get("arguments")
-        appdata = self.options.get("appdata")
-        runasx86 = self.options.get("runasx86")
+        args = self.options.get(OPT_ARGUMENTS)
+        appdata = self.options.get(OPT_APPDATA)
+        runasx86 = self.options.get(OPT_RUNASX86)
 
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw

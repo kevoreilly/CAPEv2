@@ -13,6 +13,15 @@ class Generic(Package):
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),
     ]
+    summary = "Executes the sample file with cmd.exe."
+    description = """Uses 'cmd.exe /c start /wait "" "path"' to execute sample files.
+    For context behind this command:
+    /C          Carries out the command specified by string and then terminates
+    START       Starts a separate window to run a specified program or command.
+    /WAIT       Start application and wait for it to terminate.
+    ""          The name of the separate window
+    "path"      The path of the uploaded sample
+    """
 
     def start(self, path):
         cmd_path = self.get_path("cmd.exe")

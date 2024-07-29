@@ -16,7 +16,10 @@ from winreg import (
 from lib.api.process import Process
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension, disable_wow64_redirection
+from lib.common.constants import OPT_ARGUMENTS, OPT_SERVICEDESC, OPT_SERVICENAME
 from lib.common.defines import ADVAPI32, KERNEL32
+
+from .service import SERVICE_OPTIONS
 
 SC_MANAGER_CONNECT = 0x0001
 SC_MANAGER_CREATE_SERVICE = 0x0002
@@ -72,6 +75,12 @@ class ServiceDll(Package):
     PATHS = [
         ("SystemRoot", "system32", "sc.exe"),
     ]
+    summary = "Launches the given sample as a service."
+    description = """Uses 'svchost.exe -k capegroup <sample> [arguments]' to launch the sample
+    as a service.
+    Sets the appropriate registry keys.
+    The .dll filename extension will be added automatically."""
+    option_names = SERVICE_OPTIONS
 
     def set_keys(self, servicename, dllpath):
         svchost_path = r"Software\Microsoft\Windows NT\CurrentVersion\Svchost"
@@ -105,11 +114,11 @@ class ServiceDll(Package):
     @disable_wow64_redirection
     def start(self, path):
         try:
-            servicename = self.options.get("servicename", "CAPEService").encode("utf8")
+            servicename = self.options.get(OPT_SERVICENAME, "CAPEService").encode("utf8")
             if servicename == "blank":
                 servicename = " ".encode("utf8")
-            servicedesc = self.options.get("servicedesc", "CAPE Service").encode("utf8")
-            arguments = self.options.get("arguments")
+            servicedesc = self.options.get(OPT_SERVICEDESC, "CAPE Service").encode("utf8")
+            arguments = self.options.get(OPT_ARGUMENTS)
             path = check_file_extension(path, ".dll")
             svcpath = r"%SystemRoot%\system32\svchost.exe"
             binpath = f"{svcpath} -k capegroup".encode("utf8")

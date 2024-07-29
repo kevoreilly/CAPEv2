@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from lib.common.abstracts import Package
-from lib.common.constants import MSOFFICE_TRUSTED_PATH
+from lib.common.constants import MSOFFICE_TRUSTED_PATH, TRUSTED_PATH_TEXT
 
 
 class PPT(Package):
@@ -22,6 +22,10 @@ class PPT(Package):
         ("ProgramFiles", "Microsoft Office", "Office*", "POWERPNT.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "POWERPNT.EXE"),
     ]
+    summary = "Opens sample file with Powerpoint."
+    description = f"""Uses 'POWERPNT.EXE /s <sample>' to open a powerpoint presentation file.
+    {TRUSTED_PATH_TEXT}
+    """
 
     def start(self, path):
         powerpoint = self.get_path_glob("POWERPNT.EXE")

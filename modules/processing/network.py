@@ -348,15 +348,15 @@ class Pcap:
         """
         if self._check_http(data):
             self._add_http(conn, data, ts)
+        # HTTPS.
+        elif conn["dport"] in self.ssl_ports or conn["sport"] in self.ssl_ports:
+            self._https_identify(conn, data)
         # SMTP.
-        if conn["dport"] in (25, 587):
+        elif conn["dport"] in (25, 587):
             self._reassemble_smtp(conn, data)
         # IRC.
-        if conn["dport"] != 21 and self._check_irc(data):
+        elif conn["dport"] != 21 and self._check_irc(data):
             self._add_irc(conn, data)
-        # HTTPS.
-        if conn["dport"] in self.ssl_ports or conn["sport"] in self.ssl_ports:
-            self._https_identify(conn, data)
 
     def _udp_dissect(self, conn, data, ts):
         """Runs all UDP dissectors.

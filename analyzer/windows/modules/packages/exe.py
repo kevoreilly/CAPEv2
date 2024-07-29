@@ -8,15 +8,24 @@ from subprocess import call
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import OPT_APPDATA, OPT_ARGUMENTS, OPT_EXECUTIONDIR, OPT_RUNASX86
 
 
 class Exe(Package):
     """EXE analysis package."""
 
+    summary = "Runs the supplied executable."
+    description = f"""Executes the given sample, passing '{OPT_ARGUMENTS}' if specified.
+    Use the '{OPT_APPDATA}' option to run the executable from the APPDATA directory.
+    Use the '{OPT_RUNASX86}' option to set the 32BITREQUIRED flag in the PE header,
+    using 'CorFlags.exe /32bit+'.
+    The .exe extension will be added automatically."""
+    option_names = (OPT_ARGUMENTS, OPT_APPDATA, OPT_RUNASX86)
+
     def start(self, path):
-        args = self.options.get("arguments")
-        appdata = self.options.get("appdata")
-        runasx86 = self.options.get("runasx86")
+        args = self.options.get(OPT_ARGUMENTS)
+        appdata = self.options.get(OPT_APPDATA)
+        runasx86 = self.options.get(OPT_RUNASX86)
 
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw
@@ -30,7 +39,7 @@ class Exe(Package):
             newpath = os.path.join(basepath, os.path.basename(path))
             shutil.copy(path, newpath)
             path = newpath
-            self.options["executiondir"] = basepath
+            self.options[OPT_EXECUTIONDIR] = basepath
         if runasx86:
             # ignore the return value, user must have CorFlags.exe installed in the guest VM
             call(["CorFlags.exe", path, "/32bit+"])

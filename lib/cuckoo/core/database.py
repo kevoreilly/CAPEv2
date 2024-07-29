@@ -33,7 +33,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.utils import create_folder
+from lib.cuckoo.common.utils import bytes2str, create_folder, get_options
 
 try:
     from sqlalchemy import (
@@ -1318,13 +1318,13 @@ class _Database:
             username=username,
         )
 
-    def _identify_aux_func(self, file: bytes, package: str) -> tuple:
+    def _identify_aux_func(self, file: bytes, package: str, check_shellcode: bool = True) -> tuple:
         # before demux we need to check as msix has zip mime and we don't want it to be extracted:
         tmp_package = False
         if not package:
             f = SflockFile.from_path(file)
             try:
-                tmp_package = sflock_identify(f, check_shellcode=True)
+                tmp_package = sflock_identify(f, check_shellcode=check_shellcode)
             except Exception as e:
                 log.error(f"Failed to sflock_ident due to {e}")
                 tmp_package = "generic"
@@ -1341,6 +1341,92 @@ class _Database:
                 package = tmp_package
 
         return package, tmp_package
+
+    # Submission hooks to manipulate arguments of tasks execution
+    def recon(
+        self,
+        filename,
+        orig_options,
+        timeout=0,
+        enforce_timeout=False,
+        package="",
+        tags=None,
+        static=False,
+        priority=1,
+        machine="",
+        platform="",
+        custom="",
+        memory=False,
+        clock=None,
+        unique=False,
+        referrer=None,
+        tlp=None,
+        tags_tasks=False,
+        route=None,
+        cape=False,
+        category=None,
+    ):
+
+        # Get file filetype to ensure self extracting archives run longer
+        if not isinstance(filename, str):
+            filename = bytes2str(filename)
+
+        lowered_filename = filename.lower()
+
+        # sfx = File(filename).is_sfx()
+
+        if "malware_name" in lowered_filename:
+            orig_options += "<options_here>"
+        # if sfx:
+        #    orig_options += ",timeout=500,enforce_timeout=1,procmemdump=1,procdump=1"
+        #    timeout = 500
+        #    enforce_timeout = True
+
+        if web_conf.general.yara_recon:
+            hits = File(filename).get_yara("binaries")
+            for hit in hits:
+                cape_name = hit["meta"].get("cape_type", "")
+                if not cape_name.endswith(("Crypter", "Packer", "Obfuscator", "Loader", "Payload")):
+                    continue
+
+                orig_options_parsed = get_options(orig_options)
+                parsed_options = get_options(hit["meta"].get("cape_options", ""))
+                if "tags" in parsed_options:
+                    tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
+                    del parsed_options["tags"]
+                # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
+                if "package" in parsed_options:
+                    package = parsed_options["package"]
+                    del parsed_options["package"]
+
+                if "category" in parsed_options:
+                    category = parsed_options["category"]
+                    del parsed_options["category"]
+
+                orig_options_parsed.update(parsed_options)
+                orig_options = ",".join([f"{k}={v}" for k, v in orig_options_parsed.items()])
+
+        return (
+            static,
+            priority,
+            machine,
+            platform,
+            custom,
+            memory,
+            clock,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+            orig_options,
+            timeout,
+            enforce_timeout,
+            package,
+            tags,
+            category,
+        )
 
     def demux_sample_and_add_to_db(
         self,
@@ -1370,6 +1456,7 @@ class _Database:
         cape=False,
         user_id=0,
         username=False,
+        category=None,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1378,10 +1465,69 @@ class _Database:
         task_id = False
         task_ids = []
         config = {}
+        details = {}
         sample_parent_id = None
 
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
+
+        (
+            static,
+            priority,
+            machine,
+            platform,
+            custom,
+            memory,
+            clock,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+            options,
+            timeout,
+            enforce_timeout,
+            package,
+            tags,
+            category,
+        ) = self.recon(
+            file_path,
+            options,
+            timeout=timeout,
+            enforce_timeout=enforce_timeout,
+            package=package,
+            tags=tags,
+            static=static,
+            priority=priority,
+            machine=machine,
+            platform=platform,
+            custom=custom,
+            memory=memory,
+            clock=clock,
+            tlp=tlp,
+            tags_tasks=tags_tasks,
+            route=route,
+            cape=cape,
+            category=category,
+        )
+
+        if category == "static":
+            # force change of category
+            task_ids += self.add_static(
+                file_path=file_path,
+                priority=priority,
+                tlp=tlp,
+                user_id=user_id,
+                username=username,
+                options=options,
+                package=package,
+            )
+            return task_ids, details
+
+        check_shellcode = True
+        if options and "check_shellcode=0" in options:
+            check_shellcode = False
 
         if not package:
             if "file=" in options:
@@ -1389,7 +1535,7 @@ class _Database:
                 package = "zip"
             else:
                 # Checking original file as some filetypes doesn't require demux
-                package, _ = self._identify_aux_func(file_path, package)
+                package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)
 
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options, platform=platform)
@@ -1417,7 +1563,7 @@ class _Database:
 
             if not config and not only_extraction:
                 if not package:
-                    package, tmp_package = self._identify_aux_func(file, "")
+                    package, tmp_package = self._identify_aux_func(file, "", check_shellcode=check_shellcode)
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
@@ -1473,7 +1619,6 @@ class _Database:
             if task_id:
                 task_ids.append(task_id)
 
-        details = {}
         if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}
         # this is aim to return custom data, think of this as kwargs

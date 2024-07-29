@@ -5,6 +5,7 @@
 import os
 
 from lib.common.abstracts import Package
+from lib.common.constants import OPT_INJECTION, OPT_PROCDUMP, OPT_UNPACKER
 
 
 class Unpacker_JS(Package):
@@ -13,6 +14,11 @@ class Unpacker_JS(Package):
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
+    summary = "Executes a .JS file using wscript.exe."
+    description = f"""Uses wscript.exe to run a .js/.jse file.
+    Turns off '{OPT_PROCDUMP}' and '{OPT_INJECTION}'.
+    Turns on '{OPT_UNPACKER}'.
+    The appropriate filename extension will be added automatically."""
 
     def __init__(self, options=None, config=None):
         """@param options: options dict."""
@@ -20,9 +26,9 @@ class Unpacker_JS(Package):
             options = {}
         self.config = config
         self.options = options
-        self.options["unpacker"] = "1"
-        self.options["procdump"] = "0"
-        self.options["injection"] = "0"
+        self.options[OPT_UNPACKER] = "1"
+        self.options[OPT_PROCDUMP] = "0"
+        self.options[OPT_INJECTION] = "0"
 
     def start(self, path):
         wscript = self.get_path("wscript.exe")

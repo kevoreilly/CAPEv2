@@ -173,6 +173,9 @@ class Package:
         # Tricking strace into always showing PID on stderr output
         # https://github.com/strace/strace/issues/278#issuecomment-1815914576
         cmd = f"sudo strace -o /dev/stderr -s 800 -ttf {target_cmd}"
+        # If nohuman is set to yes, it's possible to interact with interactive scripts or programs via VNC.
+        if self.options.get("nohuman"):
+            cmd = f"sudo strace -o /dev/stderr -s 800 -ttf xterm -hold -e {target_cmd} &"
         log.info(cmd)
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True

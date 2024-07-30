@@ -52,7 +52,11 @@ def dump_files():
     """Dump all the dropped files."""
     for file_path in FILES_LIST:
         log.info("PLS IMPLEMENT DUMP, want to dump %s", file_path)
-    upload_to_host('/opt/sslkeylog.log', 'tlsdump/tlsdump.log', category='tlsdump')
+    upload_to_host(
+        os.environ.get("SSLKEYLOGFILE", "/sslkeylog.log"),
+        "tlsdump/tlsdump.log",
+        category="tlsdump",
+    )
 
 
 class Analyzer:

@@ -49,6 +49,11 @@ enabled = no
 # Enable or disable the use of an external sniffer (tcpdump) [yes/no].
 enabled = yes
 
+[QemuScreenshots]
+# Enable or disable the use of QEMU as screenshot capture [yes/no].
+# screenshots_linux and screenshots_windows must be disabled
+enabled = no
+
 # enable remote tcpdump support
 remote = no
 host = root@192.168.122.1

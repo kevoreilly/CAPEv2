@@ -5,9 +5,9 @@
 # for comparing screenshots.
 
 import logging
-import time
-import os
 import math
+import os
+import time
 from io import BytesIO
 from threading import Thread
 
@@ -47,13 +47,14 @@ SHOT_DELAY = 1
 # SKIP_AREA = ((735, 575), (790, 595))
 SKIP_AREA = None
 
+
 class QEMUScreenshots(Auxiliary):
     """QEMU screenshots module."""
 
     def __init__(self):
         Auxiliary.__init__(self)
         Thread.__init__(self)
-        log.info('QEMU screenshots module loaded')
+        log.info("QEMU screenshots module loaded")
         self.screenshot_thread = None
 
     def start(self):
@@ -67,17 +68,17 @@ class QEMUScreenshots(Auxiliary):
         if self.screenshot_thread:
             self.screenshot_thread.stop()
 
+
 class ScreenshotThread(Thread):
     """Thread responsible for taking screenshots."""
+
     def __init__(self, task, machine):
         Thread.__init__(self)
         self.task = task
         self.machine = machine
         self.do_run = True
-        
-        self.screenshots_path = os.path.join(
-            CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "shots"
-        )        
+
+        self.screenshots_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "shots")
         os.makedirs(self.screenshots_path, exist_ok=True)
 
     def stop(self):
@@ -98,22 +99,21 @@ class ScreenshotThread(Thread):
                 img_last = img_current
                 file_path = os.path.join(self.screenshots_path, f"{img_counter}.png")
                 img_current.save(file_path, format="PNG")
-                #log.info(f'Screenshot saved to {file_path}')
+                # log.info(f'Screenshot saved to {file_path}')
                 img_counter += 1
             except (IOError, libvirt.libvirtError) as e:
                 log.error(f"Cannot take screenshot: {e}")
                 continue
 
-
     def _take_screenshot(self):
         """Take screenshot from QEMU and return the PIL Image object."""
-        conn = libvirt.open('qemu:///system')
+        conn = libvirt.open("qemu:///system")
         try:
             dom = conn.lookupByName(self.machine.label)
             stream = conn.newStream()
             dom.screenshot(stream, 0)  # 0 for primary display
 
-            image_data = b''
+            image_data = b""
             while True:
                 chunk = stream.recv(262120)
                 if not chunk:
@@ -126,7 +126,6 @@ class ScreenshotThread(Thread):
                 stream.finish()
             if conn:
                 conn.close()
-
 
     def _draw_rectangle(self, img, xy):
         """Draw a black rectangle.

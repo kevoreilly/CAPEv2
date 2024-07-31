@@ -36,7 +36,7 @@ try:
     import libvirt
 
     HAVE_LIBVIRT = True
-except ImportError:
+except ImportError as e:
     HAVE_LIBVIRT = False
     log.error(e)
 

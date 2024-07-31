@@ -37,7 +37,7 @@ class QEMUScreenshots(Auxiliary):
     def __init__(self):
         Auxiliary.__init__(self)
         Thread.__init__(self)
-        log.info(f'QEMU screenshots module loaded')
+        log.info('QEMU screenshots module loaded')
         self.screenshot_thread = None
 
     def start(self):

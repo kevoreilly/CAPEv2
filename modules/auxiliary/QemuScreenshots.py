@@ -9,12 +9,28 @@ import time
 import os
 import math
 from io import BytesIO
-from PIL import Image, ImageDraw
-from PIL.ImageChops import difference
 from threading import Thread
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+
+log = logging.getLogger(__name__)
+
+try:
+    log.debug("Importing 'PIL.ImageChops.difference'")
+    from PIL.ImageChops import difference
+
+    log.debug("Importing 'PIL.ImageDraw'")
+    from PIL import ImageDraw
+
+    log.debug("Importing 'PIL.Image'")
+    from PIL import Image
+
+    HAVE_PIL = True
+
+except Exception as e:
+    HAVE_PIL = False
+    log.error(e)
 
 try:
     import libvirt
@@ -22,8 +38,8 @@ try:
     HAVE_LIBVIRT = True
 except ImportError:
     HAVE_LIBVIRT = False
+    log.error(e)
 
-log = logging.getLogger(__name__)
 
 SHOT_DELAY = 1
 # Skip the following area when comparing screen shots.

@@ -26,7 +26,8 @@ While you can install and use any hypervisor you like, we recommend using KVM. T
 
 **BEFORE** executing the script, you should replace the **<WOOT>** occurrences withing the script itself with real hardware patterns. You can use ``acpidump`` in Linux and ``acpiextract`` in Windows to obtain such patterns, as stated `in the script itself`_.
 
-    .. warning:: If you are installing or using CAPE in a laboratory environment you can replace **<WOOT>** with any random 4 chars you like. However, if you are planning to use CAPE in real production environments and you want to hinder the sandbox/VM detection, you should use *REAL* hardware 4 chars. To find out which chars correspond to each piece of HW, you should use ACPIDUMP/ACPIEXTRACT and Google.
+.. warning:: 
+    If you are installing or using CAPE in a laboratory environment you can replace **<WOOT>** with any random 4 chars you like. However, if you are planning to use CAPE in real production environments and you want to hinder the sandbox/VM detection, you should use *REAL* hardware 4 chars. To find out which chars correspond to each piece of HW, you should use ACPIDUMP/ACPIEXTRACT and Google.
 
 .. _`in the script itself`: https://github.com/kevoreilly/CAPEv2/blob/master/installer/kvm-qemu.sh#L37
 
@@ -47,6 +48,13 @@ If you want to install Virtual Machine Manager (``virt-manager``), execute the f
 
 Remember to **reboot** after the installation.
 
+.. important:: 
+    It is important to assert everything works as expected before moving forward. The vast majority of errors at this point can be solved by reinstalling the specific component with `kvm-qemu.sh`_. For example, the error below was raised when trying to open ``virt-manager`` but ``libvirt`` installation was corrupted for some reason. Reinstalling libvirt with the script solved the issue.
+
+.. error::
+    .. image:: ../../_images/screenshots/libvirt_error_virtmanager.png
+        :align: center
+
 
 To install CAPE
 ================
@@ -55,7 +63,8 @@ The script to install CAPE can be found here: `cape2.sh`_.
 
 .. _`cape2.sh`: https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh
 
-    .. note:: CAPE is being maintained and updated in a `rolling <https://en.wikipedia.org/wiki/Rolling_release>`_ fashion. That is, there are no versions or releases. It is your responsibility to regularly ``pull`` the repo and stay up to date.
+.. note:: 
+    CAPE is being maintained and updated in a `rolling <https://en.wikipedia.org/wiki/Rolling_release>`_ fashion. That is, there are no versions or releases. It is your responsibility to regularly ``pull`` the repo and stay up to date.
 
 Please keep in mind that all our scripts use the ``-h`` flag to print the help and usage message. However, it is recommended to read the scripts themselves to **understand** what they do.
 

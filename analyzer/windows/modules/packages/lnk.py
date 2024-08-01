@@ -16,7 +16,7 @@ class LNK(Package):
     ]
     summary = "Executes a sample file with powershell."
     description = f"""Uses 'powershell Start-Process -FilePath <sample>' to run a .lnk file.
-    The .ps1 filename extension will be added automatically."""
+    The .lnk filename extension will be added automatically."""
 
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")

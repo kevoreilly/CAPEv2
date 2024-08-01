@@ -15,7 +15,7 @@ class LNK(Package):
         ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
     summary = "Executes a sample file with powershell."
-    description = "Uses 'powershell Start-Process -FilePath <sample>' to run a .lnk file."    
+    description = "Uses 'powershell Start-Process -FilePath <sample>' to run a .lnk file."
 
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")

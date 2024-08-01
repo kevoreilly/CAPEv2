@@ -9,14 +9,10 @@ Now it's time to set up the network for your virtual machine.
 Windows Settings
 ================
 
-Before configuring the underlying networking of the virtual machine, you may
-want to tweak some settings inside Windows itself.
+.. note::
 
-Two of the most important configurations to make are to **disable** *Windows Firewall* and
-*Automatic Updates*. The reason behind this is that these features can affect the behavior
-of the malware under normal circumstances and they can pollute the network
-analysis performed by CAPE, by dropping connections or including irrelevant
-requests.
+    As it was discussed in the :ref:`previous chapter <additional_configuration>`, any additional configuration like **disabling** the *Windows Firewall* and the *Automatic Updates*, should be done before configuring the network like stated below. Given that VMs may be left without internet connection, it is convenient to download and make changes before it happens. The reason behind turning off updates and firewall is that these features can affect the behavior of the malware under normal circumstances and they can pollute the network analysis performed by CAPE, by dropping connections or including irrelevant requests.
+
 
 Windows 10
 ==========

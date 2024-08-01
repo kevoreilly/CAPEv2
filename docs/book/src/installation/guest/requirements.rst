@@ -9,8 +9,8 @@ Install Python
 ==============
 
 Python is a strict requirement for the CAPE guest component (*analyzer*) to run properly.
-.. warning::
 
+.. warning::
     Please note that **only 32-bit (x86) versions of Python3 are
     supported** at this time for Windows, due to the way the analyzer
     interacts with low-level Windows libraries. Using a 64-bit version

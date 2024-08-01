@@ -30,7 +30,7 @@ jobs:
           architecture: 'x86'
 
       - name: Install dependencies
-        run: pip install --upgrade pytest requests
+        run: pip install --upgrade pytest requests Flask
 
       - name: Run analyzer unit tests
         run: |

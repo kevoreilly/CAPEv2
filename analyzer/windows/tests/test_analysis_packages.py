@@ -204,7 +204,7 @@ class TestAnalysisPackages(unittest.TestCase):
     def test_lnk(self):
         pkg_class = self.class_from_analysis_package("modules.packages.lnk")
         obj = pkg_class()
-        self.assertEqual("Executes a .lnk file using cmd.exe.", obj.summary)
+        self.assertEqual("Executes a sample file with powershell.", obj.summary)
 
     def test_mht(self):
         pkg_class = self.class_from_analysis_package("modules.packages.mht")

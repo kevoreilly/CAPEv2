@@ -10,8 +10,11 @@ learn where you can obtain a copy of the sandbox.
 Automated installation, read the full page before you start
 ===========================================================
 
-We have automated all work for you, but bear in mind, that 3rd party dependencies change frequently and can break the installation,
+We have automated all work for you but bear in mind that 3rd party dependencies change frequently and can break the installation,
 so please check the installation log and try to provide the fix / correct issue to the developers.
+
+.. warning::
+    We advise against modifying or updating any package installed by the script explained below. By using package managers like ``apt``  there are high chances your KVM/libvirt/CAPE installation breaks and you will most likely end up riding the lanes of the dependency hell.
 
 .. _installation_kvm:
 

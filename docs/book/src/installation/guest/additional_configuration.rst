@@ -4,14 +4,14 @@
 Additional Configuration
 =============================================
 
-In this chapter we will enumerate several recommendations so as to make your Guest virtual machine as stealthy and operational as it gets. Additionally, we intent to address some of the most common problems that may arise.
+In this chapter we will enumerate several recommendations so as to make your Guest virtual machine as stealthy and operational as it gets. Additionally, we intend to address some of the most common problems that may arise.
 
 Windows Guest
 =============
 
 Windows Debloating
 ------------------
-There some existing tools that automatically try to debloat your Windows instance. That is, uninstalling lots of pre-installed software and disabling intrusive features of Windows. The purpose of this tools is optimizatoin, performance, security or all at once. In the context of CAPE, they're useful to reduce noise and the probability of malware not detonating. Some of these tools are `Debloat-Windows-10 <https://github.com/W4RH4WK/Debloat-Windows-10>`_ or `BlackBird <https://www.getblackbird.net/>`_. You can find a larger list `here <https://github.com/RazviOverflow/Malware_Resources?tab=readme-ov-file#windows-debloating-performance-privacy-optimization>`_.
+There exist some tools that automatically try to debloat your Windows instance. That is, uninstalling lots of pre-installed software and disabling intrusive features of Windows. The purpose of these tools is optimization, performance, security or all of these. In the context of CAPE, they're useful to reduce noise and the probability of malware not detonating. Examples of these tools are `Debloat-Windows-10 <https://github.com/W4RH4WK/Debloat-Windows-10>`_ or `BlackBird <https://www.getblackbird.net/>`_. You can find a larger list `here <https://github.com/RazviOverflow/Malware_Resources?tab=readme-ov-file#windows-debloating-performance-privacy-optimization>`_.
 
 .. note::
 	It is recommended to use any of these tools to disable as much noise as possible. Remember to create a snapshot before executing them.

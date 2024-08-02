@@ -14,7 +14,7 @@ We have automated all work for you but bear in mind that 3rd party dependencies 
 so please check the installation log and try to provide the fix / correct issue to the developers.
 
 .. warning::
-    We advise against modifying or updating any package installed by the script explained below. By using package managers like ``apt``  there are high chances your KVM/libvirt/CAPE installation breaks and you will most likely end up riding the lanes of the dependency hell.
+    We advise against modifying or updating any package installed by the script explained below. By using package managers like ``apt``  there are high chances your KVM/libvirt/CAPE installation will break and you will most likely end up riding the lanes of dependency hell.
 
 .. _installation_kvm:
 

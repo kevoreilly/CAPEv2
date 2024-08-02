@@ -14,7 +14,7 @@ mounting a CDROM containing the *agent.py* file) and run it. This will
 launch the HTTP server which will listen for connections.
 
 .. important::
-   It is a **MUST** to launch ``agent.py/w`` with **elevated privileges**. One of the (arguably) easiest way of doing so is creating a Scheduler task, as explained further below in this page.
+   It is a **MUST** to launch ``agent.py/w`` with **elevated privileges**. One of the (arguably) easiest way of doing so is creating a Scheduled Task, as explained further below in this page.
 
 On Windows, if you simply launch the script, a Python window will be
 spawned, with a title similar to ``C:\Windows\py.exe``. If you want to hide this window you can rename the file from

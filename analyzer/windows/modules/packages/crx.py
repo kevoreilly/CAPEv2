@@ -7,11 +7,7 @@ import os
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
-from lib.common.zip_utils import (
-    extract_zip,
-    get_infos,
-    upload_extracted_files,
-)
+from lib.common.zip_utils import extract_zip, get_infos, upload_extracted_files
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +27,7 @@ class CRX(Package):
     def start(self, path):
         extracted_path = os.path.join(os.environ["TEMP"], "sample")
         file_names = []
-        blank_url = "http://about:blank" # prevent loading list of files in injected directory
+        blank_url = "http://about:blank"  # prevent loading list of files in injected directory
         try:
             zipinfos = get_infos(path)
             extract_zip(zip_path=path, extract_path=extracted_path, recursion_depth=0)
@@ -45,11 +41,11 @@ class CRX(Package):
             raise CuckooPackageError("Empty CRX archive")
 
         upload_extracted_files(extracted_path, file_names)
-        
+
         chrome = self.get_path("chrome.exe")
         args = [
-            f'--load-extension={extracted_path}',
-        ] 
+            f"--load-extension={extracted_path}",
+        ]
         args.append('"{}"'.format(blank_url))
         args = " ".join(args)
         return self.execute(chrome, args, path)

@@ -197,6 +197,7 @@ guest_rdp_port = 3389
 # VM tags may be used to specify on which guest machines a sample should be run
 # NOTE - One of the following OS version tags MUST be included for Windows VMs:
 # winxp, win7, win8, win10, win11
+# Ensure that VM is not set to reserved in config!
 # Some samples will only detonate on specific versions of Windows (see web.conf packages for more info)
 # Example: MSIX - Windows >= 10
 msix = win10,win11

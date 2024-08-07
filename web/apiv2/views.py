@@ -2383,16 +2383,11 @@ def tasks_file_stream(request, task_id):
         resp = {"error": True, "error_value": "Machine is not running", "errors": machine.status}
         return Response(resp)
     try:
-        r = requests.post(
-                f"http://{machine.ip}:8000/retrieve",
-                stream=True,
-                data={"filepath": filepath, "streaming": "1"})
+        r = requests.post(f"http://{machine.ip}:8000/retrieve", stream=True, data={"filepath": filepath, "streaming": "1"})
         if r.status_code >= 400:
             resp = {"error": True, "error_value": f"{filepath} does not exist"}
             return Response(resp)
-        return StreamingHttpResponse(
-                streaming_content=r.iter_content(chunk_size=1024),
-                content_type="application/octet-stream")
+        return StreamingHttpResponse(streaming_content=r.iter_content(chunk_size=1024), content_type="application/octet-stream")
     except requests.exceptions.RequestException as ex:
         log.error(ex, exc_info=True)
         resp = {"error": True, "error_value": f"Requests exception: {ex}"}

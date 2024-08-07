@@ -2364,6 +2364,43 @@ def common_download_func(service, request):
 
 @csrf_exempt
 @api_view(["POST"])
+def tasks_file_stream(request, task_id):
+    """Streams a file from the running machine with matching task_id."""
+    if not apiconf.taskstatus.get("enabled"):
+        resp = {"error": True, "error_value": "Task status API is disabled"}
+        return Response(resp)
+    filepath = request.data.get("filepath")
+    if not filepath:
+        resp = {"error": True, "error_value": "filepath not set"}
+        return Response(resp)
+    resp = {}
+    task = db.view_task(task_id)
+    if not task:
+        resp = {"error": True, "error_value": "Task does not exist"}
+        return Response(resp)
+    machine = db.view_machine(task.guest.name)
+    if machine.status != "running":
+        resp = {"error": True, "error_value": "Machine is not running", "errors": machine.status}
+        return Response(resp)
+    try:
+        r = requests.post(
+                f"http://{machine.ip}:8000/retrieve",
+                stream=True,
+                data={"filepath": filepath, "streaming": "1"})
+        if r.status_code >= 400:
+            resp = {"error": True, "error_value": f"{filepath} does not exist"}
+            return Response(resp)
+        return StreamingHttpResponse(
+                streaming_content=r.iter_content(chunk_size=1024),
+                content_type="application/octet-stream")
+    except requests.exceptions.RequestException as ex:
+        log.error(ex, exc_info=True)
+        resp = {"error": True, "error_value": f"Requests exception: {ex}"}
+    return Response(resp)
+
+
+@csrf_exempt
+@api_view(["POST"])
 def tasks_vtdl(request):
     # Check if this API function is enabled
     if not apiconf.vtdl.get("enabled"):

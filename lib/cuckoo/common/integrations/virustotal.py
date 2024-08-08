@@ -5,8 +5,8 @@
 import base64
 import logging
 import operator
-from http import HTTPStatus
 from collections import defaultdict
+from http import HTTPStatus
 
 import requests
 
@@ -227,7 +227,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
     try:
         r = requests.get(url, headers=headers, verify=True, timeout=timeout)
         if r.status_code == HTTPStatus.NOT_FOUND:
-            log.info("%s '%s' not found in VT", category, url.split('/')[-1])
+            log.info("%s '%s' not found in VT", category, url.split("/")[-1])
             return {}
         if not r.ok:
             log.error("VT: Request failed")

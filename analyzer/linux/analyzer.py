@@ -101,7 +101,7 @@ def dump_memory(pid):
     try:
         maps_file = open(f"/proc/{pid}/maps", "r")
         mem_file = open(f"/proc/{pid}/mem", "rb", 0)
-        output_file = open(f"{MEM_PATH}/{pid}.dump", "wb")
+        output_file = open(f"{MEM_PATH}/{pid}.dmp", "wb")
 
         for line in maps_file.readlines():
             m = re.match(r"([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])(\S+)\s+\d+\s+\S+\s+\d+\s*(.*)?", line)
@@ -126,8 +126,8 @@ def dump_memory(pid):
     except PermissionError:
         log.error(f"Permission denied to access process with PID {pid}.")
 
-    if os.path.exists(f"{MEM_PATH}/{pid}.dump"):
-        upload_to_host(f"{MEM_PATH}/{pid}.dump", f"memory/{pid}.dump")
+    if os.path.exists(f"{MEM_PATH}/{pid}.dmp"):
+        upload_to_host(f"{MEM_PATH}/{pid}.dmp", f"memory/{pid}.dmp")
         DUMPED_LIST.add(pid)
     else:
         log.error(f"Memdump file not found in guest machine for PID {pid}")

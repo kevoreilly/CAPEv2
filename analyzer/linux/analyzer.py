@@ -13,6 +13,7 @@ import time
 import traceback
 import zipfile
 from pathlib import Path
+from threading import Thread
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -25,7 +26,6 @@ from lib.core.config import Config
 from lib.core.packages import choose_package_class
 from lib.core.startup import create_folders, init_logging
 from modules import auxiliary
-from threading import Thread
 
 log = logging.getLogger()
 
@@ -36,6 +36,7 @@ PROCESS_LIST = set()
 SEEN_LIST = set()
 PPID = Process(pid=PID).get_parent_pid()
 MEM_PATH = PATHS.get("memory")
+
 
 def add_pids(pids):
     """Add PID."""
@@ -49,6 +50,7 @@ def add_pids(pids):
             PROCESS_LIST.add(pid)
         SEEN_LIST.add(pid)
 
+
 def dump_files():
     """Dump all the dropped files."""
     for file_path in FILES_LIST:
@@ -58,6 +60,7 @@ def dump_files():
         "tlsdump/tlsdump.log",
         category="tlsdump",
     )
+
 
 def monitor_new_processes(parent_pid, interval=0.25):
     """Continuously monitor for new child processes."""
@@ -70,9 +73,10 @@ def monitor_new_processes(parent_pid, interval=0.25):
             log.info(f"New child process detected: {pid}")
             dump_memory(pid)
             add_pids(pid)  # Add the new process to PROCESS_LIST
-        
+
         known_processes.update(new_processes)
         time.sleep(interval)
+
 
 def get_all_child_processes(parent_pid, all_children=None):
     """Recursively finds all child processes of a given parent PID."""
@@ -88,23 +92,24 @@ def get_all_child_processes(parent_pid, all_children=None):
         pass
     return all_children
 
+
 def dump_memory(pid):
     """Dump memory of a process, avoiding duplicates."""
-    #with process_lock:
+    # with process_lock:
     if pid in DUMPED_LIST:
-        return  # Skip if already dumped    
+        return  # Skip if already dumped
     try:
-        maps_file = open(f"/proc/{pid}/maps", 'r')
-        mem_file = open(f"/proc/{pid}/mem", 'rb', 0)
-        output_file = open(f"{MEM_PATH}/{pid}.dump", 'wb')
-                
+        maps_file = open(f"/proc/{pid}/maps", "r")
+        mem_file = open(f"/proc/{pid}/mem", "rb", 0)
+        output_file = open(f"{MEM_PATH}/{pid}.dump", "wb")
+
         for line in maps_file.readlines():
-            m = re.match(r'([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])(\S+)\s+\d+\s+\S+\s+\d+\s*(.*)?', line)
-            if m and m.group(3) == 'r':
+            m = re.match(r"([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])(\S+)\s+\d+\s+\S+\s+\d+\s*(.*)?", line)
+            if m and m.group(3) == "r":
                 # Testing: Uncomment to skip memory regions associated with dynamic libraries
                 # pathname = m.group(5)
                 # if pathname and (pathname.endswith('.so') or 'lib' in pathname or '[' in pathname):
-                    # continue
+                # continue
                 start = int(m.group(1), 16)
                 end = int(m.group(2), 16)
                 try:
@@ -126,6 +131,7 @@ def dump_memory(pid):
         DUMPED_LIST.add(pid)
     else:
         log.error(f"Memdump file not found in guest machine for PID {pid}")
+
 
 class Analyzer:
     """Cuckoo Linux Analyzer.
@@ -306,11 +312,11 @@ class Analyzer:
             PID = next(iter(PROCESS_LIST))
         else:
             raise ValueError("No PID available to monitor.")
-        
+
         # Start the monitoring thread before the analysis loop
         monitor_thread = Thread(target=monitor_new_processes, args=(PID,), daemon=True)
         monitor_thread.start()
-        
+
         # Check in the options if the user toggled the timeout enforce. If so,
         # we need to override pid_check and disable process monitor.
         if self.config.enforce_timeout:

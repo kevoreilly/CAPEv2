@@ -129,7 +129,7 @@ class FileCollector(Auxiliary, Thread):
                 if event.pathname.startswith(ROOT):
                     # log.info("Skipping random base directory for file %s", event.pathname)
                     return
-                
+
                 if event.pathname.startswith("/tmp/#"):
                     # log.info("Skipping wierd file %s", event.pathname)
                     return

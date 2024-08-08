@@ -5,6 +5,7 @@ import time
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
+from lib.common.constants import ROOT
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
 
@@ -125,6 +126,10 @@ class FileCollector(Auxiliary, Thread):
                     # log.info("Not currently set to collect %s", event.pathname)
                     return
 
+                if event.pathname.startswith(ROOT):
+                    # log.info("Skipping random base directory for file %s", event.pathname)
+                    return
+                
                 if event.pathname.startswith("/tmp/#"):
                     # log.info("Skipping wierd file %s", event.pathname)
                     return

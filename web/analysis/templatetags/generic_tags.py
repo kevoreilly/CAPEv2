@@ -12,20 +12,25 @@ def endswith(value, thestr):
 
 @register.filter("proctreetolist")
 def proctreetolist(tree):
-    outlist = []
     if not tree:
-        return outlist
-    stack = deque(tree)
+        return []
+    graph = {}
+    outlist = []
+    stack = deque(tree.get("pid_graph", {}).keys())
     while stack:
-        node = stack.popleft()
+        pid_id = stack.popleft()
         is_special = False
-        if "startchildren" in node or "endchildren" in node:
+        if "startchildren" in pid_id or "endchildren" in pid_id:
             is_special = True
-            outlist.append(node)
+            outlist.append(pid_id)
         else:
+            node = tree["pid_map"][pid_id]
+            str_pid = str(node["pid"])
             newnode = {}
-            newnode["pid"] = node["pid"]
+            newnode["pid"] = str_pid
             newnode["name"] = node["name"]
+            newnode["parent_id"] = str(node["parent_id"])
+
             if "module_path" in node:
                 newnode["module_path"] = node["module_path"]
             if "environ" in node and "CommandLine" in node["environ"]:
@@ -49,10 +54,13 @@ def proctreetolist(tree):
                     cmdline = cmdline[:200] + " ...(truncated)"
                 newnode["commandline"] = convert_to_printable(cmdline)
             outlist.append(newnode)
+            graph[str_pid] = newnode
+
         if is_special:
             continue
-        if node["children"]:
+        for child in tree["pid_graph"][pid_id]:
             stack.appendleft({"endchildren": 1})
-            stack.extendleft(reversed(node["children"]))
+            stack.extendleft([child])
             stack.appendleft({"startchildren": 1})
-    return outlist
+
+        return outlist

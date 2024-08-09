@@ -26,11 +26,11 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("\n\n[!] Missde dependencies. Run: poetry install\n\n")
+    print("\n\n[!] Missing dependencies. Run: poetry install\n\n")
     HAS_SFLOCK = False
 
 if sf_version and int(sf_version.split(".")[-1]) < 42:
-    print("You using old version of sflock! Upgrade: poetry install")
+    print("You are using an old version of sflock! Upgrade: poetry install")
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()

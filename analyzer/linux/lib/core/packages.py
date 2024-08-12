@@ -171,7 +171,7 @@ class Package:
             target_cmd += f' {" ".join(kwargs["args"])}'
 
         # eg: strace_args=-e trace=!recvfrom;epoll_pwait
-        strace_args = self.options.get('strace_args', '').replace(';', ',')
+        strace_args = self.options.get("strace_args", "").replace(";", ",")
         # Tricking strace into always showing PID on stderr output
         # https://github.com/strace/strace/issues/278#issuecomment-1815914576
         cmd = f"sudo strace -o /dev/stderr -s 800 {strace_args} -ttf {target_cmd}"

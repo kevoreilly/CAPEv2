@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
+import hashlib
 import logging
 import os
 import pkgutil
@@ -12,7 +13,6 @@ import tempfile
 import time
 import traceback
 import zipfile
-import hashlib
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlencode

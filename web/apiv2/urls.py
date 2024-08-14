@@ -43,6 +43,7 @@ urlpatterns = [
     re_path(r"^tasks/get/config/(?P<task_id>\d+)/(?P<cape_name>\w+)/$", views.tasks_config),
     re_path(r"^tasks/get/screenshot/(?P<task_id>\d+)/$", views.tasks_screenshot),
     re_path(r"^tasks/get/screenshot/(?P<task_id>\d+)/(?P<screenshot>\d{1,4})/$", views.tasks_screenshot),
+    re_path(r"^tasks/get/stream/(?P<task_id>\d+)/$", views.tasks_file_stream),
     re_path(r"^tasks/get/procmemory/(?P<task_id>\d+)/$", views.tasks_procmemory),
     re_path(r"^tasks/get/procmemory/(?P<task_id>\d+)/(?P<pid>\d{1,5})/$", views.tasks_procmemory),
     re_path(r"^tasks/get/fullmemory/(?P<task_id>\d+)/$", views.tasks_fullmemory),

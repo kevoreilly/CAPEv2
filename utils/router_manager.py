@@ -25,7 +25,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missde dependency: poetry run pip install psutil")
+    print("Missing dependency: poetry run pip install psutil")
 
 
 def _rooter_response_check(rooter_response):

@@ -27,5 +27,6 @@ class ACCESS(Package):
 
     def start(self, path):
         access = self.get_path_glob("MSACCESS.EXE")
-        path = check_file_extension(path, ".accdr")
+        if not path.endswith((".accdr", ".accde")):
+            path = check_file_extension(path, ".accdr")
         return self.execute(access, f'"{path}"', path)

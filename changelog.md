@@ -1,5 +1,8 @@
-### [25.07.2024]
-* Monitor update: Debugger and unpacker enhancements
+### [07.08.2024]
+* Monitor update: Set language via lang=X (language code) submission option
+
+### [05.08.2024]
+* SparkRAT config parser - thanks t-mtsmt
 
 ### [22.07.2024]
 * Monitor update: Enhancements to software (& syscall) breakpoint mechanism, add handling for Internet Shortcut CLSID (.url)

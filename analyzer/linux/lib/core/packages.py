@@ -170,12 +170,14 @@ class Package:
         if "args" in kwargs:
             target_cmd += f' {" ".join(kwargs["args"])}'
 
+        # eg: strace_args=-e trace=!recvfrom;epoll_pwait
+        strace_args = self.options.get("strace_args", "").replace(";", ",")
         # Tricking strace into always showing PID on stderr output
         # https://github.com/strace/strace/issues/278#issuecomment-1815914576
-        cmd = f"sudo strace -o /dev/stderr -s 800 -ttf {target_cmd}"
+        cmd = f"sudo strace -o /dev/stderr -s 800 {strace_args} -ttf {target_cmd}"
         # If nohuman is set to yes, it's possible to interact with interactive scripts or programs via VNC.
         if self.options.get("nohuman"):
-            cmd = f"sudo strace -o /dev/stderr -s 800 -ttf xterm -hold -e {target_cmd}"
+            cmd = f"sudo strace -o /dev/stderr -s 800 {strace_args} -ttf xterm -hold -e {target_cmd}"
         log.info(cmd)
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True

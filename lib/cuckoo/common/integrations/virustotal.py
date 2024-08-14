@@ -6,6 +6,7 @@ import base64
 import logging
 import operator
 from collections import defaultdict
+from http import HTTPStatus
 
 import requests
 
@@ -21,7 +22,9 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+# https://docs.virustotal.com/v3/reference/files
 VIRUSTOTAL_FILE_URL = "https://www.virustotal.com/api/v3/files/{id}"
+# https://docs.virustotal.com/v3/reference/url-object
 VIRUSTOTAL_URL_URL = "https://www.virustotal.com/api/v3/urls/{id}"
 
 processing_conf = Config("processing")
@@ -183,7 +186,6 @@ def get_vt_consensus(namelist: list):
     return ""
 
 
-# https://docs.virustotal.com/reference/files
 def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = False):
     if not processing_conf.virustotal.enabled or processing_conf.virustotal.get("on_demand", False) and not on_demand:
         return {}
@@ -224,6 +226,9 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
 
     try:
         r = requests.get(url, headers=headers, verify=True, timeout=timeout)
+        if r.status_code == HTTPStatus.NOT_FOUND:
+            log.info("%s '%s' not found in VT", category, url.split("/")[-1])
+            return {}
         if not r.ok:
             log.error("VT: Request failed")
             return {"error": True, "msg": f"Unable to complete connection to VirusTotal. Status code: {r.status_code}"}

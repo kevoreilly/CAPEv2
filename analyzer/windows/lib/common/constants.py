@@ -15,16 +15,19 @@ PATHS = {
     "shots": os.path.join(ROOT, "shots"),
     "memory": os.path.join(ROOT, "memory"),
     "drop": os.path.join(ROOT, "drop"),
+    "TTD": os.path.join(ROOT, "TTD"),
 }
 
 PIPE = f"\\\\.\\PIPE\\{random_string(6, 10)}"
+LOGSERVER_PREFIX = f"\\\\.\\PIPE\\{random_string(8, 12)}"
 SHUTDOWN_MUTEX = f"Global\\{random_string(6, 10)}"
 TERMINATE_EVENT = f"Global\\{random_string(6, 10)}"
 CAPEMON32_NAME = f"dll\\{random_string(6, 8)}.dll"
 CAPEMON64_NAME = f"dll\\{random_string(6, 8)}.dll"
 LOADER32_NAME = f"bin\\{random_string(7)}.exe"
 LOADER64_NAME = f"bin\\{random_string(8)}.exe"
-LOGSERVER_PREFIX = f"\\\\.\\PIPE\\{random_string(8, 12)}"
+TTD32_NAME = "bin\\wow64\\TTD.exe"
+TTD64_NAME = "bin\\TTD.exe"
 
 # Options
 OPT_APPDATA = "appdata"

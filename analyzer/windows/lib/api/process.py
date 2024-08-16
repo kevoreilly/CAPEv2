@@ -515,19 +515,25 @@ class Process:
             bit_str = "32-bit"
 
         try:
-            result = subprocess.run([os.path.join(Path.cwd(), ttd_name), "-accepteula", "-stop", str(self.pid)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=1)
+            result = subprocess.run(
+                [os.path.join(Path.cwd(), ttd_name), "-accepteula", "-stop", str(self.pid)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=1,
+            )
         except subprocess.TimeoutExpired as e:
             if e.stdout:
-                log.info(' '.join(e.stdout.split()))
+                log.info(" ".join(e.stdout.split()))
             if e.stderr:
-                log.error(' '.join(e.stderr.split()))
+                log.error(" ".join(e.stderr.split()))
         except Exception as e:
             log.error("Exception attempting TTD stop for %s process with pid %d: %s", bit_str, self.pid, e)
 
         if result.stdout:
-            log.info(' '.join(result.stdout.split()))
+            log.info(" ".join(result.stdout.split()))
         if result.stderr:
-            log.error(' '.join(result.stderr.split()))
+            log.error(" ".join(result.stderr.split()))
 
         log.info("Stopped TTD for %s process with pid %d: %s", bit_str, self.pid)
 
@@ -688,7 +694,6 @@ class Process:
             log.warning("invalid path %s for monitor DLL to be injected in %s, injection aborted", dll, self)
             return False
 
-
         ttd = int(self.options["ttd"])
         if ttd:
             self.options["no-iat"] = 1
@@ -712,12 +717,25 @@ class Process:
             return True
 
         try:
-            ret = subprocess.run([os.path.join(Path.cwd(), ttd_name), "-accepteula", "-out", os.path.join(PATHS["TTD"], f"{self.pid}.run"), "-attach", str(self.pid)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=1)
+            ret = subprocess.run(
+                [
+                    os.path.join(Path.cwd(), ttd_name),
+                    "-accepteula",
+                    "-out",
+                    os.path.join(PATHS["TTD"], f"{self.pid}.run"),
+                    "-attach",
+                    str(self.pid),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=1,
+            )
         except subprocess.TimeoutExpired as e:
             if e.stdout:
-                log.info(' '.join(e.stdout.split()))
+                log.info(" ".join(e.stdout.split()))
             if e.stderr:
-                log.error(' '.join(e.stderr.split()))
+                log.error(" ".join(e.stderr.split()))
         except Exception as e:
             log.error("Exception attempting TTD injection into %s process with pid %d: %s", bit_str, self.pid, e)
 

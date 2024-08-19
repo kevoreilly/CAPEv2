@@ -2371,6 +2371,9 @@ def tasks_file_stream(request, task_id):
     def _stream_iterator(fp, guest_name, chunk_size=1024):
         pos = 0
         while True:
+            machine = db.view_machine(guest_name)
+            if machine.status != "running":
+                break
             with open(fp, "rb") as fd:
                 if pos:
                     fd.seek(pos)
@@ -2380,10 +2383,6 @@ def tasks_file_stream(request, task_id):
                         break
                     yield content
                     pos = fd.tell()
-            machine = db.view_machine(guest_name)
-            if machine.status != "running":
-                break
-            yield b""  # Keep-Alive
     if not apiconf.taskstatus.get("enabled"):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)

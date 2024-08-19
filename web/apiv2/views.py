@@ -2414,8 +2414,8 @@ def tasks_file_stream(request, task_id):
     try:
         r = requests.post(
                 f"http://{machine.ip}:8000/retrieve",
-                stream=True,
-                data={"filepath": filepath, "streaming": "1"})
+                stream=True, data={
+                    "filepath": filepath, "streaming": "1"})
         if r.status_code >= 400:
             resp = {"error": True, "error_value": f"{filepath} does not exist"}
             return Response(resp)

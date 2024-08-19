@@ -565,7 +565,10 @@ class Process:
         log.info("Termination confirmed for %s", self)
         KERNEL32.CloseHandle(self.terminate_event_handle)
 
-        ttd = int(self.options.get("ttd", 0)
+        try:
+            ttd = int(self.options.get("ttd", 0))
+        except (ValueError, TypeError):
+            ttd = 0
         if ttd:
             self.ttd_stop()
 
@@ -694,7 +697,10 @@ class Process:
             log.warning("invalid path %s for monitor DLL to be injected in %s, injection aborted", dll, self)
             return False
 
-        ttd = int(self.options.get("ttd", 0)
+        try:
+            ttd = int(self.options.get("ttd", 0))
+        except (ValueError, TypeError):
+            ttd = 0
         if ttd:
             self.options["no-iat"] = 1
 

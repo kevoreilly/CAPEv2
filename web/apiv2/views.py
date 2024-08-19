@@ -2368,12 +2368,23 @@ def common_download_func(service, request):
 @api_view(["POST"])
 def tasks_file_stream(request, task_id):
     """Streams a file from the running machine with matching task_id."""
+    def _stream_iterator(fp, guest_name, chunk_size=1024):
+        pos = 0
+        while True:
+            machine = db.view_machine(guest_name)
+            if machine.status != "running":
+                break
+            with open(fp, "rb") as fd:
+                if pos:
+                    fd.seek(pos)
+                while True:
+                    content = fd.read(chunk_size)
+                    if not content:
+                        break
+                    yield content
+                    pos = fd.tell()
     if not apiconf.taskstatus.get("enabled"):
         resp = {"error": True, "error_value": "Task status API is disabled"}
-        return Response(resp)
-    filepath = request.data.get("filepath")
-    if not filepath:
-        resp = {"error": True, "error_value": "filepath not set"}
         return Response(resp)
     resp = {}
     task = db.view_task(task_id)
@@ -2384,12 +2395,32 @@ def tasks_file_stream(request, task_id):
     if machine.status != "running":
         resp = {"error": True, "error_value": "Machine is not running", "errors": machine.status}
         return Response(resp)
+    filepath = request.data.get("filepath")
+    if not filepath:
+        resp = {"error": True, "error_value": "filepath not set"}
+        return Response(resp)
+    if request.data.get("is_local", ""):
+        if filepath.startswith(("/", "\/")):
+            resp = {"error": True, "error_value": "Filepath mustn't start with /"}
+            return Response(resp)
+        filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
+        if not os.path.isfile(filepath):
+            resp = {"error": True, "error_value": "file does not exist"}
+            return Response(resp)
+        return StreamingHttpResponse(
+                streaming_content=_stream_iterator(filepath, task.guest.name),
+                content_type="application/octet-stream")
     try:
-        r = requests.post(f"http://{machine.ip}:8000/retrieve", stream=True, data={"filepath": filepath, "streaming": "1"})
+        r = requests.post(
+                f"http://{machine.ip}:8000/retrieve",
+                stream=True, data={
+                    "filepath": filepath, "streaming": "1"})
         if r.status_code >= 400:
             resp = {"error": True, "error_value": f"{filepath} does not exist"}
             return Response(resp)
-        return StreamingHttpResponse(streaming_content=r.iter_content(chunk_size=1024), content_type="application/octet-stream")
+        return StreamingHttpResponse(
+                streaming_content=r.iter_content(chunk_size=1024),
+                content_type="application/octet-stream")
     except requests.exceptions.RequestException as ex:
         log.error(ex, exc_info=True)
         resp = {"error": True, "error_value": f"Requests exception: {ex}"}

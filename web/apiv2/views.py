@@ -2371,7 +2371,7 @@ def tasks_file_stream(request, task_id):
     def _stream_iterator(fp, guest_name, chunk_size=1024):
         pos = 0
         while True:
-            with open(fp, 'rb') as fd:
+            with open(fp, "rb") as fd:
                 if pos:
                     fd.seek(pos)
                 while True:
@@ -2380,11 +2380,10 @@ def tasks_file_stream(request, task_id):
                         break
                     yield content
                     pos = fd.tell()
-
             machine = db.view_machine(guest_name)
             if machine.status != "running":
                 break
-            yield b''  # Keep-Alive
+            yield b""  # Keep-Alive
     if not apiconf.taskstatus.get("enabled"):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
@@ -2401,9 +2400,8 @@ def tasks_file_stream(request, task_id):
     if not filepath:
         resp = {"error": True, "error_value": "filepath not set"}
         return Response(resp)
-    is_local = request.data.get("is_local", "")
-    if is_local:
-        if filepath.startswith('/'):
+    if request.data.get("is_local", ""):
+        if filepath.startswith(("/", "\/")):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
         filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)

@@ -199,7 +199,7 @@ class DNS_ETW(Auxiliary):
         log.debug(files_to_upload)
         for f in files_to_upload:
             # Prepend file name with etw to indicate DNS_ETW
-            file_path_list = f.split("\\")
+            #file_path_list = f.split("\\")
             #file_name = file_path_list[-1]
             #process = file_path_list[-2]
             dumppath = os.path.join("DNS_ETW", "etw_dns.json")

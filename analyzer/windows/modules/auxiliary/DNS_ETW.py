@@ -200,8 +200,8 @@ class DNS_ETW(Auxiliary):
         for f in files_to_upload:
             # Prepend file name with etw to indicate DNS_ETW
             file_path_list = f.split("\\")
-            file_name = file_path_list[-1]
-            process = file_path_list[-2]
+            #file_name = file_path_list[-1]
+            #process = file_path_list[-2]
             dumppath = os.path.join("DNS_ETW", "etw_dns.json")
             log.debug("DNS_ETW Aux Module is uploading %s" % f)
             upload_to_host(f, dumppath)

@@ -1,35 +1,32 @@
+import json
 import logging
 import os
-import json
+import pprint
+from collections.abc import Iterable, Mapping
+
 from lib.common.abstracts import Auxiliary
-from lib.core.config import Config
 from lib.common.exceptions import CuckooPackageError
 from lib.common.results import upload_to_host
-import pprint
-from collections.abc import Mapping, Iterable
+from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
-SAFELIST = [
-    
-]
+SAFELIST = []
 
 try:
     from etw import ETW, ProviderInfo
-    from etw.GUID import GUID
     from etw import evntrace as et
+    from etw.GUID import GUID
 except Exception as e:
     log.debug(f"Could not load auxiliary module DNS_ETW due to '{e}'")
-    raise CuckooPackageError(
-                "In order to use DNS_ETW functionality, it "
-                "is required to have pywintrace setup in python."
-            )
+    raise CuckooPackageError("In order to use DNS_ETW functionality, it " "is required to have pywintrace setup in python.")
 
 __author__ = "[Canadian Centre for Cyber Security] @CybercentreCanada"
 
-def encode(data, encoding='utf-8'):
+
+def encode(data, encoding="utf-8"):
     if isinstance(data, str):
-        return data.encode(encoding, 'ignore')
+        return data.encode(encoding, "ignore")
     elif isinstance(data, Mapping):
         return dict(map(encode, data.items()))
     elif isinstance(data, Iterable):
@@ -37,21 +34,23 @@ def encode(data, encoding='utf-8'):
     else:
         return data
 
+
 class ETW_provider(ETW):
 
     def __init__(
-            self,
-            ring_buf_size=1024,
-            max_str_len=1024,
-            min_buffers=0,
-            max_buffers=0,
-            level=et.TRACE_LEVEL_INFORMATION,
-            any_keywords=None,
-            all_keywords=None,
-            filters=None,
-            event_callback=None,
-            logfile=None,
-            no_conout=False):
+        self,
+        ring_buf_size=1024,
+        max_str_len=1024,
+        min_buffers=0,
+        max_buffers=0,
+        level=et.TRACE_LEVEL_INFORMATION,
+        any_keywords=None,
+        all_keywords=None,
+        filters=None,
+        event_callback=None,
+        logfile=None,
+        no_conout=False,
+    ):
         """
         Initializes an instance of DNS_ETW. The default parameters represent a very typical use case and should not be
         overridden unless the user knows what they are doing.
@@ -79,12 +78,12 @@ class ETW_provider(ETW):
         else:
             self.event_callback = self.on_event
 
-        providers = [ProviderInfo('Microsoft-Windows-DNS-Client',
-                                  GUID("{1C95126E-7EEA-49A9-A3FE-A378B03DDB4D}"),
-                                  level,
-                                  any_keywords,
-                                  all_keywords)]
-        self.event_id_filters=[3010,3020,60101]
+        providers = [
+            ProviderInfo(
+                "Microsoft-Windows-DNS-Client", GUID("{1C95126E-7EEA-49A9-A3FE-A378B03DDB4D}"), level, any_keywords, all_keywords
+            )
+        ]
+        self.event_id_filters = [3010, 3020, 60101]
         super().__init__(
             session_name="ETW_DNS",
             ring_buf_size=ring_buf_size,
@@ -94,8 +93,8 @@ class ETW_provider(ETW):
             event_callback=self.event_callback,
             task_name_filters=filters,
             providers=providers,
-            event_id_filters=self.event_id_filters
-            )
+            event_id_filters=self.event_id_filters,
+        )
 
     def on_event(self, event_tufo):
         """
@@ -106,35 +105,46 @@ class ETW_provider(ETW):
         :return: Does not return anything.
         """
         event_id, event = event_tufo
-        #We can filter events based on whatever criteria here in event_tufo/event/event_id
+        # We can filter events based on whatever criteria here in event_tufo/event/event_id
         if event_id not in self.event_id_filters:
             return
         if self.no_conout is False:
-            log.info('{:d} ({:s})\n{:s}\n'.format(event_id, event["Task Name"], pprint.pformat(encode(event))))
+            log.info("{:d} ({:s})\n{:s}\n".format(event_id, event["Task Name"], pprint.pformat(encode(event))))
         if event["QueryName"] in SAFELIST:
             return
-        #Event 3010 query 
-        #Pid --> event["EventHeader"]["ProcessId"]
-        #threadid --> event["EventHeader"]["ThreadId"]
-        #queryname --> event["QueryName"]
-        #dnsserveraddress --> event["DnsServerIpAddress"]
-        #Event 3020 response
-        #Pid --> event["EventHeader"]["ProcessId"]
-        #threadid --> event["EventHeader"]["ThreadId"]
-        #queryname --> event["QueryName"]
+        # Event 3010 query
+        # Pid --> event["EventHeader"]["ProcessId"]
+        # threadid --> event["EventHeader"]["ThreadId"]
+        # queryname --> event["QueryName"]
+        # dnsserveraddress --> event["DnsServerIpAddress"]
+        # Event 3020 response
+        # Pid --> event["EventHeader"]["ProcessId"]
+        # threadid --> event["EventHeader"]["ThreadId"]
+        # queryname --> event["QueryName"]
         if self.logfile is not None:
-            with open(self.logfile, 'a') as file:
+            with open(self.logfile, "a") as file:
                 if event_id == 3010:
-                    printed_events = {"QueryType": "Query" ,"ProcessId": event["EventHeader"]["ProcessId"], "ThreadId" : event["EventHeader"]["ThreadId"], "QueryName" : event["QueryName"], "DNS Server" : event["DnsServerIpAddress"]}
-                    json.dump(printed_events,file)
-                    file.write('\n')
+                    printed_events = {
+                        "QueryType": "Query",
+                        "ProcessId": event["EventHeader"]["ProcessId"],
+                        "ThreadId": event["EventHeader"]["ThreadId"],
+                        "QueryName": event["QueryName"],
+                        "DNS Server": event["DnsServerIpAddress"],
+                    }
+                    json.dump(printed_events, file)
+                    file.write("\n")
                 elif event_id == 3020:
-                    printed_events = {"QueryType": "Response" ,"ProcessId": event["EventHeader"]["ProcessId"], "ThreadId": event["EventHeader"]["ThreadId"], "QueryName" : event["QueryName"]}
-                    json.dump(printed_events,file)
-                    file.write('\n')
+                    printed_events = {
+                        "QueryType": "Response",
+                        "ProcessId": event["EventHeader"]["ProcessId"],
+                        "ThreadId": event["EventHeader"]["ThreadId"],
+                        "QueryName": event["QueryName"],
+                    }
+                    json.dump(printed_events, file)
+                    file.write("\n")
                 else:
-                    json.dump(event,file)
-                    file.write('\n')
+                    json.dump(event, file)
+                    file.write("\n")
 
     def start(self):
         # do pre-capture setup
@@ -154,6 +164,7 @@ class ETW_provider(ETW):
         # do whatever for capture teardown here
         pass
 
+
 class DNS_ETW(Auxiliary):
     """ETW logging"""
 
@@ -164,7 +175,7 @@ class DNS_ETW(Auxiliary):
         self.do_run = self.enabled
         self.output_dir = "C:\\\\etw_dns"
         self.log_file = os.path.join(self.output_dir, "dns_provider.log")
-        self.capture = ETW_provider(logfile=self.log_file,level=255,no_conout=True)
+        self.capture = ETW_provider(logfile=self.log_file, level=255, no_conout=True)
 
     def start(self):
         if not self.enabled:
@@ -172,7 +183,7 @@ class DNS_ETW(Auxiliary):
         try:
             log.debug("Starting DNS ETW")
             # Start DNS_ETW_provider in the background
-            self.capture.start()   
+            self.capture.start()
         except Exception as e:
             print(e)
             import traceback
@@ -183,7 +194,7 @@ class DNS_ETW(Auxiliary):
     def stop(self):
         log.debug("Stopping!!!")
         self.capture.stop()
-        files_to_upload = set ()
+        files_to_upload = set()
 
         for d in os.listdir(self.output_dir):
             path = os.path.join(self.output_dir, d)
@@ -199,9 +210,9 @@ class DNS_ETW(Auxiliary):
         log.debug(files_to_upload)
         for f in files_to_upload:
             # Prepend file name with etw to indicate DNS_ETW
-            #file_path_list = f.split("\\")
-            #file_name = file_path_list[-1]
-            #process = file_path_list[-2]
+            # file_path_list = f.split("\\")
+            # file_name = file_path_list[-1]
+            # process = file_path_list[-2]
             dumppath = os.path.join("DNS_ETW", "etw_dns.json")
             log.debug("DNS_ETW Aux Module is uploading %s" % f)
             upload_to_host(f, dumppath)

@@ -8,7 +8,7 @@ import logging
 import shutil
 import subprocess
 import timeit
-from os import environ, path, sys, makedirs
+from os import environ, makedirs, path, sys
 from threading import Event, Thread
 
 from lib.common.constants import OPT_CURDIR

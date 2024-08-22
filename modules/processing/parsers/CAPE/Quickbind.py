@@ -72,7 +72,7 @@ def extract_config(filebuf):
             cfg["C2"] = c2s
 
         if mutexes:
-            cfg["Mutex"] = mutexes
+            cfg["Mutex"] = list(set(mutexes))
 
     return cfg
 

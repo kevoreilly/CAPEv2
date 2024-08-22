@@ -54,21 +54,25 @@ def extract_config(filebuf):
 
     if entries:
         c2s = []
+        mutexes = []
         for item in entries:
-            if item.count(".") == 3:
+            if item.count(".") == 3 and re.fullmatch(r"\d+", item.replace(".", "")):
                 c2s.append(item)
 
             if "http" in item:
                 c2s.append(item)
 
             if item.count("-") == 4:
-                cfg["Mutex"] = item
+                mutexes.append(item)
 
             if len(item) == 16 and is_hex(item):
                 cfg["Encryption Key"] = item
 
         if c2s:
             cfg["C2"] = c2s
+
+        if mutexes:
+            cfg["Mutex"] = mutexes
 
     return cfg
 

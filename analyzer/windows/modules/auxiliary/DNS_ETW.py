@@ -13,13 +13,15 @@ log = logging.getLogger(__name__)
 
 SAFELIST = []
 
+ETW = False
+HAVE_ETW = False
 try:
     from etw import ETW, ProviderInfo
     from etw import evntrace as et
     from etw.GUID import GUID
-except Exception as e:
-    log.debug(f"Could not load auxiliary module DNS_ETW due to '{e}'")
-    raise CuckooPackageError("In order to use DNS_ETW functionality, it " "is required to have pywintrace setup in python.")
+    HAVE_ETW = True
+except ImportError as e:
+    log.debug(f"Could not load auxiliary module DNS_ETW due to '{e}'\nIn order to use DNS_ETW functionality, it " "is required to have pywintrace setup in python")
 
 __author__ = "[Canadian Centre for Cyber Security] @CybercentreCanada"
 
@@ -175,10 +177,11 @@ class DNS_ETW(Auxiliary):
         self.do_run = self.enabled
         self.output_dir = "C:\\\\etw_dns"
         self.log_file = os.path.join(self.output_dir, "dns_provider.log")
-        self.capture = ETW_provider(logfile=self.log_file, level=255, no_conout=True)
+        if HAVE_ETW:
+            self.capture = ETW_provider(logfile=self.log_file, level=255, no_conout=True)
 
     def start(self):
-        if not self.enabled:
+        if not self.enabled or not HAVE_ETW:
             return False
         try:
             log.debug("Starting DNS ETW")
@@ -192,6 +195,8 @@ class DNS_ETW(Auxiliary):
         return True
 
     def stop(self):
+        if not HAVE_ETW:
+            return
         log.debug("Stopping!!!")
         self.capture.stop()
         files_to_upload = set()

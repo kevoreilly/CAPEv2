@@ -19,9 +19,13 @@ try:
     from etw import ETW, ProviderInfo
     from etw import evntrace as et
     from etw.GUID import GUID
+
     HAVE_ETW = True
 except ImportError as e:
-    log.debug(f"Could not load auxiliary module DNS_ETW due to '{e}'\nIn order to use DNS_ETW functionality, it " "is required to have pywintrace setup in python")
+    log.debug(
+        f"Could not load auxiliary module DNS_ETW due to '{e}'\nIn order to use DNS_ETW functionality, it "
+        "is required to have pywintrace setup in python"
+    )
 
 __author__ = "[Canadian Centre for Cyber Security] @CybercentreCanada"
 

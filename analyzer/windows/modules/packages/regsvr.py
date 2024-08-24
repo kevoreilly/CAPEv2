@@ -4,6 +4,7 @@
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import OPT_ARGUMENTS
 
 
 class Regsvr(Package):
@@ -12,10 +13,15 @@ class Regsvr(Package):
     PATHS = [
         ("SystemRoot", "system32", "regsvr32.exe"),
     ]
+    summary = "Opens the file with regsvr32.exe."
+    description = f"""Uses 'regsvr32.exe [arguments] <sample>' to open a .dll file.
+    If the '{OPT_ARGUMENTS}' option is set, the contents will be used as arguments to regsvr32.exe.
+    The .dll filename extension will be added automatically."""
+    option_names = (OPT_ARGUMENTS,)
 
     def start(self, path):
         regsvr32 = self.get_path("regsvr32.exe")
-        arguments = self.options.get("arguments")
+        arguments = self.options.get(OPT_ARGUMENTS)
 
         # If the file doesn't have the proper .dll extension force it
         # and rename it. This is needed for rundll32 to execute correctly.

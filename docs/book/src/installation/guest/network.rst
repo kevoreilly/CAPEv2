@@ -9,37 +9,33 @@ Now it's time to set up the network for your virtual machine.
 Windows Settings
 ================
 
-Before configuring the underlying networking of the virtual machine, you may
-want to tweak some settings inside Windows itself.
+.. note::
 
-Two of the most important configurations to make are to **disable** *Windows Firewall* and
-*Automatic Updates*. The reason behind this is that these features can affect the behavior
-of the malware under normal circumstances and they can pollute the network
-analysis performed by CAPE, by dropping connections or including irrelevant
-requests.
+    As was discussed in the :ref:`previous chapter <additional_configuration>`, any additional configuration like **disabling** the *Windows Firewall* and the *Automatic Updates* should be done before configuring the network as stated below. Given that VMs may be left without internet connection, it is convenient to download and make changes before this happens. The reason for turning off updates and firewall is that these features can affect the behavior of the malware under normal circumstances and they can pollute the network analysis performed by CAPE, by dropping connections or including irrelevant requests.
+
 
 Windows 10
 ==========
 To do so in Windows 10, open Control Panel and search for ``Windows Defender Firewall``. Disable it completely:
 
-    .. image:: ../../_images/screenshots/guest_win10_disable_firewall.png
-        :align: center
+.. image:: ../../_images/screenshots/guest_win10_disable_firewall.png
+    :align: center
 
-    .. image:: ../../_images/screenshots/guest_win10_disable_firewall_1.png
-        :align: center
+.. image:: ../../_images/screenshots/guest_win10_disable_firewall_1.png
+    :align: center
 
 The next step is disabling automatic updates. To do so, open Control Panel and search for ``Administrative Tools``. Open it, then open ``Services``. Look for the ``Windows Update`` entry and double-click on it. Set Startup type to disabled and click stop.
 
-    .. image:: ../../_images/screenshots/guest_win10_disable_updates.png
-            :align: center
+.. image:: ../../_images/screenshots/guest_win10_disable_updates.png
+        :align: center
 
 Windows XP
 ==========
 
 You can do so from Windows' Control Panel as shown in the picture:
 
-    .. image:: ../../_images/screenshots/windows_security.png
-        :align: center
+.. image:: ../../_images/screenshots/windows_security.png
+    :align: center
 
 Virtual Networking
 ==================
@@ -81,18 +77,18 @@ The recommended setup is using an isolated network for your VM. In order to do s
 
 First, in the Virtual Machine Manager GUI click con **Edit** -> **Connection Details**.
 
-    .. image:: ../../_images/screenshots/creating_isolated_network_0.png
-            :align: center
+.. image:: ../../_images/screenshots/creating_isolated_network_0.png
+        :align: center
 
 In the opened window click on the **+** sign, at the bottom left corner of the image. We are now defining the details of the new network. Give it a name (hostonly, for example) and make sure you select **Isolated** mode. Then, click on the **IPv$ configuration** drop-down menu and define the range of your network. In the image below only the third octet is changed.
 
-    .. image:: ../../_images/screenshots/creating_isolated_network_1.png
-            :align: center
+.. image:: ../../_images/screenshots/creating_isolated_network_1.png
+        :align: center
 
 Once the new isolated network is created, if you already created a VM, you can select it from Virtual Machine Manager by clicking ``Show virtual hardware details`` of that specific VM. Then click on the network adapter and choose the recently created network. Then click ``Apply``.
 
-    .. image:: ../../_images/screenshots/creating_isolated_network_2.png
-            :align: center
+.. image:: ../../_images/screenshots/creating_isolated_network_2.png
+        :align: center
 
 The next thing is checking the new interface was indeed created and the VM is actually using it. From your Host, execute the following command from a command prompt::
 
@@ -128,28 +124,30 @@ To set up a static IP it is first recommended to inspect the assigned IP, which 
 
 > ipconfig /all
 
-    .. image:: ../../_images/screenshots/guest_win10_static_IP.png
-            :align: center
+.. image:: ../../_images/screenshots/guest_win10_static_IP.png
+        :align: center
 
-    .. note:: The IP addresses and ranges used throughout this chapter are just examples. Please make sure you use your own working configurations and addresses.
+.. note:: 
+    The IP addresses and ranges used throughout this chapter are just examples. Please make sure you use your own working configurations and addresses.
 
 Open ``Control Panel`` and search for ``Network``. Find and open the ``Network and Sharing Center``. Click ``Change adapter settings.``
 
-    .. image:: ../../_images/screenshots/guest_win10_static_IP_1.png
-            :align: center
+.. image:: ../../_images/screenshots/guest_win10_static_IP_1.png
+        :align: center
 
 Now open the Ethernet adapter and click ``Properties``.
 
-    .. image:: ../../_images/screenshots/guest_win10_static_IP_2.png
-            :align: center
+.. image:: ../../_images/screenshots/guest_win10_static_IP_2.png
+        :align: center
 
 Then click ``Internet Protocol Version 4 (TCP/IPv4)`` and ``Properties``. Set the IP address, Subnet mask, Default gateway and DNS Server according to the results of the ipconfig command.
 
-    .. image:: ../../_images/screenshots/guest_win10_static_IP_3.png
-            :align: center
+.. image:: ../../_images/screenshots/guest_win10_static_IP_3.png
+        :align: center
 
 
-    .. note:: You can set as static IP address the address previously given by DHCP or any other address you like within the range of your interface.
+.. note:: 
+    You can set as static IP address the address previously given by DHCP or any other address you like within the range of your interface.
 
 Wait a few seconds and you should have Internet access (in case you are using NAT. Bear in mind an isolated network will not provide Internet connection).
 
@@ -158,12 +156,12 @@ It is important to check connectivity between the Host and the Guest, like in th
 This stage is very much up to your requirements and the
 characteristics of your virtualization software.
 
-    .. warning:: Virtual networking errors!
-        Virtual networking is a vital component for CAPE. You must be
-        sure that connectivity works between the host and the guests.
-        Most of the issues reported by users are related to an incorrect networking setup.
-        If you aren't sure about your networking, check your virtualization software
-        documentation and test connectivity with ``ping`` and ``telnet``.
+.. warning:: Virtual networking errors!
+    Virtual networking is a vital component for CAPE. You must be
+    sure that connectivity works between the host and the guests.
+    Most of the issues reported by users are related to an incorrect networking setup.
+    If you aren't sure about your networking, check your virtualization software
+    documentation and test connectivity with ``ping`` and ``telnet``.
 
 
 Disable Noisy Network Services

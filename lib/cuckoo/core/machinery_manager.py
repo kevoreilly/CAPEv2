@@ -149,6 +149,7 @@ class MachineryManager:
         self.machinery_name: str = self.cfg.cuckoo.machinery
         self.machinery: Machinery = self.create_machinery()
         self.pool_scaling_lock = threading.Lock()
+        self.machines_limit: Optional[int] = None
         if self.machinery.module_name != self.machinery_name:
             raise CuckooCriticalError(
                 f"Incorrect machinery module was imported. "
@@ -179,15 +180,14 @@ class MachineryManager:
             # If the user wants to use the scaling bounded semaphore, check what machinery is specified, and then
             # grab the required configuration key for setting the upper limit
             machinery_opts = self.machinery.options.get(self.machinery_name)
-            machines_limit: int = 0
             if self.machinery_name == "az":
-                machines_limit = machinery_opts.get("total_machines_limit")
+                self.machines_limit = machinery_opts.get("total_machines_limit")
             elif self.machinery_name == "aws":
-                machines_limit = machinery_opts.get("dynamic_machines_limit")
-            if machines_limit:
+                self.machines_limit = machinery_opts.get("dynamic_machines_limit")
+            if self.machines_limit:
                 # The ScalingBoundedSemaphore is used to keep feeding available machines from the pending tasks queue
-                log.info("upper limit for ScalingBoundedSemaphore = %d", machines_limit)
-                retval = ScalingBoundedSemaphore(value=len(self.machinery.machines()), upper_limit=machines_limit)
+                log.info("upper limit for ScalingBoundedSemaphore = %d", self.machines_limit)
+                retval = ScalingBoundedSemaphore(value=len(self.machinery.machines()), upper_limit=self.machines_limit)
             else:
                 log.warning(
                     "scaling_semaphore is set but the %s machinery does not set the machines limit. Ignoring scaling semaphore.",
@@ -295,6 +295,12 @@ class MachineryManager:
             self.machinery.scale_pool(machine)
 
     def start_machine(self, machine: Machine) -> None:
+        if (
+            isinstance(self.machine_lock, ScalingBoundedSemaphore)
+            and self.db.count_machines_running() <= self.machines_limit
+            and self.machine_lock._value == 0
+        ):
+            self.machine_lock.release()
         with self.machine_lock:
             self.machinery.start(machine.label)
 

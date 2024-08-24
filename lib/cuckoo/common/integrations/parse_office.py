@@ -314,7 +314,7 @@ class Office:
                             officeresults["Macro"]["Analysis"].setdefault("HexStrings", []).append(
                                 (encoded, convert_to_printable(decoded))
                             )
-            except (AssertionError, UnexpectedDataError, ValueError) as e:
+            except (AssertionError, UnexpectedDataError, ValueError, AttributeError) as e:
                 log.warning("Macros in parse_office.py", e)
 
             if HAVE_VBA2GRAPH:

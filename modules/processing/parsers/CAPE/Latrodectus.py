@@ -88,6 +88,7 @@ def extract_config(filebuf):
                 matches = regex.finditer(data.hex())
                 str_vals = []
                 c2 = []
+                campaign = ""
 
                 for match in matches:
                     str_val = ""
@@ -106,12 +107,11 @@ def extract_config(filebuf):
                 i = 0
                 for val in str_vals:
                     if "/files/" in val:
+                        campaign = str_vals[i + 1]
                         break
                     else:
                         i += 1
-                campaign = ""
-                if ".exe" in str_vals[i + 2]:
-                    campaign = str_vals[i + 1]
+
                 cfg = {
                     "C2": c2,
                     "Group name": campaign,

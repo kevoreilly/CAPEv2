@@ -107,6 +107,7 @@ def foreach_child(hwnd, lparam):
             "later",
             "finish",
             "end",
+            "keep",
             "allow access",
             "remind me later",
             # german

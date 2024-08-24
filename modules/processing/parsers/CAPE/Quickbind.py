@@ -4,42 +4,10 @@ import struct
 from contextlib import suppress
 
 import pefile
+from Cryptodome.Cipher import ARC4
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
-
-
-def initialize_sbox(key, keysize):
-    sbox = bytearray(258)
-    sbox[0] = 0
-    sbox[1] = 0
-
-    for i in range(256):
-        sbox[i + 2] = i
-
-    k = 0
-    for j in range(256):
-        k = (k + (key[j % keysize] + sbox[j + 2])) % 256
-        sbox[j + 2], sbox[k + 2] = sbox[k + 2], sbox[j + 2]
-
-    return sbox
-
-
-def decrypt(sbox, data, size):
-    decoded_string = bytearray(size)
-
-    i = 0
-    while i < size:
-        sbox[0] = (sbox[0] + 1) % 256
-        sbox[1] = (sbox[1] + sbox[(sbox[0] + 2) % len(sbox)]) % 256
-        temp_index1 = sbox[0] % 256 + 2
-        temp_index2 = sbox[1] % 256 + 2
-        sbox[temp_index1], sbox[temp_index2] = sbox[temp_index2], sbox[temp_index1]
-        final_index = (sbox[temp_index2] + sbox[temp_index1]) % 256 + 2
-        decoded_string[i] = sbox[final_index] ^ data[i]
-        i += 1
-
-    return decoded_string
 
 
 def is_hex(hex_string):
@@ -80,28 +48,31 @@ def extract_config(filebuf):
         offset += padding
 
         with suppress(IndexError, UnicodeDecodeError, ValueError):
-            sbox = bytearray(initialize_sbox(key, 4))
-            decrypted_result = decrypt(sbox, encrypted_string, size).replace(b"\x00", b"").decode("utf-8")
+            decrypted_result = ARC4.new(key).decrypt(encrypted_string).replace(b"\x00", b"").decode("utf-8")
             if decrypted_result and len(decrypted_result) > 1:
                 entries.append(decrypted_result)
 
     if entries:
         c2s = []
+        mutexes = []
         for item in entries:
-            if item.count(".") == 3:
+            if item.count(".") == 3 and re.fullmatch(r"\d+", item.replace(".", "")):
                 c2s.append(item)
 
             if "http" in item:
                 c2s.append(item)
 
             if item.count("-") == 4:
-                cfg["Mutex"] = item
+                mutexes.append(item)
 
             if len(item) == 16 and is_hex(item):
                 cfg["Encryption Key"] = item
 
         if c2s:
             cfg["C2"] = c2s
+
+        if mutexes:
+            cfg["Mutex"] = list(set(mutexes))
 
     return cfg
 

@@ -13,6 +13,11 @@ class VBSJSE(Package):
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
+    summary = "Opens a sample file with wscript.exe."
+    description = """Makes two copies of the sample, one with extension .vbe
+    and the second with extension .jse.
+    Using wscript.exe first opens the .vbe file and then the .jse file.
+    """
 
     def start(self, path):
         wscript = self.get_path("wscript.exe")

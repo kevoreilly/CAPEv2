@@ -85,6 +85,7 @@ Packet = namedtuple("Packet", ["raw", "ts"])
 log = logging.getLogger(__name__)
 cfg = Config()
 proc_cfg = Config("processing")
+routing_cfg = Config("routing")
 enabled_passlist = proc_cfg.network.dnswhitelist
 passlist_file = proc_cfg.network.dnswhitelist_file
 
@@ -347,15 +348,15 @@ class Pcap:
         """
         if self._check_http(data):
             self._add_http(conn, data, ts)
+        # HTTPS.
+        elif conn["dport"] in self.ssl_ports or conn["sport"] in self.ssl_ports:
+            self._https_identify(conn, data)
         # SMTP.
-        if conn["dport"] in (25, 587):
+        elif conn["dport"] in (25, 587):
             self._reassemble_smtp(conn, data)
         # IRC.
-        if conn["dport"] != 21 and self._check_irc(data):
+        elif conn["dport"] != 21 and self._check_irc(data):
             self._add_irc(conn, data)
-        # HTTPS.
-        if conn["dport"] in self.ssl_ports or conn["sport"] in self.ssl_ports:
-            self._https_identify(conn, data)
 
     def _udp_dissect(self, conn, data, ts):
         """Runs all UDP dissectors.
@@ -503,6 +504,8 @@ class Pcap:
                 for reject in domain_passlist_re:
                     if re.search(reject, query["request"]):
                         for addip in query["answers"]:
+                            if routing_cfg.inetsim.enabled and addip["data"] == routing_cfg.inetsim.server:
+                                continue
                             if addip["type"] in ("A", "AAAA"):
                                 ip_passlist.add(addip["data"])
                         return True
@@ -953,9 +956,13 @@ class Pcap2:
                 elif protocol in ("http", "https"):
                     hostname = sent.headers.get("host")
 
+                included_to_passlist = False
                 for reject in domain_passlist_re:
                     if hostname and re.search(reject, hostname):
-                        return False
+                        included_to_passlist = True
+
+                if included_to_passlist:
+                    continue
 
             if protocol == "smtp":
                 results["smtp_ex"].append(

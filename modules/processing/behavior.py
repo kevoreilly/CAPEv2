@@ -411,6 +411,7 @@ class Processes:
                     "calls": current_log.calls,
                     "threads": current_log.threads,
                     "environ": current_log.environdict,
+                    "file_activities": {"read_files": [], "write_files": [], "delete_files": []},
                 }
             )
 
@@ -476,6 +477,12 @@ class Summary:
             check_deny_pattern(source_list, pattern)
         else:
             source_list.append(pattern)
+
+    def _add_file_activity(self, process, key, filename):
+        if not filename:
+            return
+        if self.options.file_activities:
+            process["file_activities"][key].append(filename)
 
     def event_apicall(self, call, process):
         """Generate processes list from streamed calls/processes.
@@ -543,6 +550,7 @@ class Summary:
                 disp = struct.unpack_from("B", fileinfo)[0]
                 if disp and filename not in self.delete_files:
                     self._filtering_helper(self.delete_files, filename)
+                    self._add_file_activity(process, "delete_files", filename)
         elif call["api"].startswith("DeleteFile") or call["api"] == "NtDeleteFile" or call["api"].startswith("RemoveDirectory"):
             filename = self.get_argument(call, "FileName")
             if not filename:
@@ -552,6 +560,7 @@ class Summary:
                     self._filtering_helper(self.files, filename)
                 if filename not in self.delete_files:
                     self._filtering_helper(self.delete_files, filename)
+                    self._add_file_activity(process, "delete_files", filename)
         elif call["api"].startswith("StartService"):
             servicename = self.get_argument(call, "ServiceName", strip=True)
             if servicename and servicename not in self.started_services:
@@ -597,11 +606,13 @@ class Summary:
                     self._filtering_helper(self.files, origname)
                 if origname not in self.delete_files:
                     self._filtering_helper(self.delete_files, origname)
+                    self._add_file_activity(process, "delete_files", origname)
             if newname:
                 if newname not in self.files:
                     self._filtering_helper(self.files, newname)
                 if newname not in self.write_files:
                     self._filtering_helper(self.write_files, newname)
+                    self._add_file_activity(process, "write_files", newname)
 
         elif call["category"] == "filesystem":
             filename = self.get_argument(call, "FileName")
@@ -619,22 +630,26 @@ class Summary:
                 ):
                     # self.read_files.append(filename)
                     self._filtering_helper(self.read_files, srcfilename)
+                    self._add_file_activity(process, "read_files", srcfilename)
                 if (
                     access
                     and (access & 0x40000000 or access & 0x10000000 or access & 0x02000000 or access & 0x6)
                     and filename not in self.write_files
                 ):
-                    self._filtering_helper(self.write_files, srcfilename)
+                    self._filtering_helper(self.write_files, srcfilename or filename)
+                    self._add_file_activity(process, "write_files", srcfilename or filename)
                 if filename not in self.files:
                     self._filtering_helper(self.files, filename)
             if srcfilename:
                 if srcfilename not in self.read_files:
                     self._filtering_helper(self.read_files, srcfilename)
+                    self._add_file_activity(process, "read_files", srcfilename)
                 if srcfilename not in self.files:
                     self._filtering_helper(self.files, srcfilename)
             if dstfilename:
                 if dstfilename not in self.write_files:
                     self._filtering_helper(self.write_files, dstfilename)
+                    self._add_file_activity(process, "write_files", dstfilename)
                 if dstfilename not in self.files:
                     self._filtering_helper(self.files, dstfilename)
 

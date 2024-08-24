@@ -296,6 +296,11 @@ pre {
     word-wrap: break-word;
 }
 
+.extracted-config > table > tbody > tr > td {
+    font-family: monospace;
+    font-size: 87.5%;
+}
+
 .tcp-flow {
     list-style-type: none;
 }

@@ -33,6 +33,8 @@ from lib.common.constants import (
     LOADER32_NAME,
     LOADER64_NAME,
     LOGSERVER_PREFIX,
+    OPT_CURDIR,
+    OPT_EXECUTIONDIR,
     PATHS,
     PIPE,
     SHUTDOWN_MUTEX,
@@ -269,7 +271,7 @@ class Analyzer:
         self.options = self.config.get_options()
 
         # Resolve the paths first in case some other part of the code needs those (fullpath) parameters.
-        for option_name in ("curdir", "executiondir"):
+        for option_name in (OPT_CURDIR, OPT_EXECUTIONDIR):
             if option_name in self.options:
                 self.options[option_name] = os.path.expandvars(self.options[option_name])
 
@@ -635,6 +637,7 @@ class Analyzer:
         # we need to override pid_check and disable process monitor.
         if self.config.enforce_timeout:
             log.info("Enabled timeout enforce, running for the full timeout")
+            self.pid_check = False
 
         # next phase; go to the analysis loop
         self.analysis_loop(aux_modules)
@@ -729,7 +732,7 @@ class Analyzer:
         # Tell all processes to complete their monitoring
         if not kernel_analysis:
             for pid in self.process_list.pids:
-                proc = Process(pid=pid)
+                proc = Process(options=self.options, config=self.config, pid=pid)
                 if proc.is_alive():
                     try:
                         proc.set_terminate_event()

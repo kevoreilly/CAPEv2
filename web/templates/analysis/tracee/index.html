@@ -1,0 +1,342 @@
+<div id="tracee">
+    {% if tracee %}
+    <script src="/static/js/pako_inflate.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/static/js/datatables.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link href="/static/css/datatables.min.css" rel="stylesheet" />
+
+    <script>
+        async function tracee() {
+            function base64ToArrayBuffer(base64) {
+                var binaryString = atob(base64);
+                var bytes = new Uint8Array(binaryString.length);
+                for (var i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes.buffer;
+            }
+
+            function SaferHTML(templateData) { // Mozilla Hacks
+                var s = templateData[0];
+                for (var i = 1; i < arguments.length; i++) {
+                    var arg = String(arguments[i]);
+
+                    // Escape special characters in the substitution.
+                    s += arg.replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;");
+
+                    // Don't escape special characters in the template.
+                    s += templateData[i];
+                }
+                return s;
+            }
+
+            let dt = null;
+
+            const shownProcs = { 0: true };
+
+            // extract data
+            const rawContent = `{{ tracee.rawData }}`;
+            const inflated = pako.inflate(base64ToArrayBuffer(rawContent));
+            const traceeData = JSON.parse(new TextDecoder().decode(inflated));
+
+            // proctree
+            let procTreeStyle = "";
+
+            function buildProcTree(currentTree) {
+                const li = document.createElement("li");
+                let liInnerHtml = ``;
+
+                if (!currentTree.details.desc) currentTree.details.desc = "(unknown)"
+
+                let procDescription = currentTree.details.desc ? currentTree.details.desc.toString() : "Unknown";
+                if (procDescription.length > 512) procDescription = procDescription.substring(0, 512) + `... <details><summary>Full Cmdline</summary><div>${currentTree.details.desc.toString()}</div></details>`;
+
+                if (currentTree.details.desc.toString().includes("tracee-health-check-1903ae") || currentTree.details.desc.toString().includes("PARENT")) {
+                    liInnerHtml += `<label style="display: none;"><input type="checkbox" id="tracee-${currentTree.pid}" /> ${currentTree.pid} - ${procDescription}</label>`;
+                }
+                else {
+                    shownProcs[currentTree.pid] = true;
+                    liInnerHtml += `<label><input type="checkbox" id="tracee-${currentTree.pid}" checked /> ${currentTree.pid} - ${procDescription}</label>`;
+                }
+
+                const childIds = Object.keys(currentTree.children);
+                if (childIds.length > 0) liInnerHtml += "<ul>";
+                for (const childId of childIds) {
+                    liInnerHtml += buildProcTree(currentTree.children[childId]);
+                }
+                liInnerHtml += "</ul>";
+                li.innerHTML = liInnerHtml;
+
+                return li.outerHTML;
+            }
+
+            const htmlTree = buildProcTree(traceeData.metadata.proctree);
+            document.querySelector("#tracee-procTree").innerHTML = htmlTree;
+            document.querySelector("#tracee-procTree").innerHTML += `<label><input type="checkbox" id="tracee-0" checked /> Show all events, including those outside the known process tree (may be important)</label>`
+
+            document.querySelectorAll(`#tracee-procTree input[type=checkbox]`).forEach(el => {
+                el.addEventListener("change", () => {
+                    const pid = el.getAttribute("id").replace("tracee-", "");
+                    if (el.checked) {
+                        shownProcs[pid] = true;
+                    }
+                    else {
+                        shownProcs[pid] = false;
+                    }
+
+                    dt.draw();
+
+                    console.log(shownProcs);
+                });
+            });
+
+            console.log(traceeData);
+
+            const preparedTraceeData = [];
+
+            const SIGNATURISED = [
+                "stdio_over_socket", "k8s_api_connection", "aslr_inspection", "proc_mem_code_injection", "docker_abuse", "scheduled_task_mod", "ld_preload", "cgroup_notify_on_release",
+                "default_loader_mod", "sudoers_modification", "sched_debug_recon", "system_request_key_mod", "cgroup_release_agent", "rcd_modification", "core_pattern_modification",
+                "proc_kcore_read", "proc_mem_access", "hidden_file_created", "anti_debugging", "ptrace_code_injection", "process_vm_write_inject", "disk_mount", "dynamic_code_loading",
+                "fileless_execution", "illegitimate_shell", "kernel_module_loading", "k8s_cert_theft", "proc_fops_hooking", "syscall_hooking", "dropped_executable", "sched_process_exec",
+
+                "security_inode_unlink", "security_socket_connect", "security_socket_accept", "security_socket_bind", "security_bpf_prog", "security_sb_mount", "net_packet_icmp", "net_packet_icmpv6", "net_packet_dns_request",
+                "net_packet_dns_response", "net_packet_http_request", "net_packet_http_response", "process_vm_readv", "process_vm_writev", "finit_module", "memfd_create"
+            ];
+
+            const DANGEROUS = ["stdio_over_socket","k8s_api_connection","aslr_inspection","proc_mem_code_injection","docker_abuse","scheduled_task_mod","ld_preload","cgroup_notify_on_release",
+                "default_loader_mod","sudoers_modification","sched_debug_recon","system_request_key_mod","cgroup_release_agent","rcd_modification","core_pattern_modification","proc_kcore_read",
+                "proc_mem_access","hidden_file_created","anti_debugging","ptrace_code_injection","process_vm_write_inject","disk_mount","dynamic_code_loading","fileless_execution",
+                "illegitimate_shell","kernel_module_loading","k8s_cert_theft","proc_fops_hooking","syscall_hooking","dropped_executable",
+                
+                "finit_module","security_bpf_prog", "hidden_kernel_module", "hooked_syscall", "kallsysm_lookup_name", "mem_prot_alert", "security_socket_bind", "security_socket_accept"
+            ];
+
+            const EXTRAS_DATA = {
+                finit_module: "A kernel module was loaded. Introduction of malicious kernel modules can introduce significant security threats deep into the system. You may download the kernel module under 'Dropped Files'.",
+                security_bpf_prog: `The kernel generated and returned a file descriptor for BPF programs. Most software does not use this feature,
+and its usage could be suspicious as it can give visibility into low-level system information and enable functions like password stealing or network traffic monitoring.
+<br><b>You can download the eBPF bytecode for analysis in "Dropped Files".</b>
+<br><pre>bpf-objdump -D -b binary -m bpf bpf_artifact_file</pre>`,
+                hidden_kernel_module: "A loaded hidden kernel module was detected on your system. Strong indication that your system is compromised. It periodically checks for a hidden module.",
+                hooked_syscall: "A program which hooks into and modifies the execution flow of fundamental system calls was detected, which is likely malicious.",
+                kallsysm_lookup_name: "Some programs which want to hook syscalls may lookup this table.",
+                mem_prot_alert: "A memory region protection access change is suspicious for malicious activity. Memory access protection changes might expose writeable memory to execution, or hide its possible execution.",
+            };
+
+            for (const [idx, call] of traceeData.syscalls.entries()) {
+                let date = new Date(call.timestamp / 1000000);
+                let securityEventSeverity = "";
+
+                if (DANGEROUS.includes(call.eventName)) securityEventSeverity = `<div class="alert alert-danger mt-2 p-2"><b>⚠️ Security Event</b></div>`;
+                else if (SIGNATURISED.includes(call.eventName)) securityEventSeverity = `<div class="alert alert-info mt-2 p-2"><b>🔍 Significant Event</b></div>`;
+
+                const row = [
+                    `PID ${call.processId}<br>${date.toLocaleString()} ${date.getMilliseconds()}ms`,
+                    `<b>${call.syscall}</b><br>${call.eventName}<br>${securityEventSeverity}`,
+                    '<div class="tracee-details">',
+                    `${call.returnValue}`,
+                    call.eventName,
+                    [call.cat],
+                    call.processId,
+                ];
+                
+                if (call.args[0] && call.args[0].name == "triggeredBy") {
+                    row[2] += `<b>Triggered By:</b><br>`;
+                    call.args = call.args[0].value.args;
+                }
+
+                // render args
+                let searchArgs = "";
+                for (let i = 0; i < call.args.length; i++) {
+                    const arg = call.args[i];
+                    searchArgs += `${arg.type} ${arg.name} ${JSON.stringify(arg.value)}\n`;
+                    row[2] += SaferHTML`<span class="gray">${arg.type} ${arg.name}:</span><span class="mono">${JSON.stringify(arg.value)}</span><br>`;
+                }
+
+                if (call.metadata) {
+                    row[2] += SaferHTML`<details class="mt-2"><summary class="alert alert-info p-2 bold">Details &amp; MITRE ATTACK</summary><div class="alert alert-secondary p-2">${call.metadata.Description}<br><pre>${JSON.stringify(call.metadata.Properties, null, 2)}</pre></div></details>`;
+                }
+                if (EXTRAS_DATA[call.eventName]) {
+                    row[2] += `<div class="alert alert-info mt-2 p-2">${EXTRAS_DATA[call.eventName]}</div>`;
+                }
+
+                row[2] += '</div>';
+
+                // note for security events
+                if (!row[5][0]) row[5] = []
+
+                if (DANGEROUS.includes(call.eventName)) row[5].push("! ONLY SECURITY EVENTS")
+                if (SIGNATURISED.includes(call.eventName)) row[5].push("! DEFAULT SIGNIFICANT + SECURITY + NETWORK EVENTS")
+
+                if (call.metadata && call.metadata.Properties) {
+                    if (call.metadata.Properties.Technique && call.metadata.Properties.external_id) {
+                        row[4] += ` (${call.metadata.Properties.Technique}, MITRE ${call.metadata.Properties.external_id})`;
+                    }
+                }
+
+                preparedTraceeData.push(row);
+            }
+
+            console.log(preparedTraceeData);
+
+            await new Promise(resolve => {
+                setTimeout(() => { resolve() }, 1000)
+            });
+
+            try {
+                dt = new DataTable('#tracee-mainTable', {
+                    data: preparedTraceeData,
+
+                    scrollCollapse: true,
+                    scrollY: 800,
+                    stateSave: false,
+                    pageLength: 200,
+                    lengthMenu: [
+                        [10, 25, 50, 100, 200, -1],
+                        [10, 25, 50, 100, 200, 'All'],
+                    ],
+
+                    ordering: false,
+                    autoWidth: false,
+                    layout: {
+                        top1: {
+                            searchPanes: {
+                                columns: [5, 4],
+                                preSelect: [
+                                    {
+                                        column: 5,
+                                        rows: ['! DEFAULT SIGNIFICANT + SECURITY + NETWORK EVENTS']
+                                    }
+                                ],
+                                cascadePanes: true,
+                                dtOpts: {
+                                    select: {
+                                        style: 'multi'
+                                    }
+                                }
+                            },
+                        },
+                    },
+                    columnDefs: [
+                        {
+                            target: 0,
+                            data: null,
+                            width: "125px",
+                            render: {
+                                _: function (data, type, row, meta) {
+                                    return row[0];
+                                },
+                            },
+                        },
+                        {
+                            target: 1,
+                            /* min-height: 1200px !important; */
+                            data: null,
+                            width: "150px",
+                            render: {
+                                _: function (data, type, row, meta) {
+                                    return row[1];
+                                },
+                            },
+                        },
+                        {
+                            target: 2,
+                            data: null,
+                            render: {
+                                _: function (data, type, row, meta) {
+                                    return row[2];
+                                },
+                            },
+                        },
+                        {
+                            target: 3,
+                            data: null,
+                            width: "75px",
+                            render: {
+                                _: function (data, type, row, meta) {
+                                    return row[3];
+                                },
+                            },
+                        },
+                        {
+                            target: 4,
+                            visible: false,
+                        },
+                        {
+                            target: 5,
+                            visible: false,
+                            searchPanes: {
+                                orthogonal: '_'
+                            }
+                        },
+                        {
+                            target: 6,
+                            visible: false,
+                        },
+                    ],
+                });
+
+                dt.search.fixed('pid', function (searchStr, data, index) {
+                    return shownProcs[0] ? true : shownProcs[data[6]];
+                });
+
+                dt.searchPanes.resizePanes();
+
+                setTimeout(() => {
+                    dt.columns.adjust().draw();
+                }, 1000);
+            }
+            catch (e) {
+                console.log(e);
+            }
+        }
+    </script>
+
+    <style>
+        #tracee-procTree label {
+            margin: 0;
+        }
+
+        .dt-scroll-body:has(#tracee-mainTable) {
+            overflow-x: hidden;
+        }
+
+        #tracee-mainTable {
+            table-layout: fixed;
+            width: 100% !important;
+            max-width: 100%;
+        }
+
+        .tracee-details, #tracee-mainTable td {
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+        }
+    </style>
+
+    <div class="d-flex">
+        <div id="tracee-procTree"></div>
+    </div>
+
+    <table id="tracee-mainTable" class="display wrap dark" style="width:100%;">
+        <thead style="width: 100%;">
+            <tr>
+                <td>PID / Timestamp</td>
+                <td>Syscall / Event</td>
+                <td>Args &amp; Details</td>
+                <td>ReturnVal</td>
+                <td>Event Type / Syscall</td>
+                <td>Category</td>
+            </tr>
+        </thead>
+    </table>
+
+    <script>
+        tracee();
+    </script>
+
+    {% else %}
+    <div class="alert alert-primary"><b>Sorry!</b> No tracee.</div>
+    {% endif %}
+</div>

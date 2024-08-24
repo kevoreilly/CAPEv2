@@ -232,15 +232,12 @@ class RunProcessing:
         if not options.enabled:
             return None
 
-        # Check if the module is platform specific, such as strace, to prevent
-        # break processing.
-        try:
-            platform = self.task.get("platform", "")
-            if options.platform and options.platform != platform:
-                return None
-        except Exception as e:
-            log.debug("Platform not found: %s", e)
-            return
+        # Check if the module is platform specific (e.g. strace) to prevent
+        # processing errors.
+        platform = self.task.get("platform", "")
+        if getattr(options, "platform", None) and options.platform != platform:
+            log.debug("Plugin %s not compatible with platform: %s", module_name, platform)
+            return None
 
         # Give it path to the analysis results.
         current.set_path(self.analysis_path)

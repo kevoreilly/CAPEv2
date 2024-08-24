@@ -5,6 +5,7 @@ import time
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
+from lib.common.constants import ROOT
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
 
@@ -125,6 +126,10 @@ class FileCollector(Auxiliary, Thread):
                     # log.info("Not currently set to collect %s", event.pathname)
                     return
 
+                if event.pathname.startswith(ROOT):
+                    # log.info("Skipping random base directory for file %s", event.pathname)
+                    return
+
                 if event.pathname.startswith("/tmp/#"):
                     # log.info("Skipping wierd file %s", event.pathname)
                     return
@@ -143,13 +148,12 @@ class FileCollector(Auxiliary, Thread):
                 try:
                     # log.info("Trying to collect file %s", event.pathname)
                     sha256 = hash_file(hashlib.sha256, event.pathname)
-                    filename = f"{sha256[:16]}_{os.path.basename(event.pathname)}"
-                    if filename in self.uploadedHashes:
+                    if sha256 in self.uploadedHashes:
                         # log.info("Already collected file %s", event.pathname)
                         return
-                    upload_path = os.path.join("files", filename)
+                    upload_path = os.path.join("files", sha256)
                     upload_to_host(event.pathname, upload_path)
-                    self.uploadedHashes.append(filename)
+                    self.uploadedHashes.append(sha256)
                     return
                 except Exception as e:
                     log.info('Error dumping file from path "%s": %s', event.pathname, e)

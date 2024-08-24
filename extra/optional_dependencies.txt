@@ -4,7 +4,7 @@ ImageHash
 deepdiff
 flask
 flask-restful
-flask-sqlalchemy
+flask-sqlalchemy==3.0.5
 git+https://github.com/CAPESandbox/binGraph
 git+https://github.com/CAPESandbox/httpreplay
 git+https://github.com/CAPESandbox/socks5man

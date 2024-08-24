@@ -12,7 +12,7 @@ class Parser:
 
     # ex: 72 9F 00 00 70 ldstr foo, the index is what comes after 0x72 opcode -> 0x9F
     def get_user_string_from_index(self, index):
-        return self.dotnet_file.net.user_strings.get_us(index).value
+        return self.dotnet_file.net.user_strings.get(index).value
 
     # in little-endian token is: 12 00 00 04 (0x40000012), where 0x04 is field table index, and 0x12 is the field index
     def get_field_name_from_index(self, index):
@@ -92,9 +92,8 @@ def get_config_dict(parser, data):
             field_index = int.from_bytes(match[1], "little")
 
             # get each string variable name and value
-            field_name = parser.get_field_name_from_index(field_index)
-            field_value = parser.get_user_string_from_index(string_index)
-
+            field_name = parser.get_field_name_from_index(field_index).__str__()
+            field_value = parser.get_user_string_from_index(string_index).__str__()
             config_dict[field_name] = field_value
 
         return config_dict

@@ -529,6 +529,10 @@ $(document).ready( function() {
                                                     <td><code>unpacker</code></td>
                                                     <td>Ex: unpacker=2 - Add description here</td>
                                                 </tr>
+                                                <tr>
+                                                    <td><code>check_shellcode</code></td>
+                                                    <td>Setting check_shellcode=0 will disable checking for shellcode during package identification and extracting from archive</td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -656,7 +660,7 @@ $(document).ready( function() {
                             </div>
                             <div class="form-check">
                                 <label>
-                                    <input type="checkbox" name="manual_detonation" /> Manual detonation. Must be used with Interactive desktop
+                                    <input type="checkbox" name="manual" /> Manual detonation. Must be used with Interactive desktop
                                 </label>
                             </div>
                             {% if config.kernel %}

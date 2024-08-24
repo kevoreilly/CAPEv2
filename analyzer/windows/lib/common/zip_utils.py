@@ -11,6 +11,7 @@ try:
 except ImportError:
     import re
 
+from lib.common.constants import OPT_MULTI_PASSWORD
 from lib.common.exceptions import CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -297,7 +298,7 @@ def upload_extracted_files(root, files_at_root):
 
 def attempt_multiple_passwords(options: dict, password: str) -> bool:
     """Does the user want us to try multiple passwords?"""
-    enable_multi_password = options.get("enable_multi_password", "")
+    enable_multi_password = options.get(OPT_MULTI_PASSWORD, "")
     if enable_multi_password.lower() in ("on", "yes", "true"):
         # .get("password") defaults to infected but could return an empty string too so we need this check
         # If user has requested we use multiple passwords, separated by colon

@@ -9,6 +9,19 @@ region_name = <region_name>
 vnet_resource_group = <resource_group>
 sandbox_resource_group = <resource_group>
 
+#Sniffer configurations
+# New sniffer logic implementing Azure Watchers packet capture with either local or blob storage file locations 
+# the configurations for AzSniffer module will be used to create the dump.pcap file needed for network analysis when using Azure VMSS for Guest VMs
+resource_group = 
+#Storage account where the .cap  file will be placed by the Azure Packet Capture, soon the local file path logic will be implemented too 
+storage_account = 
+vmss_name = 
+#location of the network watcher (region name)
+location =  
+tenant_id = 
+client_secret = 
+connection_string =
+
 # Subscription ID for Azure
 subscription_id = <subscription_id>
 
@@ -45,6 +58,11 @@ total_machines_limit = 50
 
 # Specify the machine's instance type(for example, Standard_F2s_v2, Standard_DS3_v2)
 instance_type = <instance_type>
+
+# Determines which type of ephemeral os disk to use. Be sure to research which machine supports which type and at what sizes.
+# Possible values are CacheDisk, ResourceDisk, and NvmeDisk. Defaults to CacheDisk
+# https://learn.microsoft.com/en-us/rest/api/compute/virtual-machines/list?view=rest-compute-2024-03-02&tabs=HTTP#diffdisksettings
+ephemeral_os_disk_placement =
 
 # This boolean flag is used to indicate if we want to programmatically determine how many cores are used
 # per VM of the instance_type mentioned above.
@@ -88,6 +106,9 @@ overprovision = 0
 # This time, in seconds, is used to build up a queue of machines that need to be reimaged,
 # such that we can perform bulk reimaging.
 wait_time_to_reimage = 4
+
+# This time, in seconds, is the wait between checking if VMSSs should be scaled up/down.
+monitor_rate = 300
 
 # This boolean value is used to indicate if we want to use Azure Spot instances rather than
 # normal instances

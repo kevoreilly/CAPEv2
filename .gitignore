@@ -22,3 +22,5 @@ tests/test_bson.bson.compressed
 
 installer/cape-config.sh
 installer/kvm-config.sh
+
+docs/book/src/_build

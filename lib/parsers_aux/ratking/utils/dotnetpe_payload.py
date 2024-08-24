@@ -53,6 +53,14 @@ class DotNetPEPayload:
         if yara_rule is not None:
             self.yara_match = self.match_yara(yara_rule)
 
+    # Given a byte array's size and RVA, translates the RVA to the offset of
+    # the byte array and returns the bytes of the array as a byte string
+    def byte_array_from_size_and_rva(self, arr_size, arr_rva):
+        arr_field_rva = self.fieldrva_from_rva(arr_rva)
+        arr_offset = self.offset_from_rva(arr_field_rva)
+        arr_value = self.data[arr_offset : arr_offset + arr_size]
+        return arr_value
+
     # Calculates the SHA256 hash of file data
     def calculate_sha256(self):
         sha256_hash = sha256()

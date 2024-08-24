@@ -27,7 +27,7 @@ from lib.cuckoo.common.defines import (
     PAGE_WRITECOPY,
 )
 from lib.cuckoo.common.integrations.clamav import get_clamav
-from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
+from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386, IsPEImage
 from lib.cuckoo.common.path_utils import path_exists
 
 try:
@@ -162,6 +162,9 @@ class URL:
 
 class File:
     """Basic file object class with all useful utilities."""
+
+    LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
+    DARWIN_TYPES = {"Mach-O"}
 
     # The yara rules should not change during one Cuckoo run and as such we're
     # caching 'em. This dictionary is filled during init_yara().
@@ -383,7 +386,8 @@ class File:
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
                             log.debug("Unable to instantiate pefile on image: %s", self.file_path)
-                        if self.pe:
+                        emulated_isa = {IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386}
+                        if self.pe and self.pe.FILE_HEADER.Machine in emulated_isa:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
@@ -406,6 +410,7 @@ class File:
                                 self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string}, for MS Windows"
                             else:
                                 self.file_type = f"PE32 executable ({gui_type}) Intel 80386{dotnet_string}, for MS Windows"
+                            log.debug("file type set using basic heuristics for: %s", self.file_path)
                     elif not File.notified_pefile:
                         File.notified_pefile = True
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")
@@ -540,6 +545,7 @@ class File:
             File.init_yara()
 
         if not os.path.getsize(self.file_path):
+            log.error("YARA scan ignored, file is empty: %s", self.file_path)
             return []
 
         results = []
@@ -557,8 +563,7 @@ class File:
                         results.append(
                             {
                                 "name": match.identifier,
-                                # ToDo meta feature waiting
-                                "meta": "",  # match.meta,
+                                "meta": dict(match.metadata),
                                 "strings": [],
                                 "addresses": addresses,
                             }
@@ -710,6 +715,35 @@ class File:
         }
 
         return infos, self.pe
+
+    def get_platform(self):
+        retval = "windows"
+        ftype = self.get_type()
+        if isinstance(ftype, str):
+            if any(x in ftype for x in File.LINUX_TYPES):
+                retval = "linux"
+            elif any(x in ftype for x in File.DARWIN_TYPES):
+                retval = "darwin"
+        return retval
+
+    def predict_arch(self):
+        ftype = self.get_type()
+        if isinstance(ftype, str):
+            if "ARM" in ftype or "arm executable" in ftype or "Aarch64" in ftype:
+                return "arm"
+            elif "MIPSEL" in ftype:
+                return "mipsel"
+            elif "MIPS" in ftype:
+                return "mips"
+            elif "SPARC" in ftype:
+                return "sparc"
+            elif "PowerPC" in ftype:
+                return "powerpc"
+            elif "PE32+" in ftype or "64-bit" in ftype or "x86-64" in ftype:
+                return "x64"
+            elif "PE32" in ftype or "32-bit" in ftype or "x86" in ftype or "80386" in ftype:
+                return "x86"
+        return None
 
 
 class Static(File):

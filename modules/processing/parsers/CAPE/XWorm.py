@@ -84,14 +84,14 @@ def extract_config(data):
             for pattern in mutexPatterns:
                 mutexMatched = pattern.findall(data)
                 if mutexMatched:
-                    mutex = dn.net.user_strings.get_us(int.from_bytes(mutexMatched[0], "little")).value
+                    mutex = dn.net.user_strings.get(int.from_bytes(mutexMatched[0], "little")).value
                     AESKey = deriveAESKey(mutex)
                     break
                 else:
                     return
 
             for match in confPattern.findall(data):
-                er_string = dn.net.user_strings.get_us(int.from_bytes(match, "little")).value
+                er_string = dn.net.user_strings.get(int.from_bytes(match, "little")).value
                 extracted.append(er_string)
 
             for i in range(5):
@@ -116,10 +116,10 @@ def extract_config(data):
             installDirMatch = installDirPattern.findall(data)
 
             if installDirMatch:
-                installDir = dn.net.user_strings.get_us(int.from_bytes(installDirMatch[0], "little")).value
+                installDir = dn.net.user_strings.get(int.from_bytes(installDirMatch[0], "little")).value
                 config_dict["InstallDir"] = decryptAES(AESKey, installDir, AES.MODE_ECB)
             if installBinMatch:
-                installBinName = dn.net.user_strings.get_us(int.from_bytes(installBinMatch[0], "little")).value
+                installBinName = dn.net.user_strings.get(int.from_bytes(installBinMatch[0], "little")).value
                 config_dict["InstallBinName"] = decryptAES(AESKey, installBinName, AES.MODE_ECB)
         else:
             lines = data.decode().split("\n")

@@ -3,15 +3,18 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
+import hashlib
 import logging
 import os
 import pkgutil
+import re
 import sys
 import tempfile
 import time
 import traceback
 import zipfile
 from pathlib import Path
+from threading import Thread
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -33,6 +36,7 @@ DUMPED_LIST = set()
 PROCESS_LIST = set()
 SEEN_LIST = set()
 PPID = Process(pid=PID).get_parent_pid()
+MEM_PATH = PATHS.get("memory")
 
 
 def add_pids(pids):
@@ -52,6 +56,82 @@ def dump_files():
     """Dump all the dropped files."""
     for file_path in FILES_LIST:
         log.info("PLS IMPLEMENT DUMP, want to dump %s", file_path)
+    upload_to_host(
+        os.environ.get("SSLKEYLOGFILE", "/sslkeylog.log"),
+        "tlsdump/tlsdump.log",
+        category="tlsdump",
+    )
+
+
+def monitor_new_processes(parent_pid, interval=0.25):
+    """Continuously monitor for new child processes."""
+    known_processes = set(get_all_child_processes(parent_pid))
+    while True:
+        current_processes = set(get_all_child_processes(parent_pid))
+        new_processes = current_processes - known_processes
+
+        for pid in new_processes:
+            log.info(f"New child process detected: {pid}")
+            dump_memory(pid)
+            add_pids(pid)  # Add the new process to PROCESS_LIST
+
+        known_processes.update(new_processes)
+        time.sleep(interval)
+
+
+def get_all_child_processes(parent_pid, all_children=None):
+    """Recursively finds all child processes of a given parent PID."""
+    if all_children is None:
+        all_children = []
+    try:
+        children_file_path = f"/proc/{parent_pid}/task/{parent_pid}/children"
+        with open(children_file_path, "r") as f:
+            for child_pid in f.read().strip().split():
+                all_children.append(int(child_pid))
+                get_all_child_processes(int(child_pid), all_children)
+    except FileNotFoundError:
+        pass
+    return all_children
+
+
+def dump_memory(pid):
+    """Dump memory of a process, avoiding duplicates."""
+    # with process_lock:
+    if pid in DUMPED_LIST:
+        return  # Skip if already dumped
+    try:
+        maps_file = open(f"/proc/{pid}/maps", "r")
+        mem_file = open(f"/proc/{pid}/mem", "rb", 0)
+        output_file = open(f"{MEM_PATH}/{pid}.dmp", "wb")
+
+        for line in maps_file.readlines():
+            m = re.match(r"([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])(\S+)\s+\d+\s+\S+\s+\d+\s*(.*)?", line)
+            if m and m.group(3) == "r":
+                # Testing: Uncomment to skip memory regions associated with dynamic libraries
+                # pathname = m.group(5)
+                # if pathname and (pathname.endswith('.so') or 'lib' in pathname or '[' in pathname):
+                # continue
+                start = int(m.group(1), 16)
+                end = int(m.group(2), 16)
+                try:
+                    mem_file.seek(start)
+                    chunk = mem_file.read(end - start)
+                    output_file.write(chunk)
+                except (OSError, ValueError) as e:
+                    log.error(f"Could not read memory range {start:x}-{end:x}: {e}")
+        maps_file.close()
+        mem_file.close()
+        output_file.close()
+    except FileNotFoundError:
+        log.error(f"Process with PID {pid} not found.")
+    except PermissionError:
+        log.error(f"Permission denied to access process with PID {pid}.")
+
+    if os.path.exists(f"{MEM_PATH}/{pid}.dmp"):
+        upload_to_host(f"{MEM_PATH}/{pid}.dmp", f"memory/{pid}.dmp")
+        DUMPED_LIST.add(pid)
+    else:
+        log.error(f"Memdump file not found in guest machine for PID {pid}")
 
 
 class Analyzer:
@@ -229,6 +309,15 @@ class Analyzer:
             log.info("No process IDs returned by the package, running for the full timeout")
             pid_check = False
 
+        if PROCESS_LIST:
+            PID = next(iter(PROCESS_LIST))
+        else:
+            raise ValueError("No PID available to monitor.")
+
+        # Start the monitoring thread before the analysis loop
+        monitor_thread = Thread(target=monitor_new_processes, args=(PID,), daemon=True)
+        monitor_thread.start()
+
         # Check in the options if the user toggled the timeout enforce. If so,
         # we need to override pid_check and disable process monitor.
         if self.config.enforce_timeout:
@@ -236,11 +325,15 @@ class Analyzer:
             pid_check = False
 
         time_counter = 0
-
+        complete_folder = hashlib.md5(f"cape-{self.config.id}".encode()).hexdigest()
+        complete_analysis_pattern = os.path.join(os.environ.get("TMP", "/tmp"), complete_folder)
         while True:
             time_counter += 1
             if time_counter > int(self.config.timeout):
                 log.info("Analysis timeout hit, terminating analysis")
+                break
+            if os.path.isdir(complete_analysis_pattern):
+                log.info("Analysis termination requested by user")
                 break
 
             try:

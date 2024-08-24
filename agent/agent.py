@@ -20,6 +20,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import traceback
 from io import StringIO
 from typing import Iterable
@@ -174,8 +175,8 @@ class MiniHTTPServer:
         port: int = 8000,
         event: multiprocessing.Event = None,
     ):
-        socketserver.TCPServer.allow_reuse_address = True
-        self.s = socketserver.TCPServer((host, port), self.handler)
+        socketserver.ThreadingTCPServer.allow_reuse_address = True
+        self.s = socketserver.ThreadingTCPServer((host, port), self.handler)
 
         # tell anyone waiting that they're good to go
         if event:
@@ -219,6 +220,7 @@ class MiniHTTPServer:
             self.close_connection = True
 
     def shutdown(self):
+
         # BaseServer also features a .shutdown() method, but you can't use
         # that from the same thread as that will deadlock the whole thing.
         if hasattr(self, "s"):
@@ -258,26 +260,47 @@ class jsonify:
 class send_file:
     """Wrapper that represents Flask.send_file functionality."""
 
-    def __init__(self, path, encoding):
+    def __init__(self, path, encoding, streaming):
         self.length = None
         self.path = path
         self.status_code = 200
         self.encoding = encoding
+        self.streaming = False
+        if streaming == "1":
+            self.streaming = True
 
     def okay_to_send(self):
         return os.path.isfile(self.path) and os.access(self.path, os.R_OK)
 
     def init(self):
         if self.okay_to_send():
-            if self.encoding != BASE_64_ENCODING:
+            if self.encoding != BASE_64_ENCODING and not self.streaming:
                 self.length = os.path.getsize(self.path)
         else:
             self.status_code = 404
+
+    def write_streaming(self, httplog, sock):
+        """Streaming output. similar to using 'tail -f <file>"""
+
+        with open(self.path, "rb") as f:
+            while True:
+                line = f.readline()
+                if not line:
+                    time.sleep(0.1)
+                    continue
+                try:
+                    sock.write(line)
+                except (BrokenPipeError, ConnectionResetError):
+                    httplog.log_message(f"Client disconnected while reading {self.path}")
+                    break
 
     def write(self, httplog, sock):
         if not self.okay_to_send():
             return
 
+        if self.streaming:
+            self.write_streaming(httplog, sock)
+            return
         try:
             with open(self.path, "rb") as f:
                 buf = f.read(1024 * 1024)
@@ -290,7 +313,8 @@ class send_file:
             httplog.log_error(f"Error reading file {self.path}: {ex}")
 
     def headers(self, obj):
-        obj.send_header("Content-Length", self.length)
+        if self.length is not None:
+            obj.send_header("Content-Length", self.length)
 
 
 class request:
@@ -565,7 +589,7 @@ def do_retrieve():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
 
-    return send_file(request.form["filepath"], request.form.get("encoding", ""))
+    return send_file(request.form["filepath"], request.form.get("encoding", ""), request.form.get("streaming", ""))
 
 
 @app.route("/extract", methods=["POST"])

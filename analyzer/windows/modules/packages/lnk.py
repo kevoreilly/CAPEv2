@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2015 Cuckoo Foundation, Optiv, Inc. (brad.spengler@optiv.com)
+# Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
@@ -7,14 +7,18 @@ from lib.common.common import check_file_extension
 
 
 class LNK(Package):
-    """LNK analysis package."""
+    """Windows LNK analysis package via powershell."""
 
     PATHS = [
-        ("SystemRoot", "system32", "cmd.exe"),
+        # PS <= 5
+        ("SystemRoot", "sysnative", "WindowsPowerShell", "v*.0", "powershell.exe"),
+        ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
+    summary = "Executes a sample file with powershell."
+    description = "Uses 'powershell Start-Process -FilePath <sample>' to run a .lnk file."
 
     def start(self, path):
+        powershell = self.get_path_glob("PowerShell")
         path = check_file_extension(path, ".lnk")
-        cmd_path = self.get_path("cmd.exe")
-        cmd_args = f'/c start /wait "" "{path}"'
-        return self.execute(cmd_path, cmd_args, path)
+        args = f'Start-Process -FilePath "{path}"'
+        return self.execute(powershell, args, path)

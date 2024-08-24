@@ -74,6 +74,7 @@ $(function() {
     <li class="nav-item"><a class="nav-link active" href="#overview" data-toggle="tab">Quick Overview</a></li>
     {% if analysis.info.machine.platform == "linux" %}
         <li class="nav-item"><a class="nav-link" href="#strace" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/strace/" data-toggle="tab">Behavioral Analysis</a></li>
+        <li class="nav-item"><a class="nav-link" href="#tracee" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/tracee/" data-toggle="tab">Detailed Behaviour (Tracee)</a></li>
     {% elif analysis.info.category != "pcap" and analysis.info.category != "static" %}
         <li class="nav-item"><a class="nav-link" href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
     {% endif %}
@@ -127,6 +128,9 @@ $(function() {
     </div>
     <div class="tab-pane fade" id="strace">
         {% include "analysis/strace/index.html" %}
+    </div>
+    <div class="tab-pane fade" id="tracee">
+        {% include "analysis/tracee/index.html" %}
     </div>
     <div class="tab-pane fade" id="network">
         {% include "analysis/network/index.html" %}

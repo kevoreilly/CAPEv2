@@ -8,6 +8,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+from contextlib import suppress
 from typing import DefaultDict, List, Optional, Set, Union
 
 import pebble
@@ -67,6 +68,12 @@ try:
     from modules.signatures.recon_checkip import dns_indicators
 except ImportError:
     dns_indicators = ()
+
+HAVE_DIE = False
+with suppress(ImportError):
+    import die
+
+    HAVE_DIE = True
 
 
 HAVE_FLARE_CAPA = False
@@ -151,14 +158,16 @@ def static_file_info(
         log.info("static_file_info: skipping file that exceeded max_file_size: %s: %d MB", file_path, size_mb)
         return
 
+    options_dict = get_options(options)
+    if options_dict.get("static_file_info", "") == "off":
+        return
+
     if (
         not HAVE_OLETOOLS
         and "Zip archive data, at least v2.0" in data_dictionary["type"]
         and package in {"doc", "ppt", "xls", "pub"}
     ):
         log.info("Missed dependencies: pip3 install oletools")
-
-    options_dict = get_options(options)
 
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
         data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
@@ -217,7 +226,7 @@ def static_file_info(
         if processing_conf.trid.enabled:
             data_dictionary["trid"] = trid_info(file_path)
 
-        if processing_conf.die.enabled:
+        if processing_conf.die.enabled and HAVE_DIE:
             data_dictionary["die"] = detect_it_easy_info(file_path)
 
         if HAVE_FLOSS and processing_conf.floss.enabled:
@@ -255,24 +264,21 @@ def static_file_info(
 
 
 def detect_it_easy_info(file_path: str):
-    if not path_exists(processing_conf.die.binary):
-        return []
-
     try:
-        output = subprocess.check_output(
-            [processing_conf.die.binary, "-j", file_path],
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-        )
-        if "detects" not in output:
+        try:
+            result_json = die.scan_file(file_path, die.ScanFlags.RESULT_AS_JSON, str(die.database_path / "db"))
+        except Exception as e:
+            log.error("DIE error: %s", str(e))
+
+        if "detects" not in result_json:
             return []
 
-        if "Invalid signature" in output and "{" in output:
-            start = output.find("{")
+        if "Invalid signature" in result_json and "{" in result_json:
+            start = result_json.find("{")
             if start != -1:
-                output = output[start:]
+                result_json = result_json[start:]
 
-        strings = [sub["string"] for block in json.loads(output).get("detects", []) for sub in block.get("values", [])]
+        strings = [sub["string"] for block in json.loads(result_json).get("detects", []) for sub in block.get("values", [])]
 
         if strings:
             return strings
@@ -308,7 +314,6 @@ def _extracted_files_metadata(
     folder: str,
     destination_folder: str,
     files: List[str],
-    duplicated: Optional[DuplicatesType] = None,
     results: Optional[dict] = None,
 ) -> List[dict]:
     """
@@ -332,11 +337,6 @@ def _extracted_files_metadata(
                 continue
 
             file = File(full_path)
-            sha256 = file.get_sha256()
-            if sha256 in duplicated["sha256"]:
-                continue
-
-            duplicated["sha256"].add(sha256)
             file_info, pefile_object = file.get_all()
             if pefile_object:
                 results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
@@ -344,7 +344,7 @@ def _extracted_files_metadata(
             if processing_conf.trid.enabled:
                 file_info["trid"] = trid_info(full_path)
 
-            if processing_conf.die.enabled:
+            if processing_conf.die.enabled and HAVE_DIE:
                 file_info["die"] = detect_it_easy_info(full_path)
 
             dest_path = os.path.join(destination_folder, file_info["sha256"])
@@ -501,9 +501,7 @@ def generic_file_extractors(
             if old_tool_name:
                 log.debug("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
                 continue
-            metadata = _extracted_files_metadata(
-                tempdir, destination_folder, files=extracted_files, duplicated=duplicated, results=results
-            )
+            metadata = _extracted_files_metadata(tempdir, destination_folder, files=extracted_files, results=results)
             data_dictionary.update(
                 {
                     "extracted_files": metadata,

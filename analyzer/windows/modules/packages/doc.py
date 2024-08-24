@@ -4,7 +4,7 @@
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
-from lib.common.constants import MSOFFICE_TRUSTED_PATH
+from lib.common.constants import MSOFFICE_TRUSTED_PATH, TRUSTED_PATH_TEXT
 from lib.common.exceptions import CuckooPackageError
 
 
@@ -25,6 +25,10 @@ class DOC(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
     ]
+    summary = "Opens a document file with WINWORD.EXE."
+    description = f"""Uses 'WINWORD.EXE /q', or if unavailable, 'WORDVIEW.EXE /q'.
+    {TRUSTED_PATH_TEXT}
+    The .doc filename extension will be added automatically."""
 
     def start(self, path):
         # Try getting winword or wordview as a backup
@@ -33,5 +37,6 @@ class DOC(Package):
         except CuckooPackageError:
             word = self.get_path_glob("WORDVIEW.EXE")
 
-        path = check_file_extension(path, ".doc")
+        if not path.endswith((".doc", ".docx", ".docm", ".dotm", ".odt")):
+            path = check_file_extension(path, ".doc")
         return self.execute(word, f'"{path}" /q', path)

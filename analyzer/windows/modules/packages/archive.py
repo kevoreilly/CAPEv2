@@ -8,6 +8,15 @@ import shutil
 from pathlib import Path
 
 from lib.common.abstracts import Package
+from lib.common.constants import (
+    ARCHIVE_OPTIONS,
+    OPT_ARGUMENTS,
+    OPT_DLLLOADER,
+    OPT_FILE,
+    OPT_FUNCTION,
+    OPT_MULTI_PASSWORD,
+    OPT_PASSWORD,
+)
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
     attempt_multiple_passwords,
@@ -17,6 +26,7 @@ from lib.common.zip_utils import (
     upload_extracted_files,
     winrar_extractor,
 )
+from modules.packages.dll import DLL_OPTIONS
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +52,20 @@ class Archive(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
+    summary = "Looks for executables inside an archive."
+    description = f"""Uses 7z.exe to unpack the archive with the supplied '{OPT_PASSWORD}' option.
+    The default password is 'infected.'
+    If the '{OPT_MULTI_PASSWORD}' option is set, the '{OPT_PASSWORD}' option can contain
+    several possible passwords, colon-separated.
+    If 7z.exe could not open the archive, try WinRAR.exe.
+    If the '{OPT_FILE}' option was given, expect a file of that name to be in the archive,
+    and attempt to execute it. Else, attempt to execute all executables in the archive.
+    For each execution attempt, choose the appropriate method based on the file extension.
+    Various options apply depending on the file type.
+    The options '{OPT_FUNCTION}' and '{OPT_DLLLOADER}' will be applied to .DLL execution attempts.
+    The option '{OPT_ARGUMENTS}' will be applied to a .DLL or a PE executable.
+    """
+    option_names = sorted(set(DLL_OPTIONS + ARCHIVE_OPTIONS + (OPT_MULTI_PASSWORD,)))
 
     def start(self, path):
         # 7za and 7r is limited so better install it inside of the vm
@@ -49,7 +73,7 @@ class Archive(Package):
         # if not os.path.exists(seven_zip_path):
         # Let's hope it's in the VM image
         seven_zip_path = self.get_path_app_in_path("7z.exe")
-        password = self.options.get("password", "infected")
+        password = self.options.get(OPT_PASSWORD, "infected")
         archive_name = Path(path).name
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
@@ -106,7 +130,7 @@ class Archive(Package):
                 except Exception as e:
                     log.warning(f"Couldn't copy {d} to root of C: {e}")
 
-        file_name = self.options.get("file")
+        file_name = self.options.get(OPT_FILE)
         # If no file name is provided via option, discover files to execute.
         if not file_name:
             ret_list = []

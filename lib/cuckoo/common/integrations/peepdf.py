@@ -171,10 +171,11 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                     continue
                 a_elem = details.getElementByName("/A")
                 a_elem = _get_obj_val(pdf, i, a_elem)
-                if a_elem.type == "dictionary" and a_elem.hasElement("/URI"):
+                if a_elem and a_elem.type == "dictionary" and a_elem.hasElement("/URI"):
                     uri_elem = a_elem.getElementByName("/URI")
-                    uri_elem = _get_obj_val(pdf, i, uri_elem)
-                    annoturiset.add(f"{base_uri}{uri_elem.getValue()}")
+                    if uri_elem:
+                        uri_elem = _get_obj_val(pdf, i, uri_elem)
+                        annoturiset.add(f"{base_uri}{uri_elem.getValue()}")
         pdfresult["JSStreams"] = retobjects
     if "creator" in metadata:
         pdfresult["Info"]["Creator"] = convert_to_printable(_clean_string(metadata["creator"]))

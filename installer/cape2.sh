@@ -725,7 +725,7 @@ function install_yara() {
 
     echo '[+] Installing Yara'
 
-    apt-get install libtool libjansson-dev libmagic1 libmagic-dev jq autoconf -y
+    apt-get install libtool libjansson-dev libmagic1 libmagic-dev jq autoconf libyara-dev -y
 
     cd /tmp || return
     yara_info=$(curl -s https://api.github.com/repos/VirusTotal/yara/releases/latest)
@@ -765,7 +765,7 @@ function install_yara() {
     # for root
     pip3 install ./yara-python
     if [ -d yara-python ]; then
-        sudo rm -r yara-python
+        sudo rm -rf yara-python
     fi
 
     if id "cape" >/dev/null 2>&1; then
@@ -774,7 +774,7 @@ function install_yara() {
         cd -
     fi
     if [ -d yara-python ]; then
-        sudo rm -r yara-python
+        sudo rm -rf yara-python
     fi
 
 }
@@ -931,11 +931,11 @@ function dependencies() {
     git submodule update --init rules
     pip3 install .
 
-    # re2
-    apt-get install libre2-dev -y
+    # re2 - dead on py3.11
+    # apt-get install libre2-dev -y
     #re2 for py3
-    pip3 install cython
-    pip3 install git+https://github.com/andreasvc/pyre2.git
+    # pip3 install cython
+    # pip3 install git+https://github.com/andreasvc/pyre2.git
 
     install_postgresql
 
@@ -1197,7 +1197,7 @@ function install_CAPE() {
     #packages are needed for build options in extra/yara_installer.sh
     apt-get install libjansson-dev libmagic1 libmagic-dev -y
     sudo -u ${USER} bash -c 'poetry run extra/yara_installer.sh'
-    sudo rm -r yara-python
+    sudo rm -rf yara-python
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}

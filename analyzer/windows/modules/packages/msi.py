@@ -11,6 +11,9 @@ class Msi(Package):
     PATHS = [
         ("SystemRoot", "system32", "msiexec.exe"),
     ]
+    summary = "Executes a sample with msiexec.exe."
+    description = """Uses 'msiexec.exe /I <sample> /qb ACCEPTEULA=1 LicenseAccepted=1'
+    to run the sample."""
 
     def start(self, path):
         msi_path = self.get_path("msiexec.exe")

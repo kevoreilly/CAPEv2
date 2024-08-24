@@ -40,6 +40,7 @@ during_script = no
 filecollector = yes
 # This is only useful in case you use KVM's dnsmasq. You need to change your range inside of analyzer/windows/modules/auxiliary/disguise.py. Disguise must be enabled
 windows_static_route = no
+tracee_linux = no
 
 [AzSniffer]
 # Enable or disable the use of Azure Network Watcher packet capture feature, disable standard sniffer if this is in use to not create concurrent .pcap files
@@ -68,9 +69,6 @@ bpf = not arp
 #RTR1 = 192.168.1.254
 #RTR2 = 192.168.1.1
 #INETSIM = 192.168.1.2
-
-[tracee]
-enabled = no
 
 [QemuScreenshots]
 # Enable or disable the use of QEMU as screenshot capture [yes/no].

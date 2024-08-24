@@ -596,7 +596,9 @@ class AnalysisManager(threading.Thread):
             if self.no_local_routing:
                 input_interface = "dirty-line"
                 # Traffic from lan to machine
-                self.rooter_response = rooter("forward_enable", input_interface, self.machine.interface, "0.0.0.0/0", self.machine.ip)
+                self.rooter_response = rooter(
+                    "forward_enable", input_interface, self.machine.interface, "0.0.0.0/0", self.machine.ip
+                )
             else:
                 input_interface = self.machine.interface
             # Traffic outbound from machine
@@ -610,7 +612,13 @@ class AnalysisManager(threading.Thread):
             if self.no_local_routing:
                 # Need for forward traffic between sandbox and CAPE
                 self.rooter_response = rooter(
-                    "forward_enable", input_interface, self.interface, self.machine.ip, self.cfg.resultserver.ip, "tcp", str(self.cfg.resultserver.port)
+                    "forward_enable",
+                    input_interface,
+                    self.interface,
+                    self.machine.ip,
+                    self.cfg.resultserver.ip,
+                    "tcp",
+                    str(self.cfg.resultserver.port),
                 )
                 self.rooter_response = rooter(
                     "forward_enable", input_interface, self.machine.interface, self.cfg.resultserver.ip, self.machine.ip
@@ -636,7 +644,9 @@ class AnalysisManager(threading.Thread):
             if self.no_local_routing:
                 input_interface = "dirty-line"
                 # Traffic from lan to machine
-                self.rooter_response = rooter("forward_disable", input_interface, self.machine.interface, "0.0.0.0/0", self.machine.ip)
+                self.rooter_response = rooter(
+                    "forward_disable", input_interface, self.machine.interface, "0.0.0.0/0", self.machine.ip
+                )
             else:
                 input_interface = self.machine.interface
             # Traffic outbound from machine
@@ -649,7 +659,13 @@ class AnalysisManager(threading.Thread):
                 self._rooter_response_check()
             if self.no_local_routing:
                 self.rooter_response = rooter(
-                    "forward_disable", input_interface, self.interface, self.machine.ip, self.cfg.resultserver.ip, "tcp", str(self.cfg.resultserver.port)
+                    "forward_disable",
+                    input_interface,
+                    self.interface,
+                    self.machine.ip,
+                    self.cfg.resultserver.ip,
+                    "tcp",
+                    str(self.cfg.resultserver.port),
                 )
                 self.rooter_response = rooter(
                     "forward_disable", input_interface, self.machine.interface, self.cfg.resultserver.ip, self.machine.ip

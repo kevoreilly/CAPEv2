@@ -170,17 +170,7 @@ class Sniffer(Auxiliary):
         )
         if physical_machinery:
             # Do not capture FOG Server traffic.
-            pargs.extend(
-                [
-                    "and",
-                    "not",
-                    "(",
-                    "dst",
-                    "host",
-                    fog_Host,
-                    ")"
-                ]
-            )
+            pargs.extend(["and", "not", "(", "dst", "host", fog_Host, ")"])
         # TODO fix this, temp fix to not get all that noise
         # pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
         if custom:

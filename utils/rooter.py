@@ -286,13 +286,17 @@ def forward_disable(src, dst, ipaddr, accept_segments=None, proto=None, ports=No
 def forward_reject_enable(src, dst, ipaddr, reject_segments):
     """Enable forwarding a specific IP address from one interface into another
     but reject some targets network segments."""
-    run_iptables("-I", "CAPE_REJECTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
+    run_iptables(
+        "-I", "CAPE_REJECTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT"
+    )
 
 
 def forward_reject_disable(src, dst, ipaddr, reject_segments):
     """Disable forwarding a specific IP address from one interface into another
     but reject some targets network segments."""
-    run_iptables("-D", "CAPE_REJECTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
+    run_iptables(
+        "-D", "CAPE_REJECTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT"
+    )
 
 
 def hostports_reject_enable(src, ipaddr, reject_hostports):

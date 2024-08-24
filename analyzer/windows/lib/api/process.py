@@ -43,6 +43,8 @@ if sys.platform == "win32":
         CAPEMON64_NAME,
         LOADER32_NAME,
         LOADER64_NAME,
+        TTD32_NAME,
+        TTD64_NAME,
         LOGSERVER_PREFIX,
         PATHS,
         PIPE,
@@ -499,6 +501,44 @@ class Process:
             log.error("Failed to resume %s", self)
             return False
 
+    def ttd_stop(self):
+        """Time Travel Debugging stop"""
+
+        if not self.pid:
+            return False
+
+        if self.is_64bit():
+            ttd_name = "bin\\TTD.exe"
+            bit_str = "64-bit"
+        else:
+            ttd_name = "bin\\wow64\\TTD.exe"
+            bit_str = "32-bit"
+
+        try:
+            result = subprocess.run(
+                [os.path.join(Path.cwd(), ttd_name), "-accepteula", "-stop", str(self.pid)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=1,
+            )
+        except subprocess.TimeoutExpired as e:
+            if e.stdout:
+                log.info(" ".join(e.stdout.split()))
+            if e.stderr:
+                log.error(" ".join(e.stderr.split()))
+        except Exception as e:
+            log.error("Exception attempting TTD stop for %s process with pid %d: %s", bit_str, self.pid, e)
+
+        if result.stdout:
+            log.info(" ".join(result.stdout.split()))
+        if result.stderr:
+            log.error(" ".join(result.stderr.split()))
+
+        log.info("Stopped TTD for %s process with pid %d: %s", bit_str, self.pid)
+
+        return True
+
     def set_terminate_event(self):
         """Sets the termination event for the process."""
         if self.h_process == 0:
@@ -524,6 +564,13 @@ class Process:
         KERNEL32.WaitForSingleObject(self.terminate_event_handle, 5000)
         log.info("Termination confirmed for %s", self)
         KERNEL32.CloseHandle(self.terminate_event_handle)
+
+        try:
+            ttd = int(self.options.get("ttd", 0))
+        except (ValueError, TypeError):
+            ttd = 0
+        if ttd:
+            self.ttd_stop()
 
     def terminate(self):
         """Terminate process.
@@ -604,6 +651,7 @@ class Process:
                 "pre_script_args",
                 "pre_script_timeout",
                 "during_script_args",
+                "ttd",
             ]
 
             for optname, option in self.options.items():
@@ -627,10 +675,12 @@ class Process:
             return False
 
         if self.is_64bit():
+            ttd_name = TTD64_NAME
             bin_name = LOADER64_NAME
             dll = CAPEMON64_NAME
             bit_str = "64-bit"
         else:
+            ttd_name = TTD32_NAME
             bin_name = LOADER32_NAME
             dll = CAPEMON32_NAME
             bit_str = "32-bit"
@@ -647,6 +697,13 @@ class Process:
             log.warning("invalid path %s for monitor DLL to be injected in %s, injection aborted", dll, self)
             return False
 
+        try:
+            ttd = int(self.options.get("ttd", 0))
+        except (ValueError, TypeError):
+            ttd = 0
+        if ttd:
+            self.options["no-iat"] = 1
+
         self.write_monitor_config(interest, nosleepskip)
 
         log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
@@ -654,16 +711,41 @@ class Process:
         try:
             ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll])
 
-            if ret.returncode == 0:
-                return True
-            elif ret.returncode == 1:
+            if ret.returncode == 1:
                 log.info("Injected into %s %s", bit_str, self)
-            else:
+            elif ret.returncode != 0:
                 log.error("Unable to inject into %s %s, error: %d", bit_str, self, ret.returncode)
-            return False
         except Exception as e:
             log.error("Error running process: %s", e)
             return False
+
+        if not ttd:
+            return True
+
+        try:
+            ret = subprocess.run(
+                [
+                    os.path.join(Path.cwd(), ttd_name),
+                    "-accepteula",
+                    "-out",
+                    os.path.join(PATHS["TTD"], f"{self.pid}.run"),
+                    "-attach",
+                    str(self.pid),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=1,
+            )
+        except subprocess.TimeoutExpired as e:
+            if e.stdout:
+                log.info(" ".join(e.stdout.split()))
+            if e.stderr:
+                log.error(" ".join(e.stderr.split()))
+        except Exception as e:
+            log.error("Exception attempting TTD injection into %s process with pid %d: %s", bit_str, self.pid, e)
+
+        return True
 
     def upload_memdump(self):
         """Upload process memory dump.

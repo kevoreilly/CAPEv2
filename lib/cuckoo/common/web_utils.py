@@ -845,7 +845,9 @@ def category_all_files(task_id, category, base_path):
     if category == "CAPE":
         category = "CAPE.payloads"
     if repconf.mongodb.enabled:
-        analysis = mongo_find_one("analysis", {"info.id": int(task_id)}, {f"{category}.sha256": 1, "_id": 0}, sort=[("_id", -1)])
+        analysis = mongo_find_one(
+            "analysis", {"info.id": int(task_id)}, {f"{category}.{FILE_REF_KEY}": 1, "_id": 0}, sort=[("_id", -1)]
+        )
     # if es_as_db:
     #    # ToDo missed category
     #    analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]

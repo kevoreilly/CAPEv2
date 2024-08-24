@@ -5,11 +5,13 @@
 
 import inspect
 import logging
+import shutil
 import subprocess
 import timeit
-from os import environ, path, sys
+from os import environ, makedirs, path, sys
 from threading import Event, Thread
 
+from lib.common.constants import OPT_CURDIR
 from lib.common.results import NetlogFile, append_buffer_to_host
 
 log = logging.getLogger(__name__)
@@ -73,6 +75,18 @@ def _guess_package_name(file_type, file_name):
     return None
 
 
+def create_custom_folders(directory_path: str):
+    """Create custom folders (recursively) given the full path."""
+    if path.exists(directory_path):
+        log.info("%s already exists, skipping creation", directory_path)
+    else:
+        try:
+            makedirs(directory_path)
+            log.info("%s created", directory_path)
+        except OSError:
+            log.error("Unable to create user-defined custom folder directory")
+
+
 class Package:
     """Base analysis package"""
 
@@ -111,6 +125,25 @@ class Package:
         """Preparation routine. Do anything you want here."""
         pass
 
+    def move_curdir(self, filepath):
+        """Move a file to the current working directory so it can be executed
+        from there.
+        @param filepath: the file to be moved
+        @return: the new filepath
+        """
+        if OPT_CURDIR not in self.options:
+            return filepath
+
+        curdir = path.expandvars(self.options[OPT_CURDIR])
+        create_custom_folders(curdir)
+
+        if not path.exists(curdir):
+            return filepath
+
+        newpath = path.join(curdir, path.basename(filepath))
+        shutil.move(filepath, newpath)
+        return newpath
+
     def start(self):
         """Runs an analysis process.
         This function is a generator.
@@ -120,6 +153,7 @@ class Package:
             filepath = path.join(environ.get("TEMP", "/tmp"), target_name)
             # Remove the trailing slash (if any)
             self.target = filepath.rstrip("/")
+        self.target = self.move_curdir(self.target)
         self.prepare()
         self.nc.init("logs/strace.log", False)
         self.thread = Thread(target=self.thread_send_strace_buffer, daemon=True)

@@ -1,3 +1,10 @@
+### [16.08.2024]
+* TTD integration (Microsoft Time Travel Debugging)
+    * Use submission option ttd=1
+    * Place TTD binaries in analyzer/windows/bin (with wow64 subdirectory for 32-bit)
+    * .trc files output to TTD directory in results folder for manual retrieval
+* Monitor update: Small debugger fix
+
 ### [07.08.2024]
 * Monitor update: Set language via lang=X (language code) submission option
 

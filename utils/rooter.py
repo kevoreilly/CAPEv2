@@ -6,8 +6,6 @@
 import argparse
 import errno
 import grp
-import ipaddress
-import psutil
 import json
 import logging.handlers
 import os
@@ -92,7 +90,7 @@ def cleanup_rooter():
     run_iptables("-N", "CAPE_REJECTED_SEGMENTS")
     run_iptables("-I", "FORWARD", "-j", "CAPE_REJECTED_SEGMENTS")
     run_iptables("-I", "FORWARD", "-j", "CAPE_ACCEPTED_SEGMENTS")
-    
+
 
 def nic_available(interface):
     """Check if specified network interface is available."""
@@ -117,7 +115,7 @@ def rt_available(rt_table):
         return True
     except subprocess.CalledProcessError:
         return False
-    
+
 
 def init_vrf(rt_table, dirty_line_dev):
     run(s.ip, "link", "add", "dirty-line", "type", "vrf", "table", rt_table)
@@ -240,7 +238,7 @@ def forward_enable(src, dst, ipaddr, accept_segments=None, proto=None, ports=Non
             if not ports.isdigit():
                 log.debug("Invalid port entry: %s", ports)
                 return False
-    
+
     args = ["-I", "CAPE_ACCEPTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr]
     if accept_segments:
         args += ["--destination", accept_segments]
@@ -275,7 +273,7 @@ def forward_disable(src, dst, ipaddr, accept_segments=None, proto=None, ports=No
             if not ports.isdigit():
                 log.debug("Invalid port entry: %s", ports)
                 return False
-    
+
     args = ["-D", "CAPE_ACCEPTED_SEGMENTS", "-i", src, "-o", dst, "--source", ipaddr]
     if accept_segments:
         args += ["--destination", accept_segments]
@@ -283,7 +281,7 @@ def forward_disable(src, dst, ipaddr, accept_segments=None, proto=None, ports=No
         args += ["-p", proto, "-m", "multiport", "--dport", ports]
     args += ["-j", "ACCEPT"]
     run_iptables(*args)
-    
+
 
 def forward_reject_enable(src, dst, ipaddr, reject_segments):
     """Enable forwarding a specific IP address from one interface into another

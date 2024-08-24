@@ -20,8 +20,12 @@ log = logging.getLogger(__name__)
 
 cfg = Config()
 router_cfg = Config("routing")
-physical_cfg = Config("physical")
-fog_Host = physical_cfg.fog.hostname
+
+physical_machinery = False
+if cfg.cuckoo.machinery == "physical":
+    physical_cfg = Config("physical")
+    fog_Host = physical_cfg.fog.hostname
+    physical_machinery = True
 
 
 class Sniffer(Auxiliary):
@@ -164,18 +168,19 @@ class Sniffer(Auxiliary):
                 ")",
             ]
         )
-        # Do not capture FOG Server traffic.
-        pargs.extend(
-            [
-                "and",
-                "not",
-                "(",
-                "dst",
-                "host",
-                fog_Host,
-                ")"
-            ]
-        )
+        if physical_machinery:
+            # Do not capture FOG Server traffic.
+            pargs.extend(
+                [
+                    "and",
+                    "not",
+                    "(",
+                    "dst",
+                    "host",
+                    fog_Host,
+                    ")"
+                ]
+            )
         # TODO fix this, temp fix to not get all that noise
         # pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
         if custom:

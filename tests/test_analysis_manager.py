@@ -403,6 +403,7 @@ class TestAnalysisManager:
             "terminate_processes": False,
             "timeout": 10,
             "tlsdump": True,
+            "tracee_linux": False,
             "upload_max_size": 100000000,
             "usage": False,
             "windows_static_route": False,

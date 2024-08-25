@@ -50,7 +50,7 @@ For ($i = 0; $i -lt 60; $i++) {
 Rename-Item -Path "$msEdgeInstallationPath\EdgeUpdate\MicrosoftEdgeUpdate.exe" -NewName MicrosoftEdgeUpdateDisabled.exe -Force
 
 Write-Output "Disabling telemetry via Group Policies"
-New-FolderForced -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Force
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
 
 Write-Host "Block scheduled telemetry tasks"

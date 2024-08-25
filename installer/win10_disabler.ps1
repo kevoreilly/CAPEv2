@@ -84,5 +84,7 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
  Register-ScheduledTask -TaskName $jobname -Action $action -Trigger $trigger -RunLevel Highest -User $username -Password $password -Settings $settings
 #>
 
-Write-Output "Remove WindowsApp to prevent MS StoreStartup"
-Remove-Item -path C:\Users\Default\AppData\Local\Microsoft\WindowsApp -recurse
+if (Test-Path "C:\Users\Default\AppData\Local\Microsoft\WindowsApp") {
+    Write-Output "Remove WindowsApp to prevent MS StoreStartup"
+    Remove-Item -path "C:\Users\Default\AppData\Local\Microsoft\WindowsApp" -recurse
+}

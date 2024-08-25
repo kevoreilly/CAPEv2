@@ -12,7 +12,7 @@
 
 Write-Output "Disabling Windows defender features..."
 New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Name DisableAntiSpyware -Value 1 -PropertyType DWORD -Force
-Set-MpPreference DisableAntiSpyware $true -ExclusionPath C:\ -DisableRemovableDriveScanning $true -DisableIntrusionPreventionSystem $true -DisableIOAVProtection $true -DisableRealtimeMonitoring $true -DisableBehaviorMonitoring $true  -DisableScriptScanning $true -EnableControlledFolderAccess Disabled -EnableNetworkProtection AuditMode -Force -MAPSReporting Disabled -SubmitSamplesConsent NeverSend
+Set-MpPreference -ExclusionPath C:\ -DisableRemovableDriveScanning $true -DisableIntrusionPreventionSystem $true -DisableIOAVProtection $true -DisableRealtimeMonitoring $true -DisableBehaviorMonitoring $true  -DisableScriptScanning $true -EnableControlledFolderAccess Disabled -EnableNetworkProtection AuditMode -Force -MAPSReporting Disabled -SubmitSamplesConsent NeverSend
 # https://www.alitajran.com/disable-windows-firewall-with-powershell/
 
 Write-Output "Disabling Firewall..."

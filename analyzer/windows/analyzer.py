@@ -499,38 +499,30 @@ class Analyzer:
 
         for _, name, _ in pkgutil.iter_modules(auxiliary.__path__, prefix):
             try:
-                log.debug('Importing auxiliary module "%s"...', name)
-                __import__(name, globals(), locals(), ["dummy"])
-                # log.debug('Imported auxiliary module "%s"', name)
+                mod_name = name.split(".")[-1]
+                if hasattr(self.config, mod_name) and getattr(self.config, mod_name, False):
+                    log.debug('Importing auxiliary module "%s"...', name)
+                    __import__(name, globals(), locals(), ["dummy"])
+                    # log.debug('Imported auxiliary module "%s"', name)
             except ImportError as e:
                 log.warning('Unable to import the auxiliary module "%s": %s', name, e)
 
         # Walk through the available auxiliary modules.
         aux_modules = []
-        imported_modules = sorted(Auxiliary.__subclasses__(), key=lambda x: x.start_priority, reverse=True)
 
-        for module in imported_modules:
+        for module in sorted(Auxiliary.__subclasses__(), key=lambda x: x.start_priority, reverse=True):
             try:
                 aux = module(self.options, self.config)
-                if hasattr(aux, "enabled") and getattr(aux, "enabled", False):
-                    log.debug('Initialized auxiliary module "%s"', module.__name__)
-                    aux_modules.append(aux)
-                else:
-                    log.debug('Auxiliary module "%s" is disabled.', module.__name__)
+                log.debug('Initialized auxiliary module "%s"', module.__name__)
+                aux_modules.append(aux)
+                log.debug('Trying to start auxiliary module "%s"...', module.__module__)
+                aux.start()
             except (NotImplementedError, AttributeError) as e:
                 log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
-
-        # Start enabled auxiliary modules
-        for aux in aux_modules:
-            try:
-                log.debug('Trying to start auxiliary module "%s"...', aux.__module__)
-                aux.start()
             except Exception as e:
-                log.warning(
-                    "Cannot execute auxiliary module %s: %s", aux.__module__, e
-                )
+                log.warning("Cannot execute auxiliary module %s: %s", module.__module__, e)
             else:
-                log.debug("Started auxiliary module %s", aux.__module__)
+                log.debug("Started auxiliary module %s", module.__module__)
                 AUX_ENABLED.append(aux)
     
         """

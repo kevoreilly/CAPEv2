@@ -39,7 +39,9 @@ def encode(data, encoding="utf-8"):
     else:
         return data
 
+
 if HAVE_ETW:
+
     class ETW_provider(ETW):
 
         def __init__(
@@ -85,7 +87,11 @@ if HAVE_ETW:
 
             providers = [
                 ProviderInfo(
-                    "Microsoft-Windows-DNS-Client", GUID("{1C95126E-7EEA-49A9-A3FE-A378B03DDB4D}"), level, any_keywords, all_keywords
+                    "Microsoft-Windows-DNS-Client",
+                    GUID("{1C95126E-7EEA-49A9-A3FE-A378B03DDB4D}"),
+                    level,
+                    any_keywords,
+                    all_keywords,
                 )
             ]
             self.event_id_filters = [3010, 3020, 60101]
@@ -168,7 +174,6 @@ if HAVE_ETW:
         def do_capture_teardown(self):
             # do whatever for capture teardown here
             pass
-
 
     class DNS_ETW(Auxiliary):
         """ETW logging"""

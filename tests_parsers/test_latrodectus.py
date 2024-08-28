@@ -12,6 +12,8 @@ def test_latrodectus():
             "C2": ["https://arsimonopa.com/live/", "https://lemonimonakio.com/live/"],
             "Group name": "Novik",
             "Campaign ID": 1053565364,
+            "Version": "1.1",
+            "RC4 key": "12345",
             "Strings": [
                 "/c ipconfig /all",
                 "C:\\Windows\\System32\\cmd.exe",

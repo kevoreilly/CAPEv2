@@ -9,8 +9,6 @@ try:
 except ImportError:
     sys.exit("Missed boto3 dependency: pip3 install boto3")
 
-from sqlalchemy.exc import SQLAlchemyError
-
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooMachineError
@@ -99,26 +97,6 @@ class AWS(Machinery):
             if self._status(machine.label) in (AWS.POWEROFF, AWS.STOPPING):
                 self.ec2_machines[machine.label].start()  # not using self.start() to avoid _wait_ method
                 num_of_machines_to_start -= 1
-
-    def _delete_machine_form_db(self, label):
-        """
-        cuckoo's DB class does not implement machine deletion, so we made one here
-        :param label: the machine label
-        """
-        session = self.db.Session()
-        try:
-            from lib.cuckoo.core.database import Machine
-
-            machine = session.query(Machine).filter_by(label=label).first()
-            if machine:
-                session.delete(machine)
-                session.commit()
-        except SQLAlchemyError as e:
-            log.debug("Database error removing machine: {0}".format(e))
-            session.rollback()
-            return
-        finally:
-            session.close()
 
     def _allocate_new_machine(self):
         """
@@ -296,8 +274,6 @@ class AWS(Machinery):
 
         if self._is_autoscaled(self.ec2_machines[label]):
             self.ec2_machines[label].terminate()
-            self._delete_machine_form_db(label)
-            self.dynamic_machines_count -= 1
         else:
             self.ec2_machines[label].stop(Force=True)
             self._wait_status(label, AWS.POWEROFF)
@@ -312,6 +288,11 @@ class AWS(Machinery):
         @param label: machine label.
         """
         retval = super(AWS, self).release(machine)
+
+        if self._is_autoscaled(self.ec2_machines[machine.label]):
+            super(AWS, self).delete_machine(machine.name)
+            self.dynamic_machines_count -= 1
+
         self._start_or_create_machines()
         return retval
 

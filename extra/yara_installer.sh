@@ -1,4 +1,5 @@
 #!/bin/bash
+set -ex
 
 # run this via...
 # cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/yara_installer.sh

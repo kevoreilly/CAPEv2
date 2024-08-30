@@ -433,8 +433,8 @@ def init_routing():
             # Populate routing table with entries from main routing table.
         else:
             rooter("disable_nat", routing.routing.internet)
-        if routing.routing.no_local_routing:
-            rooter("init_vrf", routing.routing.rt_table, routing.routing.internet)
+            if routing.routing.no_local_routing:
+                rooter("init_vrf", routing.routing.rt_table, routing.routing.internet)
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
             rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)

@@ -6,8 +6,8 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
 
-class Bat(Package):
-    """bat analysis package.
+class Batch(Package):
+    """batch analysis package.
     """
 
     PATHS = [

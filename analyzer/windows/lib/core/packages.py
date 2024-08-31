@@ -146,6 +146,6 @@ def choose_package(file_type, file_name, exports, target):
     elif file_name.endswith(".a3x"):
         return "autoit"
     elif file_name.endswith(("cmd", "bat")) or b"@echo off" in file_content:
-        return "bat"
+        return "batch"
     else:
         return "generic"

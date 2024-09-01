@@ -5,7 +5,7 @@
 from lib.common.abstracts import Package
 from lib.common.constants import OPT_ARGUMENTS
 from lib.common.exceptions import CuckooPackageError
-
+from lib.common.common import check_file_extension
 
 class Python(Package):
     """Python analysis package."""
@@ -24,4 +24,6 @@ class Python(Package):
             python = self.get_path_glob("py.exe")
 
         arguments = self.options.get(OPT_ARGUMENTS, "")
+
+        path = check_file_extension(path, ".py")
         return self.execute(python, f"{path} {arguments}", path)

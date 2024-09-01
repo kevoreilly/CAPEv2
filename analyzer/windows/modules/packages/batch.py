@@ -7,8 +7,7 @@ from lib.common.common import check_file_extension
 
 
 class Batch(Package):
-    """batch analysis package.
-    """
+    """batch analysis package."""
 
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),

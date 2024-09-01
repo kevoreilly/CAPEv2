@@ -61,8 +61,11 @@ class ConfigItem:
             except Exception:
                 logger.debug(f"Could not parse value from {obj} at {string_rva}")
                 continue
-            fields[field_rva] = field_value
-            found_items += 1
+            if field_rva not in fields:
+                fields[field_rva] = field_value
+                found_items += 1
+            else:
+                logger.warning(f"Overlapping Field RVAs detected in config at {field_rva}")
         logger.debug(f"Parsed {found_items} {self.label} values")
         return fields
 

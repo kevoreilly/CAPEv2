@@ -100,6 +100,7 @@ class ConfigDecryptorAESECB(ConfigDecryptor):
                 last_exc = e
             if result is None:
                 logger.debug(f"Decryption failed for item {v}: {last_exc}")
+                result = v
             logger.debug(f"Key: {k}, Value: {result}")
             decrypted_config_strings[k] = result
         logger.debug("Successfully decrypted strings")

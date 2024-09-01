@@ -5,7 +5,7 @@
 # Author: jeFF0Falltrades
 #
 # Provides the primary functionality for parsing configurations from the
-# AsyncRAT, DcRAT, QuasarRAT, VenomRAT, etc. RAT families
+# AsyncRAT, DcRAT, QuasarRAT, VenomRAT, XWorm, XenoRAT, etc. RAT families
 #
 # MIT License
 #
@@ -49,7 +49,9 @@ class RATConfigParser:
         config_item.SpecialFolderConfigItem(),
         config_item.EncryptedStringConfigItem(),
     ]
-    MIN_CONFIG_LEN = 7
+    # Min and max number of items in a potential config section
+    MIN_CONFIG_LEN_FLOOR = 5
+    MIN_CONFIG_LEN_CEILING = 7
     PATTERN_VERIFY_HASH = rb"(?:\x7e.{3}\x04(?:\x6f.{3}\x0a){2}\x74.{3}\x01.+?\x2a.+?\x00{6,})"
 
     def __init__(self, file_data=False):
@@ -73,7 +75,7 @@ class RATConfigParser:
             self.report["config"] = f"Exception encountered: {e}"
 
     # Decrypts/decodes values from an encrypted config
-    def decrypt_and_decode_config(self, encrypted_config):
+    def decrypt_and_decode_config(self, encrypted_config, min_config_len):
         decoded_config = {}
         selected_decryptor = 0
         for item in self.CONFIG_ITEM_TYPES:
@@ -101,8 +103,8 @@ class RATConfigParser:
                         arr_size, arr_rva = item_data[k]
                         item_data[k] = self.dnpp.byte_array_from_size_and_rva(arr_size, arr_rva).hex()
                 decoded_config.update(item_data)
-        if len(decoded_config) < self.MIN_CONFIG_LEN:
-            raise ConfigParserException("Minimum threshold of config items not met")
+        if len(decoded_config) < min_config_len:
+            raise ConfigParserException(f"Minimum threshold of config items not met for threshold: {len(decoded_config)}/{min_config_len}")
         return decoded_config
 
     # Searches for the RAT configuration in the Settings module
@@ -130,17 +132,20 @@ class RATConfigParser:
         # Get each .cctor method RVA and bytes content up to a RET op
         candidate_data = {rva: self.dnpp.string_from_offset(self.dnpp.offset_from_rva(rva), OPCODE_RET) for rva in candidates}
         config_start, decrypted_config = None, None
-        for method_rva, method_ins in candidate_data.items():
-            logger.debug(f"Attempting brute force at .cctor method at {hex(method_rva)}")
-            try:
-                config_start, decrypted_config = (
-                    method_rva,
-                    self.decrypt_and_decode_config(method_ins),
-                )
-                break
-            except Exception as e:
-                logger.debug(e)
-                continue
+        min_config_len = self.MIN_CONFIG_LEN_CEILING
+        while decrypted_config is None and min_config_len >= self.MIN_CONFIG_LEN_FLOOR:
+            for method_rva, method_ins in candidate_data.items():
+                logger.debug(f"Attempting brute force at .cctor method at {hex(method_rva)}")
+                try:
+                    config_start, decrypted_config = (
+                        method_rva,
+                        self.decrypt_and_decode_config(method_ins, min_config_len),
+                    )
+                    break
+                except Exception as e:
+                    logger.debug(e)
+                    continue
+            min_config_len -= 1
         if decrypted_config is None:
             raise ConfigParserException("No valid configuration could be parsed from any .cctor methods")
         return config_start, decrypted_config
@@ -159,8 +164,17 @@ class RATConfigParser:
         config_start = self.dnpp.next_method_from_instruction_offset(hit.start())
         # Configuration ends with ret operation, so use that as our terminator
         encrypted_config = self.dnpp.string_from_offset(config_start, OPCODE_RET)
-        decrypted_config = self.decrypt_and_decode_config(encrypted_config)
-        return config_start, decrypted_config
+        min_config_len = self.MIN_CONFIG_LEN_CEILING
+        while True:
+            try:
+                decrypted_config = self.decrypt_and_decode_config(
+                    encrypted_config, min_config_len
+                )
+                return config_start, decrypted_config
+            except Exception as e:
+                if min_config_len < self.MIN_CONFIG_LEN_FLOOR:
+                    raise e
+                min_config_len -= 1
 
     # Sorts the config by field name RVA prior to replacing RVAs with field
     # name strings (this is done last to preserve config ordering)

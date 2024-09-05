@@ -28,8 +28,10 @@ log = logging.getLogger(__name__)
 class AzSniffer(Auxiliary):
     def __init__(self):
         super().__init__()
+        self.azsniffer_cfg = Config("auxiliary").get("AzSniffer")
+        self.enabled = self.azsniffer_cfg.enabled
 
-        if not HAVE_AZURE:
+        if not HAVE_AZURE or not self.enabled:
             return
 
         self.cfg = Config("az")
@@ -58,6 +60,8 @@ class AzSniffer(Auxiliary):
         return ClientSecretCredential(tenant_id=self.tenant_id, client_id=self.client_id, client_secret=self.client_secret)
 
     def start(self):
+        if not self.enabled:
+            return
         self.capture_name = f"PacketCapture_{self.task.id}"
         custom_filters = []
         self.create_packet_capture(custom_filters)
@@ -96,6 +100,9 @@ class AzSniffer(Auxiliary):
             raise
 
     def stop(self):
+        if not self.enabled:
+            return
+
         if not self.capture_name:
             log.error("No packet capture to stop")
             return

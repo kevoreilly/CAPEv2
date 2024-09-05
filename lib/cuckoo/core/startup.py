@@ -342,6 +342,7 @@ def init_rooter():
         raise CuckooStartupError(f"Unknown rooter error: {e}")
 
     rooter("cleanup_rooter")
+    rooter("cleanup_vrf", routing.routing.internet)
 
     # Do not forward any packets unless we have explicitly stated so.
     rooter("forward_drop")
@@ -424,12 +425,16 @@ def init_routing():
                     f"The routing table that has been configured ({routing.routing.rt_table}) for dirty line interface is not available"
                 )
 
-        # Disable & enable NAT on this network interface. Disable it just
-        # in case we still had the same rule from a previous run.
-        rooter("disable_nat", routing.routing.internet)
-        rooter("enable_nat", routing.routing.internet)
-
-        # Populate routing table with entries from main routing table.
+        if routing.routing.nat:
+            # Disable & enable NAT on this network interface. Disable it just
+            # in case we still had the same rule from a previous run.
+            rooter("disable_nat", routing.routing.internet)
+            rooter("enable_nat", routing.routing.internet)
+            # Populate routing table with entries from main routing table.
+        else:
+            rooter("disable_nat", routing.routing.internet)
+            if routing.routing.no_local_routing:
+                rooter("init_vrf", routing.routing.rt_table, routing.routing.internet)
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
             rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)

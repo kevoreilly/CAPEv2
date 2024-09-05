@@ -1,3 +1,8 @@
+### [03.09.2024]
+* Monitor updates:
+    * Add HtaFile to CLSIDS handled in WMI/DCOM (e.g. FormBook) - thanks Will Metcalf
+    * VBScript hooks
+
 ### [16.08.2024]
 * TTD integration (Microsoft Time Travel Debugging)
     * Use submission option ttd=1

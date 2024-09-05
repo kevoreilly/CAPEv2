@@ -68,6 +68,9 @@ ram_boost = no
 replace_patterns = no
 file_activities = no
 
+[tracee]
+enabled = no
+
 [strace]
 enabled = no
 # Toggle specific modules within the StraceAnalysis class

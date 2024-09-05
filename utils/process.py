@@ -146,7 +146,7 @@ def process(
             if cfg.cuckoo.delete_original and target and path_exists(target):
                 path_delete(target)
 
-            if cfg.cuckoo.delete_bin_copy:
+            if cfg.cuckoo.delete_bin_copy and task.category != "url":
                 copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
                 if path_exists(copy_path):
                     with db.session.begin():

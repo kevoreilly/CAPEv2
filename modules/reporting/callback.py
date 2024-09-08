@@ -4,7 +4,7 @@ import logging
 import requests
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_REPORTED, Database
+from lib.cuckoo.core.database import TASK_REPORTED, Database
 
 log = logging.getLogger(__name__)
 main_db = Database()

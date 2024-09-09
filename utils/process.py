@@ -138,8 +138,9 @@ def process(
             reprocess = report
 
         RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
-        with db.session.begin():
-            db.set_status(task_id, TASK_REPORTED)
+        if not repconf.callback.enabled:
+            with db.session.begin():
+                db.set_status(task_id, TASK_REPORTED)
 
         if auto:
             # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks

@@ -41,6 +41,7 @@ filecollector = yes
 # This is only useful in case you use KVM's dnsmasq. You need to change your range inside of analyzer/windows/modules/auxiliary/disguise.py. Disguise must be enabled
 windows_static_route = no
 tracee_linux = no
+sslkeylogfile = no
 
 [AzSniffer]
 # Enable or disable the use of Azure Network Watcher packet capture feature, disable standard sniffer if this is in use to not create concurrent .pcap files

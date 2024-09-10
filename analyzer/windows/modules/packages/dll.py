@@ -9,7 +9,7 @@ import shutil
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
-from lib.common.constants import DLL_OPTIONS, OPT_ARGUMENTS, OPT_DLLLOADER, OPT_FUNCTION
+from lib.common.constants import DLL_OPTION_TEXT, DLL_OPTIONS, OPT_ARGUMENTS, OPT_DLLLOADER, OPT_FUNCTION
 
 log = logging.getLogger(__name__)
 
@@ -17,14 +17,6 @@ _OPT_ENABLE_MULTI = "enable_multi"
 _OPT_MAX_DLL_EXPORTS = "max_dll_exports"
 _OPT_USE_EXPORT_NAME = "use_export_name"
 MAX_DLL_EXPORTS_DEFAULT = 8
-
-DLL_OPTION_TEXT = f"""
-Use the '{OPT_DLLLOADER}' option to set the name of the process loading the DLL (defaults to rundll32.exe).
-Use the '{OPT_ARGUMENTS}' option to set the arguments to be passed to the exported function(s).
-Use the '{OPT_FUNCTION}' option to set the name of the exported function/ordinal to execute.
-The default function is '#1'.
-Can be multiple function/ordinals split by colon. Ex: function=#1:#3 or #2-4
-"""
 
 
 class Dll(Package):

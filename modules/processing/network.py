@@ -28,6 +28,7 @@ import cachetools.func
 import dns.resolver
 from dns.reversename import from_address
 
+import utils.profiling as profiling
 from data.safelist.domains import domain_passlist_re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
@@ -38,7 +39,6 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
-import utils.profiling as profiling
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 
@@ -79,7 +79,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..
 sys.path.append(CUCKOO_ROOT)
 
 TLS_HANDSHAKE = 22
-PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30*1024*1024
+PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30 * 1024 * 1024
 
 Keyed = namedtuple("Keyed", ["key", "obj"])
 Packet = namedtuple("Packet", ["raw", "ts"])

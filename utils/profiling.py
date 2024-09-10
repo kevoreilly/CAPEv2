@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Counter:
     """Profiler that counts real and CPU time."""
+
     real: float = field(default_factory=time.perf_counter)
     cpu: float = field(default_factory=time.process_time)
 
@@ -25,5 +26,5 @@ class Counter:
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
-        elapsed = (Counter() - self)
+        elapsed = Counter() - self
         self.__dict__.update(**elapsed.__dict__)

@@ -681,7 +681,9 @@ def load_files(request, task_id, category):
                 ]
             elif category == "network":
                 data = mongo_find_one(
-                    "analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "pcapng": 1, "_id": 0}
+                    "analysis",
+                    {"info.id": int(task_id)},
+                    {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "pcapng": 1, "_id": 0},
                 )
             else:
                 data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})

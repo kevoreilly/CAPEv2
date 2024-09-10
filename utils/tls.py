@@ -1,5 +1,4 @@
 import os
-
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -7,6 +6,7 @@ try:
     import re2 as re
 except ImportError:
     import re
+
 
 @dataclass()
 class TLS12KeyLog:
@@ -41,6 +41,7 @@ class TLS12KeyLog:
         for TLS 1.2 (and earlier).
         """
         return f"{self.LOG_LABEL} {self.client_random} {self.master_secret}"
+
 
 def tlslog_to_sslkeylogfile(tls_log_path, sslkeylogfile_path):
     """Convert Cape's TLS log file (tlsdump.log) into a format that is

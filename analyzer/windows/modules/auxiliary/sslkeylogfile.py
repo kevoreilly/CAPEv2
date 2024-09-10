@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 
 SSLKEYLOGFILE = "SSLKEYLOGFILE"
 
+
 class SslKeyLogFile(Auxiliary):
     """Collect SSLKEYLOGFILE logs from guests."""
 
@@ -26,7 +27,7 @@ class SslKeyLogFile(Auxiliary):
             if self.log_path and os.path.isfile(self.log_path):
                 log.debug('Attemping to upload SSLKEYLOGFILE from "%s"', self.log_path)
                 upload_to_host(self.log_path, f"{self.upload_prefix}/{self.upload_file}")
-                log.debug('SSLKEYLOGFILE uploaded')
+                log.debug("SSLKEYLOGFILE uploaded")
         except Exception:
             log.exception("SslKeyLogFile encountered an exception while uploading '%s'", self.log_path)
             raise

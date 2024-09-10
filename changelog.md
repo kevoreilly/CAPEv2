@@ -1,3 +1,6 @@
+### [10.09.2024]
+* Monitor update: Add capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)
+
 ### [03.09.2024]
 * Monitor updates:
     * Add HtaFile to CLSIDS handled in WMI/DCOM (e.g. FormBook) - thanks Will Metcalf

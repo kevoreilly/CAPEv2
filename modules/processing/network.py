@@ -38,6 +38,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
+import utils.profiling as profiling
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 
@@ -78,6 +79,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..
 sys.path.append(CUCKOO_ROOT)
 
 TLS_HANDSHAKE = 22
+PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30*1024*1024
 
 Keyed = namedtuple("Keyed", ["key", "obj"])
 Packet = namedtuple("Packet", ["raw", "ts"])
@@ -922,6 +924,11 @@ class Pcap2:
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
+        httpreplay_start = profiling.Counter()
+        log.info("starting processing pcap with httpreplay")
+        if os.path.getsize(self.pcap_path) > PCAP_BYTES_HTTPREPLAY_WARN_LIMIT:
+            log.warning("httpreplay processing may timeout due to pcap size")
+
         r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))
         r.tcp = httpreplay.smegma.TCPPacketStreamer(r, self.handlers)
 
@@ -1060,6 +1067,8 @@ class Pcap2:
 
                 results[f"{protocol}_ex"].append(tmp_dict)
 
+        log.info("finished processing pcap with httpreplay")
+        log.debug("httpreplay processing time: %s", (profiling.Counter() - httpreplay_start))
         return results
 
 
@@ -1117,7 +1126,10 @@ class NetworkAnalysis(Processing):
 
         if HAVE_HTTPREPLAY:
             try:
-                p2 = Pcap2(self.pcap_path, self.get_tlsmaster(), self.network_path).run()
+                p2 = {}
+                tls_master = self.get_tlsmaster()
+                if tls_master:
+                    p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
                 if p2:
                     results.update(p2)
             except Exception:

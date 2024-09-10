@@ -681,7 +681,7 @@ def load_files(request, task_id, category):
                 ]
             elif category == "network":
                 data = mongo_find_one(
-                    "analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}
+                    "analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "pcapng": 1, "_id": 0}
                 )
             else:
                 data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
@@ -749,6 +749,7 @@ def load_files(request, task_id, category):
             ajax_response["domainlookups"] = {i["domain"]: i["ip"] for i in ajax_response.get("network", {}).get("domains", {})}
             ajax_response["suricata"] = data.get("suricata", {})
             ajax_response["cif"] = data.get("cif", [])
+            ajax_response["pcapng"] = data.get("pcapng", {})
             tls_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "tlsdump", "tlsdump.log")
             if _path_safe(tls_path):
                 ajax_response["tlskeys_exists"] = _path_safe(tls_path)
@@ -1875,6 +1876,10 @@ def file(request, category, task_id, dlfile):
     elif category in ("pcap", "pcapzip"):
         file_name += ".pcap"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
+        cd = "application/vnd.tcpdump.pcap"
+    elif category == "pcapng":
+        file_name += ".pcapng"
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcapng")
         cd = "application/vnd.tcpdump.pcap"
     elif category == "debugger_log":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")

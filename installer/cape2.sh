@@ -1415,10 +1415,10 @@ case "$COMMAND" in
     ;;
 'all')
     dependencies
+    install_CAPE
     install_volatility3
     install_mongo
     install_suricata
-    install_CAPE
     install_yara
     install_systemd
     install_jemalloc

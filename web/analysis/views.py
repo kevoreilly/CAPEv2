@@ -1877,7 +1877,7 @@ def file(request, category, task_id, dlfile):
         file_name += ".pcap"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
         cd = "application/vnd.tcpdump.pcap"
-    elif category in ("pcapng"):
+    elif category == "pcapng":
         file_name += ".pcapng"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcapng")
         cd = "application/vnd.tcpdump.pcap"

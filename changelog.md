@@ -1,5 +1,6 @@
 ### [10.09.2024]
 * Monitor update: Add capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)
+* Themida detonation shim
 
 ### [03.09.2024]
 * Monitor updates:

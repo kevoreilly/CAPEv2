@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+# set -ex
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
 # Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.

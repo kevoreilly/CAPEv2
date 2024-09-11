@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+# set -ex
 
 # Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.

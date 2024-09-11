@@ -167,6 +167,7 @@ some options (in this case a command line argument for the malware)::
 - ``pwsh``: - for ps1 package: prefer PowerShell Core, if available in the vm
 - ``check_shellcode``: - Setting check_shellcode=0 will disable checking for shellcode during package identification and extracting from archive
 - ``unhook-apis``: - capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)
+- ``ttd``: - ttd=1. TTD integration (Microsoft Time Travel Debugging). Place TTD binaries in analyzer/windows/bin (with wow64 subdirectory for 32-bit). .trc files output to TTD directory in results folder for manual retrieval
 
 .. _webpy:
 

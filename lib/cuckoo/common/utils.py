@@ -298,6 +298,8 @@ def bytes2str(convert):
                     tmp_dict[k] = v.decode()
                 except UnicodeDecodeError:
                     tmp_dict[k] = "".join(str(ord(_)) for _ in v)
+            elif isinstance(v, str):
+                tmp_dict[k] = v
         return tmp_dict
     elif isinstance(convert, list):
         converted_list = []

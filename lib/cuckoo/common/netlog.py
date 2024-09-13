@@ -42,7 +42,7 @@ log = logging.getLogger(__name__)
 
 TYPECONVERTERS = {
     "h": lambda v: f"0x{default_converter(v) & 0xFFFFFFFF:08x}" if v < 0 else f"0x{default_converter(v):08x}",
-    "p": lambda v: f"0x{default_converter(v) & 0xFFFFFFFF:08x}" if v < 0 else f"0x{default_converter(v):08x}"
+    "p": lambda v: f"0x{default_converter(v) & 0xFFFFFFFF:08x}" if v < 0 else f"0x{default_converter(v):08x}",
 }
 
 # 20 Mb max message length.

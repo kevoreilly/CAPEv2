@@ -1,3 +1,8 @@
+### [13.09.2024]
+* Fix issue with sign extension causing 32-bit values to be misrepresented in web ui (e.g. 0xffffffffc000005 for 0xc000005)
+* bytes2str(): if any values in dict type are already str then keep them
+* Expand behavior log process information with image base, image size and bitness
+
 ### [10.09.2024]
 * Monitor update: Add capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)
 * Themida detonation shim

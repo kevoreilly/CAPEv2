@@ -109,7 +109,7 @@ class AWS(Machinery):
         # machine, else use the default value.
         interface = autoscale_options["interface"] if autoscale_options.get("interface") else machinery_options.get("interface")
         resultserver_ip = (
-            autoscale_options["resultserver_ip"] if autoscale_options.get("resultserver_ip") else Config("cuckoo:resultserver:ip")
+            autoscale_options["resultserver_ip"] if autoscale_options.get("resultserver_ip") else Config().get("resultserver").get("ip")
         )
         if autoscale_options.get("resultserver_port"):
             resultserver_port = autoscale_options["resultserver_port"]

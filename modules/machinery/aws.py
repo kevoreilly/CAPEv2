@@ -109,11 +109,7 @@ class AWS(Machinery):
         # If configured, use specific network interface for this
         # machine, else use the default value.
         interface = autoscale_options["interface"] if autoscale_options.get("interface") else machinery_options.get("interface")
-        resultserver_ip = (
-            autoscale_options["resultserver_ip"]
-            if autoscale_options.get("resultserver_ip")
-            else cfg_resultserver_ip
-        )
+        resultserver_ip = autoscale_options["resultserver_ip"] if autoscale_options.get("resultserver_ip") else cfg_resultserver_ip
         if autoscale_options.get("resultserver_port"):
             resultserver_port = autoscale_options["resultserver_port"]
         else:

@@ -2078,6 +2078,18 @@ class _Database:
 
         return tasks
 
+    def check_tasks_timeout(self, timeout):
+        """Find tasks which were added_on more than timeout ago and clean
+        """
+        tasks: List[Task] = []
+        ids_to_delete = []
+        search = self.session.query(Task).order_by(Task.added_on.des())
+        tasks = search.all()
+        for task in tasks:
+            if task.added_on + timedelta(seconds = timeout) < datetime.now():
+                ids_to_delete.append(task.id)
+        self.delete_tasks(ids_to_delete)
+
     def minmax_tasks(self):
         """Find tasks minimum and maximum
         @return: unix timestamps of minimum and maximum

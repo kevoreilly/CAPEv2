@@ -9,10 +9,9 @@ from winreg import *
 from pathlib import Path
 import pythoncom
 import win32api
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 import win32com.client
 from win32com.taskscheduler import taskscheduler
-import xml.etree.ElementTree as ET 
 from enum import Enum
 
 cwd = os.getcwd()
@@ -209,9 +208,9 @@ def add_file_to_path(src_path, dst_path, overwrite = False):
 def run_script(script_path, args, timeout ):
     exec = script_path + args
     if script_path.endwith(".py"):
-        p = subprocess.check_output("python " + exec, timeout=timeout, stderr=subprocess.STDOUT)
+        subprocess.check_output("python " + exec, timeout=timeout, stderr=subprocess.STDOUT)
     else:
-        p = subprocess.check_output(exec, timeout=timeout, stderr=subprocess.STDOUT)
+        subprocess.check_output(exec, timeout=timeout, stderr=subprocess.STDOUT)
     log.info(f"Running script {script_path} with parameters {args} on the victim vm")
 
 def add_directory(path):
@@ -239,7 +238,7 @@ def create_registry(path, key, value, value_type):
     path = registry_path_to_winreg(path)
     try:
         RegistryKey = OpenKey(path, key, 0, KEY_ALL_ACCESS)
-    except:
+    except Exception as e:
         RegistryKey = CreateKey(path, key)
     SetValueEx(RegistryKey, key, 0, value_type, value)
     CloseKey(RegistryKey)
@@ -249,7 +248,7 @@ def modify_registry(path, key, value, value_type):
     path = registry_path_to_winreg(path)
     try:
         RegistryKey = OpenKey(path, key, 0, KEY_ALL_ACCESS)
-    except:
+    except Exception as e:
         log.info(f"The target registry doesn't exist on the victim vm at path {path} with key {key}")
     SetValueEx(RegistryKey, key, 0, value_type, value)
     log.info(f"Modified registry {path}, with key {key} to value {value} on the victim vm")
@@ -303,14 +302,14 @@ def create_scheduled_task2(task_name, application_name, priority, working_direct
         new_task.Settings.IdleSettings.RestartOnIdle = flags.get("RestartOnIdle", False) #
     new_task.Settings.Priority = priority
     #new_task.Settings.Compatibility
-    if trigger_type != None:
+    if trigger_type is not None:
         trigger = new_task.Triggers.Create(trigger_type)
     else:
         trigger = new_task.Trigger.Create(TASK_TRIGGER_TYPE.TASK_TRIGGER_REGISTRATION.value)
     if start_time != 0:
         trigger.StartBoundary = start_time.isoformat()
     if trigger_type in [TASK_TRIGGER_TYPE.TASK_TRIGGER_TIME.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_DAILY.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_WEEKLY.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_MONTHLY.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_MONTHLYDOW.value]:
-        if expiration_time != None:
+        if expiration_time is not None:
             trigger.EndBoundary = expiration_time.isoformat()
         trigger.Repetition.Duration = duration
         trigger.Repetition.Interval = interval
@@ -581,7 +580,7 @@ def main(args):
                 for param in ACTIONS_PARAMETERS[parsed_action]:
                     if param not in params_dict.keys():
                         continue
-                    if params_dict[param] == "" or params_dict[param] == None:
+                    if params_dict[param] == "" or params_dict[param] is None:
                         continue
                     if param == "priority":
                         parsed_params_dict[param] = int(params_dict[param]) #priority --> int

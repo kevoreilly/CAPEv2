@@ -5,7 +5,23 @@ import argparse
 import shutil
 import json
 import subprocess
-from winreg import *
+from winreg import {
+    HKEY_CLASSES_ROOT,
+    HKEY_CURRENT_USER,
+    HKEY_LOCAL_MACHINE,
+    HKEY_USERS,
+    HKEY_PERFORMANCE_DATA,
+    HKEY_CURRENT_CONFIG,
+    REG_BINARY,
+    REG_DWORD,
+    REG_NONE,
+    REG_SZ,
+    OpenKey,
+    CreateKey,
+    CloseKey,
+    SetValueEx,
+    KEY_ALL_ACCESS
+}
 from pathlib import Path
 import pythoncom
 import win32api
@@ -238,7 +254,7 @@ def create_registry(path, key, value, value_type):
     path = registry_path_to_winreg(path)
     try:
         RegistryKey = OpenKey(path, key, 0, KEY_ALL_ACCESS)
-    except Exception as e:
+    except Exception as _:
         RegistryKey = CreateKey(path, key)
     SetValueEx(RegistryKey, key, 0, value_type, value)
     CloseKey(RegistryKey)
@@ -248,7 +264,7 @@ def modify_registry(path, key, value, value_type):
     path = registry_path_to_winreg(path)
     try:
         RegistryKey = OpenKey(path, key, 0, KEY_ALL_ACCESS)
-    except Exception as e:
+    except Exception as _:
         log.info(f"The target registry doesn't exist on the victim vm at path {path} with key {key}")
     SetValueEx(RegistryKey, key, 0, value_type, value)
     log.info(f"Modified registry {path}, with key {key} to value {value} on the victim vm")

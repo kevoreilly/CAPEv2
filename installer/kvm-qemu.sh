@@ -795,7 +795,7 @@ function replace_qemu_clues_public() {
     _sed_aux "s/QEMU CD-ROM/$qemu_dvd_replacement/g" qemu*/hw/scsi/scsi-disk.c 'Vendor string was not replaced in scsi-disk.c'
     _sed_aux 's/padstr8(buf + 8, 8, "QEMU");/padstr8(buf + 8, 8, "'"$ATAPI_REPLACER"'");/g'  qemu*/hw/ide/atapi.c 'padstr was not replaced in atapi.c'
     _sed_aux 's/QEMU MICRODRIVE/'"$MICRODRIVE_REPLACER"' MICRODRIVE/g' qemu*/hw/ide/core.c 'QEMU MICRODRIVE was not replaced in core.c'
-    _sed_aux "s/KVMKVMKVM\\0\\0\\0/$hypervisor_string_replacemnt/g" qemu*/target/i386/kvm.c 'KVMKVMKVM was not replaced in kvm.c'
+    _sed_aux "s/KVMKVMKVM\\\\0\\\\0\\\\0/$hypervisor_string_replacement/g" qemu*/target/i386/kvm/kvm.c 'KVMKVMKVM was not replaced in kvm.c'
     _sed_aux 's/"bochs"/"'"$BOCHS_BLOCK_REPLACER"'"/g' qemu*/block/bochs.c 'BOCHS was not replaced in block/bochs.c'
     _sed_aux 's/"BOCHS "/"ALASKA"/g' qemu*/include/hw/acpi/aml-build.h 'BOCHS was not replaced in block/bochs.c'
     _sed_aux 's/Bochs Pseudo/Intel RealTime/g' qemu*/roms/ipxe/src/drivers/net/pnic.c 'Bochs Pseudo was not replaced in roms/ipxe/src/drivers/net/pnic.c'

@@ -5,7 +5,7 @@ import argparse
 import shutil
 import json
 import subprocess
-from winreg import {
+from winreg import (
     HKEY_CLASSES_ROOT,
     HKEY_CURRENT_USER,
     HKEY_LOCAL_MACHINE,
@@ -21,7 +21,7 @@ from winreg import {
     CloseKey,
     SetValueEx,
     KEY_ALL_ACCESS
-}
+)
 from pathlib import Path
 import pythoncom
 import win32api

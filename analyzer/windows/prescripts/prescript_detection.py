@@ -1,52 +1,54 @@
-import sys
-import os
-import logging
 import argparse
-import shutil
 import json
+import logging
+import os
+import shutil
 import subprocess
+import sys
+from datetime import date, datetime
+from enum import Enum
+from pathlib import Path
 from winreg import (
     HKEY_CLASSES_ROOT,
+    HKEY_CURRENT_CONFIG,
     HKEY_CURRENT_USER,
     HKEY_LOCAL_MACHINE,
-    HKEY_USERS,
     HKEY_PERFORMANCE_DATA,
-    HKEY_CURRENT_CONFIG,
+    HKEY_USERS,
+    KEY_ALL_ACCESS,
     REG_BINARY,
     REG_DWORD,
     REG_NONE,
     REG_SZ,
-    OpenKey,
-    CreateKey,
     CloseKey,
+    CreateKey,
+    OpenKey,
     SetValueEx,
-    KEY_ALL_ACCESS
 )
-from pathlib import Path
+
 import pythoncom
 import win32api
-from datetime import date, datetime
 import win32com.client
 from win32com.taskscheduler import taskscheduler
-from enum import Enum
 
 cwd = os.getcwd()
 sys.path.append(cwd)
 
 try:
-    from lib.core.config import Config
     from lib.common.zip_utils import extract_zip
     from lib.core.compound import create_custom_folders, extract_json_data
+    from lib.core.config import Config
 except Exception as e:
     print(f"{cwd} with {e}")
-    #sys.exit()
+    # sys.exit()
 
-ts=pythoncom.CoCreateInstance(taskscheduler.CLSID_CTaskScheduler,None,
-                              pythoncom.CLSCTX_INPROC_SERVER,taskscheduler.IID_ITaskScheduler)
+ts = pythoncom.CoCreateInstance(
+    taskscheduler.CLSID_CTaskScheduler, None, pythoncom.CLSCTX_INPROC_SERVER, taskscheduler.IID_ITaskScheduler
+)
 
-scheduler = win32com.client.Dispatch('Schedule.Service')
+scheduler = win32com.client.Dispatch("Schedule.Service")
 scheduler.Connect()
-root_folder = scheduler.GetFolder('\\')
+root_folder = scheduler.GetFolder("\\")
 
 LIST_OF_VALID_ACTIONS = [
     "run_script",
@@ -57,7 +59,7 @@ LIST_OF_VALID_ACTIONS = [
     "create_scheduled_task",
     "create_xml_scheduled_task",
     "modify_scheduled_task",
-    "change_execution_dir"
+    "change_execution_dir",
 ]
 
 ACTIONS_PARAMETERS = {
@@ -66,9 +68,40 @@ ACTIONS_PARAMETERS = {
     "add_directory": ["path"],
     "create_registry": ["path", "key", "value"],
     "modify_registry": ["path", "key", "value"],
-    "create_scheduled_task": ["task_name", "application_name", "priority", "working_directory", "flags", "parameters", "comment", "creator", "account_information", "path", "trigger_type", "start_time", "duration", "interval", "expiration_time", "additional_trigger_params"],
+    "create_scheduled_task": [
+        "task_name",
+        "application_name",
+        "priority",
+        "working_directory",
+        "flags",
+        "parameters",
+        "comment",
+        "creator",
+        "account_information",
+        "path",
+        "trigger_type",
+        "start_time",
+        "duration",
+        "interval",
+        "expiration_time",
+        "additional_trigger_params",
+    ],
     "create_xml_scheduled_task": ["task_name", "xml"],
-    "modify_scheduled_task": ["task_name", "path", "new_task_name", "comment", "action_id", "application_name", "priority", "parameters", "working_directory", "creator", "account_information", "flags", "trigger"],
+    "modify_scheduled_task": [
+        "task_name",
+        "path",
+        "new_task_name",
+        "comment",
+        "action_id",
+        "application_name",
+        "priority",
+        "parameters",
+        "working_directory",
+        "creator",
+        "account_information",
+        "flags",
+        "trigger",
+    ],
     "change_execution_dir": ["path"],
 }
 
@@ -78,14 +111,16 @@ Registry_paths = {
     "hkey_local_machine": HKEY_LOCAL_MACHINE,
     "hkey_users": HKEY_USERS,
     "hkey_performance_data": HKEY_PERFORMANCE_DATA,
-    "hkey_current_config": HKEY_CURRENT_CONFIG
+    "hkey_current_config": HKEY_CURRENT_CONFIG,
 }
+
 
 class TASK_ACTION_TYPES(Enum):
     TASK_ACTION_EXEC = 0
     TASK_ACTION_COM_HANDLER = 5
     TASK_ACTION_SEND_EMAIL = 6
     TASK_ACTION_SHOW_MESSAGE = 7
+
 
 class TASK_TRIGGER_TYPE(Enum):
     TASK_TRIGGER_EVENT = 0
@@ -101,6 +136,7 @@ class TASK_TRIGGER_TYPE(Enum):
     TASK_TRIGGER_SESSION_STATE_CHANGE = 11
     TASK_TRIGGER_CUSTOM_TRIGGER_01 = 12
 
+
 class TASK_COMPATIBILITY(Enum):
     TASK_COMPATIBILITY_AT = 0
     TASK_COMPATIBILITY_V1 = 1
@@ -110,23 +146,26 @@ class TASK_COMPATIBILITY(Enum):
     TASK_COMPATIBILITY_V2_3 = 5
     TASK_COMPATIBILITY_V2_4 = 6
 
+
 class TASK_CREATION(Enum):
     TASK_VALIDATE_ONLY = 1
     TASK_CREATE = 2
     TASK_UPDATE = 4
     TASK_CREATE_OR_UPDATE = 6
     TASK_DISABLE = 8
-    TASK_DONT_ADD_PRINCIPAL_ACE = 10,
+    TASK_DONT_ADD_PRINCIPAL_ACE = (10,)
     TASK_IGNORE_REGISTRATION_TRIGGERS = 20
 
+
 class TASK_LOGON_TYPE(Enum):
-    TASK_LOGON_NONE = 0,
+    TASK_LOGON_NONE = (0,)
     TASK_LOGON_PASSWORD = 1
     TASK_LOGON_S4U = 2
     TASK_LOGON_INTERACTIVE_TOKEN = 3
     TASK_LOGON_GROUP = 4
     TASK_LOGON_SERVICE_ACCOUNT = 5
     TASK_LOGON_INTERACTIVE_TOKEN_OR_PASSWORD = 6
+
 
 class TASK_PRIORITY(Enum):
     THREAD_PRIORITY_TIME_CRITICAL = 0
@@ -154,20 +193,20 @@ Scheduled_task_flags = [
     taskscheduler.TASK_FLAG_RESTART_ON_IDLE_RESUME,
     taskscheduler.TASK_FLAG_DONT_START_IF_ON_BATTERIES,
     taskscheduler.TASK_FLAG_KILL_IF_GOING_ON_BATTERIES,
-    taskscheduler.TASK_FLAG_RUN_IF_CONNECTED_TO_INTERNET
+    taskscheduler.TASK_FLAG_RUN_IF_CONNECTED_TO_INTERNET,
 ]
 
 Scheduled_task_priority = [
     taskscheduler.REALTIME_PRIORITY_CLASS,
     taskscheduler.HIGH_PRIORITY_CLASS,
     taskscheduler.NORMAL_PRIORITY_CLASS,
-    taskscheduler.IDLE_PRIORITY_CLASS
+    taskscheduler.IDLE_PRIORITY_CLASS,
 ]
 
 trigger_flags = [
     taskscheduler.TASK_TRIGGER_FLAG_HAS_END_DATE,
     taskscheduler.TASK_TRIGGER_FLAG_KILL_AT_DURATION_END,
-    taskscheduler.TASK_TRIGGER_FLAG_DISABLED
+    taskscheduler.TASK_TRIGGER_FLAG_DISABLED,
 ]
 
 trigger_type = [
@@ -183,45 +222,47 @@ trigger_type = [
 
 log = logging.getLogger(__name__)
 
-#All the logs will be also available in logs/pre_script.log
-#We don't need to hijack the path of the zip_compound for rules and files destined for us they should use the relative path and it's going to get a copy in the temp cape folder and the prescript one
-#We also don't need to cleanup since the zip_compound is going to be reextracted and work appropriately just after this one and overwrite any leftovers
+# All the logs will be also available in logs/pre_script.log
+# We don't need to hijack the path of the zip_compound for rules and files destined for us they should use the relative path and it's going to get a copy in the temp cape folder and the prescript one
+# We also don't need to cleanup since the zip_compound is going to be reextracted and work appropriately just after this one and overwrite any leftovers
 
-#Format for zip_compound of __configuration.json:
-#{
-#    "path_to_extract": 
+# Format for zip_compound of __configuration.json:
+# {
+#    "path_to_extract":
 #    {
 #        "file_name": "path",
 #        "yara_file": "prescripts/rules",
 #        "script_file": "prescripts/scripts"
 #    },
 #    "target_file": "target_file_name"
-#}
+# }
 #
 
-#Yara rules metadata commands 
-#So the metadata field which represent actions to take on a match have the following format al_cape_action#
-#The value is then a dictionary of the paramater for this action
+# Yara rules metadata commands
+# So the metadata field which represent actions to take on a match have the following format al_cape_action#
+# The value is then a dictionary of the paramater for this action
 #
 #
 
-def add_file_to_path(src_path, dst_path, overwrite = False):
+
+def add_file_to_path(src_path, dst_path, overwrite=False):
     if os.path.exists(dst_path) and overwrite:
         # in case of the src and dst are the same file
         if os.path.samefile(src_path, dst_path):
             log.info(f"Same file {dst_path} already in the victim vm")
             return
         os.remove(dst_path)
-        shutil.copyfile(src=src_path,dst=dst_path)
+        shutil.copyfile(src=src_path, dst=dst_path)
         log.info(f"File {dst_path} modified in the victim vm")
     elif os.path.exists(dst_path):
         log.info(f"File {dst_path} already in the victim vm")
-        return 
+        return
     else:
-        shutil.copyfile(src=src_path,dst=dst_path)
+        shutil.copyfile(src=src_path, dst=dst_path)
         log.info(f"File {dst_path} added to victim vm")
 
-def run_script(script_path, args, timeout ):
+
+def run_script(script_path, args, timeout):
     exec = script_path + args
     if script_path.endwith(".py"):
         subprocess.check_output("python " + exec, timeout=timeout, stderr=subprocess.STDOUT)
@@ -229,14 +270,18 @@ def run_script(script_path, args, timeout ):
         subprocess.check_output(exec, timeout=timeout, stderr=subprocess.STDOUT)
     log.info(f"Running script {script_path} with parameters {args} on the victim vm")
 
+
 def add_directory(path):
-    os.makedirs(path, exist_ok = True)
+    os.makedirs(path, exist_ok=True)
     log.info(f"Folder {path} added to victim vm")
+
+
 def registry_path_to_winreg(path):
     for value in Registry_paths.keys():
         if value in path:
             return value
     return path
+
 
 def identify_registry_value_type(value):
     if isinstance(value, bytes):
@@ -250,6 +295,7 @@ def identify_registry_value_type(value):
     else:
         return None
 
+
 def create_registry(path, key, value, value_type):
     path = registry_path_to_winreg(path)
     try:
@@ -260,6 +306,7 @@ def create_registry(path, key, value, value_type):
     CloseKey(RegistryKey)
     log.info(f"Created registry {path}, with key {key} and value {value} on the victim vm")
 
+
 def modify_registry(path, key, value, value_type):
     path = registry_path_to_winreg(path)
     try:
@@ -269,13 +316,25 @@ def modify_registry(path, key, value, value_type):
     SetValueEx(RegistryKey, key, 0, value_type, value)
     log.info(f"Modified registry {path}, with key {key} to value {value} on the victim vm")
 
-def create_scheduled_task(task_name, application_name, priority, working_directory, flags, trigger, parameters="", idle_time=0, comment="", creator="", account_information=win32api.GetUserName()):
-    new_task=pythoncom.CoCreateInstance(taskscheduler.CLSID_CTask,None,
-                              pythoncom.CLSCTX_INPROC_SERVER,taskscheduler.IID_ITask)
+
+def create_scheduled_task(
+    task_name,
+    application_name,
+    priority,
+    working_directory,
+    flags,
+    trigger,
+    parameters="",
+    idle_time=0,
+    comment="",
+    creator="",
+    account_information=win32api.GetUserName(),
+):
+    new_task = pythoncom.CoCreateInstance(taskscheduler.CLSID_CTask, None, pythoncom.CLSCTX_INPROC_SERVER, taskscheduler.IID_ITask)
     ts.AddWorkItem(task_name, new_task)  ## task object is modified in place
     new_task.SetFlags(flags)
     if idle_time != 0:
-        new_task.SetIdleWait(idle_time, 3600) # Wait for idle for 1h
+        new_task.SetIdleWait(idle_time, 3600)  # Wait for idle for 1h
     new_task.SetComment(comment)
     new_task.SetApplicationName(application_name)
     new_task.SetPriority(priority)
@@ -283,13 +342,31 @@ def create_scheduled_task(task_name, application_name, priority, working_directo
     new_task.SetWorkingDirectory(working_directory)
     new_task.SetCreator(creator)
     new_task.SetAccountInformation(account_information, None)
-    tr_ind, tr=new_task.CreateTrigger()
+    tr_ind, tr = new_task.CreateTrigger()
     tr.SetTrigger(trigger)
-    pf=new_task.QueryInterface(pythoncom.IID_IPersistFile)
-    pf.Save(None,1)
+    pf = new_task.QueryInterface(pythoncom.IID_IPersistFile)
+    pf.Save(None, 1)
     log.info(f"Scheduled task {task_name} created on the victim vm")
 
-def create_scheduled_task2(task_name, application_name, priority, working_directory, flags={}, parameters="", comment="", creator="", account_information=win32api.GetUserName(), path="\\", trigger_type=None, start_time=datetime.now().time(), duration=0, interval=0, expiration_time=None, additional_trigger_params={}):
+
+def create_scheduled_task2(
+    task_name,
+    application_name,
+    priority,
+    working_directory,
+    flags={},
+    parameters="",
+    comment="",
+    creator="",
+    account_information=win32api.GetUserName(),
+    path="\\",
+    trigger_type=None,
+    start_time=datetime.now().time(),
+    duration=0,
+    interval=0,
+    expiration_time=None,
+    additional_trigger_params={},
+):
     new_task = scheduler.NewTask(0)
     if path != "\\":
         root_folder.CreateFolder(path)
@@ -299,32 +376,38 @@ def create_scheduled_task2(task_name, application_name, priority, working_direct
     new_task.RegistrationInfo.Author = creator
     new_task.Settings.Enabled = True
     if flags != {}:
-        new_task.Settings.RunOnlyIfNetworkAvailable = flags.get("RunOnlyIfNetworkAvailable", False) #
-        new_task.Settings.AllowHardTerminate = flags.get("AllowHardTerminate", False) #
-        new_task.Settings.AllowDemandStart = flags.get("AllowDemandStart", True) #
+        new_task.Settings.RunOnlyIfNetworkAvailable = flags.get("RunOnlyIfNetworkAvailable", False)  #
+        new_task.Settings.AllowHardTerminate = flags.get("AllowHardTerminate", False)  #
+        new_task.Settings.AllowDemandStart = flags.get("AllowDemandStart", True)  #
         if "RestartInterval" in flags or "RestartCount" in flags:
             new_task.Settings.RestartInterval = flags.get("RestartInterval", "PT24H")
             new_task.Settings.RestartCount = flags.get("RestartCount", 1)
-        new_task.Settings.StartWhenAvailable = flags.get("StartWhenAvailable", False) #
+        new_task.Settings.StartWhenAvailable = flags.get("StartWhenAvailable", False)  #
         new_task.Settings.ExecutionTimeLimit = flags.get("ExecutionTimeLimit", "PT0S")
         if "DeleteExpiredTaskAfter" in flags:
             new_task.Settings.DeleteExpiredTaskAfter = flags.get("DeleteExpiredTaskAfter")
-        new_task.Settings.WakeToRun = flags.get("WakeToRun", False) #
-        new_task.Settings.DisallowStartIfOnBatteries = flags.get("DisallowStartIfOnBatteries", False) #
-        new_task.Settings.RunOnlyIfIdle = flags.get("RunOnlyIfIdle", False) #
-        new_task.Settings.Hidden = flags.get("Hidden", False) #
-        new_task.Settings.StopIfGoingOnBatteries = flags.get("StopIfGoingOnBatteries", False) #
-        new_task.Settings.IdleSettings.StopOnIdleEnd = flags.get("StopOnIdleEnd", False) #
-        new_task.Settings.IdleSettings.RestartOnIdle = flags.get("RestartOnIdle", False) #
+        new_task.Settings.WakeToRun = flags.get("WakeToRun", False)  #
+        new_task.Settings.DisallowStartIfOnBatteries = flags.get("DisallowStartIfOnBatteries", False)  #
+        new_task.Settings.RunOnlyIfIdle = flags.get("RunOnlyIfIdle", False)  #
+        new_task.Settings.Hidden = flags.get("Hidden", False)  #
+        new_task.Settings.StopIfGoingOnBatteries = flags.get("StopIfGoingOnBatteries", False)  #
+        new_task.Settings.IdleSettings.StopOnIdleEnd = flags.get("StopOnIdleEnd", False)  #
+        new_task.Settings.IdleSettings.RestartOnIdle = flags.get("RestartOnIdle", False)  #
     new_task.Settings.Priority = priority
-    #new_task.Settings.Compatibility
+    # new_task.Settings.Compatibility
     if trigger_type is not None:
         trigger = new_task.Triggers.Create(trigger_type)
     else:
         trigger = new_task.Trigger.Create(TASK_TRIGGER_TYPE.TASK_TRIGGER_REGISTRATION.value)
     if start_time != 0:
         trigger.StartBoundary = start_time.isoformat()
-    if trigger_type in [TASK_TRIGGER_TYPE.TASK_TRIGGER_TIME.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_DAILY.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_WEEKLY.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_MONTHLY.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_MONTHLYDOW.value]:
+    if trigger_type in [
+        TASK_TRIGGER_TYPE.TASK_TRIGGER_TIME.value,
+        TASK_TRIGGER_TYPE.TASK_TRIGGER_DAILY.value,
+        TASK_TRIGGER_TYPE.TASK_TRIGGER_WEEKLY.value,
+        TASK_TRIGGER_TYPE.TASK_TRIGGER_MONTHLY.value,
+        TASK_TRIGGER_TYPE.TASK_TRIGGER_MONTHLYDOW.value,
+    ]:
         if expiration_time is not None:
             trigger.EndBoundary = expiration_time.isoformat()
         trigger.Repetition.Duration = duration
@@ -333,7 +416,7 @@ def create_scheduled_task2(task_name, application_name, priority, working_direct
     if trigger_type == TASK_TRIGGER_TYPE.TASK_TRIGGER_DAILY.value:
         trigger.DaysInterval = additional_trigger_params.get("DaysInterval", 1)
     elif trigger_type == TASK_TRIGGER_TYPE.TASK_TRIGGER_WEEKLY.value:
-        trigger.DaysOfWeek = additional_trigger_params.get("DaysOfWeek", 127) #Every day of the week default
+        trigger.DaysOfWeek = additional_trigger_params.get("DaysOfWeek", 127)  # Every day of the week default
         trigger.WeeksInterval = additional_trigger_params.get("WeeksInterval", 1)
     elif trigger_type == TASK_TRIGGER_TYPE.TASK_TRIGGER_MONTHLY.value:
         trigger.DaysOfMonth = additional_trigger_params.get("DaysOfMonth", 1)
@@ -348,7 +431,11 @@ def create_scheduled_task2(task_name, application_name, priority, working_direct
         trigger.Delay = additional_trigger_params.get("Delay", "PT5M")
         trigger.Subscription = additional_trigger_params.get("Subscription", "empty_query")
         trigger.ValueQueries = additional_trigger_params.get("ValueQueries", "")
-    elif trigger_type in [TASK_TRIGGER_TYPE.TASK_TRIGGER_BOOT.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_LOGON.value, TASK_TRIGGER_TYPE.TASK_TRIGGER_REGISTRATION.value]:
+    elif trigger_type in [
+        TASK_TRIGGER_TYPE.TASK_TRIGGER_BOOT.value,
+        TASK_TRIGGER_TYPE.TASK_TRIGGER_LOGON.value,
+        TASK_TRIGGER_TYPE.TASK_TRIGGER_REGISTRATION.value,
+    ]:
         trigger.Delay = additional_trigger_params.get("Delay", "PT5M")
         if trigger_type == TASK_TRIGGER_TYPE.TASK_TRIGGER_LOGON.value:
             trigger.UserId = additional_trigger_params.get("UserId", account_information)
@@ -362,13 +449,27 @@ def create_scheduled_task2(task_name, application_name, priority, working_direct
     folder.RegisterTaskDefinition(task_name, new_task, TASK_CREATION.TASK_CREATE_OR_UPDATE.value, "", "", 0)
 
 
-def create_scheduled_task_from_xml(task_name ,xml_path):
-    cmd = ['schtasks', '/create', '/xml', xml_path, '/tn', task_name]
+def create_scheduled_task_from_xml(task_name, xml_path):
+    cmd = ["schtasks", "/create", "/xml", xml_path, "/tn", task_name]
     result = subprocess.run(cmd, capture_output=True, text=True)
     return result.stdout, result.stderr
 
 
-def modify_scheduled_task(task_name, path=None, new_task_name=None, comment=None, action_id=None, application_name=None, priority=None, parameters=None, working_directory=None, creator=None, account_information=None, flags=None, trigger=None):
+def modify_scheduled_task(
+    task_name,
+    path=None,
+    new_task_name=None,
+    comment=None,
+    action_id=None,
+    application_name=None,
+    priority=None,
+    parameters=None,
+    working_directory=None,
+    creator=None,
+    account_information=None,
+    flags=None,
+    trigger=None,
+):
     if path:
         folder = root_folder.GetFolder(path)
     else:
@@ -382,7 +483,7 @@ def modify_scheduled_task(task_name, path=None, new_task_name=None, comment=None
                 if modified_task.Actions.Count == 1 and not action_id:
                     modified_task.Actions.clear()
                 elif action_id:
-                    for index in range(1, modified_task.Actions.Count +1):
+                    for index in range(1, modified_task.Actions.Count + 1):
                         if modified_task.Actions.Item(index).Id == action_id:
                             modified_task.Actions.Remove(index)
                 Action = modified_task.Actions.Create(TASK_ACTION_TYPES.TASK_ACTION_EXEC.value)
@@ -392,7 +493,7 @@ def modify_scheduled_task(task_name, path=None, new_task_name=None, comment=None
                 Action.Path = application_name
             elif application_name or parameters or working_directory:
                 if action_id:
-                    for index in range(1, modified_task.Actions.Count +1):
+                    for index in range(1, modified_task.Actions.Count + 1):
                         if modified_task.Actions.Item(index).Id == action_id:
                             if not application_name:
                                 application_name = modified_task.Actions.Item(index).Path
@@ -430,11 +531,11 @@ def modify_scheduled_task(task_name, path=None, new_task_name=None, comment=None
                 log.info("Not possible to change the trigger at this time")
             if flags:
                 if "RunOnlyIfNetworkAvailable" in flags:
-                    modified_task.Settings.RunOnlyIfNetworkAvailable = flags.get("RunOnlyIfNetworkAvailable") 
+                    modified_task.Settings.RunOnlyIfNetworkAvailable = flags.get("RunOnlyIfNetworkAvailable")
                 if "AllowHardTerminate" in flags:
                     modified_task.Settings.AllowHardTerminate = flags.get("AllowHardTerminate")
                 if "AllowDemandStart" in flags:
-                    modified_task.Settings.AllowDemandStart = flags.get("AllowDemandStart") 
+                    modified_task.Settings.AllowDemandStart = flags.get("AllowDemandStart")
                 if "RestartInterval" in flags:
                     modified_task.Settings.RestartInterval = flags.get("RestartInterval")
                 if "RestartCount" in flags:
@@ -468,28 +569,33 @@ def modify_scheduled_task(task_name, path=None, new_task_name=None, comment=None
                 folder.RegisterTaskDefinition(task_name, modified_task, TASK_CREATION.TASK_UPDATE.value, "", "", 0)
     log.info(f"Scheduled task {task_name} modified on the victim vm")
 
-def create_trigger(type, begin_date=date.today(), start_time=datetime.now().time(), duration=0, interval=0, expiration_time=None, flags=None):
-    new_trigger=pythoncom.CoCreateInstance(taskscheduler.CLSID_CTask,None,
-                              pythoncom.CLSCTX_INPROC_SERVER,taskscheduler.IID_ITask)
-    _, tr=new_trigger.CreateTrigger()
-    tt=tr.GetTrigger()
+
+def create_trigger(
+    type, begin_date=date.today(), start_time=datetime.now().time(), duration=0, interval=0, expiration_time=None, flags=None
+):
+    new_trigger = pythoncom.CoCreateInstance(
+        taskscheduler.CLSID_CTask, None, pythoncom.CLSCTX_INPROC_SERVER, taskscheduler.IID_ITask
+    )
+    _, tr = new_trigger.CreateTrigger()
+    tt = tr.GetTrigger()
     tt.TriggerType = type
     if flags:
         tt.Flags = flags
-    tt.BeginYear=int(begin_date.strftime('%Y'))
-    tt.BeginMonth=int(begin_date.strftime('%m'))
-    tt.BeginDay=int(begin_date.strftime('%d'))
-    tt.StartMinute=int(start_time.strftime('%M'))
-    tt.StartHour=int(start_time.strftime('%H'))
+    tt.BeginYear = int(begin_date.strftime("%Y"))
+    tt.BeginMonth = int(begin_date.strftime("%m"))
+    tt.BeginDay = int(begin_date.strftime("%d"))
+    tt.StartMinute = int(start_time.strftime("%M"))
+    tt.StartHour = int(start_time.strftime("%H"))
     if expiration_time:
-        tt.EndYear=int(expiration_time.strftime('%Y'))
-        tt.EndMonth=int(expiration_time.strftime('%m'))
-        tt.EndDay=int(expiration_time.strftime('%d'))
+        tt.EndYear = int(expiration_time.strftime("%Y"))
+        tt.EndMonth = int(expiration_time.strftime("%m"))
+        tt.EndDay = int(expiration_time.strftime("%d"))
     if duration != 0 and duration >= interval:
-        tt.MinutesDuration= duration
+        tt.MinutesDuration = duration
     if interval:
         tt.MinutesInterval = interval
     return tt
+
 
 def change_execution_dir(dir):
     log.info(f"Changing execution directory to {dir}")
@@ -534,11 +640,11 @@ def main(args):
         log.debug("Invalid analysis target for zip compound")
     actions = {}
     if args.actions:
-        #Only valid options for parsing are:
-        #1: one big command line argument with a dict as string which get json.loads
-        #2: separated dict with keys delimiter
-        #3: position order with skip value
-        #4: Having argparse do the heavy lifting and having a bunch of flags and conditions
+        # Only valid options for parsing are:
+        # 1: one big command line argument with a dict as string which get json.loads
+        # 2: separated dict with keys delimiter
+        # 3: position order with skip value
+        # 4: Having argparse do the heavy lifting and having a bunch of flags and conditions
         previous_action = None
         previous_action_key = None
         for action_arg in args.actions:
@@ -553,42 +659,64 @@ def main(args):
                     index = 0
                     while not action_added:
                         action_to_key = f"{action_arg}{index}"
-                        index +=1
+                        index += 1
                         if action_to_key not in actions.keys():
                             previous_action_key = action_to_key
                             actions[action_to_key] = {}
-                            action_added = True 
+                            action_added = True
             else:
                 if action_arg == "None":
-                    arg_position +=1
+                    arg_position += 1
                     continue
                 actions[previous_action_key][ACTIONS_PARAMETERS[previous_action][arg_position]] = action_arg
-                arg_position +=1 
+                arg_position += 1
     for action, params_dict in actions.items():
         try:
-            parsed_action = ''.join(i for i in action if not i.isdigit())
+            parsed_action = "".join(i for i in action if not i.isdigit())
             if parsed_action not in LIST_OF_VALID_ACTIONS:
                 continue
             if parsed_action == LIST_OF_VALID_ACTIONS[0]:
-                run_script(script_path= params_dict[ACTIONS_PARAMETERS[parsed_action][0]], args= params_dict[ACTIONS_PARAMETERS[parsed_action][1]], timeout= int(params_dict[ACTIONS_PARAMETERS[parsed_action][2]]))
+                run_script(
+                    script_path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]],
+                    args=params_dict[ACTIONS_PARAMETERS[parsed_action][1]],
+                    timeout=int(params_dict[ACTIONS_PARAMETERS[parsed_action][2]]),
+                )
                 log.info(f"Runned script with {params_dict}")
                 print(f"Runned script with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[1]:
-                add_file_to_path(src_path= params_dict[ACTIONS_PARAMETERS[parsed_action][0]], dst_path= params_dict[ACTIONS_PARAMETERS[parsed_action][1]], overwrite= bool(params_dict[ACTIONS_PARAMETERS[parsed_action][2]]))
-                log.info(f"Adding file from {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]} to {params_dict[ACTIONS_PARAMETERS[parsed_action][1]]}")
-                print(f"Adding file from {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]} to {params_dict[ACTIONS_PARAMETERS[parsed_action][1]]}")
+                add_file_to_path(
+                    src_path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]],
+                    dst_path=params_dict[ACTIONS_PARAMETERS[parsed_action][1]],
+                    overwrite=bool(params_dict[ACTIONS_PARAMETERS[parsed_action][2]]),
+                )
+                log.info(
+                    f"Adding file from {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]} to {params_dict[ACTIONS_PARAMETERS[parsed_action][1]]}"
+                )
+                print(
+                    f"Adding file from {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]} to {params_dict[ACTIONS_PARAMETERS[parsed_action][1]]}"
+                )
             elif parsed_action == LIST_OF_VALID_ACTIONS[2]:
                 add_directory(path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]])
                 log.info(f"Created directory with {params_dict}")
                 print(f"Created directory with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[3]:
                 value_type = identify_registry_value_type(params_dict[ACTIONS_PARAMETERS[parsed_action][2]])
-                create_registry(path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]], key= params_dict[ACTIONS_PARAMETERS[parsed_action][1]], value = params_dict[ACTIONS_PARAMETERS[parsed_action][2]], value_type= value_type)
+                create_registry(
+                    path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]],
+                    key=params_dict[ACTIONS_PARAMETERS[parsed_action][1]],
+                    value=params_dict[ACTIONS_PARAMETERS[parsed_action][2]],
+                    value_type=value_type,
+                )
                 log.info(f"Created registry with {params_dict}")
                 print(f"Created registry with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[4]:
                 value_type = identify_registry_value_type(params_dict[ACTIONS_PARAMETERS[parsed_action][2]])
-                modify_registry(path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]], key= params_dict[ACTIONS_PARAMETERS[parsed_action][1]], value = params_dict[ACTIONS_PARAMETERS[parsed_action][2]], value_type= value_type)
+                modify_registry(
+                    path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]],
+                    key=params_dict[ACTIONS_PARAMETERS[parsed_action][1]],
+                    value=params_dict[ACTIONS_PARAMETERS[parsed_action][2]],
+                    value_type=value_type,
+                )
                 log.info(f"Modified registry with {params_dict}")
                 print(f"Modified registry with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[5]:
@@ -599,30 +727,33 @@ def main(args):
                     if params_dict[param] == "" or params_dict[param] is None:
                         continue
                     if param == "priority":
-                        parsed_params_dict[param] = int(params_dict[param]) #priority --> int
+                        parsed_params_dict[param] = int(params_dict[param])  # priority --> int
                     elif param == "flags":
-                        format_ready_param = params_dict[param].replace("\\\"", "\"")
-                        parsed_params_dict[param] = json.loads(format_ready_param) #flags --> dict
+                        format_ready_param = params_dict[param].replace('\\"', '"')
+                        parsed_params_dict[param] = json.loads(format_ready_param)  # flags --> dict
                     elif param == "trigger_type":
-                        parsed_params_dict[param] = int(params_dict[param]) #trigger_type --> int
+                        parsed_params_dict[param] = int(params_dict[param])  # trigger_type --> int
                     elif param == "start_time":
-                        parsed_params_dict[param] = datetime.strptime(params_dict[param], '%H:%M:%S')  #start_time --> time
+                        parsed_params_dict[param] = datetime.strptime(params_dict[param], "%H:%M:%S")  # start_time --> time
                     elif param == "duration":
-                        parsed_params_dict[param] = int(params_dict[param]) #duration --> int
+                        parsed_params_dict[param] = int(params_dict[param])  # duration --> int
                     elif param == "interval":
-                        parsed_params_dict[param] = int(params_dict[param])  #interval --> int
+                        parsed_params_dict[param] = int(params_dict[param])  # interval --> int
                     elif param == "expiration_time":
-                        parsed_params_dict[param] = datetime.strptime(params_dict[param], '%H:%M:%S')  #expiration_time --> time
+                        parsed_params_dict[param] = datetime.strptime(params_dict[param], "%H:%M:%S")  # expiration_time --> time
                     elif param == "additional_trigger_params":
-                        format_ready_param = params_dict[param].replace("\\\"", "\"")
-                        parsed_params_dict[param] = json.loads(format_ready_param) #additional_trigger_params --> dict
+                        format_ready_param = params_dict[param].replace('\\"', '"')
+                        parsed_params_dict[param] = json.loads(format_ready_param)  # additional_trigger_params --> dict
                     else:
                         parsed_params_dict[param] = params_dict[param]
                 create_scheduled_task2(**parsed_params_dict)
                 log.info(f"Created scheduled task with {params_dict}")
                 print(f"Created scheduled task with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[6]:
-                create_scheduled_task_from_xml(task_name=params_dict[ACTIONS_PARAMETERS[parsed_action][0]], xml_path=params_dict[ACTIONS_PARAMETERS[parsed_action][1]])
+                create_scheduled_task_from_xml(
+                    task_name=params_dict[ACTIONS_PARAMETERS[parsed_action][0]],
+                    xml_path=params_dict[ACTIONS_PARAMETERS[parsed_action][1]],
+                )
                 log.info(f"Created scheduled task from xml with {params_dict}")
                 print(f"Created scheduled task from xml with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[7]:
@@ -631,11 +762,11 @@ def main(args):
                     if param not in params_dict.keys():
                         continue
                     if param == "priority":
-                        parsed_params_dict[param] = int(params_dict[param]) #priority --> int
+                        parsed_params_dict[param] = int(params_dict[param])  # priority --> int
                     elif param == "action_id":
-                         parsed_params_dict[param] = int(params_dict[param]) #action_id --> int
+                        parsed_params_dict[param] = int(params_dict[param])  # action_id --> int
                     elif param == "flags":
-                        parsed_params_dict[param] = json.loads(params_dict[param]) #flags --> dict
+                        parsed_params_dict[param] = json.loads(params_dict[param])  # flags --> dict
                     else:
                         parsed_params_dict[param] = params_dict[param]
                 modify_scheduled_task(**parsed_params_dict)
@@ -645,16 +776,16 @@ def main(args):
                 change_execution_dir(path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]])
                 log.info(f"Changed execution dir to {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]}")
                 print(f"Changed execution dir to {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]}")
-            
+
         except Exception as e:
             log.debug(f"Invalid action {action} with parameters {params_dict} --> {e}")
             print(f"Invalid action {action} with parameters {params_dict} --> {e}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    #Example of args to pass --zip --actions action_name param1 param2 action_name param param1
-    parser.add_argument("-z", "--zip", help="Zip_compound available", action="store_true", required=False,default=False)
-    parser.add_argument("-a", "--actions", help="Actions to take", action="store", nargs='*', required=False, default=None)
+    # Example of args to pass --zip --actions action_name param1 param2 action_name param param1
+    parser.add_argument("-z", "--zip", help="Zip_compound available", action="store_true", required=False, default=False)
+    parser.add_argument("-a", "--actions", help="Actions to take", action="store", nargs="*", required=False, default=None)
     args = parser.parse_args()
     main(args)
-

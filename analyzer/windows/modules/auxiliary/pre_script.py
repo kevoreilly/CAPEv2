@@ -29,7 +29,6 @@ class Pre_script(Auxiliary):
         else:
             # Go to the temp folder to look for pre_script.py
             matched_files = glob.glob(os.path.join(tmp_folder, "pre_script.*"))
-        
 
         # Check if the file exists and if the pre_script is enabled
         if matched_files and self.enabled.pre_script:

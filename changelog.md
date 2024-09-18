@@ -1,3 +1,8 @@
+### [18.09.2024]
+* Monitor updates:
+    * Add disassembled instruction to exception output
+    * VBScript hook improvements (thanks Jeremy at Proofpoint)
+
 ### [13.09.2024]
 * Fix issue with sign extension causing 32-bit values to be misrepresented in web ui (e.g. 0xffffffffc000005 for 0xc000005)
 * bytes2str(): if any values in dict type are already str then keep them

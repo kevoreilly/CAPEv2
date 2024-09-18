@@ -18,11 +18,10 @@ from ctypes import (
     c_void_p,
     c_wchar_p,
 )
+
 if sys.platform == "win32":
-    from ctypes import (
-        WINFUNCTYPE,
-        windll,
-    )
+    from ctypes import WINFUNCTYPE, windll
+
     NTDLL = windll.ntdll
     KERNEL32 = windll.kernel32
     ADVAPI32 = windll.advapi32

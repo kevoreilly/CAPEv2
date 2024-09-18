@@ -138,10 +138,12 @@ OFFICE_WINDOW_CLASSES = (
     "bosa_sdm_msword",
 )
 
+
 def get_cursor_position():
     pt = wintypes.POINT()
     USER32.GetCursorPos(byref(pt))
     return {"x": pt.x, "y": pt.y}
+
 
 def get_window_text(hwnd):
     length = USER32.SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0)
@@ -151,13 +153,16 @@ def get_window_text(hwnd):
     USER32.SendMessageW(hwnd, WM_GETTEXT, length + 1, text)
     return text.value.replace("&", "")
 
+
 def is_button_checked(hwnd):
     return bool(USER32.SendMessageW(hwnd, BM_GETCHECK, 0, 0) == BST_CHECKED)
+
 
 def send_click(hwnd):
     USER32.SetForegroundWindow(hwnd)
     KERNEL32.Sleep(1000)
     USER32.SendMessageW(hwnd, BM_CLICK, 0, 0)
+
 
 def click_button(hwnd, classname):
     button_text = get_window_text(hwnd)
@@ -193,6 +198,7 @@ def click_button(hwnd, classname):
     # continue searching through windows
     return True
 
+
 def check_button(hwnd):
     if is_button_checked(hwnd):
         return True
@@ -216,17 +222,18 @@ def check_button(hwnd):
     # continue searching through windows
     return True
 
+
 def is_button(classname):
-    return bool(
-        "button" in classname
-        or ("button" not in classname and classname in OFFICE_WINDOW_CLASSES)
-    )
+    return bool("button" in classname or ("button" not in classname and classname in OFFICE_WINDOW_CLASSES))
+
 
 def is_checkbox(classname):
     return "checkbox" in classname
 
+
 def is_radio_button(classname):
     return "radiobutton" in classname
+
 
 def interact_with_window(hwnd, lparam):
     # we don't want to bother clicking any non-visible child elements, as they

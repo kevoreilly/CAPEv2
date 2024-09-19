@@ -37,5 +37,6 @@ class DOC(Package):
         except CuckooPackageError:
             word = self.get_path_glob("WORDVIEW.EXE")
 
-        path = check_file_extension(path, ".doc")
+        if not path.endswith((".doc", ".docx", ".docm", ".dotm", ".odt")):
+            path = check_file_extension(path, ".doc")
         return self.execute(word, f'"{path}" /q', path)

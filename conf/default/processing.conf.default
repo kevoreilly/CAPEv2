@@ -68,6 +68,9 @@ ram_boost = no
 replace_patterns = no
 file_activities = no
 
+[tracee]
+enabled = no
+
 [strace]
 enabled = no
 # Toggle specific modules within the StraceAnalysis class
@@ -120,6 +123,9 @@ country_lookup = no
 # For maxmind use: GeoLite2 Country
 # For ipinfo use: Free IP to Country + IP to ASN
 maxmind_database = data/GeoLite2-Country.mmdb
+
+[pcapng]
+enabled = no
 
 [url_analysis]
 enabled = yes

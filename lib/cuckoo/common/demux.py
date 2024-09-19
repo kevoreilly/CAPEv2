@@ -16,9 +16,9 @@ from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
 from lib.cuckoo.common.utils import get_options, sanitize_filename
 
 sfFile = False
-sf_version = ""
+# sf_version = ""
 try:
-    from sflock import __version__ as sf_version
+    # from sflock import __version__ as sf_version
     from sflock import unpack
     from sflock.abstracts import File as sfFile
     from sflock.exception import UnpackException
@@ -26,11 +26,11 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("\n\n[!] Missde dependencies. Run: poetry install\n\n")
+    print("\n\n[!] Missing dependencies. Run: poetry install\n\n")
     HAS_SFLOCK = False
 
-if sf_version and int(sf_version.split(".")[-1]) < 42:
-    print("You using old version of sflock! Upgrade: poetry install")
+# if sf_version and int(sf_version.split(".")[-1]) < 42:
+#    print("You are using an old version of sflock! Upgrade: poetry install")
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()

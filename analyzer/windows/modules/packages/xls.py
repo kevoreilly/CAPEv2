@@ -29,7 +29,7 @@ class XLS(Package):
     The .xls filename extension will be added automatically."""
 
     def start(self, path):
-        if not path.endswith((".xls", ".xlsx", ".xlsb", ".xlsm")):
+        if not path.endswith((".xls", ".xlsx", ".xlsb", ".xlsm", ".slk", ".ods")):
             path = check_file_extension(path, ".xls")
         excel = self.get_path_glob("EXCEL.EXE")
         return self.execute(excel, f'"{path}" /dde', path)

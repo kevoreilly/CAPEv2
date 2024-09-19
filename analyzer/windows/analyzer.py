@@ -732,7 +732,7 @@ class Analyzer:
         # Tell all processes to complete their monitoring
         if not kernel_analysis:
             for pid in self.process_list.pids:
-                proc = Process(pid=pid)
+                proc = Process(options=self.options, config=self.config, pid=pid)
                 if proc.is_alive():
                     try:
                         proc.set_terminate_event()

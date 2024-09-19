@@ -37,7 +37,7 @@ class FileCollector(Auxiliary, Thread):
 
         time.sleep(2)  # wait a while to process stuff in the queue
         self.do_run = False
-        self.thread.join()
+        self.thread.join(timeout=5)
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)

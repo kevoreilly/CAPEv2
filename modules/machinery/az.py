@@ -237,9 +237,7 @@ class Azure(Machinery):
         A thread on a timer that scales the machine pools to appropriate levels.
         """
         # Only do it post-initialization
-        if self.initializing:
-            pass
-        else:
+        if not self.initializing:
             log.debug("Monitoring the machine pools...")
             for _, vals in self.required_vmsss.items():
                 threading.Thread(target=self._thr_scale_machine_pool, args=(vals["tag"],)).start()

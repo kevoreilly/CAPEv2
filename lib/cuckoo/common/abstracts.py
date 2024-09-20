@@ -131,10 +131,6 @@ class Machinery:
 
     def initialize(self) -> None:
         """Read, load, and verify machines configuration."""
-        # Machine table is cleaned to be filled from configuration file
-        # at each start.
-        self.db.clean_machines()
-
         # Load.
         self._initialize()
 

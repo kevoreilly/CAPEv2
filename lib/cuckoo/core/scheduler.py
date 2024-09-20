@@ -285,6 +285,8 @@ class Scheduler:
         """Start scheduler."""
         if self.machinery_manager:
             with self.db.session.begin():
+                self.db.clean_machines()
+            with self.db.session.begin():
                 self.machinery_manager.initialize_machinery()
 
         # Message queue with threads to transmit exceptions (used as IPC).

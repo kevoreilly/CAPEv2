@@ -437,9 +437,16 @@ class Azure(Machinery):
         for worker in workers:
             worker.start()
 
-    def start(self, _):
-        # NOTE: Machines are always started. ALWAYS
-        pass
+    def start(self, label):
+        # Something bad happened, we are starting a task on a machine that needs to be deleted
+        with vms_currently_being_deleted_lock:
+            if label in vms_currently_being_deleted:
+                err_msg = (
+                    f"Attempting to start a task with machine {label} while it is scheduled for deletion."
+                    f"Reassigning the task and removing {label} from the database."
+                )
+                log.error(err_msg)
+                raise CuckooMachineError(err_msg)
 
     def stop(self, label):
         """
@@ -631,7 +638,9 @@ class Azure(Machinery):
         if delete_from_vmss:
             vmss_name, instance_id = label.split("_")
             with vms_currently_being_deleted_lock:
-                vms_currently_being_deleted.append(label)
+                # Checking if delete_machine has already been called on this machine
+                if not label in vms_currently_being_deleted:
+                    vms_currently_being_deleted.append(label)
             with delete_lock:
                 delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
 

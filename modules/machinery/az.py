@@ -637,12 +637,13 @@ class Azure(Machinery):
 
         if delete_from_vmss:
             vmss_name, instance_id = label.split("_")
+            # Only add vm to the lists if it isn't there already
             with vms_currently_being_deleted_lock:
-                # Checking if delete_machine has already been called on this machine
                 if not label in vms_currently_being_deleted:
                     vms_currently_being_deleted.append(label)
             with delete_lock:
-                delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
+                if next((vm for vm in delete_vm_list if vm["id"] == instance_id), None) is None:
+                    delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
 
     @staticmethod
     def _thr_wait_for_ready_machine(machine_name, machine_ip):

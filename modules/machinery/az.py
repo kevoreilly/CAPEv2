@@ -665,7 +665,7 @@ class Azure(Machinery):
             # Only add vm to the lists if it isn't there already
             vmss_name, instance_id = label.split("_")
             with vms_currently_being_deleted_lock:
-                if not label in vms_currently_being_deleted:
+                if label not in vms_currently_being_deleted:
                     vms_currently_being_deleted.append(label)
             with delete_lock:
                 if next((vm for vm in delete_vm_list if vm["id"] == instance_id), None) is None:

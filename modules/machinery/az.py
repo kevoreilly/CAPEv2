@@ -279,8 +279,9 @@ class Azure(Machinery):
             elif required_vmss_values["initial_pool_size"] is None:
                 raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an initial pool size.")
 
-        self._process_existing_vmsss()
-        self._process_pre_existing_vmsss(self.required_vmsss)
+        self._process_pre_existing_vmsss()
+        self._check_cpu_cores()
+        self._get_or_upsert_vmsss(self.required_vmsss)
         self._create_batch_threads()
 
     def _process_pre_existing_vmsss(self):
@@ -365,6 +366,10 @@ class Azure(Machinery):
                     operation=self.compute_client.virtual_machine_scale_sets.begin_delete,
                 )
 
+    def _check_cpu_cores(self):
+        """
+        Process and store value for cpu cores.
+        """
         # Initialize the platform scaling state monitor
         is_platform_scaling.update({Azure.WINDOWS_PLATFORM: False, Azure.LINUX_PLATFORM: False})
 
@@ -404,7 +409,7 @@ class Azure(Machinery):
         for vmss, vals in vmsss_dict.items():
             if vals["exists"] and not self.options.az.just_start:
                 if machine_pools[vmss]["size"] == 0:
-                    self._thr_scale_machine_pool(self.options.az.scale_sets[vmss].pool_tag, True if vals["platform"] else False),
+                    self._thr_scale_machine_pool(self.options.az.scale_sets[vmss].pool_tag, True if vals["platform"] else False)
                 else:
                     # Reimage VMSS!
                     thr = threading.Thread(
@@ -445,7 +450,7 @@ class Azure(Machinery):
         for worker in workers:
             worker.start()
 
-    def start(self, label):
+    def start(self, label=None):
         # Something bad happened, we are starting a task on a machine that needs to be deleted
         with vms_currently_being_deleted_lock:
             if label in vms_currently_being_deleted:
@@ -456,7 +461,7 @@ class Azure(Machinery):
                 log.error(err_msg)
                 raise CuckooMachineError(err_msg)
 
-    def stop(self, label):
+    def stop(self, label=None):
         """
         If the VMSS is in the "scaling-down" state, delete machine,
         otherwise reimage it.
@@ -487,7 +492,7 @@ class Azure(Machinery):
         else:
             _ = super(Azure, self).release(machine)
 
-    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
+    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None):
         """
         Overloading abstracts.py:availables() to utilize the auto-scale option.
         """
@@ -691,13 +696,12 @@ class Azure(Machinery):
                 log.debug(f"{machine_name}: Initializing...")
             except socket.error:
                 log.debug(f"{machine_name}: Initializing...")
-            else:
-                if (timeit.default_timer() - start) >= timeout:
-                    # We didn't do it :(
-                    raise CuckooGuestCriticalTimeout(
-                        f"Machine {machine_name}: the guest initialization hit the critical timeout, analysis aborted."
-                    )
-                time.sleep(10)
+            if (timeit.default_timer() - start) >= timeout:
+                # We didn't do it :(
+                raise CuckooGuestCriticalTimeout(
+                    f"Machine {machine_name}: the guest initialization hit the critical timeout, analysis aborted."
+                )
+            time.sleep(10)
         log.debug(f"Machine {machine_name} was created and available in {round(timeit.default_timer() - start)}s")
 
     @staticmethod

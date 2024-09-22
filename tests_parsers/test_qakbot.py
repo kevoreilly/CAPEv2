@@ -1,5 +1,7 @@
 import pytest
+
 from modules.processing.parsers.CAPE.QakBot import extract_config
+
 
 @pytest.mark.skip(reason="Missed file")
 def test_qakbot():

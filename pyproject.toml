@@ -72,6 +72,7 @@ psycopg2-binary = "^2.9.5"
 ruff = "0.0.290"
 paramiko = "3.4.0"
 psutil = "5.9.8"
+# peepdf-3 = "4.0.0"
 
 Werkzeug = "3.0.3"
 packaging = "23.1"

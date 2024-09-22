@@ -104,6 +104,10 @@ class Azure(Machinery):
     WINDOWS_PLATFORM = "windows"
     LINUX_PLATFORM = "linux"
 
+    # Statuses for machines
+    ABSENT = "absent_vm"
+    REIMAGE_FAILING = "failed_reimaging"
+
     def set_options(self, options: dict) -> None:
         """Set machine manager options.
         @param options: machine manager options dict.
@@ -454,17 +458,11 @@ class Azure(Machinery):
         # Something bad happened, we are starting a task on a machine that needs to be deleted
         with vms_currently_being_deleted_lock:
             if label in vms_currently_being_deleted:
-                err_msg = (
-                    f"Attempting to start a task with machine {label} while it is scheduled for deletion."
-                    f"Reassigning the task and removing {label} from the database."
-                )
-                log.error(err_msg)
-                raise CuckooMachineError(err_msg)
+                raise CuckooMachineError(f"Attempting to start a task with machine {label} while it is scheduled for deletion.")
 
     def stop(self, label=None):
         """
-        If the VMSS is in the "scaling-down" state, delete machine,
-        otherwise reimage it.
+        If the VMSS is NOT in the "scaling-down" state, reimage it.
         @param label: virtual machine label
         @return: End method call
         """
@@ -486,8 +484,16 @@ class Azure(Machinery):
                     label_in_reimage_vm_list = label in [f"{vm['vmss']}_{vm['id']}" for vm in reimage_vm_list]
 
     def release(self, machine: Machine):
+        """
+        Delete machine if its VMSS is in the "scaling-down" state, it was found to be absent from its VMSS during
+        reimaging, or reimaging timed out.
+        Otherwise, release the successfully reimaged machine.
+        @param label: machine label.
+        """
         vmss_name = machine.label.split("_")[0]
-        if machine_pools[vmss_name]["is_scaling_down"]:
+        if machine.status == Azure.ABSENT:
+            self.delete_machine(machine.label, delete_from_vmss=False)
+        elif machine.status == Azure.REIMAGE_FAILING or machine_pools[vmss_name]["is_scaling_down"]:
             self.delete_machine(machine.label)
         else:
             _ = super(Azure, self).release(machine)
@@ -1282,8 +1288,7 @@ class Azure(Machinery):
                                 vms_currently_being_deleted.append(f"{vmss_to_reimage}_{instance_id}")
                             with delete_lock:
                                 delete_vm_list.append({"vmss": vmss_to_reimage, "id": instance_id, "time_added": time.time()})
-
-                        self.delete_machine(f"{vmss_to_reimage}_{instance_id}", delete_from_vmss=False)
+                        self.set_status(f"{vmss_to_reimage}_{instance_id}", Azure.ABSENT)
                         vms_currently_being_reimaged.remove(f"{vmss_to_reimage}_{instance_id}")
                         instance_ids.remove(instance_id)
 
@@ -1299,12 +1304,12 @@ class Azure(Machinery):
                     if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
                         reimaged = False
 
-                        log.debug(
+                        log.warning(
                             f"Reimaging machines {instance_ids} in {vmss_to_reimage} took too long, deleting them from the DB and the VMSS."
                         )
-                        # That sucks, now we have to delete each one
+                        # That sucks, now we have mark each one for deletion
                         for instance_id in instance_ids:
-                            self.delete_machine(f"{vmss_to_reimage}_{instance_id}")
+                            self.set_status(f"{vmss_to_reimage}_{instance_id}", Azure.REIMAGE_FAILING)
                         break
                     time.sleep(2)
 
@@ -1373,7 +1378,7 @@ class Azure(Machinery):
                 while not async_delete_some_machines.done():
                     deleted = True
                     if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
-                        log.debug(f"Deleting machines {instance_ids} in {vmss_to_delete_from} took too long.")
+                        log.warning(f"Deleting machines {instance_ids} in {vmss_to_delete_from} took too long.")
                         deleted = False
                         break
                     time.sleep(2)

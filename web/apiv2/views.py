@@ -793,6 +793,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
 
     status = request.query_params.get("status")
     option = request.query_params.get("option")
+    category = request.query_params.get("category")
 
     if offset:
         offset = int(offset)
@@ -803,6 +804,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
     tasks = db.list_tasks(
         limit=limit,
         details=True,
+        category=category,
         offset=offset,
         completed_after=completed_after,
         status=status,

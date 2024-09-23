@@ -5,7 +5,7 @@
         {% if tab_name == "static" %}
             style="table-layout: fixed;"
         {% else %}
-           style="table-layout: fixed; width: 50%;margin-left: auto;margin-right: auto;"
+            style="table-layout: fixed; width: 50%;margin-left: auto;margin-right: auto;"
         {% endif %}
         >
 
@@ -176,9 +176,9 @@
         {% if file.yara %}
         <tr>
             <th>
-             {% if config.yara_detail %}
+            {% if config.yara_detail %}
                 <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#yara_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="yara_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Yara details"><span class="fas fa-file-lines"></span> Yara</a>
-             {% else %}
+            {% else %}
                 Yara
             {% endif %}
             </th>
@@ -186,7 +186,7 @@
                 <ul style="margin-bottom: 0;">
                 {% for sign in file.yara %}
                     <li>
-                    {{sign.name}} - {{sign.meta.description}}
+                    <a href="/analysis/search/yaraname:{{sign.name}}">{{sign.name}}</a>  - {{sign.meta.description}}
                     {% if sign.meta.author %}
                         - Author: {{sign.meta.author}}
                     {% endif %}
@@ -209,7 +209,7 @@
                 <ul style="margin-bottom: 0;">
                 {% for sign in file.cape_yara %}
                     <li>
-                    {{sign.name}}
+                    <a href="/analysis/search/capeyara:{{sign.name}}">{{sign.name}}</a>
                     {% if sign.meta.cape_type %} - {{sign.meta.cape_type}}
                     {% elif sign.meta.description %} - {{sign.meta.description}}
                     {% endif %}

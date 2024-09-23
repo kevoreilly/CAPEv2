@@ -1,5 +1,6 @@
 ### [23.09.2024]
 * Monitor update: Fix size bug with unpacking embedded PEs
+* .NET loader 'SlowLoader' detonation shim for slower cpus (race condition)
 
 ### [18.09.2024]
 * Monitor updates:

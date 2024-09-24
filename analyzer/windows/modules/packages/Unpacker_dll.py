@@ -7,8 +7,15 @@ import shutil
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
-from lib.common.constants import OPT_ARGUMENTS, OPT_DLLLOADER, OPT_FUNCTION, OPT_INJECTION, OPT_UNPACKER
-from modules.packages.dll import DLL_OPTION_TEXT, DLL_OPTIONS
+from lib.common.constants import (
+    DLL_OPTION_TEXT,
+    DLL_OPTIONS,
+    OPT_ARGUMENTS,
+    OPT_DLLLOADER,
+    OPT_FUNCTION,
+    OPT_INJECTION,
+    OPT_UNPACKER,
+)
 
 
 class Unpacker_dll(Package):

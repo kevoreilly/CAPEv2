@@ -28,6 +28,7 @@ import cachetools.func
 import dns.resolver
 from dns.reversename import from_address
 
+import utils.profiling as profiling
 from data.safelist.domains import domain_passlist_re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
@@ -78,6 +79,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..
 sys.path.append(CUCKOO_ROOT)
 
 TLS_HANDSHAKE = 22
+PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30 * 1024 * 1024
 
 Keyed = namedtuple("Keyed", ["key", "obj"])
 Packet = namedtuple("Packet", ["raw", "ts"])
@@ -736,7 +738,12 @@ class Pcap:
             return self.results
 
         try:
-            pcap = dpkt.pcap.Reader(file)
+            if PCAP_TYPE == "pcap":
+                pcap = dpkt.pcap.Reader(file)
+            elif PCAP_TYPE == "pcapng":
+                pcap = dpkt.pcapng.Reader(file)
+            else:
+                return self.results
         except dpkt.dpkt.NeedData:
             log.error('Unable to read PCAP file at path "%s"', self.filepath)
             return self.results
@@ -922,6 +929,11 @@ class Pcap2:
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
+        httpreplay_start = profiling.Counter()
+        log.info("starting processing pcap with httpreplay")
+        if os.path.getsize(self.pcap_path) > PCAP_BYTES_HTTPREPLAY_WARN_LIMIT:
+            log.warning("httpreplay processing may timeout due to pcap size")
+
         r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))
         r.tcp = httpreplay.smegma.TCPPacketStreamer(r, self.handlers)
 
@@ -1060,6 +1072,8 @@ class Pcap2:
 
                 results[f"{protocol}_ex"].append(tmp_dict)
 
+        log.info("finished processing pcap with httpreplay")
+        log.debug("httpreplay processing time: %s", (profiling.Counter() - httpreplay_start))
         return results
 
 
@@ -1087,6 +1101,8 @@ class NetworkAnalysis(Processing):
         return ja3_fprints
 
     def run(self):
+        global PCAP_TYPE
+        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         self.key = "network"
         self.ja3_file = self.options.get("ja3_file", os.path.join(CUCKOO_ROOT, "data", "ja3", "ja3fingerprint.json"))
         if not IS_DPKT:
@@ -1117,7 +1133,10 @@ class NetworkAnalysis(Processing):
 
         if HAVE_HTTPREPLAY:
             try:
-                p2 = Pcap2(self.pcap_path, self.get_tlsmaster(), self.network_path).run()
+                p2 = {}
+                tls_master = self.get_tlsmaster()
+                if tls_master:
+                    p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
                 if p2:
                     results.update(p2)
             except Exception:
@@ -1225,14 +1244,20 @@ class SortCap:
     def write(self, p=None):
         if not self.fileobj:
             self.fileobj = open(self.name, "wb")
-            self.fd = dpkt.pcap.Writer(self.fileobj, linktype=self.linktype)
+            if PCAP_TYPE == "pcap":
+                self.fd = dpkt.pcap.Writer(self.fileobj, linktype=self.linktype)
+            elif PCAP_TYPE == "pcapng":
+                self.fd = dpkt.pcapng.Writer(self.fileobj, linktype=self.linktype)
         if p:
             self.fd.writepkt(p.raw, p.ts)
 
     def __iter__(self):
         if not self.fileobj:
             self.fileobj = open(self.name, "rb")
-            self.fd = dpkt.pcap.Reader(self.fileobj)
+            if PCAP_TYPE == "pcap":
+                self.fd = dpkt.pcap.Reader(self.fileobj)
+            elif PCAP_TYPE == "pcapng":
+                self.fd = dpkt.pcapng.Reader(self.fileobj)
             self.fditer = iter(self.fd)
             self.linktype = self.fd.datalink()
         return self
@@ -1338,3 +1363,17 @@ def packets_for_stream(fobj, offset):
     fobj.seek(offset)
     for p in next_connection_packets(pcapiter, linktype=pcap.datalink()):
         yield p
+
+
+def check_pcap_file_type(filepath):
+    with open(filepath, "rb") as fd:
+        magic_number = fd.read(4)
+        fd.seek(0)
+        magic_number = int.from_bytes(magic_number, byteorder="little")
+
+        if magic_number in (0xA1B2C3D4, 0xD4C3B2A1):
+            return "pcap"
+        elif magic_number == 0x0A0D0D0A:
+            return "pcapng"
+        else:
+            return

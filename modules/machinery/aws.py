@@ -7,7 +7,7 @@ from lib.cuckoo.core.database import Machine
 try:
     import boto3
 except ImportError:
-    sys.exit("Missed boto3 dependency: pip3 install boto3")
+    sys.exit("Missed boto3 dependency: poetry run pip3 install boto3")
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
@@ -16,6 +16,7 @@ from lib.cuckoo.common.exceptions import CuckooMachineError
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
 log = logging.getLogger(__name__)
+cfg_resultserver_ip = Config().get("resultserver").get("ip")
 
 
 class AWS(Machinery):
@@ -108,9 +109,7 @@ class AWS(Machinery):
         # If configured, use specific network interface for this
         # machine, else use the default value.
         interface = autoscale_options["interface"] if autoscale_options.get("interface") else machinery_options.get("interface")
-        resultserver_ip = (
-            autoscale_options["resultserver_ip"] if autoscale_options.get("resultserver_ip") else Config("cuckoo:resultserver:ip")
-        )
+        resultserver_ip = autoscale_options["resultserver_ip"] if autoscale_options.get("resultserver_ip") else cfg_resultserver_ip
         if autoscale_options.get("resultserver_port"):
             resultserver_port = autoscale_options["resultserver_port"]
         else:

@@ -497,44 +497,32 @@ class Analyzer:
         Auxiliary()
         prefix = f"{auxiliary.__name__}."
 
-        # disable_screens = True
-        # if self.options.get("disable_screens") == "0":
-        #    disable_screens = False
-
         for _, name, _ in pkgutil.iter_modules(auxiliary.__path__, prefix):
             try:
-                log.debug('Importing auxiliary module "%s"...', name)
-                __import__(name, globals(), locals(), ["dummy"])
-                # log.debug('Imported auxiliary module "%s"', name)
+                mod_name = name.split(".")[-1]
+                if hasattr(self.config, mod_name) and getattr(self.config, mod_name, False):
+                    log.debug('Importing auxiliary module "%s"...', name)
+                    __import__(name, globals(), locals(), ["dummy"])
+                    # log.debug('Imported auxiliary module "%s"', name)
             except ImportError as e:
                 log.warning('Unable to import the auxiliary module "%s": %s', name, e)
+
         # Walk through the available auxiliary modules.
         aux_modules = []
 
         for module in sorted(Auxiliary.__subclasses__(), key=lambda x: x.start_priority, reverse=True):
-            # Try to start the auxiliary module.
-            # if module.__name__ == "Screenshots" and disable_screens:
-            #    continue
             try:
                 aux = module(self.options, self.config)
                 log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_modules.append(aux)
-
-                # The following commented out code causes the monitor to not upload logs.
-                # If the auxiliary module is not enabled, we shouldn't start it
-                # if hasattr(aux, "enabled") and not getattr(aux, "enabled", False):
-                #     log.debug('Auxiliary module "%s" is disabled.', module.__name__)
-                #     # We continue so that the module is not added to AUX_ENABLED
-                #     continue
-                # else:
-                log.debug('Trying to start auxiliary module "%s"...', module.__name__)
+                log.debug('Trying to start auxiliary module "%s"...', module.__module__)
                 aux.start()
             except (NotImplementedError, AttributeError) as e:
                 log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
             except Exception as e:
-                log.warning("Cannot execute auxiliary module %s: %s", module.__name__, e)
+                log.warning("Cannot execute auxiliary module %s: %s", module.__module__, e)
             else:
-                log.debug("Started auxiliary module %s", module.__name__)
+                log.debug("Started auxiliary module %s", module.__module__)
                 AUX_ENABLED.append(aux)
 
         """

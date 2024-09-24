@@ -135,6 +135,15 @@
                 {% if process.environ.CommandLine %}
                 <br />Command Line: <b>{{ process.environ.CommandLine }}</b>
                 {% endif %}
+                {% if process.environ.MainExeBase %}
+                    <br />Image Base: <b>{{ process.environ.MainExeBase }}</b>,
+                {% endif %}
+                {% if process.environ.MainExeSize %}
+                    Image Size: <b>{{ process.environ.MainExeSize }}</b>,
+                {% endif %}
+                {% if process.environ.Bitness %}
+                    <b>{{ process.environ.Bitness }}</b>
+                {% endif %}
             </div>
 
             <div>

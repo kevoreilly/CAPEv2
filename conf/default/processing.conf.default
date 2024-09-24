@@ -124,6 +124,9 @@ country_lookup = no
 # For ipinfo use: Free IP to Country + IP to ASN
 maxmind_database = data/GeoLite2-Country.mmdb
 
+[pcapng]
+enabled = no
+
 [url_analysis]
 enabled = yes
 # Enable a WHOIS lookup for the target domain of a URL analyses

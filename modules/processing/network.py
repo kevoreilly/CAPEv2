@@ -738,7 +738,12 @@ class Pcap:
             return self.results
 
         try:
-            pcap = dpkt.pcap.Reader(file)
+            if PCAP_TYPE == "pcap":
+                pcap = dpkt.pcap.Reader(file)
+            elif PCAP_TYPE == "pcapng":
+                pcap = dpkt.pcapng.Reader(file)
+            else:
+                return self.results
         except dpkt.dpkt.NeedData:
             log.error('Unable to read PCAP file at path "%s"', self.filepath)
             return self.results
@@ -1096,6 +1101,8 @@ class NetworkAnalysis(Processing):
         return ja3_fprints
 
     def run(self):
+        global PCAP_TYPE
+        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         self.key = "network"
         self.ja3_file = self.options.get("ja3_file", os.path.join(CUCKOO_ROOT, "data", "ja3", "ja3fingerprint.json"))
         if not IS_DPKT:
@@ -1237,14 +1244,20 @@ class SortCap:
     def write(self, p=None):
         if not self.fileobj:
             self.fileobj = open(self.name, "wb")
-            self.fd = dpkt.pcap.Writer(self.fileobj, linktype=self.linktype)
+            if PCAP_TYPE == "pcap":
+                self.fd = dpkt.pcap.Writer(self.fileobj, linktype=self.linktype)
+            elif PCAP_TYPE == "pcapng":
+                self.fd = dpkt.pcapng.Writer(self.fileobj, linktype=self.linktype)
         if p:
             self.fd.writepkt(p.raw, p.ts)
 
     def __iter__(self):
         if not self.fileobj:
             self.fileobj = open(self.name, "rb")
-            self.fd = dpkt.pcap.Reader(self.fileobj)
+            if PCAP_TYPE == "pcap":
+                self.fd = dpkt.pcap.Reader(self.fileobj)
+            elif PCAP_TYPE == "pcapng":
+                self.fd = dpkt.pcapng.Reader(self.fileobj)
             self.fditer = iter(self.fd)
             self.linktype = self.fd.datalink()
         return self
@@ -1350,3 +1363,17 @@ def packets_for_stream(fobj, offset):
     fobj.seek(offset)
     for p in next_connection_packets(pcapiter, linktype=pcap.datalink()):
         yield p
+
+
+def check_pcap_file_type(filepath):
+    with open(filepath, "rb") as fd:
+        magic_number = fd.read(4)
+        fd.seek(0)
+        magic_number = int.from_bytes(magic_number, byteorder='little')
+
+        if magic_number in (0xa1b2c3d4, 0xd4c3b2a1):
+            return "pcap"
+        elif magic_number == 0x0a0d0d0a:
+            return "pcapng"
+        else:
+            return

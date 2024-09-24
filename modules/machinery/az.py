@@ -26,12 +26,7 @@ except ImportError:
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
-from lib.cuckoo.common.exceptions import (
-    CuckooCriticalError,
-    CuckooDependencyError,
-    CuckooGuestCriticalTimeout,
-    CuckooMachineError,
-)
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError, CuckooGuestCriticalTimeout, CuckooMachineError
 from lib.cuckoo.core.database import TASK_PENDING, Machine
 
 # Only log INFO or higher from imported python packages
@@ -181,7 +176,12 @@ class Azure(Machinery):
         # We will be using this as a source of truth for the VMSS configs
         self.required_vmsss = {
             vmss_name: {
-                "exists": False, "image": None, "platform": None, "tag": None, "initial_pool_size": None, "retries": self.options.az.init_retries
+                "exists": False,
+                "image": None,
+                "platform": None,
+                "tag": None,
+                "initial_pool_size": None,
+                "retries": self.options.az.init_retries,
             }
             for vmss_name in self.options.az.scale_sets
         }
@@ -657,12 +657,9 @@ class Azure(Machinery):
                 self.required_vmsss[vmss_name]["retries"] -= 1
                 start_time = timeit.default_timer()
 
-                while ((timeit.default_timer() - start_time) < 120):
+                while (timeit.default_timer() - start_time) < 120:
                     with vms_currently_being_deleted_lock:
-                        if any(
-                            failed_vm in vms_currently_being_deleted
-                            for failed_vm in ready_vmss_vm_threads
-                        ):
+                        if any(failed_vm in vms_currently_being_deleted for failed_vm in ready_vmss_vm_threads):
                             # VMs not deleted from VMSS yet.
                             continue
                     self._update_or_create_vmsss(vmsss_dict={vmss_name: self.required_vmsss[vmss_name]})
@@ -1346,7 +1343,9 @@ class Azure(Machinery):
                 with current_operations_lock:
                     current_vmss_operations -= 1
                 timediff = timeit.default_timer() - start_time
-                log.debug(f"{'S' if reimaged else 'Uns'}uccessfully reimaging instances {instance_ids} in {vmss_to_reimage} took {round(timediff)}s")
+                log.debug(
+                    f"{'S' if reimaged else 'Uns'}uccessfully reimaging instances {instance_ids} in {vmss_to_reimage} took {round(timediff)}s"
+                )
             except Exception as e:
                 log.error(f"Exception occurred in the reimage thread: {e}. Trying again...")
 
@@ -1420,6 +1419,8 @@ class Azure(Machinery):
 
                 with current_operations_lock:
                     current_vmss_operations -= 1
-                log.debug(f"{'S' if deleted else 'Uns'}uccessfully deleting instances {instance_ids} in {vmss_to_delete_from} took {round(timeit.default_timer() - start_time)}s")
+                log.debug(
+                    f"{'S' if deleted else 'Uns'}uccessfully deleting instances {instance_ids} in {vmss_to_delete_from} took {round(timeit.default_timer() - start_time)}s"
+                )
             except Exception as e:
                 log.error(f"Exception occurred in the delete thread: {e}. Trying again...")

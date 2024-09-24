@@ -524,7 +524,7 @@ class Analyzer:
             else:
                 log.debug("Started auxiliary module %s", module.__module__)
                 AUX_ENABLED.append(aux)
-    
+
         """
         # Inform zer0m0n of the ResultServer address.
         zer0m0n.resultserver(self.config.ip, self.config.port)

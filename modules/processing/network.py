@@ -1369,11 +1369,11 @@ def check_pcap_file_type(filepath):
     with open(filepath, "rb") as fd:
         magic_number = fd.read(4)
         fd.seek(0)
-        magic_number = int.from_bytes(magic_number, byteorder='little')
+        magic_number = int.from_bytes(magic_number, byteorder="little")
 
-        if magic_number in (0xa1b2c3d4, 0xd4c3b2a1):
+        if magic_number in (0xA1B2C3D4, 0xD4C3B2A1):
             return "pcap"
-        elif magic_number == 0x0a0d0d0a:
+        elif magic_number == 0x0A0D0D0A:
             return "pcapng"
         else:
             return

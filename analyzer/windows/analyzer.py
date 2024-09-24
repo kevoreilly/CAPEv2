@@ -496,10 +496,13 @@ class Analyzer:
         # Initialize Auxiliary modules
         Auxiliary()
         prefix = f"{auxiliary.__name__}."
+        windows_modules = ["human", "screenshots", "sysmon"]
 
         for _, name, _ in pkgutil.iter_modules(auxiliary.__path__, prefix):
             try:
                 mod_name = name.split(".")[-1]
+                if mod_name in windows_modules:
+                    mod_name += "_windows"
                 if hasattr(self.config, mod_name) and getattr(self.config, mod_name, False):
                     log.debug('Importing auxiliary module "%s"...', name)
                     __import__(name, globals(), locals(), ["dummy"])

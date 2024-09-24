@@ -9,6 +9,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.cleaners_utils import execute_cleanup
+from lib.cuckoo.core.database import init_database
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -93,4 +94,5 @@ if __name__ == "__main__":
         "-bt", "--before-time", help="Manage all pending jobs before N hours.", action="store", required=False, type=int
     )
     args = parser.parse_args()
+    init_database()
     execute_cleanup(vars(args))

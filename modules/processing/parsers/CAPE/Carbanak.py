@@ -1,6 +1,20 @@
+# Copyright (C) 2024 enzok
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 import logging
 import re
-import struct
 from contextlib import suppress
 
 import pefile
@@ -14,16 +28,20 @@ rule Carbanak
 {
     meta:
         author = "enzok"
-        description = "Carnbanak sbox init"
+        description = "Carbanak sbox constants"
         cape_type = "Carbanak Payload"
     strings:
-        $sboxinit = {0F BE 02 4? 8D 05 [-] 4? 8D 4D ?? E8 [3] 00 33 F6 4? 8D 5D ?? 4? 63 F8 8B 45 ?? B? B1 E3 14 06}
+        $constants = {0F B7 05 [3] 00 0F B7 1D [3] 00 83 25 [3] 00 00 89 05 [3] 00 0F B7 05 [3] 00 89 1D [3] 00 89 05 [3] 00 33 C0 4? 8D 4D}    
     condition:
-        uint16(0) == 0x5A4D and any of them
+        all of them
 }
 """
 
 yara_rules = yara.compile(source=rule_source)
+
+const_a = 0
+const_b = 0
+const_c = 0
 
 
 def decode_string(src, sbox):
@@ -68,10 +86,26 @@ def decode_string(src, sbox):
     return newstr
 
 
+def scramble(sbox, start, end, count):
+    global const_a
+    length = end - start + 1
+    while count > 0:
+        s1 = (const_c + const_a * const_b) & 0xFFFF
+        const_a = (const_c + s1 * const_b) & 0xFFFF
+        i = start + s1 % length
+        s3 = sbox[i]
+        j = start + const_a % length
+        sbox[i] = sbox[j]
+        sbox[j] = s3
+        count -= 1
+    return sbox
+
+
 def extract_config(filebuf):
+    global const_a, const_b, const_c
     cfg = {}
+    constants_offset = None
     pe = pefile.PE(data=filebuf)
-    sbox_init_offset, sbox_delta, sbox_offset = 0, 0, 0
     matches = yara_rules.match(data=filebuf)
     if not matches:
         return
@@ -81,19 +115,36 @@ def extract_config(filebuf):
             continue
         for item in match.strings:
             for instance in item.instances:
-                if "$sboxinit" in item.identifier:
-                    sbox_init_offset = int(instance.offset)
+                if "$constants" in item.identifier:
+                    constants_offset = int(instance.offset)
 
-    if not sbox_init_offset:
+    if not constants_offset:
         return
 
-    sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 6 : sbox_init_offset + 10])[0]
-    sbox_offset = pe.get_offset_from_rva(sbox_delta + pe.get_rva_from_offset(sbox_init_offset) + 10)
-    sbox = bytes(filebuf[sbox_offset : sbox_offset + 128])
     data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
+    text_sections = [s for s in pe.sections if s.Name.find(b".text") != -1]
 
-    if not data_sections or not sbox:
+    if not data_sections or not text_sections:
         return None
+
+    text_start = text_sections[0].PointerToRawData
+    rva = constants_offset - text_start + text_sections[0].VirtualAddress
+    const_b_offset = pe.get_dword_from_offset(constants_offset + 3)
+    const_b_rva = rva + const_b_offset + 7
+    const_b_offset = const_b_rva - data_sections[0].VirtualAddress + data_sections[0].PointerToRawData
+    const_b = pe.get_word_from_offset(const_b_offset)
+    const_a = pe.get_word_from_offset(const_b_offset - 2)
+    const_c = pe.get_word_from_offset(const_b_offset + 2)
+
+    # init sbox
+    sbox_init = bytearray(range(256))
+    count = const_a % 1000 + 128
+    sbox_init = scramble(sbox_init, 1, 31, count)
+    sbox_init = scramble(sbox_init, 32, 127, count)
+    sbox_init = scramble(sbox_init, 128, 255, count)
+    sbox = bytearray(256)
+    for idx, dst in enumerate(sbox_init):
+        sbox[dst] = idx
 
     rdata_sections = [s for s in pe.sections if s.Name.find(b".rdata") != -1]
     if rdata_sections:
@@ -110,6 +161,7 @@ def extract_config(filebuf):
 
     data = data_sections[0].get_data()
     items = data.split(b"\x00")
+
     with suppress(IndexError, UnicodeDecodeError, ValueError):
         cfg["Unknown 1"] = decode_string(items[0], sbox).decode("utf8")
         cfg["Unknown 2"] = decode_string(items[8], sbox).decode("utf8")
@@ -120,7 +172,7 @@ def extract_config(filebuf):
         if float(cfg["Version"]) < 1.7:
             cfg["Campaign Id"] = decode_string(items[276], sbox).decode("utf8")
         else:
-            cfg["Campaign Id"] = decode_string(items[24], sbox).decode("utf8")
+            cfg["Campaign Id"] = decode_string(items[25], sbox).decode("utf8")
 
     return cfg
 

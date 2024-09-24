@@ -707,3 +707,18 @@ def unquarantine(f):
             quarfile = func(f)
             if quarfile:
                 return quarfile
+
+
+if __name__ == "__main__":
+    import sys
+
+    tmp_path = unquarantine(sys.argv[1])
+    if tmp_path:
+        original = hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()
+        unq = hashlib.sha256(open(tmp_path, "rb").read()).hexdigest()
+        if original == unq:
+            print("Unsuported quarantine file format")
+        else:
+            print(f"Suported quarantine file format: \n Original: {original} - unqarantined: {unq}")
+    else:
+        print("Unsuported quarantine file format")

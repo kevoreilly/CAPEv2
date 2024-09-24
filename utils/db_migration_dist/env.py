@@ -24,10 +24,8 @@ sys.path.append(os.path.join(curdir, "..", ".."))
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Base
 
-reporting_conf = Config("reporting")
-
 # Get database connection string from cuckoo configuration.
-url = reporting_conf.distributed.db
+url = Config("distributed").distributed.db
 target_metadata = Base.metadata
 
 

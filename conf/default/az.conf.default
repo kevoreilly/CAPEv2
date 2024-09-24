@@ -1,0 +1,163 @@
+[az]
+# Specify the Azure Region (for example, CanadaCentral). This is case-sensitive
+region_name = <region_name>
+
+# Resource Groups for Azure
+# The service principal that controls the Azure resources should have READ
+# access on the virtual network where it lives, which should be in a different resource
+# group than where the sandbox resources live.
+vnet_resource_group = <resource_group>
+sandbox_resource_group = <resource_group>
+
+#Sniffer configurations
+# New sniffer logic implementing Azure Watchers packet capture with either local or blob storage file locations 
+# the configurations for AzSniffer module will be used to create the dump.pcap file needed for network analysis when using Azure VMSS for Guest VMs
+resource_group = 
+#Storage account where the .cap  file will be placed by the Azure Packet Capture, soon the local file path logic will be implemented too 
+storage_account = 
+vmss_name = 
+#location of the network watcher (region name)
+location =  
+tenant_id = 
+client_secret = 
+connection_string =
+
+# Subscription ID for Azure
+subscription_id = <subscription_id>
+
+# Client ID for Azure
+client_id = <client_id>
+
+# Secret for Azure (fill if you are authenthicating with secrets)
+secret = <secret>
+
+# Certificate for Azure (fill if your are authenthicating with certificate)
+certificate_path = <certificate_path>
+certificate_password = <certificate_password>
+
+# Tenant for Azure
+tenant = <tenant>
+
+# Default network interface.
+interface = eth1
+
+# Virtual Network containing Cuckoo host and guests
+vnet = <vnet>
+
+# Subnet within virtual network for Cuckoo containing the guests and the interface of the
+# host where the resultserver is listening
+subnet = <subnet>
+
+# This is the limit to the number of machines that can exist in a scale set
+scale_set_limit = 20
+
+# Specify the maximum number of online machines that was created as a result of auto-scale operation.
+# Once reaching that limit, cuckoo will create a new machine only if another was terminated.
+# This limit prevents a situation of creating machine beyond the subnet capacity.
+total_machines_limit = 50
+
+# Specify the machine's instance type(for example, Standard_F2s_v2, Standard_DS3_v2)
+instance_type = <instance_type>
+
+# Determines which type of ephemeral os disk to use. Be sure to research which machine supports which type and at what sizes.
+# Possible values are CacheDisk, ResourceDisk, and NvmeDisk. Defaults to CacheDisk
+# https://learn.microsoft.com/en-us/rest/api/compute/virtual-machines/list?view=rest-compute-2024-03-02&tabs=HTTP#diffdisksettings
+ephemeral_os_disk_placement =
+
+# This boolean flag is used to indicate if we want to programmatically determine how many cores are used
+# per VM of the instance_type mentioned above.
+# NOTE: If enabled, this is a long call that takes ~ 1 minute to complete. It takes place at
+# the initialization of the machinery. If disabled, you need to specify the instance_type_cores below.
+find_number_of_cores_for_sku = true
+
+# The number of cores (vCPUs) that a VM of the instance_type mentioned above uses.
+# If find_number_of_cores_for_sku is enabled, this value will be ignored.
+# Set to 0 if you want to programmatically determine this value.
+# See note above. Otherwise, set to an integer.
+# For example for the instance_type Standard_F2s_v2, there are 2 cores per VM so the value for
+# instance_type_cores should be 2.
+instance_type_cores = 0
+
+# Specify the IP of the Result Server, as your virtual machine sees it.
+# It should be the nest ip address.
+resultserver_ip = <resultserver_ip>
+
+# Specify a port number to bind the result server on.
+resultserver_port = 2042
+
+# Specify the shared gallery name to use.
+gallery_name = <gallery_name>
+
+# Specify the storage account type for the OS disk (for example, Standard_LRS)
+storage_account_type = <storage_account_type>
+
+# Reset pool size to initial_pool_size on CAPE restart
+reset_pool_size = true
+
+# Specify a comma-separated list of scale sets to be used, either available or to be created.
+# For each specified ID you have to define a dedicated section containing the details
+# about the respective scale set. (E.g. cuckoo1,cuckoo2,cuckoo3)
+# NOTE: NO SPACES
+scale_sets = cuckoo1
+
+# A percentage to be used for overprovisioning a scale set. To disable overprovisiong, set to 0
+overprovision = 0
+
+# This time, in seconds, is used to build up a queue of machines that need to be reimaged,
+# such that we can perform bulk reimaging.
+wait_time_to_reimage = 4
+
+# This time, in seconds, is the wait between checking if VMSSs should be scaled up/down.
+monitor_rate = 300
+
+# This boolean value is used to indicate if we want to use Azure Spot instances rather than
+# normal instances
+spot_instances = false
+
+quota_name = MyQuota
+# This value is used to set the number of machines that will be reserved outside the scale set (deducted from the quota). 
+quota_machine_exclusion = 5
+
+# This boolean value is used to indicate if we want to wait for each VM to have its agent running before we
+# start pulling tasks off of the stack
+wait_for_agent_before_starting = true
+
+# This integer value is used to determine how many times a VMSS that does not initialize properly can retry
+init_retries = 2
+
+# These are the value(s) of the DNS server(s) that you want the scale sets to use. (E.g. 1.1.1.1,8.8.8.8)
+# NOTE: NO SPACES
+dns_server_ips = <dns_server_ip>
+
+# This is the number of seconds that we should wait between checking if there are relevant tasks for a VMSS in the queue
+scale_down_polling_period = 1
+
+# This is switch used for machinery debugging/development, and should only be set to "true" in these scenarios
+just_start = false
+
+# This flag is used to indicate if VMSSs not associated with this particular CAPE deployment should be deleted if they
+# exist in the same sandbox_resource_group and contain the same AUTO_SCALE_CAPE KEY and VALUE.
+# If you have multiple CAPE deployments in the same sandbox_resource_group, set this to "true".
+# This is useful to set to "false" if you have leftover VMSSs from previous CAPE runs from your single deployment
+# that have different names from the current run. It doesn't happen often, but it could!
+multiple_capes_in_sandbox_rg = false
+
+[cuckoo1]
+# The gallery image name to use when creating the virtual machine scale set.
+gallery_image_name = <gallery_image_name>
+
+# Specify the operating system platform used by the virtual machines in the scale set
+# [windows/darwin/linux].
+platform = windows
+
+# Set the machine architecture
+# Required to auto select proper machine architecture for sample
+# x64 or x86
+arch = x64
+
+# A tag used to specify on which guest scale set a sample should be run. All
+# virtual machines in this scale set will have this tag
+pool_tag = <tag>
+
+# Initial virtual machine pool size for scale set. This should be a positive integer.
+initial_pool_size = 1

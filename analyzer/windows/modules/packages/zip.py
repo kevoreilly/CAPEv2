@@ -6,6 +6,16 @@ import logging
 import os
 
 from lib.common.abstracts import Package
+from lib.common.constants import (
+    ARCHIVE_OPTIONS,
+    OPT_APPDATA,
+    OPT_ARGUMENTS,
+    OPT_DLLLOADER,
+    OPT_FILE,
+    OPT_FUNCTION,
+    OPT_MULTI_PASSWORD,
+    OPT_PASSWORD,
+)
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
     attempt_multiple_passwords,
@@ -16,6 +26,7 @@ from lib.common.zip_utils import (
     get_interesting_files,
     upload_extracted_files,
 )
+from modules.packages.dll import DLL_OPTIONS
 
 log = logging.getLogger(__name__)
 
@@ -39,11 +50,20 @@ class Zip(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
+    summary = "Unpacks a .zip archive with the given password and execute the contents appropriately."
+    description = f"""Extracts the contents of a .zip file. If the file name is not
+    supplied in the 'file" option, examine the archive for files that look executable.
+    If none can be found, the first file in the archive is taken.
+    The default zipfile password is 'infected'.
+    If the '{OPT_APPDATA}' option is specified, run the executable from the APPDATA directory.
+    If the archive contains .dll files, then options '{OPT_FUNCTION}', '{OPT_ARGUMENTS}' and '{OPT_DLLLOADER}' will take effect.
+    """
+    option_names = sorted(set(ARCHIVE_OPTIONS + DLL_OPTIONS + (OPT_APPDATA, OPT_ARGUMENTS, OPT_MULTI_PASSWORD)))
 
     def start(self, path):
-        password = self.options.get("password", "infected")
+        password = self.options.get(OPT_PASSWORD, "infected")
         try_multiple_passwords = attempt_multiple_passwords(self.options, password)
-        appdata = self.options.get("appdata")
+        appdata = self.options.get(OPT_APPDATA)
         root = os.environ["APPDATA"] if appdata else os.environ["TEMP"]
         file_names = []
         try:
@@ -71,7 +91,7 @@ class Zip(Package):
             if len(file_names):
                 extract_archive(seven_zip_path, nested_7z, root, password, try_multiple_passwords)
 
-        file_name = self.options.get("file")
+        file_name = self.options.get(OPT_FILE)
         # If no file name is provided via option, discover files to execute.
         if not file_name:
             # If no file names to choose from, bail

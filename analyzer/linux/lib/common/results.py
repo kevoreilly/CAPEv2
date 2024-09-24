@@ -44,6 +44,26 @@ def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", categor
             nc.close()
 
 
+def append_buffer_to_host(buffer, nc=None):
+    if nc.sock is None:
+        raise ConnectionResetError
+
+    size = len(buffer)
+    if config.upload_max_size < size + nc.buffer_size and not config.do_upload_max_size:
+        log.warning("Buffer is too big: %d; max size: %d", size + nc.buffer_size, config.upload_max_size)
+        return
+
+    idx = 0
+    while idx < size:
+        try:
+            nc.send(buffer[idx : idx + BUFSIZE], retry=False)
+            idx += BUFSIZE
+        except Exception:
+            raise ConnectionResetError
+
+    nc.buffer_size += size
+
+
 class NetlogConnection:
     def __init__(self, proto=""):
         config = Config(cfg="analysis.conf")
@@ -51,6 +71,13 @@ class NetlogConnection:
         self.sock = None
         self.proto = proto
         self.connected = False
+        self.buffer_size = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.close()
 
     def connect(self):
         # Try to connect as quickly as possible. Just sort of force it to
@@ -87,13 +114,15 @@ class NetlogConnection:
             self.close()
 
     def close(self):
+        if not self.sock:
+            return
+
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             self.sock = None
         except Exception as e:
             print(e)
-            pass
 
 
 class NetlogBinary(NetlogConnection):

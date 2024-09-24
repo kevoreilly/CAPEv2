@@ -1,15 +1,17 @@
 rule QakBot5
 {
     meta:
-        author = "kevoreilly"
+        author = "kevoreilly, enzok"
         description = "QakBot v5 Payload"
         cape_type = "QakBot Payload"
         packed = "f4bb0089dcf3629b1570fda839ef2f06c29cbf846c5134755d22d419015c8bd2"
+        hash = "59559e97962e40a15adb2237c4d01cfead03623aff1725616caeaa5a8d273a35"
     strings:
         $loop = {8B 75 ?? 48 8B 4C [2] FF 15 [4] 48 8B 4C [2] 48 8B 01 FF 50 ?? 8B DE 48 8B 4C [2] 48 85 C9 0F 85 [4] EB 4E}
-        $conf = {0F B7 1D [4] B9 [2] 00 00 E8 [4] 8B D3 48 89 45 ?? 45 33 C9 48 8D 0D [4] 4C 8B C0 48 8B F8 E8}
+        $c2list = {0F B7 1D [4] B? [2] 00 00 E8 [4] 8B D3 4? 89 45 ?? 4? 33 C9 4? 8D 0D [4] 4? 8B C0 4? 8B F8 E8}
+        $campaign = {0F B7 1D [4] B? [2] 00 00 E8 [4] 8B D3 4? 89 44 24 ?? 4? 33 C9 4? 8D 0D [4] 4? 8B C0 4? 8B F8 E8}
     condition:
-        uint16(0) == 0x5A4D and all of them
+        uint16(0) == 0x5A4D and 2 of them
 }
 
 rule QakBot4

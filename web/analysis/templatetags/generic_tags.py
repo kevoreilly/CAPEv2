@@ -26,7 +26,8 @@ def proctreetolist(tree):
             newnode = {}
             newnode["pid"] = node["pid"]
             newnode["name"] = node["name"]
-            newnode["module_path"] = node["module_path"]
+            if "module_path" in node:
+                newnode["module_path"] = node["module_path"]
             if "environ" in node and "CommandLine" in node["environ"]:
                 cmdline = node["environ"]["CommandLine"]
                 if cmdline.startswith('"'):

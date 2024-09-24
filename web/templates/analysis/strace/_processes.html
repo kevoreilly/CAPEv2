@@ -1,0 +1,221 @@
+{% load analysis_tags %}
+<script type="text/javascript">
+    function paginationbar(pages, page) {
+        if (pages === 0) return "";
+
+        function alert_current_page(i, page) {
+            if (i == page)
+                return " active\"";
+            return "\"";
+        }
+
+        var out = "";
+        out += "<li class=\"page-item" + alert_current_page(1, page) + "><a class=\"page-link\" href=\"#\">1</a></li>";
+
+        if (page - 5 > 5) out += "<li><span>...</span></li>";
+
+        for (i = Math.max(2, page - 5); i <= Math.min(pages - 1, page + 5); i++) {
+            out += "<li class=\"page-item" + alert_current_page(i, page) + "><a class=\"page-link\" href=\"#\">" + i + "</a></li>";
+        }
+
+        if (page + 5 < pages - 1) out += "<li><span>...</span></li>";
+
+        if (pages > 1)
+            out += "<li class=\"page-item" + alert_current_page(pages, page) + "><a class=\"page-link\" href=\"#\">" + pages + "</a></li>";
+        return out;
+    }
+    function load_chunk(pid, pagenum, callback) {
+        $("#process_" + pid + " div.calltable").load("/analysis/chunk/{{id}}/" + pid + "/" + pagenum + "/", function (data, status, xhr) {
+            if (status == "error") {
+                $("#process_" + pid + " div.calltable").html("Error loading data. Please reload the page and if the error persists contact us.");
+            }
+            else {
+                $("#process_" + pid + " ul.pagination").html(paginationbar(parseInt($("#process_" + pid).data("length")), pagenum));
+                $("#process_" + pid + " ul.pagination a").click(function (e) {
+                    var t = $(e.target);
+                    load_chunk(t.parents("#process_" + pid).data("pid"), parseInt(t.text()));
+                });
+                typeof callback === 'function' && callback();
+            }
+        });
+
+        // add pagination if removed
+        $("#top_pagination").removeClass("d-none");
+        $("#bottom_pagination").removeClass("d-none");
+
+        // Reset font sizes
+        $(".badge").css("font-size", "100%");
+
+        // add font increase for current chunk
+        $("#badge_default_" + pid).css("font-size", "125%");
+    }
+    function show_tab(id, callback) {
+        // First, see if tab is already active. If it is, just run the callback
+        if ($('#' + id).hasClass('active')) {
+            typeof callback === 'function' && callback();
+        }
+        // Else, show the tab and run the callback once the tab is shown
+        else {
+            // Wait for tab to be shown
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                if ($(e.target).attr('href') == '#' + id) {
+                    $('a[data-toggle="tab"]').off('shown.bs.tab');
+                    typeof callback === 'function' && callback();
+                }
+            });
+
+            // Show the tab
+            $('a[href="#' + id + '"]').tab('show');
+        }
+    }
+    function go_to_api_call(pid, call_id) {
+        // Load corresponding chunk
+        pagenum = Math.floor(call_id / 100) + 1;
+        load_chunk(pid, pagenum, function () {
+            // Show behavior tab
+            show_tab('behavior', function () {
+                // Show process tab
+                show_tab('process_' + pid, function () {
+                    // Scroll to call
+                    $('#call_' + call_id).get(0).scrollIntoView(false);
+                });
+            });
+        });
+    }
+    function load_filtered_chunk(pid, category, caller, tid) {
+        // Trim leading and trailing spaces
+        var inputValue = $("#apifilter_" + pid).val().trim(); 
+        // Split input by commas, trim spaces, and join back with commas
+        var apis = inputValue.split(',').map(api => api.trim()).join(','); 
+        var encodedlist = (apis === "") ? encodeURI("!null") : encodeURI(apis);
+
+        $("#process_" + pid + " div.calltable").load("/analysis/filtered/{{id}}/" + pid + "/" + category + "/" + encodedlist + "/" + caller + "/" + tid + "/", function (data, status, xhr) {
+            if (status == "error") {
+                $("#process_" + pid + " div.calltable").html("Error loading data. Please reload the page and if the error persists contact us.");
+            }
+            else {
+                $("#process_" + pid + " div.pagination ul").html(paginationbar(0, 0));
+                $("#process_" + pid + " div.pagination a").click(function (e) {
+                    var t = $(e.target);
+                    load_chunk(t.parents("#process_" + pid).data("pid"), parseInt(t.text()));
+                });
+            }
+        });
+
+        // remove pagination
+        $("#top_pagination").addClass("d-none");
+        $("#bottom_pagination").addClass("d-none");
+
+        // Reset font sizes
+        $(".badge").css("font-size", "100%");
+
+        // add font increase for current chunk
+        $("#badge_" + category + "_" + pid).css("font-size", "125%");
+    }
+</script>
+
+<div class="tabbable">
+    <ul class="nav nav-tabs">
+        <li class="nav-item"><a class="nav-link" href="#search" data-toggle="tab"><span class="fa fa-search"></span> Search</a></li>
+        {% for process in strace.processes %}
+        <li {% if forloop.counter == 1 %} class="nav-item active" {% endif %}><a class="nav-link" href="#process_{{process.process_id}}"
+                data-toggle="tab"><span class="fa fa-cogs"></span>
+                {{process.process_id}}</a></li>
+        {% endfor %}
+    </ul>
+
+    <div class="tab-content">
+        {% include "analysis/behavior/_search.html" %}
+        {% for process in strace.processes %}
+        <div class="tab-pane{% if forloop.counter == 1%} active{% endif %}" id="process_{{process.process_id}}"
+            data-pid="{{process.process_id}}" data-length="{{process.calls|length}}">
+            <div class="alert alert-primary" style="text-align: center;overflow-wrap: break-word;">
+                <b>{{process.process_name}}</b><br>PID: <b>{{process.process_id}}</b>, Parent PID: {{process.parent_id}}
+            </div>
+
+            <div>
+                <div style="text-align: center; position:relative;">
+                    <div>
+                        <div id="currcategory" value="default"></div>
+                        <a id="badge_default_{{process.process_id}}" class="badge badge-primary default fs-1" role="button" style="color:black;">default</a>
+                        <a id="badge_kernel_{{process.process_id}}" class="badge kernel" role="button" style="color:black;">kernel</a>
+                        <a id="badge_fs_{{process.process_id}}" class="badge fs" role="button" style="color:black;">fs</a>
+                        <a id="badge_mm_{{process.process_id}}" class="badge mm" role="button" style="color:black;">mm</a>
+                        <a id="badge_net_{{process.process_id}}" class="badge net" role="button" style="color:black;">net</a>
+                        <a id="badge_ipc_{{process.process_id}}" class="badge ipc" role="button" style="color:black;">ipc</a>
+                        <a id="badge_security_{{process.process_id}}" class="badge security" role="button" style="color:black;">security</a>
+                        <a id="badge_drivers_{{process.process_id}}" class="badge drivers" role="button" style="color:black;">drivers</a>
+                        <a id="badge_io_uring_{{process.process_id}}" class="badge io_uring" role="button" style="color:black;">io_uring</a>
+                        <a id="badge_crypto_{{process.process_id}}" class="badge crypto" role="button" style="color:black;">crypto</a>
+                        <a id="badge_block_{{process.process_id}}" class="badge block" role="button" style="color:black;">block</a>
+                        <a id="badge_all_{{process.process_id}}" class="badge badge-light all" role="button" style="color:black;">all</a>
+                        <div class="form-group" style="display:inline-block; padding-left: 10px">
+                            <div class="input-group">
+                                <label class="sr-only" for="form_search">API Filter</label>
+                                <input type="text" class="form-control rounded-left" id="apifilter_{{process.process_id}}" name="apifilter" size=35 placeholder="API(list) separated by ',' Precede with '!' for exclusion" />
+                                <button class="btn btn-outline-secondary rounded-right" id="search_button_{{process.process_id}}" type="button">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script type="text/javascript">
+            $(document).ready(function()
+            {
+                $("#badge_default_{{process.process_id}}").click(function() { load_chunk({{process.process_id}}, 1); });
+                $("#badge_kernel_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "kernel", "null", 0); });
+                $("#badge_fs_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "fs", "null", 0); });
+                $("#badge_mm_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "mm", "null", 0); });
+                $("#badge_net_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "net", "null", 0); });
+                $("#badge_ipc_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "ipc", "null", 0); });
+                $("#badge_security_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "security", "null", 0); });
+                $("#badge_crypto_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "crypto", "null", 0); });
+                $("#badge_drivers_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "drivers", "null", 0); });
+                $("#badge_io_uring_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "io_uring", "null", 0); });
+                $("#badge_block_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "block", "null", 0); });
+                $("#badge_all_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "all", "null", 0); });
+                $('.tab-content').on('click', '.call-link', function (event) {
+                    cid = $(this).attr('data-cid');
+                    pid = $(this).attr('data-pid');
+                    go_to_api_call(+pid, +cid);
+
+                    event.preventDefault();
+                });
+                
+                // Filter on enter key in input field
+                $("#apifilter_{{process.process_id}}").keypress(function(e) {
+                    if (e.which == 13) {
+                        load_filtered_chunk({{process.process_id}}, "all", "null", 0);
+                    }
+                })
+
+                // Filter on search button click
+                $("#search_button_{{process.process_id}}").click(function() {
+                    var pid = {{process.process_id}};
+                    var apiFilterValue = $("#apifilter_" + pid).val();
+                    load_filtered_chunk(pid, "all", "null", 0);
+                })
+            });
+            </script>
+
+            <nav id="top_pagination" aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                </ul>
+            </nav>
+
+            <nav aria-label="Page navigation">
+                <div class="calltable"></div>
+                <ul id="bottom_pagination" class="pagination justify-content-center pagination_{{process.process_id}}">
+                </ul>
+            </nav>
+
+            <script type="text/javascript">
+                load_chunk({{ process.process_id }}, 1);
+            </script>
+        </div>
+        {% endfor %}
+    </div>
+</div>

@@ -1,0 +1,38 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>Parent PID</th>
+            <th>PID</th>
+            <th>Name</th>
+            <th>Create Time</th>
+            <th>Exit Time</th>
+            <th># Threads</th>
+            <th># Handles</th>
+            <th>Session ID</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for proc_psscan in memory.psscan %}
+   	{% if proc_psscan not in memory.pslist %}
+        <tr>
+		<td>{{proc_psscan.PPID}}</td>
+       	        <td>{{proc_psscan.PID}}</td>
+        	<td>{{proc_psscan.ImageFileName}}</td>
+        	<td>{{proc_psscan.CreateTime}}</td>
+        	{% if proc_psscan.ExitTime %}
+        		<td>{{proc_psscan.ExitTime}}</td>
+        	{% else %}
+        		<td>-</td>
+        	{% endif %}
+        	<td>{{proc_psscan.Threads}}</td>
+        	<td>{{proc_psscan.Handles}}</td>
+        	{% if proc_psscan.SessionId %}
+			<td>{{proc_psscan.SessionId}}</td>
+        	{% else %}
+        		<td>-</td>
+        	{% endif %}
+        </tr>
+	{% endif %}
+    {% endfor %}
+    </tbody>
+</table>

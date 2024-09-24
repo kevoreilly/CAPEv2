@@ -3,11 +3,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import ast
 import logging
 import os
 import random
 import sys
 import tempfile
+import textwrap
 from base64 import urlsafe_b64encode
 from contextlib import suppress
 
@@ -23,12 +25,12 @@ from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
-    all_nodes_exits_list,
-    all_vms_tags,
     download_file,
     download_from_bazaar,
     download_from_vt,
     get_file_content,
+    load_vms_exits,
+    load_vms_tags,
     parse_request_arguments,
     perform_search,
     process_new_dlnexec_task,
@@ -46,8 +48,6 @@ processing = Config("processing")
 aux_conf = Config("auxiliary")
 web_conf = Config("web")
 
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
-
 db = Database()
 
 from urllib3 import disable_warnings
@@ -57,17 +57,164 @@ disable_warnings()
 logger = logging.getLogger(__name__)
 
 
-def get_form_data(platform):
-    files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
-    exclusions = [package.strip() for package in web_conf.package_exclusion.packages.split(",")]
+def parse_expr(expr, context):
+    """Return the value from a python AST expression.
 
-    packages = []
-    for name in files:
-        name = os.path.splitext(name)[0]
-        if name == "__init__":
-            continue
-        if name not in exclusions:
-            packages.append(name)
+    Recursive! the initial call is the right hand side of an assignment.
+    Recursion is necessary because the expression is made up of a variable number
+    of subexpressions, sub-subexpressions, etc.
+    """
+    if isinstance(expr, str):
+        return expr
+    if isinstance(expr, ast.Constant):
+        return expr.value
+    if isinstance(expr, ast.Name):
+        # To get the value associated with the variable name, look up name (expr.id) in context.
+        # If lookup fails (we do not know the value of the variable), return the name.
+        return context.get(expr.id, str(expr.id))
+    if isinstance(expr, ast.List):
+        return [parse_expr(item, context) for item in expr.elts]
+    if isinstance(expr, ast.Tuple):
+        return tuple([parse_expr(item, context) for item in expr.elts])
+    if isinstance(expr, ast.JoinedStr):
+        # JoinedStr - coerce each item to string, and join them.
+        return "".join([str(parse_expr(item, context)) for item in expr.values])
+    if isinstance(expr, ast.FormattedValue):
+        return parse_expr(expr.value, context)
+    if isinstance(expr, ast.Attribute):
+        # Join expr.value to expr.attr with a "." between. Example: os.path.join
+        return parse_expr(expr.value, context) + "." + parse_expr(expr.attr, context)
+    if isinstance(expr, ast.Call):
+        # Figure out what function is being called, with what arguments.
+        func = parse_expr(expr.func, context)
+        args = tuple([parse_expr(item, context) for item in expr.args])
+        # We deem these functions safe to use with "eval".
+        allowed_functions = ("sorted", "set", "os.path.join")
+        if func in allowed_functions:
+            # Actually call the function, passing the args, and return the result.
+            return eval(f"{func}{args}")
+        # Don't execute the call, but instead, give back a string representation.
+        return f"<{func}{args}>"
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+        left = parse_expr(expr.left, context)
+        right = parse_expr(expr.right, context)
+        try:
+            ans = left + right
+        except TypeError:
+            # Expected behavior during unit tests
+            ans = str(left) + str(right)
+        return ans
+    # Not expected to reach this, but should aid in debugging if found.
+    return f"?? Unexpected type({type(expr)}) in parse_expr()"
+
+
+def parse_ast(items, context=None):
+    """Look at each item in a list of ast elements.
+
+    Item type ast.Assign signifies a statement of the form 'name = value'.
+    Work out the value using parse_expr.
+    Add an entry of the form 'name' = value to the context dictionary.
+    """
+    if not context:
+        context = dict()
+    for item in items:
+        if isinstance(item, ast.Assign):
+            key = item.targets[0].id
+            context[key] = parse_expr(item.value, context)
+    return context
+
+
+def get_lib_common_constants(platform):
+    """Extract constants from lib.common.constants into a dict"""
+    constant_file = os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "lib", "common", "constants.py")
+    with open(constant_file, "r") as f:
+        contents = f.read()
+    tr = ast.parse(contents)
+    the_dict = parse_ast(tr.body)
+    return the_dict
+
+
+def get_package_info(dir_name, filename, platform, common_context):
+    """Find out everything we can about the package."""
+    default_summary = f"Package {filename} has no summary"
+    default_description = f"Package {filename} has no description"
+    # Clear out previous package description etc.
+    to_delete = ("summary", "description", "option_names")
+    for item in to_delete:
+        if item in common_context:
+            del common_context[item]
+    with open(os.path.join(dir_name, filename), "r") as f:
+        contents = f.read()
+    tr = ast.parse(contents)
+    expanded_context = parse_ast(tr.body, common_context)
+    classes = [item for item in tr.body if isinstance(item, ast.ClassDef) and item.bases and item.bases[0].id == "Package"]
+    if classes:
+        classname = classes[0].name
+        assignments = parse_ast(classes[0].body, expanded_context)
+    else:
+        # No class inherited from 'Package'
+        classname = "unknown classname"
+        assignments = dict()
+    summary = assignments.get("summary", default_summary)
+    description = textwrap.dedent(assignments.get("description", default_description))
+    option_names = assignments.get("option_names", ())
+    if option_names:
+        description = description + f"\nOPTIONS: {option_names}"
+    result = {
+        "name": os.path.splitext(filename)[0],
+        "value": os.path.splitext(filename)[0],
+        "classname": classname,
+        "platform": platform,
+        "summary": summary,
+        "description": description,
+        "option_names": option_names,
+    }
+    return result
+
+
+def get_enabled_platforms():
+    """Return a list of enabled platforms.
+
+    We are going to assume that the windows platform is first in the list."""
+    platforms = ["windows"]
+    if web_conf.linux.enabled:
+        platforms.append("linux")
+    return platforms
+
+
+def correlate_platform_packages(platform_package_dict):
+    """Given a per-platform dictionary, return a single list of all packages"""
+    package_names = set()
+    result = []
+    for platform in get_enabled_platforms():
+        for package in platform_package_dict.get(platform, []):
+            package_name = package["name"].lower()
+            if package_name not in package_names:
+                package_names.add(package_name)
+                if platform != "windows":
+                    # The windows analyzer package list did not contain this package name.
+                    package["name"] = package["name"] + f" ({platform} only)"
+                result.append(package)
+    return result
+
+
+def get_form_data():
+    """Return data about packages and machines to help build the submission form."""
+    platforms = get_enabled_platforms()
+
+    platform_packages = dict()
+    for platform in platforms:
+        common_context = get_lib_common_constants(platform)
+        package_root = os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages")
+        files = [item.name for item in os.scandir(package_root) if item.is_file() and not item.name.startswith(".")]
+        exclusions = [package.strip() + ".py" for package in web_conf.package_exclusion.packages.split(",")]
+
+        exclusions.append("__init__.py")
+
+        platform_packages[platform] = [
+            get_package_info(package_root, name, platform, common_context) for name in files if name not in exclusions
+        ]
+    packages = correlate_platform_packages(platform_packages)
 
     # Prepare a list of VM names, description label based on tags.
     machines = []
@@ -112,17 +259,10 @@ def force_int(value):
         return value
 
 
-def get_platform(magic):
-    if magic and any(x in magic for x in VALID_LINUX_TYPES):
-        return "linux"
-    return "windows"
-
-
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id=None, resubmit_hash=None):
     remote_console = False
     if request.method == "POST":
-
         (
             static,
             package,
@@ -172,11 +312,13 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
 
-        if web_conf.guacamole.enabled and request.POST.get("interactive_desktop"):
+        if web_conf.guacamole.enabled and request.POST.get("interactive"):
             remote_console = True
-            options += "interactive_desktop=yes,"
+            options += "interactive=1,"
             if "nohuman=yes," not in options:
                 options += "nohuman=yes,"
+            if request.POST.get("manual"):
+                options += "manual=1,"
 
         if request.POST.get("tor"):
             options += "tor=yes,"
@@ -323,10 +465,11 @@ def index(request, task_id=None, resubmit_hash=None):
                                 paths.append(path)
 
                 if not paths:
-                    # Self Extracted support folder
-                    path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "selfextracted", hash)
-                    if path_exists(path):
-                        paths.append(path)
+                    for folder_name in ("selfextracted", "files"):
+                        # Self Extracted support folder
+                        path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), folder_name, hash)
+                        if path_exists(path):
+                            paths.append(path)
 
                 if not paths:
                     details["errors"].append({hash: "File not found on hdd for resubmission"})
@@ -530,6 +673,8 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["pre_script"] = web_conf.pre_script.enabled
         enabledconf["during_script"] = web_conf.during_script.enabled
 
+        all_vms_tags = load_vms_tags()
+
         if all_vms_tags:
             enabledconf["tags"] = True
 
@@ -537,20 +682,21 @@ def index(request, task_id=None, resubmit_hash=None):
             # load multi machinery tags:
             # Get enabled machinery
             machinery = cfg.cuckoo.get("machinery")
+            machinery_tags = "scale_sets" if machinery == "az" else "machines"
             if machinery == "multi":
                 for mmachinery in Config(machinery).multi.get("machinery").split(","):
-                    vms = [x.strip() for x in getattr(Config(mmachinery), mmachinery).get("machines").split(",") if x.strip()]
+                    vms = [x.strip() for x in getattr(Config(mmachinery), mmachinery).get(machinery_tags).split(",") if x.strip()]
                     if any(["tags" in list(getattr(Config(mmachinery), vmtag).keys()) for vmtag in vms]):
                         enabledconf["tags"] = True
                         break
             else:
                 # Get VM names for machinery config elements
-                vms = [x.strip() for x in str(getattr(Config(machinery), machinery).get("machines")).split(",") if x.strip()]
+                vms = [x.strip() for x in str(getattr(Config(machinery), machinery).get(machinery_tags)).split(",") if x.strip()]
                 # Check each VM config element for tags
                 if any(["tags" in list(getattr(Config(machinery), vmtag).keys()) for vmtag in vms]):
                     enabledconf["tags"] = True
 
-        packages, machines = get_form_data("windows")
+        packages, machines = get_form_data()
 
         socks5s = _load_socks5_operational()
 
@@ -607,7 +753,7 @@ def index(request, task_id=None, resubmit_hash=None):
             request,
             "submission/index.html",
             {
-                "packages": sorted(packages),
+                "packages": sorted(packages, key=lambda i: i["name"].lower()),
                 "machines": machines,
                 "vpns": vpns_data,
                 "random_route": random_route,
@@ -618,9 +764,9 @@ def index(request, task_id=None, resubmit_hash=None):
                 "tor": routing.tor.enabled,
                 "config": enabledconf,
                 "resubmit": resubmit_hash,
-                "tags": sorted(list(set(all_vms_tags))),
+                "tags": all_vms_tags,
                 "existent_tasks": existent_tasks,
-                "all_exitnodes": all_nodes_exits_list,
+                "all_exitnodes": list(sorted(load_vms_exits())),
             },
         )
 
@@ -639,7 +785,16 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
-    return render(request, "submission/status.html", {"completed": completed, "status": status, "task_id": task_id})
+    response = {"completed": completed, "status": status, "task_id": task_id, "session_data": ""}
+    if settings.REMOTE_SESSION:
+        machine = db.view_machine_by_label(task.machine)
+        if machine:
+            guest_ip = machine.ip
+            session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
+            session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+            response["session_data"] = session_data
+
+    return render(request, "submission/status.html", response)
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -652,13 +807,13 @@ def remote_session(request, task_id):
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine_by_label(task.machine)
+        machine = db.view_machine(task.machine)
         if not machine:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
         guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-        session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+        session_data = urlsafe_b64encode(f"{session_id}|{machine.label}|{guest_ip}".encode("utf8")).decode("utf8")
 
     return render(
         request,

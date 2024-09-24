@@ -1,5 +1,121 @@
+### [23.09.2024]
+* Monitor update: Fix size bug with unpacking embedded PEs
+* .NET loader 'SlowLoader' detonation shim for slower cpus (race condition)
+
+### [18.09.2024]
+* Monitor updates:
+    * Add disassembled instruction to exception output
+    * VBScript hook improvements (thanks Jeremy at Proofpoint)
+
+### [13.09.2024]
+* Fix issue with sign extension causing 32-bit values to be misrepresented in web ui (e.g. 0xffffffffc000005 for 0xc000005)
+* bytes2str(): if any values in dict type are already str then keep them
+* Expand behavior log process information with image base, image size and bitness
+
+### [10.09.2024]
+* Monitor update: Add capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)
+* Themida detonation shim
+
+### [03.09.2024]
+* Monitor updates:
+    * Add HtaFile to CLSIDS handled in WMI/DCOM (e.g. FormBook) - thanks Will Metcalf
+    * VBScript hooks
+
+### [16.08.2024]
+* TTD integration (Microsoft Time Travel Debugging)
+    * Use submission option ttd=1
+    * Place TTD binaries in analyzer/windows/bin (with wow64 subdirectory for 32-bit)
+    * .trc files output to TTD directory in results folder for manual retrieval
+* Monitor update: Small debugger fix
+
+### [07.08.2024]
+* Monitor update: Set language via lang=X (language code) submission option
+
+### [05.08.2024]
+* SparkRAT config parser - thanks t-mtsmt
+
+### [22.07.2024]
+* Monitor update: Enhancements to software (& syscall) breakpoint mechanism, add handling for Internet Shortcut CLSID (.url)
+
+### [11.07.2024]
+* Monitor updates:
+    * (in)direct syscall handling enhancements
+    * unpacking & scanning: improved entropy checks
+
+### [26.06.2024]
+* Monitor updates: debugger/trace enhancements
+
+### [21.06.2024]
+* Monitor updates: misc enhancements & fixes (see capemon repo for details)
+
+### [12.06.2024]
+* Monitor update: Unpacker enhancement: capture modified mapped images
+
+### [10.06.2024]
+* Monitor update: Fix for 64-bit Firefox
+
+### [04.06.2024]
+* Monitor update: New hooks (GetAddrInfoExW, CLSIDFromProgIDEx), 64-bit hooking fixes
+
+### [23.05.2024]
+* Integration of [rat_king_parser](https://github.com/jeFF0Falltrades/rat_king_parser) by @jeFF0Falltrades
+    * Requires `dnfile` upgrade. We can't update it in `pyporject` due to `flare-capa`.
+        * Upgrade `dnfile` by yourself by running: `poetry run pip3 install -U dnfile`
+
+### [22.05.2024]
+* Monitor update: Enhance DnsQuery* hooks to capture DNS server lists (e.g. Socks5Systemz)
+* Socks5Systemz detection & config extraction
+
+### [21.05.2024]
+* Monitor update: Hook full set of service APIs in sechost.dll
+
+### [20.05.2024]
+* YARA-X support - https://virustotal.github.io/yara-x/
+* Monitor update: Debugger fixes/improvements, misc other fixes (see capemon repo for details)
+
+### [11.04.2024]
+* Monitor updates:
+    * YARA upgrade to 4.5.0 (& disabled assertion dialogs)
+    * Enable 64-bit 'native' hooks to avoid SSN overwriting
+    * Expand YARA options to allow offsets relative to the end of a pattern to be specified using asterisk (e.g. bp0=$code*+6)
+
+### [25.03.2024]
+* Bypass for variant of Heaven's Gate direct syscall seen in ecrime loader
+* Monitor updates: misc fixes (see capemon repo for details)
+
+### [20.03.2024]
+* Formbook: ntdll remap bypass & config extraction updates
+* Monitor update: Trace GetRegister() tweak
+
+### [15.03.2024]
+* Monitor update: Further unpacker refinement: Improve filter for unwanted .NET payloads to avoid missing interesting payloads
+
+### [14.03.2024]
+* Monitor update: Unpacker refinement for e.g. Shikata Ga Nai - thanks @para0x0dise
+
+### [12.03.2024]
+* Monitor update: Initial IPv6 support - thanks @cccs-mog
+* Linux support details can be seen in this [Pull Request](https://github.com/kevoreilly/CAPEv2/pull/2001)
+* We remove all `x.conf` to finish the mess with the configs.
+    * DO NOT EDIT `.conf.default` files. cape2.sh makes a copy of them removing `.default`.
+    * If you don't use `cape2.sh`.
+        * Run: `for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done`
+
+### [07.03.2024]
+* Monitor updates:
+    * Countermeasure for NtCreateUserProcess block-non-Microsoft-DLLs mitigation policy affecting monitoring
+    * Expand 'syscall' breakpoints to handle indirect syscalls (sysbpmode=1)
+    * Small fixes & improvements
+* Pikabot detection update & anti-hook bypass
+
+### [29.02.2024]
+* TLP fields added to distributed database. Requires db upgrade: `cd utils/db_migration_db && alembic upgrade head`
+* Monitor fixes
+
 ### [28.02.2024]
 * Add 'ShellWindows' COM object injection mechanism (e.g. Latrodectus MSIs)
+* Monitor: add option to disable ntdll remap protection: ntdll-remap=0
+* Lumma direct systenter unmap crash bypass
 
 ### [26.02.2024]
 * Monitor updates: Service injection delay for e.g. msi detonation & EnumDisplayDevices hooks & anti-vm (thanks @enzo)

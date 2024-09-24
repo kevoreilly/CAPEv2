@@ -8,6 +8,16 @@ import shutil
 from typing import Tuple
 
 from lib.common.abstracts import Package
+from lib.common.constants import (
+    DLL_OPTIONS,
+    OPT_APPDATA,
+    OPT_ARGUMENTS,
+    OPT_CURDIR,
+    OPT_DLLLOADER,
+    OPT_FILE,
+    OPT_FUNCTION,
+    OPT_PASSWORD,
+)
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import extract_zip
 from lib.core.compound import create_custom_folders, extract_json_data
@@ -34,6 +44,26 @@ class ZipCompound(Package):
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
         ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
     ]
+    summary = "Unpacks a .zip archive with the given password and execute the contents appropriately."
+    description = f"""Extracts the contents of a .zip file.
+    Supply '{OPT_PASSWORD}' if the .zip file is encrypted (defaults to blank).
+    *NB*: Either '{OPT_FILE}' option must be set, or a '__configuration.json' file must be present in the zip file.
+    Sample json file:
+
+        {{
+            "path_to_extract": {{
+                "a.exe": "%USERPROFILE%\\Desktop\\a\\b\\c",
+                "folder_b": "%appdata%"
+            }},
+            "target_file":"a.exe"
+        }}
+
+    If the '{OPT_CURDIR}' option is specified, use that as the current directory.
+    Else, if the '{OPT_APPDATA}' option is specified, run the executable from the APPDATA directory.
+    The execution method is chosen based on the filename extension.
+    If executing a .dll file, then options '{OPT_FUNCTION}', '{OPT_ARGUMENTS}' and '{OPT_DLLLOADER}' will take effect.
+    """
+    option_names = sorted(set(DLL_OPTIONS + (OPT_CURDIR, OPT_FILE, OPT_PASSWORD, OPT_APPDATA)))
 
     def process_unzipped_contents(self, unzipped_directory: str, json_filename: str) -> Tuple[str, str]:
         """Checks JSON to move the various files to."""
@@ -43,11 +73,11 @@ class ZipCompound(Package):
         target_file = raw_json.get("target_file", "")
 
         # Enforce the requirement of having a specified file. No guessing.
-        target_file = target_file or self.options.get("file")
+        target_file = target_file or self.options.get(OPT_FILE)
         if not target_file:
             raise CuckooPackageError("File must be specified in the JSON or the web submission UI!")
 
-        # In case the "file" submittion option is relative, we split here
+        # In case the "file" submission option is relative, we split here
         target_srcdir, target_name = os.path.split(target_file)
 
         # Note for 32bit samples: Even if JSON configutation specifies "System32",
@@ -80,8 +110,8 @@ class ZipCompound(Package):
 
                 if target_file.lower() == f.lower():
                     fin_target_path = newpath
-                    self.options["curdir"] = dst_fld
-                    log.debug("New curdir value: %s", self.options["curdir"])
+                    self.options[OPT_CURDIR] = dst_fld
+                    log.debug("New curdir value: %s", self.options[OPT_CURDIR])
 
         # Only runs if a relative path is given for target file
         # Errors out if the file's containing folder is shifted
@@ -97,16 +127,16 @@ class ZipCompound(Package):
         log.info("Final target path: %s", fin_target_path)
         return target_name, fin_target_path
 
-    def prepare_zip_compound(self, path: str, json_filename: str) -> Tuple[str, str]:
+    def prepare_zip_compound(self, path: str, json_filename: str) -> Tuple[str, str, str]:
         """Pre-process the submitted zip file"""
-        password = self.options.get("password")
+        password = self.options.get(OPT_PASSWORD)
         if password is None:
             log.info("No archive password provided")
             password = b""
 
-        if "curdir" in self.options:
-            root = self.options["curdir"]
-        elif "appdata" in self.options:
+        if OPT_CURDIR in self.options:
+            root = self.options[OPT_CURDIR]
+        elif OPT_APPDATA in self.options:
             root = os.environ["APPDATA"]
         else:
             root = os.environ["TEMP"]

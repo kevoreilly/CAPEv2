@@ -3,7 +3,7 @@
 <script src="{{ STATIC_URL }}js/guacamole-1.4.0-all.min.js"></script>
 <a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#playback" onclick="playit()"><h4>Session Playback</h4></a>
 <div id="playback" class="collapse" >
-   	{% if analysis.info.options.interactive_desktop %}
+   	{% if analysis.info.options.interactive %}
 	   	<div id="terminal" style="width: 100%; height: 100%;">
 			<!--
 				Guacamole recording player

@@ -2,10 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import hashlib
+import base64
 import logging
 import operator
 from collections import defaultdict
+from http import HTTPStatus
 
 import requests
 
@@ -21,7 +22,9 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+# https://docs.virustotal.com/v3/reference/files
 VIRUSTOTAL_FILE_URL = "https://www.virustotal.com/api/v3/files/{id}"
+# https://docs.virustotal.com/v3/reference/url-object
 VIRUSTOTAL_URL_URL = "https://www.virustotal.com/api/v3/urls/{id}"
 
 processing_conf = Config("processing")
@@ -183,13 +186,13 @@ def get_vt_consensus(namelist: list):
     return ""
 
 
-# https://developers.virustotal.com/v3.0/reference#file-info
 def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = False):
     if not processing_conf.virustotal.enabled or processing_conf.virustotal.get("on_demand", False) and not on_demand:
         return {}
     if category not in ("file", "url"):
         return {"error": True, "msg": "VT category isn't supported"}
 
+    sha256 = False
     if category == "file":
         if not do_file_lookup:
             return {"error": True, "msg": "VT File lookup disabled in processing.conf"}
@@ -217,23 +220,25 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
         # normalize the URL the way VT appears to
         if not target.lower().startswith(("http://", "https://")):
             target = f"http://{target}"
-        slashsplit = target.split("/")
-        slashsplit[0] = slashsplit[0].lower()
-        slashsplit[2] = slashsplit[2].lower()
-        if len(slashsplit) == 3:
-            slashsplit.append("")
-        target = "/".join(slashsplit)
 
-        sha256 = hashlib.sha256(target.encode()).hexdigest()
-        url = VIRUSTOTAL_URL_URL.format(id=target)
+        url_id = base64.urlsafe_b64encode(target.encode()).decode().strip("=")
+        url = VIRUSTOTAL_URL_URL.format(id=url_id)
 
     try:
         r = requests.get(url, headers=headers, verify=True, timeout=timeout)
+        if r.status_code == HTTPStatus.NOT_FOUND:
+            log.info("%s '%s' not found in VT", category, url.split("/")[-1])
+            return {}
         if not r.ok:
+            log.error("VT: Request failed")
             return {"error": True, "msg": f"Unable to complete connection to VirusTotal. Status code: {r.status_code}"}
+        if b"QuotaExceededError" in r.content:
+            log.error("VT: Quota limit")
+            return {"error": True, "msg": "QuotaExceededError"}
         vt_response = r.json()
         engines = vt_response.get("data", {}).get("attributes", {}).get("last_analysis_results", {})
         if not engines:
+            log.error("VT: Engines field is empty")
             return {}
         virustotal = {
             "names": vt_response.get("data", {}).get("attributes", {}).get("names"),
@@ -249,9 +254,9 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
         if remove_empty:
             virustotal["scans"] = {engine.replace(".", "_"): block for engine, block in engines.items() if block["result"]}
         else:
-            virustotal["scans"] = {engine.replace(".", "_"): block for engine, block in engines.items()}
-
-        virustotal["resource"] = sha256
+            virustotal["scans"] = {engine.replace(".", "_"): block for engine, block in engines.items() if block["result"]}
+        if sha256:
+            virustotal["resource"] = sha256
         virustotal["results"] = []
         detectnames = []
         for engine, block in engines.items():

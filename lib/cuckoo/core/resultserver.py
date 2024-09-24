@@ -7,7 +7,15 @@ import json
 import logging
 import os
 import socket
+import struct
+from contextlib import suppress
 from threading import Lock, Thread
+
+HAVE_BSON = False
+with suppress(ImportError):
+    import bson
+
+    HAVE_BSON = True
 
 import gevent.pool
 import gevent.server
@@ -20,10 +28,10 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
 from lib.cuckoo.common.files import open_exclusive, open_inclusive
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_get_filename
 
 # from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.utils import Singleton, create_folder, load_categories
+from lib.cuckoo.common.utils import Singleton, create_folder, default_converter, load_categories
 from lib.cuckoo.core.log import task_log_start, task_log_stop
 
 log = logging.getLogger(__name__)
@@ -56,9 +64,9 @@ RESULT_UPLOADABLE = (
     b"procdump",
     b"shots",
     b"sysmon",
-    b"stap",
     b"evtx",
     b"htmldump",
+    b"tracee",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
@@ -216,7 +224,7 @@ class FileUpload(ProtocolHandler):
         else:
             filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
-        log.debug("Task #%s: Trying to upload file %s", self.task_id, dump_path.decode())
+        log.debug("Task #%s: Uploading file %s", self.task_id, dump_path.decode())
         if not duplicated:
             file_path = os.path.join(self.storagepath, dump_path.decode())
 
@@ -292,6 +300,26 @@ class LogHandler(ProtocolHandler):
             return self.handler.copy_to_fd(self.fd)
 
 
+TYPECONVERTERS = {"h": lambda v: f"0x{default_converter(v):08x}", "p": lambda v: f"0x{default_converter(v):08x}"}
+
+
+def check_names_for_typeinfo(arginfo):
+    argnames = [i[0] if isinstance(i, (list, tuple)) else i for i in arginfo]
+
+    converters = []
+    for i in arginfo:
+        if isinstance(i, (list, tuple)):
+            r = TYPECONVERTERS.get(i[1])
+            if not r:
+                log.debug("Analyzer sent unknown format specifier '%s'", i[1])
+                r = default_converter
+            converters.append(r)
+        else:
+            converters.append(default_converter)
+
+    return argnames, converters
+
+
 class BsonStore(ProtocolHandler):
     def init(self):
         if self.version is None:
@@ -299,12 +327,81 @@ class BsonStore(ProtocolHandler):
             self.fd = None
             return
 
+        self.infomap = {}
         self.fd = open(os.path.join(self.handler.storagepath, "logs", f"{self.version}.bson"), "wb")
+
+    def parse_message(self, buffer):
+        if not HAVE_BSON:
+            log.debug("Task #%s is sending a BSON stream for pid %d", self.task_id, self.version)
+            return
+
+        while True:
+            data = buffer[:4]
+            if not data:
+                return
+
+            blen = struct.unpack("I", data)[0]
+            data = buffer[:blen]
+            buffer = buffer[blen:]
+
+            if len(data) < blen:
+                log.debug("BsonParser lacking data")
+                return
+
+            try:
+                dec = bson.decode(data)
+            except Exception as e:
+                log.warning("BsonParser decoding problem %s on data[:50] %s", e, data[:50])
+                return
+
+            mtype = dec.get("type", "none")
+            index = dec.get("I", -1)
+
+            if mtype == "info":
+                name = dec.get("name", "NONAME")
+                arginfo = dec.get("args", [])
+                category = dec.get("category")
+
+                if not category:
+                    category = "unknown"
+
+                argnames, converters = check_names_for_typeinfo(arginfo)
+                self.infomap[index] = name, arginfo, argnames, converters, category
+
+            else:
+                if index not in self.infomap:
+                    log.warning("Got API with unknown index - monitor needs to explain first: %s", dec)
+                    return
+
+                apiname, arginfo, argnames, converters, category = self.infomap[index]
+                args = dec.get("args", [])
+
+                if len(args) != len(argnames):
+                    log.warning("Inconsistent arg count (compared to arg names) on %s: %s names %s", dec, argnames, apiname)
+                    continue
+
+                argdict = {argnames[i]: converters[i](arg) for i, arg in enumerate(args)}
+
+                if apiname == "__process__":
+
+                    # pid = argdict["ProcessIdentifier"]
+                    ppid = argdict["ParentProcessIdentifier"]
+                    modulepath = argdict["ModulePath"]
+                    procname = path_get_filename(modulepath)
+
+                    log.info(
+                        "Task %d: Process %d (parent %d): %s, path %s",
+                        self.task_id,
+                        self.version,
+                        ppid,
+                        procname,
+                        modulepath.decode(),
+                    )
 
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
         log failures."""
-        log.debug("Task #%s is sending a BSON stream for pid %d", self.task_id, self.version)
+        self.parse_message(self.handler.buf)
         if self.fd:
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)

@@ -2,12 +2,12 @@ import logging
 import sys
 import time
 
+from lib.cuckoo.core.database import Machine
+
 try:
     import boto3
 except ImportError:
-    sys.exit("Missed boto3 dependency: pip3 install boto3")
-
-from sqlalchemy.exc import SQLAlchemyError
+    sys.exit("Missed boto3 dependency: poetry run pip3 install boto3")
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
@@ -16,6 +16,7 @@ from lib.cuckoo.common.exceptions import CuckooMachineError
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
 log = logging.getLogger(__name__)
+cfg_resultserver_ip = Config().get("resultserver").get("ip")
 
 
 class AWS(Machinery):
@@ -30,8 +31,7 @@ class AWS(Machinery):
 
     AUTOSCALE_CUCKOO = "AUTOSCALE_CUCKOO"
 
-    def __init__(self):
-        super(AWS, self).__init__()
+    module_name = "aws"
 
     """override Machinery method"""
 
@@ -43,14 +43,25 @@ class AWS(Machinery):
         self.dynamic_machines_sequence = 0
         self.dynamic_machines_count = 0
         log.info("connecting to AWS:{}".format(self.options.aws.region_name))
-        self.ec2_resource = boto3.resource(
-            "ec2",
-            region_name=self.options.aws.region_name,
-            aws_access_key_id=self.options.aws.aws_access_key_id,
-            aws_secret_access_key=self.options.aws.aws_secret_access_key,
-        )
 
-        # Iterate over all instances with tag that has a key of AUTOSCALE_CUCKOO
+        # Performing a check to see if the access and secret keys were passed through the configuration file
+        access_key = getattr(self.options.aws, "aws_access_key_id", None)
+        secret_key = getattr(self.options.aws, "aws_secret_access_key", None)
+
+        # Use the provided credentials if available; otherwise, fall back to the IAM role attached to the EC2 instance
+        if access_key and secret_key:
+            log.info("Using provided AWS keys for authentication.")
+            self.ec2_resource = boto3.resource(
+                "ec2",
+                region_name=self.options.aws.region_name,
+                aws_access_key_id=self.options.aws.aws_access_key_id,
+                aws_secret_access_key=self.options.aws.aws_secret_access_key,
+            )
+        else:
+            log.info("No AWS keys provided; attempting to use IAM Role through IMDSv2")
+            self.ec2_resource = boto3.resource("ec2", region_name=self.options.aws.region_name)
+
+            # Iterate over all instances with tag that has a key of AUTOSCALE_CUCKOO
         for instance in self.ec2_resource.instances.filter(
             Filters=[
                 {
@@ -88,26 +99,6 @@ class AWS(Machinery):
                 self.ec2_machines[machine.label].start()  # not using self.start() to avoid _wait_ method
                 num_of_machines_to_start -= 1
 
-    def _delete_machine_form_db(self, label):
-        """
-        cuckoo's DB class does not implement machine deletion, so we made one here
-        :param label: the machine label
-        """
-        session = self.db.Session()
-        try:
-            from lib.cuckoo.core.database import Machine
-
-            machine = session.query(Machine).filter_by(label=label).first()
-            if machine:
-                session.delete(machine)
-                session.commit()
-        except SQLAlchemyError as e:
-            log.debug("Database error removing machine: {0}".format(e))
-            session.rollback()
-            return
-        finally:
-            session.close()
-
     def _allocate_new_machine(self):
         """
         allocating/creating new EC2 instance(autoscale option)
@@ -118,9 +109,7 @@ class AWS(Machinery):
         # If configured, use specific network interface for this
         # machine, else use the default value.
         interface = autoscale_options["interface"] if autoscale_options.get("interface") else machinery_options.get("interface")
-        resultserver_ip = (
-            autoscale_options["resultserver_ip"] if autoscale_options.get("resultserver_ip") else Config("cuckoo:resultserver:ip")
-        )
+        resultserver_ip = autoscale_options["resultserver_ip"] if autoscale_options.get("resultserver_ip") else cfg_resultserver_ip
         if autoscale_options.get("resultserver_port"):
             resultserver_port = autoscale_options["resultserver_port"]
         else:
@@ -176,13 +165,11 @@ class AWS(Machinery):
 
     """override Machinery method"""
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=None, need_scheduled=False):
+    def scale_pool(self, machine: Machine) -> None:
         """
         override Machinery method to utilize the auto scale option
         """
-        base_class_return_value = super(AWS, self).acquire(machine_id, platform, tags, need_scheduled=need_scheduled)
         self._start_or_create_machines()  # prepare another machine
-        return base_class_return_value
 
     def _start_or_create_machines(self):
         """
@@ -286,8 +273,6 @@ class AWS(Machinery):
 
         if self._is_autoscaled(self.ec2_machines[label]):
             self.ec2_machines[label].terminate()
-            self._delete_machine_form_db(label)
-            self.dynamic_machines_count -= 1
         else:
             self.ec2_machines[label].stop(Force=True)
             self._wait_status(label, AWS.POWEROFF)
@@ -295,14 +280,20 @@ class AWS(Machinery):
 
     """override Machinery method"""
 
-    def release(self, label=None):
+    def release(self, machine: Machine) -> Machine:
         """
         we override it to have the ability to run start_or_create_machines() after unlocking the last machine
         Release a machine.
         @param label: machine label.
         """
-        super(AWS, self).release(label)
+        retval = super(AWS, self).release(machine)
+
+        if self._is_autoscaled(self.ec2_machines[machine.label]):
+            super(AWS, self).delete_machine(machine.name)
+            self.dynamic_machines_count -= 1
+
         self._start_or_create_machines()
+        return retval
 
     def _create_instance(self, tags):
         """

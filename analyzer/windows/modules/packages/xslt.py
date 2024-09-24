@@ -13,6 +13,10 @@ class XSLT(Package):
         ("SystemRoot", "system32", "wbem", "wmic.exe"),
         ("SystemRoot", "SysWOW64", "wbem", "wmic.exe"),
     ]
+    summary = "Opens sample file using wmic.exe."
+    description = """Uses 'wmic.exe process LIST /FORMAT:"<sample>"' to execute any
+    code embedded in the xml sample.
+    The .xsl filename extension will be added automatically."""
 
     def start(self, path):
         wmic = self.get_path("wmic.exe")

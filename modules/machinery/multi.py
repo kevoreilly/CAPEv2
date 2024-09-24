@@ -28,6 +28,8 @@ def import_plugin(name):
 
 
 class MultiMachinery(Machinery):
+    module_name = "multi"
+
     LABEL = "mm_label"
 
     _machineries = {}
@@ -56,7 +58,7 @@ class MultiMachinery(Machinery):
 
                 machinery["module"].machines = types.MethodType(list_machines, machinery["module"])
 
-                for machine_name in [machine.strip() for machine in machinery_machines.split(",")]:
+                for machine_name in [machine.strip() for machine in machinery_machines]:
                     machine = machinery["config"].get(machine_name)
                     machine["machinery"] = machinery_name
 

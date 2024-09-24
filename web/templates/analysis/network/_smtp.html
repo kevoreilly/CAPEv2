@@ -1,5 +1,47 @@
 <h4>SMTP traffic</h4>
-{% if network.smtp %}
+{% if network.smtp_ex %}
+<table class="table table-striped table-bordered" style="table-layout: fixed;">
+    <tr>
+        <th>Destination</th>
+        <th>Data</th>
+    </tr>
+    {% for req in network.smtp_ex %}
+    <tr>
+        <td style="word-wrap: break-word;">{{req.dst}}:{{req.dport}}</td>
+        <td style="word-wrap: break-word;">
+            <table class="table table-striped table-bordered">
+            {% if req %}
+                <tr><td>
+                    Request:
+                    {% for key, value in req.req.items %}
+                    {% if key in "headers,mail_body" %}
+                        <li><b>{{key}}:</b> <pre style="display: inline-block;white-space: pre-wrap;overflow-x: auto;width: 100%;">{{value}}</pre></li>
+                    {% else %}
+                        <li><b>{{key}}:</b> <pre style="display: inline">{{value}}</pre></li>
+                    {% endif %}
+                    {% endfor %}
+                </td></tr>
+            {% endif %}
+            <tr><td>
+            {% if req.resp %}
+                Response:
+                {% for key, value in req.resp.items %}
+                    {% if key in "banner" %}
+                        <li><b>{{key}}:</b> <pre style="display: inline-block;white-space: pre-wrap;overflow-x: auto;width: 100%;">{{value}}</pre></li>
+                    {% else %}
+                        <li><b>{{key}}:</b> <pre style="display: inline">{{value}}</pre></li>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                No response
+            {% endif %}
+            </td></tr>
+            </table>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% elif network.smtp %}
 <table class="table table-striped table-bordered" style="table-layout: fixed;">
     <tr>
         <th>Destination</th>

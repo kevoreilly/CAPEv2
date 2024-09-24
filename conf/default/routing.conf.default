@@ -1,0 +1,150 @@
+[routing]
+
+# Enable pcap generation for non live connections?
+# If you have huge number of VMs, pcap generation can be a bottleneck
+enable_pcap = no
+
+# Default network routing mode; "none", "internet", or "vpn_name".
+# In none mode we don't do any special routing - the VM doesn't have any
+# network access (this has been the default actually for quite a while).
+# In internet mode by default all the VMs will be routed through the network
+# interface configured below (the "dirty line").
+# And in VPN mode by default the VMs will be routed through the VPN identified
+# by the given name of the VPN.
+# Note that just like enabling VPN configuration setting this option to
+# anything other than "none" requires one to run utils/rooter.py as root next
+# to the CAPE instance (as it's required for setting up the routing).
+route = none
+
+# Network interface that allows a VM to connect to the entire internet, the
+# "dirty line" so to say. Note that, just like with the VPNs, this will allow
+# malicious traffic through your network. So think twice before enabling it.
+# (For example, to route all VMs through eth0 by default: "internet = eth0").
+internet = none
+
+# When set to no masquerade rule has been not generated.
+nat = yes
+
+# When property nat set to yes. That property not used.
+# When property nat set to no and no_local_routing to yes, a vrf configuration 
+# will be generated and local traffic will go through by internet interface (dirty_line).
+no_local_routing = yes
+
+# Routing table name/id for "dirty line" interface. If "dirty line" is
+# also default gateway in the system you can leave "main" value. Otherwise add
+# new routing table by adding "<id> <name>" line to /etc/iproute2/rt_tables
+# (e.g., "200 eth0"). ID and name must be unique across the system (refer to
+# /etc/iproute2/rt_tables for existing names and IDs).
+rt_table = main
+
+# When using "dirty line", you can reject forwarding to a certain network segment.
+# For example, a request targeting 192.168.12.1/24,172.16.22.1/24 will not be
+# forwarded, but will be rejected:
+# "reject_segments = 192.168.12.1/24,172.16.22.1/24"
+reject_segments = none
+
+# When ussing "dirty line", you can reject guest access a certain port.
+# For example, a request targeting host's port 8000 and 8080 will be rejected:
+# "reject_hostports = 8000,8080"
+reject_hostports = none
+
+# To route traffic through multiple network interfaces CAPE uses
+# Policy Routing with separate routing table for each output interface
+# (VPN or "dirty line"). If this option is enabled CAPE on start will try
+# to automatically initialise routing tables by copying routing entries from
+# main routing table to the new routing tables. Depending on your network/vpn
+# configuration this might not be sufficient. In such case you would need to
+# initialise routing tables manually. Note that enabling this option won't
+# affect main routing table.
+auto_rt = no
+
+# The drop route basically drops any outgoing network (except for CAPE
+# traffic) whereas the regular none route still allows a VM to access its own
+# subnet (e.g., 192.168.122.1/24). It is disabled by default as it does require
+# the optional rooter to run (unlike the none route, where literally nothing
+# happens). One can either explicitly enable the drop route or if the rooter
+# is enabled anyway, it is automatically enabled.
+drop = no
+
+# Should check if the inteface is up
+verify_interface = yes
+
+# Should check if rt_table exists before initializing
+verify_rt_table = yes
+
+[inetsim]
+# Inetsim quick deploy, chose your vm manager if is not kvm
+# wget https://googledrive.com/host/0B6fULLT_NpxMQ1Rrb1drdW42SkE/remnux-6.0-ova-public.ova
+# tar xvf remnux-6.0-ova-public.ova
+# qemu-img convert -O qcow2 REMnuxV6-disk1.vmdk remnux.qcow2
+
+enabled = no
+server = 192.168.1.2
+dnsport = 53
+interface = virbr1
+# Redirect TCP ports (should we also support UDP?). If specified, this should
+# represent whitespace-separated src:dst pairs. E.g., "80:8080 443:8080" will
+# redirect all 80/443 traffic to 8080 on the specified InetSim host.
+# Source port range redirection is also supported. E.g., "996-2041:80" will
+# redirect all traffic directed at ports between 996 and 2041 inclusive to port 80
+# on the specified InetSim host.
+ports =
+
+
+[tor]
+enabled = no
+dnsport = 5353
+proxyport = 9040
+interface = virbr1
+
+[vpn]
+# By default we disable VPN support as it requires running utils/rooter.py as
+# root next to cuckoo.py (which should run as regular user).
+enabled = no
+
+# select one of the configured vpns randomly
+random_vpn = no
+
+# Comma-separated list of the available VPNs.
+vpns = vpn0
+
+[vpn0]
+# Name of this VPN. The name is represented by the filepath to the
+# configuration file, e.g., cuckoo would represent /etc/openvpn/cuckoo.conf
+# Note that you can't assign the names "none" and "internet" as those would
+# conflict with the routing section in cuckoo.conf.
+name = vpn0
+
+# The description of this VPN which will be displayed in the web interface.
+# Can be used to for example describe the country where this VPN ends up.
+description = openvpn_tunnel
+
+# The tun device hardcoded for this VPN. Each VPN *must* be configured to use
+# a hardcoded/persistent tun device by explicitly adding the line "dev tunX"
+# to its configuration (e.g., /etc/openvpn/vpn1.conf) where X in tunX is a
+# unique number between 0 and your lucky number of choice.
+interface = tun0
+
+# Routing table name/id for this VPN. If table name is used it *must* be
+# added to /etc/iproute2/rt_tables as "<id> <name>" line (e.g., "201 tun0").
+# ID and name must be unique across the system (refer /etc/iproute2/rt_tables
+# for existing names and IDs).
+rt_table = tun0
+
+
+[socks5]
+# By default we disable socks5 support as it requires running utils/rooter.py as
+# root next to cuckoo.py (which should run as regular user).
+enabled = no
+
+# select one of the configured socks5 proxies randomly
+random_socks5 = no
+
+# Comma-separated list of the available proxies.
+proxies = socks_ch
+
+[socks_ch]
+name = ch_socks
+description = ch_socks
+proxyport = 5008
+dnsport = 10053

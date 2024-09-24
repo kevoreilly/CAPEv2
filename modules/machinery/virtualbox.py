@@ -23,6 +23,8 @@ cfg = Config()
 class VirtualBox(Machinery):
     """Virtualization layer for VirtualBox."""
 
+    module_name = "virtualbox"
+
     # VM states.
     SAVED = "saved"
     RUNNING = "running"

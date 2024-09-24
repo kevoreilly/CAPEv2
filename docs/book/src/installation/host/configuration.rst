@@ -76,9 +76,9 @@ auxiliary.conf
 ==============
 
 Auxiliary modules are scripts that run concurrently with malware analysis, this file defines
-their options. Please see the latest version here: `auxiliary.conf`_.
+their options. Please see the default version here: `auxiliary.conf`_.
 
-.. _`auxiliary.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/auxiliary.conf
+.. _`auxiliary.conf`: https://github.com/kevoreilly/CAPEv2/blob/master/conf/default/auxiliary.conf.default
 
 
 .. _machinery_conf:

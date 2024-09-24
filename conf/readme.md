@@ -2,7 +2,7 @@
 
 * Community tag before module section means that module is done/maintained by community, not core dev.
 
-* Do NOT edit `<name>.conf.default` it will contain the same as repo config and in case if new field is added you don't need to update your config
+* Do NOT edit files with this name schema `<name>.conf.default` it will contain the same as repo config and in case if new field is added you don't need to update your config
 * Now you can use any of the following path to edit your configuration:
     * `<name>.conf`
     * `<name>.conf.d`
@@ -35,3 +35,12 @@ stored on disk anywhere.
 config file.
 
 By: [Tommy Beadle](https://github.com/tbeadle) -> [commit](https://github.com/kevoreilly/CAPEv2/commit/e217139ff6cd1ad8f8e74626af990c1913653d21)
+
+### Extras - Mostly for devs only
+When jumping between branches is become hard to keep config syncronized.
+So as solution we introduce `CAPE_CD` aka `CAPE Config Directory` env variable.
+
+* Example:
+    * CAPE_CD=/opt/CAPEv2_conf poetry run python cuckoo.py
+    * CAPE_CD=/opt/CAPEv2_conf poetry run python utils/process.py
+    * CAPE_CD=/opt/CAPEv2_conf poetry run python manage.py runserver 0.0.0.0:8000

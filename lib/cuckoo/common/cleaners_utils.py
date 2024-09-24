@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from contextlib import suppress
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
@@ -12,7 +13,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir, path_mkdir
 from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
@@ -23,19 +24,25 @@ from lib.cuckoo.core.database import (
     Database,
     Sample,
     Task,
+    _Database,
 )
 from lib.cuckoo.core.startup import create_structure, init_console_logging
 
 log = logging.getLogger(__name__)
 
-cuckoo = Config()
+config = Config()
 repconf = Config("reporting")
 webconf = Config("web")
 resolver_pool = ThreadPool(50)
 atexit.register(resolver_pool.close)
 
+HAVE_TMPFS = False
+if hasattr(config, "tmpfs"):
+    tmpfs = config.tmpfs
+    HAVE_TMPFS = True
+
 # Initialize the database connection.
-db = Database()
+db: _Database = Database()
 if repconf.mongodb.enabled:
     mdb = repconf.mongodb.get("db", "cuckoo")
     from dev_utils.mongo_hooks import delete_unused_file_docs
@@ -50,6 +57,79 @@ if repconf.mongodb.enabled:
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
+
+
+def free_space_monitor(path=False, return_value=False, processing=False, analysis=False):
+    """
+    @param path: path to check
+    @param return_value: return available size
+    @param processing: size from cuckoo.conf -> freespace_processing.
+    @param analysis: check the main storage size
+    """
+
+    cleanup_dict = {
+        "delete_mongo": config.cleaner.mongo,
+    }
+    if config.cleaner.binaries_days:
+        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleaner.binaries_days)
+    if config.cleaner.tmp_days:
+        cleanup_dict["delete_tmp_items_older_than_days"] = int(config.cleaner.tmp_days)
+    if config.cleaner.analysis_days:
+        cleanup_dict["delete_older_than_days"] = int(config.cleaner.analysis_days)
+    if config.cleaner.unused_files_in_mongodb:
+        cleanup_dict["delete_unused_file_data_in_mongo"] = 1
+
+    need_space, space_available = False, 0
+    # Calculate the free disk space in megabytes.
+    # Check main FS if processing
+    if processing:
+        free_space = config.cuckoo.freespace_processing
+    elif not analysis and HAVE_TMPFS and tmpfs.enabled:
+        path = tmpfs.path
+        free_space = tmpfs.freespace
+    else:
+        free_space = config.cuckoo.freespace
+
+    if path and not path_exists(path):
+        sys.exit("Restart daemon/process, happens after full cleanup")
+
+    printed_error = False
+    while True:
+        try:
+            space_available = shutil.disk_usage(path).free >> 20
+            need_space = space_available < free_space
+        except FileNotFoundError:
+            log.error("Folder doesn't exist, maybe due to clean")
+            path_mkdir(path)
+            continue
+
+        if return_value:
+            return need_space, space_available
+
+        if need_space:
+            if not printed_error:
+                log.error(
+                    "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
+                    space_available,
+                )
+                printed_error = True
+
+            # Invoke cleaups here if enabled
+            if config.cleaner.enabled:
+                # prepare dict on startup
+                execute_cleanup(cleanup_dict)
+
+                # rest 1 day
+                if config.cleaner.binaries_days and cleanup_dict["delete_binaries_items_older_than_days"]:
+                    cleanup_dict["delete_binaries_items_older_than_days"] -= 1
+                if config.cleaner.tmp_days and cleanup_dict["delete_tmp_items_older_than_days"]:
+                    cleanup_dict["delete_tmp_items_older_than_days"] -= 1
+                if config.cleaner.analysis_days and cleanup_dict["delete_older_than_days"]:
+                    cleanup_dict["delete_older_than_days"] -= 1
+
+            time.sleep(5)
+        else:
+            break
 
 
 def delete_folder(folder):
@@ -150,10 +230,11 @@ def delete_data(tid):
             delete_analysis_and_related_calls(tid)
     except Exception as e:
         log.error("failed to remove analysis info (may not exist) %s due to %s" % (tid, e), exc_info=True)
-    if db.delete_task(tid):
-        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
-    else:
-        log.info("failed to remove faile task %s from DB" % (tid))
+    with db.session.begin():
+        if db.delete_task(tid):
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
+        else:
+            log.info("failed to remove faile task %s from DB" % (tid))
 
 
 def dist_delete_data(data, dist_db):
@@ -182,7 +263,6 @@ def cuckoo_clean():
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    init_console_logging()
 
     # Drop all tables.
     db.drop()
@@ -237,7 +317,6 @@ def cuckoo_clean_failed_tasks():
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    init_console_logging()
 
     failed_tasks_a = db.list_tasks(status=TASK_FAILED_ANALYSIS)
     failed_tasks_p = db.list_tasks(status=TASK_FAILED_PROCESSING)
@@ -255,7 +334,6 @@ def cuckoo_clean_bson_suri_logs():
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    init_console_logging()
     from glob import glob
 
     failed_tasks_a = db.list_tasks(status=TASK_FAILED_ANALYSIS)
@@ -290,7 +368,6 @@ def cuckoo_clean_failed_url_tasks():
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    init_console_logging()
     if not is_reporting_db_connected():
         return
 
@@ -323,7 +400,6 @@ def cuckoo_clean_lower_score(malscore: int):
     # logger (init_logging()) logs to a file which will be deleted.
 
     create_structure()
-    init_console_logging()
     id_arr = []
     if not is_reporting_db_connected():
         return
@@ -345,13 +421,10 @@ def cuckoo_clean_lower_score(malscore: int):
 def tmp_clean_before_day(days: int):
     """Clean up tmp folder
     It deletes all items in tmp folder before now - days.
-    CAPE related only, is not our tasks to clean your TMP folder
     """
 
-    init_console_logging()
-
     today = datetime.today()
-    tmp_folder_path = cuckoo.cuckoo.get("tmppath")
+    tmp_folder_path = config.cuckoo.get("tmppath")
 
     for folder in ("cuckoo-tmp", "cape-external"):
         for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
@@ -382,7 +455,6 @@ def cuckoo_clean_before_day(args: dict):
     # logger (init_logging()) logs to a file which will be deleted.
 
     create_structure()
-    init_console_logging()
     id_arr = []
 
     if not is_reporting_db_connected():
@@ -433,7 +505,6 @@ def cuckoo_clean_sorted_pcap_dump():
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    init_console_logging()
 
     if not is_reporting_db_connected():
         return
@@ -495,7 +566,6 @@ def cuckoo_clean_pending_tasks(before_time: int = None, delete: bool = False):
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    init_console_logging()
 
     if not is_reporting_db_connected():
         return
@@ -516,7 +586,6 @@ def cuckoo_clean_range_tasks(start, end):
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    init_console_logging()
     pending_tasks = db.list_tasks(id_after=start - 1, id_before=end + 1)
     resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), pending_tasks)
 
@@ -525,7 +594,6 @@ def delete_unused_file_data_in_mongo():
     """Cleans the entries in the 'files' collection that no longer have any analysis
     tasks associated with them.
     """
-    init_console_logging()
     log.info("Removing file entries in Mongo that are no longer referenced.")
     result = delete_unused_file_docs()
     log.info("Removed %s file %s.", result.deleted_count, "entry" if result.deleted_count == 1 else "entries")
@@ -554,7 +622,6 @@ def cuckoo_dedup_cluster_queue():
 
 def cape_clean_tlp():
     create_structure()
-    init_console_logging()
 
     if not is_reporting_db_connected():
         return
@@ -576,6 +643,8 @@ def binaries_clean_before_day(days: int):
     for _, _, filenames in os.walk(binaries_folder):
         for sha256 in filenames:
             bin_path = os.path.join(binaries_folder, sha256)
+            if not os.path.exists(bin_path):
+                continue
             st_ctime = path_get_date(bin_path)
             file_time = today - datetime.fromtimestamp(st_ctime)
             if file_time.days > days:
@@ -584,7 +653,11 @@ def binaries_clean_before_day(days: int):
                     path_delete(bin_path)
 
 
-def execute_cleanup(args: dict):
+def execute_cleanup(args: dict, init_log=True):
+
+    if init_log:
+        init_console_logging()
+
     if args.get("clean"):
         cuckoo_clean()
 

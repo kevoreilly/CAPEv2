@@ -27,7 +27,7 @@ from lib.cuckoo.common.defines import (
     PAGE_WRITECOPY,
 )
 from lib.cuckoo.common.integrations.clamav import get_clamav
-from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
+from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386, IsPEImage
 from lib.cuckoo.common.path_utils import path_exists
 
 try:
@@ -74,6 +74,13 @@ except ImportError:
     print("Missed library. Run: poetry install")
     HAVE_YARA = False
 
+try:
+    import yara_x
+
+    HAVE_YARA_X = True
+except ImportError:
+    # print("Missed library. Run: poetry install pip3 install yara-x")
+    HAVE_YARA_X = False
 
 log = logging.getLogger(__name__)
 
@@ -156,8 +163,12 @@ class URL:
 class File:
     """Basic file object class with all useful utilities."""
 
+    LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
+    DARWIN_TYPES = {"Mach-O"}
+
     # The yara rules should not change during one Cuckoo run and as such we're
     # caching 'em. This dictionary is filled during init_yara().
+    # ToDo find a way to get compiled YARA hash so we can loopup files if hash is the same
     yara_rules = {}
     yara_initialized = False
     # static fields which indicate whether the user has been
@@ -375,7 +386,8 @@ class File:
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
                             log.debug("Unable to instantiate pefile on image: %s", self.file_path)
-                        if self.pe:
+                        emulated_isa = {IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386}
+                        if self.pe and self.pe.FILE_HEADER.Machine in emulated_isa:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
@@ -398,6 +410,7 @@ class File:
                                 self.file_type = f"PE32+ executable ({gui_type}) x86-64{dotnet_string}, for MS Windows"
                             else:
                                 self.file_type = f"PE32 executable ({gui_type}) Intel 80386{dotnet_string}, for MS Windows"
+                            log.debug("file type set using basic heuristics for: %s", self.file_path)
                     elif not File.notified_pefile:
                         File.notified_pefile = True
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")
@@ -442,48 +455,76 @@ class File:
                     log.warning("Missing Yara directory: %s?", category_root)
                     continue
 
-                for category_root, _, filenames in os.walk(category_root, followlinks=True):
-                    for filename in filenames:
-                        if not filename.endswith((".yar", ".yara")):
-                            continue
-                        filepath = os.path.join(category_root, filename)
-                        rules[f"rule_{category}_{len(rules)}"] = filepath
-                        indexed.append(filename)
+                for filename in os.listdir(category_root):
+                    if not filename.endswith((".yar", ".yara")):
+                        continue
+                    filepath = os.path.join(category_root, filename)
+                    rules[f"rule_{category}_{len(rules)}"] = filepath
+                    indexed.append(filename)
 
                 # Need to define each external variable that will be used in the
             # future. Otherwise Yara will complain.
             externals = {"filename": ""}
 
             while True:
-                try:
-                    File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-                    File.yara_initialized = True
-                    break
-                except yara.SyntaxError as e:
-                    bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
-                    log.debug(
-                        "Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule
-                    )
-                    if os.path.basename(bad_rule) not in indexed:
+                if HAVE_YARA_X:
+                    compiler = yara_x.Compiler(relaxed_re_syntax=True)
+                    for name, path in rules.items():
+                        try:
+                            with open(path, "r") as f:
+                                compiler.new_namespace(name)
+                                compiler.add_source(f.read())
+                        except yara_x.CompileError as err:
+                            print(err, name)
+                            # ToDo bad rule defense
+
+                    File.yara_rules[category] = yara_x.Scanner(compiler.build())
+
+                elif HAVE_YARA:
+                    try:
+                        File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                        File.yara_initialized = True
                         break
-                    for k, v in rules.items():
-                        if v == bad_rule:
-                            del rules[k]
-                            indexed.remove(os.path.basename(bad_rule))
-                            log.error("Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule)
+                    except yara.SyntaxError as e:
+                        bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
+                        log.debug(
+                            "Trying to disable rule: %s. Can't compile it. Ensure that your YARA is properly installed.", bad_rule
+                        )
+                        if os.path.basename(bad_rule) not in indexed:
                             break
-                except yara.Error as e:
-                    log.error("There was a syntax error in one or more Yara rules: %s", e)
-                    break
+                        for k, v in rules.items():
+                            if v == bad_rule:
+                                del rules[k]
+                                indexed.remove(os.path.basename(bad_rule))
+                                log.error(
+                                    "Can't compile YARA rule: %s. Maybe is bad yara but can be missing YARA's module.", bad_rule
+                                )
+                                break
+                    except yara.Error as e:
+                        log.error("There was a syntax error in one or more Yara rules: %s", e)
+                        break
             if category == "memory":
-                try:
-                    mem_rules = yara.compile(filepaths=rules, externals=externals)
-                    mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
-                except yara.Error as e:
-                    if "could not open file" in str(e):
-                        log.inf("Can't write index_memory.yarc. Did you starting it with correct user?")
-                    else:
-                        log.error(e)
+                index_memory = os.path.join(yara_root, "index_memory.yarc")
+                if HAVE_YARA_X:
+                    for name, path in rules.items():
+                        try:
+                            with open(path, "r") as f:
+                                compiler.new_namespace(name)
+                                compiler.add_source(f.read())
+                        except yara_x.CompileError as err:
+                            print(err, name)
+                    builded = compiler.build()
+                    with open(index_memory, "wb") as f:
+                        builded.serialize_into(f)
+                elif HAVE_YARA:
+                    try:
+                        mem_rules = yara.compile(filepaths=rules, externals=externals)
+                        mem_rules.save(index_memory)
+                    except yara.Error as e:
+                        if "could not open file" in str(e):
+                            log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
+                        else:
+                            log.error(e)
 
             indexed = sorted(indexed)
             for entry in indexed:
@@ -496,34 +537,53 @@ class File:
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
-        if float(yara.__version__[:-2]) < 4.3:
-            log.error("You using outdated YARA version. run: poetry install")
+        if not HAVE_YARA_X and HAVE_YARA and float(yara.__version__[:-2]) < 4.3:
+            log.error("You using outdated YARA version. run: poetry run extra/yara_installer.sh")
             return []
 
         if not File.yara_initialized:
             File.init_yara()
 
-        results = []
         if not os.path.getsize(self.file_path):
-            return results
+            log.error("YARA scan ignored, file is empty: %s", self.file_path)
+            return []
 
+        results = []
         try:
-            results, rule = [], File.yara_rules[category]
-            for match in rule.match(self.file_path_ansii, externals=externals):
-                strings = []
-                addresses = {}
-                for yara_string in match.strings:
-                    for x in yara_string.instances:
-                        strings.extend({self._yara_encode_string(x.matched_data)})
-                        addresses.update({yara_string.identifier.strip("$"): x.offset})
-                results.append(
-                    {
-                        "name": match.rule,
-                        "meta": match.meta,
-                        "strings": strings,
-                        "addresses": addresses,
-                    }
-                )
+            rules = File.yara_rules[category]
+            if HAVE_YARA_X:
+                for yara_results in rules.scan_file(self.file_path):
+                    for match in yara_results.matching_rules:
+                        strings = []
+                        addresses = {}
+                        for yara_string in match.patterns:
+                            for x in yara_string.matches:
+                                # strings.extend({self._yara_encode_string(x.matched_data)})
+                                addresses.update({yara_string.identifier.strip("$"): x.offset})
+                        results.append(
+                            {
+                                "name": match.identifier,
+                                "meta": dict(match.metadata),
+                                "strings": [],
+                                "addresses": addresses,
+                            }
+                        )
+            elif HAVE_YARA:
+                for match in rules.match(self.file_path_ansii, externals=externals):
+                    strings = []
+                    addresses = {}
+                    for yara_string in match.strings:
+                        for x in yara_string.instances:
+                            strings.extend({self._yara_encode_string(x.matched_data)})
+                            addresses.update({yara_string.identifier.strip("$"): x.offset})
+                    results.append(
+                        {
+                            "name": match.rule,
+                            "meta": match.meta,
+                            "strings": strings,
+                            "addresses": addresses,
+                        }
+                    )
         except Exception as e:
             errcode = str(e).rsplit(maxsplit=1)[-1]
             if errcode in yara_error:
@@ -655,6 +715,35 @@ class File:
         }
 
         return infos, self.pe
+
+    def get_platform(self):
+        retval = "windows"
+        ftype = self.get_type()
+        if isinstance(ftype, str):
+            if any(x in ftype for x in File.LINUX_TYPES):
+                retval = "linux"
+            elif any(x in ftype for x in File.DARWIN_TYPES):
+                retval = "darwin"
+        return retval
+
+    def predict_arch(self):
+        ftype = self.get_type()
+        if isinstance(ftype, str):
+            if "ARM" in ftype or "arm executable" in ftype or "Aarch64" in ftype:
+                return "arm"
+            elif "MIPSEL" in ftype:
+                return "mipsel"
+            elif "MIPS" in ftype:
+                return "mips"
+            elif "SPARC" in ftype:
+                return "sparc"
+            elif "PowerPC" in ftype:
+                return "powerpc"
+            elif "PE32+" in ftype or "64-bit" in ftype or "x86-64" in ftype:
+                return "x64"
+            elif "PE32" in ftype or "32-bit" in ftype or "x86" in ftype or "80386" in ftype:
+                return "x86"
+        return None
 
 
 class Static(File):

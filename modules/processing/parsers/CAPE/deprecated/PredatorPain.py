@@ -54,6 +54,7 @@ def decrypt_string(key, salt, coded):
 # except Exception:
 # return False
 
+
 # Get a list of strings from a section
 def get_strings(pe, dir_type):
     string_list = []

@@ -7,7 +7,7 @@ import textwrap
 
 import pytest
 
-from lib.cuckoo.common.config import AnalysisConfig, Config
+from lib.cuckoo.common.config import AnalysisConfig, Config, ConfigMeta
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_write_file
 
@@ -73,6 +73,7 @@ class TestConfig:
             """,
         )
         config = Config("cuckoo")
+        ConfigMeta.refresh()
 
         # This was overridden in the custom config.
         assert config.get("cuckoo")["machinery_screenshots"] is True
@@ -107,6 +108,7 @@ class TestConfig:
             url = {url}
             """,
         )
+        ConfigMeta.refresh()
         config = Config("api")
         # This is set to 'no' in the default api.conf and not overridden.
         assert config.get("api")["token_auth_enabled"] is False
@@ -142,6 +144,7 @@ class TestConfig:
         custom_secret = "MyReallySecretKeyWithAPercent(%)InIt"
         monkeypatch.setenv("DLINTELKEY", custom_secret)
         config = Config("processing")
+        ConfigMeta.refresh()
         section = config.get("virustotal")
         # Inherited from default config
         assert section.enabled is True
@@ -164,4 +167,5 @@ class TestConfig:
         )
 
         with pytest.raises(configparser.InterpolationMissingOptionError):
+            ConfigMeta.refresh()
             _ = Config("processing")

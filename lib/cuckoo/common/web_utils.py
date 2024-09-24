@@ -5,12 +5,14 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 import time
 from collections import OrderedDict
 from contextlib import suppress
 from datetime import datetime, timedelta
 from pathlib import Path
 from random import choice
+from typing import Dict, List, Optional
 
 import magic
 import requests
@@ -28,11 +30,9 @@ from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefi
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import (
-    bytes2str,
     generate_fake_name,
     get_ip_address,
     get_options,
-    get_platform,
     get_user_filename,
     sanitize_filename,
     store_temp_file,
@@ -177,45 +177,55 @@ def my_rate_minutes(group, request):
     return rpm
 
 
-def load_vms_exits():
-    all_exits = {}
-    if HAVE_DIST and dist_conf.distributed.enabled:
-        try:
-            db = dist_session()
-            for node in db.query(Node).all():
-                if hasattr(node, "exitnodes"):
-                    for exit in node.exitnodes:
-                        all_exits.setdefault(exit.name, []).append(node.name)
-            db.close()
-        except Exception as e:
-            print(e)
-
-    return all_exits
+_all_nodes_exits: Optional[Dict[str, List[str]]] = None
+_load_vms_exits_lock = threading.Lock()
 
 
-def load_vms_tags():
-    all_tags = []
-    if HAVE_DIST and dist_conf.distributed.enabled:
-        try:
-            db = dist_session()
-            for vm in db.query(Machine).all():
-                all_tags += vm.tags
-            all_tags = sorted(filter(None, all_tags))
-            db.close()
-        except Exception as e:
-            print(e)
+def load_vms_exits(force=False):
+    global _all_nodes_exits
+    with _load_vms_exits_lock:
+        if _all_nodes_exits is not None and not force:
+            return _all_nodes_exits
+        _all_nodes_exits = {}
+        if HAVE_DIST and dist_conf.distributed.enabled:
+            try:
+                db = dist_session()
+                for node in db.query(Node).all():
+                    if hasattr(node, "exitnodes"):
+                        for exit in node.exitnodes:
+                            _all_nodes_exits.setdefault(exit.name, []).append(node.name)
+                db.close()
+            except Exception as e:
+                print(e)
 
-    for machine in Database().list_machines():
-        all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
-
-    return list(set(all_tags))
+        return _all_nodes_exits
 
 
-all_nodes_exits = load_vms_exits()
-all_nodes_exits_list = list(all_nodes_exits.keys())
+_all_vms_tags: Optional[List[str]] = None
+_load_vms_tags_lock = threading.Lock()
 
-all_vms_tags = load_vms_tags()
-all_vms_tags_str = ",".join(all_vms_tags)
+
+def load_vms_tags(force=False):
+    global _all_vms_tags
+    with _load_vms_tags_lock:
+        if _all_vms_tags is not None and not force:
+            return _all_vms_tags
+        all_tags = []
+        if HAVE_DIST and dist_conf.distributed.enabled:
+            try:
+                db = dist_session()
+                for vm in db.query(Machine).all():
+                    all_tags += vm.tags
+                all_tags = sorted(filter(None, all_tags))
+                db.close()
+            except Exception as e:
+                print(e)
+
+        for machine in Database().list_machines(include_reserved=True):
+            all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
+
+        _all_vms_tags = list(sorted(set(all_tags)))
+        return _all_vms_tags
 
 
 def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
@@ -401,12 +411,14 @@ def statistics(s_days: int) -> dict:
             details[module_name.split(".")[-1]].setdefault(name, entry)
 
     top_samples = {}
-    session = db.Session()
     added_tasks = (
-        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+        db.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
     )
     tasks = (
-        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.completed_on.between(date_since, date_till)).all()
+        db.session.query(Task)
+        .join(Sample, Task.sample_id == Sample.id)
+        .filter(Task.completed_on.between(date_since, date_till))
+        .all()
     )
     details["total"] = len(tasks)
     details["average"] = f"{round(details['total'] / s_days, 2):.2f}"
@@ -475,7 +487,6 @@ def statistics(s_days: int) -> dict:
     details["detections"] = top_detections(date_since=date_since)
     details["asns"] = top_asn(date_since=date_since)
 
-    session.close()
     return details
 
 
@@ -521,74 +532,6 @@ def fix_section_permission(path):
         pe.close()
     except Exception as e:
         log.info(e)
-
-
-# Submission hooks to manipulate arguments of tasks execution
-def recon(
-    filename,
-    orig_options,
-    timeout,
-    enforce_timeout,
-    package,
-    tags,
-    static,
-    priority,
-    machine,
-    platform,
-    custom,
-    memory,
-    clock,
-    unique,
-    referrer,
-    tlp,
-    tags_tasks,
-    route,
-    cape,
-):
-    if not isinstance(filename, str):
-        filename = bytes2str(filename)
-
-    lowered_filename = filename.lower()
-
-    if web_cfg.general.yara_recon:
-        hits = File(filename).get_yara("binaries")
-        for hit in hits:
-            cape_name = hit["meta"].get("cape_type", "")
-            if not cape_name.endswith(("Crypter", "Packer", "Obfuscator", "Loader")):
-                continue
-
-            parsed_options = get_options(hit["meta"].get("cape_options", ""))
-            if "tags" in parsed_options:
-                tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
-            # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
-            if "package" in parsed_options:
-                package = parsed_options["package"]
-
-    if "name" in lowered_filename:
-        orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
-        timeout = 400
-        enforce_timeout = True
-
-    return (
-        static,
-        priority,
-        machine,
-        platform,
-        custom,
-        memory,
-        clock,
-        unique,
-        referrer,
-        tlp,
-        tags_tasks,
-        route,
-        cape,
-        orig_options,
-        timeout,
-        enforce_timeout,
-        package,
-        tags,
-    )
 
 
 def get_magic_type(data):
@@ -676,9 +619,10 @@ def download_file(**kwargs):
             route = socks5s_random
 
     if tags:
+        all_vms_tags = load_vms_tags()
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {
-                "error": f"Check Tags help, you have introduced incorrect tag(s). Your tags: {tags} - Supported tags: {all_vms_tags_str}"
+                "error": f"Check Tags help, you have introduced incorrect tag(s). Your tags: {tags} - Supported tags: {','.join(all_vms_tags)}"
             }
         elif all([tag in tags for tag in ("x64", "x86")]):
             return "error", {"error": "Check Tags help, you have introduced x86 and x64 tags for the same task, choose only 1"}
@@ -722,13 +666,14 @@ def download_file(**kwargs):
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
 
     # Distribute task based on route support by worker
-    if route and route not in ("none", "None") and all_nodes_exits_list:
+    all_nodes_exits = load_vms_exits()
+    if route and route not in ("none", "None") and all_nodes_exits:
         parsed_options = get_options(kwargs["options"])
         node = parsed_options.get("node")
 
         if node and node not in all_nodes_exits.get(route):
             return "error", {"error": f"Specified worker {node} doesn't support this route: {route}"}
-        elif route not in all_nodes_exits_list:
+        elif route not in all_nodes_exits:
             return "error", {"error": "Specified route doesn't exist on any worker"}
 
         if not node:
@@ -750,52 +695,11 @@ def download_file(**kwargs):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
-    (
-        static,
-        priority,
-        machine,
-        platform,
-        custom,
-        memory,
-        clock,
-        unique,
-        referrer,
-        tlp,
-        tags_tasks,
-        route,
-        cape,
-        kwargs["options"],
-        timeout,
-        enforce_timeout,
-        package,
-        tags,
-    ) = recon(
-        kwargs["path"],
-        kwargs["options"],
-        timeout,
-        enforce_timeout,
-        package,
-        tags,
-        static,
-        priority,
-        machine,
-        platform,
-        custom,
-        memory,
-        clock,
-        unique,
-        referrer,
-        tlp,
-        tags_tasks,
-        route,
-        cape,
-    )
-
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 
     if DYNAMIC_PLATFORM_DETERMINATION:
-        platform = get_platform(magic_type)
+        platform = File(kwargs["path"]).get_platform()
     if platform == "linux" and not linux_enabled and "Python" not in magic_type:
         return "error", {"error": "Linux binaries analysis isn't enabled"}
 
@@ -941,7 +845,9 @@ def category_all_files(task_id, category, base_path):
     if category == "CAPE":
         category = "CAPE.payloads"
     if repconf.mongodb.enabled:
-        analysis = mongo_find_one("analysis", {"info.id": int(task_id)}, {f"{category}.sha256": 1, "_id": 0}, sort=[("_id", -1)])
+        analysis = mongo_find_one(
+            "analysis", {"info.id": int(task_id)}, {f"{category}.{FILE_REF_KEY}": 1, "_id": 0}, sort=[("_id", -1)]
+        )
     # if es_as_db:
     #    # ToDo missed category
     #    analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
@@ -969,14 +875,14 @@ def validate_task(tid, status=TASK_REPORTED):
         return {"error": True, "error_value": "Specified wrong task status"}
     elif status == task.status:
         if tid != task_id:
-            return {"error": False, "rtid": task_id}
-        return {"error": False}
+            return {"error": False, "rtid": task_id, "tlp": task.tlp}
+        return {"error": False, "tlp": task.tlp}
     elif task.status in {TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING}:
         return {"error": True, "error_value": "Task failed"}
     elif task.status != TASK_REPORTED:
         return {"error": True, "error_value": "Task is still being analyzed"}
 
-    return {"error": False}
+    return {"error": False, "tlp": task.tlp}
 
 
 def validate_task_by_path(tid):
@@ -1350,9 +1256,15 @@ def parse_request_arguments(request, keyword="POST"):
 def get_hash_list(hashes):
     hashlist = []
     if "," in hashes:
-        hashlist = filter(None, hashes.replace(" ", "").strip().split(","))
+        hashlist = list(filter(None, hashes.replace(" ", "").strip().split(",")))
     else:
         hashlist = hashes.split()
+
+    for i in range(len(hashlist)):
+        if hashlist[i].startswith("http") and hashlist[i].endswith("/"):
+            hash = hashlist[i].split("/")[-2]
+            if len(hash) in (32, 40, 64):
+                hashlist[i] = hash
 
     return hashlist
 

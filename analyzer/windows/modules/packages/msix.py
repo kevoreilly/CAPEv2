@@ -21,6 +21,13 @@ class Msix(Package):
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v*.0", "powershell.exe"),
         ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
+    summary = "Executes a sample .msix file with powershell."
+    description = """Uses the bundled msix.ps1 powershell script to run a .msix file.
+    Default behavior is to run 'powershell.exe -NoProfile -ExecutionPolicy bypass data\\msix.ps1 <sample>'
+    However, if the .msix package contains a file config.json, that config file will be
+    examined for applications/startScript/scriptPath.  If any are found, the first will be used
+    and the analyzer will run 'powershell.exe -NoProfile -ExecutionPolicy bypass -File "path"'.
+    The .msix extension will be added automatically."""
 
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")

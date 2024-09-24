@@ -16,6 +16,7 @@ from winreg import (
 from lib.api.process import Process
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension, disable_wow64_redirection
+from lib.common.constants import OPT_ARGUMENTS, OPT_SERVICEDESC, OPT_SERVICENAME, SERVICE_OPTIONS
 from lib.common.defines import ADVAPI32, KERNEL32
 
 SC_MANAGER_CONNECT = 0x0001
@@ -72,6 +73,12 @@ class ServiceDll(Package):
     PATHS = [
         ("SystemRoot", "system32", "sc.exe"),
     ]
+    summary = "Launches the given sample as a service."
+    description = """Uses 'svchost.exe -k capegroup <sample> [arguments]' to launch the sample
+    as a service.
+    Sets the appropriate registry keys.
+    The .dll filename extension will be added automatically."""
+    option_names = SERVICE_OPTIONS
 
     def set_keys(self, servicename, dllpath):
         svchost_path = r"Software\Microsoft\Windows NT\CurrentVersion\Svchost"
@@ -79,11 +86,11 @@ class ServiceDll(Package):
         parameter_path = rf"System\CurrentControlSet\Services\{servicename}\Parameters"
 
         try:
-            log.info("Adding Parameters value: %s -> ServiceDll = %s", parameter_path, dllpath)
+            log.info("Setting 'ServiceDll' path: %s", dllpath)
             with CreateKeyEx(HKEY_LOCAL_MACHINE, parameter_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 SetValueEx(key, "ServiceDll", 0, REG_EXPAND_SZ, dllpath)
         except Exception as e:
-            log.info("Error setting registry value: %s", e)
+            log.info("Error setting 'ServiceDll' registry value: %s", e)
             return
 
         # try to remove the WOW64 field in service registry, which is created by CreateServiceA
@@ -91,25 +98,25 @@ class ServiceDll(Package):
             with OpenKeyEx(HKEY_LOCAL_MACHINE, service_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 DeleteValue(key, "WOW64")
         except Exception as e:
-            log.info("Error deleting registry value: %s", e)
+            log.info("Error deleting WOW64 registry value: %s", e)
             return
 
         try:
-            log.info("Adding capegroup value: capegroup = %s", servicename)
+            log.info("Setting 'servicename': %s", servicename)
             with CreateKeyEx(HKEY_LOCAL_MACHINE, svchost_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 SetValueEx(key, "capegroup", 0, REG_MULTI_SZ, [servicename])
         except Exception as e:
-            log.info("Error setting registry value: %s", e)
+            log.info("Error setting 'servicename' registry value: %s", e)
             return
 
     @disable_wow64_redirection
     def start(self, path):
         try:
-            servicename = self.options.get("servicename", "CAPEService").encode("utf8")
+            servicename = self.options.get(OPT_SERVICENAME, "CAPEService").encode("utf8")
             if servicename == "blank":
                 servicename = " ".encode("utf8")
-            servicedesc = self.options.get("servicedesc", "CAPE Service").encode("utf8")
-            arguments = self.options.get("arguments")
+            servicedesc = self.options.get(OPT_SERVICEDESC, "CAPE Service").encode("utf8")
+            arguments = self.options.get(OPT_ARGUMENTS)
             path = check_file_extension(path, ".dll")
             svcpath = r"%SystemRoot%\system32\svchost.exe"
             binpath = f"{svcpath} -k capegroup".encode("utf8")
@@ -137,13 +144,13 @@ class ServiceDll(Package):
                 None,
             )
             if service_handle == 0:
-                log.info("Failed to create service")
+                log.info("Failed to create service '%s'", servicename.decode())
                 log.info(ctypes.FormatError())
                 return
-            log.info("Created service %s (handle: 0x%s)", servicename.decode(), service_handle)
+            log.info("Created service '%s'", servicename.decode())
             self.set_keys(servicename.decode(), dllpath)
             servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid)
-            servproc.inject(injectmode=0, interest=path, nosleepskip=True)
+            servproc.inject(interest=path, nosleepskip=True)
             servproc.close()
             KERNEL32.Sleep(1000)
             service_launched = ADVAPI32.StartServiceA(service_handle, 0, None)

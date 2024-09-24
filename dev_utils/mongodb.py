@@ -7,6 +7,7 @@ from typing import Callable, Sequence, Union
 from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
+logging.getLogger("pymongo").setLevel(logging.ERROR)
 repconf = Config("reporting")
 
 mdb = repconf.mongodb.get("db", "cuckoo")

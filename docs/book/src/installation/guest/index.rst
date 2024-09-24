@@ -14,9 +14,9 @@ Now it's time to create such machines and configure them properly.
 
     creation
     requirements
-    network
     agent
     additional_configuration
+    network
     troubleshooting
     saving
     cloning

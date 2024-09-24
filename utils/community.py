@@ -67,7 +67,7 @@ def flare_capa(proxy=None):
         print(e)
 
 
-def install(enabled, force, rewrite, filepath: str = False, access_token=None, proxy=False, url: str = False):
+def install(enabled, force, rewrite, clean=False, filepath: str = False, access_token=None, proxy=False, url: str = False):
     if filepath and path_exists(filepath):
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:
@@ -118,6 +118,10 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
             continue
 
         print(f"\nInstalling {colors.cyan(category.upper())}")
+
+        if clean and path_exists(folder):
+            print(f"\n Deleting the folder content of the category {colors.cyan(category.upper())}")
+            shutil.rmtree(folder)
 
         # E.g., "community-master/modules/signatures".
         name_start = f"{directory}/{folder}"
@@ -186,6 +190,7 @@ def ipinfo_asn_database_fetch(token, proxy=False):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--all", help="Download everything", action="store_true", required=False)
+    parser.add_argument("-c", "--clean", help="Clean existing files", action="store_true", required=False)
     parser.add_argument("-cm", "--common", help="Download CAPE common modules", action="store_true", required=False)
     parser.add_argument("-e", "--feeds", help="Download CAPE feed modules", action="store_true", required=False)
     parser.add_argument("-s", "--signatures", help="Download CAPE signatures", action="store_true", required=False)
@@ -302,6 +307,7 @@ def main():
         enabled,
         args.force,
         args.rewrite,
+        args.clean,
         args.file,
         args.token,
         args.proxy,

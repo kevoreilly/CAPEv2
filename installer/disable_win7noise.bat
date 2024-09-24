@@ -11,7 +11,7 @@ reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpd
 REM disable aero
 net stop uxsms
 REM disable the firewall
-netsh firewall set opmode mode=DISABLE
+netsh advfirewall set allprofiles state off
 REM disable IPv6
 netsh interface teredo set state disabled
 netsh interface ipv6 6to4 set state state=disabled undoonstop=disabled
@@ -48,6 +48,9 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Services\HTTP\Parameters\SslBindingInfo" 
 REM disable ClickToRunSvc
 sc stop "ClickToRunSvc"
 sc config "ClickToRunSvc" start= disabled
+REM disable monitor-timeout
+POWERCFG -CHANGE -monitor-timeout-ac 0
+POWERCFG -CHANGE -monitor-timeout-dc 0
 
 REM dr.watson
 reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug" /v AUTO /t REG_SZ /d 0 /f

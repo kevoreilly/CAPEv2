@@ -1,4 +1,5 @@
 #!/bin/bash
+# set -ex
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
 # Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
@@ -71,10 +72,10 @@ cat << EOI
 Problems with PyOpenSSL?
     sudo rm -rf /usr/local/lib/python3.8/dist-packages/OpenSSL/
     sudo rm -rf /home/${USER}/.local/lib/python3.8/site-packages/OpenSSL/
-    sudo apt install --reinstall python-openssl
+    sudo apt-get install --reinstall python-openssl
 
 Problem with PIP?
-    sudo python -m pip3 uninstall pip3 && sudo apt install python3-pip --reinstall
+    sudo python -m pip3 uninstall pip3 && sudo apt-get install python3-pip --reinstall
 
 Problem with pillow:
     * ValueError: jpeg is required unless explicitly disabled using --disable-jpeg, aborting
@@ -82,7 +83,7 @@ Problem with pillow:
 Solution:
     # https://askubuntu.com/a/1094768
     # you may need to adjust version of libjpeg-turbo8
-    sudo apt install zlib1g-dev libjpeg-turbo8-dev libjpeg-turbo8=1.5.2-0ubuntu5
+    sudo apt-get install zlib1g-dev libjpeg-turbo8-dev libjpeg-turbo8=1.5.2-0ubuntu5
 EOI
 }
 
@@ -160,13 +161,13 @@ function install_crowdsecurity() {
 
 function install_docker() {
     # https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
-    sudo apt install apt-transport-https ca-certificates curl software-properties-common
+    sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
 
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
     echo "deb [signed-by=/etc/apt/keyrings/docker.gpg arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 
-    sudo apt update
-    sudo apt install docker-ce
+    sudo apt-get update
+    sudo apt-get install docker-ce
     sudo usermod -aG docker ${USER}
 }
 
@@ -174,7 +175,7 @@ function install_jemalloc() {
 
     # https://zapier.com/engineering/celery-python-jemalloc/
     if ! $(dpkg -l "libjemalloc*" | grep -q "ii  libjemalloc"); then
-        apt install -f checkinstall curl build-essential jq autoconf libjemalloc-dev -y
+        apt-get install -f checkinstall curl build-essential jq autoconf libjemalloc-dev -y
     fi
 }
 
@@ -349,8 +350,8 @@ function install_nginx() {
     wget https://www.openssl.org/source/openssl-3.2.0.tar.gz && tar xzvf openssl-3.2.0.tar.gz
 
     sudo add-apt-repository -y ppa:maxmind/ppa
-    sudo apt update && sudo apt upgrade -y
-    sudo apt install -y perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev libxslt1.1 libxslt1-dev
+    sudo apt-get update && sudo apt-get upgrade -y
+    sudo apt-get install -y perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev libxslt1.1 libxslt1-dev
 
     cd nginx-$nginx_version || return
 
@@ -560,14 +561,14 @@ fi
 
 function install_letsencrypt(){
     sudo add-apt-repository ppa:certbot/certbot -y
-    sudo apt update
-    sudo apt install python3-certbot-nginx -y
+    sudo apt-get update
+    sudo apt-get install python3-certbot-nginx -y
     echo "server_name $1 www.$1;" > /etc/nginx/sites-available/"$1"
     sudo certbot --nginx -d "$1" -d www."$1"
 }
 
 function install_fail2ban() {
-    sudo apt install fail2ban -y
+    sudo apt-get install fail2ban -y
     sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
     sudo sed -i /etc/fail2ban/jail.local
     systemctl start fail2ban
@@ -601,14 +602,14 @@ EOF
 
 function redsocks2() {
     cd /tmp || return
-    sudo apt install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev libssl1.0-dev libssl-dev
+    sudo apt-get install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev libssl1.0-dev libssl-dev
     git clone https://github.com/semigodking/redsocks redsocks2 && cd redsocks2 || return
     DISABLE_SHADOWSOCKS=true make -j"$(nproc)" #ENABLE_STATIC=true
     sudo cp redsocks2 /usr/bin/
 }
 
 function distributed() {
-    sudo apt install uwsgi uwsgi-plugin-python3 nginx -y 2>/dev/null
+    sudo apt-get install uwsgi uwsgi-plugin-python3 nginx -y 2>/dev/null
     sudo -u ${USER} bash -c 'poetry run pip install flask flask-restful flask-sqlalchemy requests'
 
     sudo cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
@@ -654,7 +655,7 @@ EOL
 function install_suricata() {
     echo '[+] Installing Suricata'
     add-apt-repository ppa:oisf/suricata-stable -y
-    apt install suricata -y
+    apt-get install suricata -y
     touch /etc/suricata/threshold.config
 
     # Download etupdate to update Emerging Threats Open IDS rules:
@@ -709,13 +710,23 @@ function install_suricata() {
     systemctl restart suricata
 }
 
+function insall_yara_x() {
+    curl https://sh.rustup.rs -sSf | sh
+    cd /tmp || return
+    git clone https://github.com/VirusTotal/yara-x
+    cd yara-x || return
+    source "$HOME/.cargo/env"
+    cargo install --path cli
+    pip3 install yara-x
+}
+
 function install_yara() {
     echo '[+] Checking for old YARA version to uninstall'
     dpkg -l|grep "yara-v[0-9]\{1,2\}\.[0-9]\{1,2\}\.[0-9]\{1,2\}"|cut -d " " -f 3|sudo xargs dpkg --purge --force-all 2>/dev/null
 
     echo '[+] Installing Yara'
 
-    apt install libtool libjansson-dev libmagic1 libmagic-dev jq autoconf -y
+    apt-get install libtool libjansson-dev libmagic1 libmagic-dev jq autoconf libyara-dev -y
 
     cd /tmp || return
     yara_info=$(curl -s https://api.github.com/repos/VirusTotal/yara/releases/latest)
@@ -755,7 +766,7 @@ function install_yara() {
     # for root
     pip3 install ./yara-python
     if [ -d yara-python ]; then
-        sudo rm -r yara-python
+        sudo rm -rf yara-python
     fi
 
     if id "cape" >/dev/null 2>&1; then
@@ -764,7 +775,7 @@ function install_yara() {
         cd -
     fi
     if [ -d yara-python ]; then
-        sudo rm -r yara-python
+        sudo rm -rf yara-python
     fi
 
 }
@@ -783,16 +794,16 @@ function install_mongo(){
 		sudo curl -fsSL "https://pgp.mongodb.com/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
 		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
-		apt update 2>/dev/null
-		apt install libpcre3-dev numactl cron -y
-		apt install -y mongodb-org
+		apt-get update 2>/dev/null
+		apt-get install libpcre3-dev numactl cron -y
+		apt-get install -y mongodb-org
 		pip3 install pymongo -U
 
-		apt install -y ntp
+		apt-get install -y ntp
 		systemctl start ntp.service && sudo systemctl enable ntp.service
 
 		if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
-			sudo apt install sysfsutils -y
+			sudo apt-get install sysfsutils -y
 			echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
 			echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
 		fi
@@ -833,6 +844,7 @@ WantedBy=multi-user.target
 EOF
 		fi
 		sudo mkdir -p /data/{config,}db
+        sudo chown mongodb:mongodb /data/ -R
 		systemctl unmask mongodb.service
 		systemctl enable mongodb.service
 		systemctl restart mongodb.service
@@ -858,7 +870,7 @@ function install_elastic() {
     # Elasticsearch 8.x
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
-    apt update && apt install elasticsearch
+    apt-get update && apt-get install elasticsearch
     pip3 install elasticsearch
     systemctl enable elasticsearch
 }
@@ -869,7 +881,7 @@ function install_postgresql() {
     curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null
     echo "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
-    sudo apt update -y
+    sudo apt-get update -y
     sudo apt -y install libpq-dev postgresql postgresql-client
 
     # amazing tool for monitoring https://github.com/dalibo/pg_activity
@@ -891,18 +903,18 @@ function dependencies() {
     #sudo canonical-livepatch enable APITOKEN
 
     # deps
-    apt install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common -y
-    apt install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
-    apt install zpaq upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
-    apt install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
-    apt install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
-    apt install openvpn wireguard -y
+    apt-get install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common -y
+    apt-get install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
+    apt-get install zpaq upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
+    apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common -y
+    apt-get install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
+    apt-get install openvpn wireguard -y
 
     # de4dot selfextraction
-    apt install -y libgdiplus libdnlib2.1-cil libgif7 libmono-accessibility4.0-cil libmono-ldap4.0-cil libmono-posix4.0-cil libmono-sqlite4.0-cil libmono-system-componentmodel-dataannotations4.0-cil libmono-system-data4.0-cil libmono-system-design4.0-cil libmono-system-drawing4.0-cil libmono-system-enterpriseservices4.0-cil libmono-system-ldap4.0-cil libmono-system-runtime-serialization-formatters-soap4.0-cil libmono-system-runtime4.0-cil libmono-system-transactions4.0-cil libmono-system-web-applicationservices4.0-cil libmono-system-web-services4.0-cil libmono-system-web4.0-cil libmono-system-windows-forms4.0-cil libmono-webbrowser4.0-cil
+    apt-get install -y libgdiplus libdnlib2.1-cil libgif7 libmono-accessibility4.0-cil libmono-ldap4.0-cil libmono-posix4.0-cil libmono-sqlite4.0-cil libmono-system-componentmodel-dataannotations4.0-cil libmono-system-data4.0-cil libmono-system-design4.0-cil libmono-system-drawing4.0-cil libmono-system-enterpriseservices4.0-cil libmono-system-ldap4.0-cil libmono-system-runtime-serialization-formatters-soap4.0-cil libmono-system-runtime4.0-cil libmono-system-transactions4.0-cil libmono-system-web-applicationservices4.0-cil libmono-system-web-services4.0-cil libmono-system-web4.0-cil libmono-system-windows-forms4.0-cil libmono-webbrowser4.0-cil
     wget http://archive.ubuntu.com/ubuntu/pool/universe/d/de4dot/de4dot_3.1.41592.3405-2_all.deb && sudo dpkg -i de4dot_3.1.41592.3405-2_all.deb
 
-    # if broken sudo python -m pip uninstall pip && sudo apt install python-pip --reinstall
+    # if broken sudo python -m pip uninstall pip && sudo apt-get install python-pip --reinstall
     #pip3 install --upgrade pip
     # /usr/bin/pip
     # from pip import __main__
@@ -920,11 +932,11 @@ function dependencies() {
     git submodule update --init rules
     pip3 install .
 
-    # re2
-    apt install libre2-dev -y
+    # re2 - dead on py3.11
+    # apt-get install libre2-dev -y
     #re2 for py3
-    pip3 install cython
-    pip3 install git+https://github.com/andreasvc/pyre2.git
+    # pip3 install cython
+    # pip3 install git+https://github.com/andreasvc/pyre2.git
 
     install_postgresql
 
@@ -933,7 +945,7 @@ function dependencies() {
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER} to ${USER};\""
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE ${USER} OWNER TO ${USER};\""
 
-    apt install apparmor-utils -y
+    apt-get install apparmor-utils -y
     TCPDUMP_PATH=`which tcpdump`
     aa-complain ${TCPDUMP_PATH}
     aa-disable ${TCPDUMP_PATH}
@@ -951,16 +963,16 @@ function dependencies() {
     usermod -a -G systemd-journal ${USER}
 
     # https://www.torproject.org/docs/debian.html.en
-    sudo apt install gnupg2 -y
+    sudo apt-get install gnupg2 -y
 
-    wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/tor-archive-keyring.gpg >/dev/null
-    echo "deb     [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
-    echo "deb-src [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
+    wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/deb.torproject.org-keyring.gpg >/dev/null
+    echo "deb     [arch=amd64 signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
+    echo "deb-src [arch=amd64 signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
 
 
-    sudo apt update 2>/dev/null
+    sudo apt-get update 2>/dev/null
     sudo systemctl stop tor@default.service && sudo systemctl disable tor@default.service
-    apt install tor deb.torproject.org-keyring libzstd1 -y
+    apt-get install tor deb.torproject.org-keyring libzstd1 -y
 
     sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc
 
@@ -1026,7 +1038,7 @@ EOF
     sudo sysctl -p
 
     ### PDNS
-    sudo apt install git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl -y
+    sudo apt-get install git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl -y
     cd /tmp || return
     git clone https://github.com/gamelinux/passivedns.git
     cd passivedns/ || return
@@ -1184,15 +1196,15 @@ function install_CAPE() {
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
     #packages are needed for build options in extra/yara_installer.sh
-    apt install libjansson-dev libmagic1 libmagic-dev -y
+    apt-get install libjansson-dev libmagic1 libmagic-dev -y
     sudo -u ${USER} bash -c 'poetry run extra/yara_installer.sh'
-    sudo rm -r yara-python
+    sudo rm -rf yara-python
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
     # copy *.conf.default to *.conf so we have all properly updated fields, as we can't ignore old configs in repository
-    for filename in conf/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g')";  done
+    for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done
 
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" conf/cuckoo.conf
     # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" conf/routing.conf
@@ -1236,8 +1248,32 @@ function install_systemd() {
 	if [ "$MONGO_ENABLE" -ge 1 ]; then
 		cape_web_enable_string="cape-web"
 	fi
+
     systemctl enable cape cape-rooter cape-processor "$cape_web_enable_string" suricata
     systemctl restart cape cape-rooter cape-processor "$cape_web_enable_string" suricata
+
+    if [ ! -f "/etc/sudoers.d/cape" ] ; then
+        cat > /etc/sudoers.d/cape << EOF
+Cmnd_Alias CAPE_SVC = /usr/bin/systemctl stop cape, /usr/bin/systemctl start cape, /usr/bin/systemctl restart cape
+Cmnd_Alias CAPE_WEB_SVC = /usr/bin/systemctl stop cape-web, /usr/bin/systemctl start cape-web, /usr/bin/systemctl restart cape-web
+Cmnd_Alias CAPE_PROCESSING_SVC = /usr/bin/systemctl stop cape-processor, /usr/bin/systemctl start cape-processor, /usr/bin/systemctl restart cape-processor
+Cmnd_Alias CAPE_ROOTER_SVC = /usr/bin/systemctl stop cape-rooter, /usr/bin/systemctl start cape-rooter, /usr/bin/systemctl restart cape-rooter
+Cmnd_Alias SURICATA = /usr/bin/systemctl stop suricata, /usr/bin/systemctl start suricata, /usr/bin/systemctl restart suricata
+Cmnd_Alias UWSGI = /usr/bin/systemctl stop uwsgi, /usr/bin/systemctl start uwsgi, /usr/bin/systemctl restart uwsgi
+
+# disttributed cape related
+Cmnd_Alias CAPE_FSTAB_SVC = /usr/bin/systemctl stop cape-fstab, /usr/bin/systemctl start cape-fstab, /usr/bin/systemctl restart cape-fstab
+
+%${USER} ALL=CAPE_SVC
+%${USER} ALL=CAPE_WEB_SVC
+%${USER} ALL=CAPE_PROCESSING_SVC
+%${USER} ALL=CAPE_ROOTER_SVC
+%${USER} ALL=SURICATA
+%${USER} ALL=UWSGI
+
+%cape ALL=CAPE_FSTAB_SVC
+EOF
+    fi
 }
 
 
@@ -1252,6 +1288,7 @@ function install_prometheus_grafana() {
     sudo dpkg -i grafana_"$grafana_version"_amd64.deb
 
     systemctl enable grafana
+
     cat << EOL
     Edit grafana config to listen on correct interface, default localhost, then
     systemctl start grafana
@@ -1267,9 +1304,9 @@ function install_node_exporter() {
 }
 
 function install_volatility3() {
-    sudo apt install unzip
-    sudo pip3 install git+https://github.com/volatilityfoundation/volatility3
-    vol_path=$(python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    sudo apt-get install unzip
+    sudo -u ${USER} poetry run pip3 install git+https://github.com/volatilityfoundation/volatility3
+    vol_path=$(sudo -u ${USER} poetry run python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
     cd $vol_path || return
     wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
     unzip windows.zip
@@ -1281,15 +1318,15 @@ function install_guacamole() {
     # Kudos to @Enzok https://github.com/kevoreilly/CAPEv2/pull/1065
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
     sudo add-apt-repository ppa:remmina-ppa-team/remmina-next-daily
-    sudo apt update
+    sudo apt-get update
     sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
-    sudo apt install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+    sudo apt-get install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
 
 
     if [ ! -d "/tmp/guac-build" ] ; then
-       mkdir /tmp/guac-build
+        mkdir /tmp/guac-build
     fi
     cd /tmp/guac-build || return
 
@@ -1342,7 +1379,7 @@ function install_guacamole() {
 }
 
 function install_DIE() {
-    apt install libqt5opengl5 libqt5script5 libqt5scripttools5 libqt5sql5 -y
+    apt-get install libqt5opengl5 libqt5script5 libqt5scripttools5 libqt5sql5 -y
     wget "https://github.com/horsicq/DIE-engine/releases/download/${DIE_VERSION}/die_${DIE_VERSION}_Ubuntu_${UBUNTU_VERSION}_amd64.deb" -O DIE.deb && dpkg -i DIE.deb
 }
 
@@ -1403,10 +1440,10 @@ case "$COMMAND" in
     ;;
 'all')
     dependencies
+    install_CAPE
     install_volatility3
     install_mongo
     install_suricata
-    install_CAPE
     install_yara
     install_systemd
     install_jemalloc

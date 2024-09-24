@@ -13,24 +13,27 @@ a temporary shared folder, downloading it from a Host webserver, or
 mounting a CDROM containing the *agent.py* file) and run it. This will
 launch the HTTP server which will listen for connections.
 
+.. important::
+   It is a **MUST** to launch ``agent.py/w`` with **elevated privileges**. One of the (arguably) easiest way of doing so is creating a Scheduled Task, as explained further below in this page.
+
 On Windows, if you simply launch the script, a Python window will be
 spawned, with a title similar to ``C:\Windows\py.exe``. If you want to hide this window you can rename the file from
 *agent.py* to **agent.pyw** which will prevent the window from
 spawning upon launching the script. 
 
-   .. warning::
-      It is **encouraged** to use the agent in its window-less version (``.pyw`` extension) 
-      given that opening a ``cmd`` window will definitely interfere with `human.py <https://github.com/kevoreilly/CAPEv2/blob/master/analyzer/windows/modules/auxiliary/human.py>`_, causing 
-      several problems like blocking the `agent.py <https://github.com/kevoreilly/CAPEv2/blob/master/agent/agent.py>`_. communication with the host or 
-      producing no **behavioral analysis** output, just to mention some.
+.. warning::
+   It is **encouraged** to use the agent in its window-less version (``.pyw`` extension) 
+   given that opening a ``cmd`` window will definitely interfere with `human.py <https://github.com/kevoreilly/CAPEv2/blob/master/analyzer/windows/modules/auxiliary/human.py>`_, causing 
+   several problems like blocking the `agent.py <https://github.com/kevoreilly/CAPEv2/blob/master/agent/agent.py>`_. communication with the host or 
+   producing no **behavioral analysis** output, just to mention some.
 
 Don't forget to test the agent before saving the snapshot. You can do it both navigating to ``VM_IP:8000`` with a browser from your Host or be executing: ``curl VM_IP:8000``. You should see an output similar to the following:
 
-   .. image:: ../../_images/screenshots/running_agentpy_within_guest_0.png
-        :align: center
+.. image:: ../../_images/screenshots/running_agentpy_within_guest_0.png
+     :align: center
 
-   .. image:: ../../_images/screenshots/running_agentpy_within_guest_1.png
-        :align: center
+.. image:: ../../_images/screenshots/running_agentpy_within_guest_1.png
+     :align: center
 
 
 Prior To Windows 10
@@ -49,6 +52,8 @@ agent not being able to work as intended.
 
 Windows 10+
 ===========
+
+.. note:: Using the scheduler as documented below is not **strictly necessary**. It is sufficient to take a snapshot with the agent running.
 
 To start the script at boot, you will need to set the agent to be run
 as a scheduler task. Dropping it in

@@ -20,7 +20,10 @@ class TLSDumpMasterSecrets(Auxiliary):
         Auxiliary.__init__(self, options, config)
         self.config = config
         self.enabled = self.config.tlsdump
-        self.options["tlsdump"] = "1"
+        if self.enabled:
+            self.options["tlsdump"] = "1"
+        else:
+            self.options["tlsdump"] = "0"
 
     def start(self):
         proc_info = PROCESSENTRY32()

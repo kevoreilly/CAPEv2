@@ -27,6 +27,8 @@ if managerType == "proxmox":
 class Physical(Machinery):
     """Manage physical sandboxes."""
 
+    module_name = "physical"
+
     # Physical machine states.
     RUNNING = "running"
     STOPPED = "stopped"

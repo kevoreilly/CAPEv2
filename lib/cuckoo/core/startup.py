@@ -21,7 +21,9 @@ import modules.auxiliary
 import modules.feeds
 import modules.processing
 import modules.reporting
-import modules.signatures
+import modules.signatures.all
+import modules.signatures.linux
+import modules.signatures.windows
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -116,9 +118,9 @@ def check_configs():
     @raise CuckooStartupError: if config files do not exist.
     """
     configs = [
-        os.path.join(CUCKOO_ROOT, "conf", "cuckoo.conf"),
-        os.path.join(CUCKOO_ROOT, "conf", "reporting.conf"),
-        os.path.join(CUCKOO_ROOT, "conf", "auxiliary.conf"),
+        os.path.join(CUCKOO_ROOT, "conf", "default", "cuckoo.conf.default"),
+        os.path.join(CUCKOO_ROOT, "conf", "default", "reporting.conf.default"),
+        os.path.join(CUCKOO_ROOT, "conf", "default", "auxiliary.conf.default"),
     ]
 
     for config in configs:
@@ -150,17 +152,6 @@ def create_structure():
         )
 
 
-class DatabaseHandler(logging.Handler):
-    """Logging to database handler.
-    Used to log errors related to tasks in database.
-    """
-
-    def emit(self, record):
-        if hasattr(record, "task_id"):
-            db = Database()
-            db.add_error(record.msg, int(record.task_id))
-
-
 class ConsoleHandler(logging.StreamHandler):
     """Logging to console handler."""
 
@@ -172,6 +163,10 @@ class ConsoleHandler(logging.StreamHandler):
         elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
+            # Hack for pymongo.logger.LogMessage
+            if type(record.msg) != "str":
+                record.msg = str(record.msg)
+
             if "analysis procedure completed" in record.msg:
                 colored.msg = cyan(record.msg)
             else:
@@ -181,7 +176,7 @@ class ConsoleHandler(logging.StreamHandler):
 
 
 def check_linux_dist():
-    ubuntu_versions = ("20.04", "22.04")
+    ubuntu_versions = ("20.04", "22.04", "24.04")
     with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
@@ -272,7 +267,9 @@ def init_modules():
     # Import all processing modules.
     import_package(modules.processing)
     # Import all signatures.
-    import_package(modules.signatures)
+    import_package(modules.signatures.all)
+    import_package(modules.signatures.windows)
+    import_package(modules.signatures.linux)
     # Import all private signatures
     import_package(custom.signatures)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
@@ -345,6 +342,7 @@ def init_rooter():
         raise CuckooStartupError(f"Unknown rooter error: {e}")
 
     rooter("cleanup_rooter")
+    rooter("cleanup_vrf", routing.routing.internet)
 
     # Do not forward any packets unless we have explicitly stated so.
     rooter("forward_drop")
@@ -427,12 +425,16 @@ def init_routing():
                     f"The routing table that has been configured ({routing.routing.rt_table}) for dirty line interface is not available"
                 )
 
-        # Disable & enable NAT on this network interface. Disable it just
-        # in case we still had the same rule from a previous run.
-        rooter("disable_nat", routing.routing.internet)
-        rooter("enable_nat", routing.routing.internet)
-
-        # Populate routing table with entries from main routing table.
+        if routing.routing.nat:
+            # Disable & enable NAT on this network interface. Disable it just
+            # in case we still had the same rule from a previous run.
+            rooter("disable_nat", routing.routing.internet)
+            rooter("enable_nat", routing.routing.internet)
+            # Populate routing table with entries from main routing table.
+        else:
+            rooter("disable_nat", routing.routing.internet)
+            if routing.routing.no_local_routing:
+                rooter("init_vrf", routing.routing.rt_table, routing.routing.internet)
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
             rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)
@@ -505,3 +507,34 @@ def check_tcpdump_permissions():
             {user} ALL=NOPASSWD: {tcpdump}
             """
         )
+
+
+def check_vms_n_resultserver_networking():
+    vms = {}
+    resultserver_block = cuckoo.resultserver.ip.rsplit(".", 2)[0]
+    machinery = cuckoo.cuckoo.machinery
+    if machinery == "multi":
+        for mmachinery in Config(machinery).multi.get("machinery").split(","):
+            vms.update(
+                {
+                    x.strip(): [getattr(Config(mmachinery), x).ip, getattr(getattr(Config(mmachinery), x), "resultserver", "")]
+                    for x in getattr(Config(mmachinery), mmachinery).get("machines").split(",")
+                    if x.strip()
+                }
+            )
+    else:
+        vms.update(
+            {
+                x.strip(): [
+                    getattr(Config(machinery), x).ip.rsplit(".", 2)[0],
+                    getattr(getattr(Config(machinery), x), "resultserver", "".rsplit(".", 2)[0]),
+                ]
+                for x in getattr(Config(machinery), machinery).get("machines").split(",")
+                if x.strip()
+            }
+        )
+    for vm, network in vms.items():
+        vm_ip, vm_rs = network
+        # is there are better way to check networkrange without range CIDR?
+        if not resultserver_block.startswith(vm_ip) or (vm_rs and not vm_rs.startswith(vm_ip)):
+            log.error(f"Your resultserver and VM:{vm} are in different nework ranges. This might give you: CuckooDeadMachine")

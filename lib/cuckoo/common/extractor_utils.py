@@ -53,3 +53,26 @@ def function_offset_from_offset(addr: int, binary: bytes, pe: pefile.PE):
     subfunc_virtual_address = (call_virtual_address + 5 + subfunc_offset) & 0xFFFFFFFF
     # convert VA to offset in file
     return call_virtual_address, pe.get_offset_from_rva(subfunc_virtual_address - pe.OPTIONAL_HEADER.ImageBase)
+
+
+def find_function_xrefs(data, start, end):
+    function_xrefs = {}
+    # The re.finditer function only finds *non-overlapping* matches, which fails to find some CALL instructions
+    for rva in range(start, end):
+        if not 0 <= rva < len(data) - 5:
+            continue
+        if data[rva] != 0xE8:
+            continue
+        # print( data[rva - 2 : rva].hex())
+        if data[rva - 2 : rva] in (b"\x81\x40", b"\x81\x45", b"\x81\x75", b"\xc7\x40", b"\xc7\x45", b"\xc7\x75"):
+            # this is not a real function call
+            continue
+        offset = struct.unpack_from("=i", data, rva + 1)[0]
+        target = (rva + 5) + offset
+
+        if not 0 <= target < len(data):
+            continue
+        if start <= target < end:
+            function_xrefs.setdefault(target, []).append(rva)
+            # log.debug("Found a CALL instruction: %#x -> %#x", rva + ib, target + ib)
+    return function_xrefs

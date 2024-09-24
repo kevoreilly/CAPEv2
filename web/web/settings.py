@@ -10,7 +10,7 @@ if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
     sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 
 # Cuckoo path.
-CUCKOO_PATH = os.path.join(Path.cwd(), "..")
+CUCKOO_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
 sys.path.append(CUCKOO_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -58,6 +58,7 @@ if web_cfg.web_reporting.get("enabled", True):
 
 WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
 WEB_OAUTH = web_cfg.oauth
+REMOTE_SESSION = web_cfg.guacamole.enabled
 
 # Get connection options from reporting.conf.
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")
@@ -180,7 +181,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            "templates",
+            os.path.join(CUCKOO_PATH, "web", "templates"),
         ],
         "OPTIONS": {
             "debug": True,
@@ -217,8 +218,9 @@ MIDDLEWARE = [
     #'web.middleware.ExceptionMiddleware',
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # 'django_otp.middleware.OTPMiddleware',
-    # in case you want custom auth, place logic in web/web/middleware.py
+    # in case you want custom auth, place logic in web/web/middleware/custom_auth.py
     # "web.middleware.CustomAuth",
+    "web.middleware.DBTransactionMiddleware",
 ]
 
 OTP_TOTP_ISSUER = "CAPE Sandbox"
@@ -506,3 +508,7 @@ try:
 except NameError:
     with suppress(ImportError):
         from .local_settings import *  # noqa: F403
+
+from lib.cuckoo.core.database import init_database
+
+init_database()

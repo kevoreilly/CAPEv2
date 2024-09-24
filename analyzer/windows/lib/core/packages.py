@@ -44,7 +44,9 @@ def choose_package(file_type, file_name, exports, target):
         or "Microsoft Office Word" in file_type
         or "Microsoft OOXML" in file_type
         or "MIME entity" in file_type
-        or file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso", ".wbk", ".wiz"))
+        or file_name.endswith(
+            (".asd", ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso", ".wbk", ".wiz")
+        )
     ):
         return "doc"
     elif (
@@ -67,7 +69,7 @@ def choose_package(file_type, file_name, exports, target):
         return "rar"
     elif "Macromedia Flash" in file_type or file_name.endswith((".swf", ".fws")):
         return "swf"
-    elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type:
+    elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type or b"import" in file_content:
         return "python"
     elif file_name.endswith(".ps1"):
         return "ps1"
@@ -128,7 +130,7 @@ def choose_package(file_type, file_name, exports, target):
     elif (
         file_name.endswith((".vbs", ".vbe"))
         or re.findall(rb"\s?Dim\s", file_content, re.I)
-        or re.findall(b"\s?\x00D\x00i\x00m\x00\s", file_content, re.I)
+        or re.findall(rb"\s?\x00D\x00i\x00m\x00\s", file_content, re.I)
     ):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
@@ -143,5 +145,7 @@ def choose_package(file_type, file_name, exports, target):
         return "archive"
     elif file_name.endswith(".a3x"):
         return "autoit"
+    elif file_name.endswith(("cmd", "bat")) or b"@echo off" in file_content:
+        return "batch"
     else:
         return "generic"

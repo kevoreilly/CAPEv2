@@ -25,8 +25,10 @@ cfg = Config()
 class Proxmox(Machinery):
     """Manage Proxmox sandboxes."""
 
+    module_name = "proxmox"
+
     def __init__(self):
-        super(Proxmox, self).__init__()
+        super().__init__()
         self.timeout = int(cfg.timeouts.vm_state)
 
     def _initialize_check(self):

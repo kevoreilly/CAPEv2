@@ -40,7 +40,10 @@ log = logging.getLogger(__name__)
 # thus we can reuse report generation / signatures for other API trace sources.
 ###############################################################################
 
-TYPECONVERTERS = {"h": lambda v: f"0x{default_converter(v):08x}", "p": lambda v: f"0x{default_converter(v):08x}"}
+TYPECONVERTERS = {
+    "h": lambda v: f"0x{default_converter(v) & 0xFFFFFFFF:08x}" if v < 0 else f"0x{default_converter(v):08x}",
+    "p": lambda v: f"0x{default_converter(v) & 0xFFFFFFFF:08x}" if v < 0 else f"0x{default_converter(v):08x}",
+}
 
 # 20 Mb max message length.
 MAX_MESSAGE_LENGTH = 20 * 1024 * 1024

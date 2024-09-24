@@ -77,11 +77,11 @@ idx_list = {
     51: "Unknown51",
     52: "Unknown52",
     53: "Unknown53",
-    54: "Keylog file max size",
-    55: "Unknown55",
-    56: "TLS client certificate",
-    57: "TLS client private key",
-    58: "TLS server certificate",
+    54: "Keylog file max size (base64)",
+    55: "Unknown55 (base64)",
+    56: "TLS client certificate (base64)",
+    57: "TLS client private key (base64)",
+    58: "TLS server certificate (base64)",
     59: "Unknown59",
     60: "Unknown60",
     61: "Unknown61",
@@ -145,7 +145,7 @@ def check_version(filedata):
 
     # find and extract version string e.g. "2.0.5 Pro", "1.7 Free" or "1.7 Light"
     for s in slist:
-        if bool(re.search(r"^\d+\.\d+\.\d+\s+\w+$", s)):
+        if bool(re.search(r"^\d+\.\d+(\.\d+)?\s+\w+$", s)):
             return s
     return ""
 
@@ -180,7 +180,7 @@ def extract_config(filebuf):
                         p_data[idx_list[i]] = setup_list[int(chr(cont[0]))]
                     else:
                         p_data[idx_list[i]] = setup_list[cont[0]]
-                elif i in (56, 57, 58):
+                elif i in (54, 55, 56, 57, 58):
                     p_data[idx_list[i]] = base64.b64encode(cont)
                 elif i == 0:
                     # various separators have been observed

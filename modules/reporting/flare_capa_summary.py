@@ -5,20 +5,18 @@
 import logging
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.config import Config
-
-reporting_conf = Config("reporting")
-
 from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 log = logging.getLogger(__name__)
 
 
 def generate_cape_analysis_summary(results):
+    if not results.get("target"):
+        return {}
     try:
         return flare_capa_details(results["target"]["file"]["path"], "static", on_demand=True, backend="cape", results=results)
     except Exception as e:
-        log.warning("Can't generate bingraph for %s: %s", results["target"]["file"]["path"], e)
+        log.warning("Can't generate FLARE CAPA for %s: %s", results["target"]["file"]["path"], e)
 
     return {}
 
@@ -27,7 +25,7 @@ class CAPASummary(Report):
     """Generate CAPE analysis summary by using FLARE CAPA"""
 
     def run(self, results):
-        if HAVE_FLARE_CAPA and reporting_conf.flare_capa_summary.enabled and not reporting_conf.flare_capa_summary.on_demand:
+        if HAVE_FLARE_CAPA and self.options.enabled and not self.options.on_demand:
             report = generate_cape_analysis_summary(results)
             if report:
                 results["capa_summary"] = report

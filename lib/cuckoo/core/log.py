@@ -69,6 +69,10 @@ class ConsoleHandler(logging.StreamHandler):
         elif record.levelname in ("ERROR", "CRITICAL"):
             colored.msg = red(record.msg)
         else:
+            # Hack for pymongo.logger.LogMessage
+            if type(record.msg) != "str":
+                record.msg = str(record.msg)
+
             if "analysis procedure completed" in record.msg:
                 colored.msg = cyan(record.msg)
             else:

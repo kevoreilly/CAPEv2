@@ -10,6 +10,9 @@ class SCT(Package):
     PATHS = [
         ("SystemRoot", "system32", "regsvr32.exe"),
     ]
+    summary = "Opens the sample with regsvr32.exe scrobj.dll"
+    description = """Uses 'regsvr32.exe /u /n /i:<sample> scrobj.dll' to launch the sample
+        script component."""
 
     def start(self, path):
         regsvr32 = self.get_path("regsvr32.exe")

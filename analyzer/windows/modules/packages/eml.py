@@ -13,6 +13,8 @@ class EML(Package):
         ("ProgramFiles", "Microsoft Office", "Office*", "OUTLOOK.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "OUTLOOK.EXE"),
     ]
+    summary = "Opens an email file with MS Outlook."
+    description = """Uses 'OUTLOOK.EXE /eml <sample>' to open the file."""
 
     def start(self, path):
         outlook = self.get_path_glob("OUTLOOK.EXE")

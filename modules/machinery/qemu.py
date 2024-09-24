@@ -31,7 +31,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missde dependency: pip3 install psutil")
+    print("Missing dependency: pip3 install psutil")
 
 # this whole semi-hardcoded commandline thing is not the best
 #  but in the config files we can't do arrays etc so we'd have to parse the
@@ -183,6 +183,8 @@ QEMU_ARGS = {
     "x64": {
         "cmdline": [
             "qemu-system-x86_64",
+            "-monitor",
+            "stdio",
             "-display",
             "none",
             "-m",
@@ -201,6 +203,8 @@ QEMU_ARGS = {
     "x86": {
         "cmdline": [
             "qemu-system-i386",
+            "-monitor",
+            "stdio",
             "-display",
             "none",
             "-m",
@@ -323,13 +327,15 @@ QEMU_ARGS = {
 class QEMU(Machinery):
     """Virtualization layer for QEMU (non-KVM)."""
 
+    module_name = "qemu"
+
     # VM states.
     RUNNING = "running"
     STOPPED = "stopped"
     ERROR = "machete"
 
     def __init__(self):
-        super(QEMU, self).__init__()
+        super().__init__()
         self.state = {}
 
     def _initialize_check(self):
@@ -445,7 +451,9 @@ class QEMU(Machinery):
         log.debug("Executing QEMU %s", final_cmdline)
 
         try:
-            proc = subprocess.Popen(final_cmdline, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(
+                final_cmdline, universal_newlines=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             self.state[vm_info.name] = proc
         except OSError as e:
             raise CuckooMachineError(f"QEMU failed starting the machine: {e}")
@@ -462,20 +470,47 @@ class QEMU(Machinery):
         if self._status(vm_info.name) == self.STOPPED:
             raise CuckooMachineError(f"Trying to stop an already stopped vm {label}")
 
-        proc = self.state.get(vm_info.name)
-        proc.kill()
+        try:
+            log.debug("Trying to stop the vm %s", label)
 
-        stop_me = 0
-        while proc.poll() is None:
-            if stop_me < cfg.timeouts.vm_state:
-                stop_me += 1
-            else:
-                log.debug("Stopping vm %s timed out, killing", label)
-                proc.terminate()
-            time.sleep(1)
+            vm_info = self.db.view_machine_by_label(label)
 
-        # if proc.returncode != 0 and stop_me < cfg.timeouts.vm_state:
-        #     log.debug("QEMU exited with error powering off the machine")
+            if self._status(vm_info.name) == self.STOPPED:
+                raise CuckooMachineError(f"Trying to do a memory dump on an already stopped vm {label}")
+
+            proc = self.state.get(vm_info.name)
+
+            stop_me = 0
+            log.debug("Freezing vm %s before shutdown", label)
+            proc.stdin.write("stop\n")
+
+            log.debug("Doing the shutdown")
+            proc.stdin.write("quit\n")
+
+            log.debug("Flushing snapshot commands to qemu.")
+            proc.stdin.flush()
+
+            proc.wait()
+            log.debug("Shutdown done")
+
+            while proc.poll() is None:
+                if stop_me < cfg.timeouts.vm_state:
+                    stop_me += 1
+                else:
+                    log.debug("Stopping vm %s timed out, killing", label)
+                    proc.stdin.write("stop\n")
+
+                    log.debug("Force powerdown")
+                    proc.stdin.write("system_powerdown\n")
+
+                    log.debug("Flushing snapshot commands to qemu.")
+                    proc.stdin.flush()
+                    proc.wait(15)
+                    proc.terminate()
+
+                time.sleep(1)
+        except Exception as e:
+            raise CuckooMachineError(f"Shutdown failed : virtual machine {label}: {e}") from e
 
         self.state[vm_info.name] = None
 
@@ -485,3 +520,37 @@ class QEMU(Machinery):
         @return: status string.
         """
         return self.RUNNING if self.state.get(name) is not None else self.STOPPED
+
+    def dump_memory(self, label, path):
+        """create a memory dump of the virtual machine.
+        @param label: virtual machine label.
+        @raise CuckooMachineError: if unable to dump.
+        """
+        try:
+            # Create the memory dump file ourselves first so it doesn't end up root/root 0600
+            with open(path, "w"):
+                pass
+            log.debug("Trying to do a memory dump of vm %s", label)
+
+            vm_info = self.db.view_machine_by_label(label)
+
+            if self._status(vm_info.name) == self.STOPPED:
+                raise CuckooMachineError(f"Trying to do a memory dump on an already stopped vm {label}")
+
+            proc = self.state.get(vm_info.name)
+
+            log.debug("Freezing vm %s before the memory dump", label)
+            proc.stdin.write("stop\n")
+            log.debug("Doing the memory dump")
+            proc.stdin.write(f'dump-guest-memory "{path}"\n')
+            proc.stdin.write("quit\n")
+            log.debug("Flushing snapshot commands to qemu.")
+            proc.stdin.flush()
+            proc.wait()
+            log.debug("dump done")
+
+            if not os.path.isfile(path):
+                raise CuckooMachineError(f"Error dumping memory virtual machine {label}: file not found")
+
+        except Exception as e:
+            raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}") from e

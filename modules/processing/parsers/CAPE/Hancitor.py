@@ -1,6 +1,7 @@
 """
     Hancitor config extractor
 """
+
 import hashlib
 import logging
 import re

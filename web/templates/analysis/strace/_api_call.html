@@ -1,0 +1,17 @@
+<td>{{call.timestamp}}</td>
+<td><strong>{{call.api}}</strong></td>
+<td style="word-wrap: break-word;">
+    {% for argument in call.arguments %}
+        <span class="gray">{{argument.name}}:</span>
+        <span class="mono">{{argument.value}}</span>
+        <br />
+    {% endfor %}
+</td>
+<!-- <td>
+    {% if call.status %}
+        success
+    {% else %}
+        failed
+    {% endif %}
+</td> -->
+<td style="word-wrap: break-word"><span class="mono">{{call.return}}</span></td>

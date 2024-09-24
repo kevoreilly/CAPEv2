@@ -19,7 +19,7 @@ def test_mitre_attck():
     }
 
     # Download mitre jsons here
-    install(["mitre"], True, True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
+    install(["mitre"], True, True, clean=False, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
     attck = mitre_generate_attck(data, mitre)
     assert "Discovery" in attck
     assert len(attck["Discovery"]) == 2

@@ -66,9 +66,15 @@ class TestReport:
             rep.run()
 
 
+@pytest.mark.usefixtures("db")
 class TestScreenshotMachinery:
     def test_missing_screenshot_method(self):
         class MockMachinery(abstracts.Machinery):
+            module_name = "mock"
+
+            def read_config(self):
+                return {"mock": {"machines": []}}
+
             def _list(self):
                 pass
 
@@ -77,13 +83,17 @@ class TestScreenshotMachinery:
         mock_cuckoo_cfg.machinery_screenshots = True
 
         with patch.object(abstracts.cfg, "cuckoo", mock_cuckoo_cfg):
-            with patch("lib.cuckoo.common.abstracts.inspect.getmembers", return_value=[]):
-                # calling _initialize_check() raises without any methods
-                with pytest.raises(NotImplementedError):
-                    tm._initialize_check()
+            # calling _initialize_check() raises without any methods
+            with pytest.raises(CuckooCriticalError):
+                tm._initialize_check()
 
     def test_machinery_missing_screenshot_support(self):
         class MockMachinery(abstracts.Machinery):
+            module_name = "mock"
+
+            def read_config(self):
+                return {"mock": {"machines": []}}
+
             def _list(self):
                 pass
 
@@ -98,6 +108,11 @@ class TestScreenshotMachinery:
 
     def test_machinery_screenshot_support(self):
         class MockMachinery(abstracts.Machinery):
+            module_name = "mock"
+
+            def read_config(self):
+                return {"mock": {"machines": []}}
+
             def _list(self):
                 pass
 

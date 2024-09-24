@@ -16,7 +16,6 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11"]
-
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -29,24 +28,9 @@ jobs:
           repository: CAPESandbox/CAPE-TestFiles
           path: tests/data/
 
-      - name: Install dependencies
-        run: |
-          sudo apt update && sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev p7zip-full innoextract unrar upx
-
-      - name: Install poetry
-        run: pip install poetry
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: ./.github/actions/python-setup/
         with:
-          # check-latest: true
           python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
-
-      - name: Install requirements
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: |
-          poetry install --no-interaction --no-root
 
       - name: Install pyattck
         run: |
@@ -58,18 +42,18 @@ jobs:
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append
 
-      # Test parsers only if any parser changed
-      - uses: dorny/paths-filter@v3
+      - name: See if any parser changed
+        uses: dorny/paths-filter@v3
         id: changes
         with:
           filters: |
             src:
               - 'modules/processing/parsers/CAPE/*.py'
 
-      - if: steps.changes.outputs.src == 'true'
+      - name: Test parsers only if any parser changed
+        if: steps.changes.outputs.src == 'true'
         run: poetry run python -m pytest tests_parsers -s --import-mode=append
 
-  # Todo unify in future
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -82,23 +66,10 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev
-
-      - name: Install poetry
-        run: pip install poetry
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Set up python
+        uses: ./.github/actions/python-setup
         with:
-          check-latest: true
           python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
-      - name: Install requirements
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: |
-          poetry install --no-interaction --no-root
 
       - name: Format with black
         run: poetry run black .
@@ -108,6 +79,8 @@ jobs:
         run: poetry run isort .
 
       - name: Commit changes if any
+        # Skip this step if being run by nektos/act
+        if: ${{ !env.ACT }}
         run: |
           git config user.name "GitHub Actions"
           git config user.email "action@github.com"

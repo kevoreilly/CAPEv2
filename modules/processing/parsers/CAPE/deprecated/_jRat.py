@@ -28,6 +28,7 @@ def run(md5, data):
 
 # Helper Functions Go Here
 
+
 # This extracts the Encryption Key and Config File from the Jar and or Dropper
 def get_parts(data):
     new_zip = StringIO(data)

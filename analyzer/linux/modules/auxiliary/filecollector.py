@@ -5,6 +5,7 @@ import time
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
+from lib.common.constants import ROOT
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
 
@@ -36,7 +37,7 @@ class FileCollector(Auxiliary, Thread):
 
         time.sleep(2)  # wait a while to process stuff in the queue
         self.do_run = False
-        self.thread.join()
+        self.thread.join(timeout=5)
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
@@ -113,12 +114,20 @@ class FileCollector(Auxiliary, Thread):
 
     def process_generator(self, cls, method):
         # log.info("Generating message %s", method)
+
+        # excluded files or directories
+        noisy_content = ["sysmon", "gvfs-metadata"]
+
         def _method_name(self, event):
             try:
                 # log.info("Got file %s %s", event.pathname, method)
 
                 if not self.do_collect:
                     # log.info("Not currently set to collect %s", event.pathname)
+                    return
+
+                if event.pathname.startswith(ROOT):
+                    # log.info("Skipping random base directory for file %s", event.pathname)
                     return
 
                 if event.pathname.startswith("/tmp/#"):
@@ -129,19 +138,22 @@ class FileCollector(Auxiliary, Thread):
                     # log.info("Path is a directory or does not exist, ignoring: %s", event.pathname)
                     return
 
-                if os.path.basename(event.pathname) == "stap.log":
+                if "strace.log" in os.path.basename(event.pathname):
+                    return
+
+                if any(noisy in event.pathname for noisy in noisy_content):
+                    # log.info("Skipping noisy file %s", event.pathname)
                     return
 
                 try:
                     # log.info("Trying to collect file %s", event.pathname)
                     sha256 = hash_file(hashlib.sha256, event.pathname)
-                    filename = f"{sha256[:16]}_{os.path.basename(event.pathname)}"
-                    if filename in self.uploadedHashes:
+                    if sha256 in self.uploadedHashes:
                         # log.info("Already collected file %s", event.pathname)
                         return
-                    upload_path = os.path.join("files", filename)
+                    upload_path = os.path.join("files", sha256)
                     upload_to_host(event.pathname, upload_path)
-                    self.uploadedHashes.append(filename)
+                    self.uploadedHashes.append(sha256)
                     return
                 except Exception as e:
                     log.info('Error dumping file from path "%s": %s', event.pathname, e)

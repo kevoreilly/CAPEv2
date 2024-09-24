@@ -64,7 +64,7 @@ def import_package(package):
             continue
 
         # Disable initialization of disabled plugins, performance++
-        _, category, module_name = name.split(".")
+        _, category, *_, module_name = name.split(".")
         if (
             category in config_mapper
             and module_name in config_mapper[category].fullconfig
@@ -232,6 +232,13 @@ class RunProcessing:
         if not options.enabled:
             return None
 
+        # Check if the module is platform specific (e.g. strace) to prevent
+        # processing errors.
+        platform = self.task.get("platform", "")
+        if getattr(options, "platform", None) and options.platform != platform:
+            log.debug("Plugin %s not compatible with platform: %s", module_name, platform)
+            return None
+
         # Give it path to the analysis results.
         current.set_path(self.analysis_path)
         # Give it the analysis task object.
@@ -390,6 +397,9 @@ class RunSignatures:
         if not self._check_signature_version(signature):
             return False
 
+        if not self._check_signature_platform(signature):
+            return False
+
         return True
 
     def _load_overlay(self):
@@ -453,6 +463,21 @@ class RunSignatures:
                 return None
 
         return True
+
+    def _check_signature_platform(self, signature):
+        module = inspect.getmodule(signature).__name__
+        platform = self.task.get("platform", "")
+
+        if platform in module:
+            return True
+
+        if ".all." in module:
+            return True
+
+        if "custom" in module:
+            return True
+
+        return False
 
     def process(self, signature):
         """Run a signature.

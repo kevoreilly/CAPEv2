@@ -61,13 +61,13 @@ Usage
 To start the web interface, you can simply run the following command
 from the ``web/`` directory::
 
-    $ python3 manage.py runserver_plus --traceback --keep-meta-shutdown
+    $ poetry run python3 manage.py runserver_plus --traceback --keep-meta-shutdown
 
 If you want to configure the web interface as listening for any IP on a
 specified port (by default the web interface is deployed at localhost:8000), you can start it with the following command (replace PORT
 with the desired port number)::
 
-    $ python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
+    $ poetry run python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
 You can serve CAPE's web interface using WSGI interface with common web servers:
 Apache, Nginx, Unicorn, and so on. Devs are using Nginx + Uwsgi.
@@ -90,7 +90,7 @@ To extend the capabilities of control what users can do check `Django migrations
 
 .. _`Django migrations a primer`: https://realpython.com/django-migrations-a-primer/
 
-In few works you need to add new fields to ``models.py`` and run ``python3 manage.py makemigrations``
+In few works you need to add new fields to ``models.py`` and run ``poetry run python3 manage.py makemigrations``
 
 
 Exposed to internet
@@ -143,7 +143,7 @@ Next, install NGINX and configure it to be a reverse proxy to Gunicorn.
 
    sudo apt install nginx
 
-Create a configuration file at ``/etc/nginx/sites-available/cape``
+Create a configuration file at ``/etc/nginx/conf.d/cape``
 
 Replace ``www.capesandbox.com`` with your actual hostname.
 
@@ -206,6 +206,14 @@ Replace ``www.capesandbox.com`` with your actual hostname.
         }
     }
 
+Now enable the nginx configuration by executing the following:
+
+.. code:: bash
+
+   rm -f /etc/nginx/conf.d/default
+   ln -s /etc/nginx/conf.d/cape /etc/nginx/conf.d/default
+
+
 If you want to block users from changing their own email addresses, add the following `location` directive inside of the `server` directive:
 
 .. code-block:: nginx
@@ -237,11 +245,11 @@ Then restart NGINX
 .. warning::
 
     The CAPE Guacamole Django web application is currently separate from the main CAPE Django web application, and does not support any authentication. Anyone who can connect to the web server access can Guacamole consoles and recordings, if they know the CAPE analysis ID and Guacamole session GUID.
-    
+
     NGINX can be configured to require HTTP basic authentication for all CAPE web applications, as an alternative to the Django authentication system.
 
     Install the ``apache2-utils`` package, which contains the ``htpasswd`` utility.
- 
+
     .. code-block:: bash
 
         sudo apt install apache2-utils
@@ -294,12 +302,12 @@ Request the certificate
 .. code-block:: bash
 
     sudo certbot certonly --webroot -w /var/www/html -d www.capesandbox.com -d capesandbox.com
- 
+
 Install the certificate. When prompted, select the
 "Attempt to reinstall this existing certificate" option.
 
 .. code-block:: bash
- 
+
     sudo certbot --nginx -d www.capesandbox.com -d capesandbox.com
 
 

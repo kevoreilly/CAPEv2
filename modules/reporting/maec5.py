@@ -162,7 +162,6 @@ def _get_mime_type(cuckoo_type_desc):
 
 
 class MaecReport(Report):
-
     """
     Generates MAEC 5.0 report.
     """

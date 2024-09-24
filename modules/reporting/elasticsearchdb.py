@@ -137,7 +137,7 @@ class ElasticSearchDB(Report):
         self.convert_procdump_strings_to_str(report)
 
     def date_hook(self, json_dict):
-        for (key, value) in json_dict.items():
+        for key, value in json_dict.items():
             with suppress(Exception):
                 json_dict[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
         return json_dict

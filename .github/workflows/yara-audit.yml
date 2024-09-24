@@ -22,23 +22,9 @@ jobs:
           repository: CAPESandbox/CAPE-TestFiles
           path: tests/data/
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev
-
-      - name: Install poetry
-        run: pip install poetry
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: ./.github/actions/python-setup/
         with:
-          # check-latest: true
           python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
-      - name: Install requirements
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: |
-          poetry install --no-interaction --no-root
 
       - name: Install dependencies
         run: |

@@ -12,7 +12,7 @@
 
 Write-Output "Disabling Windows defender features..."
 New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Name DisableAntiSpyware -Value 1 -PropertyType DWORD -Force
-Set-MpPreference DisableAntiSpyware $true -ExclusionPath C:\ -DisableRemovableDriveScanning $true -DisableIntrusionPreventionSystem $true -DisableIOAVProtection $true -DisableRealtimeMonitoring $true -DisableBehaviorMonitoring $true  -DisableScriptScanning $true -EnableControlledFolderAccess Disabled -EnableNetworkProtection AuditMode -Force -MAPSReporting Disabled -SubmitSamplesConsent NeverSend
+Set-MpPreference -ExclusionPath C:\ -DisableRemovableDriveScanning $true -DisableIntrusionPreventionSystem $true -DisableIOAVProtection $true -DisableRealtimeMonitoring $true -DisableBehaviorMonitoring $true  -DisableScriptScanning $true -EnableControlledFolderAccess Disabled -EnableNetworkProtection AuditMode -Force -MAPSReporting Disabled -SubmitSamplesConsent NeverSend
 # https://www.alitajran.com/disable-windows-firewall-with-powershell/
 
 Write-Output "Disabling Firewall..."
@@ -50,7 +50,7 @@ For ($i = 0; $i -lt 60; $i++) {
 Rename-Item -Path "$msEdgeInstallationPath\EdgeUpdate\MicrosoftEdgeUpdate.exe" -NewName MicrosoftEdgeUpdateDisabled.exe -Force
 
 Write-Output "Disabling telemetry via Group Policies"
-New-FolderForced -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
+New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Force
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
 
 Write-Host "Block scheduled telemetry tasks"
@@ -84,5 +84,7 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
  Register-ScheduledTask -TaskName $jobname -Action $action -Trigger $trigger -RunLevel Highest -User $username -Password $password -Settings $settings
 #>
 
-Write-Output "Remove WindowsApp to prevent MS StoreStartup"
-Remove-Item -path C:\Users\Default\AppData\Local\Microsoft\WindowsApp -recurse
+if (Test-Path "C:\Users\Default\AppData\Local\Microsoft\WindowsApp") {
+    Write-Output "Remove WindowsApp to prevent MS StoreStartup"
+    Remove-Item -path "C:\Users\Default\AppData\Local\Microsoft\WindowsApp" -recurse
+}

@@ -15,6 +15,11 @@ class CuckooStartupError(CuckooCriticalError):
     pass
 
 
+class CuckooDatabaseInitializationError(CuckooCriticalError):
+    def __str__(self):
+        return "The database has not been initialized yet. You must call init_database before attempting to use it."
+
+
 class CuckooDatabaseError(CuckooCriticalError):
     """Cuckoo database error."""
 
@@ -29,6 +34,12 @@ class CuckooDependencyError(CuckooCriticalError):
 
 class CuckooOperationalError(Exception):
     """Cuckoo operation error."""
+
+    pass
+
+
+class CuckooUnserviceableTaskError(CuckooOperationalError):
+    """There are no machines in the pool that can service the task."""
 
     pass
 

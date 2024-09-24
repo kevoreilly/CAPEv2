@@ -9,6 +9,7 @@ import sys
 from lib.api.process import Process
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.constants import OPT_ARGUMENTS, OPT_SERVICEDESC, OPT_SERVICENAME, SERVICE_OPTIONS
 from lib.common.defines import ADVAPI32, KERNEL32
 
 INJECT_CREATEREMOTETHREAD = 0
@@ -60,12 +61,17 @@ class Service(Package):
     PATHS = [
         ("SystemRoot", "system32", "sc.exe"),
     ]
+    summary = "Launches the given sample as a service."
+    description = """Uses 'svchost.exe -k capegroup <sample> [arguments]' to launch the sample
+    as a service.
+    The .exe filename extension will be added automatically."""
+    option_names = SERVICE_OPTIONS
 
     def start(self, path):
         try:
-            servicename = self.options.get("servicename", "CAPEService").encode("utf8")
-            servicedesc = self.options.get("servicedesc", "CAPE Service").encode("utf8")
-            arguments = self.options.get("arguments")
+            servicename = self.options.get(OPT_SERVICENAME, "CAPEService").encode("utf8")
+            servicedesc = self.options.get(OPT_SERVICEDESC, "CAPE Service").encode("utf8")
+            arguments = self.options.get(OPT_ARGUMENTS)
             path = check_file_extension(path, ".exe")
             binpath = f'"{path}"'.encode("utf8")
             if arguments:

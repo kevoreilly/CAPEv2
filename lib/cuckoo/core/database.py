@@ -4,14 +4,15 @@
 
 # https://blog.miguelgrinberg.com/post/what-s-new-in-sqlalchemy-2-0
 # https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#
-# ToDO with session.begin():
 
+import hashlib
 import json
 import logging
 import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta
+from typing import Any, List, Optional, Union, cast
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
@@ -22,11 +23,17 @@ from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.demux import demux_sample
-from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
+from lib.cuckoo.common.exceptions import (
+    CuckooDatabaseError,
+    CuckooDatabaseInitializationError,
+    CuckooDependencyError,
+    CuckooOperationalError,
+    CuckooUnserviceableTaskError,
+)
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder
+from lib.cuckoo.common.utils import bytes2str, create_folder, get_options
 
 try:
     from sqlalchemy import (
@@ -44,14 +51,13 @@ try:
         event,
         func,
         not_,
-        or_,
         select,
     )
-    from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
-    from sqlalchemy.orm import backref, declarative_base, joinedload, relationship, sessionmaker
+    from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+    from sqlalchemy.orm import Query, backref, declarative_base, joinedload, relationship, scoped_session, sessionmaker
 
     Base = declarative_base()
-except ImportError:
+except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry run pip install sqlalchemy`)")
 
 
@@ -122,7 +128,7 @@ if repconf.elasticsearchdb.enabled:
 
     es = elastic_handler
 
-SCHEMA_VERSION = "a8441ab0fd0f"
+SCHEMA_VERSION = "c2bd0eb5e69d"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -150,7 +156,6 @@ ALL_DB_STATUSES = (
 )
 
 MACHINE_RUNNING = "running"
-MACHINE_SCHEDULED = "scheduled"
 
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
@@ -167,36 +172,6 @@ tasks_tags = Table(
     Column("task_id", Integer, ForeignKey("tasks.id")),
     Column("tag_id", Integer, ForeignKey("tags.id")),
 )
-
-
-VALID_LINUX_TYPES = ("Bourne-Again", "POSIX shell script", "ELF", "Python")
-
-
-def _get_linux_vm_tag(mgtype):
-    mgtype = mgtype.lower()
-    if mgtype.startswith(VALID_LINUX_TYPES) and "motorola" not in mgtype and "renesas" not in mgtype:
-        return False
-    if "mipsel" in mgtype:
-        return "mipsel"
-    elif "mips" in mgtype:
-        return "mips"
-    elif "arm" in mgtype:
-        return "arm"
-    # elif "armhl" in mgtype:
-    #    return {"tags":"armhl"}
-    elif "sparc" in mgtype:
-        return "sparc"
-    # elif "motorola" in mgtype:
-    #    return "motorola"
-    # elif "renesas sh" in mgtype:
-    #    return "renesassh"
-    elif "powerpc" in mgtype:
-        return "powerpc"
-    elif "32-bit" in mgtype:
-        return "x32"
-    elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
-        return "x64"
-    return "x64"
 
 
 def get_count(q, property):
@@ -228,7 +203,7 @@ class Machine(Base):
     reserved = Column(Boolean(), nullable=False, default=False)
 
     def __repr__(self):
-        return f"<Machine('{self.id}','{self.name}')>"
+        return f"<Machine({self.id},'{self.name}')>"
 
     def to_dict(self):
         """Converts object to dict.
@@ -274,7 +249,7 @@ class Tag(Base):
     name = Column(String(255), nullable=False, unique=True)
 
     def __repr__(self):
-        return f"<Tag('{self.id}','{self.name}')>"
+        return f"<Tag({self.id},'{self.name}')>"
 
     def __init__(self, name):
         self.name = name
@@ -289,13 +264,14 @@ class Guest(Base):
     status = Column(String(16), nullable=False)
     name = Column(String(255), nullable=False)
     label = Column(String(255), nullable=False)
+    platform = Column(String(255), nullable=False)
     manager = Column(String(255), nullable=False)
     started_on = Column(DateTime(timezone=False), default=datetime.now, nullable=False)
     shutdown_on = Column(DateTime(timezone=False), nullable=True)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, unique=True)
 
     def __repr__(self):
-        return f"<Guest('{self.id}','{self.name}')>"
+        return f"<Guest({self.id}, '{self.name}')>"
 
     def to_dict(self):
         """Converts object to dict.
@@ -316,10 +292,12 @@ class Guest(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, name, label, manager):
+    def __init__(self, name, label, platform, manager, task_id):
         self.name = name
         self.label = label
+        self.platform = platform
         self.manager = manager
+        self.task_id = task_id
 
 
 class Sample(Base):
@@ -345,7 +323,7 @@ class Sample(Base):
     )
 
     def __repr__(self):
-        return f"<Sample('{self.id}','{self.sha256}')>"
+        return f"<Sample({self.id},'{self.sha256}')>"
 
     def to_dict(self):
         """Converts object to dict.
@@ -415,7 +393,7 @@ class Error(Base):
         self.task_id = task_id
 
     def __repr__(self):
-        return f"<Error('{self.id}','{self.message}','{self.task_id}')>"
+        return f"<Error({self.id},'{self.message}','{self.task_id}')>"
 
 
 class Task(Base):
@@ -536,7 +514,7 @@ class Task(Base):
         self.target = target
 
     def __repr__(self):
-        return f"<Task('{self.id}','{self.target}')>"
+        return f"<Task({self.id},'{self.target}')>"
 
 
 class AlembicVersion(Base):
@@ -547,7 +525,7 @@ class AlembicVersion(Base):
     version_num = Column(String(32), nullable=False, primary_key=True)
 
 
-class Database(object, metaclass=Singleton):
+class _Database:
     """Analysis queue database.
 
     This class handles the creation of the database user for internal queue
@@ -558,7 +536,6 @@ class Database(object, metaclass=Singleton):
         """@param dsn: database connection string.
         @param schema_check: disable or enable the db schema version check
         """
-        self._lock = SuperLock()
         self.cfg = conf
 
         if dsn:
@@ -567,7 +544,7 @@ class Database(object, metaclass=Singleton):
             self._connect_database(self.cfg.database.connection)
         else:
             file_path = os.path.join(CUCKOO_ROOT, "db", "cuckoo.db")
-            if not path_exists(file_path):
+            if not path_exists(file_path):  # pragma: no cover
                 db_dir = os.path.dirname(file_path)
                 if not path_exists(db_dir):
                     try:
@@ -587,39 +564,37 @@ class Database(object, metaclass=Singleton):
         # Create schema.
         try:
             Base.metadata.create_all(self.engine)
-        except SQLAlchemyError as e:
+        except SQLAlchemyError as e:  # pragma: no cover
             raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
 
         # Get db session.
-        self.Session = sessionmaker(bind=self.engine)
+        self.session = scoped_session(sessionmaker(bind=self.engine, expire_on_commit=False))
 
-        @event.listens_for(self.Session, "after_flush")
+        # There should be a better way to clean up orphans. This runs after every flush, which is crazy.
+        @event.listens_for(self.session, "after_flush")
         def delete_tag_orphans(session, ctx):
             session.query(Tag).filter(~Tag.tasks.any()).filter(~Tag.machines.any()).delete(synchronize_session=False)
 
         # Deal with schema versioning.
         # TODO: it's a little bit dirty, needs refactoring.
-        tmp_session = self.Session()
-        if not tmp_session.query(AlembicVersion).count():
-            # Set database schema version.
-            tmp_session.add(AlembicVersion(version_num=SCHEMA_VERSION))
-            try:
-                tmp_session.commit()
-            except SQLAlchemyError as e:
-                tmp_session.rollback()
-                raise CuckooDatabaseError(f"Unable to set schema version: {e}")
-            finally:
-                tmp_session.close()
-        else:
-            # Check if db version is the expected one.
+        with self.session() as tmp_session:
             last = tmp_session.query(AlembicVersion).first()
-            tmp_session.close()
-            if last.version_num != SCHEMA_VERSION and schema_check:
-                print(
-                    f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
-                )
-                print(red("cd utils/db_migration/ && poetry run alembic upgrade head"))
-                sys.exit()
+            if last is None:
+                # Set database schema version.
+                tmp_session.add(AlembicVersion(version_num=SCHEMA_VERSION))
+                try:
+                    tmp_session.commit()
+                except SQLAlchemyError as e:  # pragma: no cover
+                    tmp_session.rollback()
+                    raise CuckooDatabaseError(f"Unable to set schema version: {e}")
+            else:
+                # Check if db version is the expected one.
+                if last.version_num != SCHEMA_VERSION and schema_check:  # pragma: no cover
+                    print(
+                        f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
+                    )
+                    print(red("cd utils/db_migration/ && poetry run alembic upgrade head"))
+                    sys.exit()
 
     def __del__(self):
         """Disconnects pool."""
@@ -643,24 +618,24 @@ class Database(object, metaclass=Singleton):
                 )
             else:
                 self.engine = create_engine(connection_string)
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             lib = e.message.rsplit(maxsplit=1)[-1]
             raise CuckooDependencyError(f"Missing database driver, unable to import {lib} (install with `pip install {lib}`)")
 
-    def _get_or_create(self, session, model, **kwargs):
+    def _get_or_create(self, model, **kwargs):
         """Get an ORM instance or create it if not exist.
         @param session: SQLAlchemy session object
         @param model: model to query
         @return: row instance
         """
-        instance = session.query(model).filter_by(**kwargs).first()
+        instance = self.session.query(model).filter_by(**kwargs).first()
         if instance:
             return instance
         else:
             instance = model(**kwargs)
+            self.session.add(instance)
             return instance
 
-    @classlock
     def drop(self):
         """Drop all tables."""
         try:
@@ -668,42 +643,29 @@ class Database(object, metaclass=Singleton):
         except SQLAlchemyError as e:
             raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
 
-    @classlock
     def clean_machines(self):
         """Clean old stored machines and related tables."""
         # Secondary table.
         # TODO: this is better done via cascade delete.
         # self.engine.execute(machines_tags.delete())
 
-        with self.Session() as session:
-            session.execute(machines_tags.delete())
-            try:
-                session.query(Machine).delete()
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error cleaning machines: %s", e)
-                session.rollback()
+        self.session.execute(machines_tags.delete())
+        self.session.query(Machine).delete()
 
-    @classlock
     def delete_machine(self, name) -> bool:
         """Delete a single machine entry from DB."""
 
-        with self.Session() as session:
-            try:
-                machine = session.query(Machine).filter_by(name=name).first()
-                if machine:
-                    session.delete(machine)
-                    session.commit()
-                    return True
-                else:
-                    log.warning(f"{name} does not exist in the database.")
-                    return False
-            except SQLAlchemyError as e:
-                log.debug("Database error deleting machine: %s", e)
-                session.rollback()
+        machine = self.session.query(Machine).filter_by(name=name).first()
+        if machine:
+            self.session.delete(machine)
+            return True
+        else:
+            log.warning(f"{name} does not exist in the database.")
+            return False
 
-    @classlock
-    def add_machine(self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port, reserved):
+    def add_machine(
+        self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port, reserved, locked=False
+    ) -> Machine:
         """Add a guest machine.
         @param name: machine id
         @param label: machine label
@@ -717,139 +679,88 @@ class Database(object, metaclass=Singleton):
         @param resultserver_port: port of the Result Server
         @param reserved: True if the machine can only be used when specifically requested
         """
-        with self.Session() as session:
-            machine = Machine(
-                name=name,
-                label=label,
-                arch=arch,
-                ip=ip,
-                platform=platform,
-                interface=interface,
-                snapshot=snapshot,
-                resultserver_ip=resultserver_ip,
-                resultserver_port=resultserver_port,
-                reserved=reserved,
-            )
-            # Deal with tags format (i.e., foo,bar,baz)
-            if tags:
-                for tag in tags.replace(" ", "").split(","):
-                    machine.tags.append(self._get_or_create(session, Tag, name=tag))
-            session.add(machine)
-            try:
-                session.commit()
-            except SQLAlchemyError as e:
-                print(e)
-                log.debug("Database error adding machine: %s", e)
-                session.rollback()
+        machine = Machine(
+            name=name,
+            label=label,
+            arch=arch,
+            ip=ip,
+            platform=platform,
+            interface=interface,
+            snapshot=snapshot,
+            resultserver_ip=resultserver_ip,
+            resultserver_port=resultserver_port,
+            reserved=reserved,
+        )
+        # Deal with tags format (i.e., foo,bar,baz)
+        if tags:
+            for tag in tags.replace(" ", "").split(","):
+                machine.tags.append(self._get_or_create(Tag, name=tag))
+        if locked:
+            machine.locked = True
+        self.session.add(machine)
+        return machine
 
-    @classlock
     def set_machine_interface(self, label, interface):
-        with self.Session() as session:
-            try:
-                machine = session.query(Machine).filter_by(label=label).first()
-                if machine is None:
-                    log.debug("Database error setting interface: %s not found", label)
-                    return
-                machine.interface = interface
-                session.commit()
+        machine = self.session.query(Machine).filter_by(label=label).first()
+        if machine is None:
+            log.debug("Database error setting interface: %s not found", label)
+            return
+        machine.interface = interface
+        return machine
 
-            except SQLAlchemyError as e:
-                log.debug("Database error setting interface: %s", e)
-                session.rollback()
-
-    @classlock
     def set_vnc_port(self, task_id: int, port: int):
-        with self.Session() as session:
-            try:
-                task = session.query(Task).filter_by(id=task_id).first()
-                if task is None:
-                    log.debug("Database error setting VPN port: For task %s", task_id)
-                    return
-                if task.options:
-                    task.options += f",vnc_port={port}"
-                else:
-                    task.options = f"vnc_port={port}"
-                session.commit()
+        task = self.session.query(Task).filter_by(id=task_id).first()
+        if task is None:
+            log.debug("Database error setting VPN port: For task %s", task_id)
+            return
+        if task.options:
+            task.options += f",vnc_port={port}"
+        else:
+            task.options = f"vnc_port={port}"
 
-            except SQLAlchemyError as e:
-                log.debug("Database error setting interface: %s", e)
-                session.rollback()
-
-    @classlock
     def update_clock(self, task_id):
-        with self.Session() as session:
-            try:
-                row = session.get(Task, task_id)
+        row = self.session.get(Task, task_id)
 
-                if not row:
-                    return
+        if not row:
+            return
 
-                if row.clock == datetime.utcfromtimestamp(0):
-                    if row.category == "file":
-                        row.clock = datetime.utcnow() + timedelta(days=self.cfg.cuckoo.daydelta)
-                    else:
-                        row.clock = datetime.utcnow()
-                    session.commit()
-                return row.clock
-            except SQLAlchemyError as e:
-                log.debug("Database error setting clock: %s", e)
-                session.rollback()
+        if row.clock == datetime.utcfromtimestamp(0):
+            if row.category == "file":
+                row.clock = datetime.utcnow() + timedelta(days=self.cfg.cuckoo.daydelta)
+            else:
+                row.clock = datetime.utcnow()
+        return row.clock
 
-    @classlock
-    def set_status(self, task_id, status):
+    def set_task_status(self, task: Task, status) -> Task:
+        if status != TASK_DISTRIBUTED_COMPLETED:
+            task.status = status
+
+        if status in (TASK_RUNNING, TASK_DISTRIBUTED):
+            task.started_on = datetime.now()
+        elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
+            task.completed_on = datetime.now()
+
+        self.session.add(task)
+        return task
+
+    def set_status(self, task_id: int, status) -> Optional[Task]:
         """Set task status.
         @param task_id: task identifier
         @param status: status string
         @return: operation status
         """
-        with self.Session() as session:
-            try:
-                row = session.get(Task, task_id)
+        task = self.session.get(Task, task_id)
 
-                if not row:
-                    return
+        if not task:
+            return None
 
-                if status != TASK_DISTRIBUTED_COMPLETED:
-                    row.status = status
+        return self.set_task_status(task, status)
 
-                if status in (TASK_RUNNING, TASK_DISTRIBUTED):
-                    row.started_on = datetime.now()
-                elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
-                    row.completed_on = datetime.now()
-
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error setting status: %s", e)
-                session.rollback()
-
-    @classlock
-    def set_task_vm_and_guest_start(self, task_id, vmname, vmlabel, vm_id, manager):
-        """Set task status and logs guest start.
-        @param task_id: task identifier
-        @param vmname: virtual vm name
-        @param label: vm label
-        @param manager: vm manager
-        @return: guest row id
-        """
-        with self.Session() as session:
-            guest = Guest(vmname, vmlabel, manager)
-            try:
-                guest.status = "init"
-                row = session.get(Task, task_id)
-
-                if not row:
-                    return
-
-                row.guest = guest
-                row.machine = vmname
-                row.machine_id = vm_id
-                session.commit()
-                session.refresh(guest)
-                return guest.id
-            except SQLAlchemyError as e:
-                log.debug("Database error setting task vm and logging guest start: %s", e)
-                session.rollback()
-                return None
+    def create_guest(self, machine: Machine, manager: str, task: Task) -> Guest:
+        guest = Guest(machine.name, machine.label, machine.platform, manager, task.id)
+        guest.status = "init"
+        self.session.add(guest)
+        return guest
 
     def _package_vm_requires_check(self, package: str) -> list:
         """
@@ -864,202 +775,103 @@ class Database(object, metaclass=Singleton):
 
         return task_archs, task_tags
 
-    def validate_task_parameters(self, label: str, platform: str, tags: list) -> bool:
-        """Checks if a task is invalid based on parameters mismatch
-        @param label: label of the machine asked for by the task
-        @param platform: platform of the machine asked for by the task
-        @param tags: tags of task
-        @return: boolean indicating if a task is valid
-        """
-        # Preventive checks.
-        if label and platform:
-            # Wrong usage.
-            return False
-        elif label and tags:
-            # Also wrong usage.
-            return False
-        return True
-
-    @classlock
-    def is_relevant_machine_available(self, task: Task, set_status: bool = True) -> bool:
-        """Checks if a machine that is relevant to the given task is available
-        @param task: task to validate
-        @param set_status: boolean which indicate if the status of the task should be changed to TASK_RUNNING in the DB.
-        @return: boolean indicating if a relevant machine is available
+    def find_machine_to_service_task(self, task: Task) -> Optional[Machine]:
+        """Find a machine that is able to service the given task.
+        Returns: The Machine if an available machine was found; None if there is at least 1 machine
+            that *could* service it, but they are all currently in use.
+        Raises: CuckooUnserviceableTaskError if there are no machines in the pool that would be able
+            to service it.
         """
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
-        vms = self.list_machines(
-            locked=False,
-            label=task.machine,
-            platform=task.platform,
-            tags=task_tags,
-            arch=task_archs,
-            os_version=os_version,
-            include_scheduled=False,
-        )
-        if len(vms) > 0:
-            # There are? Awesome!
-            if set_status:
-                self.set_status(task_id=task.id, status=TASK_RUNNING)
-            return True
-        return False
 
-    @classlock
-    def map_tasks_to_available_machines(self, tasks: list) -> list:
-        """Map tasks to available_machines to schedule in batch and prevent double spending of machines
-        @param tasks: List of tasks to filter
-        @return: list of tasks that should be started by the scheduler
-        """
-        results = []
-        assigned_machines = []
-        for task in tasks:
-            task_archs, task_tags = self._task_arch_tags_helper(task)
-            os_version = self._package_vm_requires_check(task.package)
-            machine = None
-            if not self.validate_task_parameters(label=task.machine, platform=task.platform, tags=task_tags):
-                continue
-            with self.Session() as session:
-                try:
-                    machines = session.query(Machine).options(joinedload(Machine.tags)).filter_by(locked=False)
-                    machines = self.filter_machines_to_task(
-                        machines=machines,
-                        label=task.machine,
-                        platform=task.platform,
-                        tags=task_tags,
-                        archs=task_archs,
-                        os_version=os_version,
-                    )
-                    # This loop is there in order to prevent double spending of machines by filtering
-                    # out already mapped machines
-                    for assigned in assigned_machines:
-                        machines = machines.filter(Machine.label.notlike(assigned.label))
-                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status == None))  # noqa: E711
-                    # Get the first free machine.
-                    machine = machines.first()
-                    if machine:
-                        assigned_machines.append(machine)
-                        self.set_status(task_id=task.id, status=TASK_RUNNING)
-                        results.append(task)
-                except SQLAlchemyError as e:
-                    log.debug("Database error batch scheduling machines: %s", e)
-                    return []
-        for assigned in assigned_machines:
-            self.set_machine_status(assigned.label, MACHINE_SCHEDULED)
-        return results
+        def get_first_machine(query: Query) -> Optional[Machine]:
+            # Select for update a machine, preferring one that is available and was the one that was used the
+            # longest time ago. This will give us a machine that can get locked or, if there are none that are
+            # currently available, we'll at least know that the task is serviceable.
+            return cast(
+                Optional[Machine], query.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine).first()
+            )
 
-    @classlock
-    def is_serviceable(self, task: Task) -> bool:
-        """Checks if the task is serviceable.
+        machines = self.session.query(Machine).options(joinedload(Machine.tags))
+        filter_kwargs = {
+            "machines": machines,
+            "label": task.machine,
+            "platform": task.platform,
+            "tags": task_tags,
+            "archs": task_archs,
+            "os_version": os_version,
+        }
+        filtered_machines = self.filter_machines_to_task(include_reserved=False, **filter_kwargs)
+        machine = get_first_machine(filtered_machines)
+        if machine is None and not task.machine and task_tags:
+            # The task was given at least 1 tag, but there are no non-reserved machines
+            # that could satisfy the request. So let's see if there are any "reserved"
+            # machines that can satisfy it.
+            filtered_machines = self.filter_machines_to_task(include_reserved=True, **filter_kwargs)
+            machine = get_first_machine(filtered_machines)
 
-        This method is useful when there are tasks that will never be serviced
-        by any of the machines available. This allows callers to decide what to
-        do when tasks like this are created.
+        if machine is None:
+            raise CuckooUnserviceableTaskError
+        if machine.locked:
+            # There aren't any machines that can service the task NOW, but there is at least one in the pool
+            # that could service it once it's available.
+            return None
+        return machine
 
-        @return: boolean indicating if any machine could service the task in the future
-        """
-        task_archs, task_tags = self._task_arch_tags_helper(task)
-        os_version = self._package_vm_requires_check(task.package)
-        vms = self.list_machines(label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs, os_version=os_version)
-        if len(vms) > 0:
-            return True
-        return False
-
-    @classlock
-    def fetch_task(self, categories: list = []):
+    def fetch_task(self, categories: list = None):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
-        with self.Session() as session:
-            row = None
-            try:
-                row = (
-                    session.query(Task)
-                    .filter_by(status=TASK_PENDING)
-                    .order_by(Task.priority.desc(), Task.added_on)
-                    # distributed cape
-                    .filter(not_(Task.options.contains("node=")))
-                )
+        row = (
+            self.session.query(Task)
+            .filter_by(status=TASK_PENDING)
+            .order_by(Task.priority.desc(), Task.added_on)
+            # distributed cape
+            .filter(not_(Task.options.contains("node=")))
+        )
 
-                if categories:
-                    row = row.filter(Task.category.in_(categories))
-                row = row.first()
+        if categories:
+            row = row.filter(Task.category.in_(categories))
+        row = row.first()
 
-                if not row:
-                    return None
+        if not row:
+            return None
 
-                self.set_status(task_id=row.id, status=TASK_RUNNING)
-                session.refresh(row)
+        self.set_status(task_id=row.id, status=TASK_RUNNING)
 
-                return row
-            except SQLAlchemyError as e:
-                log.debug("Database error fetching task: %s", e)
-                log.debug(red("Ensure that your database schema version is correct"))
-                session.rollback()
+        return row
 
-    @classlock
     def guest_get_status(self, task_id):
         """Log guest start.
         @param task_id: task id
         @return: guest status
         """
-        with self.Session() as session:
-            try:
-                guest = session.query(Guest).filter_by(task_id=task_id).first()
-                return guest.status if guest else None
-            except SQLAlchemyError as e:
-                log.exception("Database error logging guest start: %s", e)
-                session.rollback()
-                return
+        guest = self.session.query(Guest).filter_by(task_id=task_id).first()
+        return guest.status if guest else None
 
-    @classlock
     def guest_set_status(self, task_id, status):
         """Log guest start.
         @param task_id: task identifier
         @param status: status
         """
-        with self.Session() as session:
-            try:
-                guest = session.query(Guest).filter_by(task_id=task_id).first()
-                if guest is not None:
-                    guest.status = status
-                    session.commit()
-                    session.refresh(guest)
-            except SQLAlchemyError as e:
-                log.exception("Database error logging guest start: %s", e)
-                session.rollback()
-                return None
+        guest = self.session.query(Guest).filter_by(task_id=task_id).first()
+        if guest is not None:
+            guest.status = status
 
-    @classlock
     def guest_remove(self, guest_id):
         """Removes a guest start entry."""
-        with self.Session() as session:
-            try:
-                guest = session.get(Guest, guest_id)
-                session.delete(guest)
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error logging guest remove: %s", e)
-                session.rollback()
-                return None
+        guest = self.session.get(Guest, guest_id)
+        if guest:
+            self.session.delete(guest)
 
-    @classlock
     def guest_stop(self, guest_id):
         """Logs guest stop.
         @param guest_id: guest log entry id
         """
-        with self.Session() as session:
-            try:
-                guest = session.get(Guest, guest_id)
-                if guest:
-                    guest.shutdown_on = datetime.now()
-                    session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error logging guest stop: %s", e)
-                session.rollback()
-            except TypeError:
-                log.warning("Data inconsistency in guests table detected, it might be a crash leftover. Continue")
-                session.rollback()
+        guest = self.session.get(Guest, guest_id)
+        if guest:
+            guest.shutdown_on = datetime.now()
 
     @staticmethod
     def filter_machines_by_arch(machines, arch):
@@ -1075,10 +887,10 @@ class Database(object, metaclass=Singleton):
         return machines
 
     def filter_machines_to_task(
-        self, machines: list, label=None, platform=None, tags=None, archs=None, os_version=[], include_reserved=False
-    ) -> list:
+        self, machines: Query, label=None, platform=None, tags=None, archs=None, os_version=None, include_reserved=False
+    ) -> Query:
         """Add filters to the given query based on the task
-        @param machines: List of machines where the filter will be applied
+        @param machines: Query object for the machines
         @param label: label of the machine(s) expected for the task
         @param platform: platform of the machine(s) expected for the task
         @param tags: tags of the machine(s) expected for the task
@@ -1101,18 +913,16 @@ class Database(object, metaclass=Singleton):
             machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
         return machines
 
-    @classlock
     def list_machines(
         self,
         locked=None,
         label=None,
         platform=None,
-        tags=[],
+        tags=None,
         arch=None,
         include_reserved=False,
-        os_version=[],
-        include_scheduled=True,
-    ):
+        os_version=None,
+    ) -> List[Machine]:
         """Lists virtual machines.
         @return: list of virtual machines
         """
@@ -1122,105 +932,54 @@ class Database(object, metaclass=Singleton):
         77 | cape1  | win7  | x86  |
         78 | cape2  | win10 | x64  |
         """
-        with self.Session() as session:
-            try:
-                machines = session.query(Machine).options(joinedload(Machine.tags))
-                if locked is not None and isinstance(locked, bool):
-                    machines = machines.filter_by(locked=locked)
-                machines = self.filter_machines_to_task(
-                    machines=machines,
-                    label=label,
-                    platform=platform,
-                    tags=tags,
-                    archs=arch,
-                    os_version=os_version,
-                    include_reserved=include_reserved,
-                )
-                if not include_scheduled:
-                    machines = machines.filter(or_(Machine.status.notlike(MACHINE_SCHEDULED), Machine.status == None))  # noqa: E711
-                return machines.all()
-            except SQLAlchemyError as e:
-                print(e)
-                log.debug("Database error listing machines: %s", e)
-                return []
+        machines = self.session.query(Machine).options(joinedload(Machine.tags))
+        if locked is not None and isinstance(locked, bool):
+            machines = machines.filter_by(locked=locked)
+        machines = self.filter_machines_to_task(
+            machines=machines,
+            label=label,
+            platform=platform,
+            tags=tags,
+            archs=arch,
+            os_version=os_version,
+            include_reserved=include_reserved,
+        )
+        return machines.all()
 
-    @classlock
-    def lock_machine(self, label=None, platform=None, tags=None, arch=None, os_version=[], need_scheduled=False):
+    def assign_machine_to_task(self, task: Task, machine: Optional[Machine]) -> Task:
+        if machine:
+            task.machine = machine.label
+            task.machine_id = machine.id
+        else:
+            task.machine = None
+            task.machine_id = None
+        self.session.add(task)
+        return task
+
+    def lock_machine(self, machine: Machine) -> Machine:
         """Places a lock on a free virtual machine.
-        @param label: optional virtual machine label
-        @param platform: optional virtual machine platform
-        @param tags: optional tags required (list)
-        @param arch: optional virtual machine arch
-        @param os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
-        @param need_scheduled: should the result be filtered on 'scheduled' machine status
+        @param machine: the Machine to lock
         @return: locked machine
         """
-        if not self.validate_task_parameters(label=label, platform=platform, tags=tags):
-            return None
+        machine.locked = True
+        machine.locked_changed_on = datetime.now()
+        self.set_machine_status(machine, MACHINE_RUNNING)
+        self.session.add(machine)
 
-        with self.Session() as session:
-
-            try:
-                machines = session.query(Machine)
-                machines = self.filter_machines_to_task(
-                    machines=machines, label=label, platform=platform, tags=tags, archs=arch, os_version=os_version
-                )
-                # Check if there are any machines that satisfy the
-                # selection requirements.
-                if not machines.count():
-                    raise CuckooOperationalError(
-                        "No machines match selection criteria of label: '%s', platform: '%s', arch: '%s', tags: '%s'"
-                        % (label, platform, arch, tags)
-                    )
-                if need_scheduled:
-                    machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
-                # Get the first free machine.
-                machine = machines.filter_by(locked=False).first()
-            except SQLAlchemyError as e:
-                log.debug("Database error locking machine: %s", e)
-                return None
-
-            if machine:
-                machine.locked = True
-                machine.locked_changed_on = datetime.now()
-                try:
-                    session.commit()
-                    session.refresh(machine)
-                except SQLAlchemyError as e:
-                    log.debug("Database error locking machine: %s", e)
-                    session.rollback()
-                    return None
-                self.set_machine_status(machine.label, MACHINE_RUNNING)
         return machine
 
-    @classlock
-    def unlock_machine(self, label):
-        """Remove lock form a virtual machine.
-        @param label: virtual machine label
+    def unlock_machine(self, machine: Machine) -> Machine:
+        """Remove lock from a virtual machine.
+        @param machine: The Machine to unlock.
         @return: unlocked machine
         """
-        with self.Session() as session:
-            try:
-                machine = session.query(Machine).filter_by(label=label).first()
-            except SQLAlchemyError as e:
-                log.debug("Database error unlocking machine: %s", e)
-                return None
-
-            if machine:
-                machine.locked = False
-                machine.locked_changed_on = datetime.now()
-                try:
-                    session.commit()
-                    session.refresh(machine)
-                except SQLAlchemyError as e:
-                    log.debug("Database error locking machine: %s", e)
-                    session.rollback()
-                    return None
+        machine.locked = False
+        machine.locked_changed_on = datetime.now()
+        self.session.add(machine)
 
         return machine
 
-    @classlock
-    def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
+    def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None):
         """How many (relevant) virtual machines are ready for analysis.
         @param label: machine ID.
         @param platform: machine platform.
@@ -1229,120 +988,66 @@ class Database(object, metaclass=Singleton):
         @param include_reserved: include 'reserved' machines in the result, regardless of whether or not a 'label' was provided.
         @return: free virtual machines count
         """
-        with self.Session() as session:
-            try:
-                machines = session.query(Machine).filter_by(locked=False)
-                machines = self.filter_machines_to_task(
-                    machines=machines,
-                    label=label,
-                    platform=platform,
-                    tags=tags,
-                    archs=arch,
-                    os_version=os_version,
-                    include_reserved=include_reserved,
-                )
-                return machines.count()
-            except SQLAlchemyError as e:
-                log.debug("Database error counting machines: %s", e)
-                return 0
+        machines = self.session.query(Machine).filter_by(locked=False)
+        machines = self.filter_machines_to_task(
+            machines=machines,
+            label=label,
+            platform=platform,
+            tags=tags,
+            archs=arch,
+            os_version=os_version,
+            include_reserved=include_reserved,
+        )
+        return machines.count()
 
-    @classlock
-    def get_available_machines(self):
+    def get_available_machines(self) -> List[Machine]:
         """Which machines are available
         @return: free virtual machines
         """
-        with self.Session() as session:
-            try:
-                machines = session.query(Machine).options(joinedload(Machine.tags)).filter_by(locked=False).all()
-                return machines
-            except SQLAlchemyError as e:
-                log.debug("Database error getting available machines: %s", e)
-                return []
+        machines = self.session.query(Machine).options(joinedload(Machine.tags)).filter_by(locked=False).all()
+        return machines
 
-    @classlock
-    def get_machines_scheduled(self):
-        with self.Session() as session:
-            try:
-                machines = session.query(Machine)
-                machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
-                result = machines.count()
-            except SQLAlchemyError as e:
-                log.debug("Database error getting machine scheduled: %s", e)
-                return 0
-            return result
+    def count_machines_running(self) -> int:
+        machines = self.session.query(Machine)
+        machines = machines.filter_by(locked=True)
+        return machines.count()
 
-    @classlock
-    def set_machine_status(self, label, status):
+    def set_machine_status(self, machine_or_label: Union[str, Machine], status):
         """Set status for a virtual machine.
         @param label: virtual machine label
         @param status: new virtual machine status
         """
-        with self.Session() as session:
-            try:
-                machine = session.query(Machine).filter_by(label=label).first()
-            except SQLAlchemyError as e:
-                log.debug("Database error setting machine status: %s", e)
-                session.close()
-                return
+        if isinstance(machine_or_label, str):
+            machine = self.session.query(Machine).filter_by(label=machine_or_label).first()
+        else:
+            machine = machine_or_label
+        if machine:
+            machine.status = status
+            machine.status_changed_on = datetime.now()
+            self.session.add(machine)
 
-            if machine:
-                machine.status = status
-                machine.status_changed_on = datetime.now()
-                try:
-                    session.commit()
-                    session.refresh(machine)
-                except SQLAlchemyError as e:
-                    log.debug("Database error setting machine status: %s", e)
-                    session.rollback()
-
-    @classlock
-    def check_machines_scheduled_timeout(self):
-        with self.Session() as session:
-            try:
-                machines = session.query(Machine)
-                machines = machines.filter(Machine.status.like(MACHINE_SCHEDULED))
-            except SQLAlchemyError as e:
-                log.debug("Database error setting machine status: %s", e)
-                session.close()
-                return
-
-            for machine in machines:
-                if machine.status_changed_on + timedelta(seconds=30) < datetime.now():
-                    self.set_machine_status(machine.label, MACHINE_RUNNING)
-
-    @classlock
     def add_error(self, message, task_id):
         """Add an error related to a task.
         @param message: error message
         @param task_id: ID of the related task
         """
-        with self.Session() as session:
-            error = Error(message=message, task_id=task_id)
-            session.add(error)
-            try:
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error adding error log: %s", e)
-                session.rollback()
+        error = Error(message=message, task_id=task_id)
+        # Use a separate session so that, regardless of the state of a transaction going on
+        # outside of this function, the error will always be committed to the database.
+        with self.session.session_factory() as sess, sess.begin():
+            sess.add(error)
 
     # The following functions are mostly used by external utils.
 
-    @classlock
     def register_sample(self, obj, source_url=False):
-        sample_id = None
         if isinstance(obj, (File, PCAP, Static)):
-            with self.Session() as session:
-                fileobj = File(obj.file_path)
-                file_type = fileobj.get_type()
-                file_md5 = fileobj.get_md5()
-                sample = None
-                # check if hash is known already
-                try:
-                    sample = session.query(Sample).filter_by(md5=file_md5).first()
-                except SQLAlchemyError as e:
-                    log.debug("Error querying sample for hash: %s", e)
-
-                if not sample:
+            fileobj = File(obj.file_path)
+            file_type = fileobj.get_type()
+            file_md5 = fileobj.get_md5()
+            sample = None
+            # check if hash is known already
+            try:
+                with self.session.begin_nested():
                     sample = Sample(
                         md5=file_md5,
                         crc32=fileobj.get_crc32(),
@@ -1355,30 +1060,17 @@ class Database(object, metaclass=Singleton):
                         # parent=sample_parent_id,
                         source_url=source_url,
                     )
-                    session.add(sample)
+                    self.session.add(sample)
+            except IntegrityError:
+                sample = self.session.query(Sample).filter_by(md5=file_md5).first()
 
-                try:
-                    session.commit()
-                except IntegrityError:
-                    session.rollback()
-                    try:
-                        sample = session.query(Sample).filter_by(md5=file_md5).first()
-                    except SQLAlchemyError as e:
-                        log.debug("Error querying sample for hash: %s", e)
-                        return None
-                except SQLAlchemyError as e:
-                    log.debug("Database error adding task: %s", e)
-                    return None
-                finally:
-                    sample_id = sample.id
-
-            return sample_id
+            return sample.id
         return None
 
-    @classlock
     def add(
         self,
         obj,
+        *,
         timeout=0,
         package="",
         options="",
@@ -1429,26 +1121,19 @@ class Database(object, metaclass=Singleton):
         @param username: username for custom auth
         @return: cursor or None.
         """
-        with self.Session() as session:
+        # Convert empty strings and None values to a valid int
+        if not timeout:
+            timeout = 0
+        if not priority:
+            priority = 1
 
-            # Convert empty strings and None values to a valid int
-            if not timeout:
-                timeout = 0
-            if not priority:
-                priority = 1
-
-            if isinstance(obj, (File, PCAP, Static)):
-                fileobj = File(obj.file_path)
-                file_type = fileobj.get_type()
-                file_md5 = fileobj.get_md5()
-                sample = None
-                # check if hash is known already
-                try:
-                    sample = session.query(Sample).filter_by(md5=file_md5).first()
-                except SQLAlchemyError as e:
-                    log.debug("Error querying sample for hash: %s", e)
-
-                if not sample:
+        if isinstance(obj, (File, PCAP, Static)):
+            fileobj = File(obj.file_path)
+            file_type = fileobj.get_type()
+            file_md5 = fileobj.get_md5()
+            # check if hash is known already
+            try:
+                with self.session.begin_nested():
                     sample = Sample(
                         md5=file_md5,
                         crc32=fileobj.get_crc32(),
@@ -1461,115 +1146,85 @@ class Database(object, metaclass=Singleton):
                         parent=sample_parent_id,
                         source_url=source_url,
                     )
-                    session.add(sample)
+                    self.session.add(sample)
+            except IntegrityError:
+                sample = self.session.query(Sample).filter_by(md5=file_md5).first()
 
+            if DYNAMIC_ARCH_DETERMINATION:
+                # Assign architecture to task to fetch correct VM type
+
+                # This isn't 100% fool proof
+                _tags = tags.split(",") if isinstance(tags, str) else []
+                arch_tag = fileobj.predict_arch()
+                if package.endswith("_x64"):
+                    _tags.append("x64")
+                elif arch_tag:
+                    _tags.append(arch_tag)
+                tags = ",".join(set(_tags))
+            task = Task(obj.file_path)
+            task.sample_id = sample.id
+
+            if isinstance(obj, (PCAP, Static)):
+                # since no VM will operate on this PCAP
+                task.started_on = datetime.now()
+
+        elif isinstance(obj, URL):
+            task = Task(obj.url)
+            tags = "x64,x86"
+
+        else:
+            return None
+
+        task.category = obj.__class__.__name__.lower()
+        task.timeout = timeout
+        task.package = package
+        task.options = options
+        task.priority = priority
+        task.custom = custom
+        task.machine = machine
+        task.platform = platform
+        task.memory = bool(memory)
+        task.enforce_timeout = enforce_timeout
+        task.shrike_url = shrike_url
+        task.shrike_msg = shrike_msg
+        task.shrike_sid = shrike_sid
+        task.shrike_refer = shrike_refer
+        task.parent_id = parent_id
+        task.tlp = tlp
+        task.route = route
+        task.cape = cape
+        task.tags_tasks = tags_tasks
+        # Deal with tags format (i.e., foo,bar,baz)
+        if tags:
+            for tag in tags.split(","):
+                tag_name = tag.strip()
+                if tag_name and tag_name not in [tag.name for tag in task.tags]:
+                    # "Task" object is being merged into a Session along the backref cascade path for relationship "Tag.tasks"; in SQLAlchemy 2.0, this reverse cascade will not take place.
+                    # Set cascade_backrefs to False in either the relationship() or backref() function for the 2.0 behavior; or to set globally for the whole Session, set the future=True flag
+                    # (Background on this error at: https://sqlalche.me/e/14/s9r1) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+                    task.tags.append(self._get_or_create(Tag, name=tag_name))
+
+        if clock:
+            if isinstance(clock, str):
                 try:
-                    session.commit()
-                except IntegrityError:
-                    session.rollback()
-                    """
-                    try:
-                        sample = session.query(Sample).filter_by(md5=file_md5).first()
-                    except SQLAlchemyError as e:
-                        log.debug("Error querying sample for hash: %s", e)
-                        session.close()
-                        return None
-                    """
-                except SQLAlchemyError as e:
-                    log.debug("Database error adding task: %s", e)
-                    session.close()
-                    return None
+                    task.clock = datetime.strptime(clock, "%m-%d-%Y %H:%M:%S")
+                except ValueError:
+                    log.warning("The date you specified has an invalid format, using current timestamp")
+                    task.clock = datetime.utcfromtimestamp(0)
 
-                if DYNAMIC_ARCH_DETERMINATION:
-                    # Assign architecture to task to fetch correct VM type
-                    # This isn't 100% full proof
-                    if "PE32+" in file_type or "64-bit" in file_type or package.endswith("_x64"):
-                        if tags:
-                            tags += ",x64"
-                        else:
-                            tags = "x64"
-                    else:
-                        if LINUX_ENABLED and platform == "linux":
-                            linux_arch = _get_linux_vm_tag(file_type)
-                            if linux_arch:
-                                if tags:
-                                    tags += f",{linux_arch}"
-                                else:
-                                    tags = linux_arch
-                        else:
-                            if tags:
-                                tags += ",x86"
-                            else:
-                                tags = "x86"
-                try:
-                    task = Task(obj.file_path)
-                    task.sample_id = sample.id
-                except OperationalError:
-                    return None
-
-                if isinstance(obj, (PCAP, Static)):
-                    # since no VM will operate on this PCAP
-                    task.started_on = datetime.now()
-
-            elif isinstance(obj, URL):
-                task = Task(obj.url)
-                tags = "x64,x86"
-
-            task.category = obj.__class__.__name__.lower()
-            task.timeout = timeout
-            task.package = package
-            task.options = options
-            task.priority = priority
-            task.custom = custom
-            task.machine = machine
-            task.platform = platform
-            task.memory = bool(memory)
-            task.enforce_timeout = enforce_timeout
-            task.shrike_url = shrike_url
-            task.shrike_msg = shrike_msg
-            task.shrike_sid = shrike_sid
-            task.shrike_refer = shrike_refer
-            task.parent_id = parent_id
-            task.tlp = tlp
-            task.route = route
-            task.cape = cape
-            task.tags_tasks = tags_tasks
-            # Deal with tags format (i.e., foo,bar,baz)
-            if tags:
-                for tag in tags.split(","):
-                    if tag.strip():
-                        # "Task" object is being merged into a Session along the backref cascade path for relationship "Tag.tasks"; in SQLAlchemy 2.0, this reverse cascade will not take place.
-                        # Set cascade_backrefs to False in either the relationship() or backref() function for the 2.0 behavior; or to set globally for the whole Session, set the future=True flag
-                        # (Background on this error at: https://sqlalche.me/e/14/s9r1) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
-                        task.tags.append(self._get_or_create(session, Tag, name=tag))
-
-            if clock:
-                if isinstance(clock, str):
-                    try:
-                        task.clock = datetime.strptime(clock, "%m-%d-%Y %H:%M:%S")
-                    except ValueError:
-                        log.warning("The date you specified has an invalid format, using current timestamp")
-                        task.clock = datetime.utcfromtimestamp(0)
-
-                else:
-                    task.clock = clock
             else:
-                task.clock = datetime.utcfromtimestamp(0)
+                task.clock = clock
+        else:
+            task.clock = datetime.utcfromtimestamp(0)
 
-            task.user_id = user_id
-            task.username = username
+        task.user_id = user_id
+        task.username = username
 
-            session.add(task)
+        # Use a nested transaction so that we can return an ID.
+        with self.session.begin_nested():
+            self.session.add(task)
 
-            try:
-                session.commit()
-                task_id = task.id
-            except SQLAlchemyError as e:
-                log.debug("Database error adding task: %s", e)
-                session.rollback()
-                return None
-
-        return task_id
+        return task.id
 
     def add_path(
         self,
@@ -1637,24 +1292,24 @@ class Database(object, metaclass=Singleton):
 
         return self.add(
             File(file_path),
-            timeout,
-            package,
-            options,
-            priority,
-            custom,
-            machine,
-            platform,
-            tags,
-            memory,
-            enforce_timeout,
-            clock,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
-            parent_id,
-            sample_parent_id,
-            tlp,
+            timeout=timeout,
+            package=package,
+            options=options,
+            priority=priority,
+            custom=custom,
+            machine=machine,
+            platform=platform,
+            tags=tags,
+            memory=memory,
+            enforce_timeout=enforce_timeout,
+            clock=clock,
+            shrike_url=shrike_url,
+            shrike_msg=shrike_msg,
+            shrike_sid=shrike_sid,
+            shrike_refer=shrike_refer,
+            parent_id=parent_id,
+            sample_parent_id=sample_parent_id,
+            tlp=tlp,
             source_url=source_url,
             route=route,
             cape=cape,
@@ -1663,13 +1318,13 @@ class Database(object, metaclass=Singleton):
             username=username,
         )
 
-    def _identify_aux_func(self, file: bytes, package: str) -> tuple:
+    def _identify_aux_func(self, file: bytes, package: str, check_shellcode: bool = True) -> tuple:
         # before demux we need to check as msix has zip mime and we don't want it to be extracted:
         tmp_package = False
         if not package:
             f = SflockFile.from_path(file)
             try:
-                tmp_package = sflock_identify(f, check_shellcode=True)
+                tmp_package = sflock_identify(f, check_shellcode=check_shellcode)
             except Exception as e:
                 log.error(f"Failed to sflock_ident due to {e}")
                 tmp_package = "generic"
@@ -1686,6 +1341,92 @@ class Database(object, metaclass=Singleton):
                 package = tmp_package
 
         return package, tmp_package
+
+    # Submission hooks to manipulate arguments of tasks execution
+    def recon(
+        self,
+        filename,
+        orig_options,
+        timeout=0,
+        enforce_timeout=False,
+        package="",
+        tags=None,
+        static=False,
+        priority=1,
+        machine="",
+        platform="",
+        custom="",
+        memory=False,
+        clock=None,
+        unique=False,
+        referrer=None,
+        tlp=None,
+        tags_tasks=False,
+        route=None,
+        cape=False,
+        category=None,
+    ):
+
+        # Get file filetype to ensure self extracting archives run longer
+        if not isinstance(filename, str):
+            filename = bytes2str(filename)
+
+        lowered_filename = filename.lower()
+
+        # sfx = File(filename).is_sfx()
+
+        if "malware_name" in lowered_filename:
+            orig_options += "<options_here>"
+        # if sfx:
+        #    orig_options += ",timeout=500,enforce_timeout=1,procmemdump=1,procdump=1"
+        #    timeout = 500
+        #    enforce_timeout = True
+
+        if web_conf.general.yara_recon:
+            hits = File(filename).get_yara("binaries")
+            for hit in hits:
+                cape_name = hit["meta"].get("cape_type", "")
+                if not cape_name.endswith(("Crypter", "Packer", "Obfuscator", "Loader", "Payload")):
+                    continue
+
+                orig_options_parsed = get_options(orig_options)
+                parsed_options = get_options(hit["meta"].get("cape_options", ""))
+                if "tags" in parsed_options:
+                    tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
+                    del parsed_options["tags"]
+                # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
+                if "package" in parsed_options:
+                    package = parsed_options["package"]
+                    del parsed_options["package"]
+
+                if "category" in parsed_options:
+                    category = parsed_options["category"]
+                    del parsed_options["category"]
+
+                orig_options_parsed.update(parsed_options)
+                orig_options = ",".join([f"{k}={v}" for k, v in orig_options_parsed.items()])
+
+        return (
+            static,
+            priority,
+            machine,
+            platform,
+            custom,
+            memory,
+            clock,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+            orig_options,
+            timeout,
+            enforce_timeout,
+            package,
+            tags,
+            category,
+        )
 
     def demux_sample_and_add_to_db(
         self,
@@ -1715,6 +1456,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         user_id=0,
         username=False,
+        category=None,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1723,13 +1465,69 @@ class Database(object, metaclass=Singleton):
         task_id = False
         task_ids = []
         config = {}
+        details = {}
         sample_parent_id = None
-        # force auto package for linux files
-        if platform == "linux":
-            package = ""
 
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
+
+        (
+            static,
+            priority,
+            machine,
+            platform,
+            custom,
+            memory,
+            clock,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+            options,
+            timeout,
+            enforce_timeout,
+            package,
+            tags,
+            category,
+        ) = self.recon(
+            file_path,
+            options,
+            timeout=timeout,
+            enforce_timeout=enforce_timeout,
+            package=package,
+            tags=tags,
+            static=static,
+            priority=priority,
+            machine=machine,
+            platform=platform,
+            custom=custom,
+            memory=memory,
+            clock=clock,
+            tlp=tlp,
+            tags_tasks=tags_tasks,
+            route=route,
+            cape=cape,
+            category=category,
+        )
+
+        if category == "static":
+            # force change of category
+            task_ids += self.add_static(
+                file_path=file_path,
+                priority=priority,
+                tlp=tlp,
+                user_id=user_id,
+                username=username,
+                options=options,
+                package=package,
+            )
+            return task_ids, details
+
+        check_shellcode = True
+        if options and "check_shellcode=0" in options:
+            check_shellcode = False
 
         if not package:
             if "file=" in options:
@@ -1737,7 +1535,7 @@ class Database(object, metaclass=Singleton):
                 package = "zip"
             else:
                 # Checking original file as some filetypes doesn't require demux
-                package, _ = self._identify_aux_func(file_path, package)
+                package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)
 
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options, platform=platform)
@@ -1765,7 +1563,7 @@ class Database(object, metaclass=Singleton):
 
             if not config and not only_extraction:
                 if not package:
-                    package, tmp_package = self._identify_aux_func(file, "")
+                    package, tmp_package = self._identify_aux_func(file, "", check_shellcode=check_shellcode)
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
@@ -1821,13 +1619,11 @@ class Database(object, metaclass=Singleton):
             if task_id:
                 task_ids.append(task_id)
 
-        details = {}
         if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}
         # this is aim to return custom data, think of this as kwargs
         return task_ids, details
 
-    @classlock
     def add_pcap(
         self,
         file_path,
@@ -1853,28 +1649,27 @@ class Database(object, metaclass=Singleton):
     ):
         return self.add(
             PCAP(file_path.decode()),
-            timeout,
-            package,
-            options,
-            priority,
-            custom,
-            machine,
-            platform,
-            tags,
-            memory,
-            enforce_timeout,
-            clock,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
-            parent_id,
-            tlp,
-            user_id,
-            username,
+            timeout=timeout,
+            package=package,
+            options=options,
+            priority=priority,
+            custom=custom,
+            machine=machine,
+            platform=platform,
+            tags=tags,
+            memory=memory,
+            enforce_timeout=enforce_timeout,
+            clock=clock,
+            shrike_url=shrike_url,
+            shrike_msg=shrike_msg,
+            shrike_sid=shrike_sid,
+            shrike_refer=shrike_refer,
+            parent_id=parent_id,
+            tlp=tlp,
+            user_id=user_id,
+            username=username,
         )
 
-    @classlock
     def add_static(
         self,
         file_path,
@@ -1914,21 +1709,21 @@ class Database(object, metaclass=Singleton):
         for file, platform in extracted_files:
             task_id = self.add(
                 Static(file.decode()),
-                timeout,
-                package,
-                options,
-                priority,
-                custom,
-                machine,
-                platform,
-                tags,
-                memory,
-                enforce_timeout,
-                clock,
-                shrike_url,
-                shrike_msg,
-                shrike_sid,
-                shrike_refer,
+                timeout=timeout,
+                package=package,
+                options=options,
+                priority=priority,
+                custom=custom,
+                machine=machine,
+                platform=platform,
+                tags=tags,
+                memory=memory,
+                enforce_timeout=enforce_timeout,
+                clock=clock,
+                shrike_url=shrike_url,
+                shrike_msg=shrike_msg,
+                shrike_sid=shrike_sid,
+                shrike_refer=shrike_refer,
                 tlp=tlp,
                 static=static,
                 sample_parent_id=sample_parent_id,
@@ -1940,7 +1735,6 @@ class Database(object, metaclass=Singleton):
 
         return task_ids
 
-    @classlock
     def add_url(
         self,
         url,
@@ -1998,23 +1792,23 @@ class Database(object, metaclass=Singleton):
 
         return self.add(
             URL(url),
-            timeout,
-            package,
-            options,
-            priority,
-            custom,
-            machine,
-            platform,
-            tags,
-            memory,
-            enforce_timeout,
-            clock,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
-            parent_id,
-            tlp,
+            timeout=timeout,
+            package=package,
+            options=options,
+            priority=priority,
+            custom=custom,
+            machine=machine,
+            platform=platform,
+            tags=tags,
+            memory=memory,
+            enforce_timeout=enforce_timeout,
+            clock=clock,
+            shrike_url=shrike_url,
+            shrike_msg=shrike_msg,
+            shrike_sid=shrike_sid,
+            shrike_refer=shrike_refer,
+            parent_id=parent_id,
+            tlp=tlp,
             route=route,
             cape=cape,
             tags_tasks=tags_tasks,
@@ -2022,7 +1816,6 @@ class Database(object, metaclass=Singleton):
             username=username,
         )
 
-    @classlock
     def reschedule(self, task_id):
         """Reschedule a task.
         @param task_id: ID of the task to reschedule.
@@ -2043,89 +1836,75 @@ class Database(object, metaclass=Singleton):
             add = self.add_static
 
         # Change status to recovered.
-        with self.Session() as session:
-            session.get(Task, task_id).status = TASK_RECOVERED
-            try:
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error rescheduling task: %s", e)
-                session.rollback()
-                return False
+        self.session.get(Task, task_id).status = TASK_RECOVERED
 
-            # Normalize tags.
-            if task.tags:
-                tags = ",".join(tag.name for tag in task.tags)
-            else:
-                tags = task.tags
+        # Normalize tags.
+        if task.tags:
+            tags = ",".join(tag.name for tag in task.tags)
+        else:
+            tags = task.tags
 
-            def _ensure_valid_target(task):
-                if task.category == "url":
-                    # URL tasks always have valid targets, return it as-is.
-                    return task.target
+        def _ensure_valid_target(task):
+            if task.category == "url":
+                # URL tasks always have valid targets, return it as-is.
+                return task.target
 
-                # All other task types have a "target" pointing to a temp location,
-                # so get a stable path "target" based on the sample hash.
-                paths = self.sample_path_by_hash(task.sample.sha256, task_id)
-                paths = [file_path for file_path in paths if path_exists(file_path)]
-                if not paths:
-                    return None
+            # All other task types have a "target" pointing to a temp location,
+            # so get a stable path "target" based on the sample hash.
+            paths = self.sample_path_by_hash(task.sample.sha256, task_id)
+            paths = [file_path for file_path in paths if path_exists(file_path)]
+            if not paths:
+                return None
 
-                if task.category == "pcap":
-                    # PCAP task paths are represented as bytes
-                    return paths[0].encode()
-                return paths[0]
+            if task.category == "pcap":
+                # PCAP task paths are represented as bytes
+                return paths[0].encode()
+            return paths[0]
 
-            task_target = _ensure_valid_target(task)
-            if not task_target:
-                log.warning("Unable to find valid target for task: %s", task_id)
-                return
+        task_target = _ensure_valid_target(task)
+        if not task_target:
+            log.warning("Unable to find valid target for task: %s", task_id)
+            return
 
-            new_task_id = None
-            if task.category in ("file", "url"):
-                new_task_id = add(
-                    task_target,
-                    task.timeout,
-                    task.package,
-                    task.options,
-                    task.priority,
-                    task.custom,
-                    task.machine,
-                    task.platform,
-                    tags,
-                    task.memory,
-                    task.enforce_timeout,
-                    task.clock,
-                    tlp=task.tlp,
-                    route=task.route,
-                )
-            elif task.category in ("pcap", "static"):
-                new_task_id = add(
-                    task_target,
-                    task.timeout,
-                    task.package,
-                    task.options,
-                    task.priority,
-                    task.custom,
-                    task.machine,
-                    task.platform,
-                    tags,
-                    task.memory,
-                    task.enforce_timeout,
-                    task.clock,
-                    tlp=task.tlp,
-                )
+        new_task_id = None
+        if task.category in ("file", "url"):
+            new_task_id = add(
+                task_target,
+                task.timeout,
+                task.package,
+                task.options,
+                task.priority,
+                task.custom,
+                task.machine,
+                task.platform,
+                tags,
+                task.memory,
+                task.enforce_timeout,
+                task.clock,
+                tlp=task.tlp,
+                route=task.route,
+            )
+        elif task.category in ("pcap", "static"):
+            new_task_id = add(
+                task_target,
+                task.timeout,
+                task.package,
+                task.options,
+                task.priority,
+                task.custom,
+                task.machine,
+                task.platform,
+                tags,
+                task.memory,
+                task.enforce_timeout,
+                task.clock,
+                tlp=task.tlp,
+            )
 
-            session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
-            try:
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error rescheduling task: %s", e)
-                session.rollback()
-                return False
+        self.session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
 
-            return new_task_id
+        return new_task_id
 
-    @classlock
     def count_matching_tasks(self, category=None, status=None, not_status=None):
         """Retrieve list of task.
         @param category: filter by category
@@ -2133,81 +1912,70 @@ class Database(object, metaclass=Singleton):
         @param not_status: exclude this task status from filter
         @return: number of tasks.
         """
-        with self.Session() as session:
-            try:
-                search = session.query(Task)
+        search = self.session.query(Task)
 
-                if status:
-                    search = search.filter_by(status=status)
-                if not_status:
-                    search = search.filter(Task.status != not_status)
-                if category:
-                    search = search.filter_by(category=category)
+        if status:
+            search = search.filter_by(status=status)
+        if not_status:
+            search = search.filter(Task.status != not_status)
+        if category:
+            search = search.filter_by(category=category)
 
-                tasks = search.count()
-                return tasks
-            except SQLAlchemyError as e:
-                log.debug("Database error counting tasks: %s", e)
-                return []
+        tasks = search.count()
+        return tasks
 
-    @classlock
     def check_file_uniq(self, sha256: str, hours: int = 0):
+        # TODO This function is poorly named. It returns True if a sample with the given
+        # sha256 already exists in the database, rather than returning True if the given
+        # sha256 is unique.
         uniq = False
-        with self.Session() as session:
-            try:
-                if hours and sha256:
-                    date_since = datetime.now() - timedelta(hours=hours)
-                    date_till = datetime.now()
-                    uniq = (
-                        session.query(Task)
-                        .join(Sample, Task.sample_id == Sample.id)
-                        .filter(Sample.sha256 == sha256, Task.added_on.between(date_since, date_till))
-                        .first()
-                    )
-                else:
-                    if not Database.find_sample(self, sha256=sha256):
-                        uniq = False
-                    else:
-                        uniq = True
-            except SQLAlchemyError as e:
-                log.debug("Database error counting tasks: %s", e)
+        if hours and sha256:
+            date_since = datetime.now() - timedelta(hours=hours)
+            date_till = datetime.now()
+            uniq = (
+                self.session.query(Task)
+                .join(Sample, Task.sample_id == Sample.id)
+                .filter(Sample.sha256 == sha256, Task.added_on.between(date_since, date_till))
+                .first()
+            )
+        else:
+            if not self.find_sample(sha256=sha256):
+                uniq = False
+            else:
+                uniq = True
 
         return uniq
 
-    @classlock
     def list_sample_parent(self, sample_id=False, task_id=False):
         """
         Retrieve parent sample details by sample_id or task_id
         @param sample_id: Sample id
         @param task_id: Task id
         """
+        # This function appears to only be used in one specific case, and task_id is
+        # the only parameter that gets passed--sample_id is never provided.
+        # TODO Pull sample_id as an argument. It's dead code.
         parent_sample = {}
         parent = False
-        with self.Session() as session:
-            try:
-                if sample_id:
-                    parent = session.query(Sample.parent).filter(Sample.id == int(sample_id)).first()
-                    if parent:
-                        parent = parent[0]
-                elif task_id:
-                    _, parent = (
-                        session.query(Task.sample_id, Sample.parent)
-                        .join(Sample, Sample.id == Task.sample_id)
-                        .filter(Task.id == task_id)
-                        .first()
-                    )
+        if sample_id:  # pragma: no cover
+            parent = self.session.query(Sample.parent).filter(Sample.id == int(sample_id)).first()
+            if parent:
+                parent = parent[0]
+        elif task_id:
+            result = (
+                self.session.query(Task.sample_id, Sample.parent)
+                .join(Sample, Sample.id == Task.sample_id)
+                .filter(Task.id == task_id)
+                .first()
+            )
+            if result is not None:
+                parent = result[1]
 
-                if parent:
-                    parent_sample = session.query(Sample).filter(Sample.id == parent).first().to_dict()
-
-            except SQLAlchemyError as e:
-                log.debug("Database error listing tasks: %s", e)
-            except TypeError:
-                pass
+        if parent:
+            parent_sample = self.session.query(Sample).filter(Sample.id == parent).first().to_dict()
 
         return parent_sample
 
-    @classlock
     def list_tasks(
         self,
         limit=None,
@@ -2227,8 +1995,9 @@ class Database(object, metaclass=Singleton):
         tags_tasks_like=False,
         task_ids=False,
         include_hashes=False,
-        user_id=False,
-    ):
+        user_id=None,
+        for_update=False,
+    ) -> List[Task]:
         """Retrieve list of task.
         @param limit: specify a limit of entries.
         @param details: if details about must be included
@@ -2248,260 +2017,179 @@ class Database(object, metaclass=Singleton):
         @param task_ids: list of task_id
         @param include_hashes: return task+samples details
         @param user_id: list of tasks submitted by user X
+        @param for_update: If True, use "SELECT FOR UPDATE" in order to create a row-level lock on the selected tasks.
         @return: list of tasks.
         """
-        with self.Session() as session:
-            try:
-                # Can we remove "options(joinedload)" it is here due to next error
-                # sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <Task at X> is not bound to a Session; lazy load operation of attribute 'tags' cannot proceed
-                # ToDo this is inefficient but it fails if we don't join. Need to fix this
-                search = session.query(Task).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
-                if include_hashes:
-                    search = search.join(Sample, Task.sample_id == Sample.id)
-                if status:
-                    if "|" in status:
-                        search = search.filter(Task.status.in_(status.split("|")))
-                    else:
-                        search = search.filter(Task.status == status)
-                if not_status:
-                    search = search.filter(Task.status != not_status)
-                if category:
-                    search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
-                if details:
-                    search = search.options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
-                if sample_id is not None:
-                    search = search.filter(Task.sample_id == sample_id)
-                if id_before is not None:
-                    search = search.filter(Task.id < id_before)
-                if id_after is not None:
-                    search = search.filter(Task.id > id_after)
-                if completed_after:
-                    search = search.filter(Task.completed_on > completed_after)
-                if added_before:
-                    search = search.filter(Task.added_on < added_before)
-                if options_like:
-                    # Replace '*' wildcards with wildcard for sql
-                    options_like = options_like.replace("*", "%")
-                    search = search.filter(Task.options.like(f"%{options_like}%"))
-                if options_not_like:
-                    # Replace '*' wildcards with wildcard for sql
-                    options_not_like = options_not_like.replace("*", "%")
-                    search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
-                if tags_tasks_like:
-                    search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
-                if task_ids:
-                    search = search.filter(Task.id.in_(task_ids))
-                if user_id:
-                    search = search.filter(Task.user_id == user_id)
-                if order_by is not None and isinstance(order_by, tuple):
-                    search = search.order_by(*order_by)
-                elif order_by is not None:
-                    search = search.order_by(order_by)
-                else:
-                    search = search.order_by(Task.added_on.desc())
+        tasks: List[Task] = []
+        # Can we remove "options(joinedload)" it is here due to next error
+        # sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <Task at X> is not bound to a Session; lazy load operation of attribute 'tags' cannot proceed
+        # ToDo this is inefficient but it fails if we don't join. Need to fix this
+        search = self.session.query(Task).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+        if include_hashes:  # pragma: no cover
+            # This doesn't work, but doesn't seem to get used anywhere.
+            search = search.options(joinedload(Sample))
+        if status:
+            if "|" in status:
+                search = search.filter(Task.status.in_(status.split("|")))
+            else:
+                search = search.filter(Task.status == status)
+        if not_status:
+            search = search.filter(Task.status != not_status)
+        if category:
+            search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
+        # We're currently always returning details. See the comment at the top of this 'try' block.
+        # if details:
+        #    search = search.options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+        if sample_id is not None:
+            search = search.filter(Task.sample_id == sample_id)
+        if id_before is not None:
+            search = search.filter(Task.id < id_before)
+        if id_after is not None:
+            search = search.filter(Task.id > id_after)
+        if completed_after:
+            search = search.filter(Task.completed_on > completed_after)
+        if added_before:
+            search = search.filter(Task.added_on < added_before)
+        if options_like:
+            # Replace '*' wildcards with wildcard for sql
+            options_like = options_like.replace("*", "%")
+            search = search.filter(Task.options.like(f"%{options_like}%"))
+        if options_not_like:
+            # Replace '*' wildcards with wildcard for sql
+            options_not_like = options_not_like.replace("*", "%")
+            search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
+        if tags_tasks_like:
+            search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+        if task_ids:
+            search = search.filter(Task.id.in_(task_ids))
+        if user_id is not None:
+            search = search.filter(Task.user_id == user_id)
+        if order_by is not None and isinstance(order_by, tuple):
+            search = search.order_by(*order_by)
+        elif order_by is not None:
+            search = search.order_by(order_by)
+        else:
+            search = search.order_by(Task.added_on.desc())
 
-                tasks = search.limit(limit).offset(offset).all()
-                session.expunge_all()
-                return tasks
-            except RuntimeError as e:
-                # RuntimeError: number of values in row (1) differ from number of column processors (62)
-                log.debug("Database RuntimeError error: %s", e)
-            except AttributeError as e:
-                # '_NoResultMetaData' object has no attribute '_indexes_for_keys'
-                log.debug("Database AttributeError error: %s", e)
-            except SQLAlchemyError as e:
-                log.debug("Database error listing tasks: %s", e)
-            except Exception as e:
-                # psycopg2.DatabaseError
-                log.exception(e)
+        search = search.limit(limit).offset(offset)
+        if for_update:
+            search = search.with_for_update(of=Task)
+        tasks = search.all()
 
-        return []
+        return tasks
 
     def minmax_tasks(self):
         """Find tasks minimum and maximum
         @return: unix timestamps of minimum and maximum
         """
-        with self.Session() as session:
-            try:
-                _min = session.query(func.min(Task.started_on).label("min")).first()
-                _max = session.query(func.max(Task.completed_on).label("max")).first()
-                if _min and _max and _min[0] and _max[0]:
-                    return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
-            except SQLAlchemyError as e:
-                log.debug("Database error counting tasks: %s", e)
+        _min = self.session.query(func.min(Task.started_on).label("min")).first()
+        _max = self.session.query(func.max(Task.completed_on).label("max")).first()
+        if _min and _max and _min[0] and _max[0]:
+            return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
 
         return 0, 0
 
-    @classlock
     def get_tlp_tasks(self):
         """
         Retrieve tasks with TLP
         """
-        with self.Session() as session:
-            try:
-                tasks = session.query(Task).filter(Task.tlp == "true").all()
-                if tasks:
-                    return [task.id for task in tasks]
-                else:
-                    return []
-            except SQLAlchemyError as e:
-                log.debug("Database error listing tasks: %s", e)
-                return []
+        tasks = self.session.query(Task).filter(Task.tlp == "true").all()
+        if tasks:
+            return [task.id for task in tasks]
+        else:
+            return []
 
-    @classlock
     def get_file_types(self):
         """Get sample filetypes
 
         @return: A list of all available file types
         """
-        with self.Session() as session:
-            try:
-                unfiltered = session.query(Sample.file_type).group_by(Sample.file_type)
-                res = [asample[0] for asample in unfiltered.all()]
-                res.sort()
-            except SQLAlchemyError as e:
-                log.debug("Database error getting file_types: %s", e)
-                return 0
+        unfiltered = self.session.query(Sample.file_type).group_by(Sample.file_type)
+        res = [asample[0] for asample in unfiltered.all()]
+        res.sort()
         return res
 
-    @classlock
     def get_tasks_status_count(self):
         """Count all tasks in the database
         @return: dict with status and number of tasks found example: {'failed_analysis': 2, 'running': 100, 'reported': 400}
         """
-        with self.Session() as session:
-            try:
-                tasks_dict_count = session.query(Task.status, func.count(Task.status)).group_by(Task.status).all()
-                return dict(tasks_dict_count)
-            except SQLAlchemyError as e:
-                log.debug("Database error counting all tasks: %s", e)
+        tasks_dict_count = self.session.query(Task.status, func.count(Task.status)).group_by(Task.status).all()
+        return dict(tasks_dict_count)
 
-        return {}
-
-    @classlock
     def count_tasks(self, status=None, mid=None):
         """Count tasks in the database
         @param status: apply a filter according to the task status
         @param mid: Machine id to filter for
         @return: number of tasks found
         """
-        with self.Session() as session:
-            try:
-                unfiltered = session.query(Task)
-                if mid:
-                    unfiltered = unfiltered.filter_by(machine_id=mid)
-                if status:
-                    unfiltered = unfiltered.filter_by(status=status)
-                tasks_count = get_count(unfiltered, Task.id)
-                return tasks_count
-            except SQLAlchemyError as e:
-                log.debug("Database error counting tasks: %s", e)
-                return 0
+        unfiltered = self.session.query(Task)
+        # It doesn't look like "mid" ever gets passed to this function.
+        if mid:  # pragma: no cover
+            unfiltered = unfiltered.filter_by(machine_id=mid)
+        if status:
+            unfiltered = unfiltered.filter_by(status=status)
+        tasks_count = get_count(unfiltered, Task.id)
+        return tasks_count
 
-    @classlock
-    def view_task(self, task_id, details=False):
+    def view_task(self, task_id, details=False) -> Optional[Task]:
         """Retrieve information on a task.
         @param task_id: ID of the task to query.
         @return: details on the task.
         """
-        with self.Session() as session:
-            try:
-                if details:
-                    task = (
-                        select(Task)
-                        .where(Task.id == task_id)
-                        .options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags), joinedload(Task.sample))
-                    )
-                    task = session.execute(task).first()
-                else:
-                    query = select(Task).where(Task.id == task_id).options(joinedload(Task.tags), joinedload(Task.sample))
-                    task = session.execute(query).first()
-                if task:
-                    task = task[0]
-                    session.expunge(task)
-                    return task
-            except SQLAlchemyError as e:
-                print(e)
-                log.debug("Database error viewing task: %s", e)
+        query = select(Task).where(Task.id == task_id)
+        if details:
+            query = query.options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags), joinedload(Task.sample))
+        else:
+            query = query.options(joinedload(Task.tags), joinedload(Task.sample))
+        task = self.session.execute(query).first()
+        if task:
+            task = task[0]
 
-    @classlock
-    def add_statistics_to_task(self, task_id, details):
+        return task
+
+    # This function is used by the runstatistics community module.
+    def add_statistics_to_task(self, task_id, details):  # pragma: no cover
         """add statistic to task
         @param task_id: ID of the task to query.
         @param: details statistic.
         @return true of false.
         """
-        with self.Session() as session:
-            try:
-                task = session.get(Task, task_id)
-                if task:
-                    task.dropped_files = details["dropped_files"]
-                    task.running_processes = details["running_processes"]
-                    task.api_calls = details["api_calls"]
-                    task.domains = details["domains"]
-                    task.signatures_total = details["signatures_total"]
-                    task.signatures_alert = details["signatures_alert"]
-                    task.files_written = details["files_written"]
-                    task.registry_keys_modified = details["registry_keys_modified"]
-                    task.crash_issues = details["crash_issues"]
-                    task.anti_issues = details["anti_issues"]
-                session.commit()
-                session.refresh(task)
-            except SQLAlchemyError as e:
-                log.debug("Database error deleting task: %s", e)
-                session.rollback()
-                return False
+        task = self.session.get(Task, task_id)
+        if task:
+            task.dropped_files = details["dropped_files"]
+            task.running_processes = details["running_processes"]
+            task.api_calls = details["api_calls"]
+            task.domains = details["domains"]
+            task.signatures_total = details["signatures_total"]
+            task.signatures_alert = details["signatures_alert"]
+            task.files_written = details["files_written"]
+            task.registry_keys_modified = details["registry_keys_modified"]
+            task.crash_issues = details["crash_issues"]
+            task.anti_issues = details["anti_issues"]
         return True
 
-    @classlock
     def delete_task(self, task_id):
         """Delete information on a task.
         @param task_id: ID of the task to query.
         @return: operation status.
         """
-        with self.Session() as session:
-            try:
-                task = session.get(Task, task_id)
-                session.delete(task)
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error deleting task: %s", e)
-                session.rollback()
-                return False
+        task = self.session.get(Task, task_id)
+        if task is None:
+            return False
+        self.session.delete(task)
         return True
 
-    # classlock
     def delete_tasks(self, ids):
-        with self.Session() as session:
-            try:
-                _ = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
-            except SQLAlchemyError as e:
-                log.debug("Database error deleting task: %s", e)
-                session.rollback()
-                return False
+        self.session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
         return True
 
-    @classlock
     def view_sample(self, sample_id):
         """Retrieve information on a sample given a sample id.
         @param sample_id: ID of the sample to query.
         @return: details on the sample used in sample: sample_id.
         """
-        with self.Session() as session:
-            try:
-                sample = session.get(Sample, sample_id)
-            except AttributeError:
-                return None
-            except SQLAlchemyError as e:
-                log.debug("Database error viewing task: %s", e)
-                return None
-            else:
-                if sample:
-                    session.expunge(sample)
+        return self.session.get(Sample, sample_id)
 
-        return sample
-
-    @classlock
     def find_sample(self, md5=None, sha1=None, sha256=None, parent=None, task_id: int = None, sample_id: int = None):
         """Search samples by MD5, SHA1, or SHA256.
         @param md5: md5 string
@@ -2513,55 +2201,45 @@ class Database(object, metaclass=Singleton):
         @return: matches list
         """
         sample = False
-        with self.Session() as session:
-            try:
-                if md5:
-                    sample = session.query(Sample).filter_by(md5=md5).first()
-                elif sha1:
-                    sample = session.query(Sample).filter_by(sha1=sha1).first()
-                elif sha256:
-                    sample = session.query(Sample).filter_by(sha256=sha256).first()
-                elif parent:
-                    sample = session.query(Sample).filter_by(parent=parent).all()
-                elif sample_id:
-                    sample = session.query(Sample).filter_by(id=sample_id).all()
-                elif task_id:
-                    sample = (
-                        session.query(Task)
-                        .options(joinedload(Task.sample))
-                        .filter(Task.id == task_id)
-                        .filter(Sample.id == Task.sample_id)
-                        .all()
-                    )
-            except SQLAlchemyError as e:
-                log.debug("Database error searching sample: %s", e)
-                return None
-            else:
-                if sample:
-                    session.expunge_all()
+        if md5:
+            sample = self.session.query(Sample).filter_by(md5=md5).first()
+        elif sha1:
+            sample = self.session.query(Sample).filter_by(sha1=sha1).first()
+        elif sha256:
+            sample = self.session.query(Sample).filter_by(sha256=sha256).first()
+        elif parent:
+            sample = self.session.query(Sample).filter_by(parent=parent).all()
+        elif sample_id:
+            sample = self.session.query(Sample).filter_by(id=sample_id).all()
+        elif task_id:
+            # If task_id is passed, then a list of Task objects is returned--not Samples.
+            sample = (
+                self.session.query(Task)
+                .options(joinedload(Task.sample))
+                .filter(Task.id == task_id)
+                .filter(Sample.id == Task.sample_id)
+                .all()
+            )
         return sample
 
-    @classlock
     def sample_still_used(self, sample_hash: str, task_id: int):
         """Retrieve information if sample is used by another task(s).
-        @param hash: md5/sha1/sha256/sha256.
+        @param sample_hash: sha256.
         @param task_id: task_id
         @return: bool
         """
-        with self.Session() as session:
-            db_sample = (
-                session.query(Sample)
-                # .options(joinedload(Task.sample))
-                .filter(Sample.sha256 == sample_hash)
-                .filter(Task.id != task_id)
-                .filter(Sample.id == Task.sample_id)
-                .filter(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
-                .first()
-            )
-            still_used = bool(db_sample)
-            return still_used
+        db_sample = (
+            self.session.query(Sample)
+            # .options(joinedload(Task.sample))
+            .filter(Sample.sha256 == sample_hash)
+            .filter(Task.id != task_id)
+            .filter(Sample.id == Task.sample_id)
+            .filter(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
+            .first()
+        )
+        still_used = bool(db_sample)
+        return still_used
 
-    @classlock
     def sample_path_by_hash(self, sample_hash: str = False, task_id: int = False):
         """Retrieve information on a sample location by given hash.
         @param hash: md5/sha1/sha256/sha256.
@@ -2573,6 +2251,13 @@ class Database(object, metaclass=Singleton):
             40: Sample.sha1,
             64: Sample.sha256,
             128: Sample.sha512,
+        }
+
+        hashlib_sizes = {
+            32: hashlib.md5,
+            40: hashlib.sha1,
+            64: hashlib.sha256,
+            128: hashlib.sha512,
         }
 
         sizes_mongo = {
@@ -2593,12 +2278,10 @@ class Database(object, metaclass=Singleton):
             if path_exists(file_path):
                 return [file_path]
 
-        session = False
         # binary also not stored in binaries, perform hash lookup
         if task_id and not sample_hash:
-            session = self.Session()
             db_sample = (
-                session.query(Sample)
+                self.session.query(Sample)
                 # .options(joinedload(Task.sample))
                 .filter(Task.id == task_id)
                 .filter(Sample.id == Task.sample_id)
@@ -2618,29 +2301,64 @@ class Database(object, metaclass=Singleton):
         sample = []
         # check storage/binaries
         if query_filter:
-            try:
-                if not session:
-                    session = self.Session()
-                db_sample = session.query(Sample).filter(query_filter == sample_hash).first()
-                if db_sample is not None:
-                    path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
-                    if path_exists(path):
-                        sample = [path]
+            db_sample = self.session.query(Sample).filter(query_filter == sample_hash).first()
+            if db_sample is not None:
+                path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
+                if path_exists(path):
+                    sample = [path]
 
-                if not sample:
+            if not sample:
+                if repconf.mongodb.enabled:
+                    tasks = mongo_find(
+                        "analysis",
+                        {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
+                        {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
+                    )
+                elif repconf.elasticsearchdb.enabled:
+                    tasks = [
+                        d["_source"]
+                        for d in es.search(
+                            index=get_analysis_index(),
+                            body={"query": {"match": {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
+                            _source=["CAPE.payloads", "info.id"],
+                        )["hits"]["hits"]
+                    ]
+                else:
+                    tasks = []
+
+                if tasks:
+                    for task in tasks:
+                        for block in task.get("CAPE", {}).get("payloads", []) or []:
+                            if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
+                                file_path = os.path.join(
+                                    CUCKOO_ROOT,
+                                    "storage",
+                                    "analyses",
+                                    str(task["info"]["id"]),
+                                    folders.get("CAPE"),
+                                    block["sha256"],
+                                )
+                                if path_exists(file_path):
+                                    sample = [file_path]
+                                    break
+                        if sample:
+                            break
+
+                for category in ("dropped", "procdump"):
+                    # we can't filter more if query isn't sha256
                     if repconf.mongodb.enabled:
                         tasks = mongo_find(
                             "analysis",
-                            {"CAPE.payloads.file_ref": sample_hash},
-                            {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
+                            {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
+                            {category: 1, "_id": 0, "info.id": 1},
                         )
                     elif repconf.elasticsearchdb.enabled:
                         tasks = [
                             d["_source"]
                             for d in es.search(
                                 index=get_analysis_index(),
-                                body={"query": {"match": {"CAPE.payloads.file_ref": sample_hash}}},
-                                _source=["CAPE.payloads", "info.id"],
+                                body={"query": {"match": {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
+                                _source=["info.id", category],
                             )["hits"]["hits"]
                         ]
                     else:
@@ -2648,14 +2366,14 @@ class Database(object, metaclass=Singleton):
 
                     if tasks:
                         for task in tasks:
-                            for block in task.get("CAPE", {}).get("payloads", []) or []:
+                            for block in task.get(category, []) or []:
                                 if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
                                     file_path = os.path.join(
                                         CUCKOO_ROOT,
                                         "storage",
                                         "analyses",
                                         str(task["info"]["id"]),
-                                        folders.get("CAPE"),
+                                        folders.get(category),
                                         block["sha256"],
                                     )
                                     if path_exists(file_path):
@@ -2664,157 +2382,80 @@ class Database(object, metaclass=Singleton):
                             if sample:
                                 break
 
-                    for category in ("dropped", "procdump"):
-                        # we can't filter more if query isn't sha256
-                        if repconf.mongodb.enabled:
-                            tasks = mongo_find(
-                                "analysis",
-                                {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
-                                {category: 1, "_id": 0, "info.id": 1},
-                            )
-                        elif repconf.elasticsearchdb.enabled:
-                            tasks = [
-                                d["_source"]
-                                for d in es.search(
-                                    index=get_analysis_index(),
-                                    body={"query": {"match": {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
-                                    _source=["info.id", category],
-                                )["hits"]["hits"]
-                            ]
-                        else:
-                            tasks = []
+            if not sample:
+                # search in temp folder if not found in binaries
+                db_sample = (
+                    self.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(query_filter == sample_hash).all()
+                )
 
-                        if tasks:
-                            for task in tasks:
-                                for block in task.get(category, []) or []:
-                                    if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                        file_path = os.path.join(
-                                            CUCKOO_ROOT,
-                                            "storage",
-                                            "analyses",
-                                            str(task["info"]["id"]),
-                                            folders.get(category),
-                                            block["sha256"],
-                                        )
-                                        if path_exists(file_path):
-                                            sample = [file_path]
-                                            break
-                                if sample:
-                                    break
+                if db_sample is not None:
+                    samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
+                    # hash validation and if exist
+                    samples = [file_path for file_path in samples if path_exists(file_path)]
+                    for path in samples:
+                        with open(path, "rb") as f:
+                            if sample_hash == hashlib_sizes[len(sample_hash)](f.read()).hexdigest():
+                                sample = [path]
+                                break
 
-                if not sample:
-                    # search in temp folder if not found in binaries
-                    db_sample = (
-                        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(query_filter == sample_hash).all()
+            if not sample:
+                # search in Suricata files folder
+                if repconf.mongodb.enabled:
+                    tasks = mongo_find(
+                        "analysis", {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
                     )
+                elif repconf.elasticsearchdb.enabled:
+                    tasks = [
+                        d["_source"]
+                        for d in es.search(
+                            index=get_analysis_index(),
+                            body={"query": {"match": {"suricata.files.sha256": sample_hash}}},
+                            _source="suricata.files.file_info.path",
+                        )["hits"]["hits"]
+                    ]
+                else:
+                    tasks = []
 
-                    if db_sample is not None:
-                        samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
-                        # hash validation and if exist
-                        samples = [file_path for file_path in samples if path_exists(file_path)]
-                        for path in samples:
-                            with open(path, "rb").read() as f:
-                                if sample_hash == sizes[len(sample_hash)](f).hexdigest():
-                                    sample = [path]
+                if tasks:
+                    for task in tasks:
+                        for item in task["suricata"]["files"] or []:
+                            file_path = item.get("file_info", {}).get("path", "")
+                            if sample_hash in file_path:
+                                if path_exists(file_path):
+                                    sample = [file_path]
                                     break
-
-                if not sample:
-                    # search in Suricata files folder
-                    if repconf.mongodb.enabled:
-                        tasks = mongo_find(
-                            "analysis", {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
-                        )
-                    elif repconf.elasticsearchdb.enabled:
-                        tasks = [
-                            d["_source"]
-                            for d in es.search(
-                                index=get_analysis_index(),
-                                body={"query": {"match": {"suricata.files.sha256": sample_hash}}},
-                                _source="suricata.files.file_info.path",
-                            )["hits"]["hits"]
-                        ]
-                    else:
-                        tasks = []
-
-                    if tasks:
-                        for task in tasks:
-                            for item in task["suricata"]["files"] or []:
-                                file_path = item.get("file_info", {}).get("path", "")
-                                if sample_hash in file_path:
-                                    if path_exists(file_path):
-                                        sample = [file_path]
-                                        break
-
-            except AttributeError:
-                pass
-            except SQLAlchemyError as e:
-                log.debug("Database error viewing task: %s", e)
-            finally:
-                session.close()
 
         return sample
 
-    @classlock
-    def count_samples(self):
+    def count_samples(self) -> int:
         """Counts the amount of samples in the database."""
-        with self.Session() as session:
-            try:
-                sample_count = session.query(Sample).count()
-            except SQLAlchemyError as e:
-                log.debug("Database error counting samples: %s", e)
-                return 0
+        sample_count = self.session.query(Sample).count()
         return sample_count
 
-    @classlock
-    def view_machine(self, name):
+    def view_machine(self, name) -> Optional[Machine]:
         """Show virtual machine.
         @params name: virtual machine name
         @return: virtual machine's details
         """
-        with self.Session() as session:
-            try:
-                machine = session.query(Machine).options(joinedload(Machine.tags)).filter(Machine.name == name).first()
-                # machine = session.execute(select(Machine).filter(Machine.name == name).options(joinedload(Tag))).first()
-            except SQLAlchemyError as e:
-                log.debug("Database error viewing machine: %s", e)
-                return None
-            else:
-                if machine:
-                    session.expunge(machine)
+        machine = self.session.query(Machine).options(joinedload(Machine.tags)).filter(Machine.name == name).first()
         return machine
 
-    @classlock
-    def view_machine_by_label(self, label):
+    def view_machine_by_label(self, label) -> Optional[Machine]:
         """Show virtual machine.
         @params label: virtual machine label
         @return: virtual machine's details
         """
-        with self.Session() as session:
-            try:
-                machine = session.query(Machine).options(joinedload(Machine.tags)).filter(Machine.label == label).first()
-            except SQLAlchemyError as e:
-                log.debug("Database error viewing machine by label: %s", e)
-                return None
-            else:
-                if machine:
-                    session.expunge(machine)
+        machine = self.session.query(Machine).options(joinedload(Machine.tags)).filter(Machine.label == label).first()
         return machine
 
-    @classlock
     def view_errors(self, task_id):
         """Get all errors related to a task.
         @param task_id: ID of task associated to the errors
         @return: list of errors.
         """
-        with self.Session() as session:
-            try:
-                errors = session.query(Error).filter_by(task_id=task_id).all()
-            except SQLAlchemyError as e:
-                log.debug("Database error viewing errors: %s", e)
-                return []
+        errors = self.session.query(Error).filter_by(task_id=task_id).all()
         return errors
 
-    @classlock
     def get_source_url(self, sample_id=False):
         """
         Retrieve url from where sample was downloaded
@@ -2822,37 +2463,26 @@ class Database(object, metaclass=Singleton):
         @param task_id: Task id
         """
         source_url = False
-        with self.Session() as session:
-            try:
-                if sample_id:
-                    source_url = session.query(Sample.source_url).filter(Sample.id == int(sample_id)).first()
-                    if source_url:
-                        source_url = source_url[0]
-            except SQLAlchemyError as e:
-                log.debug("Database error listing tasks: %s", e)
-            except TypeError:
-                pass
+        try:
+            if sample_id:
+                source_url = self.session.query(Sample.source_url).filter(Sample.id == int(sample_id)).first()
+                if source_url:
+                    source_url = source_url[0]
+        except TypeError:
+            pass
 
         return source_url
 
-    @classlock
     def ban_user_tasks(self, user_id: int):
         """
         Ban all tasks submitted by user_id
         @param user_id: user id
         """
 
-        with self.Session() as session:
-            _ = (
-                session.query(Task)
-                .filter(Task.user_id == user_id)
-                .filter(Task.status == TASK_PENDING)
-                .update({Task.status: TASK_BANNED}, synchronize_session=False)
-            )
-            session.commit()
-            session.close()
+        self.session.query(Task).filter(Task.user_id == user_id).filter(Task.status == TASK_PENDING).update(
+            {Task.status: TASK_BANNED}, synchronize_session=False
+        )
 
-    @classlock
     def tasks_reprocess(self, task_id: int):
         """common func for api and views"""
         task = self.view_task(task_id)
@@ -2873,5 +2503,36 @@ class Database(object, metaclass=Singleton):
         }:
             return True, f"Task ID {task_id} cannot be reprocessed in status {task.status}", task.status
 
+        # Save the old_status, because otherwise, in the call to set_status(),
+        # sqlalchemy will use the cached Task object that `task` is already a reference
+        # to and update that in place. That would result in `task.status` in this
+        # function being set to TASK_COMPLETED and we don't want to return that.
+        old_status = task.status
         self.set_status(task_id, TASK_COMPLETED)
-        return False, "", task.status
+        return False, "", old_status
+
+
+_DATABASE: Optional[_Database] = None
+
+
+class Database:
+    def __getattr__(self, attr: str) -> Any:
+        if _DATABASE is None:
+            raise CuckooDatabaseInitializationError
+        return getattr(_DATABASE, attr)
+
+
+def init_database(*args, exists_ok=False, **kwargs) -> _Database:
+    global _DATABASE
+    if _DATABASE is not None:
+        if exists_ok:
+            return _DATABASE
+        raise RuntimeError("The database has already been initialized!")
+    _DATABASE = _Database(*args, **kwargs)
+    return _DATABASE
+
+
+def reset_database_FOR_TESTING_ONLY():
+    """Used for testing."""
+    global _DATABASE
+    _DATABASE = None

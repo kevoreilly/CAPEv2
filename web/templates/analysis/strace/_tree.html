@@ -1,0 +1,19 @@
+{% load generic_tags %}
+
+<h4>Process Tree</h4>
+<ul>
+{% for process in strace.processtree|proctreetolist %}
+    {% if process.startchildren %}
+      <ul>
+    {% elif process.endchildren %}
+      </ul>
+    {% else %}
+      <li>
+    <strong><a href="javascript:show_tab('process_{{process.pid}}');">{{process.pid}}</a></strong>
+      {% if process.name %}
+        <i>{{process.name}}</i>
+      {% endif %}
+     </li>
+    {% endif %}
+{% endfor %}
+</ul>

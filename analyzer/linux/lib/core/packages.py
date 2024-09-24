@@ -5,13 +5,14 @@
 
 import inspect
 import logging
+import shutil
 import subprocess
 import timeit
-from os import environ, path, sys, waitpid
+from os import environ, makedirs, path, sys
+from threading import Event, Thread
 
-from lib.api.process import Process
-from lib.common.apicalls import apicalls
-from lib.common.results import NetlogFile
+from lib.common.constants import OPT_CURDIR
+from lib.common.results import NetlogFile, append_buffer_to_host
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +75,18 @@ def _guess_package_name(file_type, file_name):
     return None
 
 
+def create_custom_folders(directory_path: str):
+    """Create custom folders (recursively) given the full path."""
+    if path.exists(directory_path):
+        log.info("%s already exists, skipping creation", directory_path)
+    else:
+        try:
+            makedirs(directory_path)
+            log.info("%s created", directory_path)
+        except OSError:
+            log.error("Unable to create user-defined custom folder directory")
+
+
 class Package:
     """Base analysis package"""
 
@@ -97,6 +110,10 @@ class Package:
         self.free = self.options.get("free")
         self.proc = None
         self.pids = []
+        self.strace_output = kwargs.get("strace_ouput", "/tmp")
+        self.nc = NetlogFile()
+        self.thread = None
+        self._read_ready_ev = Event()
 
     def set_pids(self, pids):
         """Update list of monitored PIDs in the package context.
@@ -108,6 +125,25 @@ class Package:
         """Preparation routine. Do anything you want here."""
         pass
 
+    def move_curdir(self, filepath):
+        """Move a file to the current working directory so it can be executed
+        from there.
+        @param filepath: the file to be moved
+        @return: the new filepath
+        """
+        if OPT_CURDIR not in self.options:
+            return filepath
+
+        curdir = path.expandvars(self.options[OPT_CURDIR])
+        create_custom_folders(curdir)
+
+        if not path.exists(curdir):
+            return filepath
+
+        newpath = path.join(curdir, path.basename(filepath))
+        shutil.move(filepath, newpath)
+        return newpath
+
     def start(self):
         """Runs an analysis process.
         This function is a generator.
@@ -117,19 +153,14 @@ class Package:
             filepath = path.join(environ.get("TEMP", "/tmp"), target_name)
             # Remove the trailing slash (if any)
             self.target = filepath.rstrip("/")
+        self.target = self.move_curdir(self.target)
         self.prepare()
-        self.normal_analysis()
+        self.nc.init("logs/strace.log", False)
+        self.thread = Thread(target=self.thread_send_strace_buffer, daemon=True)
+        self.thread.start()
+        self.strace_analysis()
+
         return self.proc.pid
-        """
-        if self.free:
-            self.normal_analysis()
-            return self.proc.pid
-        elif self.method == "apicalls":
-            self.apicalls_analysis()
-            return self.proc.pid
-        else:
-            raise Exception("Unsupported analysis method. Try 'apicalls'")
-        """
 
     def check(self):
         """Check."""
@@ -142,37 +173,52 @@ class Package:
         """
         return None
 
+    def thread_send_strace_buffer(self):
+        # wait for the subprocess to start
+        self._read_ready_ev.wait()
+        for line in self.proc.stderr:
+            try:
+                append_buffer_to_host(line, self.nc)
+            except ConnectionResetError:
+                log.info("Strace streaming connection has been closed")
+                return
+            except Exception as e:
+                log.exception("Exception occured: %s", e)
+
     def finish(self):
         """Finish run.
         If specified to do so, this method dumps the memory of
         all running processes.
         """
-        if self.options.get("procmemdump"):
-            for pid in self.pids:
-                p = Process(pid=pid)
-                p.dump_memory()
-
+        self.nc.close()
         return True
 
     def get_pids(self):
         return []
 
-    def apicalls_analysis(self):
+    def strace_analysis(self):
         kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
         log.info(self.target)
-        cmd = apicalls(self.target, **kwargs)
-        stap_start = timeit.default_timer()
+
+        target_cmd = f"{self.target}"
+        if "args" in kwargs:
+            target_cmd += f' {" ".join(kwargs["args"])}'
+
+        # eg: strace_args=-e trace=!recvfrom;epoll_pwait
+        strace_args = self.options.get("strace_args", "").replace(";", ",")
+        # Tricking strace into always showing PID on stderr output
+        # https://github.com/strace/strace/issues/278#issuecomment-1815914576
+        cmd = f"sudo strace -o /dev/stderr -s 800 {strace_args} -ttf {target_cmd}"
+        # If nohuman is set to yes, it's possible to interact with interactive scripts or programs via VNC.
+        if self.options.get("nohuman"):
+            cmd = f"sudo strace -o /dev/stderr -s 800 {strace_args} -ttf xterm -hold -e {target_cmd}"
         log.info(cmd)
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
-
-        while b"systemtap_module_init() returned 0" not in self.proc.stderr.readline():
-            # log.debug(self.proc.stderr.readline())
-            pass
-
-        stap_stop = timeit.default_timer()
-        log.info("Process startup took %.2f seconds", stap_stop - stap_start)
+        # give the reader thread a go-ahead
+        self._read_ready_ev.set()
+        log.info("Process started with strace")
         return True
 
     def normal_analysis(self):
@@ -180,15 +226,15 @@ class Package:
 
         # cmd = apicalls(self.target, **kwargs)
         cmd = f"{self.target} {' '.join(kwargs['args'])}"
-        stap_start = timeit.default_timer()
+        process_start = timeit.default_timer()
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
 
         log.debug(self.proc.stderr.readline())
 
-        stap_stop = timeit.default_timer()
-        log.info("Process startup took %.2f seconds", stap_stop - stap_start)
+        process_stop = timeit.default_timer()
+        log.info("Process startup took %.2f seconds", process_start - process_stop)
         return True
 
     @staticmethod
@@ -199,18 +245,6 @@ class Package:
                 for chunk in f:
                     nf.sock.sendall(chunk)  # dirty direct send, no reconnecting
             nf.close()
-
-    def stop(self):
-        log.info("Package requested stop")
-        try:
-            r = self.proc.poll()
-            log.debug("stap subprocess retval %d", r)
-            self.proc.kill()
-            # subprocess.check_call(["sudo", "kill", str(self.proc.pid)])
-            waitpid(self.proc.pid, 0)
-            self._upload_file("stap.log", "logs/all.stap")
-        except Exception as e:
-            log.warning("Exception uploading log: %s", e)
 
 
 def _string_to_bool(raw):

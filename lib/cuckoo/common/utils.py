@@ -5,24 +5,20 @@
 import contextlib
 import errno
 import fcntl
-import inspect
 import logging
-import multiprocessing
 import os
 import random
 import shutil
 import socket
 import string
 import struct
-import sys
 import tempfile
-import threading
 import time
 import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from typing import Tuple, Union
+from typing import Final, List, Tuple, Union
 
 from data.family_detection_names import family_detection_names
 from lib.cuckoo.common import utils_dicts
@@ -65,6 +61,7 @@ def arg_name_clscontext(arg_val):
 config = Config()
 web_cfg = Config("web")
 
+
 HAVE_TMPFS = False
 if hasattr(config, "tmpfs"):
     tmpfs = config.tmpfs
@@ -92,10 +89,12 @@ max_len = config.cuckoo.get("max_len", 100)
 sanitize_len = config.cuckoo.get("sanitize_len", 32)
 sanitize_to_len = config.cuckoo.get("sanitize_to_len", 24)
 
+CATEGORIES_NEEDING_VM: Final[Tuple[str]] = ("file", "url")
 
-def load_categories():
+
+def load_categories() -> Tuple[List[str], bool]:
     analyzing_categories = [category.strip() for category in config.cuckoo.categories.split(",")]
-    needs_VM = any([category in analyzing_categories for category in ("file", "url")])
+    needs_VM = any(category in analyzing_categories for category in CATEGORIES_NEEDING_VM)
     return analyzing_categories, needs_VM
 
 
@@ -105,15 +104,6 @@ texttypes = [
     "XML document text",
     "Unicode text",
 ]
-
-
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
-
-
-def get_platform(magic):
-    if magic and any(x in magic for x in VALID_LINUX_TYPES):
-        return "linux"
-    return "windows"
 
 
 # this doesn't work for bytes
@@ -126,9 +116,7 @@ def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
 
 
 def is_text_file(file_info, destination_folder, buf, file_data=False):
-
     if any(file_type in file_info.get("type", "") for file_type in texttypes):
-
         extracted_path = os.path.join(
             destination_folder,
             file_info.get(
@@ -182,70 +170,6 @@ def create_zip(files=False, folder=False, encrypted=False):
 
     mem_zip.seek(0)
     return mem_zip
-
-
-def free_space_monitor(path=False, return_value=False, processing=False, analysis=False):
-    """
-    @param path: path to check
-    @param return_value: return available size
-    @param processing: size from cuckoo.conf -> freespace_processing.
-    @param analysis: check the main storage size
-    """
-    """
-    cleanup_dict = {
-        "delete_mongo": config.cleanup.mongo,
-    }
-    if config.cleaner.binaries_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.binaries_days
-    if config.cleaner.tmp_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.tmp_days
-    if config.cleaner.analysis_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = config.cleanup.analysis_days
-    """
-
-    need_space, space_available = False, 0
-    # Calculate the free disk space in megabytes.
-    # Check main FS if processing
-    if processing:
-        free_space = config.cuckoo.freespace_processing
-    elif not analysis and HAVE_TMPFS and tmpfs.enabled:
-        path = tmpfs.path
-        free_space = tmpfs.freespace
-    else:
-        free_space = config.cuckoo.freespace
-
-    if path and not path_exists(path):
-        sys.exit("Restart daemon/process, happens after full cleanup")
-
-    printed_error = False
-    while True:
-        try:
-            space_available = shutil.disk_usage(path).free >> 20
-            need_space = space_available < free_space
-        except FileNotFoundError:
-            log.error("Folder doesn't exist, maybe due to clean")
-            path_mkdir(path)
-            continue
-
-        if return_value:
-            return need_space, space_available
-
-        if need_space:
-            if not printed_error:
-                log.error(
-                    "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
-                    space_available,
-                )
-                printed_error = True
-            """
-            # Invoke cleaups here if enabled
-            if config.cleaner.invoke_cleanup:
-                # prepare dict on startup
-                execute_cleanup(cleanup_dict)
-            """
-            time.sleep(5)
-        else:
-            break
 
 
 def get_memdump_path(memdump_id, analysis_folder=False):
@@ -374,6 +298,8 @@ def bytes2str(convert):
                     tmp_dict[k] = v.decode()
                 except UnicodeDecodeError:
                     tmp_dict[k] = "".join(str(ord(_)) for _ in v)
+            elif isinstance(v, str):
+                tmp_dict[k] = v
         return tmp_dict
     elif isinstance(convert, list):
         converted_list = []
@@ -853,38 +779,6 @@ def default_converter(v):
     if isinstance(v, int) or issubclass(type(v), int):
         return v & 0xFFFFFFFFFFFFFFFF if v & 0xFFFFFFFF00000000 else v & 0xFFFFFFFF
     return v
-
-
-def classlock(f):
-    """Classlock decorator (created for database.Database).
-    Used to put a lock to avoid sqlite errors.
-    """
-
-    def inner(self, *args, **kwargs):
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-
-        if calframe[1][1].endswith("database.py"):
-            return f(self, *args, **kwargs)
-
-        with self._lock:
-            return f(self, *args, **kwargs)
-
-    return inner
-
-
-class SuperLock:
-    def __init__(self):
-        self.tlock = threading.Lock()
-        self.mlock = multiprocessing.Lock()
-
-    def __enter__(self):
-        self.tlock.acquire()
-        self.mlock.acquire()
-
-    def __exit__(self, type, value, traceback):
-        self.mlock.release()
-        self.tlock.release()
 
 
 def get_options(optstring: str):

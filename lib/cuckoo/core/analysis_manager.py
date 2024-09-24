@@ -123,6 +123,7 @@ class AnalysisManager(threading.Thread):
         self.rooter_response = ""
         self.reject_segments = None
         self.reject_hostports = None
+        self.no_local_routing = None
 
     @main_thread_only
     def prepare_task_and_machine_to_start(self) -> None:

@@ -10,7 +10,7 @@ if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
     sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 
 # Cuckoo path.
-CUCKOO_PATH = os.path.join(Path.cwd(), "..")
+CUCKOO_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
 sys.path.append(CUCKOO_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -181,7 +181,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            "templates",
+            os.path.join(CUCKOO_PATH, "web", "templates"),
         ],
         "OPTIONS": {
             "debug": True,

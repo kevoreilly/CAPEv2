@@ -504,8 +504,6 @@ class Analyzer:
                 if mod_name in windows_modules:
                     mod_name += "_windows"
                 if hasattr(self.config, mod_name) and getattr(self.config, mod_name, False):
-                    log.debug('Importing auxiliary module "%s"...', name)
-                    __import__(name, globals(), locals(), ["dummy"])
                     # log.debug('Imported auxiliary module "%s"', name)
             except ImportError as e:
                 log.warning('Unable to import the auxiliary module "%s": %s', name, e)
@@ -527,7 +525,7 @@ class Analyzer:
             else:
                 log.debug("Started auxiliary module %s", module.__module__)
                 AUX_ENABLED.append(aux)
-    
+
         """
         # Inform zer0m0n of the ResultServer address.
         zer0m0n.resultserver(self.config.ip, self.config.port)

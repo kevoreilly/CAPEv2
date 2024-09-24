@@ -52,6 +52,7 @@ OPT_UNPACKER = "unpacker"
 
 ARCHIVE_OPTIONS = (OPT_FILE, OPT_PASSWORD)
 DLL_OPTIONS = (OPT_ARGUMENTS, OPT_DLLLOADER, OPT_FUNCTION)
+SERVICE_OPTIONS = (OPT_SERVICENAME, OPT_SERVICEDESC, OPT_ARGUMENTS)
 
 
 """ Excel, Word, and Powerpoint won't have macros enabled without interaction for
@@ -65,3 +66,11 @@ MSOFFICE_TRUSTED_PATH = os.path.join("%SystemDrive%", "Program Files", "Microsof
 TRUSTED_PATH_TEXT = (
     f"Use MS Office Trusted Path location {MSOFFICE_TRUSTED_PATH} unless the user has provided a '{OPT_CURDIR}' option."
 )
+
+DLL_OPTION_TEXT = f"""\
+Use the '{OPT_DLLLOADER}' option to set the name of the process loading the DLL (defaults to rundll32.exe).
+Use the '{OPT_ARGUMENTS}' option to set the arguments to be passed to the exported function(s).
+Use the '{OPT_FUNCTION}' option to set the name of the exported function/ordinal to execute.
+The default function is '#1'.
+Can be multiple function/ordinals split by colon. Ex: function=#1:#3 or #2-4
+"""

@@ -118,6 +118,9 @@ spot_instances = false
 # start pulling tasks off of the stack
 wait_for_agent_before_starting = true
 
+# This integer value is used to determine how many times a VMSS that does not initialize properly can retry
+init_retries = 2
+
 # These are the value(s) of the DNS server(s) that you want the scale sets to use. (E.g. 1.1.1.1,8.8.8.8)
 # NOTE: NO SPACES
 dns_server_ips = <dns_server_ip>

@@ -1,4 +1,5 @@
 #!/bin/bash
+# set -ex
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
 # Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
@@ -905,7 +906,7 @@ function dependencies() {
     apt-get install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common -y
     apt-get install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
     apt-get install zpaq upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
-    apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
+    apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common -y
     apt-get install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt-get install openvpn wireguard -y
 
@@ -964,9 +965,9 @@ function dependencies() {
     # https://www.torproject.org/docs/debian.html.en
     sudo apt-get install gnupg2 -y
 
-    wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/tor-archive-keyring.gpg >/dev/null
-    echo "deb     [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
-    echo "deb-src [signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
+    wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/deb.torproject.org-keyring.gpg >/dev/null
+    echo "deb     [arch=amd64 signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
+    echo "deb-src [arch=amd64 signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
 
 
     sudo apt-get update 2>/dev/null
@@ -1439,10 +1440,10 @@ case "$COMMAND" in
     ;;
 'all')
     dependencies
+    install_CAPE
     install_volatility3
     install_mongo
     install_suricata
-    install_CAPE
     install_yara
     install_systemd
     install_jemalloc

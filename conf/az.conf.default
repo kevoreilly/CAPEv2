@@ -92,7 +92,11 @@ wait_time_to_reimage = 4
 # This boolean value is used to indicate if we want to use Azure Spot instances rather than
 # normal instances
 spot_instances = false
+
 quota_name = MyQuota
+# This value is used to set the number of machines that will be reserved outside the scale set (deducted from the quota). 
+quota_machine_exclusion = 5
+
 # This boolean value is used to indicate if we want to wait for each VM to have its agent running before we
 # start pulling tasks off of the stack
 wait_for_agent_before_starting = true

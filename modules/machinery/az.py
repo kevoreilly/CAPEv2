@@ -3,11 +3,11 @@
 # Modified by the Canadian Centre for Cyber Security to support Azure.
 
 import logging
+import re
 import socket
 import threading
 import time
 import timeit
-import re
 
 try:
     # Azure-specific imports
@@ -86,7 +86,7 @@ current_operations_lock = threading.Lock()
 # This is the number of operations that are taking place at the same time
 current_vmss_operations = 0
 
-IPV4_REGEX = r'^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\/([0-9]|1[0-9]|2[0-9]|3[0-2])$'
+IPV4_REGEX = r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\/([0-9]|1[0-9]|2[0-9]|3[0-2])$"
 
 
 class Azure(Machinery):
@@ -191,13 +191,13 @@ class Azure(Machinery):
 
         # Starting the thread that sets API clients periodically
         self._thr_refresh_clients()
-        subnets = self.network_client.subnets.list(self.options.az.vnet_resource_group,self.options.az.vnet)
+        subnets = self.network_client.subnets.list(self.options.az.vnet_resource_group, self.options.az.vnet)
         self.subnet_limit = 0
         for subnet in subnets:
-            if(subnet.name == self.options.az.subnet):
+            if subnet.name == self.options.az.subnet:
                 match = re.match(IPV4_REGEX, subnet.address_prefix)
                 if match and len(match.regs) == 5:
-                    self.subnet_limit = 2**(32 - int(match.group(4))) - (2 + 1 + 10)
+                    self.subnet_limit = 2 ** (32 - int(match.group(4))) - (2 + 1 + 10)
 
         # Initialize the VMSSs that we will be using and not using
         self._set_vmss_stage()
@@ -848,7 +848,7 @@ class Azure(Machinery):
             vmss_vm_profile = models.VirtualMachineScaleSetVMProfile(
                 storage_profile=vmss_storage_profile,
                 network_profile=vmss_network_profile,
-                priority=models.VirtualMachinePriorityTypes.REGULAR
+                priority=models.VirtualMachinePriorityTypes.REGULAR,
             )
         vmss = models.VirtualMachineScaleSet(
             location=self.options.az.region_name,
@@ -978,7 +978,7 @@ class Azure(Machinery):
                 number_of_relevant_machines_required = self.required_vmsss[vmss_name]["initial_pool_size"]
             elif number_of_relevant_machines_required > self.options.az.scale_set_limit:
                 number_of_relevant_machines_required = self.options.az.scale_set_limit
-            
+
             if number_of_relevant_machines_required > self.subnet_limit:
                 number_of_relevant_machines_required = self.subnet_limit
                 log.debug("Scaling limited by the size of the subnet: %s" % self.subnet_limit)
@@ -1007,12 +1007,18 @@ class Azure(Machinery):
                     number_of_new_cpus_required = self.instance_type_cpus * (
                         number_of_relevant_machines_required - number_of_machines
                     )
-                    number_of_new_cpus_available = int(usage.limit) - usage.current_value - int(self.instance_type_cpus * int(self.options.az.quota_machine_exclusion))
+                    number_of_new_cpus_available = (
+                        int(usage.limit)
+                        - usage.current_value
+                        - int(self.instance_type_cpus * int(self.options.az.quota_machine_exclusion))
+                    )
                     if number_of_new_cpus_available < 0:
                         number_of_relevant_machines_required = machine_pools[vmss_name]["size"]
                     elif number_of_new_cpus_required > number_of_new_cpus_available:
                         old_number_of_relevant_machines_required = number_of_relevant_machines_required
-                        number_of_relevant_machines_required = number_of_relevant_machines + number_of_new_cpus_available / self.instance_type_cpus
+                        number_of_relevant_machines_required = (
+                            number_of_relevant_machines + number_of_new_cpus_available / self.instance_type_cpus
+                        )
                         log.debug(
                             f"Quota could be exceeded with projected number of machines ({old_number_of_relevant_machines_required}). Setting new limit to {number_of_relevant_machines_required}"
                         )

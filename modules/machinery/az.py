@@ -940,8 +940,7 @@ class Azure(Machinery):
                     number_of_new_cpus_required = self.instance_type_cpus * (
                         number_of_relevant_machines_required - number_of_machines
                     )
-                    # Leaving at least five spaces in the usage quota for a spot VM, let's not push it!
-                    number_of_new_cpus_available = int(usage.limit) - usage.current_value - int(self.instance_type_cpus * 5)
+                    number_of_new_cpus_available = int(usage.limit) - usage.current_value - int(self.instance_type_cpus * int(self.options.az.quota_machine_exclusion))
                     if number_of_new_cpus_available < 0:
                         number_of_relevant_machines_required = machine_pools[vmss_name]["size"]
                     elif number_of_new_cpus_required > number_of_new_cpus_available:

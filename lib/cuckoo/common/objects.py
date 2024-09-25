@@ -580,7 +580,7 @@ class File:
                         {
                             "name": match.rule,
                             "meta": match.meta,
-                            "strings": strings,
+                            "strings": list(set(strings)),
                             "addresses": addresses,
                         }
                     )

@@ -171,7 +171,7 @@ class packedSetting:
                             string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
                             string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
                             ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
-                        i += len(string1) + len(string2) + 11
+                            i += len(string1) + len(string2) + 11
 
             elif self.is_transform:
                 if conf_data == bytes(len(conf_data)):
@@ -332,8 +332,10 @@ class cobaltstrikeConfig:
 
     def _parse_config(self, version, quiet=False, as_json=False):
         parsed_config = {}
-        re_start_match = re.search(confConsts.START_PATTERNS[version], self.data)
-        re_start_decoded_match = re.search(confConsts.START_PATTERN_DECODED, self.data)
+        comp_pattern = re.compile(confConsts.START_PATTERNS[version], re.DOTALL)
+        re_start_match = comp_pattern.search(self.data)
+        comp_pattern_decoded = re.compile(confConsts.START_PATTERN_DECODED, re.DOTALL)
+        re_start_decoded_match = comp_pattern_decoded.search(self.data)
 
         if not re_start_match and not re_start_decoded_match:
             return False

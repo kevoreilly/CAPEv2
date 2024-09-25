@@ -171,7 +171,7 @@ class packedSetting:
                             string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
                             string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
                             ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
-                        i += len(string1) + len(string2) + 11
+                            i += len(string1) + len(string2) + 11
 
             elif self.is_transform:
                 if conf_data == bytes(len(conf_data)):

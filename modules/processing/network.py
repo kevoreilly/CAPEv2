@@ -1101,6 +1101,11 @@ class NetworkAnalysis(Processing):
         return ja3_fprints
 
     def run(self):
+
+        if not path_exists(self.pcap_path):
+            log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
+            return {}
+
         global PCAP_TYPE
         PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         self.key = "network"
@@ -1109,9 +1114,7 @@ class NetworkAnalysis(Processing):
             log.error("Python DPKT is not installed, aborting PCAP analysis")
             return {}
 
-        if not path_exists(self.pcap_path):
-            log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
-            return {}
+
 
         if os.path.getsize(self.pcap_path) == 0:
             log.error('The PCAP file at path "%s" is empty', self.pcap_path)

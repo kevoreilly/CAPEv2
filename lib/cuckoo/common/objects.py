@@ -436,7 +436,7 @@ class File:
         return new
 
     @classmethod
-    def init_yara(self):
+    def init_yara(self, raise_exception: bool = False):
         """Generates index for yara signatures."""
 
         categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
@@ -475,6 +475,9 @@ class File:
                                 compiler.new_namespace(name)
                                 compiler.add_source(f.read())
                         except yara_x.CompileError as err:
+                            if raise_exception:
+                                log.error("Yara problem: %s - Error:", name, str(err))
+                                raise yara_x.CompileError
                             print(err, name)
                             # ToDo bad rule defense
 
@@ -512,6 +515,9 @@ class File:
                                 compiler.new_namespace(name)
                                 compiler.add_source(f.read())
                         except yara_x.CompileError as err:
+                            if raise_exception:
+                                log.error("Yara problem: %s - Error:", name, str(err))
+                                raise yara_x.CompileError
                             print(err, name)
                     builded = compiler.build()
                     with open(index_memory, "wb") as f:
@@ -545,7 +551,7 @@ class File:
             File.init_yara()
 
         if not os.path.getsize(self.file_path):
-            log.error("YARA scan ignored, file is empty: %s", self.file_path)
+            log.debug("YARA scan ignored, file is empty: %s", self.file_path)
             return []
 
         results = []

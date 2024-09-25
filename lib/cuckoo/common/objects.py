@@ -582,13 +582,14 @@ class File:
                         for x in yara_string.instances:
                             y_string = self._yara_encode_string(x.matched_data)
                             if y_string not in strings:
-                                strings.append({y_string})
+                                strings.append(y_string)
+                            # ToDo Review of optimized
                             addresses.update({yara_string.identifier.strip("$"): x.offset})
                     results.append(
                         {
                             "name": match.rule,
                             "meta": match.meta,
-                            "strings": list(set(strings)),
+                            "strings": strings,
                             "addresses": addresses,
                         }
                     )

@@ -1114,8 +1114,6 @@ class NetworkAnalysis(Processing):
             log.error("Python DPKT is not installed, aborting PCAP analysis")
             return {}
 
-
-
         if os.path.getsize(self.pcap_path) == 0:
             log.error('The PCAP file at path "%s" is empty', self.pcap_path)
             return {}

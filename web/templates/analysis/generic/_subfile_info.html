@@ -172,7 +172,7 @@
                 <ul style="margin-bottom: 0;">
                 {% for sign in sub_file.yara %}
                     <li>
-                    {{sign.name}} - {{sign.meta.description}}
+                    <a href="/analysis/search/yaraname:{{sign.name}}">{{sign.name}}</a>  - {{sign.meta.description}}
                     {% if sign.meta.author %}
                         - Author: {{sign.meta.author}}
                     {% endif %}
@@ -195,7 +195,7 @@
                 <ul style="margin-bottom: 0;">
                 {% for sign in sub_file.cape_yara %}
                     <li>
-                    {{sign.name}}
+                    <a href="/analysis/search/capeyara:{{sign.name}}">{{sign.name}}</a>
                     {% if sign.meta.cape_type %} - {{sign.meta.cape_type}}
                     {% elif sign.meta.description %} - {{sign.meta.description}}
                     {% endif %}

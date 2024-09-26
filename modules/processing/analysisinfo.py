@@ -40,6 +40,8 @@ class AnalysisInfo(Processing):
     def get_package(self):
         """Get the actually used package name"""
         package = self.task["package"]
+        if isinstance(package, dict) and package.get("name", ""):
+            package = package["name"]
         if not package and path_exists(self.log_path):
             try:
                 analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()

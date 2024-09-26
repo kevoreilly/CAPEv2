@@ -230,7 +230,8 @@ class CAPE(Processing):
                         with open(file_info["path"], "r") as drop_open:
                             filedata = drop_open.read(buf_size + 1)
                             filedata = wide2str(filedata)
-                            file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
+                            # ToDo doesn't work. +12 is: " <truncated>"
+                            file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)[: buf_size + 12]
 
             self.results.setdefault("dropped", []).append(file_info)
         elif processing_conf.CAPE.procdump and category == "procdump":
@@ -238,7 +239,8 @@ class CAPE(Processing):
                 with suppress(UnicodeDecodeError):
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf_size + 1)
-                        file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
+                        # ToDo doesn't work. +12 is: " <truncated>"
+                        file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)[: buf_size + 12]
             if file_info.get("pid"):
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 

@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "Hello Extension",
+  "version": "1.33.7",
+  "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>",
+    "downloads",
+    "http://localhost:8000/*"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "me@domain.com"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  }
+}
+

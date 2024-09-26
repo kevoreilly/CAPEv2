@@ -9,13 +9,13 @@ from lib.common.abstracts import Package
 
 
 class ChromiumExt(Package):
-    """Chrome analysis package."""
+    """Chromium extension analysis package."""
 
     PATHS = [
         ("LOCALAPPDATA", "Chromium", "chrome.exe"),
     ]
-    summary = "Opens the URL in Google Chrome."
-    description = """Uses 'chrome.exe --disable-features=RendererCodeIntegrity "<url>"' to open the supplied url."""
+    summary = "Opens the URL in Chromium with loaded extension."
+    description = """Runs Chromium preloaded with a custom extensios."""
 
     def start(self, url):
         webbrowser.register(

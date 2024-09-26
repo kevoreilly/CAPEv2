@@ -1,3 +1,6 @@
+### [26.09.2024] Browser monitoring
+* [Browser extension details](https://github.com/kevoreilly/CAPEv2/tree/master/extra/browser_extension/README.md). For code details see [PR](https://github.com/kevoreilly/CAPEv2/pull/2330)
+
 ### [18.09.2024]
 * Monitor updates:
     * Add disassembled instruction to exception output

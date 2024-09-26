@@ -23,5 +23,5 @@ class ChromiumExt(Package):
             webbrowser.BackgroundBrowser(self.get_path("chrome.exe")))
         chromium = webbrowser.get("chromium")
         chromium.open("about:blank")
-        time.sleep(5)
+        time.sleep(10)
         return chromium.open(url)

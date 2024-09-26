@@ -92,6 +92,7 @@ class Status(enum.IntEnum):
                 return member
         return None
 
+
 AGENT_BROWSER_EXT_PATH = ""
 AGENT_BROWSER_LOCK = Lock()
 ANALYZER_FOLDER = ""
@@ -201,8 +202,7 @@ class MiniHTTPServer:
         if "client_ip" in state and request.client_ip != state["client_ip"]:
             if request.client_ip != "127.0.0.1":
                 return
-            if (obj.path not in ["/status", "/browser_extension"] or
-                request.method != "POST"):
+            if obj.path not in ["/status", "/browser_extension"] or request.method != "POST":
                 return
 
         for route, fn in self.routes[obj.command]:
@@ -769,9 +769,7 @@ def do_browser_ext():
         except Exception:
             AGENT_BROWSER_LOCK.release()
             return json_exception("Error creating temporary directory")
-        ext_filepath = (
-            "bext_" + "".join(random.choice(string.ascii_letters)
-                              for _ in range(11)) + ".json")
+        ext_filepath = "bext_" + "".join(random.choice(string.ascii_letters) for _ in range(11)) + ".json"
         AGENT_BROWSER_EXT_PATH = os.path.join(ext_tmpdir, ext_filepath)
     network_data = request.form.get("networkData")
     if network_data:

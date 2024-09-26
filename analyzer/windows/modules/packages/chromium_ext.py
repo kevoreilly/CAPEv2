@@ -18,9 +18,7 @@ class ChromiumExt(Package):
     description = """Runs Chromium preloaded with a custom extensios."""
 
     def start(self, url):
-        webbrowser.register(
-            "chromium", None,
-            webbrowser.BackgroundBrowser(self.get_path("chrome.exe")))
+        webbrowser.register("chromium", None, webbrowser.BackgroundBrowser(self.get_path("chrome.exe")))
         chromium = webbrowser.get("chromium")
         chromium.open("about:blank")
         time.sleep(10)

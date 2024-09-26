@@ -5,18 +5,18 @@ import logging
 import os
 import subprocess
 import tempfile
-from threading import Thread
 import time
+from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-
 
 log = logging.getLogger(__name__)
 
 
 class Browsermonitor(Auxiliary, Thread):
     """Monitors Browser Extension request logs."""
+
     def __init__(self, options=None, config=None):
         if options is None:
             options = {}
@@ -26,7 +26,7 @@ class Browsermonitor(Auxiliary, Thread):
         self.enabled = config.browsermonitor
         self.startupinfo = subprocess.STARTUPINFO()
         self.startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        self.browser_logfile = ''
+        self.browser_logfile = ""
         self.last_modification = 0.0
         self._is_first_save = True
 
@@ -38,24 +38,21 @@ class Browsermonitor(Auxiliary, Thread):
                 tmp_directory_path = os.path.join(temp_dir, directory)
                 if not os.path.isdir(tmp_directory_path):
                     continue
-                if not directory.startswith('tmp'):
+                if not directory.startswith("tmp"):
                     continue
                 tmp_dir_files = os.listdir(tmp_directory_path)
                 for file in tmp_dir_files:
-                    if file.startswith('bext_') and file.endswith('.json'):
-                        self.browser_logfile = os.path.join(
-                            temp_dir, directory, file)
-                        log.debug(
-                            f'Found extension logs: {self.browser_logfile}')
+                    if file.startswith("bext_") and file.endswith(".json"):
+                        self.browser_logfile = os.path.join(temp_dir, directory, file)
+                        log.debug(f"Found extension logs: {self.browser_logfile}")
                         break
             time.sleep(1)
 
     def _collect_browser_logs(self):
-        if (not self._is_first_save and
-            self.last_modification != os.path.getmtime(self.browser_logfile)):
+        if not self._is_first_save and self.last_modification != os.path.getmtime(self.browser_logfile):
             return
         self.last_modification = os.path.getmtime(self.browser_logfile)
-        upload_to_host(self.browser_logfile, 'browser/requests.log')
+        upload_to_host(self.browser_logfile, "browser/requests.log")
         self._is_first_save = False
 
     def run(self):

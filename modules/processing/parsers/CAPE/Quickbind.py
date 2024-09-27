@@ -55,7 +55,6 @@ def extract_config(filebuf):
     if entries:
         c2s = []
         mutexes = []
-        other = []
 
         for item in entries:
             if item.count(".") == 3 and re.fullmatch(r"\d+", item.replace(".", "")):
@@ -70,20 +69,11 @@ def extract_config(filebuf):
             elif len(item) in [16] and is_hex(item):
                 cfg["Encryption Key"] = item
 
-            elif "Mozilla" in item:
-                cfg["User-agent"] = item
-
-            else:
-                other.append(item)
-
         if c2s:
             cfg["C2"] = c2s
 
         if mutexes:
             cfg["Mutex"] = list(set(mutexes))
-
-        if other:
-            cfg["Other"] = other
 
     return cfg
 

@@ -310,7 +310,7 @@ class TestAnalysisManager:
         assert opts == {
             "amsi": False,
             "browser": True,
-            "browser_monitor": False,
+            "browsermonitor": False,
             "category": "file",
             "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
             "curtain": False,
@@ -371,7 +371,7 @@ class TestAnalysisManager:
         assert opts == {
             "amsi": False,
             "browser": True,
-            "browser_monitor": False,
+            "browsermonitor": False,
             "category": "file",
             "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
             "curtain": False,

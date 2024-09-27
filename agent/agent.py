@@ -12,17 +12,20 @@ import json
 import multiprocessing
 import os
 import platform
+import random
 import shlex
 import shutil
 import socket
 import socketserver
 import stat
+import string
 import subprocess
 import sys
 import tempfile
 import time
 import traceback
 from io import StringIO
+from threading import Lock
 from typing import Iterable
 from zipfile import ZipFile
 
@@ -41,7 +44,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.17"
+AGENT_VERSION = "0.18"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -54,6 +57,7 @@ BASE_64_ENCODING = "base64"
 
 if sys.platform == "win32":
     AGENT_FEATURES.append("mutex")
+    AGENT_FEATURES.append("browser_extension")
     MUTEX_TIMEOUT_MS = 500
     from ctypes import WinError, windll
 
@@ -89,6 +93,8 @@ class Status(enum.IntEnum):
         return None
 
 
+AGENT_BROWSER_EXT_PATH = ""
+AGENT_BROWSER_LOCK = Lock()
 ANALYZER_FOLDER = ""
 agent_mutexes = {}
 """Holds handles of mutexes held by the agent."""
@@ -196,7 +202,7 @@ class MiniHTTPServer:
         if "client_ip" in state and request.client_ip != state["client_ip"]:
             if request.client_ip != "127.0.0.1":
                 return
-            if obj.path != "/status" or request.method != "POST":
+            if obj.path not in ["/status", "/browser_extension"] or request.method != "POST":
                 return
 
         for route, fn in self.routes[obj.command]:
@@ -751,6 +757,26 @@ def do_execpy():
         state["status"] = Status.FAILED
         state["description"] = "Error executing Python command"
         return json_exception(f"Error executing Python command: {ex}")
+
+
+@app.route("/browser_extension", methods=["POST"])
+def do_browser_ext():
+    global AGENT_BROWSER_EXT_PATH
+    AGENT_BROWSER_LOCK.acquire()
+    if not AGENT_BROWSER_EXT_PATH:
+        try:
+            ext_tmpdir = tempfile.mkdtemp(prefix="tmp")
+        except Exception:
+            AGENT_BROWSER_LOCK.release()
+            return json_exception("Error creating temporary directory")
+        ext_filepath = "bext_" + "".join(random.choice(string.ascii_letters) for _ in range(11)) + ".json"
+        AGENT_BROWSER_EXT_PATH = os.path.join(ext_tmpdir, ext_filepath)
+    network_data = request.form.get("networkData")
+    if network_data:
+        with open(AGENT_BROWSER_EXT_PATH, "w") as ext_fd:
+            ext_fd.write(network_data)
+    AGENT_BROWSER_LOCK.release()
+    return json_success("OK")
 
 
 @app.route("/pinning")

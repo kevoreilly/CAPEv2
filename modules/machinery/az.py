@@ -3,6 +3,7 @@
 # Modified by the Canadian Centre for Cyber Security to support Azure.
 
 import logging
+import re
 import socket
 import threading
 import time
@@ -43,7 +44,7 @@ logging.getLogger("msrest.async_paging").setLevel(logging.INFO)
 log = logging.getLogger(__name__)
 
 # Timeout used for calls that shouldn't take longer than 5 minutes but somehow do
-AZURE_TIMEOUT = 120
+AZURE_TIMEOUT = 300
 
 # Global variable which will maintain details about each machine pool
 machine_pools = {}
@@ -84,6 +85,8 @@ current_operations_lock = threading.Lock()
 
 # This is the number of operations that are taking place at the same time
 current_vmss_operations = 0
+
+IPV4_REGEX = r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\/([0-9]|1[0-9]|2[0-9]|3[0-2])$"
 
 
 class Azure(Machinery):
@@ -188,6 +191,13 @@ class Azure(Machinery):
 
         # Starting the thread that sets API clients periodically
         self._thr_refresh_clients()
+        subnets = self.network_client.subnets.list(self.options.az.vnet_resource_group, self.options.az.vnet)
+        self.subnet_limit = 0
+        for subnet in subnets:
+            if subnet.name == self.options.az.subnet:
+                match = re.match(IPV4_REGEX, subnet.address_prefix)
+                if match and len(match.regs) == 5:
+                    self.subnet_limit = 2 ** (32 - int(match.group(4))) - (2 + 1 + 10)
 
         # Initialize the VMSSs that we will be using and not using
         self._set_vmss_stage()
@@ -838,6 +848,7 @@ class Azure(Machinery):
             vmss_vm_profile = models.VirtualMachineScaleSetVMProfile(
                 storage_profile=vmss_storage_profile,
                 network_profile=vmss_network_profile,
+                priority=models.VirtualMachinePriorityTypes.REGULAR,
             )
         vmss = models.VirtualMachineScaleSet(
             location=self.options.az.region_name,
@@ -968,6 +979,10 @@ class Azure(Machinery):
             elif number_of_relevant_machines_required > self.options.az.scale_set_limit:
                 number_of_relevant_machines_required = self.options.az.scale_set_limit
 
+            if number_of_relevant_machines_required > self.subnet_limit:
+                number_of_relevant_machines_required = self.subnet_limit
+                log.debug("Scaling limited by the size of the subnet: %s" % self.subnet_limit)
+
             number_of_machines = len(self.db.list_machines())
             projected_total_machines = number_of_machines - number_of_relevant_machines + number_of_relevant_machines_required
 
@@ -983,8 +998,7 @@ class Azure(Machinery):
             if self.options.az.spot_instances:
                 usage_to_look_for = "lowPriorityCores"
             else:
-                # TODO: If not using spot instances, somehow figure out the usages key to determine a scaling limit for
-                pass
+                usage_to_look_for = self.options.az.quota_name if self.options.az.quota_name else None
 
             if usage_to_look_for:
                 usage = next((item for item in usages if item.name.value == usage_to_look_for), None)
@@ -993,8 +1007,11 @@ class Azure(Machinery):
                     number_of_new_cpus_required = self.instance_type_cpus * (
                         number_of_relevant_machines_required - number_of_machines
                     )
-                    # Leaving at least five spaces in the usage quota for a spot VM, let's not push it!
-                    number_of_new_cpus_available = int(usage.limit) - usage.current_value - int(self.instance_type_cpus * 5)
+                    number_of_new_cpus_available = (
+                        int(usage.limit)
+                        - usage.current_value
+                        - int(self.instance_type_cpus * int(self.options.az.quota_machine_exclusion))
+                    )
                     if number_of_new_cpus_available < 0:
                         number_of_relevant_machines_required = machine_pools[vmss_name]["size"]
                     elif number_of_new_cpus_required > number_of_new_cpus_available:

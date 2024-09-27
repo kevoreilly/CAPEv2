@@ -42,6 +42,8 @@ filecollector = yes
 windows_static_route = no
 tracee_linux = no
 sslkeylogfile = no
+# Requires setting up browser extension, check extra/browser_extension
+browsermonitor = no
 
 [AzSniffer]
 # Enable or disable the use of Azure Network Watcher packet capture feature, disable standard sniffer if this is in use to not create concurrent .pcap files

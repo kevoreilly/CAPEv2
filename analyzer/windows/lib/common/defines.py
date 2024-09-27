@@ -2,9 +2,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import sys
 from ctypes import (
     POINTER,
-    WINFUNCTYPE,
     Structure,
     Union,
     c_bool,
@@ -17,16 +17,20 @@ from ctypes import (
     c_ushort,
     c_void_p,
     c_wchar_p,
-    windll,
 )
 
-NTDLL = windll.ntdll
-KERNEL32 = windll.kernel32
-ADVAPI32 = windll.advapi32
-USER32 = windll.user32
-SHELL32 = windll.shell32
-PDH = windll.pdh
-PSAPI = windll.psapi
+if sys.platform == "win32":
+    from ctypes import WINFUNCTYPE, windll
+
+    NTDLL = windll.ntdll
+    KERNEL32 = windll.kernel32
+    ADVAPI32 = windll.advapi32
+    USER32 = windll.user32
+    SHELL32 = windll.shell32
+    PDH = windll.pdh
+    PSAPI = windll.psapi
+    EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
+    EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 
 BYTE = c_ubyte
 USHORT = c_ushort
@@ -96,6 +100,7 @@ INVALID_HANDLE_VALUE = 0xFFFFFFFF
 ERROR_BROKEN_PIPE = 0x0000006D
 ERROR_MORE_DATA = 0x000000EA
 ERROR_PIPE_CONNECTED = 0x00000217
+ERROR_INVALID_HANDLE = 0x00000006
 
 WAIT_TIMEOUT = 0x00000102
 
@@ -136,6 +141,17 @@ TRUNCATE_EXISTING = 5
 CREATE_NO_WINDOW = 0x08000000
 
 MAX_PATH = 260
+
+# Button messages
+BM_SETCHECK = 0x000000F1
+BM_GETCHECK = 0x000000F0
+# Button states
+BST_UNCHECKED = 0x0000
+BST_CHECKED = 0x0001
+BST_INDETERMINATE = 0x0002
+
+# Process cannot access the file because it is being used by another process.
+ERROR_SHARING_VIOLATION = 0x00000020
 
 
 class STARTUPINFO(Structure):
@@ -311,7 +327,3 @@ class PDH_FMT_COUNTERVALUE(Structure):
         ("CStatus", DWORD),
         ("doubleValue", DOUBLE),
     ]
-
-
-EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
-EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))

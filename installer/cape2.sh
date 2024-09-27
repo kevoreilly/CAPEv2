@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+# set -ex
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
 # Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
@@ -906,7 +906,7 @@ function dependencies() {
     apt-get install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common -y
     apt-get install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
     apt-get install zpaq upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
-    apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
+    apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common -y
     apt-get install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt-get install openvpn wireguard -y
 
@@ -1248,8 +1248,32 @@ function install_systemd() {
 	if [ "$MONGO_ENABLE" -ge 1 ]; then
 		cape_web_enable_string="cape-web"
 	fi
+
     systemctl enable cape cape-rooter cape-processor "$cape_web_enable_string" suricata
     systemctl restart cape cape-rooter cape-processor "$cape_web_enable_string" suricata
+
+    if [ ! -f "/etc/sudoers.d/cape" ] ; then
+        cat > /etc/sudoers.d/cape << EOF
+Cmnd_Alias CAPE_SVC = /usr/bin/systemctl stop cape, /usr/bin/systemctl start cape, /usr/bin/systemctl restart cape
+Cmnd_Alias CAPE_WEB_SVC = /usr/bin/systemctl stop cape-web, /usr/bin/systemctl start cape-web, /usr/bin/systemctl restart cape-web
+Cmnd_Alias CAPE_PROCESSING_SVC = /usr/bin/systemctl stop cape-processor, /usr/bin/systemctl start cape-processor, /usr/bin/systemctl restart cape-processor
+Cmnd_Alias CAPE_ROOTER_SVC = /usr/bin/systemctl stop cape-rooter, /usr/bin/systemctl start cape-rooter, /usr/bin/systemctl restart cape-rooter
+Cmnd_Alias SURICATA = /usr/bin/systemctl stop suricata, /usr/bin/systemctl start suricata, /usr/bin/systemctl restart suricata
+Cmnd_Alias UWSGI = /usr/bin/systemctl stop uwsgi, /usr/bin/systemctl start uwsgi, /usr/bin/systemctl restart uwsgi
+
+# disttributed cape related
+Cmnd_Alias CAPE_FSTAB_SVC = /usr/bin/systemctl stop cape-fstab, /usr/bin/systemctl start cape-fstab, /usr/bin/systemctl restart cape-fstab
+
+%${USER} ALL=CAPE_SVC
+%${USER} ALL=CAPE_WEB_SVC
+%${USER} ALL=CAPE_PROCESSING_SVC
+%${USER} ALL=CAPE_ROOTER_SVC
+%${USER} ALL=SURICATA
+%${USER} ALL=UWSGI
+
+%cape ALL=CAPE_FSTAB_SVC
+EOF
+    fi
 }
 
 
@@ -1264,6 +1288,7 @@ function install_prometheus_grafana() {
     sudo dpkg -i grafana_"$grafana_version"_amd64.deb
 
     systemctl enable grafana
+
     cat << EOL
     Edit grafana config to listen on correct interface, default localhost, then
     systemctl start grafana
@@ -1415,10 +1440,10 @@ case "$COMMAND" in
     ;;
 'all')
     dependencies
+    install_CAPE
     install_volatility3
     install_mongo
     install_suricata
-    install_CAPE
     install_yara
     install_systemd
     install_jemalloc

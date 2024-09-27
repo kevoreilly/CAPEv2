@@ -5,8 +5,8 @@ from contextlib import suppress
 
 HAVE_PYCYPTODOMEX = False
 with suppress(ImportError):
-    from Crypto.Cipher import AES
-    from Crypto.Util import Counter
+    from Cryptodome.Cipher import AES
+    from Cryptodome.Util import Counter
 
     HAVE_PYCYPTODOMEX = True
 

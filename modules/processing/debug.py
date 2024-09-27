@@ -22,7 +22,9 @@ class Debug(Processing):
 
         if path_exists(self.log_path):
             try:
-                debug["log"] = codecs.open(self.log_path, "rb", "utf-8").read()
+                buf_size = self.options.get("buffer", 8192)
+                content = codecs.open(self.log_path, "rb", "utf-8").read()
+                debug["log"] = content[:buf_size] + " <truncated>" if len(content) > buf_size else content
             except ValueError as e:
                 raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}") from e
             except (IOError, OSError) as e:

@@ -15,13 +15,24 @@ from math import floor
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
-from lib.common.defines import BM_CLICK, CF_TEXT, GMEM_MOVEABLE, KERNEL32, USER32, WM_CLOSE, WM_GETTEXT, WM_GETTEXTLENGTH
+from lib.common.defines import (
+    BM_CLICK,
+    BM_GETCHECK,
+    BM_SETCHECK,
+    BST_CHECKED,
+    CF_TEXT,
+    GMEM_MOVEABLE,
+    KERNEL32,
+    USER32,
+    WM_CLOSE,
+    WM_GETTEXT,
+    WM_GETTEXTLENGTH,
+)
 
 log = logging.getLogger(__name__)
 
 EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
-
 
 CURSOR_POSITION_REGEX = r"\((\d+):(\d+)\)"
 WAIT_REGEX = r"WAIT(\d+)"
@@ -46,152 +57,212 @@ GIVEN_INSTRUCTIONS = []
 CLOSED_DOCUMENT_WINDOW = False
 DOCUMENT_WINDOW_CLICK_AROUND = False
 
+CLICK_BUTTONS = (
+    # english
+    "yes",
+    "ok",
+    "accept",
+    "next",
+    "install",
+    "run",
+    "agree",
+    "enable",
+    "retry",
+    "don't send",
+    "don't save",
+    "continue",
+    "unzip",
+    "open",
+    "close the program",
+    "save",
+    "later",
+    "finish",
+    "end",
+    "keep",
+    "allow access",
+    "remind me later",
+    # german
+    "ja",
+    "weiter",
+    "akzeptieren",
+    "ende",
+    "starten",
+    "jetzt starten",
+    "neustarten",
+    "neu starten",
+    "jetzt neu starten",
+    "beenden",
+    "oeffnen",
+    "schliessen",
+    "installation weiterfuhren",
+    "fertig",
+    "beenden",
+    "fortsetzen",
+    "fortfahren",
+    "stimme zu",
+    "zustimmen",
+    "senden",
+    "nicht senden",
+    "speichern",
+    "nicht speichern",
+    "ausfuehren",
+    "spaeter",
+    "einverstanden",
+    # ru
+    "установить",
+)
 
-def queryMousePosition():
+DONT_CLICK_BUTTONS = (
+    # english
+    "check online for a solution",
+    "don't run",
+    "do not ask again until the next update is available",
+    "cancel",
+    "do not accept the agreement",
+    "i would like to help make reader even better",
+    "restart now",
+    # german
+    "abbrechen",
+    "online nach losung suchen",
+    "abbruch",
+    "nicht ausfuehren",
+    "hilfe",
+    "stimme nicht zu",
+    # ru
+    "приoстановить",
+    "отмена",
+)
+
+OFFICE_WINDOW_CLASSES = (
+    "nuidialog",
+    "bosa_sdm_msword",
+)
+
+
+def get_cursor_position():
     pt = wintypes.POINT()
     USER32.GetCursorPos(byref(pt))
     return {"x": pt.x, "y": pt.y}
 
 
-def foreach_child(hwnd, lparam):
-    classname = create_unicode_buffer(128)
-    USER32.GetClassNameW(hwnd, classname, 128)
+def get_window_text(hwnd):
+    length = USER32.SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0)
+    if length == 0:
+        return ""
+    text = create_unicode_buffer(length + 1)
+    USER32.SendMessageW(hwnd, WM_GETTEXT, length + 1, text)
+    return text.value.replace("&", "")
 
-    # Check if the class of the child is button.
-    if (
-        "button" in classname.value.lower()
-        or "button" not in classname.value.lower()
-        and classname.value in ("NUIDialog", "bosa_sdm_msword")
-    ):
-        # Get the text of the button.
-        length = USER32.SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0)
-        if not length:
-            return True
-        text = create_unicode_buffer(length + 1)
-        USER32.SendMessageW(hwnd, WM_GETTEXT, length + 1, text)
-        textval = text.value.replace("&", "")
-        if "Microsoft" in textval and classname.value in ("NUIDialog", "bosa_sdm_msword"):
-            log.info("Issuing keypress on Office dialog")
-            USER32.SetForegroundWindow(hwnd)
-            # enter key down/up
-            USER32.keybd_event(0x0D, 0x1C, 0, 0)
-            USER32.keybd_event(0x0D, 0x1C, 2, 0)
-            return False
 
-        # we don't want to bother clicking any non-visible child elements, as they
-        # generally won't respond and will cause us to fixate on them for the
-        # rest of the analysis, preventing progress with visible elements
+def is_button_checked(hwnd):
+    return bool(USER32.SendMessageW(hwnd, BM_GETCHECK, 0, 0) == BST_CHECKED)
 
-        if not USER32.IsWindowVisible(hwnd):
-            return True
 
-        # List of buttons labels to click.
-        buttons = (
-            # english
-            "yes",
-            "ok",
-            "accept",
-            "next",
-            "install",
-            "run",
-            "agree",
-            "enable",
-            "retry",
-            "don't send",
-            "don't save",
-            "continue",
-            "unzip",
-            "open",
-            "close the program",
-            "save",
-            "later",
-            "finish",
-            "end",
-            "keep",
-            "allow access",
-            "remind me later",
-            # german
-            "ja",
-            "weiter",
-            "akzeptieren",
-            "ende",
-            "starten",
-            "jetzt starten",
-            "neustarten",
-            "neu starten",
-            "jetzt neu starten",
-            "beenden",
-            "oeffnen",
-            "schliessen",
-            "installation weiterfuhren",
-            "fertig",
-            "beenden",
-            "fortsetzen",
-            "fortfahren",
-            "stimme zu",
-            "zustimmen",
-            "senden",
-            "nicht senden",
-            "speichern",
-            "nicht speichern",
-            "ausfuehren",
-            "spaeter",
-            "einverstanden",
-            # ru
-            "установить",
-        )
+def send_click(hwnd):
+    USER32.SetForegroundWindow(hwnd)
+    KERNEL32.Sleep(1000)
+    USER32.SendMessageW(hwnd, BM_CLICK, 0, 0)
 
-        # List of buttons labels to not click.
-        dontclick = (
-            # english
-            "check online for a solution",
-            "don't run",
-            "do not ask again until the next update is available",
-            "cancel",
-            "do not accept the agreement",
-            "i would like to help make reader even better",
-            "restart now",
-            # german
-            "abbrechen",
-            "online nach losung suchen",
-            "abbruch",
-            "nicht ausfuehren",
-            "hilfe",
-            "stimme nicht zu",
-            # ru
-            "приoстановить",
-            "отмена",
-        )
 
-        # Check if the button is set as "clickable" and click it.
-        for button in buttons:
-            if button in textval.lower():
-                dontclickb = False
-                for btn in dontclick:
-                    if btn in textval.lower():
-                        dontclickb = True
-                if not dontclickb:
-                    log.info('Found button "%s", clicking it' % text.value)
-                    USER32.SetForegroundWindow(hwnd)
-                    KERNEL32.Sleep(1000)
-                    USER32.SendMessageW(hwnd, BM_CLICK, 0, 0)
-                    # only stop searching when we click a button
-                    return False
+def click_button(hwnd, classname):
+    button_text = get_window_text(hwnd)
+    if button_text == "":
+        return True
+
+    if not USER32.IsWindowEnabled(hwnd):
+        # Ignore buttons that are disabled
+        return True
+
+    if "Microsoft" in button_text and classname in OFFICE_WINDOW_CLASSES:
+        log.info("Issuing keypress on Office dialog")
+        USER32.SetForegroundWindow(hwnd)
+        # enter key down event
+        USER32.keybd_event(0x0D, 0x1C, 0, 0)
+        # enter key up event
+        USER32.keybd_event(0x0D, 0x1C, 2, 0)
+        return False
+
+    # Check if the button is set as "clickable" and click it.
+    button_text = button_text.lower()
+
+    ignore_matches = [text for text in DONT_CLICK_BUTTONS if text in button_text]
+    if ignore_matches:
+        return True
+
+    click_matches = [text for text in CLICK_BUTTONS if text in button_text]
+    if click_matches:
+        log.info('Found button "%s", clicking it', button_text)
+        send_click(hwnd)
+        # only stop searching when we click a button
+        return False
+    # continue searching through windows
+    return True
+
+
+def check_button(hwnd):
+    if is_button_checked(hwnd):
+        return True
+
+    button_text = get_window_text(hwnd).lower()
+
+    ignore_matches = [text for text in DONT_CLICK_BUTTONS if text in button_text]
+    if ignore_matches:
+        return True
+
+    matches = [text for text in CLICK_BUTTONS if text in button_text]
+    if matches:
+        log.info('Found checkable button "%s", checking it', button_text)
+        # try clicking it first
+        send_click(hwnd)
+        if not is_button_checked(hwnd):
+            # if it's still unchecked, check it
+            USER32.SendMessageW(hwnd, BM_SETCHECK, BST_CHECKED, 0)
+        # only stop searching when we click a checkbox
+        return False
+    # continue searching through windows
+    return True
+
+
+def is_button(classname):
+    return bool("button" in classname or ("button" not in classname and classname in OFFICE_WINDOW_CLASSES))
+
+
+def is_checkbox(classname):
+    return "checkbox" in classname
+
+
+def is_radio_button(classname):
+    return "radiobutton" in classname
+
+
+def interact_with_window(hwnd, lparam):
+    # we don't want to bother clicking any non-visible child elements, as they
+    # generally won't respond and will cause us to fixate on them for the
+    # rest of the analysis, preventing progress with visible elements
+    if not USER32.IsWindowVisible(hwnd):
+        return True
+
+    classname_ptr = create_unicode_buffer(128)
+    USER32.GetClassNameW(hwnd, classname_ptr, 128)
+    classname = str(classname_ptr.value).lower()
+
+    if is_checkbox(classname) or is_radio_button(classname):
+        return check_button(hwnd)
+    elif is_button(classname):
+        return click_button(hwnd, classname)
+    # continue searching through windows
     return True
 
 
 # Callback procedure invoked for every enumerated window.
-def foreach_window(hwnd, lparam):
-    # If the window is visible, enumerate its child objects, looking
-    # for buttons.
-    if USER32.IsWindowVisible(hwnd):
-        # we also want to inspect the "parent" windows, not just the children
-        foreach_child(hwnd, lparam)
-        USER32.EnumChildWindows(hwnd, EnumChildProc(foreach_child), 0)
+def handle_window_interaction(hwnd, lparam):
+    # we also want to inspect the "parent" windows, not just the children
+    interact_with_window(hwnd, lparam)
+    USER32.EnumChildWindows(hwnd, EnumChildProc(interact_with_window), 0)
     return True
 
 
-def getwindowlist(hwnd, lparam):
+def get_window_list(hwnd, lparam):
     global INITIAL_HWNDS
     if USER32.IsWindowVisible(hwnd):
         INITIAL_HWNDS.append(hwnd)
@@ -436,7 +507,7 @@ class Human(Auxiliary, Thread):
                 elif "PDF" in file_type or file_name.endswith(".pdf"):
                     doc = True
 
-            USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
+            USER32.EnumWindows(EnumWindowsProc(get_window_list), 0)
             interval = 300  # Interval of 300 was chosen it looked like human speed
             try:
                 iter(GIVEN_INSTRUCTIONS)
@@ -498,7 +569,7 @@ class Human(Auxiliary, Thread):
                     if len(other_hwnds):
                         USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds) - 1)])
 
-                USER32.EnumWindows(EnumWindowsProc(foreach_window), 0)
+                USER32.EnumWindows(EnumWindowsProc(handle_window_interaction), 0)
                 KERNEL32.Sleep(1000)
                 seconds += 1
         except Exception:

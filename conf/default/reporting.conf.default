@@ -221,3 +221,6 @@ enabled = no
 # Community
 [malheur]
 enabled = no
+
+[browserext]
+enabled = no

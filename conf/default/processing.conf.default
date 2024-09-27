@@ -80,6 +80,8 @@ platform = linux
 
 [debug]
 enabled = yes
+# Amount of text (bytes)
+buffer = 8192
 
 [detections]
 enabled = yes
@@ -123,6 +125,9 @@ country_lookup = no
 # For maxmind use: GeoLite2 Country
 # For ipinfo use: Free IP to Country + IP to ASN
 maxmind_database = data/GeoLite2-Country.mmdb
+
+[pcapng]
+enabled = no
 
 [url_analysis]
 enabled = yes

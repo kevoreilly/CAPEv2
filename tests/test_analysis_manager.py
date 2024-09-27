@@ -310,6 +310,7 @@ class TestAnalysisManager:
         assert opts == {
             "amsi": False,
             "browser": True,
+            "browsermonitor": False,
             "category": "file",
             "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
             "curtain": False,
@@ -338,6 +339,7 @@ class TestAnalysisManager:
             "recentfiles": False,
             "screenshots_linux": True,
             "screenshots_windows": True,
+            "sslkeylogfile": False,
             "sysmon_linux": False,
             "sysmon_windows": False,
             "target": str(tmp_path / "sample.py"),
@@ -369,6 +371,7 @@ class TestAnalysisManager:
         assert opts == {
             "amsi": False,
             "browser": True,
+            "browsermonitor": False,
             "category": "file",
             "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
             "curtain": False,
@@ -397,6 +400,7 @@ class TestAnalysisManager:
             "recentfiles": False,
             "screenshots_linux": True,
             "screenshots_windows": True,
+            "sslkeylogfile": False,
             "sysmon_linux": False,
             "sysmon_windows": False,
             "target": str(sample_location),

@@ -31,7 +31,7 @@
 # SOFTWARE.
 from base64 import b64decode
 from logging import getLogger
-from re import DOTALL, compile, search
+from re import DOTALL, compile, escape, search
 from typing import Tuple
 
 from cryptography.hazmat.backends import default_backend
@@ -229,7 +229,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         # Insert this RVA into the KEY_BASE pattern to find where the AES key
         # is initialized
         key_hit = search(
-            self._PATTERN_AES_KEY_BASE % int_to_bytes(metadata_method_token),
+            self._PATTERN_AES_KEY_BASE % escape(int_to_bytes(metadata_method_token)),
             self._payload.data,
             DOTALL,
         )
@@ -270,7 +270,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         # stsfld	uint8[] Client.Algorithm.Aes256::Salt
         # ret
         aes_salt_initialization = self._payload.data.find(
-            self._PATTERN_AES_SALT_INIT % salt_rva
+            self._PATTERN_AES_SALT_INIT % escape(salt_rva)
         )
         if aes_salt_initialization == -1:
             raise ConfigParserException("Could not identify AES salt initialization")
@@ -308,3 +308,4 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
 
         logger.debug(f"Found salt value: {salt.hex()}")
         return salt
+

@@ -6,7 +6,7 @@ authors = ["Kevin O'Reilly <kev@capesandbox.com>", "doomedraven <doomedraven@cap
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10, <3.13"
 alembic = "1.9.4"
 gevent = "24.2.1"
 greenlet = "3.0.3"

@@ -6,6 +6,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Machine
 
 cfg = Config()
+HAVE_BOTO3 = False
 if cfg.cuckoo.machinery == "aws":
     try:
         import boto3
@@ -13,7 +14,7 @@ if cfg.cuckoo.machinery == "aws":
         HAVE_BOTO3 = True
     except ImportError:
         sys.exit("Missed boto3 dependency: poetry run pip install boto3")
-        HAVE_BOTO3 = False
+
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config

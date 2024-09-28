@@ -11,6 +11,7 @@ import timeit
 
 from lib.cuckoo.common.config import Config
 
+HAVE_AZURE = False
 cfg = Config()
 if cfg.cuckoo.machinery == "az":
     try:
@@ -23,7 +24,7 @@ if cfg.cuckoo.machinery == "az":
 
         HAVE_AZURE = True
     except ImportError:
-        HAVE_AZURE = False
+
         print("Missing machinery-required libraries.")
         print("poetry run pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
 

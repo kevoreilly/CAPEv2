@@ -8,6 +8,7 @@ import socket
 import threading
 import time
 import timeit
+
 from lib.cuckoo.common.config import Config
 
 cfg = Config()

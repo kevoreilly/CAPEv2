@@ -889,6 +889,9 @@ function install_postgresql() {
     python3 -m pip install pg_activity psycopg2-binary
     sudo systemctl enable postgresql.service
     sudo systemctl start postgresql.service
+
+    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE cape REFRESH COLLATION VERSION;\""
+    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE postgres REFRESH COLLATION VERSION;\""
 }
 
 function dependencies() {

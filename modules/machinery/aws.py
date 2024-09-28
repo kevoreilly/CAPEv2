@@ -3,11 +3,16 @@ import sys
 import time
 
 from lib.cuckoo.core.database import Machine
+from lib.cuckoo.common.config import Config
 
-try:
-    import boto3
-except ImportError:
-    sys.exit("Missed boto3 dependency: poetry run pip3 install boto3")
+cfg = Config()
+if cfg.cuckoo.machinery == "aws":
+    try:
+        import boto3
+        HAVE_BOTO3 = True
+    except ImportError:
+        sys.exit("Missed boto3 dependency: poetry run pip install boto3")
+        HAVE_BOTO3 = False
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
@@ -39,6 +44,9 @@ class AWS(Machinery):
         """
         Looking for all EC2 machines that match aws.conf and load them into EC2_MACHINES dictionary.
         """
+        if not HAVE_BOTO3:
+            return
+
         self.ec2_machines = {}
         self.dynamic_machines_sequence = 0
         self.dynamic_machines_count = 0

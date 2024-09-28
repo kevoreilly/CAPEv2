@@ -8,24 +8,26 @@ import socket
 import threading
 import time
 import timeit
+from lib.cuckoo.common.config import Config
 
-try:
-    # Azure-specific imports
-    # pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network
-    from azure.identity import CertificateCredential, ClientSecretCredential
-    from azure.mgmt.compute import ComputeManagementClient, models
-    from azure.mgmt.network import NetworkManagementClient
-    from msrest.polling import LROPoller
+cfg = Config()
+if cfg.cuckoo.machinery == "az":
+    try:
+        # Azure-specific imports
+        # pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network
+        from azure.identity import CertificateCredential, ClientSecretCredential
+        from azure.mgmt.compute import ComputeManagementClient, models
+        from azure.mgmt.network import NetworkManagementClient
+        from msrest.polling import LROPoller
 
-    HAVE_AZURE = True
-except ImportError:
-    HAVE_AZURE = False
-    print("Missing machinery-required libraries.")
-    print("poetry run python -m pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
+        HAVE_AZURE = True
+    except ImportError:
+        HAVE_AZURE = False
+        print("Missing machinery-required libraries.")
+        print("poetry run pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
 
 # Cuckoo-specific imports
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError, CuckooGuestCriticalTimeout, CuckooMachineError
 from lib.cuckoo.core.database import TASK_PENDING, Machine
@@ -774,7 +776,7 @@ class Azure(Machinery):
                 raise CuckooMachineError(f"{error}:{exc.message if hasattr(exc, 'message') else repr(exc)}")
             else:
                 raise CuckooMachineError(f"{error}:{exc.message if hasattr(exc, 'message') else repr(exc)}")
-        if type(results) == LROPoller:
+        if type(results) is LROPoller:
             # Log the subscription limits
             headers = results._response.headers
             log.debug(

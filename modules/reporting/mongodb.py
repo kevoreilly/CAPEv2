@@ -142,7 +142,7 @@ class MongoDB(Report):
                     del report["behavior"]["processtree"][0]
                     mongo_insert_one("analysis", report)
         except InvalidDocument as e:
-            if str(e).startswith("cannot encode object") or str(e).endswith("must not contain '.'"):
+            if str(e).startswith("cannot encode object") or "must not contain" in str(e):
                 self.loop_saver(report)
                 return
             parent_key, psize = self.debug_dict_size(report)[0]

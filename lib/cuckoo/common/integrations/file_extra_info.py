@@ -753,7 +753,7 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
 
     # this is useless to notify in each iteration
     if not UN_AUTOIT_NOTIF and not path_exists(unautoit_binary):
-        log.warning(f"Missing UnAutoIt binary: {unautoit_binary}. Download from - https://github.com/x0r19x91/UnAutoIt")
+        # log.warning(f"Missing UnAutoIt binary: {unautoit_binary}. Download from - https://github.com/x0r19x91/UnAutoIt")
         UN_AUTOIT_NOTIF = True
         return
 

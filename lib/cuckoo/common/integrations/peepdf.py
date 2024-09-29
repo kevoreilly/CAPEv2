@@ -15,9 +15,7 @@ try:
     HAVE_PEEPDF = True
 except ImportError:
     HAVE_PEEPDF = False
-    print(
-        "OPTIONAL! Missed dependency: pip3 install https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip#egg=peepdf==0.4.2"
-    )
+    print("OPTIONAL! Missed dependency: poetry run pip install peepdf-3")
 
 log = logging.getLogger(__name__)
 

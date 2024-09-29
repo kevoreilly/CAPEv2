@@ -169,8 +169,8 @@ machines_tags = Table(
 tasks_tags = Table(
     "tasks_tags",
     Base.metadata,
-    Column("task_id", Integer, ForeignKey("tasks.id")),
-    Column("tag_id", Integer, ForeignKey("tags.id")),
+    Column("task_id", Integer, ForeignKey("tasks.id", ondelete='cascade')),
+    Column("tag_id", Integer, ForeignKey("tags.id", ondelete='cascade')),
 )
 
 
@@ -268,7 +268,7 @@ class Guest(Base):
     manager = Column(String(255), nullable=False)
     started_on = Column(DateTime(timezone=False), default=datetime.now, nullable=False)
     shutdown_on = Column(DateTime(timezone=False), nullable=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, unique=True)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete='cascade'), nullable=False, unique=True)
 
     def __repr__(self):
         return f"<Guest({self.id}, '{self.name}')>"
@@ -2077,6 +2077,21 @@ class _Database:
         tasks = search.all()
 
         return tasks
+
+    def check_tasks_timeout(self, timeout):
+        """Find tasks which were added_on more than timeout ago and clean
+        """
+        tasks: List[Task] = []
+        ids_to_delete = []
+        if timeout == 0:
+            return
+        search = self.session.query(Task).filter(Task.status == TASK_PENDING).order_by(Task.added_on.desc())
+        tasks = search.all()
+        for task in tasks:
+            if task.added_on + timedelta(seconds = timeout) < datetime.now():
+                ids_to_delete.append(task.id)
+        if len(ids_to_delete) > 0:
+            self.session.query(Task).filter(Task.id.in_(ids_to_delete)).delete(synchronize_session=False)
 
     def minmax_tasks(self):
         """Find tasks minimum and maximum

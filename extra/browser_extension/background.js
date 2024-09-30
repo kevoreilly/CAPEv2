@@ -1,5 +1,28 @@
+let isTORBrowser = false;
 let networkData = [];
+let downloadTORPath = "bext_default.json";
 
+function generateRandomFilename() {
+  const asciiLetters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let filename = 'bext_';
+  for (let i = 0; i < 10; i++) {
+    filename += asciiLetters.charAt(Math.floor(Math.random() * asciiLetters.length));
+  }
+  filename += '.json';
+  return filename;
+}
+
+
+function storeNetworkData() {
+  const blob = new Blob([JSON.stringify(networkData, null, 2)], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+
+  browser.downloads.download({
+    url: url,
+    filename: downloadTORPath,
+    conflictAction: 'overwrite'
+  });
+}
 
 function onRequestEvent(details) {
     if (details.url.includes("/browser_extension")) {
@@ -28,7 +51,11 @@ function onResponseEvent(details) {
       requestEvent.type = details.type;
       requestEvent.ip = details.ip;
       requestEvent.originUrl = details.originUrl;
-      sendEvents();
+      if (isTORBrowser) {
+        storeNetworkData();
+      } else {
+        sendEvents()
+      }
   }
 }
 
@@ -73,4 +100,11 @@ browser.downloads.onCreated.addListener(function(downloadItem) {
 
 browser.runtime.onStartup.addListener(function () {
   networkData = [];
+});
+
+browser.runtime.getBrowserInfo().then((bInfo) => {
+  if (bInfo.vendor === "Tor Project") {
+    isTORBrowser = true;
+    downloadTORPath = generateRandomFilename();
+  }
 });

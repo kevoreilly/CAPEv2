@@ -35,6 +35,11 @@ class Browsermonitor(Auxiliary, Thread):
         while not self.browser_logfile and self.do_run:
             temp_dir_list = os.listdir(temp_dir)
             for directory in temp_dir_list:
+                # TOR Browser saves directly to %temp%
+                if directory.startswith("bext_") and directory.endswith(".json"):
+                    log.debug(f"Found extension logs: {self.browser_logfile}")
+                    self.browser_logfile = os.path.join(temp_dir, directory)
+                    break
                 tmp_directory_path = os.path.join(temp_dir, directory)
                 if not os.path.isdir(tmp_directory_path):
                     continue

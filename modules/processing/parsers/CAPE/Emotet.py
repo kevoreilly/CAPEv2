@@ -776,7 +776,8 @@ def extract_config(filebuf):
                     header = uc.mem_read(stack + 0x400, 8)
                     key_len = int.from_bytes(header[4:8], "little")
                     key = uc.mem_read(stack + 0x400, 2 * key_len + 8)
-                    label = "ECC " + key[0:4].decode()
+                    sub_label = key[0:4].decode()
+                    label = "ECC" + f" {sub_label}" if sub_label != "\x00\x00\x00\x00" else ""
                     if label.startswith("EC"):
                         conf_dict.setdefault(
                             label,

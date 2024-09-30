@@ -80,7 +80,7 @@ class TestSubmissionViews(SimpleTestCase):
 
     def test_package_exclusion(self):
         """Pick a couple of packages to exclude, to test exclusion"""
-        web_conf.package_exclusion.packages = "chromium,ichitaro,Shellcode"
+        web_conf.package_exclusion.packages = "chromium,chromium_ext,ichitaro,Shellcode"
         submission_page = self.client.get("/submit/#file")
         self.assertIsNotNone(submission_page.content)
         self.assertIn("Analysis Package", submission_page.content.decode())

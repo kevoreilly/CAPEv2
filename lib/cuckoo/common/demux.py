@@ -16,7 +16,6 @@ from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
 from lib.cuckoo.common.utils import get_options, sanitize_filename
 
 sfFile = False
-# sf_version = ""
 try:
     # from sflock import __version__ as sf_version
     from sflock import unpack
@@ -28,9 +27,6 @@ try:
 except ImportError:
     print("\n\n[!] Missing dependencies. Run: poetry install\n\n")
     HAS_SFLOCK = False
-
-# if sf_version and int(sf_version.split(".")[-1]) < 42:
-#    print("You are using an old version of sflock! Upgrade: poetry install")
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
@@ -207,7 +203,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) ->
         if unpacked.package in whitelist_extensions:
             return [filename]
         if unpacked.package in blacklist_extensions:
-            return [retlist]
+            return [filename]
         for sf_child in unpacked.children:
             if sf_child.to_dict().get("children"):
                 retlist.extend(_sf_children(ch) for ch in sf_child.children)

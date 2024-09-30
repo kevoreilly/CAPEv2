@@ -3,21 +3,26 @@ import os
 import subprocess
 from urllib.parse import urlparse
 
-try:
-    from azure.core.exceptions import AzureError
-    from azure.identity import ClientSecretCredential
-    from azure.mgmt.network import NetworkManagementClient
-    from azure.mgmt.network.models import PacketCapture, PacketCaptureStorageLocation
-    from azure.mgmt.storage import StorageManagementClient
-    from azure.storage.blob import BlobServiceClient
+from lib.cuckoo.common.config import Config
 
-    HAVE_AZURE = True
-except ImportError:
-    HAVE_AZURE = False
-    print("Missing machinery-required libraries.")
-    print(
-        "poetry run python -m pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network azure-mgmt-storage azure-storage-blob"
-    )
+HAVE_AZURE = False
+cfg = Config()
+if cfg.cuckoo.machinery == "az":
+    try:
+        from azure.core.exceptions import AzureError
+        from azure.identity import ClientSecretCredential
+        from azure.mgmt.network import NetworkManagementClient
+        from azure.mgmt.network.models import PacketCapture, PacketCaptureStorageLocation
+        from azure.mgmt.storage import StorageManagementClient
+        from azure.storage.blob import BlobServiceClient
+
+        HAVE_AZURE = True
+    except ImportError:
+        HAVE_AZURE = False
+        print("Missing machinery-required libraries.")
+        print(
+            "poetry run python -m pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network azure-mgmt-storage azure-storage-blob"
+        )
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config

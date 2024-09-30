@@ -56,18 +56,20 @@ RESULT_UPLOADABLE = (
     b"CAPE",
     b"aux",
     b"aux/amsi",
+    b"browser",
     b"curtain",
     b"debugger",
-    b"tlsdump",
+    b"evtx",
     b"files",
+    b"htmldump",
     b"memory",
     b"procdump",
     b"shots",
     b"sysmon",
-    b"evtx",
-    b"htmldump",
+    b"tlsdump",
     b"tracee",
 )
+
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 
@@ -278,8 +280,6 @@ class FileUpload(ProtocolHandler):
                     )
                 else:
                     log.debug("Task #%s: Failed to uploaded file %s due to '%s'", self.task_id, dump_path.decode(), e)
-            else:
-                log.debug("Task #%s: Uploaded file %s of length: %s", self.task_id, dump_path.decode(), self.fd.tell())
 
 
 class LogHandler(ProtocolHandler):

@@ -114,9 +114,16 @@ monitor_rate = 300
 # normal instances
 spot_instances = false
 
+quota_name = MyQuota
+# This value is used to set the number of machines that will be reserved outside the scale set (deducted from the quota). 
+quota_machine_exclusion = 5
+
 # This boolean value is used to indicate if we want to wait for each VM to have its agent running before we
 # start pulling tasks off of the stack
 wait_for_agent_before_starting = true
+
+# This integer value is used to determine how many times a VMSS that does not initialize properly can retry
+init_retries = 2
 
 # These are the value(s) of the DNS server(s) that you want the scale sets to use. (E.g. 1.1.1.1,8.8.8.8)
 # NOTE: NO SPACES

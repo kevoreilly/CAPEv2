@@ -465,10 +465,11 @@ def index(request, task_id=None, resubmit_hash=None):
                                 paths.append(path)
 
                 if not paths:
-                    # Self Extracted support folder
-                    path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "selfextracted", hash)
-                    if path_exists(path):
-                        paths.append(path)
+                    for folder_name in ("selfextracted", "files"):
+                        # Self Extracted support folder
+                        path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), folder_name, hash)
+                        if path_exists(path):
+                            paths.append(path)
 
                 if not paths:
                     details["errors"].append({hash: "File not found on hdd for resubmission"})

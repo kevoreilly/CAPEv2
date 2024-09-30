@@ -3,36 +3,35 @@
 # Modified by the Canadian Centre for Cyber Security to support Azure.
 
 import logging
+import re
 import socket
 import threading
 import time
 import timeit
 
-try:
-    # Azure-specific imports
-    # pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network
-    from azure.identity import CertificateCredential, ClientSecretCredential
-    from azure.mgmt.compute import ComputeManagementClient, models
-    from azure.mgmt.network import NetworkManagementClient
-    from msrest.polling import LROPoller
+from lib.cuckoo.common.config import Config
 
-    HAVE_AZURE = True
-except ImportError:
-    HAVE_AZURE = False
-    print("Missing machinery-required libraries.")
-    print("poetry run python -m pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
+HAVE_AZURE = False
+cfg = Config()
+if cfg.cuckoo.machinery == "az":
+    try:
+        # Azure-specific imports
+        # pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network
+        from azure.identity import CertificateCredential, ClientSecretCredential
+        from azure.mgmt.compute import ComputeManagementClient, models
+        from azure.mgmt.network import NetworkManagementClient
+        from msrest.polling import LROPoller
+
+        HAVE_AZURE = True
+    except ImportError:
+
+        print("Missing machinery-required libraries.")
+        print("poetry run pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
 
 # Cuckoo-specific imports
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
-from lib.cuckoo.common.exceptions import (
-    CuckooCriticalError,
-    CuckooDependencyError,
-    CuckooGuestCriticalTimeout,
-    CuckooMachineError,
-    CuckooOperationalError,
-)
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError, CuckooGuestCriticalTimeout, CuckooMachineError
 from lib.cuckoo.core.database import TASK_PENDING, Machine
 
 # Only log INFO or higher from imported python packages
@@ -49,7 +48,7 @@ logging.getLogger("msrest.async_paging").setLevel(logging.INFO)
 log = logging.getLogger(__name__)
 
 # Timeout used for calls that shouldn't take longer than 5 minutes but somehow do
-AZURE_TIMEOUT = 120
+AZURE_TIMEOUT = 300
 
 # Global variable which will maintain details about each machine pool
 machine_pools = {}
@@ -70,6 +69,10 @@ is_platform_scaling = {}
 # This is hard cap of 4 given the maximum preemption chain length of 4
 MAX_CONCURRENT_VMSS_OPERATIONS = 4
 
+# These global lists will be used for maintaining lists of machines that failed during reimaging
+vms_absent_from_vmss = []
+vms_timed_out_being_reimaged = []
+
 # These global lists will be used for maintaining lists of ongoing operations on specific machines
 vms_currently_being_reimaged = []
 vms_currently_being_deleted = []
@@ -82,9 +85,12 @@ delete_vm_list = []
 reimage_lock = threading.Lock()
 delete_lock = threading.Lock()
 vms_currently_being_deleted_lock = threading.Lock()
+current_operations_lock = threading.Lock()
 
 # This is the number of operations that are taking place at the same time
 current_vmss_operations = 0
+
+IPV4_REGEX = r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\/([0-9]|1[0-9]|2[0-9]|3[0-2])$"
 
 
 class Azure(Machinery):
@@ -109,19 +115,28 @@ class Azure(Machinery):
         @param options: machine manager options dict.
         """
         self.options = options
-
-    def _initialize(self):
-        """
-        Overloading abstracts.py:_initialize()
-        Read configuration.
-        @param module_name: module name
-        @raise CuckooDependencyError: if there is a problem with the dependencies call
-        """
         # Using "scale_sets" here instead of "machines" to avoid KeyError
         mmanager_opts = self.options.get(self.module_name)
         if not isinstance(mmanager_opts["scale_sets"], list):
             mmanager_opts["scale_sets"] = str(mmanager_opts["scale_sets"]).strip().split(",")
 
+    def initialize(self):
+        """
+        Overloading abstracts.py:_initialize()
+        """
+        # Load.
+        self._initialize()
+
+        # Run initialization checks.
+        self._initialize_check()
+
+    def _initialize(self):
+        """
+        Overloading abstracts.py:_initialize()
+        Read configuration.
+        @raise CuckooDependencyError: if there is a problem with the dependencies call
+        """
+        mmanager_opts = self.options.get(self.module_name)
         # Replace a list of IDs with dictionary representations
         scale_sets = mmanager_opts.pop("scale_sets")
         mmanager_opts["scale_sets"] = {}
@@ -149,7 +164,7 @@ class Azure(Machinery):
                 # Insert the scale_set_opts into the module.scale_sets attribute
                 mmanager_opts["scale_sets"][scale_set_id] = scale_set_opts
 
-            except (AttributeError, CuckooOperationalError) as e:
+            except (AttributeError, CuckooCriticalError) as e:
                 log.warning(f"Configuration details about scale set {scale_set_id.strip()} are missing: {e}")
                 continue
 
@@ -167,18 +182,32 @@ class Azure(Machinery):
 
         # We will be using this as a source of truth for the VMSS configs
         self.required_vmsss = {
-            vmss_name: {"exists": False, "image": None, "platform": None, "tag": None, "initial_pool_size": None}
+            vmss_name: {
+                "exists": False,
+                "image": None,
+                "platform": None,
+                "tag": None,
+                "initial_pool_size": None,
+                "retries": self.options.az.init_retries,
+            }
             for vmss_name in self.options.az.scale_sets
         }
 
         # Starting the thread that sets API clients periodically
         self._thr_refresh_clients()
-
-        # Starting the thread that scales the machine pools periodically
-        self._thr_machine_pool_monitor()
+        subnets = self.network_client.subnets.list(self.options.az.vnet_resource_group, self.options.az.vnet)
+        self.subnet_limit = 0
+        for subnet in subnets:
+            if subnet.name == self.options.az.subnet:
+                match = re.match(IPV4_REGEX, subnet.address_prefix)
+                if match and len(match.regs) == 5:
+                    self.subnet_limit = 2 ** (32 - int(match.group(4))) - (2 + 1 + 10)
 
         # Initialize the VMSSs that we will be using and not using
         self._set_vmss_stage()
+
+        # Starting the thread that scales the machine pools periodically
+        self._thr_machine_pool_monitor()
 
         # Set the flag that indicates that the system is not initializing
         self.initializing = False
@@ -188,7 +217,6 @@ class Azure(Machinery):
         Used to instantiate the Azure ClientSecretCredential object.
         @return: an Azure ClientSecretCredential object
         """
-
         credentials = None
         if self.options.az.secret and self.options.az.secret != "<secret>":
             # Instantiates the ClientSecretCredential object using
@@ -233,25 +261,21 @@ class Azure(Machinery):
 
     def _thr_machine_pool_monitor(self):
         """
-        A thread on a 5 minute timer that scales the machine pools to
-        appropriate levels.
+        A thread on a timer that scales the machine pools to appropriate levels.
         """
         # Only do it post-initialization
-        if self.initializing:
-            pass
-        else:
+        if not self.initializing:
             log.debug("Monitoring the machine pools...")
             for _, vals in self.required_vmsss.items():
                 threading.Thread(target=self._thr_scale_machine_pool, args=(vals["tag"],)).start()
 
-        # Check the machine pools every 5 minutes
+        # Check the machine pools. Default set in config is every 5 minutes.
         threading.Timer(self.options.az.monitor_rate, self._thr_machine_pool_monitor).start()
 
     def _set_vmss_stage(self):
         """
         Ready. Set. Action! Set the stage for the VMSSs
         """
-        global machine_pools, is_platform_scaling, current_vmss_operations, reimage_vm_list, delete_vm_list
 
         # Now assign the gallery image to the VMSS
         for scale_set_id, scale_set_values in self.options.az.scale_sets.items():
@@ -282,6 +306,21 @@ class Azure(Machinery):
             elif required_vmss_values["initial_pool_size"] is None:
                 raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an initial pool size.")
 
+        self._process_pre_existing_vmsss()
+        self._check_cpu_cores()
+        self._update_or_create_vmsss(self.required_vmsss)
+        self._check_locked_machines()
+        self._create_batch_threads()
+
+    def _process_pre_existing_vmsss(self):
+        """
+        Delete a VMSS if it does NOT have:
+            - the expected tag AND has one of the required names for a VMSS we plan to create
+            - one of the required names AND has the expected tag AND az.config's multiple_capes_in_sandbox_rg is 'false'
+        Update a VMSS if it:
+            - does not have the required image reference
+            - has a capacity (current size) different from its required 'initial_pool_size'
+        """
         # Get all VMSSs in Resource Group
         existing_vmsss = Azure._azure_api_call(
             self.options.az.sandbox_resource_group,
@@ -295,7 +334,7 @@ class Azure(Machinery):
             # Cuckoo (AUTO_SCALE_CAPE key-value pair), ignore
             if not vmss.tags or not vmss.tags.get(Azure.AUTO_SCALE_CAPE_KEY) == Azure.AUTO_SCALE_CAPE_VALUE:
 
-                # Unless! They have one of the required names of the VMSSs that we are going to create
+                # Ignoring... unless! They have one of the required names of the VMSSs that we are going to create
                 if vmss.name in self.required_vmsss.keys():
                     async_delete_vmss = Azure._azure_api_call(
                         self.options.az.sandbox_resource_group,
@@ -355,22 +394,13 @@ class Azure(Machinery):
                     operation=self.compute_client.virtual_machine_scale_sets.begin_delete,
                 )
 
-        try:
-            self.subnet_id = Azure._azure_api_call(
-                self.options.az.vnet_resource_group,
-                self.options.az.vnet,
-                self.options.az.subnet,
-                operation=self.network_client.subnets.get,
-            ).id  # note the id attribute here
-        except CuckooMachineError:
-            raise CuckooCriticalError(
-                f"Subnet '{self.options.az.subnet}' does not exist in Virtual Network '{self.options.az.vnet}'"
-            )
-
+    def _check_cpu_cores(self):
+        """
+        Process and store value for cpu cores.
+        """
         # Initialize the platform scaling state monitor
-        is_platform_scaling = {Azure.WINDOWS_PLATFORM: False, Azure.LINUX_PLATFORM: False}
+        is_platform_scaling.update({Azure.WINDOWS_PLATFORM: False, Azure.LINUX_PLATFORM: False})
 
-        # Let's get the number of CPUs associated with the SKU (instance_type)
         # If we want to programmatically determine the number of cores for the sku
         if self.options.az.find_number_of_cores_for_sku or self.options.az.instance_type_cores == 0:
             resource_skus = Azure._azure_api_call(
@@ -397,13 +427,17 @@ class Azure(Machinery):
         else:
             self.instance_type_cpus = self.options.az.instance_type_cores
 
-        # Create required VMSSs that don't exist yet
+    def _update_or_create_vmsss(self, vmsss_dict):
+        """
+        Reimage or scale up existing VMSSs. Create non-existant required VMSSs.
+        """
+
         vmss_creation_threads = []
         vmss_reimage_threads = []
-        for vmss, vals in self.required_vmsss.items():
+        for vmss, vals in vmsss_dict.items():
             if vals["exists"] and not self.options.az.just_start:
                 if machine_pools[vmss]["size"] == 0:
-                    self._thr_scale_machine_pool(self.options.az.scale_sets[vmss].pool_tag, True if vals["platform"] else False),
+                    self._thr_scale_machine_pool(self.options.az.scale_sets[vmss].pool_tag, True if vals["platform"] else False)
                 else:
                     # Reimage VMSS!
                     thr = threading.Thread(
@@ -422,6 +456,21 @@ class Azure(Machinery):
         for thr in vmss_reimage_threads + vmss_creation_threads:
             thr.join()
 
+    def _check_locked_machines(self):
+        """
+        In the case of CAPE unexpectedly restarting, release any locked machines.
+        They will have been reimaged and their tasks rescheduled before reaching this code.
+        """
+        running = self.running()
+        if len(running) > 0:
+            log.info("%d machines found locked on initialize, unlocking.", len(running))
+            for machine in running:
+                self.db.unlock_machine(machine)
+
+    def _create_batch_threads(self):
+        """
+        Create batch reimage and delete threads.
+        """
         # Initialize the batch reimage threads. We want at most 4 batch reimaging threads
         # so that if no VMSS scaling or batch deleting is taking place (aka we are receiving constant throughput of
         # tasks and have the appropriate number of VMs created) then we'll perform batch reimaging at an optimal rate.
@@ -440,18 +489,18 @@ class Azure(Machinery):
         for worker in workers:
             worker.start()
 
-    def start(self, _):
-        # NOTE: Machines are always started. ALWAYS
-        pass
+    def start(self, label=None):
+        # Something bad happened, we are starting a task on a machine that needs to be deleted
+        with vms_currently_being_deleted_lock:
+            if label in vms_currently_being_deleted:
+                raise CuckooMachineError(f"Attempting to start a task with machine {label} while it is scheduled for deletion.")
 
-    def stop(self, label):
+    def stop(self, label=None):
         """
-        If the VMSS is in the "scaling-down" state, delete machine,
-        otherwise reimage it.
+        If the VMSS is NOT in the "scaling-down" state, reimage it.
         @param label: virtual machine label
         @return: End method call
         """
-        global reimage_vm_list, delete_vm_list, vms_currently_being_deleted
         log.debug(f"Stopping machine '{label}'")
         # Parse the tag and instance id out to confirm which VMSS to modify
         vmss_name, instance_id = label.split("_")
@@ -470,13 +519,25 @@ class Azure(Machinery):
                     label_in_reimage_vm_list = label in [f"{vm['vmss']}_{vm['id']}" for vm in reimage_vm_list]
 
     def release(self, machine: Machine):
+        """
+        Delete machine if its VMSS is in the "scaling-down" state, it was found to be absent from its VMSS during
+        reimaging, or reimaging timed out.
+        Otherwise, release the successfully reimaged machine.
+        @param label: machine label.
+        """
         vmss_name = machine.label.split("_")[0]
-        if machine_pools[vmss_name]["is_scaling_down"]:
+        if machine.label in vms_absent_from_vmss:
+            self.delete_machine(machine.label, delete_from_vmss=False)
+            vms_absent_from_vmss.remove(machine.label)
+        elif machine.label in vms_timed_out_being_reimaged:
+            self.delete_machine(machine.label)
+            vms_timed_out_being_reimaged.remove(machine.label)
+        elif machine_pools[vmss_name]["is_scaling_down"]:
             self.delete_machine(machine.label)
         else:
             _ = super(Azure, self).release(machine)
 
-    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=[]):
+    def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None):
         """
         Overloading abstracts.py:availables() to utilize the auto-scale option.
         """
@@ -580,9 +641,9 @@ class Azure(Machinery):
                     resultserver_port=self.options.az.resultserver_port,
                     reserved=False,
                 )
-                # When we aren't initializing the system, the machine will immediately become available in DB
-                # When we are initializing, we're going to wait for the machine to be have the Cuckoo agent all set up
-                if self.initializing and self.options.az.wait_for_agent_before_starting:
+                # We always wait for Cuckoo agent to finish setting up if 'wait_for_agent_before_starting' is true or if we are initializing.
+                # Else, the machine should become immediately available in DB.
+                if self.initializing or self.options.az.wait_for_agent_before_starting:
                     thr = threading.Thread(
                         target=Azure._thr_wait_for_ready_machine,
                         args=(
@@ -593,7 +654,7 @@ class Azure(Machinery):
                     ready_vmss_vm_threads[vmss_vm.name] = thr
                     thr.start()
 
-            if self.initializing:
+            if ready_vmss_vm_threads:
                 for vm, thr in ready_vmss_vm_threads.items():
                     try:
                         thr.join()
@@ -603,6 +664,21 @@ class Azure(Machinery):
                         raise
         except Exception as e:
             log.error(repr(e), exc_info=True)
+
+            # If no machines on any VMSSs are in the db when we leave this method, CAPE will crash.
+            if not self.machines() and self.required_vmsss[vmss_name]["retries"] > 0:
+                log.warning(f"No available VMs after initializing {vmss_name}. Attempting to reinitialize VMSS.")
+                self.required_vmsss[vmss_name]["retries"] -= 1
+                start_time = timeit.default_timer()
+
+                while (timeit.default_timer() - start_time) < 120:
+                    with vms_currently_being_deleted_lock:
+                        if any(failed_vm in vms_currently_being_deleted for failed_vm in ready_vmss_vm_threads):
+                            # VMs not deleted from VMSS yet.
+                            continue
+                    self._update_or_create_vmsss(vmsss_dict={vmss_name: self.required_vmsss[vmss_name]})
+                    return
+                log.debug(f"{vmss_name} initialize retry failed. Timed out waiting for VMs to be deleted.")
 
     def _delete_machines_from_db_if_missing(self, vmss_name):
         """
@@ -629,16 +705,18 @@ class Azure(Machinery):
         """
         Overloading abstracts.py:delete_machine()
         """
-        global vms_currently_being_deleted
 
         super(Azure, self).delete_machine(label)
 
         if delete_from_vmss:
+            # Only add vm to the lists if it isn't there already
             vmss_name, instance_id = label.split("_")
             with vms_currently_being_deleted_lock:
-                vms_currently_being_deleted.append(label)
+                if label not in vms_currently_being_deleted:
+                    vms_currently_being_deleted.append(label)
             with delete_lock:
-                delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
+                if next((vm for vm in delete_vm_list if vm["id"] == instance_id), None) is None:
+                    delete_vm_list.append({"vmss": vmss_name, "id": instance_id, "time_added": time.time()})
 
     @staticmethod
     def _thr_wait_for_ready_machine(machine_name, machine_ip):
@@ -660,13 +738,12 @@ class Azure(Machinery):
                 log.debug(f"{machine_name}: Initializing...")
             except socket.error:
                 log.debug(f"{machine_name}: Initializing...")
-            time.sleep(10)
-
-            if timeit.default_timer() - start >= timeout:
+            if (timeit.default_timer() - start) >= timeout:
                 # We didn't do it :(
                 raise CuckooGuestCriticalTimeout(
-                    f"Machine {machine_name}: the guest initialization hit the critical " "timeout, analysis aborted."
+                    f"Machine {machine_name}: the guest initialization hit the critical timeout, analysis aborted."
                 )
+            time.sleep(10)
         log.debug(f"Machine {machine_name} was created and available in {round(timeit.default_timer() - start)}s")
 
     @staticmethod
@@ -701,7 +778,7 @@ class Azure(Machinery):
                 raise CuckooMachineError(f"{error}:{exc.message if hasattr(exc, 'message') else repr(exc)}")
             else:
                 raise CuckooMachineError(f"{error}:{exc.message if hasattr(exc, 'message') else repr(exc)}")
-        if type(results) == LROPoller:
+        if type(results) is LROPoller:
             # Log the subscription limits
             headers = results._response.headers
             log.debug(
@@ -717,7 +794,18 @@ class Azure(Machinery):
         @param vmss_image_os: The platform of the image
         @param vmss_tag: the tag used that represents the OS image
         """
-        global machine_pools, current_vmss_operations
+
+        try:
+            self.subnet_id = Azure._azure_api_call(
+                self.options.az.vnet_resource_group,
+                self.options.az.vnet,
+                self.options.az.subnet,
+                operation=self.network_client.subnets.get,
+            ).id  # note the id attribute here
+        except CuckooMachineError:
+            raise CuckooCriticalError(
+                f"Subnet '{self.options.az.subnet}' does not exist in Virtual Network '{self.options.az.vnet}'"
+            )
 
         vmss_managed_disk = models.VirtualMachineScaleSetManagedDiskParameters(
             storage_account_type=self.options.az.storage_account_type
@@ -764,6 +852,7 @@ class Azure(Machinery):
             vmss_vm_profile = models.VirtualMachineScaleSetVMProfile(
                 storage_profile=vmss_storage_profile,
                 network_profile=vmss_network_profile,
+                priority=models.VirtualMachinePriorityTypes.REGULAR,
             )
         vmss = models.VirtualMachineScaleSet(
             location=self.options.az.region_name,
@@ -796,6 +885,7 @@ class Azure(Machinery):
             "is_scaling_down": False,
             "wait": False,
         }
+        self.required_vmsss[vmss_name]["exists"] = True
         with self.db.session.begin():
             self._add_machines_to_db(vmss_name)
 
@@ -841,7 +931,7 @@ class Azure(Machinery):
             return self._scale_machine_pool(tag, per_platform=per_platform)
 
     def _scale_machine_pool(self, tag, per_platform=False):
-        global machine_pools, is_platform_scaling, current_vmss_operations
+        global current_vmss_operations
 
         platform = None
         if per_platform and Azure.WINDOWS_TAG_PREFIX in tag:
@@ -893,6 +983,10 @@ class Azure(Machinery):
             elif number_of_relevant_machines_required > self.options.az.scale_set_limit:
                 number_of_relevant_machines_required = self.options.az.scale_set_limit
 
+            if number_of_relevant_machines_required > self.subnet_limit:
+                number_of_relevant_machines_required = self.subnet_limit
+                log.debug("Scaling limited by the size of the subnet: %s" % self.subnet_limit)
+
             number_of_machines = len(self.db.list_machines())
             projected_total_machines = number_of_machines - number_of_relevant_machines + number_of_relevant_machines_required
 
@@ -908,8 +1002,7 @@ class Azure(Machinery):
             if self.options.az.spot_instances:
                 usage_to_look_for = "lowPriorityCores"
             else:
-                # TODO: If not using spot instances, somehow figure out the usages key to determine a scaling limit for
-                pass
+                usage_to_look_for = self.options.az.quota_name if self.options.az.quota_name else None
 
             if usage_to_look_for:
                 usage = next((item for item in usages if item.name.value == usage_to_look_for), None)
@@ -918,8 +1011,11 @@ class Azure(Machinery):
                     number_of_new_cpus_required = self.instance_type_cpus * (
                         number_of_relevant_machines_required - number_of_machines
                     )
-                    # Leaving at least five spaces in the usage quota for a spot VM, let's not push it!
-                    number_of_new_cpus_available = int(usage.limit) - usage.current_value - int(self.instance_type_cpus * 5)
+                    number_of_new_cpus_available = (
+                        int(usage.limit)
+                        - usage.current_value
+                        - int(self.instance_type_cpus * int(self.options.az.quota_machine_exclusion))
+                    )
                     if number_of_new_cpus_available < 0:
                         number_of_relevant_machines_required = machine_pools[vmss_name]["size"]
                     elif number_of_new_cpus_required > number_of_new_cpus_available:
@@ -982,7 +1078,7 @@ class Azure(Machinery):
                         )
 
                         # We don't want to be stuck in this for longer than the timeout specified
-                        if timeit.default_timer() - start_time > AZURE_TIMEOUT:
+                        if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
                             log.debug(f"Breaking out of the while loop within the scale down section for {vmss_name}.")
                             break
                         # Get the updated number of relevant machines required
@@ -1026,19 +1122,20 @@ class Azure(Machinery):
             start_time = timeit.default_timer()
 
             try:
-                Azure._wait_for_concurrent_operations_to_complete()
-                current_vmss_operations += 1
-                async_update_vmss = Azure._azure_api_call(
-                    self.options.az.sandbox_resource_group,
-                    vmss_name,
-                    vmss,
-                    polling_interval=1,
-                    operation=self.compute_client.virtual_machine_scale_sets.begin_update,
-                )
-                _ = self._handle_poller_result(async_update_vmss)
-                current_vmss_operations -= 1
+                if Azure._wait_for_concurrent_operations_to_complete():
+                    async_update_vmss = Azure._azure_api_call(
+                        self.options.az.sandbox_resource_group,
+                        vmss_name,
+                        vmss,
+                        polling_interval=1,
+                        operation=self.compute_client.virtual_machine_scale_sets.begin_update,
+                    )
+                    _ = self._handle_poller_result(async_update_vmss)
+                    with current_operations_lock:
+                        current_vmss_operations -= 1
             except CuckooMachineError as e:
-                current_vmss_operations -= 1
+                with current_operations_lock:
+                    current_vmss_operations -= 1
                 log.warning(repr(e))
                 machine_pools[vmss_name]["wait"] = False
                 machine_pools[vmss_name]["is_scaling"] = False
@@ -1125,15 +1222,21 @@ class Azure(Machinery):
         return [machine for machine in self.db.list_machines([tag])]
 
     @staticmethod
-    def _wait_for_concurrent_operations_to_complete():
+    def _wait_for_concurrent_operations_to_complete(timeout=AZURE_TIMEOUT):
         """
         Waits until concurrent operations have reached an acceptable level to continue (less than 4)
         """
+        global current_vmss_operations
+
         start_time = timeit.default_timer()
-        while current_vmss_operations == MAX_CONCURRENT_VMSS_OPERATIONS:
-            if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
+        while True:
+            with current_operations_lock:
+                if current_vmss_operations < MAX_CONCURRENT_VMSS_OPERATIONS:
+                    current_vmss_operations += 1
+                    return True
+            if timeit.default_timer() - start_time > timeout:
                 log.debug("The timeout has been exceeded for the current concurrent VMSS operations to complete. Unleashing!")
-                break
+                return False
             else:
                 time.sleep(1)
 
@@ -1141,15 +1244,16 @@ class Azure(Machinery):
         """
         Provides the logic for a list reader thread which performs batch reimaging
         """
-        global current_vmss_operations, vms_currently_being_reimaged, reimage_vm_list, delete_vm_list
+        global current_vmss_operations
 
         while True:
             try:
                 time.sleep(5)
 
                 # If no more current vmss operations can be added, then sleep on it!
-                if current_vmss_operations == MAX_CONCURRENT_VMSS_OPERATIONS:
-                    continue
+                with current_operations_lock:
+                    if current_vmss_operations >= MAX_CONCURRENT_VMSS_OPERATIONS:
+                        continue
 
                 with reimage_lock:
                     # If there are no jobs in the reimage_vm_list, then sleep on it!
@@ -1192,16 +1296,15 @@ class Azure(Machinery):
                 # The use of sets here is more of a safety for the reimage_all
                 instance_ids = list(set([vm["id"] for vm in vms_to_reimage_from_same_vmss]))
                 try:
-                    Azure._wait_for_concurrent_operations_to_complete()
-                    start_time = timeit.default_timer()
-                    current_vmss_operations += 1
-                    async_reimage_some_machines = Azure._azure_api_call(
-                        self.options.az.sandbox_resource_group,
-                        vmss_to_reimage,
-                        models.VirtualMachineScaleSetVMInstanceIDs(instance_ids=instance_ids),
-                        polling_interval=1,
-                        operation=self.compute_client.virtual_machine_scale_sets.begin_reimage_all,
-                    )
+                    if Azure._wait_for_concurrent_operations_to_complete():
+                        start_time = timeit.default_timer()
+                        async_reimage_some_machines = Azure._azure_api_call(
+                            self.options.az.sandbox_resource_group,
+                            vmss_to_reimage,
+                            models.VirtualMachineScaleSetVMInstanceIDs(instance_ids=instance_ids),
+                            polling_interval=1,
+                            operation=self.compute_client.virtual_machine_scale_sets.begin_reimage_all,
+                        )
                 except Exception as exc:
                     log.error(repr(exc), exc_info=True)
                     # If InvalidParameter: 'The provided instanceId x is not an active Virtual Machine Scale Set VM instanceId.
@@ -1214,7 +1317,8 @@ class Azure(Machinery):
                         instance_ids_that_should_not_be_reimaged_again = {
                             substring for substring in repr(exc).split() if substring.isdigit()
                         }
-                    current_vmss_operations -= 1
+                    with current_operations_lock:
+                        current_vmss_operations -= 1
 
                     for instance_id in instance_ids_that_should_not_be_reimaged_again:
                         if "InvalidParameter" in repr(exc):
@@ -1227,8 +1331,7 @@ class Azure(Machinery):
                                 vms_currently_being_deleted.append(f"{vmss_to_reimage}_{instance_id}")
                             with delete_lock:
                                 delete_vm_list.append({"vmss": vmss_to_reimage, "id": instance_id, "time_added": time.time()})
-
-                        self.delete_machine(f"{vmss_to_reimage}_{instance_id}", delete_from_vmss=False)
+                        vms_absent_from_vmss.append(f"{vmss_to_reimage}_{instance_id}")
                         vms_currently_being_reimaged.remove(f"{vmss_to_reimage}_{instance_id}")
                         instance_ids.remove(instance_id)
 
@@ -1238,15 +1341,18 @@ class Azure(Machinery):
                             vms_currently_being_reimaged.remove(f"{vmss_to_reimage}_{instance_id}")
                         continue
 
+                reimaged = True
                 # We wait because we want the machine to be fresh before another task is assigned to it
                 while not async_reimage_some_machines.done():
                     if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
-                        log.debug(
+                        reimaged = False
+
+                        log.warning(
                             f"Reimaging machines {instance_ids} in {vmss_to_reimage} took too long, deleting them from the DB and the VMSS."
                         )
-                        # That sucks, now we have to delete each one
+                        # That sucks, now we have mark each one for deletion
                         for instance_id in instance_ids:
-                            self.delete_machine(f"{vmss_to_reimage}_{instance_id}")
+                            vms_timed_out_being_reimaged.append(f"{vmss_to_reimage}_{instance_id}")
                         break
                     time.sleep(2)
 
@@ -1255,22 +1361,25 @@ class Azure(Machinery):
                     vm_id = f"{vm['vmss']}_{vm['id']}"
                     if vm_id in vms_currently_being_reimaged:
                         vms_currently_being_reimaged.remove(vm_id)
-
-                current_vmss_operations -= 1
+                with current_operations_lock:
+                    current_vmss_operations -= 1
                 timediff = timeit.default_timer() - start_time
-                log.debug(f"Reimaging instances {instance_ids} in {vmss_to_reimage} took {round(timediff)}s")
+                log.debug(
+                    f"{'S' if reimaged else 'Uns'}uccessfully reimaging instances {instance_ids} in {vmss_to_reimage} took {round(timediff)}s"
+                )
             except Exception as e:
                 log.error(f"Exception occurred in the reimage thread: {e}. Trying again...")
 
     def _thr_delete_list_reader(self):
-        global current_vmss_operations, delete_vm_list, vms_currently_being_deleted
+        global current_vmss_operations
 
         while True:
             try:
                 time.sleep(5)
 
-                if current_vmss_operations == MAX_CONCURRENT_VMSS_OPERATIONS:
-                    continue
+                with current_operations_lock:
+                    if current_vmss_operations >= MAX_CONCURRENT_VMSS_OPERATIONS:
+                        continue
 
                 with delete_lock:
                     if not delete_vm_list:
@@ -1284,46 +1393,55 @@ class Azure(Machinery):
                     for vmss_name, count in vmss_vm_delete_counts.items():
                         if count > max:
                             max = count
-                            vmss_to_delete = vmss_name
-                    vms_to_delete_from_same_vmss = [vm for vm in delete_vm_list if vm["vmss"] == vmss_to_delete]
+                            vmss_to_delete_from = vmss_name
+                    vms_to_delete_from_same_vmss = [vm for vm in delete_vm_list if vm["vmss"] == vmss_to_delete_from]
 
                     for vm in vms_to_delete_from_same_vmss:
                         delete_vm_list.remove(vm)
 
                 instance_ids = list(set([vm["id"] for vm in vms_to_delete_from_same_vmss]))
                 try:
-                    Azure._wait_for_concurrent_operations_to_complete()
-                    start_time = timeit.default_timer()
-                    current_vmss_operations += 1
-                    async_delete_some_machines = Azure._azure_api_call(
-                        self.options.az.sandbox_resource_group,
-                        vmss_to_delete,
-                        models.VirtualMachineScaleSetVMInstanceIDs(instance_ids=instance_ids),
-                        polling_interval=1,
-                        operation=self.compute_client.virtual_machine_scale_sets.begin_delete_instances,
-                    )
+                    if Azure._wait_for_concurrent_operations_to_complete():
+                        start_time = timeit.default_timer()
+                        async_delete_some_machines = Azure._azure_api_call(
+                            self.options.az.sandbox_resource_group,
+                            vmss_to_delete_from,
+                            models.VirtualMachineScaleSetVMInstanceIDs(instance_ids=instance_ids),
+                            polling_interval=1,
+                            operation=self.compute_client.virtual_machine_scale_sets.begin_delete_instances,
+                        )
                 except Exception as exc:
                     log.error(repr(exc), exc_info=True)
-                    current_vmss_operations -= 1
+                    with current_operations_lock:
+                        current_vmss_operations -= 1
                     with vms_currently_being_deleted_lock:
                         for instance_id in instance_ids:
-                            vms_currently_being_deleted.remove(f"{vmss_to_delete}_{instance_id}")
+                            vms_currently_being_deleted.remove(f"{vmss_to_delete_from}_{instance_id}")
                     continue
 
                 # We wait because we want the machine to be fresh before another task is assigned to it
                 while not async_delete_some_machines.done():
+                    deleted = True
                     if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
-                        log.debug(f"Deleting machines {instance_ids} in {vmss_to_delete} took too long.")
+                        log.warning(f"Deleting machines {instance_ids} in {vmss_to_delete_from} took too long.")
+                        deleted = False
                         break
                     time.sleep(2)
 
+                if self.initializing and deleted:
+                    # All machines should have been removed from the db and the VMSS at this point.
+                    # To force the VMSS to scale to initial_pool_size, set the size to zero here.
+                    log.debug(f"Setting size to 0 for VMSS {vmss_to_delete_from} after successful deletion")
+                    machine_pools[vmss_to_delete_from]["size"] = 0
+
                 with vms_currently_being_deleted_lock:
                     for instance_id in instance_ids:
-                        vms_currently_being_deleted.remove(f"{vmss_to_delete}_{instance_id}")
+                        vms_currently_being_deleted.remove(f"{vmss_to_delete_from}_{instance_id}")
 
-                current_vmss_operations -= 1
+                with current_operations_lock:
+                    current_vmss_operations -= 1
                 log.debug(
-                    f"Deleting instances {instance_ids} in {vmss_to_delete} took {round(timeit.default_timer() - start_time)}s"
+                    f"{'S' if deleted else 'Uns'}uccessfully deleting instances {instance_ids} in {vmss_to_delete_from} took {round(timeit.default_timer() - start_time)}s"
                 )
             except Exception as e:
                 log.error(f"Exception occurred in the delete thread: {e}. Trying again...")

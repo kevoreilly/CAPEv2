@@ -503,8 +503,9 @@ class Analyzer:
                 mod_name = name.split(".")[-1]
                 if mod_name in windows_modules:
                     mod_name += "_windows"
-                # if hasattr(self.config, mod_name) and getattr(self.config, mod_name, False):
-                #    log.debug('Imported auxiliary module "%s"', name)
+                if hasattr(self.config, mod_name) and getattr(self.config, mod_name, False):
+                    __import__(name, globals(), locals(), ["dummy"])
+                    log.debug('Imported auxiliary module "%s"', name)
             except ImportError as e:
                 log.warning('Unable to import the auxiliary module "%s": %s', name, e)
 

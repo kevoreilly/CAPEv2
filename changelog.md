@@ -1,3 +1,6 @@
+### [04.10.2024]
+* Monitor update: Add GetClassObject hook to handle UAC bypass technique using CMSTPLUA COM object
+
 ### [01.10.2024]
 * Monitor update: Improve fix for size bug with unpacking embedded PEs
 

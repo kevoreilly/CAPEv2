@@ -4,8 +4,7 @@
 #
 # Author: jeFF0Falltrades
 #
-# Provides a simple custom Exception class for use with configuration parsing
-# actions
+# A simple custom Exception class for use with configuration parsing actions
 #
 # MIT License
 #

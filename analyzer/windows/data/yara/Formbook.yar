@@ -24,7 +24,7 @@ rule FormhookB
         $decode = {55 8B EC 83 EC 24 53 56 57 [480-520] 8B E5 5D C3}
         $remap_ntdll = {90 90 90 90 90 90 8B (86 [2] 00 00|46 ??|06) 5F 5E 5B 8B E5 5D C3}
     condition:
-        any of them
+        all of them
 }
 
 rule FormconfA

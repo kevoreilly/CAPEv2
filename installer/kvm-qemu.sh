@@ -799,6 +799,7 @@ function replace_qemu_clues_public() {
     _sed_aux 's/"bochs"/"'"$BOCHS_BLOCK_REPLACER"'"/g' qemu*/block/bochs.c 'BOCHS was not replaced in block/bochs.c'
     _sed_aux 's/"BOCHS "/"ALASKA"/g' qemu*/include/hw/acpi/aml-build.h 'BOCHS was not replaced in block/bochs.c'
     _sed_aux 's/Bochs Pseudo/Intel RealTime/g' qemu*/roms/ipxe/src/drivers/net/pnic.c 'Bochs Pseudo was not replaced in roms/ipxe/src/drivers/net/pnic.c'
+    _sed_aux 's/BXPC/'"$BXPC_REPLACER"'/g' qemu*/include/hw/acpi/aml-build.h 'BXPC was not replaced in include/hw/acpi/aml-build.h'
 }
 
 function replace_seabios_clues_public() {

@@ -116,13 +116,9 @@ class ConfigDecryptorPlaintext(ConfigDecryptor):
 
     # Calculates whether the config meets the minimum threshold for known Field
     # Names and returns it if it does
-    def decrypt_encrypted_strings(
-        self, encrypted_strings: dict[str, str]
-    ) -> dict[str, str]:
+    def decrypt_encrypted_strings(self, encrypted_strings: dict[str, str]) -> dict[str, str]:
         field_names = set(encrypted_strings.keys())
         num_overlapping_field_names = len(KNOWN_CONFIG_FIELD_NAMES & field_names)
         if num_overlapping_field_names < self.MIN_THRESHOLD_MATCH:
-            raise ConfigParserException(
-                "Plaintext threshold of known config items not met"
-            )
+            raise ConfigParserException("Plaintext threshold of known config items not met")
         return encrypted_strings

@@ -49,7 +49,5 @@ class ConfigDecryptor(ABC):
     # Abstract method to take in a map representing a configuration of config
     # Field names and values and return a decoded/decrypted configuration
     @abstractmethod
-    def decrypt_encrypted_strings(
-        self, encrypted_strings: dict[str, str]
-    ) -> dict[str, list[str] | str]:
+    def decrypt_encrypted_strings(self, encrypted_strings: dict[str, str]) -> dict[str, list[str] | str]:
         pass

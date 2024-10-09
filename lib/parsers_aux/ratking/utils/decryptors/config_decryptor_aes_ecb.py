@@ -74,17 +74,13 @@ class ConfigDecryptorAESECB(ConfigDecryptor):
             padded_text = decryptor.update(ciphertext) + decryptor.finalize()
             unpadded_text = unpadder.update(padded_text) + unpadder.finalize()
         except Exception as e:
-            raise ConfigParserException(
-                f"Error decrypting ciphertext {ciphertext} with key {self.key.hex()}: {e}"
-            )
+            raise ConfigParserException(f"Error decrypting ciphertext {ciphertext} with key {self.key.hex()}: {e}")
 
         logger.debug(f"Decryption result: {unpadded_text}")
         return unpadded_text
 
     # Decrypts encrypted config values with the provided cipher data
-    def decrypt_encrypted_strings(
-        self, encrypted_strings: dict[str, str]
-    ) -> dict[str, str]:
+    def decrypt_encrypted_strings(self, encrypted_strings: dict[str, str]) -> dict[str, str]:
         logger.debug("Decrypting encrypted strings...")
 
         if self.key is None:

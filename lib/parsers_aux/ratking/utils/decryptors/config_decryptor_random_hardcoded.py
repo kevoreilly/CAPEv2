@@ -47,9 +47,7 @@ class ConfigDecryptorRandomHardcoded(ConfigDecryptor):
     _KEY_HARDCODED_HOSTS = "hardcoded_hosts"
 
     # Pattern to find the Method that retrieves a random domain
-    _PATTERN_RANDOM_DOMAIN = compile(
-        rb"(?:\x73.{3}\x0a){2}\x25.+?\x0a\x06(?:\x6f.{3}\x0a){2}\x0b", flags=DOTALL
-    )
+    _PATTERN_RANDOM_DOMAIN = compile(rb"(?:\x73.{3}\x0a){2}\x25.+?\x0a\x06(?:\x6f.{3}\x0a){2}\x0b", flags=DOTALL)
 
     def __init__(self, payload: DotNetPEPayload) -> None:
         super().__init__(payload)
@@ -59,9 +57,7 @@ class ConfigDecryptorRandomHardcoded(ConfigDecryptor):
             raise IncompatibleDecryptorException(e)
 
     # Returns a combined config containing config fields + hardcoded hosts
-    def decrypt_encrypted_strings(
-        self, encrypted_strings: dict[str, str]
-    ) -> dict[str, list[str] | str]:
+    def decrypt_encrypted_strings(self, encrypted_strings: dict[str, str]) -> dict[str, list[str] | str]:
         config = {}
         # Pass off plaintext config to a ConfigDecryptorPlaintext
         ptcd = ConfigDecryptorPlaintext(self._payload)
@@ -71,9 +67,7 @@ class ConfigDecryptorRandomHardcoded(ConfigDecryptor):
 
     # Retrieves and returns a list of hardcoded hosts
     def _get_hardcoded_hosts(self) -> list[str]:
-        random_domain_method_body = self._payload.method_body_from_method(
-            self._random_domain_method
-        )
+        random_domain_method_body = self._payload.method_body_from_method(self._random_domain_method)
         hardcoded_host_rvas = findall(PATTERN_LDSTR_OP, random_domain_method_body)
 
         hardcoded_hosts = []
@@ -94,15 +88,9 @@ class ConfigDecryptorRandomHardcoded(ConfigDecryptor):
         logger.debug("Searching for random domain method")
         random_domain_marker = search(self._PATTERN_RANDOM_DOMAIN, self._payload.data)
         if random_domain_marker is None:
-            raise ConfigParserException(
-                "Could not identify random domain generator method"
-            )
+            raise ConfigParserException("Could not identify random domain generator method")
 
-        random_domain_method = self._payload.method_from_instruction_offset(
-            random_domain_marker.start()
-        )
+        random_domain_method = self._payload.method_from_instruction_offset(random_domain_marker.start())
 
-        logger.debug(
-            f"Random domain generator found at offset {hex(random_domain_method.offset)}"
-        )
+        logger.debug(f"Random domain generator found at offset {hex(random_domain_method.offset)}")
         return random_domain_method

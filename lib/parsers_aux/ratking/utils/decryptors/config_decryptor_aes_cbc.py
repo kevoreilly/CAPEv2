@@ -56,9 +56,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
     _MIN_CIPHERTEXT_LEN = 48
 
     # Patterns for identifying AES metadata
-    _PATTERN_AES_KEY_AND_BLOCK_SIZE = compile(
-        b"[\x06-\x09]\x20(.{4})\x6f.{4}[\x06-\x09]\x20(.{4})", DOTALL
-    )
+    _PATTERN_AES_KEY_AND_BLOCK_SIZE = compile(b"[\x06-\x09]\x20(.{4})\x6f.{4}[\x06-\x09]\x20(.{4})", DOTALL)
     # Do not compile in-line replacement patterns
     _PATTERN_AES_KEY_BASE = b"(.{3}\x04).%b"
     _PATTERN_AES_SALT_INIT = b"\x80%b\x2a"
@@ -79,9 +77,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
     # Given an initialization vector and ciphertext, creates a Cipher
     # object with the AES key and specified IV and decrypts the ciphertext
     def _decrypt(self, iv: bytes, ciphertext: bytes) -> bytes:
-        logger.debug(
-            f"Decrypting {ciphertext} with key {self.key.hex()} and IV {iv.hex()}..."
-        )
+        logger.debug(f"Decrypting {ciphertext} with key {self.key.hex()} and IV {iv.hex()}...")
         aes_cipher = Cipher(AES(self.key), CBC(iv), backend=default_backend())
         decryptor = aes_cipher.decryptor()
         # Use a PKCS7 unpadder to remove padding from decrypted value
@@ -113,9 +109,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         return passphrase_candidates
 
     # Decrypts encrypted config values with the provided cipher data
-    def decrypt_encrypted_strings(
-        self, encrypted_strings: dict[str, str]
-    ) -> dict[str, str]:
+    def decrypt_encrypted_strings(self, encrypted_strings: dict[str, str]) -> dict[str, str]:
         logger.debug("Decrypting encrypted strings...")
         if self._key_candidates is None:
             self._key_candidates = self._get_aes_key_candidates(encrypted_strings)
@@ -157,9 +151,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
                     last_exc = e
 
             if result is None:
-                logger.debug(
-                    f"Decryption failed for item {v}: {last_exc}; Leaving as original value..."
-                )
+                logger.debug(f"Decryption failed for item {v}: {last_exc}; Leaving as original value...")
                 result = v
 
             logger.debug(f"Key: {k}, Value: {result}")
@@ -174,9 +166,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         keys = []
 
         # Use the key Field name to index into our existing config
-        key_raw_value = encrypted_strings[
-            self._payload.field_name_from_rva(self._key_rva)
-        ]
+        key_raw_value = encrypted_strings[self._payload.field_name_from_rva(self._key_rva)]
         passphrase_candidates = self._derive_aes_passphrase_candidates(key_raw_value)
 
         for candidate in passphrase_candidates:
@@ -196,9 +186,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
                 continue
 
         if len(keys) == 0:
-            raise ConfigParserException(
-                f"Could not derive key from passphrase candidates: {passphrase_candidates}"
-            )
+            raise ConfigParserException(f"Could not derive key from passphrase candidates: {passphrase_candidates}")
         return keys
 
     # Extracts the AES key and block size from the payload
@@ -222,9 +210,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         logger.debug("Extracting AES key RVA...")
 
         # Get the RVA of the method that sets up AES256 metadata
-        metadata_method_token = self._payload.method_from_instruction_offset(
-            metadata_ins_offset, by_token=True
-        ).token
+        metadata_method_token = self._payload.method_from_instruction_offset(metadata_ins_offset, by_token=True).token
 
         # Insert this RVA into the KEY_BASE pattern to find where the AES key
         # is initialized
@@ -269,9 +255,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         #
         # stsfld	uint8[] Client.Algorithm.Aes256::Salt
         # ret
-        aes_salt_initialization = self._payload.data.find(
-            self._PATTERN_AES_SALT_INIT % escape(salt_rva)
-        )
+        aes_salt_initialization = self._payload.data.find(self._PATTERN_AES_SALT_INIT % escape(salt_rva))
         if aes_salt_initialization == -1:
             raise ConfigParserException("Could not identify AES salt initialization")
 
@@ -283,9 +267,7 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         salt_op = bytes([self._payload.data[salt_op_offset]])
 
         # Get the salt RVA from the 4 bytes following the initialization op
-        salt_strings_rva_packed = self._payload.data[
-            salt_op_offset + 1 : salt_op_offset + 5
-        ]
+        salt_strings_rva_packed = self._payload.data[salt_op_offset + 1 : salt_op_offset + 5]
         salt_strings_rva = bytes_to_int(salt_strings_rva_packed)
 
         # If the op is a ldstr op, just get the bytes value of the string being
@@ -300,12 +282,9 @@ class ConfigDecryptorAESCBC(ConfigDecryptor):
         # byte array value from the FieldRVA table
         elif salt_op == OPCODE_LDTOKEN:
             salt_size = self._payload.data[salt_op_offset - 7]
-            salt = self._payload.byte_array_from_size_and_rva(
-                salt_size, salt_strings_rva
-            )
+            salt = self._payload.byte_array_from_size_and_rva(salt_size, salt_strings_rva)
         else:
             raise ConfigParserException(f"Unknown salt opcode found: {salt_op.hex()}")
 
         logger.debug(f"Found salt value: {salt.hex()}")
         return salt
-

@@ -83,9 +83,7 @@ class ConfigDecryptorDecryptXOR(ConfigDecryptor):
 
     # Parses the config, adds decoded XOR strings, and returns the decoded
     # config
-    def decrypt_encrypted_strings(
-        self, encrypted_strings: dict[str, str]
-    ) -> dict[str, list[str] | str]:
+    def decrypt_encrypted_strings(self, encrypted_strings: dict[str, str]) -> dict[str, list[str] | str]:
         config = {}
         # Pass off plaintext config to a ConfigDecryptorPlaintext
         ptcd = ConfigDecryptorPlaintext(self._payload)
@@ -105,18 +103,13 @@ class ConfigDecryptorDecryptXOR(ConfigDecryptor):
         self._xor_strings = list(
             filter(
                 None,
-                [
-                    self._payload.user_string_from_rva(bytes_to_int(rva))
-                    for rva in xor_string_rvas
-                ],
+                [self._payload.user_string_from_rva(bytes_to_int(rva)) for rva in xor_string_rvas],
             )
         )
         logger.debug(f"{len(self._xor_strings)} XOR strings found")
 
         # Get the static constructor containing the XOR key
-        xor_key_cctor = self._payload.method_from_instruction_offset(
-            dxor_block.start(), step=1, by_token=True
-        )
+        xor_key_cctor = self._payload.method_from_instruction_offset(dxor_block.start(), step=1, by_token=True)
         xor_key_cctor_body = self._payload.method_body_from_method(xor_key_cctor)
 
         # Derive the XOR key RVA and value

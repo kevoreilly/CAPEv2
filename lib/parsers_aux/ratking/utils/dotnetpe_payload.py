@@ -88,9 +88,7 @@ class DotNetPEPayload:
 
     # Given an offset, and either a terminating offset or delimiter, extracts
     # the byte string
-    def byte_string_from_offset(
-        self, offset_start: int, offstart_end: int = -1, delimiter: bytes = b"\0"
-    ) -> bytes:
+    def byte_string_from_offset(self, offset_start: int, offstart_end: int = -1, delimiter: bytes = b"\0") -> bytes:
         if offstart_end != -1:
             try:
                 return self.data[offset_start:offstart_end]
@@ -108,9 +106,7 @@ class DotNetPEPayload:
     # Given an RVA, derives the corresponding Field name
     def field_name_from_rva(self, rva: int) -> str:
         try:
-            return self.dotnetpe.net.mdtables.Field.rows[
-                (rva ^ MDT_FIELD_DEF) - 1
-            ].Name.value
+            return self.dotnetpe.net.mdtables.Field.rows[(rva ^ MDT_FIELD_DEF) - 1].Name.value
         except Exception:
             raise ConfigParserException(f"Could not find Field for RVA {rva}")
 
@@ -138,9 +134,7 @@ class DotNetPEPayload:
             if flags & 3 == 2:  # Tiny format
                 method_size = flags >> 2
             elif flags & 3 == 3:  # Fat format (add 12-byte header)
-                method_size = 12 + bytes_to_int(
-                    self.data[method_offset + 4 : method_offset + 8]
-                )
+                method_size = 12 + bytes_to_int(self.data[method_offset + 4 : method_offset + 8])
 
             method_objs.append(
                 DotNetPEMethod(
@@ -186,9 +180,7 @@ class DotNetPEPayload:
     # parent Method, optionally returning an adjacent Method using step to
     # signify the direction of adjacency, and using by_token to determine
     # whether to calculate adjacency by token or offset
-    def method_from_instruction_offset(
-        self, ins_offset: int, step: int = 0, by_token: bool = False
-    ) -> DotNetPEMethod:
+    def method_from_instruction_offset(self, ins_offset: int, step: int = 0, by_token: bool = False) -> DotNetPEMethod:
         for idx, method in enumerate(self._methods_by_offset):
             if method.offset <= ins_offset < method.offset + method.size:
                 return (
@@ -196,9 +188,7 @@ class DotNetPEPayload:
                     if by_token
                     else self._methods_by_offset[idx + step]
                 )
-        raise ConfigParserException(
-            f"Could not find method from instruction offset {hex(ins_offset)}"
-        )
+        raise ConfigParserException(f"Could not find method from instruction offset {hex(ins_offset)}")
 
     # Given an RVA, returns a data/file offset
     def offset_from_rva(self, rva: int) -> int:

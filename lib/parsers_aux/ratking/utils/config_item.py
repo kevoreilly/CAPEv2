@@ -68,9 +68,7 @@ class ConfigItem(ABC):
                 fields[field_rva] = field_value
                 found_items += 1
             else:
-                logger.debug(
-                    f"Overlapping Field RVAs detected in config at {hex(field_rva)}"
-                )
+                logger.debug(f"Overlapping Field RVAs detected in config at {hex(field_rva)}")
         logger.debug(f"Parsed {found_items} {self._label} values")
         return fields
 

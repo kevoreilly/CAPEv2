@@ -322,3 +322,29 @@ class Auxiliary:
 
     def del_pid(self, pid):
         pass
+
+    def configure_from_data(self):
+        """Do private auxiliary module-specific configuration.
+
+        Auxiliary modules can implement this method to perform pre-analysis
+        configuration based on runtime data contained in "data/auxiliary/<package_name>".
+
+        This method raises:
+         - ImportError when any exception occurs during import
+         - AttributeError if the module configure function is invalid
+         - ModuleNotFoundError if the module does not support configuration from data
+        """
+        package_module_name = self.__class__.__module__.split(".")[-1]
+        module_name = f"data.auxiliary.{package_module_name}"
+        try:
+            mod = importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            raise exc
+        except Exception as exc:
+            raise ImportError(f"error importing {module_name}: {exc}") from exc
+
+        spec = inspect.getfullargspec(mod.configure)
+        if len(spec.args) != 1:
+            err_msg = f"{module_name}.configure: expected 1 arguments, got {len(spec.args)}"
+            raise AttributeError(err_msg)
+        mod.configure(self)

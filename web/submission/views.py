@@ -793,7 +793,7 @@ def status(request, task_id):
         status = "processing"
 
     response = {
-        "title": f"Task Status",
+        "title": "Task Status",
         "completed": completed,
         "status": status,
         "task_id": task_id,

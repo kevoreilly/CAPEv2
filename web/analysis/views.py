@@ -535,11 +535,7 @@ def pending(request):
                 }
             )
 
-    data = {
-        "tasks": pending,
-        "count": len(pending),
-        "title": "Pending Tasks"
-    }
+    data = {"tasks": pending, "count": len(pending), "title": "Pending Tasks"}
     return render(request, "analysis/pending.html", data)
 
 
@@ -2190,7 +2186,12 @@ def search(request, searched=""):
             return render(
                 request,
                 "analysis/search.html",
-                {"title": "Search", "analyses": None, "term": searched, "error": "Search term too short, minimum 3 characters required"},
+                {
+                    "title": "Search",
+                    "analyses": None,
+                    "term": searched,
+                    "error": "Search term too short, minimum 3 characters required",
+                },
             )
 
         # name:foo or name: foo
@@ -2469,7 +2470,9 @@ def statistics_data(request, days=7):
             # psycopg2.OperationalError
             print(e)
             return render(
-                request, "error.html", {"title": "Statistics", "error": "Please restart your database. Probably it had an update or it just down"}
+                request,
+                "error.html",
+                {"title": "Statistics", "error": "Please restart your database. Probably it had an update or it just down"},
             )
         return render(request, "statistics.html", {"title": "Statistics", "statistics": details, "days": days})
     return render(request, "error.html", {"title": "Statistics", "error": "Provide days as number"})

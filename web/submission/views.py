@@ -658,7 +658,7 @@ def index(request, task_id=None, resubmit_hash=None):
             err_data = {
                 "error": "Error adding task(s) to CAPE's database.",
                 "errors": details["errors"],
-                "title": "Submission Failure"
+                "title": "Submission Failure",
             }
             return render(request, "error.html", err_data)
     else:

@@ -91,8 +91,5 @@ def index(request):
         report["estimate_day"] = format_number_with_space(int(24 * hourly))
         report["top_detections"] = top_detections()
 
-        data = {
-            "title": "Dashboard",
-            "report": report
-        }
+        data = {"title": "Dashboard", "report": report}
         return render(request, "dashboard/index.html", data)

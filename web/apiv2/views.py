@@ -170,7 +170,7 @@ def index(request):
                 parsed[key]["rps"] = "None"
                 parsed[key]["rpm"] = "None"
 
-    return render(request, "apiv2/index.html", {"title":"API", "config": parsed})
+    return render(request, "apiv2/index.html", {"title": "API", "config": parsed})
 
 
 @csrf_exempt

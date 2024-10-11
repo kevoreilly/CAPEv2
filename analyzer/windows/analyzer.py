@@ -510,7 +510,7 @@ class Analyzer:
                 log.warning('Unable to import the auxiliary module "%s": %s', name, e)
 
         def configure_aux_from_data(instance):
-        # Do auxiliary module configuration stored in 'data/auxiliary/<package_name>'
+            # Do auxiliary module configuration stored in 'data/auxiliary/<package_name>'
             _class = type(instance)
             try:
                 log.debug("attempting to configure '%s' from data", _class.__name__)

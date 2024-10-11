@@ -7,6 +7,7 @@ import codecs
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.utils import truncate_str
 from lib.cuckoo.core.database import Database
 
 
@@ -24,7 +25,7 @@ class Debug(Processing):
             try:
                 buf_size = self.options.get("buffer", 8192)
                 content = codecs.open(self.log_path, "rb", "utf-8").read()
-                debug["log"] = content[:buf_size] + " <truncated>" if len(content) > buf_size else content
+                debug["log"] = truncate_str(content, buf_size)
             except ValueError as e:
                 raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}") from e
             except (IOError, OSError) as e:

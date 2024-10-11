@@ -342,6 +342,18 @@ def convert_to_printable_and_truncate(s: str, buf: int, cache=None):
     return convert_to_printable(f"{s[:buf]} <truncated>" if len(s) > buf else s, cache=cache)
 
 
+def truncate_str(s: str, max_length: int, marker=" <truncated>"):
+     """Truncate a string if its length exceeds the configured `max_length`.
+
+     If `max_length` is less than or equal to 0, the string is not modified.
+     If the string is truncated, `marker` is added to the end."""
+     truncate_size = min(max_length, len(s))
+     if truncate_size > 0 and truncate_size < len(s):
+             return f"{s[:truncate_size]}{marker}"
+     else:
+             return s
+
+
 def convert_filename_char(c):
     """Escapes filename characters.
     @param c: dirty char.

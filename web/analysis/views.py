@@ -502,6 +502,7 @@ def index(request, page=1):
         request,
         "analysis/index.html",
         {
+            "title": "Recent Analysis",
             "files": analyses_files,
             "static": analyses_static,
             "urls": analyses_urls,
@@ -534,7 +535,12 @@ def pending(request):
                 }
             )
 
-    return render(request, "analysis/pending.html", {"tasks": pending, "count": len(pending)})
+    data = {
+        "tasks": pending,
+        "count": len(pending),
+        "title": "Pending Tasks"
+    }
+    return render(request, "analysis/pending.html", data)
 
 
 # @require_safe
@@ -1701,6 +1707,7 @@ def report(request, task_id):
         request,
         "analysis/report.html",
         {
+            "title": "Analysis Report",
             "analysis": report,
             # ToDo test
             "file": report.get("target", {}).get("file", {}),
@@ -2183,7 +2190,7 @@ def search(request, searched=""):
             return render(
                 request,
                 "analysis/search.html",
-                {"analyses": None, "term": searched, "error": "Search term too short, minimum 3 characters required"},
+                {"title": "Search", "analyses": None, "term": searched, "error": "Search term too short, minimum 3 characters required"},
             )
 
         # name:foo or name: foo
@@ -2210,7 +2217,7 @@ def search(request, searched=""):
                 return render(
                     request,
                     "analysis/search.html",
-                    {"analyses": None, "term": searched, "error": "Not all values are integers"},
+                    {"title": "Search", "analyses": None, "term": searched, "error": "Not all values are integers"},
                 )
 
         # Escape forward slash characters
@@ -2226,13 +2233,13 @@ def search(request, searched=""):
                 return render(
                     request,
                     "analysis/search.html",
-                    {"analyses": None, "term": searched, "error": "Invalid search term: %s" % term},
+                    {"title": "Search", "analyses": None, "term": searched, "error": "Invalid search term: %s" % term},
                 )
             else:
                 return render(
                     request,
                     "analysis/search.html",
-                    {"analyses": None, "term": None, "error": "Unable to recognize the search syntax"},
+                    {"title": "Search", "analyses": None, "term": None, "error": "Unable to recognize the search syntax"},
                 )
 
         analyses = []
@@ -2252,6 +2259,7 @@ def search(request, searched=""):
             request,
             "analysis/search.html",
             {
+                "title": "Search Results",
                 "analyses": analyses,
                 "config": enabledconf,
                 "term": searched,
@@ -2260,7 +2268,7 @@ def search(request, searched=""):
                 "value_only": value_only,
             },
         )
-    return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": None})
+    return render(request, "analysis/search.html", {"title": "Search", "analyses": None, "term": None, "error": None})
 
 
 @require_safe
@@ -2461,10 +2469,10 @@ def statistics_data(request, days=7):
             # psycopg2.OperationalError
             print(e)
             return render(
-                request, "error.html", {"error": "Please restart your database. Probably it had an update or it just down"}
+                request, "error.html", {"title": "Statistics", "error": "Please restart your database. Probably it had an update or it just down"}
             )
-        return render(request, "statistics.html", {"statistics": details, "days": days})
-    return render(request, "error.html", {"error": "Provide days as number"})
+        return render(request, "statistics.html", {"title": "Statistics", "statistics": details, "days": days})
+    return render(request, "error.html", {"title": "Statistics", "error": "Provide days as number"})
 
 
 on_demand_config_mapper = {

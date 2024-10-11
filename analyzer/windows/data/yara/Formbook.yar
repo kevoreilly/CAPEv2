@@ -18,13 +18,14 @@ rule FormhookB
     meta:
         author = "kevoreilly"
         description = "Formbook Anti-hook Bypass"
-        cape_options = "clear,bp0=$decode,action0=scan,hc0=1,bp1=$remap_ntdll+6,action1=setdst:ntdll,count=0,force-sleepskip=1"
+        cape_options = "clear,bp0=$entry,action0=scan,hc0=1,bp1=$new_remap+6,action1=setdst:ntdll,count=0,force-sleepskip=1"
         packed = "08c5f44d57f5ccc285596b3d9921bf7fbbbf7f9a827bb3285a800e4c9faf6731"
     strings:
-        $decode = {55 8B EC 83 EC 24 53 56 57 [480-520] 8B E5 5D C3}
-        $remap_ntdll = {90 90 90 90 90 90 8B (86 [2] 00 00|46 ??|06) 5F 5E 5B 8B E5 5D C3}
+        $remap_ntdll = {33 96 [2] 00 00 8D 86 [2] 00 00 68 F0 00 00 00 50 89 [2-5] E8 [4-10] 6A 00 6A 0? 8D 4D ?? 51 6A}
+        $entry = {55 8B EC 83 EC ?4 53 56 57 [480-520] 8B E5 5D C3}
+        $new_remap = {90 90 90 90 90 90 8B (86 [2] 00 00|46 ??|06) 5F 5E 5B 8B E5 5D C3}
     condition:
-        any of them
+        2 of them
 }
 
 rule FormconfA

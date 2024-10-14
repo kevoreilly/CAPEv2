@@ -191,10 +191,11 @@ def tasks_create_static(request):
     files = request.FILES.getlist("file")
     extra_details = {}
     task_ids = []
+    demux_error_msgs = []
     for sample in files:
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
-            task_id, extra_details = db.demux_sample_and_add_to_db(
+            task_id, extra_details, demux_error_msg = db.demux_sample_and_add_to_db(
                 tmp_path,
                 options=options,
                 priority=priority,
@@ -203,6 +204,8 @@ def tasks_create_static(request):
                 user_id=request.user.id or 0,
             )
             task_ids.extend(task_id)
+            if demux_error_msg:
+                demux_error_msgs.extend(demux_error_msg)
         except CuckooDemuxError as e:
             resp = {"error": True, "error_value": e}
             return Response(resp)
@@ -226,7 +229,8 @@ def tasks_create_static(request):
                     resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
             else:
                 resp = {"error": True, "error_value": "Error adding task to database"}
-
+    if demux_error_msgs:
+        resp["errors"].extend(demux_error_msgs)
     return Response(resp)
 
 
@@ -341,11 +345,21 @@ def tasks_create_file(request):
             if tmp_path:
                 details["path"] = tmp_path
                 details["content"] = content
-                status, task_ids_tmp = download_file(**details)
+                demux_error_msgs = []
+
+                result = download_file(**details)
+                if len(result) == 2:
+                    status, task_ids_tmp = result
+                elif len(result) == 3:
+                    status, task_ids_tmp, demux_error_msgs = result
+
                 if status == "error":
                     details["errors"].append({os.path.basename(tmp_path).decode(): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
+
+                if demux_error_msgs:
+                    details["errors"].extend(demux_error_msgs)
 
         if details["task_ids"]:
             tasks_count = len(details["task_ids"])
@@ -565,11 +579,19 @@ def tasks_create_dlnexec(request):
             "user_id": request.user.id or 0,
         }
 
-        status, task_ids_tmp = download_file(**details)
+        result = download_file(**details)
+        if len(result) == 2:
+            status, task_ids_tmp = result
+        elif len(result) == 3:
+            status, task_ids_tmp, demux_error_msgs = result
+
         if status == "error":
             details["errors"].append({os.path.basename(path).decode(): task_ids_tmp})
         else:
             details["task_ids"] = task_ids_tmp
+
+        if demux_error_msgs:
+            details["errors"].extend(demux_error_msgs)
 
         if details["task_ids"]:
             tasks_count = len(details["task_ids"])

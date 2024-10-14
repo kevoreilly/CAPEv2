@@ -591,6 +591,7 @@ def download_file(**kwargs):
     onesuccess = False
 
     username = False
+    demux_error_msgs = []
     """
     put here your custom username assignation from your custom auth, Ex:
     request_url = kwargs["request"].build_absolute_uri()
@@ -718,12 +719,14 @@ def download_file(**kwargs):
     if not static and "dist_extract" in kwargs["options"]:
         static = True
 
+    demux_error_msgs = []
+
     for machine in kwargs.get("task_machines", []):
         if machine == "first":
             machine = None
 
         # Keep this as demux_sample_and_add_to_db in DB
-        task_ids_new, extra_details = db.demux_sample_and_add_to_db(
+        task_ids_new, extra_details, demux_error_msgs = db.demux_sample_and_add_to_db(
             file_path=kwargs["path"],
             package=package,
             timeout=timeout,
@@ -766,7 +769,7 @@ def download_file(**kwargs):
     if not onesuccess:
         return "error", {"error": f"Provided hash not found on {kwargs['service']}"}
 
-    return "ok", kwargs["task_ids"]
+    return "ok", kwargs["task_ids"], demux_error_msgs
 
 
 def save_script_to_storage(task_ids, kwargs):

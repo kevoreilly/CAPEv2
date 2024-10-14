@@ -187,15 +187,14 @@ def tasks_create_static(request):
     options = request.data.get("options", "")
     priority = force_int(request.data.get("priority"))
 
-    resp["error"] = False
+    resp["error"] = []
     files = request.FILES.getlist("file")
     extra_details = {}
     task_ids = []
-    demux_error_msgs = []
     for sample in files:
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
-            task_id, extra_details, demux_error_msg = db.demux_sample_and_add_to_db(
+            task_id, extra_details = db.demux_sample_and_add_to_db(
                 tmp_path,
                 options=options,
                 priority=priority,
@@ -204,8 +203,8 @@ def tasks_create_static(request):
                 user_id=request.user.id or 0,
             )
             task_ids.extend(task_id)
-            if demux_error_msg:
-                demux_error_msgs.extend(demux_error_msg)
+            if extra_details.get("erros"):
+                resp["errors"].extend(extra_details["errors"])
         except CuckooDemuxError as e:
             resp = {"error": True, "error_value": e}
             return Response(resp)
@@ -229,8 +228,6 @@ def tasks_create_static(request):
                     resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
             else:
                 resp = {"error": True, "error_value": "Error adding task to database"}
-    if demux_error_msgs:
-        resp["errors"].extend(demux_error_msgs)
     return Response(resp)
 
 

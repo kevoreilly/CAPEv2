@@ -86,9 +86,7 @@ class TestDemux:
         empty_file = tempfile.NamedTemporaryFile()
 
         demuxed, _ = demux.demux_sample(filename=empty_file.name, package="Emotet", options="foo", use_sflock=False)
-        demuxed == [
-            (empty_file.name, "", "")
-        ]
+        demuxed == [(empty_file.name, "", "")]
         empty_file.close()
 
     def test_options2passwd(self):

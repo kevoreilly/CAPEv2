@@ -309,7 +309,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                         "File too bit, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
                     }
                 )
-        return retlist
+        return retlist, error_list
 
     new_retlist = []
 

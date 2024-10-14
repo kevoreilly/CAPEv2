@@ -508,7 +508,13 @@ def index(request, task_id=None, resubmit_hash=None):
 
                 details["path"] = path
                 details["content"] = content
-                status, task_ids_tmp = download_file(**details)
+                result = download_file(**details)
+                if len(result) == 2:
+                    status, task_ids_tmp = result
+                elif len(result) == 3:
+                    status, task_ids_tmp, demux_error_msg = result
+                    if demux_error_msg:
+                        details["errors"].extend(demux_error_msg)
                 if status == "error":
                     details["errors"].append({os.path.basename(filename): task_ids_tmp})
                 else:
@@ -537,7 +543,13 @@ def index(request, task_id=None, resubmit_hash=None):
 
                 details["path"] = path
                 details["content"] = content
-                status, task_ids_tmp = download_file(**details)
+                result = download_file(**details)
+                if len(result) == 2:
+                    status, task_ids_tmp = result
+                elif len(result) == 3:
+                    status, task_ids_tmp, demux_error_msg = result
+                    if demux_error_msg:
+                        details["errors"].extend(demux_error_msg)
                 if status == "error":
                     details["errors"].append({os.path.basename(path): task_ids_tmp})
                 else:
@@ -619,7 +631,14 @@ def index(request, task_id=None, resubmit_hash=None):
                 details["content"] = content
                 details["service"] = "DLnExec"
                 details["source_url"] = samples
-                status, task_ids_tmp = download_file(**details)
+                result = download_file(**details)
+                if len(result) == 2:
+                    status, task_ids_tmp = result
+                elif len(result) == 3:
+                    status, task_ids_tmp, demux_error_msg = result
+                    if demux_error_msg:
+                        details["errors"].extend(demux_error_msg)
+
                 if status == "error":
                     details["errors"].append({os.path.basename(path): task_ids_tmp})
                 else:

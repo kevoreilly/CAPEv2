@@ -113,7 +113,7 @@ class CAPE(Processing):
         elif type_strings[0] == "MS-DOS":
             file_info["cape_type"] = "DOS MZ image: executable"
         else:
-            file_info["cape_type"] = file_info["cape_type"] or "PE image"
+            file_info["cape_type"] = file_info["cape_type"] or "unknown"
         return append_file
 
     def _metadata_processing(self, metadata, file_info, append_file):

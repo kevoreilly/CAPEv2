@@ -119,6 +119,7 @@ repconf = Config("reporting")
 distconf = Config("distributed")
 web_conf = Config("web")
 LINUX_ENABLED = web_conf.linux.enabled
+LINUX_STATIC = web_conf.linux.static_only
 DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
 
 if repconf.mongodb.enabled:
@@ -1538,7 +1539,7 @@ class _Database:
                 package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)
 
         # extract files from the (potential) archive
-        extracted_files = demux_sample(file_path, package, options, platform=platform)
+        extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
         if extracted_files and (file_path, platform) not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
@@ -1547,6 +1548,18 @@ class _Database:
 
         # create tasks for each file in the archive
         for file, platform in extracted_files:
+            # ToDo we lose package here and send APKs to windows
+            if platform in ("linux", "darwin") and LINUX_STATIC:
+                task_ids += self.add_static(
+                    file_path=file_path,
+                    priority=priority,
+                    tlp=tlp,
+                    user_id=user_id,
+                    username=username,
+                    options=options,
+                    package=package,
+                )
+                continue
             if static:
                 # On huge loads this just become a bottleneck
                 config = False
@@ -1621,6 +1634,8 @@ class _Database:
 
         if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}
+        if demux_error_msgs:
+            details["errors"] = demux_error_msgs
         # this is aim to return custom data, think of this as kwargs
         return task_ids, details
 
@@ -1694,7 +1709,7 @@ class _Database:
         user_id=0,
         username=False,
     ):
-        extracted_files = demux_sample(file_path, package, options)
+        extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
         sample_parent_id = None
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):

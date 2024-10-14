@@ -32,7 +32,6 @@ log = logging.getLogger(__name__)
 cuckoo_conf = Config()
 web_cfg = Config("web")
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
-# ToDo allow_static
 linux_enabled = web_cfg.linux.get("enabled", False) or web_cfg.linux.get("static_only", False)
 
 demux_extensions_list = {

@@ -228,5 +228,6 @@ If you use CAPEv2 in your work, please cite it as specified in the "Cite this re
 
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
+* [![](https://img.shields.io/badge/Gurubase-Ask%20CAPE%20Guru-006BFF)](https://gurubase.io/g/cape) CAPE-focused AI to answer your questions.
 
 

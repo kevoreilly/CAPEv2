@@ -1325,10 +1325,10 @@ def thirdpart_aux(samples, prefix, opt_filename, details, settings):
                 details["content"] = content
 
         if not details.get("content", False):
-            status, task_ids_tmp = download_file(**details)
+            status, task_ids_tmp, *_ = download_file(**details)
         else:
             details["service"] = "Local"
-            status, task_ids_tmp = download_file(**details)
+            status, task_ids_tmp, *_ = download_file(**details)
         if status == "error":
             details["errors"].append({h: task_ids_tmp})
         else:

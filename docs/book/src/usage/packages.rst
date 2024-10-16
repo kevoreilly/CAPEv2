@@ -163,7 +163,6 @@ The following is a list of the existing packages in alphabetical order:
         **Options**:
             * ``offset``: specify the offset to run with the 64-bit CAPE loader.
 
-    * ``shellcode-unpacker``: used to run and analyze **Shellcode** via the 32-bit CAPE loader, with unpacking!
     * ``shellcode``: used to run and analyze **Shellcode** via the 32-bit CAPE loader, with unpacking!
 
         **Options**:
@@ -172,51 +171,6 @@ The following is a list of the existing packages in alphabetical order:
     * ``swf``: used to run and analyze **Shockwave Flash** via ``flashplayer.exe``.
 
         *NB*: You need to have ``flashplayer.exe`` in the analyzer's ``bin`` folder.
-
-    * ``unpacker_dll``: used to run and analyze **Dynamically Linked Libraries** via ``flashplayer.exe``, with unpacking!
-
-        *NB*: You need to have ``flashplayer.exe`` in the analyzer's ``bin`` folder.
-
-        **Options**:
-            * ``arguments``: specify arguments to pass to the DLL through commandline.
-            * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
-            * ``function``: specify the function to be executed. If none is specified, CAPE will try to run all available functions,
-              up to the limit found in the `max_dll_exports` task option.
-    
-    * ``unpacker_js``: used to run and analyze **JavaScript and JScript Encoded files** via ``wscript.exe``, with unpacking!
-    * ``unpacker_ps1``: used to run and analyze **PowerShell scripts** via ``powershell.exe``, with unpacking!
-    * ``unpacker_regsvr``: used to run and analyze **Dynamically Linked Libraries** via ``regsvr.exe``, with unpacking!
-
-        **Options**:
-            * ``arguments``: specify any command line argument to pass to the initial process of the submitted malware.
-
-    * ``unpacker_zip``: used to run and analyze **Zip archives** via the zipfile Python package, and runs an executable file (if it exists), with ``cmd.exe``. Also unpacking!
-
-        **Options**:
-            * ``arguments``: specify arguments to pass to the DLL through commandline.            
-            * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
-            * ``file``: specify the name of the file contained in the archive to execute. If none is specified, CAPE will try to execute *sample.exe*.
-            * ``function``: specify the function to be executed. If none is specified, CAPE will try to run the entry at ordinal 1.
-            * ``password``: specify the password of the archive. If none is specified, CAPE will try to extract the archive without password or use the password "*infected*".
-
-    * ``unpacker``: used to run and analyze generic **Windows executables**, with unpacking!
-
-        **Options**:
-            * ``arguments``: specify any command line argument to pass to the initial process of the submitted malware.
-
-    * ``upx_dll``: used to run and analyze **Dynamically Linked Libraries** packed with **Ultimate Packer for eXecutables**.
-
-        **Options**:
-            * ``arguments``: specify arguments to pass to the DLL through commandline.
-            * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
-            * ``function``: specify the function to be executed. If none is specified, CAPE will try to run all available functions,
-              up to the limit found in the `max_dll_exports` task option.
-    
-    * ``upx``: used to run and analyze generic **Windows executables** packed with **Ultimate Packer for eXecutables**.
-
-        **Options**:
-            * ``appdata``: *[yes/no]* if enabled, run the executable from the APPDATA directory.
-            * ``arguments``: specify any command line argument to pass to the initial process of the submitted malware.
 
     * ``vawtrak``: used to run and analyze **Vawtrak malware** with ``iexplore.exe``.
 

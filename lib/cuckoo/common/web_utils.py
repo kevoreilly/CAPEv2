@@ -766,7 +766,7 @@ def download_file(**kwargs):
     if not onesuccess:
         return "error", {"error": f"Provided hash not found on {kwargs['service']}"}
 
-    return "ok", kwargs["task_ids"], extra_details.get("errors", [])
+    return "ok", {"task_ids": kwargs["task_ids"], "errors": extra_details.get("errors", [])}
 
 
 def save_script_to_storage(task_ids, kwargs):
@@ -1324,15 +1324,19 @@ def thirdpart_aux(samples, prefix, opt_filename, details, settings):
             if content:
                 details["content"] = content
 
+        errors = {}
         if not details.get("content", False):
-            status, task_ids_tmp = download_file(**details)
+            status, tasks_details = download_file(**details)
         else:
             details["service"] = "Local"
-            status, task_ids_tmp = download_file(**details)
+            status, tasks_details = download_file(**details)
         if status == "error":
-            details["errors"].append({h: task_ids_tmp})
+            details["errors"].append({h: tasks_details})
         else:
-            details["task_ids"] = task_ids_tmp
+            details["task_ids"] = tasks_details.get("task_ids", [])
+            errors = tasks_details.get("errors")
+            if errors:
+                details["errors"].extend(errors)
 
     return details
 

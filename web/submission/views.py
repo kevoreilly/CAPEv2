@@ -366,7 +366,6 @@ def index(request, task_id=None, resubmit_hash=None):
             opt_apikey = opts.get("apikey", False)
 
         status = "ok"
-        task_ids_tmp = []
         existent_tasks = {}
         details = {
             "errors": [],

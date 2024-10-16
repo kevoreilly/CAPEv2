@@ -287,7 +287,6 @@ def tasks_create_file(request):
             "user_id": request.user.id or 0,
         }
 
-        task_ids_tmp = []
         task_machines = []
         vm_list = [vm.label for vm in db.list_machines()]
 

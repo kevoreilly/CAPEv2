@@ -208,7 +208,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
             magic_type = file.get_type()
             platform = file.get_platform()
             file_size = file.get_size()
-            return [filename, platform, magic_type, file_size], ""
+            return [[filename, platform, magic_type, file_size]], ""
         if unpacked.package in blacklist_extensions:
             return [], "blacklisted package"
         for sf_child in unpacked.children:
@@ -253,7 +253,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                         {
                             os.path.basename(
                                 filename
-                            ): "File too bit, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option"
+                            ): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option"
                         }
                     )
         return retlist, error_list
@@ -305,7 +305,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 error_list.append(
                     {
                         os.path.basename(filename),
-                        "File too bit, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
+                        "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
                     }
                 )
         return retlist, error_list
@@ -317,7 +317,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         check_shellcode = False
 
     # all in one unarchiver
-    retlist, error_msg = demux_sflock(filename, options, check_shellcode) if HAS_SFLOCK and use_sflock else []
+    retlist, error_msg = demux_sflock(filename, options, check_shellcode) if HAS_SFLOCK and use_sflock else ([], "")
     # if it isn't a ZIP or an email, or we aren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:
@@ -331,20 +331,19 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 error_list.append({os.path.basename(filename): "Linux processing is disabled"})
                 continue
 
-            if file_size > web_cfg.general.max_sample_size and not (
-                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
-            ):
-                if web_cfg.general.enable_trim:
-                    # maybe identify here
-                    if trim_file(filename):
-                        filename = trimmed_path(filename)
-            else:
-                error_list.append(
-                    {
-                        os.path.basename(filename),
-                        "File too bit, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
-                    }
-                )
+            if file_size > web_cfg.general.max_sample_size:
+                if web_cfg.general.allow_ignore_size and "ignore_size_check" in options:
+                    if web_cfg.general.enable_trim:
+                        # maybe identify here
+                        if trim_file(filename):
+                            filename = trimmed_path(filename)
+                else:
+                    error_list.append(
+                        {
+                            os.path.basename(filename),
+                            "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
+                        }
+                    )
             new_retlist.append((filename, platform))
 
     return new_retlist[:10], error_list

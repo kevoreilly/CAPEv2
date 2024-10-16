@@ -1333,7 +1333,7 @@ def thirdpart_aux(samples, prefix, opt_filename, details, settings):
         if status == "error":
             details["errors"].append({h: tasks_details})
         else:
-            details["task_ids"] = tasks_details.get("task_ids")
+            details["task_ids"] = tasks_details.get("task_ids", [])
             errors = tasks_details.get("errors")
             if errors:
                 details["errors"].extend(errors)

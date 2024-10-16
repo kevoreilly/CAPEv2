@@ -508,17 +508,13 @@ def index(request, task_id=None, resubmit_hash=None):
 
                 details["path"] = path
                 details["content"] = content
-                result = download_file(**details)
-                if len(result) == 2:
-                    status, task_ids_tmp = result
-                elif len(result) == 3:
-                    status, task_ids_tmp, demux_error_msg = result
-                    if demux_error_msg:
-                        details["errors"].extend(demux_error_msg)
+                status, tasks_details = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(filename): task_ids_tmp})
+                    details["errors"].append({os.path.basename(filename): tasks_details})
                 else:
-                    details["task_ids"] = task_ids_tmp
+                    details["task_ids"] = tasks_details.get("task_ids")
+                    if tasks_details.get("errors"):
+                        details["errors"].extend(tasks_details["errors"])
                     if web_conf.web_reporting.get("enabled", False) and web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", hash, search_limit=5)
                         if records:
@@ -543,23 +539,19 @@ def index(request, task_id=None, resubmit_hash=None):
 
                 details["path"] = path
                 details["content"] = content
-                result = download_file(**details)
-                if len(result) == 2:
-                    status, task_ids_tmp = result
-                elif len(result) == 3:
-                    status, task_ids_tmp, demux_error_msg = result
-                    if demux_error_msg:
-                        details["errors"].extend(demux_error_msg)
+                status, tasks_details = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(path): task_ids_tmp})
+                    details["errors"].append({os.path.basename(path): tasks_details})
                 else:
+                    details["task_ids"] = tasks_details.get("task_ids")
+                    if tasks_details.get("errors"):
+                        details["errors"].extend(tasks_details["errors"])
                     if web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", sha256, search_limit=5)
                         if records:
                             for record in records:
                                 if record.get("target").get("file", {}).get("sha256"):
                                     existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
-                    details["task_ids"] = task_ids_tmp
 
         elif task_category == "static":
             for content, path, sha256 in list_of_tasks:
@@ -631,18 +623,13 @@ def index(request, task_id=None, resubmit_hash=None):
                 details["content"] = content
                 details["service"] = "DLnExec"
                 details["source_url"] = samples
-                result = download_file(**details)
-                if len(result) == 2:
-                    status, task_ids_tmp = result
-                elif len(result) == 3:
-                    status, task_ids_tmp, demux_error_msg = result
-                    if demux_error_msg:
-                        details["errors"].extend(demux_error_msg)
-
+                status, tasks_details = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(path): task_ids_tmp})
+                    details["errors"].append({os.path.basename(path): tasks_details})
                 else:
-                    details["task_ids"] = task_ids_tmp
+                    details["task_ids"] = tasks_details.get("task_ids")
+                    if tasks_details.get("errors"):
+                        details["errors"].extend(tasks_details["errors"])
 
         elif task_category == "vtdl":
             if not settings.VTDL_KEY:

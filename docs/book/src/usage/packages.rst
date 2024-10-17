@@ -30,7 +30,7 @@ The following is a list of the existing packages in alphabetical order:
         prior to executing files of interest within in the extracted folder.
 
         **Options**:
-            * ``arguments``: specify arguments to pass to the DLL through commandline.            
+            * ``arguments``: specify arguments to pass to the DLL through commandline.
             * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
             * ``file``: specify the name of the file contained in the archive to execute. If none is specified, CAPE will try to execute *sample.exe*.
             * ``function``: specify the function to be executed. If none is specified, CAPE will try to run the entry at ordinal 1.
@@ -205,7 +205,7 @@ The following is a list of the existing packages in alphabetical order:
 
         **Options**:
             * ``appdata``: *[yes/no]* if enabled, create custom folders in the APPDATA directory.
-            * ``arguments``: specify arguments to pass to the DLL through commandline.            
+            * ``arguments``: specify arguments to pass to the DLL through commandline.
             * ``curdir``: specify the directory to create custom folders.
             * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
             * ``file``: specify the name of the file contained in the archive to execute. If none is specified, a ``__configuration.json`` file must be present in the zip file.
@@ -216,7 +216,7 @@ The following is a list of the existing packages in alphabetical order:
 
         **Options**:
             * ``appdata``: *[yes/no]* if enabled, create custom folders in the APPDATA directory.
-            * ``arguments``: specify arguments to pass to the DLL through commandline.            
+            * ``arguments``: specify arguments to pass to the DLL through commandline.
             * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
             * ``file``: specify the name of the file contained in the archive to execute. If none is specified, CAPE will try to execute *sample.exe*.
             * ``function``: specify the function to be executed. If none is specified, CAPE will try to run the entry at ordinal 1.

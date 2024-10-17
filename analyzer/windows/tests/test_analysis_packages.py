@@ -36,7 +36,7 @@ class TestAnalysisPackages(unittest.TestCase):
             self.assertGreater(len(subclass.summary), 0)
             self.assertGreater(len(subclass.description), 0)
 
-    def test_Shellcode(self):
+    def test_shellcode(self):
         pkg_class = self.class_from_analysis_package("modules.packages.shellcode")
         obj = pkg_class()
         self.assertEqual("offset", obj.option_names[0])

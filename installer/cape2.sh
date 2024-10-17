@@ -785,7 +785,7 @@ function install_mongo(){
 		echo "[+] Installing MongoDB"
 		# Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
 		if grep -q ' avx ' /proc/cpuinfo; then
-			MONGO_VERSION="7.0"
+			MONGO_VERSION="8.0"
 		else
 			echo "[-] Mongo >= 5 is not supported"
 			MONGO_VERSION="4.4"

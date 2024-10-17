@@ -172,15 +172,6 @@ The following is a list of the existing packages in alphabetical order:
 
         *NB*: You need to have ``flashplayer.exe`` in the analyzer's ``bin`` folder.
 
-    * ``vawtrak``: used to run and analyze **Vawtrak malware** with ``iexplore.exe``.
-
-        *NB*: https://www.microsoft.com/en-us/wdsi/threats/malware-encyclopedia-description?Name=Backdoor:Win32/Vawtrak.A
-
-        **Options**:
-            * ``appdata``: *[yes/no]* if enabled, run the executable from the APPDATA directory.
-            * ``arguments``: specify any command line argument to pass to the initial process of the submitted malware.
-            * ``runasx86``: *[yes/no]* if enabled, run ``CorFlags.exe`` with ``/32bit+`` prior to execution.
-
     * ``vbejse``: used to run and analyze **VBScript Encoded and JScript Encoded files** via ``wscript.exe``.
     * ``vbs``: used to run and analyze **VBScript and VBScript Encoded files** via ``wscript.exe``.
     * ``wsf``: used to run and analyze **Windows Script Files** via ``wscript.exe``.

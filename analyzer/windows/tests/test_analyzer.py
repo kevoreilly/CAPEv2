@@ -541,15 +541,6 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
         self.assertEqual("modules.packages.swf", pkg_name)
         self.assertEqual(pkg_class.__class__.__name__, "SWF")
 
-    def test_choose_package_vawtrak(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "vawtrak"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.vawtrak", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "IE")
-
     def test_choose_package_vbejse(self):
         test = analyzer.Analyzer()
         test.config = MagicMock()

@@ -276,10 +276,6 @@ class TestAnalysisPackages(unittest.TestCase):
         pkg_class = self.class_from_analysis_package("modules.packages.swf")
         pkg_class()
 
-    def test_vawtrak(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.vawtrak")
-        pkg_class()
-
     def test_vbejse(self):
         pkg_class = self.class_from_analysis_package("modules.packages.vbejse")
         pkg_class()

@@ -576,7 +576,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
     if file.endswith("_Slayed"):
         return
 
-    if all("Eziriz .NET Reactor" not in string for string in data_dictionary.get("die", [])):
+    if all(".NET Reactor" not in string for string in data_dictionary.get("die", [])):
         return
 
     binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
@@ -587,7 +587,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
 
     if not path_exists(binary):
         log.error(
-            "Missing dependency: Download from https://github.com/SychicBoy/NETReactorSlayer/releases and place under %s.",
+            "Missing dependency: Download from https://github.com/otavepto/NETReactorSlayer/releases and place under %s.",
             binary,
         )
         return

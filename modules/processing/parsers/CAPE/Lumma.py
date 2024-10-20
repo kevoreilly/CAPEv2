@@ -56,10 +56,13 @@ def extract_config(data):
             if "." in line and len(line) > 2:
                 if not contains_non_printable(line):
                     config_dict["C2"].append(line)
+    except Exception:
+        pass
 
-        # If no C2s with the old method,
-        # try with newer version xor decoding
-        if not config_dict["C2"]:
+    # If no C2s with the old method,
+    # try with newer version xor decoding
+    if not config_dict["C2"]:
+        try:
             rdata = get_rdata(data)
             strings = extract_strings(rdata, 44)
             base64_strings = get_base64_strings(strings)
@@ -72,7 +75,7 @@ def extract_config(data):
             if not contains_non_printable(decoded_c2):
                 config_dict["C2"].append(decoded_c2.decode())
 
-    except Exception:
-        return
+        except Exception:
+            pass
 
     return config_dict

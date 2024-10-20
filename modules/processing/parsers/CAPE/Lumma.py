@@ -50,12 +50,16 @@ def contains_non_printable(byte_array):
 
 def extract_config(data):
     config_dict = {"C2": []}
+
     try:
         lines = data.decode().split("\n")
         for line in lines:
-            if "." in line and len(line) > 2:
-                if not contains_non_printable(line):
-                    config_dict["C2"].append(line)
+            try:
+                if "." in line and len(line) > 2:
+                    if not contains_non_printable(line):
+                        config_dict["C2"].append(line)
+            except Exception:
+                continue
     except Exception:
         pass
 
@@ -66,16 +70,19 @@ def extract_config(data):
             rdata = get_rdata(data)
             strings = extract_strings(rdata, 44)
             base64_strings = get_base64_strings(strings)
+
             for base64_str in base64_strings:
-                decoded_bytes = base64.b64decode(base64_str, validate=True)
-                encoded_c2 = decoded_bytes[:32]
-                xor_key = decoded_bytes[32:]
-                decoded_c2 = xor_data(encoded_c2, xor_key)
+                try:
+                    decoded_bytes = base64.b64decode(base64_str, validate=True)
+                    encoded_c2 = decoded_bytes[:32]
+                    xor_key = decoded_bytes[32:]
+                    decoded_c2 = xor_data(encoded_c2, xor_key)
 
-            if not contains_non_printable(decoded_c2):
-                config_dict["C2"].append(decoded_c2.decode())
-
+                    if not contains_non_printable(decoded_c2):
+                        config_dict["C2"].append(decoded_c2.decode())
+                except Exception:
+                    continue
         except Exception:
-            pass
+            return
 
     return config_dict

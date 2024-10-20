@@ -12,7 +12,6 @@ def is_base64(s):
 def extract_strings(data, minchars):
     endlimit = b"8192"
     apat = b"([\x20-\x7e]{" + str(minchars).encode() + b"," + endlimit + b"})\x00"
-    upat = b"((?:[\x20-\x7e][\x00]){" + str(minchars).encode() + b"," + endlimit + b"})\x00\x00"
     strings = [string.decode() for string in re.findall(apat, data)]
     return strings
 

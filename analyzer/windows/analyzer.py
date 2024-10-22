@@ -509,6 +509,21 @@ class Analyzer:
             except ImportError as e:
                 log.warning('Unable to import the auxiliary module "%s": %s', name, e)
 
+        def configure_aux_from_data(instance):
+            # Do auxiliary module configuration stored in 'data/auxiliary/<package_name>'
+            _class = type(instance)
+            try:
+                log.debug("attempting to configure '%s' from data", _class.__name__)
+                instance.configure_from_data()
+            except ModuleNotFoundError:
+                # let it go, not every module is configurable from data
+                log.debug("module %s does not support data configuration, ignoring", _class.__name__)
+            except ImportError as iexc:
+                # let it go but emit a warning; assume a dependency is missing
+                log.warning("configuration error for module %s: %s", _class.__name__, iexc)
+            except Exception as exc:
+                log.error("error configuring module %s: %s", _class.__name__, exc)
+
         # Walk through the available auxiliary modules.
         aux_modules = []
 
@@ -517,6 +532,7 @@ class Analyzer:
                 aux = module(self.options, self.config)
                 log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_modules.append(aux)
+                configure_aux_from_data(aux)
                 log.debug('Trying to start auxiliary module "%s"...', module.__module__)
                 aux.start()
             except (NotImplementedError, AttributeError) as e:

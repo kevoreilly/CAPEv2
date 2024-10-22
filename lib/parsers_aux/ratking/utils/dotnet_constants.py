@@ -28,16 +28,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 from enum import IntEnum
+from re import DOTALL, compile
 
-# Notable CIL Opcodes and Base RVAs
+# Notable CIL Opcodes and Tokens
 OPCODE_LDC_I4_0 = b"\x16"
-OPCODE_LDC_I4_1 = b"\x17"
 OPCODE_LDSTR = b"\x72"
 OPCODE_LDTOKEN = b"\xd0"
-OPCODE_RET = b"\x2a"
 MDT_FIELD_DEF = 0x04000000
 MDT_METHOD_DEF = 0x06000000
 MDT_STRING = 0x70000000
+PATTERN_LDSTR_OP = compile(
+    rb"\x72(.{3}\x70)",
+    flags=DOTALL,
+)
 
 
 # IntEnum derivative used for translating a SpecialFolder ID to its name

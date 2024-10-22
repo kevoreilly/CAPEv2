@@ -27,20 +27,20 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from .config_parser_exception import ConfigParserException
+from ..config_parser_exception import ConfigParserException
 
 
 # Converts a bytes object to an int object using the specified byte order
-def bytes_to_int(bytes, order="little"):
+def bytes_to_int(bytes: bytes, order: str = "little") -> int:
     try:
         return int.from_bytes(bytes, byteorder=order)
-    except Exception as e:
-        raise ConfigParserException(f"Error parsing int from value: {bytes}") from e
+    except Exception:
+        raise ConfigParserException(f"Error parsing int from value: {bytes}")
 
 
 # Decodes a bytes object to a Unicode string, using UTF-16LE for byte values
 # with null bytes still embedded in them, and UTF-8 for all other values
-def decode_bytes(byte_str):
+def decode_bytes(byte_str: bytes | str) -> str:
     if isinstance(byte_str, str):
         return byte_str.strip()
     result = None
@@ -49,13 +49,14 @@ def decode_bytes(byte_str):
             result = byte_str.decode("utf-16le")
         else:
             result = byte_str.decode("utf-8")
-    except Exception as e:
-        raise ConfigParserException(f"Error decoding bytes object to Unicode: {byte_str}") from e
+    except Exception:
+        raise ConfigParserException(f"Error decoding bytes object to Unicode: {byte_str}")
     return result
 
 
-def int_to_bytes(int, length=4, order="little"):
+# Converts an int to a bytes object, with the specified length and order
+def int_to_bytes(int: int, length: int = 4, order: str = "little") -> bytes:
     try:
         return int.to_bytes(length, order)
-    except Exception as e:
-        raise ConfigParserException(f"Error parsing bytes from value: {int}") from e
+    except Exception:
+        raise ConfigParserException(f"Error parsing bytes from value: {int}")

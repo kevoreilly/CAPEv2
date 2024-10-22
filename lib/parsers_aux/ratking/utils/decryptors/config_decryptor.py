@@ -28,19 +28,26 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 from abc import ABC, abstractmethod
+from logging import getLogger
+
+from ..dotnetpe_payload import DotNetPEPayload
+
+logger = getLogger(__name__)
+
+
+# Custom Exception to denote that a decryptor is incompatible with a payload
+class IncompatibleDecryptorException(Exception):
+    pass
 
 
 class ConfigDecryptor(ABC):
-    def __init__(self, payload, config_strings):
-        self.payload = payload
-        self.config_strings = config_strings
-        self.key = None
-        self.salt = None
+    def __init__(self, payload: DotNetPEPayload) -> None:
+        self.key: bytes | str = None
+        self._payload = payload
+        self.salt: bytes = None
 
+    # Abstract method to take in a map representing a configuration of config
+    # Field names and values and return a decoded/decrypted configuration
     @abstractmethod
-    def decrypt(self, ciphertext):
-        pass
-
-    @abstractmethod
-    def decrypt_encrypted_strings(self):
+    def decrypt_encrypted_strings(self, encrypted_strings: dict[str, str]) -> dict[str, list[str] | str]:
         pass

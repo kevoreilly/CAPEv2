@@ -162,10 +162,10 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
  * Replace `<username>` with a real pattern.
  * You need to replace all `<WOOT>` inside!
  * Read it! You must understand what it does! It has configuration in header of the script.
- * `sudo ./kvm-qemu.sh all <username> | tee kvm-qemu.log`
+ * `sudo ./kvm-qemu.sh all <username> 2>&1 | tee kvm-qemu.log`
 4. To install CAPE itself, [cape2.sh](https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh) with all optimizations
     * Read and understand what it does! This is not a silver bullet for all your problems! It has configuration in header of the script.
-    * `sudo ./cape2.sh base | tee cape.log`
+    * `sudo ./cape2.sh base 2>&1 | tee cape.log`
 5. After installing everything save both installation logs as gold!
 6. Configure CAPE by doing mods to config files inside `conf` folder.
 7. Restart all CAPE services to pick config changes and run CAPE properly!

@@ -71,7 +71,6 @@ class TestSubmissionViews(SimpleTestCase):
         self.assertEqual('value="" title="">Detect Automatically', options[0])
 
         self.one_should_match('value="exe" title=".*">exe - .*', options)
-        self.one_should_match('value="Unpacker" title="[^"]*">Unpacker', options)
         self.one_should_match(".*ichitaro.*", options)
         self.one_should_match(".*chromium.*", options)
         self.assertGreater(len(options), 10)
@@ -80,7 +79,7 @@ class TestSubmissionViews(SimpleTestCase):
 
     def test_package_exclusion(self):
         """Pick a couple of packages to exclude, to test exclusion"""
-        web_conf.package_exclusion.packages = "chromium,chromium_ext,ichitaro,Shellcode"
+        web_conf.package_exclusion.packages = "chromium,chromium_ext,ichitaro,shellcode"
         submission_page = self.client.get("/submit/#file")
         self.assertIsNotNone(submission_page.content)
         self.assertIn("Analysis Package", submission_page.content.decode())
@@ -90,9 +89,8 @@ class TestSubmissionViews(SimpleTestCase):
         # excluded packages should not be listed
         self.none_should_match(".*ichitaro.*", options)
         self.none_should_match(".*chromium.*", options)
-        # Package 'Shellcode' was excluded, but not 'Shellcode-Unpacker'.
-        self.none_should_match('.*"Shellcode".*', options)
-        self.one_should_match('.*"Shellcode-Unpacker".*', options)
+        # Package 'shellcode' was excluded.
+        self.none_should_match('.*"shellcode".*', options)
 
     def test_get_package_exe_info(self):
         """Get the package info from exe.py."""

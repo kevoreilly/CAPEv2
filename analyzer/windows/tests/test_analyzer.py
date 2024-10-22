@@ -81,86 +81,24 @@ class TestAnalyzerInternals(unittest.TestCase):
 
 
 class TestAnalyzerChoosePackage(unittest.TestCase):
-    def test_choose_package_Shellcode_Unpacker(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "Shellcode-Unpacker"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Shellcode-Unpacker", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "Shellcode_Unpacker")
 
-    def test_choose_package_Shellcode(self):
+    def test_choose_package_shellcode(self):
         test = analyzer.Analyzer()
         test.config = MagicMock()
         test.options = MagicMock()
-        test.config.package = "Shellcode"
+        test.config.package = "shellcode"
         pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Shellcode", pkg_name)
+        self.assertEqual("modules.packages.shellcode", pkg_name)
         self.assertEqual(pkg_class.__class__.__name__, "Shellcode")
 
     def test_choose_package_Shellcode_x64(self):
         test = analyzer.Analyzer()
         test.config = MagicMock()
         test.options = MagicMock()
-        test.config.package = "Shellcode_x64"
+        test.config.package = "shellcode_x64"
         pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Shellcode_x64", pkg_name)
+        self.assertEqual("modules.packages.shellcode_x64", pkg_name)
         self.assertEqual(pkg_class.__class__.__name__, "Shellcode_x64")
-
-    def test_choose_package_Unpacker(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "Unpacker"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Unpacker", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "Unpacker")
-
-    def test_choose_package_Unpacker_dll(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "Unpacker_dll"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Unpacker_dll", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "Unpacker_dll")
-
-    def test_choose_package_Unpacker_js(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "Unpacker_js"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Unpacker_js", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "Unpacker_JS")
-
-    def test_choose_package_Unpacker_ps1(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "Unpacker_ps1"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Unpacker_ps1", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "PS1")
-
-    def test_choose_package_Unpacker_regsvr(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "Unpacker_regsvr"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Unpacker_regsvr", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "Unpacker_Regsvr")
-
-    def test_choose_package_Unpacker_zip(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "Unpacker_zip"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.Unpacker_zip", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "Unpacker_zip")
 
     def test_choose_package_access(self):
         test = analyzer.Analyzer()
@@ -602,15 +540,6 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.swf", pkg_name)
         self.assertEqual(pkg_class.__class__.__name__, "SWF")
-
-    def test_choose_package_vawtrak(self):
-        test = analyzer.Analyzer()
-        test.config = MagicMock()
-        test.options = MagicMock()
-        test.config.package = "vawtrak"
-        pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.vawtrak", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "IE")
 
     def test_choose_package_vbejse(self):
         test = analyzer.Analyzer()

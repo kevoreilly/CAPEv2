@@ -75,7 +75,7 @@ binary = /usr/bin/de4dot
 extra_args =
 timeout = 60
 
-# https://github.com/SychicBoy/NETReactorSlayer/releases
+# https://github.com/otavepto/NETReactorSlayer/releases
 [eziriz_deobfuscate]
 enabled = yes
 binary = data/NETReactorSlayer.CLI

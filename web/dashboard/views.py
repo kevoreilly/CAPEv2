@@ -76,6 +76,8 @@ def index(request):
     tasks = db.count_tasks(status=TASK_COMPLETED)
     tasks += db.count_tasks(status=TASK_REPORTED)
 
+    data = {"title": "Dashboard", "report": {}}
+
     if tasks:
         # Get the time when the first task started and last one ended.
         started, completed = db.minmax_tasks()
@@ -91,4 +93,5 @@ def index(request):
         report["estimate_day"] = format_number_with_space(int(24 * hourly))
         report["top_detections"] = top_detections()
 
-    return render(request, "dashboard/index.html", {"report": report})
+        data["report"] = report
+    return render(request, "dashboard/index.html", data)

@@ -345,6 +345,7 @@ def main():
                 try:
                     tmp_path = store_temp_file(open(file_path, "rb").read(), sanitize_filename(os.path.basename(file_path)))
                     with db.session.begin():
+                        # ToDo expose extra_details["errors"]
                         task_ids, extra_details = db.demux_sample_and_add_to_db(
                             file_path=tmp_path,
                             package=args.package,

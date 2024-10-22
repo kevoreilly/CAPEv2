@@ -73,7 +73,7 @@ class MitmdumpThread(Thread):
 
     def run(self):
         """Core function to the manage the module"""
-        if not "mitmdump" in self.task.options:
+        if "mitmdump" not in self.task.options:
             log.info("Exiting mitmdump. No parameter received.")
             return
 

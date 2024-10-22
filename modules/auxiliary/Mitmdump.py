@@ -19,6 +19,7 @@ mitmdump = Config("mitmdump")
 
 log = logging.getLogger(__name__)
 
+
 class Mitmdump(Auxiliary):
     """Module for generating HAR with Mitmdump."""
 
@@ -26,8 +27,7 @@ class Mitmdump(Auxiliary):
         Auxiliary.__init__(self)
         Thread.__init__(self)
         log.info("Mitmdump module loaded")
-        self.mitmdump_thread = None        
-
+        self.mitmdump_thread = None
 
     def start(self):
         """Start mitmdump in a separate thread."""
@@ -50,12 +50,12 @@ class MitmdumpThread(Thread):
         self.task = task
         self.machine = machine
         self.do_run = True
-        self.host_ip =  mitmdump.cfg.get("host")
-        self.host_iface =  mitmdump.cfg.get("interface")
+        self.host_ip = mitmdump.cfg.get("host")
+        self.host_iface = mitmdump.cfg.get("interface")
         self.mitmdump_bin = mitmdump.cfg.get("bin")
         self.proc = None
         self.host_port = self._get_unused_port()
-        self.mitmdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "mitmdump")                
+        self.mitmdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "mitmdump")
 
     def stop(self):
         """Set stop mitmdump capture."""
@@ -67,7 +67,7 @@ class MitmdumpThread(Thread):
             log.info("Stopping mitmdump")
 
         try:
-            rooter("disable_mitmdump",self.host_iface, self.machine.ip, self.host_port)
+            rooter("disable_mitmdump", self.host_iface, self.machine.ip, self.host_port)
         except subprocess.CalledProcessError as e:
             log.error("Failed to execute firewall rules: %s", e)
 
@@ -83,7 +83,7 @@ class MitmdumpThread(Thread):
                 return
 
             try:
-                rooter("enable_mitmdump",self.host_iface, self.machine.ip, self.host_port)
+                rooter("enable_mitmdump", self.host_iface, self.machine.ip, self.host_port)
             except subprocess.CalledProcessError as e:
                 log.error("Failed to execute firewall rules: %s", e)
 
@@ -91,15 +91,34 @@ class MitmdumpThread(Thread):
                 mitmdump_args = []
                 os.makedirs(self.mitmdump_path, exist_ok=True)
                 file_path = os.path.join(self.mitmdump_path, "dump.har")
-                mitmdump_args.extend([self.mitmdump_bin, "-q", "--listen-host", self.host_ip, "-p", str(self.host_port), "--set", "hardump=", file_path])
-                mitmdump_args[-2:] = ["".join(mitmdump_args[-2:])] # concatenate the last two arguments, otherwise the HAR file will not be created.
+                mitmdump_args.extend(
+                    [
+                        self.mitmdump_bin,
+                        "-q",
+                        "--listen-host",
+                        self.host_ip,
+                        "-p",
+                        str(self.host_port),
+                        "--set",
+                        "hardump=",
+                        file_path,
+                    ]
+                )
+                mitmdump_args[-2:] = [
+                    "".join(mitmdump_args[-2:])
+                ]  # concatenate the last two arguments, otherwise the HAR file will not be created.
                 self.proc = subprocess.Popen(mitmdump_args, stdout=None, stderr=None, shell=False)
             except (OSError, ValueError):
                 log.exception("Failed to mitmdump (host=%s, port=%s, dump_path=%s)", self.host_ip, self.host_port, file_path)
                 return
 
-            log.info("Started mitmdump with PID %d (host=%s, port=%s, dump_path=%s)", self.proc.pid, self.host_ip, self.host_port, file_path)
-
+            log.info(
+                "Started mitmdump with PID %d (host=%s, port=%s, dump_path=%s)",
+                self.proc.pid,
+                self.host_ip,
+                self.host_port,
+                file_path,
+            )
 
     def _get_unused_port(self) -> str | None:
         """Return the first unused TCP port from the set."""

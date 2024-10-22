@@ -191,23 +191,80 @@ def disable_nat(interface):
 def enable_mitmdump(interface, client, port):
     """Enable mitmdump on this interface."""
     run_iptables(
-        "-t", "nat", "-I", "PREROUTING", "-i", interface, "-s", client,  "-p", "tcp", "--dport", "443",
-        "-j", "REDIRECT", "--to-port", port
+        "-t",
+        "nat",
+        "-I",
+        "PREROUTING",
+        "-i",
+        interface,
+        "-s",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        "443",
+        "-j",
+        "REDIRECT",
+        "--to-port",
+        port,
     )
     run_iptables(
-        "-t", "nat", "-I", "PREROUTING", "-i", interface, "-s", client,  "-p", "tcp", "--dport", "80",
-        "-j", "REDIRECT", "--to-port", port
+        "-t",
+        "nat",
+        "-I",
+        "PREROUTING",
+        "-i",
+        interface,
+        "-s",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        "80",
+        "-j",
+        "REDIRECT",
+        "--to-port",
+        port,
     )
+
 
 def disable_mitmdump(interface, client, port):
     """Disable mitmdump on this interface."""
     run_iptables(
-        "-t", "nat", "-D", "PREROUTING", "-i", interface, "-s", client,  "-p", "tcp", "--dport", "443",
-        "-j", "REDIRECT", "--to-port", port
+        "-t",
+        "nat",
+        "-D",
+        "PREROUTING",
+        "-i",
+        interface,
+        "-s",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        "443",
+        "-j",
+        "REDIRECT",
+        "--to-port",
+        port,
     )
     run_iptables(
-        "-t", "nat", "-D", "PREROUTING", "-i", interface, "-s", client,  "-p", "tcp", "--dport", "80",
-        "-j", "REDIRECT", "--to-port", port
+        "-t",
+        "nat",
+        "-D",
+        "PREROUTING",
+        "-i",
+        interface,
+        "-s",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        "80",
+        "-j",
+        "REDIRECT",
+        "--to-port",
+        port,
     )
 
 
@@ -698,7 +755,7 @@ handlers = {
     "add_dev_to_vrf": add_dev_to_vrf,
     "delete_dev_from_vrf": delete_dev_from_vrf,
     "enable_mitmdump": enable_mitmdump,
-    "disable_mitmdump": disable_mitmdump,    
+    "disable_mitmdump": disable_mitmdump,
 }
 
 if __name__ == "__main__":

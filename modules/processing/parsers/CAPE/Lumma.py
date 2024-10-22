@@ -1,6 +1,8 @@
 import base64
-import pefile
 import re
+
+import pefile
+
 
 def is_base64(s):
     pattern = re.compile("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$")
@@ -9,11 +11,13 @@ def is_base64(s):
     else:
         return pattern.match(s)
 
+
 def extract_strings(data, minchars):
     endlimit = b"8192"
     apat = b"([\x20-\x7e]{" + str(minchars).encode() + b"," + endlimit + b"})\x00"
     strings = [string.decode() for string in re.findall(apat, data)]
     return strings
+
 
 def get_base64_strings(str_list):
     base64_strings = []
@@ -22,16 +26,18 @@ def get_base64_strings(str_list):
             base64_strings.append(s)
     return base64_strings
 
+
 def get_rdata(data):
     rdata = None
     pe = pefile.PE(data=data)
     section_idx = 0
     for section in pe.sections:
-        if section.Name == b'.rdata\x00\x00':
+        if section.Name == b".rdata\x00\x00":
             rdata = pe.sections[section_idx].get_data()
             break
         section_idx += 1
     return rdata
+
 
 def xor_data(data, key):
     decoded = bytearray()
@@ -42,11 +48,13 @@ def xor_data(data, key):
         decoded.append(data[i] ^ key[i])
     return decoded
 
+
 def contains_non_printable(byte_array):
     for byte in byte_array:
         if not chr(byte).isprintable():
             return True
-    return False       
+    return False
+
 
 def extract_config(data):
     config_dict = {"C2": []}

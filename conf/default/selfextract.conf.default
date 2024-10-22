@@ -92,5 +92,5 @@ timeout = 60
 
 # PE file overlay
 [overlay]
-enabled = no
+enabled = yes
 timeout = 60

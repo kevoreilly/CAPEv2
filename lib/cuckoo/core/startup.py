@@ -92,20 +92,40 @@ def check_webgui_mongo():
         client = connect_to_mongo()
         if not client:
             sys.exit(
-                "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration\nrun `systemctl status mongodb` for more info"
+                "You have enabled webgui but mongo isn't working, see mongodb "
+                "manual for correct installation and configuration\n"
+                "run `systemctl status mongodb` for more info"
             )
 
-        # Create an index based on the info.id dict key. Increases overall scalability
-        # with large amounts of data.
-        # Note: Silently ignores the creation if the index already exists.
-        mongo_create_index("analysis", "info.id", name="info.id_1")
-        # mongo_create_index([("target.file.sha256", TEXT)], name="target_sha256")
-        # We performs a lot of SHA256 hash lookup so we need this index
-        # mongo_create_index(
-        #     "analysis",
-        #     [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
-        #     name="ALL_SHA256",
-        # )
+        # Create separate index for certain fields to enable efficient keyword
+        # searches for large amounts of data in the 'analysis' collection.
+        # NOTE: Silently ignores the creation if the index already exists.
+        items = [
+            "info.id",
+            "info.parent_sample.sha256",
+            "target.file.sha256",
+            "dropped.sha256",
+            "CAPE.payloads.sha256",
+            "procdump.sha256",
+            "procmemory.sha256",
+            "target.file.extracted_files.sha256",
+            "dropped.extracted_files.sha256",
+            "CAPE.payloads.extracted_files.sha256",
+            "procdump.extracted_files.sha256",
+            "procmemory.extracted_files.sha256",
+            "target.file.file_ref",
+            "dropped.file_ref",
+            "CAPE.payloads.file_ref",
+            "procdump.file_ref",
+            "procmemory.file_ref",
+        ]
+        for item in items:
+            mongo_create_index(
+                collection="analysis",
+                index=item,
+                name=f"{item}_1"
+            )
+
         mongo_create_index("files", [("_task_ids", 1)])
 
     elif repconf.elasticsearchdb.enabled:

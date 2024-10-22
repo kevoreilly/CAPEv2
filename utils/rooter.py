@@ -188,6 +188,86 @@ def disable_nat(interface):
     run_iptables("-t", "nat", "-D", "POSTROUTING", "-o", interface, "-j", "MASQUERADE")
 
 
+def enable_mitmdump(interface, client, port):
+    """Enable mitmdump on this interface."""
+    run_iptables(
+        "-t",
+        "nat",
+        "-I",
+        "PREROUTING",
+        "-i",
+        interface,
+        "-s",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        "443",
+        "-j",
+        "REDIRECT",
+        "--to-port",
+        port,
+    )
+    run_iptables(
+        "-t",
+        "nat",
+        "-I",
+        "PREROUTING",
+        "-i",
+        interface,
+        "-s",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        "80",
+        "-j",
+        "REDIRECT",
+        "--to-port",
+        port,
+    )
+
+
+def disable_mitmdump(interface, client, port):
+    """Disable mitmdump on this interface."""
+    run_iptables(
+        "-t",
+        "nat",
+        "-D",
+        "PREROUTING",
+        "-i",
+        interface,
+        "-s",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        "443",
+        "-j",
+        "REDIRECT",
+        "--to-port",
+        port,
+    )
+    run_iptables(
+        "-t",
+        "nat",
+        "-D",
+        "PREROUTING",
+        "-i",
+        interface,
+        "-s",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        "80",
+        "-j",
+        "REDIRECT",
+        "--to-port",
+        port,
+    )
+
+
 def init_rttable(rt_table, interface):
     """Initialise routing table for this interface using routes
     from main table."""
@@ -674,6 +754,8 @@ handlers = {
     "cleanup_vrf": cleanup_vrf,
     "add_dev_to_vrf": add_dev_to_vrf,
     "delete_dev_from_vrf": delete_dev_from_vrf,
+    "enable_mitmdump": enable_mitmdump,
+    "disable_mitmdump": disable_mitmdump,
 }
 
 if __name__ == "__main__":

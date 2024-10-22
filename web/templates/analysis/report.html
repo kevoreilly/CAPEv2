@@ -85,9 +85,6 @@ $(function() {
         {% if analysis.dropped %}
             <li class="nav-item"><a class="nav-link" href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>
         {% endif %}
-        {% if analysis.static.pe.overlay.fileinfo %}
-            <li class="nav-item"><a class="nav-link" href="#overlay" data-toggle="tab">Overlay data</a></li>
-        {% endif %}
         {% if analysis.procmemory %}
             <li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procmemory/" data-toggle="tab" >Process Memory ({{analysis.procmemory}})</a></li>
         {% endif %}
@@ -191,11 +188,6 @@ $(function() {
     {% if settings.ADMIN or user.is_staff %}
     <div class="tab-pane fade" id="admin">
         {% include "analysis/admin/index.html" %}
-    </div>
-    {% endif %}
-    {% if analysis.static.pe.overlay.fileinfo %}
-    <div class="tab-pane fade" id="overlay">
-        {% include "analysis/overlay/index.html" %}
     </div>
     {% endif %}
 </div>

@@ -112,9 +112,6 @@ except ImportError:
     HAVE_BAT_DECODER = False
     print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
-processing_conf = Config("processing")
-selfextract_conf = Config("selfextract")
-
 unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
 
 if processing_conf.trid.enabled:

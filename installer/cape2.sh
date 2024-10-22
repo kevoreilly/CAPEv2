@@ -1317,6 +1317,17 @@ function install_volatility3() {
     chown "${USER}:${USER}" $vol_path -R
 }
 
+function install_mitmproxy() {
+    sudo mkdir /opt/mitmproxy
+    sudo chown ${USER}:${USER} /opt/mitmproxy    
+    cd /opt/mitmproxy
+    mitmproxy_version=$(curl -s https://api.github.com/repos/mitmproxy/mitmproxy/releases/latest | grep '"tag_name":' | cut -d '"' -f 4 | sed 's/^v//')
+    wget https://downloads.mitmproxy.org/"$mitmproxy_version"/mitmproxy-"$mitmproxy_version"-linux-x86_64.tar.gz -O mitmproxy.tar.gz
+    tar xvzf mitmproxy.tar.gz
+    rm mitmproxy.tar.gz
+    chown "${USER}:${USER}" /opt/mitmproxy -R
+}
+
 function install_guacamole() {
     # Kudos to @Enzok https://github.com/kevoreilly/CAPEv2/pull/1065
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
@@ -1451,6 +1462,7 @@ case "$COMMAND" in
     install_systemd
     install_jemalloc
     install_logrotate
+    install_mitmproxy
     #socksproxies is to start redsocks stuff
     if [ -f /opt/CAPEv2/socksproxies.sh ]; then
         crontab -l | { cat; echo "@reboot /opt/CAPEv2/socksproxies.sh"; } | crontab -
@@ -1501,6 +1513,8 @@ case "$COMMAND" in
 	librenms_snmpd_config;;
 'librenms_sneck_config')
 	librenms_sneck_config;;
+'mitmproxy')
+    install_mitmproxy;;
 'issues')
     issues;;
 'nginx')

@@ -83,7 +83,7 @@ def extract_config(data: bytes) -> dict:
             elif re.match(r"^(?![A-Z]{6,}$)[a-zA-Z0-9\-=]{6,}$", decoded_string):
                 campaign = decoded_string
 
-        result = {"urls": urls, "directories": directories, "campaign": campaign}
+        result = {"urls": urls.sort(), "directories": directories, "campaign": campaign}
 
     return result
 

@@ -16,6 +16,7 @@
 import datetime
 import re
 from contextlib import suppress
+
 import pefile
 
 
@@ -32,10 +33,10 @@ def decrypt_string(encoded_string: str, key: str) -> str:
     decoded_bytes = bytearray(encoded_length)
 
     for i in range(encoded_length):
-        new_byte = (encoded_bytes[i] ^ key_bytes[i % key_length]) & 0xff
+        new_byte = (encoded_bytes[i] ^ key_bytes[i % key_length]) & 0xFF
         decoded_bytes[i] = new_byte
 
-    decoded_string = decoded_bytes.decode('ascii', errors='ignore')
+    decoded_string = decoded_bytes.decode("ascii", errors="ignore")
 
     return decoded_string
 

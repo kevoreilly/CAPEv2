@@ -1,9 +1,16 @@
-import os
 import logging
+import os
+
+from lib.cuckoo.common.integrations.file_extra_info_modules import (
+    ExtractorReturnType,
+    collect_extracted_filenames,
+    extractor_ctx,
+    time_tracker,
+)
+from lib.cuckoo.common.path_utils import path_write_file
+
 # from base64 import b64encode
 
-from lib.cuckoo.common.path_utils import path_write_file
-from lib.cuckoo.common.integrations.file_extra_info_modules import time_tracker, ExtractorReturnType, extractor_ctx, collect_extracted_filenames
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +31,6 @@ def extract_details(file, *, data_dictionary, **_) -> ExtractorReturnType:
         # data_dictionary["pe"]["overlay"]["data"] = b64encode(data[: min(overlay_size, 4096)])
     except Exception as e:
         log.error(e)
-
 
     with extractor_ctx(file, "overlay", prefix="overlay") as ctx:
         if data:

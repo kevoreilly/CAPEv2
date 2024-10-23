@@ -1,6 +1,5 @@
 import yara
 import pefile
-import argparse
 import struct
 from contextlib import suppress
 
@@ -84,7 +83,6 @@ def extract_config(data):
                 key_offset = pe.get_offset_from_rva(struct.unpack("i", key_rva)[0] - image_base)
                 encoded_str_offset = pe.get_offset_from_rva(struct.unpack("i", encoded_str_rva)[0] - image_base)
                 dword_offset = hex(struct.unpack("i", dword_rva)[0])[2:]
-                dword_name = f"dword_{dword_offset}"
 
                 key = string_from_offset(data, key_offset)
                 encoded_str = string_from_offset(data, encoded_str_offset)

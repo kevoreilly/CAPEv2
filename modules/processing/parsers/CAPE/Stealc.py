@@ -94,3 +94,8 @@ def extract_config(data):
                     config_dict["Strings"].append({f"dword_{dword_offset}" : decoded_str})
 
     return config_dict
+
+if __name__ == "__main__":
+    import sys
+    with open(sys.argv[1], "rb") as f:
+        print(extract_config(f.read()))

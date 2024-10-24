@@ -72,7 +72,6 @@ def skip_nth(buffer, n):
     yield from (value for index, value in enumerate(iterable) if (index + 1) % n and (index - 1) % n)
 
 def find_c2(decoded_buffer):
-    config_dict = {"C2": []}
     decoded_buffer = bytearray(skip_nth(decoded_buffer, 2))
     url_regex = re.compile(rb"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
     urls = [url.lower().decode() for url in url_regex.findall(decoded_buffer)]
@@ -89,7 +88,7 @@ def extract_config(data):
 
     payload_resource_id, xor_key_resource_id = yara_scan(data)
 
-    if payload_resource_id == None or xor_key_resource_id == None:
+    if payload_resource_id is None or xor_key_resource_id is None:
         return
 
     with suppress(Exception):
@@ -103,14 +102,14 @@ def extract_config(data):
                     if directory.struct.Id == xor_key_resource_id:
                         offset = resource.data.struct.OffsetToData
                         xor_phrase_size = resource.data.struct.Size
-                        xor_phrase = pe.get_memory_mapped_image()[offset:offset+xor_phrase_size]
+                        xor_key = pe.get_memory_mapped_image()[offset:offset+xor_phrase_size]
                     elif directory.struct.Id == payload_resource_id:
                         offset = resource.data.struct.OffsetToData
                         encoded_payload_size = resource.data.struct.Size
                         encoded_payload = pe.get_memory_mapped_image()[offset:offset+encoded_payload_size]
 
         encoded_payload = remove_nulls(encoded_payload, encoded_payload_size)
-        decoded_payload = xor_data(encoded_payload, xor_phrase)
+        decoded_payload = xor_data(encoded_payload, xor_key)
 
         config_dict["C2"] = find_c2(decoded_payload)
 

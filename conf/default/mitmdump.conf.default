@@ -1,0 +1,11 @@
+[cfg]
+# bin path to mitmdump
+bin = /opt/mitmproxy/mitmdump
+
+# Host ip where mitmdump is listening
+host = 127.0.0.1
+
+# Interface where mitmdump is listening
+interface = virbr0
+
+# Future options like custom ports, cert paths, etc

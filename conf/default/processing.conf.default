@@ -322,11 +322,6 @@ key =
 enabled = yes
 
 # Community
-# Dump PE's overlay info
-[overlay]
-enabled = no
-
-# Community
 [floss]
 enabled = no
 on_demand = yes

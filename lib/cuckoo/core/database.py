@@ -976,8 +976,7 @@ class _Database:
         """
         machine.locked = False
         machine.locked_changed_on = datetime.now()
-        self.session.add(machine)
-
+        self.session.merge(machine)
         return machine
 
     def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None):

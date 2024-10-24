@@ -93,7 +93,7 @@ cat << EndOfHelp
 
     * This ISN'T a silver bullet, we can't control all changes in all third part software, you are welcome to report updates
 
-    Usage: $0 <command> <iface_ip> | tee $0.log
+    Usage: $0 <command> <iface_ip> [options] | tee $0.log
         Example: $0 all 192.168.1.1 | tee $0.log
     Commands - are case insensitive:
         Base - Installs dependencies, CAPE, systemd, see code for full list
@@ -105,7 +105,9 @@ cat << EndOfHelp
         LetsEncrypt <domain.com> - Install LetsEncrypt for your site, pass your domain as argument
         Suricata - Install latest suricata with performance boost
         PostgreSQL - Install latest PostgresSQL
+        PostgreSQL_Utility - Install pg_activity
         Yara - Install latest yara
+        Yara-x - Install latest yara-x
         Volatility3 - Install Volatility3 and windows symbols
         Mongo - Install latest mongodb
         LetsEncrypt - Install dependencies and retrieves certificate
@@ -127,7 +129,9 @@ cat << EndOfHelp
         osslsigncode - Linux alternative to Windows signtool.exe
         modsecurity - install Nginx ModSecurity plugin
         Issues - show some known possible bugs/solutions
-
+    Options:
+        --disable-mongodb-avx-check - Disable check of AVX CPU feature for MongoDB
+        --disable-libvirt - Disable libvirt related packages installation
     Useful links - THEY CAN BE OUTDATED; RTFM!!!
         * https://cuckoo.sh/docs/introduction/index.html
         * https://medium.com/@seifreed/how-to-deploy-cuckoo-sandbox-431a6e65b848
@@ -138,6 +142,7 @@ EndOfHelp
 }
 
 function install_crowdsecurity() {
+    echo "[+] Install crowdsecurity"
     sudo apt-get install bash gettext whiptail curl wget
     cd /tmp || return
     if [ ! -d crowdsec-release.tgz ]; then
@@ -160,6 +165,7 @@ function install_crowdsecurity() {
 }
 
 function install_docker() {
+    echo "[+] Install docker"
     # https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
     sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
 
@@ -246,6 +252,7 @@ function librenms_snmpd_config() {
 }
 
 function install_librenms() {
+    echo "[+] Install librenms"
 	if [ "$librenms_enable" -ge 1 ]; then
 		echo "Enabling stuff for LibreNMS"
 		apt-get install -y zlib1g-dev cpanminus libjson-perl libfile-readbackwards-perl \
@@ -285,6 +292,7 @@ function install_librenms() {
 }
 
 function install_modsecurity() {
+    echo "[+] Install modsecurity"
     # Tested on nginx 1.(16|18).X Based on https://www.nginx.com/blog/compiling-and-installing-modsecurity-for-open-source-nginx/ with fixes
     apt-get install -y apt-utils autoconf automake build-essential git libcurl4-openssl-dev libgeoip-dev liblmdb-dev libpcre++-dev libtool libxml2-dev libyajl-dev pkgconf wget zlib1g-dev
     git clone --depth 1 -b v3/master --single-branch https://github.com/SpiderLabs/ModSecurity
@@ -332,7 +340,7 @@ function install_modsecurity() {
 }
 
 function install_nginx() {
-
+    echo "[+] Install nginx"
     if [ ! -d nginx-$nginx_version ]; then
         wget http://nginx.org/download/nginx-$nginx_version.tar.gz
         wget http://nginx.org/download/nginx-$nginx_version.tar.gz.asc
@@ -560,6 +568,7 @@ fi
 }
 
 function install_letsencrypt(){
+    echo "[+] Install and configure letsencrypt"
     sudo add-apt-repository ppa:certbot/certbot -y
     sudo apt-get update
     sudo apt-get install python3-certbot-nginx -y
@@ -568,6 +577,7 @@ function install_letsencrypt(){
 }
 
 function install_fail2ban() {
+    echo "[+] Installing fail2ban"
     sudo apt-get install fail2ban -y
     sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
     sudo sed -i /etc/fail2ban/jail.local
@@ -578,6 +588,7 @@ function install_fail2ban() {
 }
 
 function install_logrotate() {
+    echo "[+] Installing logrotate"
     # du -sh /var/log/* | sort -hr | head -n10
     # thanks digitalocean.com for the manual
     # https://www.digitalocean.com/community/tutorials/how-to-manage-logfiles-with-logrotate-on-ubuntu-16-04
@@ -601,6 +612,7 @@ EOF
 }
 
 function redsocks2() {
+    echo "[+] Installing redsocks2"
     cd /tmp || return
     sudo apt-get install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev libssl1.0-dev libssl-dev
     git clone https://github.com/semigodking/redsocks redsocks2 && cd redsocks2 || return
@@ -609,6 +621,7 @@ function redsocks2() {
 }
 
 function distributed() {
+    echo "[+] Configure distributed configuration"
     sudo apt-get install uwsgi uwsgi-plugin-python3 nginx -y 2>/dev/null
     sudo -u ${USER} bash -c 'poetry run pip install flask flask-restful flask-sqlalchemy requests'
 
@@ -655,20 +668,25 @@ EOL
 function install_suricata() {
     echo '[+] Installing Suricata'
     add-apt-repository ppa:oisf/suricata-stable -y
-    apt-get install suricata -y
+    apt-get install suricata suricata-update -y
     touch /etc/suricata/threshold.config
 
     # Download etupdate to update Emerging Threats Open IDS rules:
-    pip3 install suricata-update
     mkdir -p "/etc/suricata/rules"
     if ! crontab -l | grep -q -F '15 * * * * /usr/bin/suricata-update'; then
         crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/suricatasc -c reload-rules /tmp/suricata-command.socket &>/dev/null"; } | crontab -
     fi
     if [ -d /usr/share/suricata/rules/ ]; then
-        cp "/usr/share/suricata/rules/"* "/etc/suricata/rules/"
+        # copy files if rules folder contains files
+        if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
+            cp "/usr/share/suricata/rules/"* "/etc/suricata/rules/"
+        fi
     fi
     if [ -d /var/lib/suricata/rules/ ]; then
-        cp "/var/lib/suricata/rules/"* "/etc/suricata/rules/"
+        # copy files if rules folder contains files
+        if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
+            cp "/var/lib/suricata/rules/"* "/etc/suricata/rules/"
+        fi
     fi
 
     # ToDo this is not the best solution but i don't have time now to investigate proper one
@@ -710,14 +728,18 @@ function install_suricata() {
     systemctl restart suricata
 }
 
-function insall_yara_x() {
-    curl https://sh.rustup.rs -sSf | sh
+function install_yara_x() {
+    echo '[+] Installing Yara-X'
+    sudo -u ${USER} bash -c 'curl https://sh.rustup.rs -sSf | sh'
     cd /tmp || return
-    git clone https://github.com/VirusTotal/yara-x
+    # if yara-x exists from previous install remove it
+    if [ -d yara-x ]; then
+        sudo rm -rf yara-x
+    fi
+    sudo -u ${USER} git clone https://github.com/VirusTotal/yara-x
     cd yara-x || return
-    source "$HOME/.cargo/env"
-    cargo install --path cli
-    pip3 install yara-x
+    sudo -u ${USER} bash -c 'source "$HOME/.cargo/env" ; cargo install --path cli'
+    poetry --directory /opt/CAPEv2/ run pip install yara-x
 }
 
 function install_yara() {
@@ -734,7 +756,7 @@ function install_yara() {
     yara_repo_url=$(echo "$yara_info" | jq ".zipball_url" | sed "s/\"//g")
     if [ ! -f "$yara_version" ]; then
         wget -q "$yara_repo_url"
-        unzip -q "$yara_version"
+        unzip -o -q "$yara_version"
         #wget "https://github.com/VirusTotal/yara/archive/v$yara_version.zip" && unzip "v$yara_version.zip"
     fi
     directory=$(ls | grep "VirusTotal-yara-*")
@@ -751,29 +773,9 @@ function install_yara() {
     #checkinstall -D --pkgname="yara-$yara_version" --pkgversion="$yara_version_only" --default
     ldconfig
 
-    cd /tmp || return
-    git clone --recursive https://github.com/VirusTotal/yara-python
-    cd yara-python
-    # checkout tag v4.2.3 to work around broken master branch
-    # git checkout tags/v4.2.3
-    # sometimes it requires to have a copy of YARA inside of yara-python for proper compilation
-    # git clone --recursive https://github.com/VirusTotal/yara
-    # Temp workarond to fix issues compiling yara-python https://github.com/VirusTotal/yara-python/issues/212
-    # partially applying PR https://github.com/VirusTotal/yara-python/pull/210/files
-    # sed -i "191 i \ \ \ \ # Needed to build tlsh'\n    module.define_macros.extend([('BUCKETS_128', 1), ('CHECKSUM_1B', 1)])\n    # Needed to build authenticode parser\n    module.libraries.append('ssl')" setup.py
-    python3 setup.py build --enable-cuckoo --enable-magic --enable-profiling
-    cd ..
-    # for root
-    pip3 install ./yara-python
-    if [ -d yara-python ]; then
-        sudo rm -rf yara-python
-    fi
+    # Run yara installer script
+    sudo -u ${USER} poetry --directory /opt/CAPEv2 run /opt/CAPEv2/extra/yara_installer.sh
 
-    if id "cape" >/dev/null 2>&1; then
-        cd /opt/CAPEv2/
-        sudo -u cape poetry run extra/yara_installer.sh
-        cd -
-    fi
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
     fi
@@ -784,12 +786,14 @@ function install_mongo(){
 	if [ "$MONGO_ENABLE" -ge 1 ]; then
 		echo "[+] Installing MongoDB"
 		# Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
-		if grep -q ' avx ' /proc/cpuinfo; then
-			MONGO_VERSION="8.0"
-		else
-			echo "[-] Mongo >= 5 is not supported"
-			MONGO_VERSION="4.4"
-		fi
+
+        MONGO_VERSION="8.0"
+        if ! grep -q ' avx ' /proc/cpuinfo; then
+            if [[ "$DISABLE_MONGO_AVX_CHECK" -eq 0 ]]; then
+                echo "[-] Mongo >= 5 is not supported"
+                MONGO_VERSION="4.4"
+            fi
+        fi
 
 		sudo curl -fsSL "https://pgp.mongodb.com/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
 		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
@@ -797,7 +801,7 @@ function install_mongo(){
 		apt-get update 2>/dev/null
 		apt-get install libpcre3-dev numactl cron -y
 		apt-get install -y mongodb-org
-		pip3 install pymongo -U
+		pip3 install pymongo -U --break-system-packages
 
 		apt-get install -y ntp
 		systemctl start ntp.service && sudo systemctl enable ntp.service
@@ -850,10 +854,10 @@ EOF
 		systemctl restart mongodb.service
 
 		if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
-			crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u cape poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+			crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
 		fi
 
-		echo -n "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
+		echo "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
 	else
 		echo "[+] Skipping MongoDB"
 	fi
@@ -861,7 +865,7 @@ EOF
 }
 
 function install_elastic() {
-
+    echo "[+] Installing elastic"
     sudo curl -fsSL "https://artifacts.elastic.co/GPG-KEY-elasticsearch" | sudo gpg --dearmor -o /etc/apt/keyrings/elasticsearch-keyring.gpg --yes
 
     # Elasticsearch 7.x
@@ -871,7 +875,7 @@ function install_elastic() {
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
     apt-get update && apt-get install elasticsearch
-    pip3 install elasticsearch
+    pip3 install elasticsearch --break-system-packages
     systemctl enable elasticsearch
 }
 
@@ -884,14 +888,29 @@ function install_postgresql() {
     sudo apt-get update -y
     sudo apt -y install libpq-dev postgresql postgresql-client
 
-    # amazing tool for monitoring https://github.com/dalibo/pg_activity
-    # sudo -u postgres pg_activity -U postgres
-    python3 -m pip install pg_activity psycopg2-binary
     sudo systemctl enable postgresql.service
     sudo systemctl start postgresql.service
 
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE cape REFRESH COLLATION VERSION;\""
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE postgres REFRESH COLLATION VERSION;\""
+}
+
+function install_capa() {
+    echo "[+] Installing capa"
+    # pip3 install flare-capa fails for me
+    cd /tmp || return
+    if [ ! -d /tmp/capa ]; then
+        # problem with test files of dotnet as it goes over ssh insted of https --recurse-submodules
+        git clone https://github.com/mandiant/capa.git
+    fi
+    cd capa || return
+    git pull
+    git submodule update --init rules
+    poetry --directory /opt/CAPEv2/ run pip install .
+    cd /opt/CAPEv2
+    if [ -d /tmp/capa ]; then
+        sudo rm -rf /tmp/capa
+    fi
 }
 
 function dependencies() {
@@ -912,10 +931,23 @@ function dependencies() {
     apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common -y
     apt-get install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt-get install openvpn wireguard -y
+    apt-get install python3-poetry crudini -y
+    apt-get install locate # used by extra/libvirt_installer.sh
 
     # de4dot selfextraction
     apt-get install -y libgdiplus libdnlib2.1-cil libgif7 libmono-accessibility4.0-cil libmono-ldap4.0-cil libmono-posix4.0-cil libmono-sqlite4.0-cil libmono-system-componentmodel-dataannotations4.0-cil libmono-system-data4.0-cil libmono-system-design4.0-cil libmono-system-drawing4.0-cil libmono-system-enterpriseservices4.0-cil libmono-system-ldap4.0-cil libmono-system-runtime-serialization-formatters-soap4.0-cil libmono-system-runtime4.0-cil libmono-system-transactions4.0-cil libmono-system-web-applicationservices4.0-cil libmono-system-web-services4.0-cil libmono-system-web4.0-cil libmono-system-windows-forms4.0-cil libmono-webbrowser4.0-cil
-    wget http://archive.ubuntu.com/ubuntu/pool/universe/d/de4dot/de4dot_3.1.41592.3405-2_all.deb && sudo dpkg -i de4dot_3.1.41592.3405-2_all.deb
+    de4dot_package_name="de4dot_3.1.41592.3405-2_all.deb"
+    # if not exist download package
+    if [ ! -f $de4dot_package_name ]; then
+        wget http://archive.ubuntu.com/ubuntu/pool/universe/d/de4dot/$de4dot_package_name
+    fi
+    if [ -f $de4dot_package_name ]; then
+        sudo dpkg -i $de4dot_package_name
+        sudo rm $de4dot_package_name
+    else
+        echo "[-] de4dot package not found"
+        return
+    fi
 
     # if broken sudo python -m pip uninstall pip && sudo apt-get install python-pip --reinstall
     #pip3 install --upgrade pip
@@ -924,22 +956,13 @@ function dependencies() {
     # if __name__ == '__main__':
     #     sys.exit(__main__._main())
 
-    # pip3 install flare-capa fails for me
-    cd /tmp || return
-    if [ ! -d /tmp/capa ]; then
-        # problem with test files of dotnet as it goes over ssh insted of https --recurse-submodules
-        git clone https://github.com/mandiant/capa.git
-    fi
-    cd capa || return
-    git pull
-    git submodule update --init rules
-    pip3 install .
-
     # re2 - dead on py3.11
     # apt-get install libre2-dev -y
     #re2 for py3
     # pip3 install cython
     # pip3 install git+https://github.com/andreasvc/pyre2.git
+
+    install_capa
 
     install_postgresql
 
@@ -969,9 +992,16 @@ function dependencies() {
     sudo apt-get install gnupg2 -y
 
     wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/deb.torproject.org-keyring.gpg >/dev/null
-    echo "deb     [arch=amd64 signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
-    echo "deb-src [arch=amd64 signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
-
+    
+    # Tor project has no release for Ubuntu noble (24-10-18)
+    # TODO: Check if it is still the case
+    if [ "$(lsb_release -cs)" = "noble" ]; then
+        echo "deb [signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg arch=amd64] https://deb.torproject.org/torproject.org jammy main" > /etc/apt/sources.list.d/tor.list
+        echo "deb-src [signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg arch=amd64] https://deb.torproject.org/torproject.org jammy main" >> /etc/apt/sources.list.d/tor.list
+    else
+        echo "deb [signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg arch=amd64] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" > /etc/apt/sources.list.d/tor.list
+        echo "deb-src [signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg arch=amd64] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
+    fi
 
     sudo apt-get update 2>/dev/null
     sudo systemctl stop tor@default.service && sudo systemctl disable tor@default.service
@@ -1043,22 +1073,31 @@ EOF
     ### PDNS
     sudo apt-get install git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl -y
     cd /tmp || return
+    
+    # From pevious install
+    if [ -d /tmp/passivedns ]; then
+        sudo rm -rf /tmp/passivedns
+    fi
     git clone https://github.com/gamelinux/passivedns.git
     cd passivedns/ || return
     autoreconf --install
     ./configure
     make -j"$(getconf _NPROCESSORS_ONLN)"
     sudo checkinstall -D --pkgname=passivedns --default
-
-    pip3 install unicorn capstone
-
+    chown ${USER}:${USER} -R /tmp/passivedns/
+    sudo -u ${USER} bash -c 'poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
+    sudo -u ${USER} bash -c 'cd /tmp/passivedns/ ; poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
     sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
+
+    if [ -d /tmp/passivedns ]; then
+        sudo rm -rf /tmp/passivedns
+    fi
 
 }
 
 function install_clamav() {
-    apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
-    pip3 install -U pyclamd
+    echo "[+] Installing clamav"
+    apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs python3-pyclamd -y 
 
     cat >> /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf << EOF
 # This file contains user configuration settings for the clamav-unofficial-sigs.sh
@@ -1190,21 +1229,30 @@ function install_CAPE() {
     echo "[+] Installing CAPEv2"
 
     cd /opt || return
-    git clone https://github.com/kevoreilly/CAPEv2/
+    # if folder CAPEv2 dosn't exist, clone it
+    if [ ! -d CAPEv2 ]; then
+        git clone https://github.com/kevoreilly/CAPEv2/
+    fi
+    chown ${USER}:${USER} -R /opt/CAPEv2/
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
     cd "/opt/CAPEv2/" || return
-    pip3 install poetry crudini
-    CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
+    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 poetry install'
+
+    if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
+        sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
+        sudo usermod -aG kvm ${USER}
+        sudo usermod -aG libvirt ${USER}
+    fi
+    
     #packages are needed for build options in extra/yara_installer.sh
     apt-get install libjansson-dev libmagic1 libmagic-dev -y
-    sudo -u ${USER} bash -c 'poetry run extra/yara_installer.sh'
-    sudo rm -rf yara-python
-
-    sudo usermod -aG kvm ${USER}
-    sudo usermod -aG libvirt ${USER}
+    sudo -u ${USER} bash -c 'poetry run /opt/CAPEv2/extra/yara_installer.sh'
+    
+    if [ -d /tmp/yara-python ]; then
+        sudo rm -rf /tmp/yara-python
+    fi
 
     # copy *.conf.default to *.conf so we have all properly updated fields, as we can't ignore old configs in repository
     for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done
@@ -1240,7 +1288,7 @@ fi
 }
 
 function install_systemd() {
-
+    echo "[+] Installing systemd configuration"
     cp /opt/CAPEv2/systemd/cape.service /lib/systemd/system/cape.service
     cp /opt/CAPEv2/systemd/cape-processor.service /lib/systemd/system/cape-processor.service
     cp /opt/CAPEv2/systemd/cape-web.service /lib/systemd/system/cape-web.service
@@ -1281,7 +1329,7 @@ EOF
 
 
 function install_prometheus_grafana() {
-
+    echo "[+] Installing prometheus grafana"
     # install only on master only master
     wget https://github.com/prometheus/prometheus/releases/download/v"$prometheus_version"/prometheus-"$prometheus_version".linux-amd64.tar.gz && tar xf prometheus-"$prometheus_version".linux-amd64.tar.gz
     cd prometheus-$prometheus_version.linux-amd6 && ./prometheus --config.file=prometheus.yml &
@@ -1301,23 +1349,26 @@ EOL
 }
 
 function install_node_exporter() {
+    echo "[+] Installing prometheus's node exported"
     # deploy on all all monitoring servers
     wget https://github.com/prometheus/node_exporter/releases/download/v"$node_exporter_version"/node_exporter-"$node_exporter_version".linux-amd64.tar.gz && tar xf node_exporter-"$node_exporter_version".linux-amd64.tar.gz
     cd node_exporter-"$node_exporter_version".linux-amd6 && ./node_exporter &
 }
 
 function install_volatility3() {
+    echo "[+] Installing volatility3"
     sudo apt-get install unzip
     sudo -u ${USER} poetry run pip3 install git+https://github.com/volatilityfoundation/volatility3
     vol_path=$(sudo -u ${USER} poetry run python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
     cd $vol_path || return
     wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
-    unzip windows.zip
+    unzip -o windows.zip
     rm windows.zip
     chown "${USER}:${USER}" $vol_path -R
 }
 
 function install_mitmproxy() {
+    echo "[+] Installing mitmproxy"
     sudo mkdir /opt/mitmproxy
     sudo chown ${USER}:${USER} /opt/mitmproxy    
     cd /opt/mitmproxy
@@ -1329,6 +1380,7 @@ function install_mitmproxy() {
 }
 
 function install_guacamole() {
+    echo "[+] Installing guacamole"
     # Kudos to @Enzok https://github.com/kevoreilly/CAPEv2/pull/1065
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
     sudo add-apt-repository ppa:remmina-ppa-team/remmina-next-daily
@@ -1360,7 +1412,8 @@ function install_guacamole() {
     sudo dpkg -i --force-overwrite /tmp/guacamole-"${guacamole_version}"_builded.deb
     sudo ldconfig
 
-    pip3 install -U 'Twisted[tls,http2]'
+    #pip3 install -U 'Twisted[tls,http2]'
+    sudo apt install python3-twisted -y
 
     if [ -f "/etc/systemd/system/guacd.service" ] ; then
         sudo rm /etc/systemd/system/guacd.service
@@ -1393,15 +1446,24 @@ function install_guacamole() {
 }
 
 function install_DIE() {
+    echo "[+] Installing Detect It Easy"
     apt-get install libqt5opengl5 libqt5script5 libqt5scripttools5 libqt5sql5 -y
     wget "https://github.com/horsicq/DIE-engine/releases/download/${DIE_VERSION}/die_${DIE_VERSION}_Ubuntu_${UBUNTU_VERSION}_amd64.deb" -O DIE.deb && dpkg -i DIE.deb
 }
 
 function install_fluentd() {
+    echo "[+] Installing fluentd"
     curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh && sudo bash add-logging-agent-repo.sh
     sudo apt-get update && sudo apt-get install google-fluentd
     sudo apt-get install -y google-fluentd-catch-all-config-structured
     sudo service google-fluentd start && sudo service google-fluentd status
+}
+
+function install_postgres_pg_activity() {
+    echo "[+] Installing pg-activity"
+    # amazing tool for monitoring https://github.com/dalibo/pg_activity
+    # sudo -u postgres pg_activity -U postgres
+    apt install pg-activity -y
 }
 
 # Doesn't work ${$1,,}
@@ -1421,6 +1483,20 @@ elif [ $# -eq 0 ]; then
     exit 1
 fi
 
+DISABLE_MONGO_AVX_CHECK=0
+DISABLE_LIBVIRT=0
+
+for i in "$@"; do
+    if [ "$i" == "--disable-mongodb-avx-check" ]; then
+        # Usage: disable AVX check for MongoDB
+        # Example usecase: Run script in docker container where AVX is not available
+        DISABLE_MONGO_AVX_CHECK=1
+    elif [ "$i" == "--disable-libvirt" ]; then
+        # Disable libvirt installation
+        DISABLE_LIBVIRT=1
+    fi
+done
+
 sandbox_version=$(echo "$sandbox_version"|tr "{A-Z}" "{a-z}")
 
 #check if start with root
@@ -1433,10 +1509,10 @@ case "$COMMAND" in
 'base')
     dependencies
     install_mongo
-    install_suricata
     install_CAPE
     install_yara
     install_systemd
+    install_suricata
     install_jemalloc
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
         crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
@@ -1457,9 +1533,9 @@ case "$COMMAND" in
     install_CAPE
     install_volatility3
     install_mongo
-    install_suricata
     install_yara
     install_systemd
+    install_suricata
     install_jemalloc
     install_logrotate
     install_mitmproxy
@@ -1472,7 +1548,7 @@ case "$COMMAND" in
     fi
     # Update FLARE CAPA rules once per day
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
-        crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && python3 community.py -waf -cr && pip3 install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u ${USER} poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && poetry --directory /opt/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
 	install_librenms
 	if [ "$clamav_enable" -ge 1 ]; then
@@ -1485,10 +1561,14 @@ case "$COMMAND" in
     install_suricata;;
 'yara')
     install_yara;;
+'yara-x')
+    install_yara_x;;
 'volatility3')
     install_volatility3;;
 'postgresql')
     install_postgresql;;
+'postgresql_utility')
+    install_postgres_pg_activity;;
 'elastic')
     install_elastic;;
 'sandbox')
@@ -1544,3 +1624,5 @@ case "$COMMAND" in
 *)
     usage;;
 esac
+
+echo "[+] cape2.sh - Done"

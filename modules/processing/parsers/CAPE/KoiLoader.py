@@ -1,7 +1,6 @@
 import pefile
 import yara
 import struct
-import json
 import re
 from itertools import cycle
 from contextlib import suppress

@@ -66,7 +66,7 @@ def extract_config(data):
     # Try with new method
     if not config_dict["C2"]:
         with suppress(Exception):
-            config_dict["Strings"] = []
+            # config_dict["Strings"] = []
             pe = pefile.PE(data=data, fast_load=False)
             image_base = pe.OPTIONAL_HEADER.ImageBase
 
@@ -90,8 +90,8 @@ def extract_config(data):
                 decoded_str = xor_data(encoded_str, key).decode()
                 if "http://" in decoded_str or "https://" in decoded_str:
                     config_dict["C2"].append(decoded_str)
-                else:
-                    config_dict["Strings"].append({f"dword_{dword_offset}" : decoded_str})
+                # else:
+                #    config_dict["Strings"].append({f"dword_{dword_offset}" : decoded_str})
 
     return config_dict
 

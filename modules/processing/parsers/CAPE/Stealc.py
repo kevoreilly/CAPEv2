@@ -1,8 +1,8 @@
-import yara
-import pefile
 import struct
 from contextlib import suppress
 
+import pefile
+import yara
 
 MAX_STRING_SIZE = 100
 
@@ -27,6 +27,7 @@ RULE_SOURCE = """rule StealC
         $decode_1
 }"""
 
+
 def yara_scan(raw_data):
     yara_rules = yara.compile(source=RULE_SOURCE)
     matches = yara_rules.match(data=raw_data)
@@ -36,14 +37,17 @@ def yara_scan(raw_data):
             for instance in block.instances:
                 yield instance.offset
 
+
 def xor_data(data, key):
     decoded = bytearray()
     for i in range(len(data)):
         decoded.append(data[i] ^ key[i])
     return decoded
 
+
 def string_from_offset(data, offset):
     return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
+
 
 def extract_config(data):
     config_dict = {"C2": []}
@@ -79,14 +83,14 @@ def extract_config(data):
                 key_rva = data[str_decode_offset + 3 : str_decode_offset + 7]
                 encoded_str_rva = data[str_decode_offset + 8 : str_decode_offset + 12]
                 dword_rva = data[str_decode_offset + 21 : str_decode_offset + 25]
-                
+
                 key_offset = pe.get_offset_from_rva(struct.unpack("i", key_rva)[0] - image_base)
                 encoded_str_offset = pe.get_offset_from_rva(struct.unpack("i", encoded_str_rva)[0] - image_base)
                 dword_offset = hex(struct.unpack("i", dword_rva)[0])[2:]
 
                 key = string_from_offset(data, key_offset)
                 encoded_str = string_from_offset(data, encoded_str_offset)
-                
+
                 decoded_str = xor_data(encoded_str, key).decode()
                 if "http://" in decoded_str or "https://" in decoded_str:
                     config_dict["C2"].append(decoded_str)
@@ -95,7 +99,9 @@ def extract_config(data):
 
     return config_dict
 
+
 if __name__ == "__main__":
     import sys
+
     with open(sys.argv[1], "rb") as f:
         print(extract_config(f.read()))

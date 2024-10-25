@@ -1,9 +1,10 @@
+import re
+import struct
+from contextlib import suppress
+from itertools import cycle
+
 import pefile
 import yara
-import struct
-import re
-from itertools import cycle
-from contextlib import suppress
 
 # Hash = b462e3235c7578450b2b56a8aff875a3d99d22f6970a01db3ba98f7ecb6b01a0
 
@@ -20,6 +21,7 @@ rule KoiLoaderResources
         uint16(0) == 0x5A4D and $payload_resource and $xor_key_resource
 }
 """
+
 
 def yara_scan(raw_data):
     yara_rules = yara.compile(source=RULE_SOURCE)
@@ -41,13 +43,15 @@ def yara_scan(raw_data):
 
     return (payload_resource_id, xor_key_resource_id)
 
+
 def remove_nulls(buffer, buffer_size):
     """
     Modify a buffer removing null bytes
     """
     num_nulls = count_nulls(buffer)
-    result = skip_nth(buffer, num_nulls+1)
+    result = skip_nth(buffer, num_nulls + 1)
     return bytearray(result)
+
 
 def count_nulls(buffer):
     """
@@ -66,9 +70,11 @@ def count_nulls(buffer):
 
     return num_nulls
 
+
 def skip_nth(buffer, n):
     iterable = list(buffer)
     yield from (value for index, value in enumerate(iterable) if (index + 1) % n and (index - 1) % n)
+
 
 def find_c2(decoded_buffer):
     decoded_buffer = bytearray(skip_nth(decoded_buffer, 2))
@@ -76,14 +82,16 @@ def find_c2(decoded_buffer):
     urls = [url.lower().decode() for url in url_regex.findall(decoded_buffer)]
     return urls
 
+
 def xor_data(data, key):
     return bytes(c ^ k for c, k in zip(data, cycle(key)))
+
 
 def extract_config(data):
     config_dict = {"C2": []}
 
-    xor_key = b''
-    encoded_payload = b''
+    xor_key = b""
+    encoded_payload = b""
 
     payload_resource_id, xor_key_resource_id = yara_scan(data)
 
@@ -101,11 +109,11 @@ def extract_config(data):
                     if directory.struct.Id == xor_key_resource_id:
                         offset = resource.data.struct.OffsetToData
                         xor_phrase_size = resource.data.struct.Size
-                        xor_key = pe.get_memory_mapped_image()[offset:offset+xor_phrase_size]
+                        xor_key = pe.get_memory_mapped_image()[offset : offset + xor_phrase_size]
                     elif directory.struct.Id == payload_resource_id:
                         offset = resource.data.struct.OffsetToData
                         encoded_payload_size = resource.data.struct.Size
-                        encoded_payload = pe.get_memory_mapped_image()[offset:offset+encoded_payload_size]
+                        encoded_payload = pe.get_memory_mapped_image()[offset : offset + encoded_payload_size]
 
         encoded_payload = remove_nulls(encoded_payload, encoded_payload_size)
         decoded_payload = xor_data(encoded_payload, xor_key)
@@ -114,7 +122,9 @@ def extract_config(data):
 
     return config_dict
 
+
 if __name__ == "__main__":
     import sys
+
     with open(sys.argv[1], "rb") as f:
         print(extract_config(f.read()))

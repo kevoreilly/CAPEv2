@@ -9,10 +9,12 @@ if [ ! -d /tmp/yara-python ]; then
 fi
 
 cd /tmp/yara-python
-python setup.py build --enable-cuckoo --enable-magic --enable-profiling
+
+poetry --directory /opt/CAPEv2 run python setup.py build --enable-cuckoo --enable-magic --enable-profiling
+poetry --directory /opt/CAPEv2 run pip install .
+
 cd ..
-# for root
-pip install ./yara-python
+
 if [ -d yara-python ]; then
-    rm -r yara-python
+    rm -rf yara-python
 fi

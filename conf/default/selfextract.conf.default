@@ -89,3 +89,8 @@ timeout = 60
 [msix_extract]
 enabled = no
 timeout = 60
+
+# PE file overlay
+[overlay]
+enabled = yes
+timeout = 60

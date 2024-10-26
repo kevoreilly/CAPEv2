@@ -1627,6 +1627,36 @@ def tasks_evtx(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_mitmdump(request, task_id):
+    if not apiconf.taskmitmdump.get("enabled"):
+        resp = {"error": True, "error_value": "Mitmdump HAR download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    harfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "mitmdump", "dump.har")
+    if not os.path.normpath(harfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(harfile)}"})
+    if path_exists(harfile):
+        fname = "%s_dump.har" % task_id
+        resp = StreamingHttpResponse(FileWrapper(open(harfile, "rb")), content_type="text/plain")
+        resp["Content-Length"] = os.path.getsize(harfile)
+        resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
+    else:
+        resp = {"error": True, "error_value": "HAR file does not exist"}
+        return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_dropped(request, task_id):
     if not apiconf.taskdropped.get("enabled"):
         resp = {"error": True, "error_value": "Dropped File download API is disabled"}

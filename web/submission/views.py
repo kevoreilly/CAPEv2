@@ -312,6 +312,9 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
 
+        if request.POST.get("mitmdump"):
+            options += "mitmdump=yes,"
+
         if web_conf.guacamole.enabled and request.POST.get("interactive"):
             remote_console = True
             options += "interactive=1,"

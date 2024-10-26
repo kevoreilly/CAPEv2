@@ -74,7 +74,7 @@ paramiko = "3.4.0"
 psutil = "5.9.8"
 # peepdf-3 = "4.0.0"
 
-Werkzeug = "3.0.3"
+Werkzeug = "3.0.6"
 packaging = "23.1"
 setuptools = "70.0.0"
 # command line config manipulation

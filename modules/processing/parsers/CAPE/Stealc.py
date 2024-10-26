@@ -82,11 +82,11 @@ def extract_config(data):
 
                 key_rva = data[str_decode_offset + 3 : str_decode_offset + 7]
                 encoded_str_rva = data[str_decode_offset + 8 : str_decode_offset + 12]
-                dword_rva = data[str_decode_offset + 21 : str_decode_offset + 25]
+                # dword_rva = data[str_decode_offset + 21 : str_decode_offset + 25]
 
                 key_offset = pe.get_offset_from_rva(struct.unpack("i", key_rva)[0] - image_base)
                 encoded_str_offset = pe.get_offset_from_rva(struct.unpack("i", encoded_str_rva)[0] - image_base)
-                dword_offset = hex(struct.unpack("i", dword_rva)[0])[2:]
+                # dword_offset = hex(struct.unpack("i", dword_rva)[0])[2:]
 
                 key = string_from_offset(data, key_offset)
                 encoded_str = string_from_offset(data, encoded_str_offset)

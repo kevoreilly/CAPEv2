@@ -16,11 +16,21 @@ def test_asyncrat():
             "Pastebin": "null",
         }
 
-        assert convert_to_MACO(conf).model_dump == {
+        assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
             "family": "AsyncRAT",
             "version": "0.5.7B",
             "capability_disabled": ["persistence"],
             "mutex": ["AsyncMutex_6SI8OkPnk"],
+            "other": {
+                "C2s": ["todfg.duckdns.org"],
+                "Ports": "6745",
+                "Version": "0.5.7B",
+                "Folder": "%AppData%",
+                "Filename": "updateee.exe",
+                "Install": "false",
+                "Mutex": "AsyncMutex_6SI8OkPnk",
+                "Pastebin": "null",
+            },
             "http": [{"hostname": "todfg.duckdns.org", "port": 6, "usage": "c2"}],
             "paths": [{"path": "%AppData%/updateee.exe", "usage": "install"}],
         }

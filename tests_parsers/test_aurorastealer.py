@@ -15,7 +15,7 @@ def test_aurorastealer():
             "Date": "2023-04-06 19",
         }
 
-        assert convert_to_MACO(conf).model_dump == {
+        assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
             "family": "AuroraStealer",
             "other": {
                 "BuildID": "x64pump",

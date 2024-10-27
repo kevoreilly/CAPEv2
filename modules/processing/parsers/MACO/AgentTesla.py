@@ -11,7 +11,7 @@ def convert_to_MACO(raw_config: dict) -> MACOModel:
     if not protocol:
         return
 
-    parsed_result = MACOModel(family="AgentTesla")
+    parsed_result = MACOModel(family="AgentTesla", other=raw_config)
     if protocol == "Telegram":
         parsed_result.http.append(
             MACOModel.Http(uri=raw_config["C2"],

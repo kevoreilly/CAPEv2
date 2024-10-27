@@ -7,19 +7,11 @@ def convert_to_MACO(raw_config: dict):
     if not raw_config:
         return None
 
-    parsed_result = MACOModel(family="AuroraStealer")
+    parsed_result = MACOModel(family="AuroraStealer", other=raw_config)
     if raw_config.get('C2'):
         # IP related to C2
         parsed_result.http.append(MACOModel.Http(hostname=raw_config['C2'],
                                                  usage="c2"))
-
-    # TODO: We may want to update MACO to account for these?
-    # Ref: https://www.esentire.com/blog/esentire-threat-intelligence-malware-analysis-aurora-stealer
-    #parsed_result.other = {k: raw_config[k] for k in ['Loader module', 'Powershell module', 'Grabber'] if raw_config.get(k)}
-
-    # TODO: Unsure what the other possible keys might be and how they should be organized (line 54)
-    # For now we'll assign the entirety of the raw config to other
-    parsed_result.other = raw_config
 
     return parsed_result
 

@@ -7,7 +7,7 @@ def convert_to_MACO(raw_config: dict) -> MACOModel:
     if not raw_config:
         return
 
-    parsed_result = MACOModel(family="AsyncRAT")
+    parsed_result = MACOModel(family="AsyncRAT", other=raw_config)
 
     # Mutex
     parsed_result.mutex.append(raw_config["Mutex"])

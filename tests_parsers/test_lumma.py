@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from modules.processing.parsers.CAPE.Lumma import extract_config
+from modules.processing.parsers.MACO.Lumma import convert_to_MACO
 
 
 def test_lumma():
@@ -20,4 +21,31 @@ def test_lumma():
                 "famikyjdiag.site",
                 "agentyanlark.site",
             ]
+        }
+        assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
+            "family": "Lumma",
+            "other": {
+                "C2": [
+                    "delaylacedmn.site",
+                    "writekdmsnu.site",
+                    "agentyanlark.site",
+                    "bellykmrebk.site",
+                    "underlinemdsj.site",
+                    "commandejorsk.site",
+                    "possiwreeste.site",
+                    "famikyjdiag.site",
+                    "agentyanlark.site",
+                ]
+            },
+            "http": [
+                {"hostname": "delaylacedmn.site", "usage": "c2"},
+                {"hostname": "writekdmsnu.site", "usage": "c2"},
+                {"hostname": "agentyanlark.site", "usage": "c2"},
+                {"hostname": "bellykmrebk.site", "usage": "c2"},
+                {"hostname": "underlinemdsj.site", "usage": "c2"},
+                {"hostname": "commandejorsk.site", "usage": "c2"},
+                {"hostname": "possiwreeste.site", "usage": "c2"},
+                {"hostname": "famikyjdiag.site", "usage": "c2"},
+                {"hostname": "agentyanlark.site", "usage": "c2"},
+            ],
         }

@@ -16,8 +16,17 @@ def test_agenttesla():
             "ExternalIPCheckServices": ["http://ip-api.com/line/?fields=hosting"],
         }
 
-        assert convert_to_MACO(conf).model_dump == {
+        assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
             "family": "AgentTesla",
+            "other": {
+                "Protocol": "SMTP",
+                "C2": "mail.guestequipment.com.au",
+                "Username": "sendlog@guestequipment.com.au",
+                "Password": "Clone89!",
+                "EmailTo": "info@marethon.com",
+                "Persistence_Filename": "newfile.exe",
+                "ExternalIPCheckServices": ["http://ip-api.com/line/?fields=hosting"],
+            },
             "smtp": [
                 {
                     "username": "sendlog@guestequipment.com.au",

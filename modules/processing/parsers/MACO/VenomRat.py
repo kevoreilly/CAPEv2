@@ -1,4 +1,3 @@
-import os
 
 from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor

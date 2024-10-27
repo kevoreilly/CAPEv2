@@ -73,6 +73,7 @@ ruff = "0.0.290"
 paramiko = "3.4.0"
 psutil = "5.9.8"
 # peepdf-3 = "4.0.0"
+maco = "1.1.8"
 
 Werkzeug = "3.0.6"
 packaging = "23.1"

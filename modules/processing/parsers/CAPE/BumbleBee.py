@@ -2,13 +2,12 @@
 # 2024 updates by @enzok
 #
 import logging
-import struct
 import traceback
-import yara
 from contextlib import suppress
 
 import pefile
 import regex as re
+import yara
 from Cryptodome.Cipher import ARC4
 
 log = logging.getLogger(__name__)

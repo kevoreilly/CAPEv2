@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from modules.processing.parsers.CAPE.BlackDropper import extract_config
+from modules.processing.parsers.MACO.BlackDropper import convert_to_MACO
 
 
 def test_blackdropper():
@@ -12,4 +13,16 @@ def test_blackdropper():
             "urls": ["http://72.5.42.222:8568/api/dll/", "http://72.5.42.222:8568/api/fileZip"],
             "directories": ["\\Music\\dkcydqtwjv"],
             "campaign": "oFwQ0aQ3v",
+        }
+
+        assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
+            "family": "BlackDropper",
+            "campaign_id": ["oFwQ0aQ3v"],
+            "other": {
+                "urls": ["http://72.5.42.222:8568/api/dll/", "http://72.5.42.222:8568/api/fileZip"],
+                "directories": ["\\Music\\dkcydqtwjv"],
+                "campaign": "oFwQ0aQ3v",
+            },
+            "http": [{"uri": "http://72.5.42.222:8568/api/dll/"}, {"uri": "http://72.5.42.222:8568/api/fileZip"}],
+            "paths": [{"path": "\\Music\\dkcydqtwjv"}],
         }

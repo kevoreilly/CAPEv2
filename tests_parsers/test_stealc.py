@@ -10,6 +10,7 @@ def test_stealc():
         conf = extract_config(data.read())
         assert conf == {
             "C2": ["http://95.217.125.57"],
+            """
             "Strings": [
                 {"dword_64a330": "IN"},
                 {"dword_64a5ec": "09"},
@@ -365,5 +366,6 @@ def test_stealc():
                 {"dword_64a0f0": "message"},
                 {"dword_64a2a4": "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"},
                 {"dword_64a278": "screenshot.jpg"},
+                """
             ],
         }

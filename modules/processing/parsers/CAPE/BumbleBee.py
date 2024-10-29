@@ -44,7 +44,7 @@ def extract_key_data(data, pe, key_match):
         # Now that we have the relative rva, we need to get the file offset
         key_offset = pe.get_offset_from_rva(relative_rva + int.from_bytes(key_match.group("key"), byteorder="little"))
         # Read arbitrary number of byes from key offset and split on null bytes to extract key
-        key = data[key_offset: key_offset + 0x40].split(b"\x00")[0]
+        key = data[key_offset : key_offset + 0x40].split(b"\x00")[0]
     except Exception as e:
         log.debug(f"There was an exception extracting the key: {e}")
         log.debug(traceback.format_exc())
@@ -64,7 +64,7 @@ def extract_config_data(data, pe, config_match):
         campaign_id_offset = pe.get_offset_from_rva(
             campaign_id_rva + int.from_bytes(config_match.group("campaign_id"), byteorder="little")
         )
-        campaign_id_ct = data[campaign_id_offset: campaign_id_offset + 0x10]
+        campaign_id_ct = data[campaign_id_offset : campaign_id_offset + 0x10]
     except Exception as e:
         log.debug(f"There was an exception extracting the campaign id: {e}")
         log.debug(traceback.format_exc())
@@ -73,13 +73,12 @@ def extract_config_data(data, pe, config_match):
     try:
         # Get botnet id ciphertext
         botnet_id_rva = pe.get_rva_from_offset(
-            config_match.start() + int(len(config_match.group("campaign_id_ins"))) + int(
-                len(config_match.group("botnet_id_ins")))
+            config_match.start() + int(len(config_match.group("campaign_id_ins"))) + int(len(config_match.group("botnet_id_ins")))
         )
         botnet_id_offset = pe.get_offset_from_rva(
             botnet_id_rva + int.from_bytes(config_match.group("botnet_id"), byteorder="little")
         )
-        botnet_id_ct = data[botnet_id_offset: botnet_id_offset + 0x10]
+        botnet_id_ct = data[botnet_id_offset : botnet_id_offset + 0x10]
     except Exception as e:
         log.debug(f"There was an exception extracting the botnet id: {e}")
         log.debug(traceback.format_exc())
@@ -94,7 +93,7 @@ def extract_config_data(data, pe, config_match):
             + int(len(config_match.group("c2s_ins")))
         )
         c2s_offset = pe.get_offset_from_rva(c2s_rva + int.from_bytes(config_match.group("c2s"), byteorder="little"))
-        c2s_ct = data[c2s_offset: c2s_offset + 0x400]
+        c2s_ct = data[c2s_offset : c2s_offset + 0x400]
     except Exception as e:
         log.debug(f"There was an exception extracting the C2s: {e}")
         log.debug(traceback.format_exc())

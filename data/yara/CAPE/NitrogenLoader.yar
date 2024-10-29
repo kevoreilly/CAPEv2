@@ -14,5 +14,5 @@ rule NitrogenLoader
         $syscallnumber = {49 89 C3 B? [4] E8 [3] 00}
         $syscall = {48 83 C4 ?? 4? 8B 4C 24 ?? 4? 8B 54 24 ?? 4? 8B 44 24 ?? 4? 8B 4C 24 ?? 4? 89 CA 4? FF E3}
     condition:
-        all of ($aes*) and all of ($string*) and any of ($syscall*)
+        all of ($stringaes*) and all of ($string*) and any of ($syscall*)
 }

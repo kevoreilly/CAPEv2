@@ -1,6 +1,6 @@
-
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.WarzoneRAT import extract_config
 
 
@@ -11,7 +11,7 @@ def convert_to_MACO(raw_config: dict):
     parsed_result = MACOModel(family="WarzoneRAT", other=raw_config)
 
     if "C2" in raw_config:
-        host, port = raw_config["C2"].split(':')
+        host, port = raw_config["C2"].split(":")
         parsed_result.http.append(MACOModel.Http(hostname=host, port=port, usage="c2"))
 
     return parsed_result

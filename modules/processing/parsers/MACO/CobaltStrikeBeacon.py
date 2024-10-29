@@ -1,7 +1,10 @@
 import os
-from maco.model import ExtractorModel as MACOModel
+
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.CobaltStrikeBeacon import extract_config
+
 
 def convert_to_MACO(raw_config: dict):
     if not raw_config:
@@ -19,10 +22,12 @@ def convert_to_MACO(raw_config: dict):
             parsed_result.capability_disabled.append(capability)
 
     if "C2Server" in clean_config:
-        host, get_path = clean_config.pop("C2Server").split(',')
+        host, get_path = clean_config.pop("C2Server").split(",")
         port = clean_config.pop("Port")
         parsed_result.http.append(MACOModel.Http(hostname=host, port=port, method="GET", path=get_path, usage="c2"))
-        parsed_result.http.append(MACOModel.Http(hostname=host, port=port, method="POST", path=clean_config.pop("HttpPostUri"), usage="c2"))
+        parsed_result.http.append(
+            MACOModel.Http(hostname=host, port=port, method="POST", path=clean_config.pop("HttpPostUri"), usage="c2")
+        )
 
     parsed_result.sleep_delay = clean_config.pop("SleepTime")
     parsed_result.sleep_delay_jitter = clean_config.pop("Jitter")
@@ -32,6 +37,7 @@ def convert_to_MACO(raw_config: dict):
             parsed_result.paths.append(MACOModel.Path(path=clean_config.pop(path_key)))
 
     return parsed_result
+
 
 class CobaltStrikeBeacon(Extractor):
     author = "kevoreilly"

@@ -1,14 +1,16 @@
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
-from modules.processing.parsers.CAPE.Stealc import extract_config, RULE_SOURCE
+from maco.model import ExtractorModel as MACOModel
+
+from modules.processing.parsers.CAPE.Stealc import RULE_SOURCE, extract_config
 
 
 def convert_to_MACO(raw_config: dict):
     if not raw_config:
         return None
 
-    parsed_result = MACOModel(family="Stealc", other=raw_config,
-                              http=[MACOModel.Http(uri=c2, usage="c2") for c2 in raw_config["C2"]])
+    parsed_result = MACOModel(
+        family="Stealc", other=raw_config, http=[MACOModel.Http(uri=c2, usage="c2") for c2 in raw_config["C2"]]
+    )
 
     return parsed_result
 

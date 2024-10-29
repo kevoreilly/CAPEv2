@@ -1,6 +1,8 @@
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.ChChes import extract_config, rule_source
+
 
 def convert_to_MACO(raw_config: dict):
     if not raw_config:
@@ -13,6 +15,7 @@ def convert_to_MACO(raw_config: dict):
         parsed_result.http.append(MACOModel.Http(uri=c2_url, usage="c2"))
 
     return parsed_result
+
 
 class ChChes(Extractor):
     author = "kevoreilly"

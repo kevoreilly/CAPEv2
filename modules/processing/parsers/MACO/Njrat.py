@@ -1,13 +1,12 @@
-
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.Njrat import extract_config
 
 
 def convert_to_MACO(raw_config: dict):
     if not raw_config:
         return None
-
 
     parsed_result = MACOModel(family="Njrat", other=raw_config)
 
@@ -18,7 +17,7 @@ def convert_to_MACO(raw_config: dict):
         parsed_result.campaign_id.append(raw_config["campaign_id"])
 
     for c2 in raw_config.get("cncs", []):
-        host, port = c2.split(':')
+        host, port = c2.split(":")
         parsed_result.http.append(MACOModel.Http(hostname=host, port=port, usage="c2"))
 
     return parsed_result

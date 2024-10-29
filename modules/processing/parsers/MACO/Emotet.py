@@ -1,6 +1,8 @@
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.Emotet import extract_config, rule_source
+
 
 def convert_to_MACO(raw_config: dict):
     if not raw_config:
@@ -14,9 +16,10 @@ def convert_to_MACO(raw_config: dict):
     if "RC4 public key" in raw_config:
         parsed_result.encryption.append(MACOModel.Encryption(algorithm="RC4", public_key=raw_config["RSA public key"]))
 
-    parsed_result.other = {k: raw_config[k] for k in raw_config.keys() if k not in ["address", "RSA public key"] }
+    parsed_result.other = {k: raw_config[k] for k in raw_config.keys() if k not in ["address", "RSA public key"]}
 
     return parsed_result
+
 
 class Emotet(Extractor):
     author = "kevoreilly"

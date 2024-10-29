@@ -1,8 +1,9 @@
 import os
 from copy import deepcopy
 
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.Punisher import extract_config
 
 
@@ -18,7 +19,7 @@ def convert_to_MACO(raw_config: dict):
         registry=[MACOModel.Registry(key=config_copy["Registry Key"])],
         paths=[MACOModel.Path(path=os.path.join(config_copy["Install Path"], config_copy["Install Name"]))],
         http=[MACOModel.Http(hostname=config_copy["Domain"], port=config_copy["Port"])],
-        other=raw_config
+        other=raw_config,
     )
 
     for field in raw_config.keys():

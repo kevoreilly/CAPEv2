@@ -1,14 +1,14 @@
 from copy import deepcopy
 
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.NanoCore import extract_config
 
 
 def convert_to_MACO(raw_config: dict):
     if not raw_config:
         return None
-
 
     parsed_result = MACOModel(family="NanoCore", other=raw_config)
 
@@ -28,7 +28,7 @@ def convert_to_MACO(raw_config: dict):
             parsed_result.capability_disabled.append(capability)
 
     for address in config_copy.pop("cncs", []):
-        host, port = address.split(':')
+        host, port = address.split(":")
         parsed_result.http.append(MACOModel.Http(hostname=host, port=port, usage="c2"))
 
     return parsed_result

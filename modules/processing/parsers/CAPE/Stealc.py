@@ -22,7 +22,7 @@ RULE_SOURCE = """rule StealC
             83 C4 0C
             A3 ?? ?? ?? ??
         }
-    
+
     condition:
         $decode_1
 }"""
@@ -50,7 +50,7 @@ def string_from_offset(data, offset):
 
 
 def extract_config(data):
-    config_dict = {"C2": []}
+    config_dict = {}
 
     # Attempt to extract via old method
     try:
@@ -63,12 +63,12 @@ def extract_config(data):
             if line.startswith("/") and line[-4] == ".":
                 uri = line
         if domain and uri:
-            config_dict["C2"].append(f"{domain}{uri}")
+            config_dict.setdefault("C2", []).append(f"{domain}{uri}")
     except Exception:
         pass
 
     # Try with new method
-    if not config_dict["C2"]:
+    if not config_dict.get("C2"):
         with suppress(Exception):
             # config_dict["Strings"] = []
             pe = pefile.PE(data=data, fast_load=False)
@@ -92,8 +92,8 @@ def extract_config(data):
                 encoded_str = string_from_offset(data, encoded_str_offset)
 
                 decoded_str = xor_data(encoded_str, key).decode()
-                if "http://" in decoded_str or "https://" in decoded_str:
-                    config_dict["C2"].append(decoded_str)
+                if ("http://" in decoded_str or "https://" in decoded_str) and len(decoded_str) > 11:
+                    config_dict.setdefault("C2", []).append(decoded_str)
                 # else:
                 #    config_dict["Strings"].append({f"dword_{dword_offset}" : decoded_str})
 

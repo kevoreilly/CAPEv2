@@ -962,8 +962,6 @@ function dependencies() {
     # pip3 install cython
     # pip3 install git+https://github.com/andreasvc/pyre2.git
 
-    install_capa
-
     install_postgresql
 
     sudo -u postgres -H sh -c "psql -c \"CREATE USER ${USER} WITH PASSWORD '$PASSWD'\"";
@@ -992,7 +990,7 @@ function dependencies() {
     sudo apt-get install gnupg2 -y
 
     wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/deb.torproject.org-keyring.gpg >/dev/null
-    
+
     # Tor project has no release for Ubuntu noble (24-10-18)
     # TODO: Check if it is still the case
     if [ "$(lsb_release -cs)" = "noble" ]; then
@@ -1073,7 +1071,7 @@ EOF
     ### PDNS
     sudo apt-get install git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl -y
     cd /tmp || return
-    
+
     # From pevious install
     if [ -d /tmp/passivedns ]; then
         sudo rm -rf /tmp/passivedns
@@ -1097,7 +1095,7 @@ EOF
 
 function install_clamav() {
     echo "[+] Installing clamav"
-    apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs python3-pyclamd -y 
+    apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs python3-pyclamd -y
 
     cat >> /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf << EOF
 # This file contains user configuration settings for the clamav-unofficial-sigs.sh
@@ -1245,11 +1243,11 @@ function install_CAPE() {
         sudo usermod -aG kvm ${USER}
         sudo usermod -aG libvirt ${USER}
     fi
-    
+
     #packages are needed for build options in extra/yara_installer.sh
     apt-get install libjansson-dev libmagic1 libmagic-dev -y
     sudo -u ${USER} bash -c 'poetry run /opt/CAPEv2/extra/yara_installer.sh'
-    
+
     if [ -d /tmp/yara-python ]; then
         sudo rm -rf /tmp/yara-python
     fi
@@ -1370,7 +1368,7 @@ function install_volatility3() {
 function install_mitmproxy() {
     echo "[+] Installing mitmproxy"
     sudo mkdir /opt/mitmproxy
-    sudo chown ${USER}:${USER} /opt/mitmproxy    
+    sudo chown ${USER}:${USER} /opt/mitmproxy
     cd /opt/mitmproxy
     mitmproxy_version=$(curl -s https://api.github.com/repos/mitmproxy/mitmproxy/releases/latest | grep '"tag_name":' | cut -d '"' -f 4 | sed 's/^v//')
     wget https://downloads.mitmproxy.org/"$mitmproxy_version"/mitmproxy-"$mitmproxy_version"-linux-x86_64.tar.gz -O mitmproxy.tar.gz

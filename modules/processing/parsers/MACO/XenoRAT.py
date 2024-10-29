@@ -1,7 +1,8 @@
 import os
 
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.XenoRAT import extract_config
 
 

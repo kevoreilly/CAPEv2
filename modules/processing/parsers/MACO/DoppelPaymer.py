@@ -1,6 +1,8 @@
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.DoppelPaymer import extract_config, rule_source
+
 
 def convert_to_MACO(raw_config: dict):
     if not raw_config:
@@ -15,6 +17,7 @@ def convert_to_MACO(raw_config: dict):
         parsed_result.encryption.append(MACOModel.Encryption(algorithm="RSA", public_key=raw_config["RSA public key"]))
 
     return parsed_result
+
 
 class DoppelPaymer(Extractor):
     author = "kevoreilly"

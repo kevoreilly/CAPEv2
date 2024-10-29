@@ -1,8 +1,9 @@
 import os
 from copy import deepcopy
 
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.Pandora import extract_config
 
 
@@ -17,7 +18,7 @@ def convert_to_MACO(raw_config: dict):
         campaign_id=[config_copy.pop("Campaign ID")],
         version=config_copy.pop("Version"),
         http=[dict(hostname=config_copy.pop("Domain"), port=config_copy.pop("Port"), password=config_copy.pop("Password"))],
-        other=raw_config
+        other=raw_config,
     )
 
     parsed_result.paths.append(

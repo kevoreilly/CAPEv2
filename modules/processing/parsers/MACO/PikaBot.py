@@ -1,5 +1,6 @@
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.PikaBot import extract_config, rule_source
 
 
@@ -17,7 +18,7 @@ def convert_to_MACO(raw_config: dict):
         parsed_result.campaign_id.append(raw_config["Campaign Name"])
         parsed_result.registry.append(MACOModel.Registry(key=raw_config["Registry Key"]))
         for c2 in raw_config["C2s"]:
-            host, port = c2.split(':')
+            host, port = c2.split(":")
             parsed_result.http.append(MACOModel.Http(hostname=host, port=port, user_agent=raw_config["User Agent"]))
 
     return parsed_result

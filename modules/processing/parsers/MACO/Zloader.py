@@ -1,5 +1,6 @@
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.Zloader import extract_config, rule_source
 
 

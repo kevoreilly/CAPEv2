@@ -1,5 +1,6 @@
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.PoisonIvy import extract_config
 
 
@@ -14,8 +15,8 @@ def convert_to_MACO(raw_config: dict):
     if "Group ID" in raw_config:
         parsed_result.identifier.append(raw_config["Group ID"])
     if "Domains" in raw_config:
-        for domain_port in raw_config["Domains"].split('|'):
-            host, port = domain_port.split(':')
+        for domain_port in raw_config["Domains"].split("|"):
+            host, port = domain_port.split(":")
             parsed_result.http.append(MACOModel.Http(hostname=host, port=port))
     if "Password" in raw_config:
         parsed_result.password.append(raw_config["Password"])

@@ -1,5 +1,6 @@
 from maco.extractor import Extractor
 
+
 class Test(Extractor):
     author = "test"
     family = "test"

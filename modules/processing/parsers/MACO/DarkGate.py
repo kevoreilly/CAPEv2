@@ -1,9 +1,11 @@
 import os
 from copy import deepcopy
 
-from maco.model import ExtractorModel as MACOModel
 from maco.extractor import Extractor
+from maco.model import ExtractorModel as MACOModel
+
 from modules.processing.parsers.CAPE.DarkGate import extract_config
+
 
 def convert_to_MACO(raw_config: dict):
     if not raw_config:
@@ -16,10 +18,10 @@ def convert_to_MACO(raw_config: dict):
 
     # Go through capabilities/settings that are boolean in nature
     for k, v in list(config.items()):
-        if v not in ['Yes', 'No']:
+        if v not in ["Yes", "No"]:
             continue
 
-        if v == 'Yes':
+        if v == "Yes":
             parsed_result.capability_enabled.append(k)
         else:
             parsed_result.capability_disabled.append(k)
@@ -28,15 +30,16 @@ def convert_to_MACO(raw_config: dict):
         config.pop(k)
 
     # C2
-    c2_port = config.pop('c2_port', None)
+    c2_port = config.pop("c2_port", None)
     for c2_url in config.pop("C2", []):
         parsed_result.http.append(MACOModel.Http(uri=c2_url, port=c2_port, usage="c2"))
 
     # Mutex
-    if config.get('internal_mutex'):
-        parsed_result.mutex.append(config.pop('internal_mutex'))
+    if config.get("internal_mutex"):
+        parsed_result.mutex.append(config.pop("internal_mutex"))
 
     return parsed_result
+
 
 class DarkGate(Extractor):
     author = "kevoreilly"

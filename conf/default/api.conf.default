@@ -254,7 +254,7 @@ rpm = 2/m
 
 # Pull a HAR file from a specific task with mitmdump enabled
 [taskmitmdump]
-enabled = yes
+enabled = no
 
 # Download a sample from a specific Task ID.
 [sampledl]

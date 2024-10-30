@@ -1,11 +1,9 @@
 import base64
 import re
-import pefile
 import hashlib
 import dnfile
 import logging
 import traceback
-from contextlib import suppress
 
 try:
     from Cryptodome.Cipher import DES

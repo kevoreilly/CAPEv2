@@ -94,3 +94,10 @@ def extract_config(data):
             return
 
     return config_dict
+
+
+if __name__ == "__main__":
+    import sys
+
+    with open(sys.argv[1], "rb") as f:
+        print(extract_config(f.read()))

@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from modules.processing.parsers.CAPE.Quickbind import extract_config
+from modules.processing.parsers.MACO.Quickbind import convert_to_MACO
 
 
 def test_quickbind():
@@ -12,4 +13,15 @@ def test_quickbind():
             "Encryption Key": "24de21a8dc08434c",
             "Mutex": ["15432a4d-34ca-4d0d-a4ac-04df9a373862"],
             "C2": ["185.49.69.41"],
+        }
+        assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
+            "family": "Quickbind",
+            "mutex": ["15432a4d-34ca-4d0d-a4ac-04df9a373862"],
+            "other": {
+                "Encryption Key": "24de21a8dc08434c",
+                "Mutex": ["15432a4d-34ca-4d0d-a4ac-04df9a373862"],
+                "C2": ["185.49.69.41"],
+            },
+            "http": [{"hostname": "185.49.69.41", "usage": "c2"}],
+            "encryption": [{"key": "24de21a8dc08434c"}],
         }

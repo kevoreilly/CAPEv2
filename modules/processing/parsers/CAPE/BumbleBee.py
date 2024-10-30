@@ -1,4 +1,5 @@
 # Thanks to @MuziSec - https://github.com/MuziSec/malware_scripts/blob/main/bumblebee/extract_config.py
+# 2024 updates by @enzok
 #
 import logging
 import traceback
@@ -6,10 +7,31 @@ from contextlib import suppress
 
 import pefile
 import regex as re
+import yara
 from Cryptodome.Cipher import ARC4
 
 log = logging.getLogger(__name__)
-# log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
+
+rule_source = """
+rule BumbleBee
+{
+    meta:
+        author = "enzok"
+        description = "BumbleBee 2024"
+    strings:
+        $rc4key = {48 [6] 48 [6] E8 [4] 4C 89 AD [4] 4C 89 AD [4] 4C 89 B5 [4] 4C 89 AD [4] 44 88 AD [4] 48 8D 15 [4] 44 38 2D [4] 75}
+        $botidlgt = {4C 8B C1 B? 4F 00 00 00 48 8D 0D [4] E8 [4] 4C 8B C3 48 8D 0D [4] B? 4F 00 00 00 E8 [4] 4C 8B C3 48 8D 0D [4] B? FF 0F 00 00 E8}
+        $botid = {90 48 [6] E8 [4] 4C 89 AD [4] 4C 89 AD [4] 4C 89 B5 [4] 4C 89 AD [4] 44 88 AD [4] 48 8D 15 [4] 44 38 2D [4] 75}
+        $port = {4C 89 6D ?? 4C 89 6D ?? 4c 89 75 ?? 4C 89 6D ?? 44 88 6D ?? 48 8D 05 [4] 44 38 2D [4] 75}
+        $dga1 = {4C 89 75 ?? 4C 89 6D ?? 44 88 6D ?? 48 8B 1D [4] 48 8D 0D [4] E8 [4] 8B F8}
+        $dga2 = {48 8D 0D [4] E8 [4] 8B F0 4C 89 6D ?? 4C 89 6D ?? 4C 89 75 ?? 4C 89 6D ?? 44 88 6D ?? 48 8D 15 [4] 44 38 2D [4] 75}
+    condition:
+        $rc4key and all of ($botid*) and 2 of ($port, $port, $dga1, $dga2)
+}
+"""
+
+yara_rules = yara.compile(source=rule_source)
 
 
 def extract_key_data(data, pe, key_match):
@@ -80,6 +102,84 @@ def extract_config_data(data, pe, config_match):
     return campaign_id_ct, botnet_id_ct, c2s_ct
 
 
+def extract_2024(pe, filebuf):
+    cfg = {}
+    rc4key_init_offset = 0
+    botid_init_offset = 0
+    port_init_offset = 0
+    dga1_init_offset = 0
+    dga2_init_offset = 0
+    botidlgt_init_offset = 0
+
+    matches = yara_rules.match(data=filebuf)
+    if not matches:
+        return
+
+    for match in matches:
+        if match.rule != "BumbleBee":
+            continue
+        for item in match.strings:
+            for instance in item.instances:
+                if "$rc4key" in item.identifier:
+                    rc4key_init_offset = int(instance.offset)
+                elif "$botidlgt" in item.identifier:
+                    botidlgt_init_offset = int(instance.offset)
+                elif "$botid" in item.identifier:
+                    botid_init_offset = int(instance.offset)
+                elif "$port" in item.identifier:
+                    port_init_offset = int(instance.offset)
+                elif "$dga1" in item.identifier:
+                    dga1_init_offset = int(instance.offset)
+                elif "$dga2" in item.identifier:
+                    dga2_init_offset = int(instance.offset)
+
+    if not rc4key_init_offset:
+        return
+
+    key_offset = pe.get_dword_from_offset(rc4key_init_offset + 57)
+    key_rva = pe.get_rva_from_offset(rc4key_init_offset + 61) + key_offset
+    key = pe.get_string_at_rva(key_rva)
+    cfg["RC4 key"] = key.decode()
+
+    botid_offset = pe.get_dword_from_offset(botid_init_offset + 51)
+    botid_rva = pe.get_rva_from_offset(botid_init_offset + 55) + botid_offset
+    botid_len_offset = pe.get_dword_from_offset(botidlgt_init_offset + 31)
+    botid_data = pe.get_data(botid_rva)[:botid_len_offset]
+    with suppress(Exception):
+        botid = ARC4.new(key).decrypt(botid_data).split(b"\x00")[0].decode()
+        cfg["Botid"] = botid
+
+    port_offset = pe.get_dword_from_offset(port_init_offset + 23)
+    port_rva = pe.get_rva_from_offset(port_init_offset + 27) + port_offset
+    port_len_offset = pe.get_dword_from_offset(botidlgt_init_offset + 4)
+    port_data = pe.get_data(port_rva)[:port_len_offset]
+    with suppress(Exception):
+        port = ARC4.new(key).decrypt(port_data).split(b"\x00")[0].decode()
+        cfg["Port"] = port
+
+    dgaseed_offset = pe.get_dword_from_offset(dga1_init_offset + 15)
+    dgaseed_rva = pe.get_rva_from_offset(dga1_init_offset + 19) + dgaseed_offset
+    dgaseed_data = pe.get_qword_at_rva(dgaseed_rva)
+    cfg["DGA seed"] = int(dgaseed_data)
+
+    numdga_offset = pe.get_dword_from_offset(dga1_init_offset + 22)
+    numdga_rva = pe.get_rva_from_offset(dga1_init_offset + 26) + numdga_offset
+    numdga_data = pe.get_string_at_rva(numdga_rva)
+    cfg["Number DGA domains"] = numdga_data.decode()
+
+    domainlen_offset = pe.get_dword_from_offset(dga2_init_offset + 3)
+    domainlen_rva = pe.get_rva_from_offset(dga2_init_offset + 7) + domainlen_offset
+    domainlen_data = pe.get_string_at_rva(domainlen_rva)
+    cfg["Domain length"] = domainlen_data.decode()
+
+    tld_offset = pe.get_dword_from_offset(dga2_init_offset + 37)
+    tld_rva = pe.get_rva_from_offset(dga2_init_offset + 41) + tld_offset
+    tld_data = pe.get_string_at_rva(tld_rva).decode()
+    cfg["TLD"] = tld_data
+
+    return cfg
+
+
 def extract_config(data):
     """
     Extract key and config and decrypt
@@ -92,6 +192,7 @@ def extract_config(data):
 
         if not pe:
             return cfg
+
         key_regex = re.compile(rb"(\x48\x8D.(?P<key>....)\x80\x3D....\x00)", re.DOTALL)
         regex = re.compile(
             rb"(?<campaign_id_ins>\x48\x8D.(?P<campaign_id>....))(?P<botnet_id_ins>\x48\x8D.(?P<botnet_id>....))(?P<c2s_ins>\x48\x8D.(?P<c2s>....))",
@@ -128,6 +229,10 @@ def extract_config(data):
             cfg["C2s"] = list(ARC4.new(key).decrypt(c2s).split(b"\x00")[0].decode().split(","))
     except Exception as e:
         log.error("This is broken: %s", str(e), exc_info=True)
+
+    if not cfg:
+        cfg = extract_2024(pe, data)
+
     return cfg
 
 

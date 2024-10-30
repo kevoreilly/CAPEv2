@@ -92,7 +92,7 @@ Malware can be classified in CAPE via three mechanisms:
 
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/a44f2f8a-10df-47cc-9690-5ef08f04ea6b)
 
-Parsing can be done using CAPE's own framework, alternatively the following frameworks are supported: [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/)
+Parsing can be done using CAPE's own framework, alternatively the following frameworks are supported: [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP), [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/), or [MaCo](https://github.com/CybercentreCanada/maco)
 
 #### Special note about config parsing frameworks:
 * Due to the nature of malware, since it changes constantly when any new version is released, something might become broken!
@@ -228,5 +228,3 @@ If you use CAPEv2 in your work, please cite it as specified in the "Cite this re
 
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
-
-

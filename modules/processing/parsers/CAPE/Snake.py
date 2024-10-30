@@ -1,9 +1,10 @@
 import base64
-import re
 import hashlib
-import dnfile
 import logging
+import re
 import traceback
+
+import dnfile
 
 try:
     from Cryptodome.Cipher import DES
@@ -14,6 +15,7 @@ except ModuleNotFoundError:
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
+
 def is_base64(s):
     pattern = re.compile("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$")
     if not s or len(s) < 1:
@@ -21,12 +23,15 @@ def is_base64(s):
     else:
         return pattern.match(s)
 
+
 def pad(text):
     n = len(text) % 8
-    return text + (b' ' * n)
+    return text + (b" " * n)
+
 
 def md5(string: bytes) -> bytes:
     return bytes.fromhex(hashlib.md5(string).hexdigest())
+
 
 def handle_plain(dotnet_file, c2_type, user_strings):
     user_strings_list = list(user_strings.values())
@@ -40,12 +45,20 @@ def handle_plain(dotnet_file, c2_type, user_strings):
         smtp_host = dotnet_file.net.user_strings.get(user_strings_list[9]).value.__str__()
         smtp_to = dotnet_file.net.user_strings.get(user_strings_list[10]).value.__str__()
         smtp_port = dotnet_file.net.user_strings.get(user_strings_list[11]).value.__str__()
-        return {"Type": "SMTP", "Host": smtp_host, "Port": smtp_port, "From Address": smtp_from, "To Address": smtp_to, "Password": smtp_password}
+        return {
+            "Type": "SMTP",
+            "Host": smtp_host,
+            "Port": smtp_port,
+            "From Address": smtp_from,
+            "To Address": smtp_to,
+            "Password": smtp_password,
+        }
     elif c2_type == "FTP":
         ftp_username = dotnet_file.net.user_strings.get(user_strings_list[12]).value.__str__()
         ftp_password = dotnet_file.net.user_strings.get(user_strings_list[13]).value.__str__()
         ftp_host = dotnet_file.net.user_strings.get(user_strings_list[14]).value.__str__()
         return {"Type": "FTP", "Host": ftp_host, "Username": ftp_username, "Password": ftp_password}
+
 
 def handle_encrypted(dotnet_file, data, c2_type, user_strings):
     # Match decrypt string pattern
@@ -88,11 +101,19 @@ def handle_encrypted(dotnet_file, data, c2_type, user_strings):
             config_dict = {"Type": "Telegram", "C2": f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}"}
         elif c2_type == "SMTP":
             smtp_from, smtp_password, smtp_host, smtp_to, smtp_port = decrypted_strings
-            config_dict = {"Type": "SMTP", "Host": smtp_host, "Port": smtp_port, "From Address": smtp_from, "To Address": smtp_to, "Password": smtp_password}
+            config_dict = {
+                "Type": "SMTP",
+                "Host": smtp_host,
+                "Port": smtp_port,
+                "From Address": smtp_from,
+                "To Address": smtp_to,
+                "Password": smtp_password,
+            }
         elif c2_type == "FTP":
             ftp_username, ftp_password, ftp_host = decrypted_strings
             config_dict = {"Type": "FTP", "Host": ftp_host, "Username": ftp_username, "Password": ftp_password}
     return config_dict
+
 
 def extract_config(data):
 
@@ -120,14 +141,14 @@ def extract_config(data):
             string_value = dotnet_file.net.user_strings.get(string_index).value.__str__()
             field_index = int.from_bytes(match[1], "little")
             field_name = dotnet_file.net.mdtables.Field.get_with_row_index(field_index).Name.__str__()
-            if string_value == '$%TelegramDv$':
-                c2_type = 'Telegram'
-                
-            elif string_value == '$%SMTPDV$':
-                c2_type = 'SMTP'
-                
-            elif string_value == '%FTPDV$':
-                c2_type = 'FTP'
+            if string_value == "$%TelegramDv$":
+                c2_type = "Telegram"
+
+            elif string_value == "$%SMTPDV$":
+                c2_type = "SMTP"
+
+            elif string_value == "%FTPDV$":
+                c2_type = "FTP"
             else:
                 user_strings[field_name] = string_index
         except Exception as e:

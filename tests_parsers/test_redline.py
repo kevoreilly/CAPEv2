@@ -3,7 +3,12 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from modules.processing.parsers.CAPE.RedLine import extract_config
-from modules.processing.parsers.MACO.RedLine import convert_to_MACO
+from contextlib import suppress
+HAVE_MACO = False
+with suppress(ImportError):
+    from modules.processing.parsers.MACO.RedLine import convert_to_MACO
+    HAVE_MACO = True
+
 
 
 def test_redline():
@@ -15,13 +20,14 @@ def test_redline():
             "Botnet": "krast",
             "Key": "Formative",
         }
-        assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
-            "family": "RedLine",
-            "other": {
-                "Authorization": "9059ea331e4599de3746df73ccb24514",
-                "C2": "77.91.68.68:19071",
-                "Botnet": "krast",
-                "Key": "Formative",
-            },
-            "http": [{"hostname": "77.91.68.68", "port": 19071, "usage": "c2"}],
-        }
+        if HAVE_MACO:
+            assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
+                "family": "RedLine",
+                "other": {
+                    "Authorization": "9059ea331e4599de3746df73ccb24514",
+                    "C2": "77.91.68.68:19071",
+                    "Botnet": "krast",
+                    "Key": "Formative",
+                },
+                "http": [{"hostname": "77.91.68.68", "port": 19071, "usage": "c2"}],
+            }

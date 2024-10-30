@@ -1,5 +1,10 @@
 from modules.processing.parsers.CAPE.AgentTesla import extract_config
-from modules.processing.parsers.MACO.AgentTesla import convert_to_MACO
+
+from contextlib import suppress
+HAVE_MACO = False
+with suppress(ImportError):
+    from modules.processing.parsers.MACO.AgentTesla import convert_to_MACO
+    HAVE_MACO = True
 
 
 def test_agenttesla():
@@ -16,26 +21,27 @@ def test_agenttesla():
             "ExternalIPCheckServices": ["http://ip-api.com/line/?fields=hosting"],
         }
 
-        assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
-            "family": "AgentTesla",
-            "other": {
-                "Protocol": "SMTP",
-                "C2": "mail.guestequipment.com.au",
-                "Username": "sendlog@guestequipment.com.au",
-                "Password": "Clone89!",
-                "EmailTo": "info@marethon.com",
-                "Persistence_Filename": "newfile.exe",
-                "ExternalIPCheckServices": ["http://ip-api.com/line/?fields=hosting"],
-            },
-            "smtp": [
-                {
-                    "username": "sendlog@guestequipment.com.au",
-                    "password": "Clone89!",
-                    "hostname": "mail.guestequipment.com.au",
-                    "mail_to": ["info@marethon.com"],
-                    "usage": "c2",
-                }
-            ],
-            "http": [{"uri": "http://ip-api.com/line/?fields=hosting", "usage": "other"}],
-            "paths": [{"path": "newfile.exe", "usage": "storage"}],
-        }
+        if HAVE_MACO:
+            assert convert_to_MACO(conf).model_dump(exclude_defaults=True, exclude_none=True) == {
+                "family": "AgentTesla",
+                "other": {
+                    "Protocol": "SMTP",
+                    "C2": "mail.guestequipment.com.au",
+                    "Username": "sendlog@guestequipment.com.au",
+                    "Password": "Clone89!",
+                    "EmailTo": "info@marethon.com",
+                    "Persistence_Filename": "newfile.exe",
+                    "ExternalIPCheckServices": ["http://ip-api.com/line/?fields=hosting"],
+                },
+                "smtp": [
+                    {
+                        "username": "sendlog@guestequipment.com.au",
+                        "password": "Clone89!",
+                        "hostname": "mail.guestequipment.com.au",
+                        "mail_to": ["info@marethon.com"],
+                        "usage": "c2",
+                    }
+                ],
+                "http": [{"uri": "http://ip-api.com/line/?fields=hosting", "usage": "other"}],
+                "paths": [{"path": "newfile.exe", "usage": "storage"}],
+            }

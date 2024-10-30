@@ -2,11 +2,14 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from modules.processing.parsers.CAPE.NanoCore import extract_config
 from contextlib import suppress
+
+from modules.processing.parsers.CAPE.NanoCore import extract_config
+
 HAVE_MACO = False
 with suppress(ImportError):
     from modules.processing.parsers.MACO.NanoCore import convert_to_MACO
+
     HAVE_MACO = True
 
 

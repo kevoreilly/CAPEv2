@@ -1,9 +1,11 @@
+from contextlib import suppress
+
 from modules.processing.parsers.CAPE.AgentTesla import extract_config
 
-from contextlib import suppress
 HAVE_MACO = False
 with suppress(ImportError):
     from modules.processing.parsers.MACO.AgentTesla import convert_to_MACO
+
     HAVE_MACO = True
 
 

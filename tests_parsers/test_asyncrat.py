@@ -1,8 +1,11 @@
-from modules.processing.parsers.CAPE.AsyncRAT import extract_config
 from contextlib import suppress
+
+from modules.processing.parsers.CAPE.AsyncRAT import extract_config
+
 HAVE_MACO = False
 with suppress(ImportError):
     from modules.processing.parsers.MACO.AsyncRAT import convert_to_MACO
+
     HAVE_MACO = True
 
 

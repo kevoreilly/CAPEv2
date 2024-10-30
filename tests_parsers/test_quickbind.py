@@ -2,12 +2,16 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from modules.processing.parsers.CAPE.Quickbind import extract_config
 from contextlib import suppress
+
+from modules.processing.parsers.CAPE.Quickbind import extract_config
+
 HAVE_MACO = False
 with suppress(ImportError):
     from modules.processing.parsers.MACO.Quickbind import convert_to_MACO
+
     HAVE_MACO = True
+
 
 def test_quickbind():
     with open("tests/data/malware/bfcb215f86fc4f8b4829f6ddd5acb118e80fb5bd977453fc7e8ef10a52fc83b7", "rb") as data:

@@ -2,12 +2,16 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from modules.processing.parsers.CAPE.KoiLoader import extract_config
 from contextlib import suppress
+
+from modules.processing.parsers.CAPE.KoiLoader import extract_config
+
 HAVE_MACO = False
 with suppress(ImportError):
     from modules.processing.parsers.MACO.KoiLoader import convert_to_MACO
+
     HAVE_MACO = True
+
 
 def test_koiloader():
     with open("tests/data/malware/b462e3235c7578450b2b56a8aff875a3d99d22f6970a01db3ba98f7ecb6b01a0", "rb") as data:

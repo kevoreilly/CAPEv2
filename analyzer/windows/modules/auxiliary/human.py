@@ -71,6 +71,7 @@ CLICK_BUTTONS = (
     "don't send",
     "don't save",
     "continue",
+    "connect",
     "unzip",
     "open",
     "close the program",
@@ -115,6 +116,7 @@ CLICK_BUTTONS = (
 DONT_CLICK_BUTTONS = (
     # english
     "check online for a solution",
+    "don't ask me again for remote connections from this publisher",
     "don't run",
     "do not ask again until the next update is available",
     "cancel",

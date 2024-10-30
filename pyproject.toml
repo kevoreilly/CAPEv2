@@ -91,6 +91,8 @@ setproctitle = "1.3.2"
 
 # tmp dependency to fix vuln
 certifi = "2024.7.4"
+rat_king_parser = {git = "https://github.com/jeFF0Falltrades/rat_king_parser", rev = "ab849ec8face38c8dac3f803ae5fe7cf8be26583"}
+
 
 [tool.poetry.extras]
 maco = ["maco"]

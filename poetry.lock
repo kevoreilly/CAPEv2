@@ -3304,6 +3304,29 @@ files = [
 pycryptodomex = "*"
 
 [[package]]
+name = "rat-king-parser"
+version = "3.0.0"
+description = "A robust, multiprocessing-capable, multi-family RAT config parser/config extractor for AsyncRAT, DcRAT, VenomRAT, QuasarRAT, XWorm, Xeno RAT, and cloned/derivative RAT families."
+optional = false
+python-versions = ">=3.10"
+files = []
+develop = false
+
+[package.dependencies]
+cryptography = "*"
+dnfile = "*"
+yara-python = "*"
+
+[package.extras]
+maco = ["maco", "validators"]
+
+[package.source]
+type = "git"
+url = "https://github.com/jeFF0Falltrades/rat_king_parser"
+reference = "ab849ec8face38c8dac3f803ae5fe7cf8be26583"
+resolved_reference = "ab849ec8face38c8dac3f803ae5fe7cf8be26583"
+
+[[package]]
 name = "regex"
 version = "2021.7.6"
 description = "Alternative regular expression module, to replace re."
@@ -4615,4 +4638,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10, <4.0"
-content-hash = "ab3f807dcdc7fa1fb2098ee2222602ffde65894297ca6b4c3629f2528d584d09"
+content-hash = "ab65373ef8c8244e2d8237cb6208783a0276fa62f52545098cb12170c1cd7d76"

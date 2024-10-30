@@ -931,7 +931,9 @@ function dependencies() {
     apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common -y
     apt-get install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt-get install openvpn wireguard -y
-    apt-get install python3-poetry crudini -y
+    apt-get install crudini -y
+    # APT poetry is ultra outdated
+    curl -sSL https://install.python-poetry.org | python3 -
     apt-get install locate # used by extra/libvirt_installer.sh
 
     # de4dot selfextraction

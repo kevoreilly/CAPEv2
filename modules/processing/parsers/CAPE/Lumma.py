@@ -1,6 +1,5 @@
 import base64
 import re
-
 import pefile
 
 
@@ -41,11 +40,8 @@ def get_rdata(data):
 
 def xor_data(data, key):
     decoded = bytearray()
-    key_len = len(key)
     for i in range(len(data)):
-        if i >= key_len:
-            break
-        decoded.append(data[i] ^ key[i])
+        decoded.append(data[i] ^ key[i % len(data)])
     return decoded
 
 
@@ -82,8 +78,8 @@ def extract_config(data):
             for base64_str in base64_strings:
                 try:
                     decoded_bytes = base64.b64decode(base64_str, validate=True)
-                    encoded_c2 = decoded_bytes[:32]
-                    xor_key = decoded_bytes[32:]
+                    encoded_c2 = decoded_bytes[32:]
+                    xor_key = decoded_bytes[:32]
                     decoded_c2 = xor_data(encoded_c2, xor_key)
 
                     if not contains_non_printable(decoded_c2):

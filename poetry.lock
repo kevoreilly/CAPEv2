@@ -263,25 +263,24 @@ files = [
 
 [[package]]
 name = "cape-parsers"
-version = "0.1.3"
+version = "0.1.4"
 description = "CAPE: Malware Configuration Extraction"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "cape_parsers-0.1.3-py3-none-any.whl", hash = "sha256:7e3177a8ccf3e573f931808e5212ba3551cc6433bbb49481fe3f7d60f8869848"},
-    {file = "cape_parsers-0.1.3.tar.gz", hash = "sha256:ca1faeae0fe77a0585cf7378e372ca47f78636fa950bc7de33365159d50fd21d"},
+    {file = "cape_parsers-0.1.4-py3-none-any.whl", hash = "sha256:4957cfd4c4215c550a27ca8d3dd87a60dd834fc6b7785cf0785d35ce04211e72"},
+    {file = "cape_parsers-0.1.4.tar.gz", hash = "sha256:00a0541d9947257cacb6485ab513dee46812a90c22883bcc8c5eef592ff8750f"},
 ]
 
 [package.dependencies]
-capstone = "4.0.2"
-dncil = "1.0.2"
-dnfile = "0.15.1"
+capstone = ">=4.0.2"
+dncil = ">=1.0.2"
+dnfile = ">=0.15.1"
 netstruct = "1.1.2"
 pefile = "*"
 pycryptodomex = ">=3.20.0"
-rat-king-parser = "3.1.3"
-regex = "2024.9.11"
-tldextract = "3.5.0"
+rat-king-parser = ">=3.1.3"
+regex = ">=2024.9.11"
 unicorn = "2.1.1"
 yara-python = "4.5.1"
 
@@ -4011,13 +4010,13 @@ tests = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "tldextract"
-version = "3.5.0"
+version = "5.1.2"
 description = "Accurately separates a URL's subdomain, domain, and public suffix, using the Public Suffix List (PSL). By default, this includes the public ICANN TLDs and their exceptions. You can optionally support the Public Suffix List's private domains as well."
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "tldextract-3.5.0-py3-none-any.whl", hash = "sha256:2cb271ca8d06ea1630a1361b58edad14e0cf81f34ce3c90b052854528fe2a281"},
-    {file = "tldextract-3.5.0.tar.gz", hash = "sha256:4df1c65b95be61d59428e8611e955e54e6f1d4483d3e8d5733d3a9062155e910"},
+    {file = "tldextract-5.1.2-py3-none-any.whl", hash = "sha256:4dfc4c277b6b97fa053899fcdb892d2dc27295851ab5fac4e07797b6a21b2e46"},
+    {file = "tldextract-5.1.2.tar.gz", hash = "sha256:c9e17f756f05afb5abac04fe8f766e7e70f9fe387adb1859f0f52408ee060200"},
 ]
 
 [package.dependencies]
@@ -4025,6 +4024,10 @@ filelock = ">=3.0.8"
 idna = "*"
 requests = ">=2.1.0"
 requests-file = ">=1.4"
+
+[package.extras]
+release = ["build", "twine"]
+testing = ["black", "mypy", "pytest", "pytest-gitignore", "pytest-mock", "responses", "ruff", "syrupy", "tox", "types-filelock", "types-requests"]
 
 [[package]]
 name = "tomli"
@@ -4732,4 +4735,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10, <4.0"
-content-hash = "3f9d9669c9dae87fff51eb28cca5ecae4de82b140c1087f4de909c5914d08b2e"
+content-hash = "49cb655bdb04284a79e7cc63339007cbd1f1dde590a8fd29e2e5fda2096daceb"

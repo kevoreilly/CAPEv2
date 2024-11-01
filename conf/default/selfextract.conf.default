@@ -75,7 +75,7 @@ binary = /usr/bin/de4dot
 extra_args =
 timeout = 60
 
-# https://github.com/SychicBoy/NETReactorSlayer/releases
+# https://github.com/otavepto/NETReactorSlayer/releases
 [eziriz_deobfuscate]
 enabled = yes
 binary = data/NETReactorSlayer.CLI
@@ -88,4 +88,9 @@ timeout = 60
 
 [msix_extract]
 enabled = no
+timeout = 60
+
+# PE file overlay
+[overlay]
+enabled = yes
 timeout = 60

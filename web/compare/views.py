@@ -84,7 +84,8 @@ def left(request, left_id):
         for item in results:
             records.append(item["_source"])
 
-    return render(request, "compare/left.html", {"left": left, "records": records})
+    data = {"title": "Compare", "left": left, "records": records}
+    return render(request, "compare/left.html", data)
 
 
 @require_safe

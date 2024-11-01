@@ -223,7 +223,14 @@ class TestFiles:
         [
             ("temp_pe32", "PE32 executable (GUI) Intel 80386, for MS Windows", True),  # emulated magic type
             ("temp_pe64", "PE32+ executable (GUI) x86-64, for MS Windows", True),  # emulated magic type
-            ("temp_pe_aarch64", "MS-DOS executable PE32 executable Aarch64, for MS Windows", True),
+            (
+                "temp_pe_aarch64",
+                (
+                    "PE32 executable Aarch64, for MS Windows",
+                    "MS-DOS executable PE32 executable Aarch64, for MS Windows",
+                ),
+                True,
+            ),
             ("temp_elf32", "ELF 32-bit LSB", False),
             ("temp_elf64", "ELF 64-bit LSB", False),
             ("temp_macho_arm64", "Mach-O 64-bit arm64 executable", False),
@@ -232,7 +239,9 @@ class TestFiles:
     def test_get_type_pe(self, file_fixture, expected, is_pe, request):
         path = request.getfixturevalue(file_fixture)
         file = File(path)
-        assert file.get_type() == expected
+        if isinstance(expected, str):
+            expected = (expected,)
+        assert file.get_type() in expected
         assert bool(file.pe) == is_pe
 
     def test_get_yara(self, hello_file, yara_compiled):

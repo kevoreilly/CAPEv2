@@ -36,55 +36,16 @@ class TestAnalysisPackages(unittest.TestCase):
             self.assertGreater(len(subclass.summary), 0)
             self.assertGreater(len(subclass.description), 0)
 
-    def test_choose_package_Shellcode_Unpacker(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Shellcode-Unpacker")
-        pkg_class()
-
-    def test_Shellcode(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Shellcode")
+    def test_shellcode(self):
+        pkg_class = self.class_from_analysis_package("modules.packages.shellcode")
         obj = pkg_class()
         self.assertEqual("offset", obj.option_names[0])
         expected_summary = "Executes 32-bit Shellcode using loader.exe."
         self.assertEqual(expected_summary, obj.summary)
 
-    def test_Shellcode_x64(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Shellcode_x64")
+    def test_shellcode_x64(self):
+        pkg_class = self.class_from_analysis_package("modules.packages.shellcode_x64")
         pkg_class()
-
-    def test_Unpacker(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Unpacker")
-        obj = pkg_class()
-        expected_summary = "Executes a .exe file with the unpacker option."
-        self.assertEqual(expected_summary, obj.summary)
-
-    def test_Unpacker_dll(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Unpacker_dll")
-        obj = pkg_class()
-        self.assertEqual("arguments", obj.option_names[0])
-        self.assertEqual("dllloader", obj.option_names[1])
-        self.assertEqual("function", obj.option_names[2])
-
-    def test_Unpacker_js(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Unpacker_js")
-        obj = pkg_class()
-        expected_summary = "Executes a .JS file using wscript.exe."
-        self.assertEqual(expected_summary, obj.summary)
-
-    def test_Unpacker_ps1(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Unpacker_ps1")
-        obj = pkg_class()
-        expected_summary = "Executes a sample file with powershell."
-        self.assertEqual(expected_summary, obj.summary)
-
-    def test_Unpacker_regsvr(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Unpacker_regsvr")
-        pkg_class()
-
-    def test_Unpacker_zip(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.Unpacker_zip")
-        obj = pkg_class()
-        expected_summary = "Unzips a file with the supplied password, execute its contents."
-        self.assertEqual(expected_summary, obj.summary)
 
     def test_access(self):
         pkg_class = self.class_from_analysis_package("modules.packages.access")
@@ -313,10 +274,6 @@ class TestAnalysisPackages(unittest.TestCase):
 
     def test_swf(self):
         pkg_class = self.class_from_analysis_package("modules.packages.swf")
-        pkg_class()
-
-    def test_vawtrak(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.vawtrak")
         pkg_class()
 
     def test_vbejse(self):

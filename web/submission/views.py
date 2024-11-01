@@ -312,6 +312,9 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
 
+        if request.POST.get("mitmdump"):
+            options += "mitmdump=yes,"
+
         if web_conf.guacamole.enabled and request.POST.get("interactive"):
             remote_console = True
             options += "interactive=1,"
@@ -366,7 +369,6 @@ def index(request, task_id=None, resubmit_hash=None):
             opt_apikey = opts.get("apikey", False)
 
         status = "ok"
-        task_ids_tmp = []
         existent_tasks = {}
         details = {
             "errors": [],
@@ -508,11 +510,13 @@ def index(request, task_id=None, resubmit_hash=None):
 
                 details["path"] = path
                 details["content"] = content
-                status, task_ids_tmp = download_file(**details)
+                status, tasks_details = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(filename): task_ids_tmp})
+                    details["errors"].append({os.path.basename(filename): tasks_details})
                 else:
-                    details["task_ids"] = task_ids_tmp
+                    details["task_ids"] = tasks_details.get("task_ids")
+                    if tasks_details.get("errors"):
+                        details["errors"].extend(tasks_details["errors"])
                     if web_conf.web_reporting.get("enabled", False) and web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", hash, search_limit=5)
                         if records:
@@ -537,17 +541,19 @@ def index(request, task_id=None, resubmit_hash=None):
 
                 details["path"] = path
                 details["content"] = content
-                status, task_ids_tmp = download_file(**details)
+                status, tasks_details = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(path): task_ids_tmp})
+                    details["errors"].append({os.path.basename(path): tasks_details})
                 else:
+                    details["task_ids"] = tasks_details.get("task_ids")
+                    if tasks_details.get("errors"):
+                        details["errors"].extend(tasks_details["errors"])
                     if web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", sha256, search_limit=5)
                         if records:
                             for record in records:
                                 if record.get("target").get("file", {}).get("sha256"):
                                     existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
-                    details["task_ids"] = task_ids_tmp
 
         elif task_category == "static":
             for content, path, sha256 in list_of_tasks:
@@ -619,11 +625,13 @@ def index(request, task_id=None, resubmit_hash=None):
                 details["content"] = content
                 details["service"] = "DLnExec"
                 details["source_url"] = samples
-                status, task_ids_tmp = download_file(**details)
+                status, tasks_details = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(path): task_ids_tmp})
+                    details["errors"].append({os.path.basename(path): tasks_details})
                 else:
-                    details["task_ids"] = task_ids_tmp
+                    details["task_ids"] = tasks_details.get("task_ids")
+                    if tasks_details.get("errors"):
+                        details["errors"].extend(tasks_details["errors"])
 
         elif task_category == "vtdl":
             if not settings.VTDL_KEY:
@@ -646,6 +654,7 @@ def index(request, task_id=None, resubmit_hash=None):
             tasks_count = 0
         if tasks_count > 0:
             data = {
+                "title": "Submission",
                 "tasks": details["task_ids"],
                 "tasks_count": tasks_count,
                 "errors": details["errors"],
@@ -654,7 +663,12 @@ def index(request, task_id=None, resubmit_hash=None):
             }
             return render(request, "submission/complete.html", data)
         else:
-            return render(request, "error.html", {"error": "Error adding task(s) to CAPE's database.", "errors": details["errors"]})
+            err_data = {
+                "error": "Error adding task(s) to CAPE's database.",
+                "errors": details["errors"],
+                "title": "Submission Failure",
+            }
+            return render(request, "error.html", err_data)
     else:
         enabledconf = {}
         enabledconf["vt"] = settings.VTDL_ENABLED
@@ -753,6 +767,7 @@ def index(request, task_id=None, resubmit_hash=None):
             request,
             "submission/index.html",
             {
+                "title": "Submit",
                 "packages": sorted(packages, key=lambda i: i["name"].lower()),
                 "machines": machines,
                 "vpns": vpns_data,
@@ -785,7 +800,14 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
-    response = {"completed": completed, "status": status, "task_id": task_id, "session_data": ""}
+    response = {
+        "title": "Task Status",
+        "completed": completed,
+        "status": status,
+        "task_id": task_id,
+        "session_data": "",
+        "target": task.sample.sha256 if task.sample.sha256 else task.target,
+    }
     if settings.REMOTE_SESSION:
         machine = db.view_machine_by_label(task.machine)
         if machine:

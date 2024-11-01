@@ -77,3 +77,9 @@ bpf = not arp
 # Enable or disable the use of QEMU as screenshot capture [yes/no].
 # screenshots_linux and screenshots_windows must be disabled
 enabled = no
+
+[Mitmdump]
+# Enable or disable the use of mitmdump (mitmproxy) to get dump.har [yes/no].
+# This module requires installed mitmproxy see install_mitmproxy 
+# (https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh#L1320)
+enabled = no

@@ -1,6 +1,12 @@
+### [04.10.2024]
+* Monitor update: Add GetClassObject hook to handle UAC bypass technique using CMSTPLUA COM object
+* PrivateLoader direct syscall capture
+
+### [01.10.2024]
+* Monitor update: Improve fix for size bug with unpacking embedded PEs
+
 ### [26.09.2024] Browser monitoring
 * [Browser extension details](https://github.com/kevoreilly/CAPEv2/tree/master/extra/browser_extension/README.md). For code details see [PR](https://github.com/kevoreilly/CAPEv2/pull/2330)
-
 
 ### [23.09.2024]
 * Monitor update: Fix size bug with unpacking embedded PEs

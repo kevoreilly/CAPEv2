@@ -92,7 +92,7 @@ Malware can be classified in CAPE via three mechanisms:
 
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/a44f2f8a-10df-47cc-9690-5ef08f04ea6b)
 
-Parsing can be done using CAPE's own framework, alternatively the following frameworks are supported: [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/)
+Parsing can be done using CAPE's own framework, alternatively the following frameworks are supported: [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP), [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/), or [MaCo](https://github.com/CybercentreCanada/maco)
 
 #### Special note about config parsing frameworks:
 * Due to the nature of malware, since it changes constantly when any new version is released, something might become broken!
@@ -162,10 +162,10 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
  * Replace `<username>` with a real pattern.
  * You need to replace all `<WOOT>` inside!
  * Read it! You must understand what it does! It has configuration in header of the script.
- * `sudo ./kvm-qemu.sh all <username> | tee kvm-qemu.log`
+ * `sudo ./kvm-qemu.sh all <username> 2>&1 | tee kvm-qemu.log`
 4. To install CAPE itself, [cape2.sh](https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh) with all optimizations
     * Read and understand what it does! This is not a silver bullet for all your problems! It has configuration in header of the script.
-    * `sudo ./cape2.sh base | tee cape.log`
+    * `sudo ./cape2.sh base 2>&1 | tee cape.log`
 5. After installing everything save both installation logs as gold!
 6. Configure CAPE by doing mods to config files inside `conf` folder.
 7. Restart all CAPE services to pick config changes and run CAPE properly!
@@ -228,5 +228,3 @@ If you use CAPEv2 in your work, please cite it as specified in the "Cite this re
 
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
-
-

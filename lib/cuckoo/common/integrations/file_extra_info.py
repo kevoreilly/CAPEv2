@@ -112,9 +112,6 @@ except ImportError:
     HAVE_BAT_DECODER = False
     print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
-processing_conf = Config("processing")
-selfextract_conf = Config("selfextract")
-
 unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
 
 if processing_conf.trid.enabled:
@@ -576,7 +573,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
     if file.endswith("_Slayed"):
         return
 
-    if all("Eziriz .NET Reactor" not in string for string in data_dictionary.get("die", [])):
+    if all(".NET Reactor" not in string for string in data_dictionary.get("die", [])):
         return
 
     binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
@@ -587,7 +584,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
 
     if not path_exists(binary):
         log.error(
-            "Missing dependency: Download from https://github.com/SychicBoy/NETReactorSlayer/releases and place under %s.",
+            "Missing dependency: Download from https://github.com/otavepto/NETReactorSlayer/releases and place under %s.",
             binary,
         )
         return
@@ -818,6 +815,9 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         or all([pattern in file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")])
         or any("MSIX Windows app" in string for string in data_dictionary.get("trid", []))
     ):
+        return
+
+    if all([pattern in file_data for pattern in (b"AndroidManifest.xml", b"classes.dex")]):
         return
 
     password = ""

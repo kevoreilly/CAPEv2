@@ -78,8 +78,10 @@ enabled = no
 
 #enable linux fields on webgui
 [linux]
-#For advanced users only, can be buggy, linux analysis is work in progress for fun
+# For advanced users only, can be buggy, linux analysis is work in progress for fun
 enabled = no
+# independent of enabled or not. To not show linux options, but process statically those files
+static_only = no
 
 [malscore]
 enabled = no

@@ -170,7 +170,7 @@ def index(request):
                 parsed[key]["rps"] = "None"
                 parsed[key]["rpm"] = "None"
 
-    return render(request, "apiv2/index.html", {"config": parsed})
+    return render(request, "apiv2/index.html", {"title": "API", "config": parsed})
 
 
 @csrf_exempt
@@ -187,7 +187,7 @@ def tasks_create_static(request):
     options = request.data.get("options", "")
     priority = force_int(request.data.get("priority"))
 
-    resp["error"] = False
+    resp["error"] = []
     files = request.FILES.getlist("file")
     extra_details = {}
     task_ids = []
@@ -203,6 +203,8 @@ def tasks_create_static(request):
                 user_id=request.user.id or 0,
             )
             task_ids.extend(task_id)
+            if extra_details.get("erros"):
+                resp["errors"].extend(extra_details["errors"])
         except CuckooDemuxError as e:
             resp = {"error": True, "error_value": e}
             return Response(resp)
@@ -226,7 +228,6 @@ def tasks_create_static(request):
                     resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
             else:
                 resp = {"error": True, "error_value": "Error adding task to database"}
-
     return Response(resp)
 
 
@@ -286,7 +287,6 @@ def tasks_create_file(request):
             "user_id": request.user.id or 0,
         }
 
-        task_ids_tmp = []
         task_machines = []
         vm_list = [vm.label for vm in db.list_machines()]
 
@@ -341,11 +341,13 @@ def tasks_create_file(request):
             if tmp_path:
                 details["path"] = tmp_path
                 details["content"] = content
-                status, task_ids_tmp = download_file(**details)
+                status, tasks_details = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(tmp_path).decode(): task_ids_tmp})
+                    details["errors"].append({os.path.basename(tmp_path).decode(): tasks_details})
                 else:
-                    details["task_ids"] = task_ids_tmp
+                    details["task_ids"] = tasks_details.get("task_ids")
+                    if tasks_details.get("errors"):
+                        details["errors"].extend(tasks_details["errors"])
 
         if details["task_ids"]:
             tasks_count = len(details["task_ids"])
@@ -565,11 +567,13 @@ def tasks_create_dlnexec(request):
             "user_id": request.user.id or 0,
         }
 
-        status, task_ids_tmp = download_file(**details)
+        status, tasks_details = download_file(**details)
         if status == "error":
-            details["errors"].append({os.path.basename(path).decode(): task_ids_tmp})
+            details["errors"].append({os.path.basename(path).decode(): tasks_details})
         else:
-            details["task_ids"] = task_ids_tmp
+            details["task_ids"] = tasks_details.get("task_ids")
+            if tasks_details.get("errors"):
+                details["errors"].extend(tasks_details["errors"])
 
         if details["task_ids"]:
             tasks_count = len(details["task_ids"])
@@ -1618,6 +1622,36 @@ def tasks_evtx(request, task_id):
 
     else:
         resp = {"error": True, "error_value": "EVTX does not exist"}
+        return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_mitmdump(request, task_id):
+    if not apiconf.taskmitmdump.get("enabled"):
+        resp = {"error": True, "error_value": "Mitmdump HAR download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    harfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "mitmdump", "dump.har")
+    if not os.path.normpath(harfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(harfile)}"})
+    if path_exists(harfile):
+        fname = "%s_dump.har" % task_id
+        resp = StreamingHttpResponse(FileWrapper(open(harfile, "rb")), content_type="text/plain")
+        resp["Content-Length"] = os.path.getsize(harfile)
+        resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
+    else:
+        resp = {"error": True, "error_value": "HAR file does not exist"}
         return Response(resp)
 
 

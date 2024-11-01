@@ -73,7 +73,6 @@ ruff = "0.0.290"
 paramiko = "3.4.0"
 psutil = "5.9.8"
 # peepdf-3 = "4.0.0"
-maco = "1.1.8"
 
 Werkzeug = "3.0.6"
 packaging = "23.1"
@@ -91,8 +90,9 @@ setproctitle = "1.3.2"
 
 # tmp dependency to fix vuln
 certifi = "2024.7.4"
-rat_king_parser = {git = "https://github.com/jeFF0Falltrades/rat_king_parser", rev = "ab849ec8face38c8dac3f803ae5fe7cf8be26583"}
 
+CAPE-parsers = "0.1.0"
+maco = "1.1.8"
 
 [tool.poetry.extras]
 maco = ["maco"]

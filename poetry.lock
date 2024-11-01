@@ -262,6 +262,33 @@ files = [
 ]
 
 [[package]]
+name = "cape-parsers"
+version = "0.1.0"
+description = "CAPE: Malware Configuration And Payload Extraction"
+optional = false
+python-versions = "<4.0,>=3.10"
+files = [
+    {file = "cape_parsers-0.1.0-py3-none-any.whl", hash = "sha256:d23770955484cc90d42656ea21b17980d52e09e2e8417f9f47d47be4e82925c7"},
+    {file = "cape_parsers-0.1.0.tar.gz", hash = "sha256:6abb809303935b75d9318dcee2a1db4514a8cf9e8732d6ae8589c1fbf2c3980f"},
+]
+
+[package.dependencies]
+capstone = "4.0.2"
+dncil = "1.0.2"
+dnfile = "0.15.1"
+netstruct = "1.1.2"
+pefile = "*"
+pycryptodomex = "3.20.0"
+rat-king-parser = "3.1.3"
+regex = "2021.7.6"
+tldextract = "3.5.0"
+unicorn = "2.1.1"
+yara-python = "4.5.1"
+
+[package.extras]
+maco = ["maco (==1.1.8)"]
+
+[[package]]
 name = "capstone"
 version = "4.0.2"
 description = "Capstone disassembly engine"
@@ -998,13 +1025,13 @@ dev = ["black (==22.12.0)", "dnfile (==0.12.0)", "hexdump (==3.3.0)", "isort (==
 
 [[package]]
 name = "dnfile"
-version = "0.15.0"
+version = "0.15.1"
 description = "Parse .NET executable files."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "dnfile-0.15.0-py3-none-any.whl", hash = "sha256:d60239de76035bed22f3c131925cf8d484f44a9da03c19659a01a615309add55"},
-    {file = "dnfile-0.15.0.tar.gz", hash = "sha256:e4ae8803a59d8f845c11524e8b007104b43c90adc2fb0a81dcdc2972c47dfc80"},
+    {file = "dnfile-0.15.1-py3-none-any.whl", hash = "sha256:585c8e3e4a29824402430a0a8b7e7ae82c040fc17eeb3a06758fdceebe2d923e"},
+    {file = "dnfile-0.15.1.tar.gz", hash = "sha256:1529cf0f976b1382f60a3c56b2e0def90f3486e41193ffd34677e74563c8426c"},
 ]
 
 [package.dependencies]
@@ -3305,12 +3332,14 @@ pycryptodomex = "*"
 
 [[package]]
 name = "rat-king-parser"
-version = "3.0.0"
+version = "3.1.3"
 description = "A robust, multiprocessing-capable, multi-family RAT config parser/config extractor for AsyncRAT, DcRAT, VenomRAT, QuasarRAT, XWorm, Xeno RAT, and cloned/derivative RAT families."
 optional = false
 python-versions = ">=3.10"
-files = []
-develop = false
+files = [
+    {file = "rat_king_parser-3.1.3-py3-none-any.whl", hash = "sha256:229c7d4565e7c0ea3e6a75a8252df9223286a26b77b2d449c2612b95c8406605"},
+    {file = "rat_king_parser-3.1.3.tar.gz", hash = "sha256:cd662eb127c1bb85345a4460439608cfc87b82e833503b632d5ccc713eb49123"},
+]
 
 [package.dependencies]
 cryptography = "*"
@@ -3319,12 +3348,6 @@ yara-python = "*"
 
 [package.extras]
 maco = ["maco", "validators"]
-
-[package.source]
-type = "git"
-url = "https://github.com/jeFF0Falltrades/rat_king_parser"
-reference = "ab849ec8face38c8dac3f803ae5fe7cf8be26583"
-resolved_reference = "ab849ec8face38c8dac3f803ae5fe7cf8be26583"
 
 [[package]]
 name = "regex"
@@ -4638,4 +4661,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10, <4.0"
-content-hash = "ab65373ef8c8244e2d8237cb6208783a0276fa62f52545098cb12170c1cd7d76"
+content-hash = "9b2c8b87837b57298e38f86351be651597f61936973b567d699feaa0b604028f"

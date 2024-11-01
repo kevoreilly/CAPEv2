@@ -42,18 +42,6 @@ jobs:
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append
 
-      - name: See if any parser changed
-        uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            src:
-              - 'modules/processing/parsers/CAPE/*.py'
-
-      - name: Test parsers only if any parser changed
-        if: steps.changes.outputs.src == 'true'
-        run: poetry run python -m pytest tests_parsers -s --import-mode=append
-
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 20

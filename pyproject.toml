@@ -26,7 +26,7 @@ pycryptodomex = ">=3.20.0"
 requests-file = "1.5.1"
 orjson = "3.9.15"
 # maec = "4.1.0.17"
-regex = "2024.9.11"
+regex = ">=2021.7.6"
 SFlock2 = {version = "0.3.66", extras = ["shellcode","linux"]}
 # volatility3 = "2.0.0"
 # XLMMacroDeobfuscator = "0.2.7"

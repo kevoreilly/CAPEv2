@@ -1,11 +1,8 @@
 import hashlib
 import logging
-import os
 import tempfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from types import ModuleType
-from typing import Dict, Tuple
 from contextlib import suppress
 
 from lib.cuckoo.common.config import Config

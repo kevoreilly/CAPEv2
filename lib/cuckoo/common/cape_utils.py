@@ -88,9 +88,10 @@ if process_cfg.CAPE_extractors.enabled:
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
     assert "test cape" in cape_malware_parsers
-    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
     # Custom overwrites core
-    cape_malware_parsers.update(load_cape_parsers())
+    cape_malware_parsers.update(cape_load_decoders(CUCKOO_ROOT))
+
+
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
 

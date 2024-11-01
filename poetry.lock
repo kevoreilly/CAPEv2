@@ -263,13 +263,13 @@ files = [
 
 [[package]]
 name = "cape-parsers"
-version = "0.1.0"
-description = "CAPE: Malware Configuration And Payload Extraction"
+version = "0.1.1"
+description = "CAPE: Malware Configuration Extraction"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "cape_parsers-0.1.0-py3-none-any.whl", hash = "sha256:d23770955484cc90d42656ea21b17980d52e09e2e8417f9f47d47be4e82925c7"},
-    {file = "cape_parsers-0.1.0.tar.gz", hash = "sha256:6abb809303935b75d9318dcee2a1db4514a8cf9e8732d6ae8589c1fbf2c3980f"},
+    {file = "cape_parsers-0.1.1-py3-none-any.whl", hash = "sha256:ee6ef8ca4d1fa7418a6f2cb77a51e63c49ea20f6c3f93d1b8649782cdda8cd20"},
+    {file = "cape_parsers-0.1.1.tar.gz", hash = "sha256:f61d47bb5af7f102abd70c495131879aedd261be5148e580766e3bc8b44fd5e4"},
 ]
 
 [package.dependencies]
@@ -4661,4 +4661,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10, <4.0"
-content-hash = "9b2c8b87837b57298e38f86351be651597f61936973b567d699feaa0b604028f"
+content-hash = "49f9dbdedb90bb1cb6d9368084caa049718bb636c63a6fac2d433b12a8703a30"

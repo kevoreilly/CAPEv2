@@ -1,11 +1,9 @@
 import hashlib
 import logging
-import os
 import tempfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from types import ModuleType
-from typing import Dict, Tuple
+from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -20,6 +18,9 @@ try:
 except ImportError:
     HAVE_PYDEEP = False
 
+
+with suppress(ImportError):
+    from cape_parsers import load_cape_parsers, load_mwcp_parsers, load_malwareconfig_parsers # load_malduck_parsers
 
 cape_malware_parsers = {}
 
@@ -47,53 +48,18 @@ except ImportError:
     print("Missed pefile library. Install it with: pip3 install pefile")
     HAVE_PEFILE = False
 
+# ToDo check if enabled
+HAS_MWCP = False
+if process_cfg.mwcp.enabled:
+    malware_parsers, mwcp = load_mwcp_parsers()
+    HAS_MWCP = bool(malware_parsers)
 
-def load_mwcp_parsers() -> Tuple[Dict[str, str], ModuleType]:
-    if not process_cfg.mwcp.enabled:
-        return {}, False
-    # Import All config parsers
-    try:
-        import mwcp
-
-        logging.getLogger("mwcp").setLevel(logging.CRITICAL)
-        mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
-        _malware_parsers = {block.name.rsplit(".", 1)[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
-        assert "MWCP_TEST" in _malware_parsers
-        return _malware_parsers, mwcp
-    except ImportError as e:
-        log.info("Missed MWCP -> pip3 install mwcp\nDetails: %s", e)
-        return {}, False
-
-
-malware_parsers, mwcp = load_mwcp_parsers()
-HAS_MWCP = bool(malware_parsers)
-
-
-def load_malwareconfig_parsers() -> Tuple[bool, dict, ModuleType]:
-    if not process_cfg.ratdecoders.enabled:
-        return False, False, False
-    try:
-        from malwareconfig import fileparser
-        from malwareconfig.modules import __decoders__
-
-        if process_cfg.ratdecoders.modules_path:
-            from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
-
-            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
-            if ratdecoders_local_modules:
-                __decoders__.update(ratdecoders_local_modules)
-            assert "TestRats" in __decoders__
-        return True, __decoders__, fileparser
-    except ImportError:
-        log.info("Missed RATDecoders -> pip3 install malwareconfig")
-    except Exception as e:
-        log.error(e, exc_info=True)
-    return False, False, False
-
-
-HAS_MALWARECONFIGS, __decoders__, fileparser = load_malwareconfig_parsers()
+HAS_MALWARECONFIGS = False
+if not process_cfg.ratdecoders.enabled:
+    HAS_MALWARECONFIGS, __decoders__, fileparser = load_malwareconfig_parsers()
 
 HAVE_MALDUCK = False
+# ToDo move
 if process_cfg.malduck.enabled:
     try:
         # from malduck.extractor.loaders import load_modules
@@ -118,11 +84,14 @@ if process_cfg.malduck.enabled:
 HAVE_CAPE_EXTRACTORS = False
 if process_cfg.CAPE_extractors.enabled:
     from lib.cuckoo.common.load_extra_modules import cape_load_decoders
-
-    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
+    cape_malware_parsers = load_cape_parsers()
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
     assert "test cape" in cape_malware_parsers
+    # Custom overwrites core
+    cape_malware_parsers.update(cape_load_decoders(CUCKOO_ROOT))
+
+
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
 

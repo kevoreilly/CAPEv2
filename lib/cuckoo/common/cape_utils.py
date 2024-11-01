@@ -20,7 +20,7 @@ except ImportError:
 
 
 with suppress(ImportError):
-    from cape_parsres import load_cape_parsers, load_mwcp_parsers, load_malwareconfig_parsers # load_malduck_parsers
+    from cape_parsers import load_cape_parsers, load_mwcp_parsers, load_malwareconfig_parsers # load_malduck_parsers
 
 cape_malware_parsers = {}
 

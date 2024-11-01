@@ -2854,86 +2854,6 @@ files = [
 cli = ["click (>=5.0)"]
 
 [[package]]
-name = "python-flirt"
-version = "0.9.0"
-description = "A Python library for parsing, compiling, and matching Fast Library Identification and Recognition Technology (FLIRT) signatures."
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "python_flirt-0.9.0-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:86746b6b85f607acf35591e9b20430ed1f883b58aeabca9930dca3b505eacb88"},
-    {file = "python_flirt-0.9.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:08207516b92afc9a3f7742a5310827b096433cfeca247cef849a0949368c5810"},
-    {file = "python_flirt-0.9.0-cp310-cp310-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:c9e5aba6a97e0b3c273a304978d251d15b5d8cf996fc5dc9e67f4aa56f0cb988"},
-    {file = "python_flirt-0.9.0-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:41a3527dc2dbd6b9fdecac02aaf2b2d326ad3dad0621d471a0a261763370f798"},
-    {file = "python_flirt-0.9.0-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:de5dbc2ba0520867f54f29f587c1a26bd9ca63b27e825d3eb6c1375552a12433"},
-    {file = "python_flirt-0.9.0-cp310-cp310-musllinux_1_1_armv7l.whl", hash = "sha256:649aa524655fc9a35c4e192a4f43e900025a1d7a01389af27d47860f848c76e5"},
-    {file = "python_flirt-0.9.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:085db2dbbb99944eeea7b37ef5196d001ab37d4f74f94b4c62e89ebb07024e4e"},
-    {file = "python_flirt-0.9.0-cp310-none-win32.whl", hash = "sha256:d33499d51504dfd46a444f90fba1275b43a7daa21918c1dc10a474cb395c75d9"},
-    {file = "python_flirt-0.9.0-cp310-none-win_amd64.whl", hash = "sha256:09a4e924154d056164c674317f0bcd50af24226845a9c6b1aefad134dc4aeeb8"},
-    {file = "python_flirt-0.9.0-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:4fc6254a347d114477b83d1504f1385c5b4311861b5bc9aa82225ce9c62fcaca"},
-    {file = "python_flirt-0.9.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d2189928c26b70928ae7a44b38067d88bd280e1b79dbbd008fb161de1f2165af"},
-    {file = "python_flirt-0.9.0-cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:52571f5a943fbd2342c1598ac38b3f13409805f9edd6ae56b1d1bd6957c182e9"},
-    {file = "python_flirt-0.9.0-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:b740d33774f10d675f4ccd39b65a6daaee0c75ea5e457039ff833a59367d606d"},
-    {file = "python_flirt-0.9.0-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:702c498eb7e26bd72ce04baee41cbe4218563c6cc6bf91ff6e2e2ad1c5d9bd91"},
-    {file = "python_flirt-0.9.0-cp311-cp311-musllinux_1_1_armv7l.whl", hash = "sha256:fd5a8f39f57a30034f72e6bdb4ac21601108730c40885bdb968c036583fb1d0f"},
-    {file = "python_flirt-0.9.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:fec4752d171e10eaf49c3406d0976d1f3773920f26ce726f6d66df53c45999ac"},
-    {file = "python_flirt-0.9.0-cp311-none-win32.whl", hash = "sha256:2567e23e53820b077ad5662ce690d0eb26dbd9fe5fd0febd02518603a88dbaf5"},
-    {file = "python_flirt-0.9.0-cp311-none-win_amd64.whl", hash = "sha256:ac745f431aff551a9e874ea13dfcaa6beb8aed0340eaf108685569ad521820a4"},
-    {file = "python_flirt-0.9.0-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:85bae452907c8e9fd954e8ea72052a1a78b8fc7c8e3eccccd3b3a8cf57992755"},
-    {file = "python_flirt-0.9.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a30eea566cce5ebb069d51db39fed58566c34bb06e6471e38973ae0eb4a3a948"},
-    {file = "python_flirt-0.9.0-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:e5809f893f658fb00a1da115904ec75ddb94b758094c7b10f4d46fb4d1de6963"},
-    {file = "python_flirt-0.9.0-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:f77a2e26da5abc33f1ed6cf6095ea98918497ec6add8f6883e87e10ccd626a90"},
-    {file = "python_flirt-0.9.0-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:9455c42547629f91343e0d06aab45bc966d5f61f403f32db66845cfcec33ee30"},
-    {file = "python_flirt-0.9.0-cp312-cp312-musllinux_1_1_armv7l.whl", hash = "sha256:0d9a6aaaba0129f29f424dde823e0906c9e7080c6d274f262da6a3607ee15576"},
-    {file = "python_flirt-0.9.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:e3c4db97493d50e4cc44b01ba468f0654fc04be9282289e4b427c400a55111be"},
-    {file = "python_flirt-0.9.0-cp312-none-win32.whl", hash = "sha256:a934ba2fb3f7ff7a2982a998f33b72a35b3b8d8edaed05fda3c24e75964464cb"},
-    {file = "python_flirt-0.9.0-cp312-none-win_amd64.whl", hash = "sha256:6a8695f043842ffc82764e2bc07254cd279cf5c0bf37de7f16c0e4b5a4deef03"},
-    {file = "python_flirt-0.9.0-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:72a76c653b1dc31be1d584eb1a841e0600f44acb4d23f540109d3227f239c986"},
-    {file = "python_flirt-0.9.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f9d5f9403dd904524402a10c825a3b5bdf87456d272049505bd66e0b0b28b9b4"},
-    {file = "python_flirt-0.9.0-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:be6a3608ad3e8efa7dc809a96f6da413c26bc40070011c734e15758bd9dd76ad"},
-    {file = "python_flirt-0.9.0-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:65bd9541c1afeb0b9dea79b2ee22827275180545fe6f5c5306e152b9a1eb4f0a"},
-    {file = "python_flirt-0.9.0-cp313-cp313-musllinux_1_1_aarch64.whl", hash = "sha256:0ff2e4d9f99e3053120a1130d55709cb7483e6f9686ee4aaab99d45e55995590"},
-    {file = "python_flirt-0.9.0-cp313-cp313-musllinux_1_1_armv7l.whl", hash = "sha256:2dceba819652b2e97a7c660f49e93d61e1310257013d4a46a5bcf810afd0dc13"},
-    {file = "python_flirt-0.9.0-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:2e9e8d2f5fabb9983929fe41768c890d56ad5bf66dd5b7d4223c6d9591962558"},
-    {file = "python_flirt-0.9.0-cp313-none-win32.whl", hash = "sha256:f6935537a36a70990e3eb39c59de2386941bde5e9c314afa7fbc95660b1d8e83"},
-    {file = "python_flirt-0.9.0-cp313-none-win_amd64.whl", hash = "sha256:c95b91f516704cc37daa5d2cdab49f5ed456557941903949e6bc4d6a0dd0ef67"},
-    {file = "python_flirt-0.9.0-cp38-cp38-macosx_10_12_x86_64.whl", hash = "sha256:6eda5cd009b8efece5607e0ef9ab30dae55b75632fcbdf5b8e9b8960f7a4eab3"},
-    {file = "python_flirt-0.9.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a4168a5817ad578510cedb6dd39f83841f13a2ada9894fe16c5ac5f6b75c20ef"},
-    {file = "python_flirt-0.9.0-cp38-cp38-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:4dbdabf35556b7b3a6876aa066a244492418f96b288aa1c8148489e4b7dacc38"},
-    {file = "python_flirt-0.9.0-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:fa8e23b594e545e6b446680b3422d5189e40fe22673ee713549869f9fb366b66"},
-    {file = "python_flirt-0.9.0-cp38-cp38-musllinux_1_1_armv7l.whl", hash = "sha256:c6f7c0dab50211ff1f67129ff832103d1fefb12df3ad7f33faff213ab32dc526"},
-    {file = "python_flirt-0.9.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:95f6297039bee57f0c7aa191605972d91f0aa84d32d612ffa2fc9eb7a5bd2085"},
-    {file = "python_flirt-0.9.0-cp39-cp39-macosx_10_12_x86_64.whl", hash = "sha256:d97d40855c2a37fbe58d167597a643a76b14ba66d6a660e5aaa0fe6d14916f36"},
-    {file = "python_flirt-0.9.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:30dbdd257649655caab5ae6e9bb21766b51df18db39c347a9d48fed370a8316a"},
-    {file = "python_flirt-0.9.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3d5128b7aea423197b5b65064ebca305ef452f9a6b5c24773c681863dd1e0606"},
-    {file = "python_flirt-0.9.0-cp39-cp39-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:e0e34a13777035343b23d971e4e50643454f1c6fb49e72601dd54ad2e646c220"},
-    {file = "python_flirt-0.9.0-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:b8f9bd54ea60524c02d9cbb3f31f7eca144c652b3b692df0a4a3c594eda48e44"},
-    {file = "python_flirt-0.9.0-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:034a4e5414d69b2d9c133fa7ed4d6f5a743cc2c57ec20742a72ffd8041f040c9"},
-    {file = "python_flirt-0.9.0-cp39-cp39-musllinux_1_1_armv7l.whl", hash = "sha256:31b0a81f5c75505291c2971a2e9d30dadc20c3159fa99b513f3c662f7238d176"},
-    {file = "python_flirt-0.9.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:f046756e8799fd96a5a27799db2c33445b287bcd32a48ed839da673325f842b8"},
-    {file = "python_flirt-0.9.0-cp39-none-win32.whl", hash = "sha256:ae3f0e7a211cf1fdc2e51a7012cc70616ede1460f1860de70614dbaa9efae081"},
-    {file = "python_flirt-0.9.0-cp39-none-win_amd64.whl", hash = "sha256:d0f8466814f8a5f9d94c53605b9ddb5119bd613b77192ec29e5d47cf921dcead"},
-    {file = "python_flirt-0.9.0-pp310-pypy310_pp73-macosx_10_12_x86_64.whl", hash = "sha256:cad8b81766efe4f2f5b10a585f430a9953bce20b8d4274abd6cdbd2e272a69ed"},
-    {file = "python_flirt-0.9.0-pp310-pypy310_pp73-macosx_11_0_arm64.whl", hash = "sha256:ad68211537b73ab9ef8dbda20843657fa9fc06558794aac6e401cdd73f0955ad"},
-    {file = "python_flirt-0.9.0-pp310-pypy310_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c9e42328ebde0dbb98f6c6b528bbbf2ef1664b9727bd8f370affec9224373ebc"},
-    {file = "python_flirt-0.9.0-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:61b1950a3854a6982f84cb633886974f3b7127324a981d7f62401f470aadf761"},
-    {file = "python_flirt-0.9.0-pp310-pypy310_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:732f077e6988495e490fec8221b274381e1f627688bf13667789f37515717731"},
-    {file = "python_flirt-0.9.0-pp310-pypy310_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:cfa107bb5f55c626c98a995c36ffd70ac56467b0394827e5ff77a689b895322d"},
-    {file = "python_flirt-0.9.0-pp310-pypy310_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:61579c027d64cb667fb4b134cd08fd09542639b2cde5ef6f5013f829f4038563"},
-    {file = "python_flirt-0.9.0-pp310-pypy310_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:d11f45ed72d06345aa73f428b19f2023b87e02d2b9fa9758e075a7be64a78c49"},
-    {file = "python_flirt-0.9.0-pp39-pypy39_pp73-macosx_10_12_x86_64.whl", hash = "sha256:f6e686c6f9dd43372cd3c810c9638dc34f8e0af0c662f38d1e40c28abd3d1578"},
-    {file = "python_flirt-0.9.0-pp39-pypy39_pp73-macosx_11_0_arm64.whl", hash = "sha256:bb8987e6f06ba5001d60ab66a6d52ef13c4762c32c87d3adea52ebceb25e4b42"},
-    {file = "python_flirt-0.9.0-pp39-pypy39_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f11dbf7799905e46ba648a626fe3b2a6702e84779ba7f66373588eba1d18c582"},
-    {file = "python_flirt-0.9.0-pp39-pypy39_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a12ea42d6779dd491c1d23cc83282d3c5c57d480c3b5a5d65868dc89e634f903"},
-    {file = "python_flirt-0.9.0-pp39-pypy39_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:dc432911fa9b09145310abdadab29b4c23117c59a9fa2f830eb657a7dce41273"},
-    {file = "python_flirt-0.9.0-pp39-pypy39_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:2e33d9eccce1a3e1371521113900c844c4e615038b17c98d7675ee3742a6a710"},
-    {file = "python_flirt-0.9.0-pp39-pypy39_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:5714d21a18b33dbd94760e27649b4d86c1b988bc5f4d558b3dd9f2f365e68588"},
-    {file = "python_flirt-0.9.0-pp39-pypy39_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:eab5a181a5b0649f4e3141032c3f2b5a18fd74d3dfc8bf5c7751987786a8f0f7"},
-]
-
-[package.extras]
-dev = ["black (>=22.10.0)", "isort (>=5.10.1)", "maturin (>=1.7.4)", "mypy (>=0.982)", "pycodestyle (>=2.9.1)", "pytest (>=7.1.3)", "pytest-cov (>=4.0.0)", "pytest-instafail (>=0.4.2)", "pytest-sugar (>=0.9.4)"]
-
-[[package]]
 name = "python-magic"
 version = "0.4.27"
 description = "File type identification using libmagic"
@@ -4254,4 +4174,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10, <4.0"
-content-hash = "7a1726a5cf8f9236eb5cac0b4fb706e7633fb68d665380fd45f30e51d859a203"
+content-hash = "f283142fd57ad19b7a5cff077d93ffa6757dc781335284bf651d152d85a579e1"

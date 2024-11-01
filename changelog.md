@@ -1,3 +1,11 @@
+### [01.11.2024] Parsers
+* Malware config parsers aka parsers are moved out of core of CAPE.
+    * Now they are at their own [repository](https://github.com/CAPESandbox/CAPE-parsers).
+        * Feature added. `load=X`, where `X` is one of those: all/core/community
+            * All = core and community
+        * Exclude parsers. Allows to not load some particular parsers. `exclude_parsers=["name1", "name2"]`
+    * Your custom parsers from `custom/parsers/` will still load and overwrite cape carser if name matches.
+
 ### [04.10.2024]
 * Monitor update: Add GetClassObject hook to handle UAC bypass technique using CMSTPLUA COM object
 * PrivateLoader direct syscall capture

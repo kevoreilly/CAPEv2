@@ -84,7 +84,7 @@ if process_cfg.malduck.enabled:
 HAVE_CAPE_EXTRACTORS = False
 if process_cfg.CAPE_extractors.enabled:
     from lib.cuckoo.common.load_extra_modules import cape_load_decoders
-    cape_malware_parsers = {}
+    cape_malware_parsers = load_cape_parsers()
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
     assert "test cape" in cape_malware_parsers

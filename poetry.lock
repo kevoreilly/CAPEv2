@@ -4735,4 +4735,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10, <4.0"
-content-hash = "7c8679385161521696e1e1aacadfe67b5feeb3aa66733bbcfac87fede860acdf"
+content-hash = "6b3a000fd8b88cc157af4f51a93466d3cecab8afbc7abe1551659fed55df78b5"

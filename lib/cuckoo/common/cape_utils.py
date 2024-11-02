@@ -18,9 +18,14 @@ try:
 except ImportError:
     HAVE_PYDEEP = False
 
-
+HAS_MWCP = False
+HAS_MALWARECONFIGS = False
+HAVE_CAPE_EXTRACTORS = False
 with suppress(ImportError):
     from cape_parsers import load_cape_parsers, load_mwcp_parsers, load_malwareconfig_parsers # load_malduck_parsers
+    HAS_MWCP = True
+    HAS_MALWARECONFIGS = True
+    HAVE_CAPE_EXTRACTORS = True
 
 cape_malware_parsers = {}
 
@@ -48,14 +53,11 @@ except ImportError:
     print("Missed pefile library. Install it with: pip3 install pefile")
     HAVE_PEFILE = False
 
-# ToDo check if enabled
-HAS_MWCP = False
-if process_cfg.mwcp.enabled:
+if process_cfg.mwcp.enabled and HAS_MWCP:
     malware_parsers, mwcp = load_mwcp_parsers()
     HAS_MWCP = bool(malware_parsers)
 
-HAS_MALWARECONFIGS = False
-if not process_cfg.ratdecoders.enabled:
+if not process_cfg.ratdecoders.enabled and HAS_MALWARECONFIGS:
     HAS_MALWARECONFIGS, __decoders__, fileparser = load_malwareconfig_parsers()
 
 HAVE_MALDUCK = False
@@ -81,8 +83,7 @@ if process_cfg.malduck.enabled:
     except ImportError:
         log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
 
-HAVE_CAPE_EXTRACTORS = False
-if process_cfg.CAPE_extractors.enabled:
+if process_cfg.CAPE_extractors.enabled and HAVE_CAPE_EXTRACTORS:
     from lib.cuckoo.common.load_extra_modules import cape_load_decoders
     cape_malware_parsers = load_cape_parsers()
     if cape_malware_parsers:

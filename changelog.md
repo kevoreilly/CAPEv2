@@ -5,6 +5,7 @@
             * All = core and community
         * Exclude parsers. Allows to not load some particular parsers. `exclude_parsers=["name1", "name2"]`
     * Your custom parsers from `custom/parsers/` will still load and overwrite cape carser if name matches.
+* __Action required!__ `cd /opt/CAPEv2 && poetry install`
 
 ### [04.10.2024]
 * Monitor update: Add GetClassObject hook to handle UAC bypass technique using CMSTPLUA COM object

@@ -83,15 +83,16 @@ if process_cfg.malduck.enabled:
     except ImportError:
         log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
 
-if process_cfg.CAPE_extractors.enabled and HAVE_CAPE_EXTRACTORS:
-    from lib.cuckoo.common.load_extra_modules import cape_load_decoders
-    cape_malware_parsers = load_cape_parsers()
+if process_cfg.CAPE_extractors.enabled:
+    from lib.cuckoo.common.load_extra_modules import cape_load_custom_decoders
+    cape_malware_parsers = {}
+    if HAVE_CAPE_EXTRACTORS:
+        cape_malware_parsers = load_cape_parsers()
+    # Custom overwrites core
+    cape_malware_parsers.update(cape_load_custom_decoders(CUCKOO_ROOT))
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
     assert "test cape" in cape_malware_parsers
-    # Custom overwrites core
-    cape_malware_parsers.update(cape_load_decoders(CUCKOO_ROOT))
-
 
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]

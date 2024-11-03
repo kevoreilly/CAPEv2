@@ -50,7 +50,7 @@ try:
 
     HAVE_PEFILE = True
 except ImportError:
-    print("Missed pefile library. Install it with: pip3 install pefile")
+    print("Missed pefile library. Install it with: poetry install")
     HAVE_PEFILE = False
 
 if process_cfg.mwcp.enabled and HAS_MWCP:

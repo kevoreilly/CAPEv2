@@ -28,6 +28,8 @@ with suppress(ImportError):
     HAS_MALWARECONFIGS = True
     HAVE_CAPE_EXTRACTORS = True
 
+mwcp_decoders = {}
+rat_decoders = {}
 cape_malware_parsers = {}
 
 # Config variables
@@ -55,11 +57,11 @@ except ImportError:
     HAVE_PEFILE = False
 
 if process_cfg.mwcp.enabled and HAS_MWCP:
-    malware_parsers, mwcp = load_mwcp_parsers()
-    HAS_MWCP = bool(malware_parsers)
+    mwcp_decoders, mwcp = load_mwcp_parsers()
+    HAS_MWCP = bool(mwcp_decoders)
 
 if not process_cfg.ratdecoders.enabled and HAS_MALWARECONFIGS:
-    HAS_MALWARECONFIGS, __decoders__, fileparser = load_malwareconfig_parsers()
+    HAS_MALWARECONFIGS, rat_decoders, fileparser = load_malwareconfig_parsers()
 
 HAVE_MALDUCK = False
 """
@@ -190,10 +192,10 @@ def static_config_parsers(cape_name, file_path, file_data):
             log.error("CAPE: parsing error on %s with %s: %s", file_path, cape_name, e, exc_info=True)
 
     # DC3-MWCP
-    if HAS_MWCP and not parser_loaded and cape_name and cape_name in malware_parsers:
+    if HAS_MWCP and not parser_loaded and cape_name and cape_name in mwcp_decoders:
         log.debug("Running MWCP on %s", file_path)
         try:
-            report = mwcp.run(malware_parsers[cape_name], data=file_data)
+            report = mwcp.run(mwcp_decoders[cape_name], data=file_data)
             reportmeta = report.as_dict_legacy()
             if not report.errors:
                 parser_loaded = True
@@ -225,16 +227,16 @@ def static_config_parsers(cape_name, file_path, file_data):
                 str(e),
             )
 
-    elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
+    elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in rat_decoders:
         log.debug("Running Malwareconfigs on %s", file_path)
         try:
             module = False
             file_info = fileparser.FileParser(rawdata=file_data)
             # Detects name by embed yara
-            if file_info.malware_name in __decoders__:
-                module = __decoders__[file_info.malware_name]["obj"]()
-            elif cape_name in __decoders__:
-                module = __decoders__[cape_name]["obj"]()
+            if file_info.malware_name in rat_decoders:
+                module = rat_decoders[file_info.malware_name]["obj"]()
+            elif cape_name in rat_decoders:
+                module = rat_decoders[cape_name]["obj"]()
             else:
                 log.warning("%s: %s wasn't matched by plugin's yara", file_path, cape_name)
 

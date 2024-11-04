@@ -62,6 +62,7 @@ if not process_cfg.ratdecoders.enabled and HAS_MALWARECONFIGS:
     HAS_MALWARECONFIGS, __decoders__, fileparser = load_malwareconfig_parsers()
 
 HAVE_MALDUCK = False
+"""
 # ToDo move
 if process_cfg.malduck.enabled:
     try:
@@ -83,6 +84,7 @@ if process_cfg.malduck.enabled:
         assert "test_malduck" in malduck_modules_names
     except ImportError:
         log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
+"""
 
 if process_cfg.CAPE_extractors.enabled:
     from lib.cuckoo.common.load_extra_modules import cape_load_custom_decoders
@@ -261,7 +263,7 @@ def static_config_parsers(cape_name, file_path, file_data):
 
         if cape_config.get(cape_name) == {}:
             return {}
-
+    """
     elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
         log.debug("Running Malduck on %s", file_path)
         if not File.yara_initialized:
@@ -285,7 +287,7 @@ def static_config_parsers(cape_name, file_path, file_data):
 
     if not cape_config[cape_name]:
         return {}
-
+    """
     return cape_config
 
 

@@ -2,7 +2,7 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
 
-class Exe(Package):
+class RDP(Package):
     """RDP analysis package."""
 
     PATHS = [

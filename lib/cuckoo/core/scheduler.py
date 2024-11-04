@@ -64,6 +64,8 @@ class Scheduler:
         self.analysis_threads: List[AnalysisManager] = []
         self.analyzing_categories, categories_need_VM = load_categories()
         self.machinery_manager = MachineryManager() if categories_need_VM else None
+        if self.cfg.cuckoo.get("task_timeout", False):
+            self.next_timeout_time = time.time() + self.cfg.cuckoo.get("task_timeout_scan_interval", 30)
         log.info("Creating scheduler with max_analysis_count=%s", self.max_analysis_count or "unlimited")
 
     @property
@@ -97,6 +99,12 @@ class Scheduler:
 
         if self.is_short_on_disk_space():
             return SchedulerCycleDelay.LOW_DISK_SPACE
+
+        if self.cfg.cuckoo.get("task_timeout", False):
+            if self.next_timeout_time < time.time():
+                self.next_timeout_time = time.time() + self.cfg.cuckoo.get("task_timeout_scan_interval", 30) 
+                with self.db.session.begin():
+                    self.db.check_tasks_timeout(self.cfg.cuckoo.get("task_pending_timeout", 0))
 
         analysis_manager: Optional[AnalysisManager] = None
         with self.db.session.begin():

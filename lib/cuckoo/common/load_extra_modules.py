@@ -34,7 +34,7 @@ def ratdecodedr_load_decoders(path: str):
     return dec_modules
 
 
-def cape_load_decoders(CUCKOO_ROOT: str):
+def cape_load_custom_decoders(CUCKOO_ROOT: str):
 
     cape_modules = {}
     cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")

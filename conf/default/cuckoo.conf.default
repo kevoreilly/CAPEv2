@@ -33,6 +33,11 @@ scaling_semaphore = off
 # A configurable wait time between updating the limit value of the scaling bounded semaphore
 scaling_semaphore_update_timer = 10
 
+# Specify a timeout for tasks, useful if you are bound to timely reports awaited by users
+task_timeout = off
+task_pending_timeout = 0 
+task_timeout_scan_interval = 30
+
 # Enable creation of memory dump of the analysis machine before shutting
 # down. Even if turned off, this functionality can also be enabled at
 # submission. Currently available for: VirtualBox and libvirt modules (KVM).

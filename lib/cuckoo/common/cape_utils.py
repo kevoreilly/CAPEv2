@@ -287,10 +287,9 @@ def static_config_parsers(cape_name, file_path, file_data):
         if tmp_config:
             for key, value in tmp_config[0].items():
                 cape_config[cape_name].update({key: [value]})
-
+    """
     if not cape_config[cape_name]:
         return {}
-    """
     return cape_config
 
 

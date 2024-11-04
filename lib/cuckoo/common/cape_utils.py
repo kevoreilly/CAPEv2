@@ -2,8 +2,8 @@ import hashlib
 import logging
 import tempfile
 from collections.abc import Iterable, Mapping
-from pathlib import Path
 from contextlib import suppress
+from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -22,7 +22,8 @@ HAS_MWCP = False
 HAS_MALWARECONFIGS = False
 HAVE_CAPE_EXTRACTORS = False
 with suppress(ImportError):
-    from cape_parsers import load_cape_parsers, load_mwcp_parsers, load_malwareconfig_parsers # load_malduck_parsers
+    from cape_parsers import load_cape_parsers, load_malwareconfig_parsers, load_mwcp_parsers  # load_malduck_parsers
+
     HAS_MWCP = True
     HAS_MALWARECONFIGS = True
     HAVE_CAPE_EXTRACTORS = True
@@ -85,6 +86,7 @@ if process_cfg.malduck.enabled:
 
 if process_cfg.CAPE_extractors.enabled:
     from lib.cuckoo.common.load_extra_modules import cape_load_custom_decoders
+
     cape_malware_parsers = {}
     if HAVE_CAPE_EXTRACTORS:
         cape_malware_parsers = load_cape_parsers()

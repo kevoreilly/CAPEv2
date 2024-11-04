@@ -623,7 +623,10 @@ class File:
         """Return the part of the cape_type (e.g. "SocGholish Payload") preceding
         " Payload", " Config", " Loader", or " Strings"
         """
-        return cls.cape_name_regex.sub("", cape_type)
+        if bool(cls.cape_name_regex.search(cape_type)):
+            return cls.cape_name_regex.sub("", cape_type)
+        else:
+            return ""
 
     def get_tlsh(self):
         """

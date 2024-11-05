@@ -29,6 +29,7 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
+from lib.cuckoo.common.integration.parse_rdp import parse_rdp_file
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
@@ -205,7 +206,8 @@ def static_file_info(
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
             data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
-
+    elif file_path.endswith(".rdp"):
+        data_dictionary["rdp"] = parse_rdp_file(file_path)
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.

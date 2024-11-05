@@ -1,12 +1,12 @@
 # From https://github.com/wmetcalf/rdp_holiday
 
-import json
 import argparse
 import base64
-from struct import unpack
-
+import json
 import sys
 from hashlib import sha1, sha256
+from struct import unpack
+
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import pkcs7
 
@@ -59,6 +59,7 @@ property_patterns = {
     "signscope": re.compile(r"signscope\s*:\s*s\s*:\s*(.*)", re.I),
 }
 
+
 def parse_rdp_file(file_path):
     rdp_properties = {}
 
@@ -92,7 +93,9 @@ def parse_rdp_file(file_path):
             print("full_address is a required field... what sort of nonsense are you trying to feed me?")
             return rdp_properties
         if "full_address" not in rdp_properties:
-            print("full_address is a required field but is not in parsed Properties what sort of nonsense are you trying to feed me?")
+            print(
+                "full_address is a required field but is not in parsed Properties what sort of nonsense are you trying to feed me?"
+            )
             return rdp_properties
 
         if "signature" in rdp_properties:

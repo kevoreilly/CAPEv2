@@ -28,8 +28,8 @@ from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
 from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
-from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.integrations.parse_rdp import parse_rdp_file
+from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules

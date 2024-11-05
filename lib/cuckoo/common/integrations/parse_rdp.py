@@ -146,7 +146,7 @@ def main():
         with open(args.output, "w") as outfile:
             outfile.write(output)
     except Exception as e:
-        print("it went pear shaped..")
+        print("it went pear shaped.. %s", str(e))
         sys.exit(1)
 
 

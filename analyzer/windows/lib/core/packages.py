@@ -147,5 +147,7 @@ def choose_package(file_type, file_name, exports, target):
         return "autoit"
     elif file_name.endswith(("cmd", "bat")) or b"@echo off" in file_content:
         return "batch"
+    elif file_name.endswith(".rdp"):
+        return "rdp"
     else:
         return "generic"

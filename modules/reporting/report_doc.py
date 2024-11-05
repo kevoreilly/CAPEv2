@@ -57,7 +57,13 @@ def get_json_document(results, analysis_path):
     # Create a copy of the dictionary. This is done in order to not modify
     # the original dictionary and possibly
     # compromise the following reporting modules.
-    report = copy.deepcopy(results)
+    try:
+        report = copy.deepcopy(results)
+    except AttributeError:
+        if "memory" in results:
+            del results["memory"]
+            log.error("Deleting Volatility results")
+            report = copy.deepcopy(results)
 
     if "network" not in report:
         report["network"] = {}

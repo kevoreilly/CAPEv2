@@ -206,7 +206,7 @@ def static_file_info(
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
             data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
-    elif file_path.endswith(".rdp"):
+    elif file_path.endswith(".rdp") or data_dictionary.get("name", {}).endswith(".rdp"):
         data_dictionary["rdp"] = parse_rdp_file(file_path)
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,

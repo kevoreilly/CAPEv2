@@ -310,6 +310,10 @@ modules_path = modules/processing/parsers/malduck/
 enabled = yes
 # Must ends with /
 modules_path = modules/processing/parsers/CAPE/
+# Config parsers all/core/community
+parsers = all
+# list of comma separated parsers. Ex: stealc,lumma
+exclude=
 
 # Community
 [reversinglabs]

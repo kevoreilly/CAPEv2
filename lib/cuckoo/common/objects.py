@@ -74,13 +74,15 @@ except ImportError:
     print("Missed library. Run: poetry install")
     HAVE_YARA = False
 
+HAVE_YARA_X = False
+"""
 try:
     import yara_x
 
     HAVE_YARA_X = True
 except ImportError:
     # print("Missed library. Run: poetry install pip3 install yara-x")
-    HAVE_YARA_X = False
+"""
 
 log = logging.getLogger(__name__)
 

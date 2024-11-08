@@ -99,7 +99,9 @@ if process_cfg.CAPE_extractors.enabled:
     cape_malware_parsers.update(cape_load_custom_decoders(CUCKOO_ROOT))
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
-    assert "test cape" in cape_malware_parsers
+    if "test cape" not in cape_malware_parsers
+        log.info("Missed cape-parsers! Run: poetry install")
+
 
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]

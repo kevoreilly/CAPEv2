@@ -94,7 +94,10 @@ if process_cfg.CAPE_extractors.enabled:
 
     cape_malware_parsers = {}
     if HAVE_CAPE_EXTRACTORS:
-        cape_malware_parsers = load_cape_parsers()
+        exclude_parsers = []
+        if process_cfg.CAPE_extractors.parsers:
+            exclude_parsers = [parser_name.strip() for parser_name in process_cfg.CAPE_extractors.parsers.split(",")]
+        cape_malware_parsers = load_cape_parsers(load=process_cfg.CAPE_extractors.parsers, exclude_parsers=exclude_parsers)
     # Custom overwrites core
     cape_malware_parsers.update(cape_load_custom_decoders(CUCKOO_ROOT))
     if cape_malware_parsers:

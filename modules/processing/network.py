@@ -1080,6 +1080,8 @@ class Pcap2:
 class NetworkAnalysis(Processing):
     """Network analysis."""
 
+    key = "network"
+
     # ToDo map this to suricata.tls.ja
     def _import_ja3_fprints(self):
         """

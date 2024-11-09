@@ -75,6 +75,7 @@ except ImportError:
     HAVE_YARA = False
 
 HAVE_YARA_X = False
+yara_x = False
 """
 try:
     import yara_x

@@ -106,7 +106,6 @@ if process_cfg.CAPE_extractors.enabled:
         log.info("Missed cape-parsers! Run: poetry install")
 
 
-
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
 
 pe_map = {

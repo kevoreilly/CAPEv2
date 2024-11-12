@@ -749,7 +749,7 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
     global UN_AUTOIT_NOTIF
     merged_lists = data_dictionary.get("yara", []) + data_dictionary.get("cape_yara", [])
     if all(not block.get("name", "").lower().startswith("autoit") for block in merged_lists):
-       return
+        return
 
     # this is useless to notify in each iteration
     if not UN_AUTOIT_NOTIF and not path_exists(unautoit_binary):

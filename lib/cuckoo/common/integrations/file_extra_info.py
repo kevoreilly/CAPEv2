@@ -747,8 +747,9 @@ UN_AUTOIT_NOTIF = False
 @time_tracker
 def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     global UN_AUTOIT_NOTIF
-    if all(block.get("name") not in ("AutoIT_Compiled", "AutoIT_Script") for block in data_dictionary.get("yara", {})):
-        return
+    merged_lists = data_dictionary.get("yara", []) + data_dictionary.get("cape_yara", [])
+    if all(not block.get("name", "").lower().startswith("autoit") for block in merged_lists):
+       return
 
     # this is useless to notify in each iteration
     if not UN_AUTOIT_NOTIF and not path_exists(unautoit_binary):

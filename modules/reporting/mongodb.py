@@ -131,9 +131,10 @@ class MongoDB(Report):
         try:
             mongo_insert_one("analysis", report)
         except OperationFailure as e:
-            # ToDo rewrite how children are stored
-            if str(e).startswith("BSONObj exceeds maximum nested object"):
-                log.debug("Deleting behavior process tree children from results.")
+            # check for error code 10334, BSONObjectTooLarge
+            if e.code == 10334:
+                # ToDo rewrite how children are stored
+                log.warning("Deleting behavior process tree children from results.")
                 del report["behavior"]["processtree"][0]["children"]
                 try:
                     mongo_insert_one("analysis", report)
@@ -141,6 +142,8 @@ class MongoDB(Report):
                     log.error("Deleting behavior process tree parent from results: %s", str(e))
                     del report["behavior"]["processtree"][0]
                     mongo_insert_one("analysis", report)
+            else:
+                raise CuckooReportError("Failed inserting report in Mongo") from e
         except InvalidDocument as e:
             if str(e).startswith("cannot encode object") or "must not contain" in str(e):
                 self.loop_saver(report)

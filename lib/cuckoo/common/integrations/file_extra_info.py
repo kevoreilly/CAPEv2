@@ -501,13 +501,11 @@ def generic_file_extractors(
                 log.debug("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
                 continue
             metadata = _extracted_files_metadata(tempdir, destination_folder, files=extracted_files, results=results)
-            data_dictionary.update(
-                {
-                    "extracted_files": metadata,
-                    "extracted_files_tool": new_tool_name,
-                    "extracted_files_time": func_result["took_seconds"],
-                }
-            )
+            data_dictionary.setdefault("selfextract", {})
+            data_dictionary["selfextract"][new_tool_name] = {
+                "extracted_files": metadata,
+                "extracted_files_time": func_result["took_seconds"],
+            }
         finally:
             if tempdir:
                 # ToDo doesn't work

@@ -986,13 +986,14 @@ search_term_map = {
         "network.udp.dport",
         "network.smtp_ex.dport",
     ),
+    # ToDo update schema
     # File_extra_info
     "extracted_tool": (
-        "info.parent_sample.extracted_files_tool",
-        "target.file.extracted_files_tool",
-        "dropped.extracted_files_tool",
-        "procdump.extracted_files_tool",
-        "CAPE.payloads.extracted_files_tool",
+        "info.parent_sample.selfextract",
+        "target.file.selfextract",
+        "dropped.selfextract",
+        "procdump.selfextract",
+        "CAPE.payloads.selfextract",
     ),
 }
 

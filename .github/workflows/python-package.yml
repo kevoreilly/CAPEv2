@@ -37,7 +37,7 @@ jobs:
           poetry run pip install pyattck==7.1.2 maco
 
       - name: Run Ruff
-        run: poetry run ruff . --line-length 132 --ignore E501,E402
+        run: poetry run ruff check . --line-length 132 --ignore E501,E402
 
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append

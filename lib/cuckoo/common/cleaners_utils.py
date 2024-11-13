@@ -44,7 +44,7 @@ if hasattr(config, "tmpfs"):
 # Initialize the database connection.
 db: _Database = Database()
 if repconf.mongodb.enabled:
-    mdb = repconf.mongodb.get("db", "cuckoo")
+    # mdb = repconf.mongodb.get("db", "cuckoo")
     from dev_utils.mongo_hooks import delete_unused_file_docs
     from dev_utils.mongodb import (
         connect_to_mongo,

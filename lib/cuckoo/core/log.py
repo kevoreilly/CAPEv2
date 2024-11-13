@@ -70,7 +70,7 @@ class ConsoleHandler(logging.StreamHandler):
             colored.msg = red(record.msg)
         else:
             # Hack for pymongo.logger.LogMessage
-            if type(record.msg) != "str":
+            if not isinstance(record.msg, str):
                 record.msg = str(record.msg)
 
             if "analysis procedure completed" in record.msg:

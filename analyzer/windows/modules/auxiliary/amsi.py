@@ -1002,7 +1002,7 @@ class EventConsumer:
 
         data = formatted_data.value
         # Convert the formatted data if necessary
-        if out_type in TDH_CONVERTER_LOOKUP and type(data) != TDH_CONVERTER_LOOKUP[out_type]:
+        if out_type in TDH_CONVERTER_LOOKUP and type(data) is TDH_CONVERTER_LOOKUP[out_type]:
             data = TDH_CONVERTER_LOOKUP[out_type](data)
 
         return {name_field: data}

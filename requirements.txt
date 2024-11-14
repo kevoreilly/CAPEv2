@@ -55,9 +55,9 @@ bs4==0.0.1 ; python_version >= "3.10" and python_version < "4.0" \
 cachetools==5.5.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:02134e8439cdc2ffb62023ce1debca2944c3f289d66bb17ead3ab3dede74b292 \
     --hash=sha256:2cc24fb4cbe39633fb7badd9db9ca6295d766d9c2995f245725a46715d050f2a
-cape-parsers==0.1.8 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:9f8957c8f153474c1e8e2688d0638b69da90ac729f67c1ff9ecb38d8214e3d8f \
-    --hash=sha256:b86a663d426c9d60cc45c00da06bb374e64ca8fa5741931e34bfe22f77772ea8
+cape-parsers==0.1.9 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:25d0b30c81e48c99e0b1caeebac6a9b1764637b4a6ed01639b022d4d8c643f01 \
+    --hash=sha256:ef1d2a1c90a506061cb9b62415ec790395f6d352d0dabf9478cfdd99adb209fe
 capstone==4.0.2 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:0d65ffe8620920976ceadedc769f22318f6f150a592368d8a735612367ac8a1a \
     --hash=sha256:2842913092c9b69fd903744bc1b87488e1451625460baac173056e1808ec1c66 \

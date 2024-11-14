@@ -426,7 +426,7 @@ def tmp_clean_before_day(days: int):
     today = datetime.today()
     tmp_folder_path = config.cuckoo.get("tmppath")
 
-    for folder in ("cuckoo-tmp", "cape-external"):
+    for folder in ("cuckoo-tmp", "cape-external", "cuckoo-sflock"):
         for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
             for name in files + directories:
                 path = os.path.join(root, name)

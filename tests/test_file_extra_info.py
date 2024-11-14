@@ -39,8 +39,8 @@ class TestFileExtraInfo:
             duplicated,
             tests=True,
         )
-        assert data_dictionary["extracted_files_tool"] == "MsiExtract"
-        assert len(data_dictionary["extracted_files"]) == 2
+        assert "MsiExtract" in data_dictionary["selfextract"].keys()
+        assert len(data_dictionary["selfextract"]["MsiExtract"]["extracted_files"]) == 2
 
     @pytest.mark.skipif(
         not (self_extraction_dir / "5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno").exists(),
@@ -60,8 +60,8 @@ class TestFileExtraInfo:
             results,
             duplicated,
         )
-        assert data_dictionary["extracted_files_tool"] == "InnoExtract"
-        assert len(data_dictionary["extracted_files"]) == 1
+        assert "InnoExtract" in data_dictionary["selfextract"].keys()
+        assert len(data_dictionary["selfextract"]["InnoExtract"]["extracted_files"]) == 1
 
     @pytest.mark.skip(reason="Not implemented yet")
     def test_batch_extract(self):

@@ -1094,6 +1094,9 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
     elif term == "configs":
         # check if family name is string only maybe?
         query_val = {f"{search_term_map[term]}.{value}": {"$exist": True}, "$options": "i"}
+    # ToDo proper implementation here
+    # elif term == "extracted_tool":
+    #    query_val = {"$exist": True}
     elif term == "ttp":
         if validate_ttp(value):
             query_val = value.upper()

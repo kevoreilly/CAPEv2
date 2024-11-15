@@ -166,7 +166,8 @@ class URL:
 class File:
     """Basic file object class with all useful utilities."""
 
-    LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
+    # ToDo python can be executed on windows too
+    LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF"} # , "Python"
     DARWIN_TYPES = {"Mach-O"}
 
     # The yara rules should not change during one Cuckoo run and as such we're
@@ -735,6 +736,7 @@ class File:
         retval = "windows"
         ftype = self.get_type()
         if isinstance(ftype, str):
+            # ToDo check if linux enabled
             if any(x in ftype for x in File.LINUX_TYPES):
                 retval = "linux"
             elif any(x in ftype for x in File.DARWIN_TYPES):

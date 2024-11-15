@@ -932,8 +932,12 @@ function dependencies() {
     apt-get install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt-get install openvpn wireguard -y
     apt-get install crudini -y
+
     # APT poetry is ultra outdated
-    curl -sSL https://install.python-poetry.org | python3 -
+    curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -
+    echo "PATH=$PATH:/etc/poetry/bin/" >> /etc/bash.bashrc
+    source /etc/bash.bashrc
+
     apt-get install locate # used by extra/libvirt_installer.sh
 
     # de4dot selfextraction

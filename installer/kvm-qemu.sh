@@ -665,11 +665,11 @@ function install_virt_manager() {
     # moved out as some 20.04 doesn't have this libs %)
     aptitude install -f -y python3-ntlm-auth libpython3-stdlib libbrlapi-dev libgirepository1.0-dev python3-testresources
     apt-get -y -o Dpkg::Options::="--force-overwrite" install ovmf
-    pip3 install tqdm requests six urllib3 ipaddr ipaddress idna dbus-python certifi lxml cryptography pyOpenSSL chardet asn1crypto pycairo PySocks PyGObject
+    pip3 install tqdm requests six urllib3 ipaddr ipaddress idna dbus-python certifi lxml cryptography pyOpenSSL chardet asn1crypto pycairo PySocks PyGObject pylint pytest
 
     # not available in 22.04
     if [ $(lsb_release -sc) != "jammy" ]; then
-    	aptitude -f install python-enum34 libxenstore3.0 libnetcf1 libcroco3 -y
+        aptitude -f install python-enum34 libxenstore3.0 libnetcf1 libcroco3 -y
     fi
 
     updatedb
@@ -716,10 +716,11 @@ function install_virt_manager() {
         echo "[+] Cloned Virt Manager repo"
     fi
     cd "virt-manager" || return
-    # py3
-    #pip3 install .
-    python3 setup.py build
-    python3 setup.py install
+
+    # https://github.com/virt-manager/virt-manager/blob/main/INSTALL.md
+    meson setup build
+    meson install -C build
+
     if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ] ; then
         echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> "$HOME/.zsh"
     else

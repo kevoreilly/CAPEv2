@@ -326,7 +326,7 @@
                 {% endif %}
                 {% if file.selfextract %}
                     {% for name, details in file.selfextract.items %}
-                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#{{name}}_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="{{name}}_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{name}} ({{details.extracted_files_time|floatformat:2}})</a>
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#selfextract_{{name}}" role="button" aria-expanded="false" aria-controls="selfextract_{{name}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{name}} ({{details.extracted_files_time|floatformat:2}})</a>
                     {% endfor %}
                 {% endif %}
             </td>
@@ -421,17 +421,18 @@
             </tr>
         {% endif %}
         {% if file.selfextract %}
-            <tr><th></th><td>
             {% for name, details in file.selfextract.items %}
-                <div class="collapse" id="{{name}}_{{file.sha256}}">
-                    <div class="table">
-                    {% for sub_file in details.extracted_files %}
-                        {% include "analysis/generic/_subfile_info.html" %}
-                    {% endfor %}
+                <tr>
+                    <th></th><td>
+                    <div class="collapse" id="selfextract_{{name}}">
+                        <div>
+                        {% for sub_file in details.extracted_files %}
+                            {% include "analysis/generic/_subfile_info.html" %}
+                        {% endfor %}
+                        </div>
                     </div>
-                </div>
-            </td>
-            </tr>
+                    </td>
+                </tr>
             {% endfor %}
             </br>
         {% endif %}

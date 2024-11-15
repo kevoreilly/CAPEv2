@@ -38,7 +38,15 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import get_options
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task, init_database
+from lib.cuckoo.core.database import (
+    TASK_COMPLETED,
+    TASK_FAILED_PROCESSING,
+    TASK_FAILED_REPORTING,
+    TASK_REPORTED,
+    Database,
+    Task,
+    init_database,
+)
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
 
@@ -137,9 +145,10 @@ def process(
         else:
             reprocess = report
 
-        RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
+        error_count = RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
+        status = TASK_REPORTED if error_count == 0 else TASK_FAILED_REPORTING
         with db.session.begin():
-            db.set_status(task_id, TASK_REPORTED)
+            db.set_status(task_id, status)
 
         if auto:
             # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks

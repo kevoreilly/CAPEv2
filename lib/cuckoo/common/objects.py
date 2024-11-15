@@ -167,7 +167,7 @@ class File:
     """Basic file object class with all useful utilities."""
 
     # ToDo python can be executed on windows too
-    LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF"} # , "Python"
+    LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF"}  # , "Python"
     DARWIN_TYPES = {"Mach-O"}
 
     # The yara rules should not change during one Cuckoo run and as such we're

@@ -806,7 +806,7 @@ def status(request, task_id):
         "status": status,
         "task_id": task_id,
         "session_data": "",
-        "target": task.sample.sha256 if task.sample.sha256 else task.target,
+        "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
     if settings.REMOTE_SESSION:
         machine = db.view_machine_by_label(task.machine)

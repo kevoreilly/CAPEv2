@@ -6,7 +6,7 @@ After=cape-rooter.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
-ExecStart=/usr/bin/python3 -m poetry run python process.py -p7 auto -pt 900
+ExecStart=/etc/poetry/bin/poetry run python process.py -p7 auto -pt 900
 User=cape
 Group=cape
 Restart=always

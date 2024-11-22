@@ -6,8 +6,8 @@ After=syslog.target network.target
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
-ExecStartPre=/usr/bin/python3 -m poetry config cache-dir /opt/CAPEv2/.cache/pypoetry
-ExecStart=/usr/bin/python3 -m poetry run python rooter.py -g cape
+ExecStartPre=/etc/poetry/bin/poetry config cache-dir /opt/CAPEv2/.cache/pypoetry
+ExecStart=/etc/poetry/bin/poetry run python rooter.py -g cape
 User=root
 Group=root
 Restart=always

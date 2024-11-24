@@ -284,7 +284,6 @@ class MaecReport(Report):
         # Grab list of all dropped files- remember
         # package['observable_objects'] is a dict where the key is object-ID
         for f in self.results["dropped"]:
-
             # Create a new Malware Instance for each dropped file
             malwareInstance = self.create_malware_instance(f)
 

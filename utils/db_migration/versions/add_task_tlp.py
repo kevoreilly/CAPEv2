@@ -9,6 +9,7 @@ Revises: 30d0230de7cd
 Create Date: 2020-04-10 12:17:18.530901
 
 """
+
 # revision identifiers, used by Alembic.
 revision = "7331c4d994fd"
 down_revision = "30d0230de7cd"

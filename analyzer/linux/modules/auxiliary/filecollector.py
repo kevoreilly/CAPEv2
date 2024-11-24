@@ -51,7 +51,6 @@ class FileCollector(Auxiliary, Thread):
                 self.thread.join(0.5)
 
     def run(self):
-
         if not HAVE_PYINOTIFY:
             log.info("Missed dependency: pip3 install pyinotify")
             return False

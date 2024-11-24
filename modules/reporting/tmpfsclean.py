@@ -10,6 +10,7 @@ log = logging.getLogger(__name__)
 
 class TMPFSCLEAN(Report):
     "Remove/save memdump"
+
     order = 9998
 
     def run(self, results):

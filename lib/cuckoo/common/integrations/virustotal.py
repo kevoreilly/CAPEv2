@@ -156,7 +156,6 @@ banlist = (
 
 
 def get_vt_consensus(namelist: list):
-
     finaltoks = defaultdict(int)
     for name in namelist:
         toks = re.findall(r"[A-Za-z0-9]+", name)

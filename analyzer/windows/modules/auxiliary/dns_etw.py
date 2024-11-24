@@ -43,7 +43,6 @@ def encode(data, encoding="utf-8"):
 if HAVE_ETW:
 
     class ETW_provider(ETW):
-
         def __init__(
             self,
             ring_buf_size=1024,

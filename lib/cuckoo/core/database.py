@@ -1366,7 +1366,6 @@ class _Database:
         cape=False,
         category=None,
     ):
-
         # Get file filetype to ensure self extracting archives run longer
         if not isinstance(filename, str):
             filename = bytes2str(filename)

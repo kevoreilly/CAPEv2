@@ -654,7 +654,6 @@ def binaries_clean_before_day(days: int):
 
 
 def execute_cleanup(args: dict, init_log=True):
-
     if init_log:
         init_console_logging()
 

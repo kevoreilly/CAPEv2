@@ -111,13 +111,6 @@ httpretty = "^1.1.4"
 func-timeout = "^4.3.5"
 pre-commit = "^2.19.0"
 
-[tool.ruff]
-select = ["E", "F"]
-ignore = ["E402","E501"]
-exclude = [
-    "./analyzer/linux/dbus_next",
-]
-
 [tool.black]
 line-length = 132
 include = "\\.py(_disabled)?$"
@@ -143,6 +136,44 @@ norecursedirs = "tests/zip_compound"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[lint]
-select = ["E", "F"]
-ignore = ["E402","E501"]
+[tool.ruff]
+line-length = 132
+exclude = [
+    "./analyzer/linux/dbus_next",
+]
+
+[tool.ruff.lint]
+select = [
+	"F",       # pyflakes
+	"E",       # pycodestyle errors
+	"W",       # pycodestyle warnings
+	"I",       # isort
+	"N",       # pep8-naming
+	"G",       # flake8-logging-format
+]
+
+ignore = [
+    "E501",    # ignore due to conflict with formatter
+    "N818",    # exceptions don't need the Error suffix
+    "E741",    # allow ambiguous variable names
+    "E402",
+]
+
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"stubs/*" = [
+    "N",       # naming conventions don't matter in stubs
+    "F403",    # star imports are okay in stubs
+    "F405",    # star imports are okay in stubs
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["libqtile", "test"]
+default-section = "third-party"

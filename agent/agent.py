@@ -226,7 +226,6 @@ class MiniHTTPServer:
             self.close_connection = True
 
     def shutdown(self):
-
         # BaseServer also features a .shutdown() method, but you can't use
         # that from the same thread as that will deadlock the whole thing.
         if hasattr(self, "s"):

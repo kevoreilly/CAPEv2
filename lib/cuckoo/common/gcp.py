@@ -88,7 +88,6 @@ class GCP(object):
         return servers
 
     def autodiscovery(self):
-
         while True:
             servers = self.list_instances()
             if not servers:

@@ -14,7 +14,6 @@ log = logging.getLogger("dotnet_utils")
 
 
 def dotnet_user_strings(file: str = False, data: bytes = False, dn_whitelisting: list = []):
-
     if not HAVE_DNFILE:
         return []
 

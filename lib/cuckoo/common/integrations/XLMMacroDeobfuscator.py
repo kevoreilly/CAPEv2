@@ -45,7 +45,6 @@ if processing_conf.xlsdeobf.enabled:
 
 
 def xlmdeobfuscate(filepath: str, task_id: str, password: str = "", on_demand: bool = False):
-
     if not HAVE_XLM_DEOBF or processing_conf.xlsdeobf.on_demand and not on_demand:
         return
     xlm_kwargs["file"] = filepath

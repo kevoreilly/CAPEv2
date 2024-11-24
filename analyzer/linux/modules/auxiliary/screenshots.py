@@ -11,6 +11,7 @@ from lib.api.screenshot import HAVE_DBUS_NEXT, HAVE_PIL
 
 if HAVE_PIL and HAVE_DBUS_NEXT:
     from PIL import Image
+
     from lib.api.screenshot import Screenshot, ScreenshotGrabber, ScreenshotsUnsupported
 
 from lib.common.abstracts import Auxiliary

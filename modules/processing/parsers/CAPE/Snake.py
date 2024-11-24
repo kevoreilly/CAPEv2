@@ -116,7 +116,6 @@ def handle_encrypted(dotnet_file, data, c2_type, user_strings):
 
 
 def extract_config(data):
-
     try:
         dotnet_file = dnfile.dnPE(data=data)
     except Exception as e:

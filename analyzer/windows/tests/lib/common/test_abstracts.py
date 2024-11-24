@@ -6,7 +6,6 @@ from lib.common import abstracts
 
 
 class TestPackageConfiguration(unittest.TestCase):
-
     def test_private_package_configuration(self):
         # test analysis package
         package_module = self.__class__.__module__

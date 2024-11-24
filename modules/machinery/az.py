@@ -24,7 +24,6 @@ if cfg.cuckoo.machinery == "az":
 
         HAVE_AZURE = True
     except ImportError:
-
         print("Missing machinery-required libraries.")
         print("poetry run pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
 
@@ -329,11 +328,9 @@ class Azure(Machinery):
 
         # Delete incorrectly named VMSSs or mark them as existing
         for vmss in existing_vmsss:
-
             # If a VMSS does not have any tags or does not have the tag that we use to indicate that it is used for
             # Cuckoo (AUTO_SCALE_CAPE key-value pair), ignore
             if not vmss.tags or not vmss.tags.get(Azure.AUTO_SCALE_CAPE_KEY) == Azure.AUTO_SCALE_CAPE_VALUE:
-
                 # Ignoring... unless! They have one of the required names of the VMSSs that we are going to create
                 if vmss.name in self.required_vmsss.keys():
                     async_delete_vmss = Azure._azure_api_call(

@@ -383,7 +383,6 @@ class BsonStore(ProtocolHandler):
                 argdict = {argnames[i]: converters[i](arg) for i, arg in enumerate(args)}
 
                 if apiname == "__process__":
-
                     # pid = argdict["ProcessIdentifier"]
                     ppid = argdict["ParentProcessIdentifier"]
                     modulepath = argdict["ModulePath"]

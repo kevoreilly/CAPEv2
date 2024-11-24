@@ -85,9 +85,8 @@ HAVE_DIST = False
 if dist_conf.distributed.enabled:
     try:
         # Tags
-        from lib.cuckoo.common.dist_db import Machine, Node
+        from lib.cuckoo.common.dist_db import Machine, Node, create_session
         from lib.cuckoo.common.dist_db import Task as DTask
-        from lib.cuckoo.common.dist_db import create_session
 
         HAVE_DIST = True
         dist_session = create_session(dist_conf.distributed.db)

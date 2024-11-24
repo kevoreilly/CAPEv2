@@ -69,7 +69,6 @@ def add_nfs_entry(hostname: str, worker_folder: str):
 
 
 def remove_nfs_entry(hostname: str):
-
     worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, hostname)
 
     with lock:

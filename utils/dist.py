@@ -51,9 +51,10 @@ from lib.cuckoo.core.database import (
     TASK_REPORTED,
     TASK_RUNNING,
     Database,
+    _Database,
+    init_database,
 )
 from lib.cuckoo.core.database import Task as MD_Task
-from lib.cuckoo.core.database import _Database, init_database
 
 dist_conf = Config("distributed")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")

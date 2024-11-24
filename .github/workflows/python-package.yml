@@ -37,7 +37,7 @@ jobs:
           poetry run pip install pyattck==7.1.2 maco
 
       - name: Run Ruff
-        run: poetry run ruff check . --line-length 132 --ignore E501,E402
+        run: poetry run ruff check . --output-format=github .
 
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append
@@ -59,13 +59,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Format with black
-        run: poetry run black .
-
-      # to be replaced with ruff
-      - name: Format imports with isort
-        run: poetry run isort .
-
       - name: Commit changes if any
         # Skip this step if being run by nektos/act
         if: ${{ !env.ACT }}
@@ -73,6 +66,8 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "action@github.com"
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+            git pull
+            git add .
             git commit -m "style: Automatic code formatting" -a
             git push
           fi

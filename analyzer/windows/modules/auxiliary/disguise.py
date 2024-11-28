@@ -242,7 +242,7 @@ class Disguise(Auxiliary):
             # Replace the UUID with the new UUID
             SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
 
-    def add_persistent_route(self, gateway):
+    def add_persistent_route(self, gateway: str):
         self.run_as_system(
             ["C:\\Windows\\System32\\ROUTE.exe", "-p", "add", "0.0.0.0", "mask", "0.0.0.0", gateway]
         )
@@ -253,7 +253,7 @@ class Disguise(Auxiliary):
     def start(self):
         if self.config.windows_static_route:
             log.info(f"Config for route is: {str(self.config.windows_static_route)}")
-            self.add_persistent_route(self.config.get("windows_static_route_gateway", "192.168.1.1"))
+            self.add_persistent_route(self.config.windows_static_route_gateway)
         self.change_productid()
         self.set_office_mrus()
         self.ramnit()

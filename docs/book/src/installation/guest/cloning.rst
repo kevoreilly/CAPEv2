@@ -14,3 +14,5 @@ There is a `Python command-line utility`_ available that can automate this proce
 The new virtual machine will also contain all of the settings of the original one,
 which is not good. Now you need to proceed by repeating the steps explained in
 :doc:`network`, :doc:`agent`, and :doc:`saving` for this new machine.
+
+One alternative to manually make the clones unique is to enable the disguise auxiliary module and windows_static_route found here: https://github.com/kevoreilly/CAPEv2/blob/master/conf/default/auxiliary.conf.default#L41. The auxiliary option is applicable to dnsmasq user which can't set the default gateway there because of the usage of an isolated routing in kvm. Once enabled the auxiliary module in the analyzer folder need to be modified with the default gateway to set in the machines with the variable PERSISTENT_ROUTE_GATEWAY.One could run it once and snapshot to apply the modification or running the auxiliary module at every analysis. 

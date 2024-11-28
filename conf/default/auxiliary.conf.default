@@ -22,6 +22,9 @@ browser = yes
 curtain = no
 digisig = yes
 disguise = yes
+# This is only useful in case you use KVM's dnsmasq. You need to set windows_static_route_gateway. Disguise must be enabled
+windows_static_route = no
+windows_static_route_gateway = 192.168.1.1
 evtx = no
 human_windows = yes
 human_linux = no
@@ -38,8 +41,6 @@ permissions = no
 pre_script = no
 during_script = no
 filecollector = yes
-# This is only useful in case you use KVM's dnsmasq. You need to change your range inside of analyzer/windows/modules/auxiliary/disguise.py. Disguise must be enabled
-windows_static_route = no
 tracee_linux = no
 sslkeylogfile = no
 # Requires setting up browser extension, check extra/browser_extension
@@ -80,6 +81,6 @@ enabled = no
 
 [Mitmdump]
 # Enable or disable the use of mitmdump (mitmproxy) to get dump.har [yes/no].
-# This module requires installed mitmproxy see install_mitmproxy 
+# This module requires installed mitmproxy see install_mitmproxy
 # (https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh#L1320)
 enabled = no

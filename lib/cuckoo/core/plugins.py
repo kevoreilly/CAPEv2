@@ -29,6 +29,7 @@ from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.scoring import calc_scoring
 from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
+from utils.community_blocklist import blocklist
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -41,6 +42,10 @@ config_mapper = {
     "processing": processing_cfg,
     "reporting": reporting_cfg,
 }
+
+banned_signatures = []
+if blocklist.get("signatures"):
+    banned_signatures = [os.path.basename(sig).replace(".py", "") for sig in blocklist["signatures"]]
 
 
 def import_plugin(name):
@@ -65,6 +70,9 @@ def import_package(package):
 
         # Disable initialization of disabled plugins, performance++
         _, category, *_, module_name = name.split(".")
+        if module_name in banned_signatures:
+            log.debug("Ignoring signature: %s", module_name)
+            continue
         if (
             category in config_mapper
             and module_name in config_mapper[category].fullconfig

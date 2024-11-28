@@ -81,7 +81,7 @@ platform = linux
 [debug]
 enabled = yes
 # Amount of text (bytes)
-buffer = 8192
+buffer = 262144
 
 [detections]
 enabled = yes

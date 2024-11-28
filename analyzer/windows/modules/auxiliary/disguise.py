@@ -243,12 +243,8 @@ class Disguise(Auxiliary):
             SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
 
     def add_persistent_route(self, gateway: str):
-        self.run_as_system(
-            ["C:\\Windows\\System32\\ROUTE.exe", "-p", "add", "0.0.0.0", "mask", "0.0.0.0", gateway]
-        )
-        self.run_as_system(
-            ["C:\\Windows\\System32\\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", gateway]
-        )
+        self.run_as_system(["C:\\Windows\\System32\\ROUTE.exe", "-p", "add", "0.0.0.0", "mask", "0.0.0.0", gateway])
+        self.run_as_system(["C:\\Windows\\System32\\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", gateway])
 
     def start(self):
         if self.config.windows_static_route:

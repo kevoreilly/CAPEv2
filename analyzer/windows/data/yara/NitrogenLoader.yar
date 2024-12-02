@@ -39,3 +39,16 @@ rule NitrogenLoaderBypass
 	condition:
         all of them
 }
+
+rule NitrogenLoaderConfig
+{
+    meta:
+        author = "enzok"
+        description = "NitrogenLoader Config Extraction"
+        cape_options = "bp0=$decrypt2*-2,hc0=1,count=0,action0=string:rcx,typestring=NitrogenLoader Config"
+    strings:
+        $decrypt1 = {48 8B 8C 24 [4] 0F B6 04 01 89 ?? 24 [1-4] 48 63 4C 24 ?? 33 D2 48 8B C1 48 F7 B4 24 [4] 48 8B C2 48 8B 8C}
+        $decrypt2 = {48 8B 8C 24 [4] 0F BE 04 01 8B ?? 24 [1-4] 33 C8 8B C1 48 63 4C 24 ?? 48 8B 94 24 [4] 88 04 0A}
+    condition:
+        all of them
+}

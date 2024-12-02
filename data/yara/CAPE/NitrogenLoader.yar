@@ -16,8 +16,8 @@ rule NitrogenLoader
         $syscall = {48 83 C4 ?? 4? 8B 4C 24 ?? 4? 8B 54 24 ?? 4? 8B 44 24 ?? 4? 8B 4C 24 ?? 4? 89 CA 4? FF E3}
         $decryptstr1 = {33 D2 48 8B 04 24 B? 0C 00 00 00 48 F7 F1 48 8B C2 48 C1 E0 02 0F B6 C8 48 8B 44 24 ?? 48 D3 E8 48 25 AB 00 00 00}
         $decryptstr2 = {0F BE C0 48 8B 0C 24 48 8B 54 24 ?? 48 03 D1 48 8B CA 0F BE 09 33 C8 8B C1 48 8B 0C 24 48 8B 54 24 ?? 48 03 D1}
-        $decryptrsc1 = {48 63 44 24 ?? 48 8B 8C 24 [4] 0F B6 04 01 89 ?? 24 [1-4] 48 63 4C 24 ?? 33 D2 48 8B C1 48 F7 B4 24 [4] 48 8B C2}
-        $decryptrsc2 = {48 8B 8C 24 [4] 0F BE 04 01 8B ?? 24 [1-4] 33 C8 8B C1 48 63 4C 24 ?? 48 8B 94 24 [4] 88 04 0A}
+        $decryptrsc1 = {48 8B 8C 24 [4] 0F B6 04 01 89 ?? 24 [1-4] 48 63 4C 24 ?? 33 D2 48 8B C1 48 F7 B4 24 [4] 48 8B C2 48 8B 8C}
+        $decryptrsc2 = {8B ?? 24 [1-4] 33 C8 8B C1 48 63 4C 24 ?? 48 8B 94 24 [4] 88 04 0A}
 	condition:
         (all of ($string*) or all of ($decrypt*)) and any of ($syscall*)
 }

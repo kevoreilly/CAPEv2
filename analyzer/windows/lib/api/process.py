@@ -758,7 +758,7 @@ class Process:
         try:
             upload_to_host(file_path, os.path.join("memory", f"{self.pid}.dmp"), category="memory")
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
             log.error(os.path.join("memory", f"{self.pid}.dmp"))
             log.error(file_path)
         log.info("Memory dump of %s uploaded", self)

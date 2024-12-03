@@ -732,16 +732,16 @@ class Azure(Machinery):
                 # We did it!
                 break
             except socket.timeout:
-                log.debug(f"{machine_name}: Initializing...")
+                log.debug("%s: Initializing...", machine_name)
             except socket.error:
-                log.debug(f"{machine_name}: Initializing...")
+                log.debug("%s: Initializing...", machine_name)
             if (timeit.default_timer() - start) >= timeout:
                 # We didn't do it :(
                 raise CuckooGuestCriticalTimeout(
-                    f"Machine {machine_name}: the guest initialization hit the critical timeout, analysis aborted."
+                    "Machine %s: the guest initialization hit the critical timeout, analysis aborted.", machine_name
                 )
             time.sleep(10)
-        log.debug(f"Machine {machine_name} was created and available in {round(timeit.default_timer() - start)}s")
+        log.debug("Machine %s was created and available in %d s", machine_name, round(timeit.default_timer() - start))
 
     @staticmethod
     def _azure_api_call(*args, **kwargs):
@@ -761,7 +761,7 @@ class Azure(Machinery):
         api_call = f"{operation}({args},{kwargs})"
 
         try:
-            log.debug(f"Trying {api_call}")
+            log.debug("Trying %s", api_call)
             results = operation(*args, **kwargs)
         except Exception as exc:
             # For ClientRequestErrors, they do not have the attribute 'error'
@@ -779,7 +779,7 @@ class Azure(Machinery):
             # Log the subscription limits
             headers = results._response.headers
             log.debug(
-                f"API Charge: {headers['x-ms-request-charge']}; Remaining Calls: {headers['x-ms-ratelimit-remaining-resource']}"
+                "API Charge: %s; Remaining Calls: %s", headers['x-ms-request-charge'], headers['x-ms-ratelimit-remaining-resource']
             )
         return results
 
@@ -1055,7 +1055,7 @@ class Azure(Machinery):
                 if relevant_task_queue == initial_number_of_locked_relevant_machines == 0:
                     # The VMSS will scale in via the ScaleInPolicy.
                     machine_pools[vmss_name]["wait"] = True
-                    log.debug(f"System is at rest, scale down {vmss_name} capacity and delete machines.")
+                    log.debug("System is at rest, scale down %s capacity and delete machines.", vmss_name)
                 # System is not at rest, but task queue is 0, therefore set machines in use to delete
                 elif relevant_task_queue == 0:
                     machine_pools[vmss_name]["is_scaling_down"] = True
@@ -1076,7 +1076,7 @@ class Azure(Machinery):
 
                         # We don't want to be stuck in this for longer than the timeout specified
                         if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
-                            log.debug(f"Breaking out of the while loop within the scale down section for {vmss_name}.")
+                            log.debug("Breaking out of the while loop within the scale down section for %s.", vmss_name)
                             break
                         # Get the updated number of relevant machines required
                         relevant_task_queue = self._get_number_of_relevant_tasks(tag)
@@ -1141,7 +1141,7 @@ class Azure(Machinery):
                 return
 
             timediff = timeit.default_timer() - start_time
-            log.debug(f"The scaling of {vmss_name} took {round(timediff)}s")
+            log.debug("The scaling of %s took %d s", vmss_name, round(timediff))
             machine_pools[vmss_name]["size"] = number_of_relevant_machines_required
 
             # Alter the database based on if we scaled up or down
@@ -1156,7 +1156,7 @@ class Azure(Machinery):
             machine_pools[vmss_name]["is_scaling"] = False
             if platform:
                 is_platform_scaling[platform] = False
-            log.debug(f"Scaling {vmss_name} has completed.")
+            log.debug("Scaling %s has completed.", vmss_name)
         except Exception as exc:
             machine_pools[vmss_name]["wait"] = False
             machine_pools[vmss_name]["is_scaling"] = False
@@ -1179,7 +1179,7 @@ class Azure(Machinery):
             raise CuckooMachineError(repr(e))
         time_taken = timeit.default_timer() - start_time
         if time_taken >= AZURE_TIMEOUT:
-            raise CuckooMachineError(f"The task took {round(time_taken)}s to complete! Bad Azure!")
+            raise CuckooMachineError("The task took %ds to complete! Bad Azure!", round(time_taken))
         else:
             return lro_poller_result
 
@@ -1365,7 +1365,7 @@ class Azure(Machinery):
                     f"{'S' if reimaged else 'Uns'}uccessfully reimaging instances {instance_ids} in {vmss_to_reimage} took {round(timediff)}s"
                 )
             except Exception as e:
-                log.error(f"Exception occurred in the reimage thread: {e}. Trying again...")
+                log.error("Exception occurred in the reimage thread: %s. Trying again...", str(e))
 
     def _thr_delete_list_reader(self):
         global current_vmss_operations
@@ -1428,7 +1428,7 @@ class Azure(Machinery):
                 if self.initializing and deleted:
                     # All machines should have been removed from the db and the VMSS at this point.
                     # To force the VMSS to scale to initial_pool_size, set the size to zero here.
-                    log.debug(f"Setting size to 0 for VMSS {vmss_to_delete_from} after successful deletion")
+                    log.debug("Setting size to 0 for VMSS %s after successful deletion", vmss_to_delete_from)
                     machine_pools[vmss_to_delete_from]["size"] = 0
 
                 with vms_currently_being_deleted_lock:
@@ -1441,4 +1441,4 @@ class Azure(Machinery):
                     f"{'S' if deleted else 'Uns'}uccessfully deleting instances {instance_ids} in {vmss_to_delete_from} took {round(timeit.default_timer() - start_time)}s"
                 )
             except Exception as e:
-                log.error(f"Exception occurred in the delete thread: {e}. Trying again...")
+                log.error("Exception occurred in the delete thread: %s. Trying again...", str(e))

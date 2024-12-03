@@ -558,18 +558,25 @@ def kav_unquarantine(file):
 
 
 def trend_unquarantine(f):
-    qdata = Path(f).read_bytes()
-    data = bytearray_xor(bytearray(qdata), 0xFF)
+    # Read first 10 bytes
+    with open(f, "rb") as fil:
+        qheader = fil.read(10)
+        header = bytearray_xor(bytearray(qheader), 0xFF)
 
-    magic, dataoffset, numtags = struct.unpack("<IIH", data[:10])
+    magic, dataoffset, numtags = struct.unpack("<IIH", header[:10])
     if magic != 0x58425356:  # VSBX
         return None
+
     origname = "UnknownTrendFile.bin"
     basekey = 0x00000000
     encmethod = 0
 
     if numtags > 15:
         return None
+
+    # If file looks like a quarantine file, then read it all
+    qdata = Path(f).read_bytes()
+    data = bytearray_xor(bytearray(qdata), 0xFF)
 
     dataoffset += 10
     offset = 10

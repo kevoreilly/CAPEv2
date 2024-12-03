@@ -35,7 +35,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             hosts = params.get("guest_ip", "")
             guest_host = hosts[0]
             guest_port = int(web_cfg.guacamole.guest_rdp_port) or 3389
-            ignore_cert = "true" if web_cfg.guacamole.ignore_rdp_cert == True else "false"
+            ignore_cert = "true" if web_cfg.guacamole.ignore_rdp_cert is True else "false"
         else:
             guest_host = web_cfg.guacamole.vnc_host or "localhost"
             ports = params.get("vncport", ["5900"])

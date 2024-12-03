@@ -382,7 +382,7 @@ def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
         except TimeoutError as e:
             sys.exit(f"Did you forget to use jump box? {str(e)}")
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
 
 def bulk_deploy(files, yara_category, dry_run=False, servers: list = [], ssh_proxy: SSHClient = False):

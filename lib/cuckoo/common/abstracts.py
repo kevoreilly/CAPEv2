@@ -1726,7 +1726,7 @@ class Feed:
             try:
                 req = requests.get(self.downloadurl, headers=headers, verify=True)
             except requests.exceptions.RequestException as e:
-                log.warn("Error downloading feed for %s: %s", self.feedname, e)
+                log.warning("Error downloading feed for %s: %s", self.feedname, e)
                 return False
             if req.status_code == 200:
                 self.downloaddata = req.content

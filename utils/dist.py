@@ -229,7 +229,7 @@ def _delete_many(node, ids, nodes, db):
     try:
         url = os.path.join(nodes[node].url, "tasks", "delete_many/")
         apikey = nodes[node].apikey
-        log.debug("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
+        log.debug("Removing task id(s): %s - from node: %s", ids, nodes[node].name)
         res = requests.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
@@ -237,7 +237,7 @@ def _delete_many(node, ids, nodes, db):
             verify=False,
         )
         if res and res.status_code != 200:
-            log.info("{} - {}".format(res.status_code, res.content))
+            log.info("%d - %s", res.status_code, res.content)
             db.rollback()
 
     except Exception as e:
@@ -315,7 +315,7 @@ def node_submit_task(task_id, node_id, main_task_id):
             files = dict(file=open(task.path, "rb"))
             r = requests.post(url, data=data, files=files, headers={"Authorization": f"Token {apikey}"}, verify=False)
         else:
-            log.debug("Target category is: {}".format(task.category))
+            log.debug("Target category is: %s", task.category)
             db.close()
             return
 
@@ -491,7 +491,7 @@ class Retriever(threading.Thread):
         db = session()
         while True:
             for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(enabled=True).all():
-                log.info("Checking for failed tasks on: {}".format(node.name))
+                log.info("Checking for failed tasks on: %s", node.name)
                 for task in node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete"):
                     t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                     if t is not None:
@@ -577,7 +577,7 @@ class Retriever(threading.Thread):
                                     """
                             except Exception as e:
                                 self.status_count[node.name] += 1
-                                log.error(e, exc_info=True)
+                                log.exception(e)
                                 if self.status_count[node.name] == dead_count:
                                     log.info("[-] {} dead".format(node.name))
                                     # node_data = db.query(Node).filter_by(name=node.name).first()
@@ -926,7 +926,7 @@ class StatusThread(threading.Thread):
                             if "timeout=" in t.options:
                                 t.timeout = options.get("timeout", 0)
                         except Exception as e:
-                            log.error(e, exc_info=True)
+                            log.exception(e)
                         # wtf are you doing in pendings?
                         tasks = db.query(Task).filter_by(main_task_id=t.id).all()
                         if tasks:
@@ -1189,7 +1189,7 @@ class StatusThread(threading.Thread):
                             continue
                 db.commit()
             except Exception as e:
-                log.error("Got an exception when trying to check nodes status and submit tasks: {}.".format(e), exc_info=True)
+                log.error("Got an exception when trying to check nodes status and submit tasks: {}.".format(e))
 
                 # ToDo hard test this rollback, this normally only happens on db restart and similar
                 db.rollback()

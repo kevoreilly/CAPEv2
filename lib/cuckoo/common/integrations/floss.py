@@ -124,7 +124,7 @@ class Floss:
                     results[stype].append(sval.string)
 
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         fm.set_log_config(fm.DebugLevel.DEFAULT, False)
 

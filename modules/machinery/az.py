@@ -660,7 +660,7 @@ class Azure(Machinery):
                         self.delete_machine(vm)
                         raise
         except Exception as e:
-            log.error(repr(e), exc_info=True)
+            log.exception(repr(e))
 
             # If no machines on any VMSSs are in the db when we leave this method, CAPE will crash.
             if not self.machines() and self.required_vmsss[vmss_name]["retries"] > 0:
@@ -912,7 +912,7 @@ class Azure(Machinery):
                 )
                 _ = self._handle_poller_result(async_restart_vmss)
             else:
-                log.error(repr(e), exc_info=True)
+                log.exception(repr(e))
                 raise
         with self.db.session.begin():
             self._add_machines_to_db(vmss_name)
@@ -1162,7 +1162,7 @@ class Azure(Machinery):
             machine_pools[vmss_name]["is_scaling"] = False
             if platform:
                 is_platform_scaling[platform] = False
-            log.error(repr(exc), exc_info=True)
+            log.exception(repr(exc))
             log.debug(f"Scaling {vmss_name} has completed with errors {exc!r}.")
 
     @staticmethod
@@ -1303,7 +1303,7 @@ class Azure(Machinery):
                             operation=self.compute_client.virtual_machine_scale_sets.begin_reimage_all,
                         )
                 except Exception as exc:
-                    log.error(repr(exc), exc_info=True)
+                    log.exception(repr(exc))
                     # If InvalidParameter: 'The provided instanceId x is not an active Virtual Machine Scale Set VM instanceId.
                     # This means that the machine has been deleted
                     # If BadRequest: The VM x creation in Virtual Machine Scale Set <vmss name>> with ephemeral disk is not complete. Please trigger a restart if required'
@@ -1408,7 +1408,7 @@ class Azure(Machinery):
                             operation=self.compute_client.virtual_machine_scale_sets.begin_delete_instances,
                         )
                 except Exception as exc:
-                    log.error(repr(exc), exc_info=True)
+                    log.exception(repr(exc))
                     with current_operations_lock:
                         current_vmss_operations -= 1
                     with vms_currently_being_deleted_lock:

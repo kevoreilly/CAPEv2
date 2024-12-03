@@ -167,12 +167,12 @@ class MongoDB(Report):
                                 for j, parent_dict in enumerate(report[parent_key]):
                                     child_key, csize = self.debug_dict_size(parent_dict)[0]
                                     if csize > size_filter:
-                                        log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
+                                        log.warning("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
                                         del report[parent_key][j][child_key]
                         else:
                             child_key, csize = self.debug_dict_size(report[parent_key])[0]
                             if csize > size_filter:
-                                log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
+                                log.warning("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
                                 del report[parent_key][child_key]
                         try:
                             mongo_insert_one("analysis", report)

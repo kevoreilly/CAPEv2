@@ -129,7 +129,7 @@ class Office:
                     continue
                 metares["SummaryInformation"][n.split(":")[1]] = convert_to_printable(data[0].data)
             except (IndexError, AttributeError) as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
 
         for elem in app._get_documentElement().childNodes:
             try:
@@ -146,7 +146,7 @@ class Office:
                     continue
                 metares["DocumentSummaryInformation"][n] = convert_to_printable(data[0].data)
             except (IndexError, AttributeError) as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
 
         return metares
 
@@ -236,7 +236,7 @@ class Office:
                 if temp_results:
                     results["office_rtf"] = temp_results
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
         else:
             try:
                 vba = VBA_Parser(filepath)
@@ -254,7 +254,7 @@ class Office:
         except AttributeError:
             log.warning("OleFile library bug: AttributeError! fix: poetry run pip install olefile")
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         officeresults = {"Metadata": {}}
         macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "macros")
@@ -301,7 +301,7 @@ class Office:
                         except ValueError as e:
                             log.error("Can't parse macros for %s - %s ", filepath, str(e))
                         except Exception as e:
-                            log.error(e, exc_info=True)
+                            log.exception(e)
                         for keyword, description in detect_autoexec(vba_code):
                             officeresults["Macro"]["Analysis"].setdefault("AutoExec", []).append(
                                 (keyword.replace(".", "_"), description)
@@ -328,7 +328,7 @@ class Office:
                 if indicator.value and indicator.name in {"Word Document", "Excel Workbook", "PowerPoint Presentation"}:
                     officeresults["Metadata"]["DocumentType"] = indicator.name
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         if HAVE_XLM_DEOBF:
             tmp_xlmmacro = xlmdeobfuscate(filepath, self.task_id, self.options.get("password", ""))

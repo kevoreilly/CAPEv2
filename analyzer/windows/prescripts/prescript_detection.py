@@ -599,7 +599,7 @@ def create_trigger(
 
 def change_execution_dir(dir):
     log.info(f"Changing execution directory to {dir}")
-    log.warn("Changing directory not available in prescript testing")
+    log.warning("Changing directory not available in prescript testing")
 
 
 def main(args):

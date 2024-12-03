@@ -38,7 +38,7 @@ class HwpDocument:
                 stream_content = zlib.decompress(contents, -15)
                 self.files[stream_name] = stream_content
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
 
     def extract_eps(self) -> List[bytes]:
         """Extract some information from Encapsulated Post Script files."""

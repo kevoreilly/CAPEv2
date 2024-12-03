@@ -219,7 +219,7 @@ class PortableExecutable:
             if result:
                 return list(result)
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         return None
 
@@ -344,7 +344,7 @@ class PortableExecutable:
             except pefile.PEFormatError as e:
                 log.debug("get_resources error: %s", str(e))
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
                 continue
 
         return resources
@@ -368,7 +368,7 @@ class PortableExecutable:
                         length = struct.unpack_from("IIB", dbgdata)[1]
                         return dbgdata[12:length].decode("latin-1").rstrip("\0")
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         return None
 
@@ -401,7 +401,7 @@ class PortableExecutable:
                         "imports": symbols,
                     }
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
                 continue
         return imports
 
@@ -538,7 +538,7 @@ class PortableExecutable:
                     }
                 )
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
                 continue
 
         return sections
@@ -650,7 +650,7 @@ class PortableExecutable:
                             return None, None, None, None
                     return icon, fullhash, simphash, dhash
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         return None, None, None, None
 
@@ -693,7 +693,7 @@ class PortableExecutable:
                                     entry["value"] = f"0x0{entry['value'][2:5]} 0x0{entry['value'][7:10]}"
                                 peresults.append(entry)
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
                     continue
 
         return peresults
@@ -853,12 +853,12 @@ class PortableExecutable:
                             else:
                                 exports.append(re.sub("[^A-Za-z0-9_?@-]", "", exported_symbol.name))
                         except Exception as e:
-                            log.error(e, exc_info=True)
+                            log.exception(e)
 
                     return ",".join(exports)
             except Exception as e:
                 log.error("PE type not recognised")
-                log.error(e, exc_info=True)
+                log.exception(e)
 
         return ""
 
@@ -873,7 +873,7 @@ class PortableExecutable:
                     if exp.name.decode() in ("DllInstall", "DllRegisterServer", "xlAutoOpen"):
                         return exp.name.decode()
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
         return None
 
     def get_entrypoint(self, pe: pefile.PE) -> str:

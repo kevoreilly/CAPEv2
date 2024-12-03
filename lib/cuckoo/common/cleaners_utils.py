@@ -229,7 +229,7 @@ def delete_data(tid):
         elif repconf.elasticsearchdb.enabled:
             delete_analysis_and_related_calls(tid)
     except Exception as e:
-        log.error("failed to remove analysis info (may not exist) %s due to %s" % (tid, e), exc_info=True)
+        log.exception("failed to remove analysis info (may not exist) %s due to %s" % (tid, e))
     with db.session.begin():
         if db.delete_task(tid):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))

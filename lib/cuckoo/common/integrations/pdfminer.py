@@ -44,10 +44,10 @@ def _mine_for_urls(file_path: str) -> Set[str]:
                     try:
                         obj = doc.getobj(object_id)
                         urls.update(_search_for_url(obj))
-                    except Exception as ex:
-                        log.error(ex, exc_info=True)
-    except Exception as ex:
-        log.error(ex, exc_info=True)
+                    except Exception as e:
+                        log.exception(e)
+    except Exception as e:
+        log.exception(e)
 
     return urls
 

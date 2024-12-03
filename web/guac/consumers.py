@@ -56,7 +56,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             password=guest_password,
             recording_path=guacd_recording_path,
             recording_name=guacd_recording_name,
-            ignore_cert=ignore_cert
+            ignore_cert=ignore_cert,
         )
 
         if self.client.connected:

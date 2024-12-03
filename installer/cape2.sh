@@ -623,7 +623,7 @@ function redsocks2() {
 function distributed() {
     echo "[+] Configure distributed configuration"
     sudo apt-get install uwsgi uwsgi-plugin-python3 nginx -y 2>/dev/null
-    sudo -u ${USER} bash -c 'poetry run pip install flask flask-restful flask-sqlalchemy requests'
+    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run pip install flask flask-restful flask-sqlalchemy requests'
 
     sudo cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
     sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
@@ -739,7 +739,7 @@ function install_yara_x() {
     sudo -u ${USER} git clone https://github.com/VirusTotal/yara-x
     cd yara-x || return
     sudo -u ${USER} bash -c 'source "$HOME/.cargo/env" ; cargo install --path cli'
-    poetry --directory /opt/CAPEv2/ run pip install yara-x
+    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install yara-x
 }
 
 function install_yara() {
@@ -774,7 +774,7 @@ function install_yara() {
     ldconfig
 
     # Run yara installer script
-    sudo -u ${USER} poetry --directory /opt/CAPEv2 run /opt/CAPEv2/extra/yara_installer.sh
+    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run /opt/CAPEv2/extra/yara_installer.sh
 
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
@@ -801,7 +801,14 @@ function install_mongo(){
 		apt-get update 2>/dev/null
 		apt-get install libpcre3-dev numactl cron -y
 		apt-get install -y mongodb-org
-		pip3 install pymongo -U --break-system-packages
+
+        # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
+        PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
+        if [ "$PIP_VERSION" -ge 23 ]; then
+            pip3 install pymongo -U --break-system-packages
+        else
+            pip3 install pymongo -U
+        fi
 
 		apt-get install -y ntp
 		systemctl start ntp.service && sudo systemctl enable ntp.service
@@ -854,7 +861,7 @@ EOF
 		systemctl restart mongodb.service
 
 		if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
-			crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+			crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
 		fi
 
 		echo "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
@@ -875,7 +882,15 @@ function install_elastic() {
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
     apt-get update && apt-get install elasticsearch
-    pip3 install elasticsearch --break-system-packages
+
+    # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
+    PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
+    if [ "$PIP_VERSION" -ge 23 ]; then
+        pip3 install elasticsearch --break-system-packages
+    else
+        pip3 install elasticsearch
+    fi
+
     systemctl enable elasticsearch
 }
 
@@ -906,7 +921,7 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    poetry --directory /opt/CAPEv2/ run pip install .
+    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install .
     cd /opt/CAPEv2
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa
@@ -1089,11 +1104,12 @@ EOF
     make -j"$(getconf _NPROCESSORS_ONLN)"
     sudo checkinstall -D --pkgname=passivedns --default
     chown ${USER}:${USER} -R /tmp/passivedns/
-    sudo -u ${USER} bash -c 'poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
-    sudo -u ${USER} bash -c 'cd /tmp/passivedns/ ; poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
+    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
+    sudo -u ${USER} bash -c 'cd /tmp/passivedns/ ; /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
     sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
 
     if [ -d /tmp/passivedns ]; then
+        cd /tmp || return
         sudo rm -rf /tmp/passivedns
     fi
 
@@ -1242,17 +1258,17 @@ function install_CAPE() {
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
     cd "/opt/CAPEv2/" || return
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 poetry install'
+    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 /etc/poetry/bin/poetry install'
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
-        sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
+        sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; /etc/poetry/bin/poetry run extra/libvirt_installer.sh'
         sudo usermod -aG kvm ${USER}
         sudo usermod -aG libvirt ${USER}
     fi
 
     #packages are needed for build options in extra/yara_installer.sh
     apt-get install libjansson-dev libmagic1 libmagic-dev -y
-    sudo -u ${USER} bash -c 'poetry run /opt/CAPEv2/extra/yara_installer.sh'
+    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run /opt/CAPEv2/extra/yara_installer.sh'
 
     if [ -d /tmp/yara-python ]; then
         sudo rm -rf /tmp/yara-python
@@ -1362,8 +1378,8 @@ function install_node_exporter() {
 function install_volatility3() {
     echo "[+] Installing volatility3"
     sudo apt-get install unzip
-    sudo -u ${USER} poetry run pip3 install git+https://github.com/volatilityfoundation/volatility3
-    vol_path=$(sudo -u ${USER} poetry run python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    sudo -u ${USER} /etc/poetry/bin/poetry run pip3 install git+https://github.com/volatilityfoundation/volatility3
+    vol_path=$(sudo -u ${USER} /etc/poetry/bin/poetry run python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
     cd $vol_path || return
     wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
     unzip -o windows.zip
@@ -1428,7 +1444,7 @@ function install_guacamole() {
         cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
     fi
 
-    poetry_path=$(which poetry)
+    poetry_path="/etc/poetry/bin/poetry"
     if ! grep -q $poetry_path /lib/systemd/system/guac-web.service ; then
         sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
@@ -1441,7 +1457,7 @@ function install_guacamole() {
     sudo usermod www-data -G ${USER}
 
     cd /opt/CAPEv2
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
+    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; ${poetry_path} install"
     cd ..
 
     systemctl daemon-reload
@@ -1552,7 +1568,7 @@ case "$COMMAND" in
     fi
     # Update FLARE CAPA rules once per day
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
-        crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u ${USER} poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && poetry --directory /opt/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && poetry --directory /opt/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
 	install_librenms
 	if [ "$clamav_enable" -ge 1 ]; then

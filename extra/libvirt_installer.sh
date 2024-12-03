@@ -2,7 +2,7 @@
 set -ex
 
 # run this via...
-# cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/libvirt_installer.sh
+# cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/libvirt_installer.sh
 
 LIB_VERSION=10.7.0
 cd /tmp || return

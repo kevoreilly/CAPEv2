@@ -583,14 +583,14 @@ def trend_unquarantine(f):
     for _ in range(numtags):
         code, tagdata = read_trend_tag(data, offset)
         if code == 2:  # original filename
-            origname = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
+            origname = str(tagdata).encode("utf16").decode(errors="ignore").rstrip("\0")
         elif code == 6:  # base key
             basekey = struct.unpack("<I", tagdata)[0]
         elif code == 7:  # encryption method: 1 == xor FF, 2 = CRC method
             encmethod = struct.unpack("<I", tagdata)[0]
         """
         elif code == 1:  # original pathname
-            origpath = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
+            origpath = str(tagdata).encode("utf16").decode(errors="ignore").rstrip("\0")
         elif code == 3:  # platform
             platform = str(tagdata)
         elif code == 4:  # file attributes

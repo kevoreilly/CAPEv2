@@ -10,13 +10,7 @@ from unittest import mock
 
 import pytest
 
-from lib.cuckoo.common.quarantine import (
-    bytearray_xor,
-    mbam_unquarantine,
-    mse_unquarantine,
-    trend_unquarantine,
-    unquarantine,
-)
+from lib.cuckoo.common.quarantine import bytearray_xor, mbam_unquarantine, mse_unquarantine, trend_unquarantine, unquarantine
 
 # from tcr_misc import get_sample
 
@@ -45,18 +39,20 @@ def empty_file():
 @pytest.fixture
 def temp_trend_qarantined_pe(tmp_path):
     def trend_tag(code: int, tag_data: bytes) -> bytes:
-            return struct.pack("<BH", code, len(tag_data)) + tag_data
+        return struct.pack("<BH", code, len(tag_data)) + tag_data
 
     def write_quarantine_file(dir):
-        tags = b"".join([
-            trend_tag(1, ('C:\\' + '\0').encode('utf-16le')),
-            trend_tag(2, ('dangerous.exe' + '\0').encode('utf-16le')),
-            trend_tag(3, b"win32"),
-            trend_tag(4, b"\x00"),
-            trend_tag(5, b"\x01"),
-            trend_tag(6, b"\x00\x00\x00\x00"),
-            trend_tag(7, b"\x01\x00\x00\x00"),
-        ])
+        tags = b"".join(
+            [
+                trend_tag(1, ("C:\\" + "\0").encode("utf-16le")),
+                trend_tag(2, ("dangerous.exe" + "\0").encode("utf-16le")),
+                trend_tag(3, b"win32"),
+                trend_tag(4, b"\x00"),
+                trend_tag(5, b"\x01"),
+                trend_tag(6, b"\x00\x00\x00\x00"),
+                trend_tag(7, b"\x01\x00\x00\x00"),
+            ]
+        )
         magic = 0x58425356
         offset = len(tags) + 10
         numtags = 7
@@ -146,7 +142,6 @@ class TestUnquarantine:
     def test_ext_err(self, empty_file):
         assert unquarantine(empty_file.name) is None
 
-
     def test_trend_unquarantine_normal_file(self, temp_pe32):
         """Test only the file header (first 10 bytes) is XOR'd for non-quarantined files."""
         # The expected output is None
@@ -157,9 +152,8 @@ class TestUnquarantine:
             actual_header_length = len(data)
             # We only want to see the 10 byte header here if the file is not
             # quarantined.
-            assert  expected_header_length == actual_header_length
+            assert expected_header_length == actual_header_length
             return data
-
 
         def store_temp_file_(filedata, filename, path=None):
             return expected
@@ -179,7 +173,6 @@ class TestUnquarantine:
         # Ensure `None` response when no action was performed.
         assert actual == expected
 
-
     def test_trend_unquarantine_quarantined_file(self, temp_trend_qarantined_pe, tmp_path):
         """Test the whole file is XOR'd for quarantined files."""
         # We expect the output to be None
@@ -197,11 +190,8 @@ class TestUnquarantine:
                 actual = trend_unquarantine(temp_trend_qarantined_pe)
         # Check there are two calls to `bytearray_xor`. One for the header and
         # one for the full file.
-        mock_bytearray_xor.assert_has_calls([
-            mock.call(mock.ANY, mock.ANY),
-            mock.call(mock.ANY, mock.ANY)
-        ])
+        mock_bytearray_xor.assert_has_calls([mock.call(mock.ANY, mock.ANY), mock.call(mock.ANY, mock.ANY)])
         # Assert that it attempts to create a new file with unquarantined data.
-        #mock_store_temp_file.assert_called_once_with(QUARANTINED_DATA, mock.ANY)
+        # mock_store_temp_file.assert_called_once_with(QUARANTINED_DATA, mock.ANY)
         # Check that `trend_unquarantine` returns the filepath of the new file.
         assert actual == expected

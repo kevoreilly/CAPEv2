@@ -88,7 +88,7 @@ gunicorn = "^22.0.0"
 channels = "^3.0.5"
 setproctitle = "1.3.2"
 
-CAPE-parsers = ">=0.1.9"
+CAPE-parsers = "*"
 maco = "1.1.8"
 
 [tool.poetry.extras]

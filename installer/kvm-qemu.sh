@@ -816,6 +816,7 @@ function replace_seabios_clues_public() {
     _sed_aux "s/04\/01\/2014/$src_bios_table_date2/g" src/fw/biostables.c 'change seabios date 2'
     _sed_aux "s/01\/01\/2011/$src_fw_smbios_date/g" src/fw/smbios.c 'change seabios date 3'
     _sed_aux 's/"SeaBios"/"AMIBios"/g' src/fw/biostables.c 'change seabios to amibios'
+    _sed_aux 's/"SeaBIOS"/"AMIBios"/g' src/fw/biostables.c 'change seabios to amibios'
 
     FILES=(
         src/hw/blockcmd.c

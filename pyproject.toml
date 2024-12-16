@@ -30,7 +30,7 @@ orjson = "3.9.15"
 SFlock2 = {version = "0.3.66", extras = ["shellcode","linux"]}
 # volatility3 = "2.0.0"
 # XLMMacroDeobfuscator = "0.2.7"
-pyzipper = "0.3.5"
+pyzipper = "0.3.6"
 flare-capa = "8.0.1"
 Cython = "0.29.24"
 # pyre2 = "0.3.6" # Dead for python3.11

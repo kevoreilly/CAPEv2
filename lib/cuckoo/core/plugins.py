@@ -601,6 +601,9 @@ class RunSignatures:
             for sig in self.evented_list:
                 if sig.matched:
                     continue
+
+                # Give it the path to the analysis results folder.
+                sig.set_path(self.analysis_path)
                 try:
                     pretime = timeit.default_timer()
                     result = sig.on_complete()

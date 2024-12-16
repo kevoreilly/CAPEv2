@@ -701,7 +701,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
         return
 
     if not path_exists(innoextact_binary):
-        log.error("Missed dependency: sudo apt install innoextract")
+        log.error("Missed dependency: Get a release from https://github.com/gdesmar/innoextract")
         return
 
     password = ""

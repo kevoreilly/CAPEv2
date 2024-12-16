@@ -59,7 +59,7 @@ timeout = 60
 # Use https://github.com/gdesmar/innoextract
 [Inno_extract]
 enabled = yes
-binary = data/innounp
+binary = data/innoextract
 timeout = 60
 
 # https://github.com/mstrobel/procyon/releases

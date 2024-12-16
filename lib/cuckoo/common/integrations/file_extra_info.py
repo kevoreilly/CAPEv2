@@ -114,6 +114,7 @@ except ImportError:
     print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
 unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
+innoextact_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.Inno_extract.binary)
 
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
@@ -699,17 +700,32 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
     if all("Inno Setup" not in string for string in data_dictionary.get("die", [])):
         return
 
-    if not path_exists(selfextract_conf.Inno_extract.binary):
+    if not path_exists(innoextact_binary):
         log.error("Missed dependency: sudo apt install innoextract")
         return
 
+    password = ""
     with extractor_ctx(file, "InnoExtract", prefix="innoextract_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
-        run_tool(
-            [selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir],
+        output = run_tool(
+            [innoextact_binary, file, "--output-dir", tempdir],
             universal_newlines=True,
             stderr=subprocess.PIPE,
         )
+        if "Warning: Setup contains encrypted files, use the --password option to extract them" in output:
+            output = run_tool(
+                [innoextact_binary, "--crack", file],
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
+            if "Password found: " in output:
+                password = output.split("\n")[0].split(": ")[1]
+            if password:
+                _ = run_tool(
+                    [innoextact_binary, file, "--output-dir", tempdir, "--password", password],
+                    universal_newlines=True,
+                    stderr=subprocess.PIPE,
+                )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

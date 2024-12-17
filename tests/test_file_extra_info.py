@@ -46,6 +46,7 @@ class TestFileExtraInfo:
         not (self_extraction_dir / "5b354397f6393ed777639b7d40dec3f37215dcb5078c63993e8a9703e819e2bc.inno").exists(),
         reason="Required data file is not present",
     )
+    @pytest.mark.skip(reason="innoextractor in community repo now")
     def test_generic_file_extractors_no_tests(self):
         results = {}
         data_dictionary = {"die": ["Inno Setup"], "type": ""}

@@ -27,9 +27,11 @@ try:
 except ImportError:
     print("Missing dependency: poetry run pip install psutil")
 
+
 def check_privileges():
     if not os.environ.get("SUDO_UID") and os.geteuid() != 0:
         raise PermissionError("You need to run this script with sudo or as root.")
+
 
 def _rooter_response_check(rooter_response):
     if rooter_response and rooter_response["exception"] is not None:

@@ -28,9 +28,16 @@ rules = False
 HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabled:
     try:
+        from platform import python_version
+        from packaging import version
         from capa.version import __version__ as capa_version
 
-        if capa_version[0] != "7":
+        if version.parse(python_version()) >= version.parse("3.10.0"):
+            capa_compatible_version = "8"
+        else:
+            capa_compatible_version = "7"
+
+        if version.parse(capa_version).base_version.split('.')[0] != capa_compatible_version:
             print("FLARE-CAPA missed or incompatible version. Run: poetry install")
         else:
             import capa.capabilities.common

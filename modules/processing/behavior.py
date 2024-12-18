@@ -352,6 +352,16 @@ class ParseProcessLog(list):
         if call["thread_id"] not in self.threads:
             self.threads.append(call["thread_id"])
 
+        if (
+            api_name == "DllLoadNotification"
+            and len(arguments) == 3
+            and arguments[0].get("value", "") == "load"
+            and arguments[-1].get("name", "") == "DllBase"
+            and "DllBase" not in self.environdict
+            and _clean_path(arguments[1]["value"], self.options.replace_patterns) in self.environdict.get("CommandLine", "")
+        ):
+            self.environdict.setdefault("DllBase", arguments[-1]["value"])
+
         return call
 
 

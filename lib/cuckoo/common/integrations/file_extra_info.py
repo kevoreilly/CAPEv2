@@ -506,6 +506,7 @@ def generic_file_extractors(
             data_dictionary["selfextract"][new_tool_name] = {
                 "extracted_files": metadata,
                 "extracted_files_time": func_result["took_seconds"],
+                "password": extraction_result.get("password", "")
             }
         finally:
             if tempdir:
@@ -712,7 +713,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
             universal_newlines=True,
             stderr=subprocess.PIPE,
         )
-        if "Warning: Setup contains encrypted files, use the --password option to extract them" in output:
+        if "Warning: Setup contains encrypted files, use the --password option to extract them" in output or "- encrypted" in output:
             output = run_tool(
                 [innoextact_binary, "--crack", file],
                 universal_newlines=True,
@@ -726,6 +727,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
                     universal_newlines=True,
                     stderr=subprocess.PIPE,
                 )
+                ctx["password"] = password
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

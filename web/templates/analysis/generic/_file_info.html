@@ -426,6 +426,12 @@
                     <th></th><td>
                     <div class="collapse" id="selfextract_{{name}}">
                         <div>
+                            {% if details.password %}
+                            <tr>
+                                <th style="border-top: 0; width: 15%;">Archive password:</th>
+                                <td style="border-top: 0; word-wrap: break-word;"><b>{{details.password}}</b></td>
+                            </tr>
+                            {% endif %}
                         {% for sub_file in details.extracted_files %}
                             {% include "analysis/generic/_subfile_info.html" %}
                         {% endfor %}

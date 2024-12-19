@@ -48,8 +48,6 @@ def run(*args):
 
 def enable_ip_forwarding(sysctl="/usr/sbin/sysctl"):
     log.debug("Enabling IPv4 forwarding")
-    with open("/proc/sys/net/ipv4/ip_forward", "w+") as ip_forward:
-        ip_forward.write("0")
     run([sysctl, "-w" "net.ipv4.ip_forward=1"])
 
 

@@ -46,7 +46,7 @@ def run(*args):
     stdout, stderr = p.communicate()
     return stdout, stderr
 
-def enable_ip_forwarding(sysctl="/usr/sbin/ctl"):
+def enable_ip_forwarding(sysctl="/usr/sbin/sysctl"):
     log.debug("Enabling IPv4 forwarding")
     with open("/proc/sys/net/ipv4/ip_forward", "w+") as ip_forward:
         ip_forward.write("0")
@@ -769,7 +769,7 @@ if __name__ == "__main__":
     parser.add_argument("socket", nargs="?", default="/tmp/cuckoo-rooter", help="Unix socket path")
     parser.add_argument("-g", "--group", default="cape", help="Unix socket group")
     parser.add_argument("--systemctl", default="/bin/systemctl", help="Systemctl wrapper script for invoking OpenVPN")
-    parser.add_argument("--sysctl", default="/usr/sbin/ctl", help=Path to sysctl")
+    parser.add_argument("--sysctl", default="/usr/sbin/ctl", help="Path to sysctl")
     parser.add_argument("--iptables", default="/sbin/iptables", help="Path to iptables")
     parser.add_argument("--iptables-save", default="/sbin/iptables-save", help="Path to iptables-save")
     parser.add_argument("--iptables-restore", default="/sbin/iptables-restore", help="Path to iptables-restore")
@@ -794,7 +794,7 @@ if __name__ == "__main__":
         sys.exit("The `iptables` binary is not available, eh?!")
 
     if not settings.sysctl or not path_exists(settings.sysctl):
-        sys.exit("The `iptables` binary is not available, eh?!")
+        sys.exit("The `sysctrl` binary is not available, eh?!")
 
     if os.getuid():
         sys.exit("This utility is supposed to be ran as root.")

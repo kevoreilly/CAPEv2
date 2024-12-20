@@ -46,6 +46,10 @@ def run(*args):
     stdout, stderr = p.communicate()
     return stdout, stderr
 
+def enable_ip_forwarding(sysctl="/usr/sbin/sysctl"):
+    log.debug("Enabling IPv4 forwarding")
+    run([sysctl, "-w" "net.ipv4.ip_forward=1"])
+
 
 def check_tuntap(vm_name, main_iface):
     """Create tuntap device for qemu vms"""
@@ -763,6 +767,7 @@ if __name__ == "__main__":
     parser.add_argument("socket", nargs="?", default="/tmp/cuckoo-rooter", help="Unix socket path")
     parser.add_argument("-g", "--group", default="cape", help="Unix socket group")
     parser.add_argument("--systemctl", default="/bin/systemctl", help="Systemctl wrapper script for invoking OpenVPN")
+    parser.add_argument("--sysctl", default="/usr/sbin/sysctl", help="Path to sysctl")
     parser.add_argument("--iptables", default="/sbin/iptables", help="Path to iptables")
     parser.add_argument("--iptables-save", default="/sbin/iptables-save", help="Path to iptables-save")
     parser.add_argument("--iptables-restore", default="/sbin/iptables-restore", help="Path to iptables-restore")
@@ -786,8 +791,13 @@ if __name__ == "__main__":
     if not settings.iptables or not path_exists(settings.iptables):
         sys.exit("The `iptables` binary is not available, eh?!")
 
+    if not settings.sysctl or not path_exists(settings.sysctl):
+        sys.exit("The `sysctrl` binary is not available, eh?!")
+
     if os.getuid():
         sys.exit("This utility is supposed to be ran as root.")
+
+    enable_ip_forwarding(settings.sysctl)
 
     if path_exists(settings.socket):
         path_delete(settings.socket)

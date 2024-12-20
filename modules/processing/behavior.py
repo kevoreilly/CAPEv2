@@ -355,8 +355,8 @@ class ParseProcessLog(list):
         if (
             api_name == "DllLoadNotification"
             and len(arguments) == 3
-            and arguments[0].get("value", "") == "load"
             and arguments[-1].get("name", "") == "DllBase"
+            and arguments[0].get("value", "") == "load"
             and "DllBase" not in self.environdict
             and _clean_path(arguments[1]["value"], self.options.replace_patterns) in self.environdict.get("CommandLine", "")
         ):

@@ -185,8 +185,7 @@ def _sf_children(child: sfFile):  # -> bytes:
                 _ = path_write_file(path_to_extract, child.contents)
         except Exception as e:
             log.error(e, exc_info=True)
-    # ToDo AttributeError: 'File' object has no attribute 'get_type'
-    return (path_to_extract.encode(), child.platform, child.get_type(), child.get_size())
+    return (path_to_extract.encode(), child.platform, child.magic, child.filesize)
 
 
 # ToDo fix typing need to add str as error msg

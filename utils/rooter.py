@@ -49,16 +49,16 @@ def run(*args):
 
 def enable_ip_forwarding(sysctl="/usr/sbin/sysctl"):
     log.debug("Enabling IPv4 forwarding")
-    run([sysctl, "-w" "net.ipv4.ip_forward=1"])
+    run(sysctl, "-w" "net.ipv4.ip_forward=1")
 
 
 def check_tuntap(vm_name, main_iface):
     """Create tuntap device for qemu vms"""
     try:
-        run([s.ip, "tuntap", "add", "dev", f"tap_{vm_name}", "mode", "tap", "user", username])
-        run([s.ip, "link", "set", "tap_{vm_name}", "master", main_iface])
-        run([s.ip, "link", "set", "dev", "tap_{vm_name}", "up"])
-        run([s.ip, "link", "set", "dev", main_iface, "up"])
+        run(s.ip, "tuntap", "add", "dev", f"tap_{vm_name}", "mode", "tap", "user", username)
+        run(s.ip, "link", "set", "tap_{vm_name}", "master", main_iface)
+        run(s.ip, "link", "set", "dev", "tap_{vm_name}", "up")
+        run(s.ip, "link", "set", "dev", main_iface, "up")
         return True
     except subprocess.CalledProcessError:
         return False

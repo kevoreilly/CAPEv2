@@ -46,6 +46,7 @@ def run(*args):
     stdout, stderr = p.communicate()
     return stdout, stderr
 
+
 def enable_ip_forwarding(sysctl="/usr/sbin/sysctl"):
     log.debug("Enabling IPv4 forwarding")
     run([sysctl, "-w" "net.ipv4.ip_forward=1"])

@@ -176,7 +176,7 @@ def static_file_info(
             if capa_details:
                 data_dictionary["flare_capa"] = capa_details
 
-        if HAVE_FLOSS:
+        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
@@ -229,7 +229,7 @@ def static_file_info(
         if processing_conf.die.enabled and HAVE_DIE:
             data_dictionary["die"] = detect_it_easy_info(file_path)
 
-        if HAVE_FLOSS and processing_conf.floss.enabled:
+        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
             floss_strings = Floss(file_path, package).run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings

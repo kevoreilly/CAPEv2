@@ -27,4 +27,5 @@ runs:
     - name: Install requirements
       shell: bash
       run: |
+        poetry env use "3.10"
         PIP_BREAK_SYSTEM_PACKAGES=1 poetry install --no-interaction --no-root

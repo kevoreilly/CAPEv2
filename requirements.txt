@@ -565,9 +565,9 @@ iniparse==0.5 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:88ca60473b1637055a937933d48840be1b1b6835f381a6158ef118a532583675 \
     --hash=sha256:932e5239d526e7acb504017bb707be67019ac428a6932368e6851691093aa842 \
     --hash=sha256:db6ef1d8a02395448e0e7b17ac0aa28b8d338b632bbd1ffca08c02ddae32cf97
-jinja2==3.1.4 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:4a3aee7acbbe7303aede8e9648d13b8bf88a429282aa6122a993f0ac800cb369 \
-    --hash=sha256:bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d
+jinja2==3.1.5 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:8fefff8dc3034e27bb80d67c671eb8a9bc424c0ef4c0826edbff304cceff43bb \
+    --hash=sha256:aba0f4dc9ed8013c424088f68a5c226f7d6097ed89b246d7749c2ec4175c6adb
 lnkparse3==1.2.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:102b2aba6c2896127cb719f814a8579210368f9277fd5ec0d0151fe070166e1d \
     --hash=sha256:b97f9a3dfffa62ecbd5f1f6561d8b5b75b0045241482b4a980657d5aac696ee3

@@ -694,21 +694,13 @@ function install_virt_manager() {
         git clone https://gitlab.com/libvirt/libvirt-glib.git
     fi
     cd libvirt-glib
-    tar xf libvirt-glib-3.0.0.tar.gz
     meson setup builddir
-    cd libvirt-glib-3.0.0 || return
     meson compile -C builddir
-    aclocal && libtoolize --force
     sudo ninja -C builddir install
-    automake --add-missing
     # for some reason i have to run it twice
-    ./configure
     sudo ninja -C builddir install
-    mkdir -p /tmp/libvirt-glib_builded/DEBIAN
     mkdir -p /usr/local/lib/girepository-1.0/
-    echo -e "Package: libvirt-glib-1.0-0\nVersion: 1.0.0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom libvirt-glib-1.0-0" > /tmp/libvirt-glib_builded/DEBIAN/control
     cp builddir/libvirt-glib/LibvirtGLib-1.0.typelib /usr/local/lib/girepository-1.0/LibvirtGLib-1.0.typelib
-
     /sbin/ldconfig
 
     if [ ! -d "virt-manager" ]; then

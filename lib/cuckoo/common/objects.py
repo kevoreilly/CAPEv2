@@ -459,12 +459,13 @@ class File:
                     log.warning("Missing Yara directory: %s?", category_root)
                     continue
 
-                for filename in os.listdir(category_root):
-                    if not filename.endswith((".yar", ".yara")):
-                        continue
-                    filepath = os.path.join(category_root, filename)
-                    rules[f"rule_{category}_{len(rules)}"] = filepath
-                    indexed.append(filename)
+                for category_root, _, filenames in os.walk(category_root, followlinks=True):
+                    for filename in filenames:
+                        if not filename.endswith((".yar", ".yara")):
+                            continue
+                        filepath = os.path.join(category_root, filename)
+                        rules[f"rule_{category}_{len(rules)}"] = filepath
+                        indexed.append(filename)
 
                 # Need to define each external variable that will be used in the
             # future. Otherwise Yara will complain.

@@ -1,3 +1,6 @@
+### [07.01.2025]
+* Monitor update: Fix bug with dump limit being tripped by AMSI preventing unpacked capture in e.g. e69ab87e878305285eab44652fa72b0168b53d2c9d95d5e40ae6311a5b6eec7b (thanks @YungBinary)
+
 ### [31.12.2024]
 * Monitor updates:
     * CoGetClassObject hook: add inspect_clsid for improved injection (e.g. 38a9847cb5ce4918bdfee2d54d5d3b79e1399cce15c7b68d86e8f0a5f48e3131)

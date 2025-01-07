@@ -50,7 +50,7 @@ if HAVE_ETW:
             max_str_len=4096,
             min_buffers=0,
             max_buffers=0,
-            level=et.TRACE_LEVEL_INFORMATION, # If >= 5 print more useless (?) stuff
+            level=et.TRACE_LEVEL_INFORMATION,  # If >= 5 print more useless (?) stuff
             any_keywords=None,
             all_keywords=None,
             filters=None,
@@ -139,13 +139,14 @@ if HAVE_ETW:
             self.config = Config(cfg="analysis.conf")
             self.enabled = self.config.wmi_etw
             self.do_run = self.enabled
-            
+
             self.output_dir = "C:\\wmi\\"
             try:
                 os.mkdir(self.output_dir)
             except Exception as e:
                 print(e)
                 import traceback
+
                 log.exception(traceback.format_exc())
 
             self.log_file = os.path.join(self.output_dir, "wmi_provider.log")

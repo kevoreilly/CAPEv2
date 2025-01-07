@@ -356,4 +356,3 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             new_retlist.append((filename, platform))
 
     return new_retlist[:10], error_list
-

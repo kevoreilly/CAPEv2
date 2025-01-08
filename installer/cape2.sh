@@ -352,7 +352,7 @@ function install_nginx() {
     wget https://ftp.exim.org/pub/pcre/pcre-8.45.tar.gz && tar xzvf pcre-8.45.tar.gz
 
     # zlib version 1.2.11
-    wget https://www.zlib.net/zlib-1.3.tar.gz && tar xzvf zlib-1.3.tar.gz
+    wget https://www.zlib.net/zlib-1.3.1.tar.gz && tar xzvf zlib-1.3.1.tar.gz
 
     # OpenSSL version 3.2.0
     wget https://www.openssl.org/source/openssl-3.2.0.tar.gz && tar xzvf openssl-3.2.0.tar.gz
@@ -390,7 +390,7 @@ function install_nginx() {
                 --with-openssl-opt=no-ssl3 \
                 --with-pcre=../pcre-8.45 \
                 --with-pcre-jit \
-                --with-zlib=../zlib-1.3 \
+                --with-zlib=../zlib-1.3.1 \
                 --with-compat \
                 --with-file-aio \
                 --with-threads \

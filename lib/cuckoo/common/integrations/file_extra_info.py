@@ -116,6 +116,8 @@ except ImportError:
 unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
 innoextact_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.Inno_extract.binary)
 sevenzip_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.SevenZip_unpack.binary)
+if not path_exists(sevenzip_binary):
+    sevenzip_binary = "7z"
 
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)

@@ -115,6 +115,7 @@ except ImportError:
 
 unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
 innoextact_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.Inno_extract.binary)
+sevenzip_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.SevenZip_unpack.binary)
 
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
@@ -822,8 +823,8 @@ def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> Extra
 def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options: dict, **_) -> ExtractorReturnType:
     tool = False
 
-    if not path_exists("/usr/bin/7z"):
-        logging.error("Missed 7z package: apt install p7zip-full")
+    if not path_exists(sevenzip_binary):
+        logging.error("Missed 7zip executable. Run: poetry run python utils/community.py -waf")
         return
 
     # Check for msix file since it's a zip
@@ -842,7 +843,6 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     if all([pattern in file_data for pattern in (b"AndroidManifest.xml", b"classes.dex")]):
         return
 
-    password = ""
     # Only for real 7zip, breaks others
     password = options.get("password", "infected")
     if any(
@@ -860,9 +860,12 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         prefix = "cab_"
         password = ""
 
-    elif "Nullsoft Installer self-extracting archive" in filetype:
+    elif "Nullsoft Installer self-extracting archive" in filetype or any(
+        "Nullsoft Scriptable Install System" in string for string in data_dictionary.get("die", [])
+    ):
         tool = "UnNSIS"
         prefix = "unnsis_"
+        password = ""
         """
         elif (
             any("SFX: WinRAR" in string for string in data_dictionary.get("die", [{}]))
@@ -878,24 +881,16 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     with extractor_ctx(file, tool, prefix=prefix, folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         HAVE_SFLOCK = False
-        if HAVE_SFLOCK:
+        if HAVE_SFLOCK and tool not in ("UnNSIS",):
             unpacked = unpack(file.encode(), password=password)
             for child in unpacked.children:
                 _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
         else:
-            _ = run_tool(
-                [
-                    "7z",
-                    "e",
-                    file,
-                    password,
-                    f"-o{tempdir}",
-                    "-y",
-                ],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
-
+            sevenzip_args = [sevenzip_binary, "e", file, f"-o{tempdir}", "-y"]
+            # Need this, otherwie NSIS fails
+            if password:
+                sevenzip_args.append(password)
+            _ = run_tool(sevenzip_args, universal_newlines=True, stderr=subprocess.PIPE)
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

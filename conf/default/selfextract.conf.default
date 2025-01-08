@@ -53,6 +53,7 @@ timeout = 60
 
 # Nsis, 7Zip SFX, etc
 [SevenZip_unpack]
+binary = data/7zz
 enabled = yes
 timeout = 60
 

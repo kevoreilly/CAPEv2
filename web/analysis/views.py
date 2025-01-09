@@ -907,7 +907,7 @@ def chunk(request, task_id, pid, pagenum):
         else:
             chunk = dict(calls=[])
 
-        if record["info"]["machine"].get("platform", "") == "linux":
+        if record["info"].get("machine", {}).get("platform", "") == "linux":
             return render(request, "analysis/strace/_chunk.html", {"chunk": chunk})
         else:
             return render(request, "analysis/behavior/_chunk.html", {"chunk": chunk})

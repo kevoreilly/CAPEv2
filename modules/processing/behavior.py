@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
+import json
 import logging
 import os
 import struct
-import json
 from contextlib import suppress
 
 from lib.cuckoo.common.abstracts import Processing

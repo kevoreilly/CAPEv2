@@ -1183,8 +1183,6 @@ class BehaviorAnalysis(Processing):
         """
 
         behavior = []
-        print(path_exists(self.logs_path), len(os.listdir(self.logs_path)))
-        breakpoint()
         if path_exists(self.logs_path) and len(os.listdir(self.logs_path)) != 0:
             behavior = {"processes": Processes(self.logs_path, self.task, self.options).run()}
 
@@ -1225,10 +1223,8 @@ class BehaviorAnalysis(Processing):
                 return behavior
 
             with open(json_path) as f:
-                details = json.load(f)
-                import code
-
-                code.interact(local=dict(locals(), **globals()))
-                behavior = details.get("behavior", [])
-                self.results["info"] = details.get("info", [])
+                try:
+                    behavior = json.load(f).get("behavior", [])
+                except Exception as e:
+                    log.error("Behavior. Can't load json: %s", str(e))
         return behavior

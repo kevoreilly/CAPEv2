@@ -1,0 +1,6 @@
+# Ignore binaries use for self-extracting.
+UnAutoIt
+7zz
+innoextract
+procyon.jar
+NETReactorSlayer.CLI

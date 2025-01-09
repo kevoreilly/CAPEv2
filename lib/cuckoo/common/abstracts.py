@@ -726,6 +726,7 @@ class Processing:
         self.network_path = os.path.join(self.analysis_path, "network")
         self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
         self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
+        self.reports_path = os.path.join(self.analysis_path, "reports")
 
     def add_statistic_tmp(self, name, field, pretime):
         timediff = timeit.default_timer() - pretime

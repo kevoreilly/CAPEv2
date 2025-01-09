@@ -705,6 +705,9 @@ class RunReporting:
 
         # remove unwanted/duplicate information from reporting
         for process in results["behavior"]["processes"]:
+            # Reprocessing and Behavior set from json file
+            if isinstance(process["calls"], list):
+                break
             process["calls"].begin_reporting()
             # required to convert object to list
             process["calls"] = list(process["calls"])

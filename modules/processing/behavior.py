@@ -1212,10 +1212,10 @@ class BehaviorAnalysis(Processing):
                     log.exception('Failed to run partial behavior class "%s" due to "%s"', instance.key, e)
         else:
             log.warning('Analysis results folder does not exist at path "%s"', self.logs_path)
-            # load behavior from json if exist or env USER_JSON variable
+            # load behavior from json if exist or env CAPE_REPORT variable
             json_path = False
-            if os.environ.get("USER_JSON") and path_exists(os.environ["USER_JSON"]):
-                json_path = os.environ["USER_JSON"]
+            if os.environ.get("CAPE_REPORT") and path_exists(os.environ["CAPE_REPORT"]):
+                json_path = os.environ["CAPE_REPORT"]
             elif os.path.exists(os.path.join(self.reports_path, "report.json")):
                 json_path = os.path.join(self.reports_path, "report.json")
 

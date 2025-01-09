@@ -460,6 +460,8 @@ class File:
                     continue
 
                 for category_root, _, filenames in os.walk(category_root, followlinks=True):
+                    if category_root.endswith("deprecated"):
+                        continue
                     for filename in filenames:
                         if not filename.endswith((".yar", ".yara")):
                             continue

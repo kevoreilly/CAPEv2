@@ -230,7 +230,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
                     retlist.append(tmp_child)
     except Exception as e:
         log.error(e, exc_info=True)
-    return list(filter(None, retlist)), ""
+    return retlist, ""
 
 
 def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""):  # -> tuple[bytes, str]:

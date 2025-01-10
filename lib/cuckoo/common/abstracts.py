@@ -842,12 +842,14 @@ class Signature:
                     if re.findall(name, yara_block["name"], re.I):
                         yield "sample", self.results["target"]["file"]["path"], yara_block, self.results["target"]["file"]
 
-            for block in target["file"].get("extracted_files", []):
-                for keyword in ("cape_yara", "yara"):
-                    for yara_block in block[keyword]:
-                        if re.findall(name, yara_block["name"], re.I):
-                            # we can't use here values from set_path
-                            yield "sample", block["path"], yara_block, block
+            if target["file"].get("selfextract"):
+                for _, toolsblock in target["file"]["selfextract"].items():
+                    for block in toolsblock.get("extracted_files", []):
+                        for keyword in ("cape_yara", "yara"):
+                            for yara_block in block[keyword]:
+                                if re.findall(name, yara_block["name"], re.I):
+                                    # we can't use here values from set_path
+                                    yield "sample", block["path"], yara_block, block
 
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
             for sub_keyword in ("cape_yara", "yara"):
@@ -855,11 +857,13 @@ class Signature:
                     if re.findall(name, yara_block["name"], re.I):
                         yield sub_keyword, block["path"], yara_block, block
 
-            for subblock in block.get("extracted_files", []):
-                for keyword in ("cape_yara", "yara"):
-                    for yara_block in subblock[keyword]:
-                        if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", subblock["path"], yara_block, block
+            if block.get("selfextract", {}):
+                for _, toolsblock in block["selfextract"].items():
+                    for subblock in toolsblock.get("extracted_files", []):
+                        for keyword in ("cape_yara", "yara"):
+                            for yara_block in subblock[keyword]:
+                                if re.findall(name, yara_block["name"], re.I):
+                                    yield "sample", subblock["path"], yara_block, block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if self.results.get(keyword) is not None:
@@ -879,11 +883,13 @@ class Signature:
                                     if re.findall(name, yara_block["name"], re.I):
                                         yield "extracted_pe", pe["path"], yara_block, block
 
-                    for subblock in block.get("extracted_files", []):
-                        for keyword in ("cape_yara", "yara"):
-                            for yara_block in subblock[keyword]:
-                                if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", subblock["path"], yara_block, block
+                    if block.get("selfextract", {}):
+                        for _, toolsblock in block["selfextract"].items():
+                            for subblock in toolsblock.get("extracted_files", []):
+                                for keyword in ("cape_yara", "yara"):
+                                    for yara_block in subblock[keyword]:
+                                        if re.findall(name, yara_block["name"], re.I):
+                                            yield "sample", subblock["path"], yara_block, block
 
         macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:

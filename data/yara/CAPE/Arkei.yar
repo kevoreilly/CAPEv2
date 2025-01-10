@@ -35,12 +35,12 @@ rule Arkei
         }
 
         $language_check = {
-			FF 15 ?? ?? ?? ??
-			0F B7 C0
-			89 45 ??
-			81 7D ?? 3F 04 ?? ??
-			7F
-		}
+            FF 15 ?? ?? ?? ??
+            0F B7 C0
+            89 45 ??
+            81 7D ?? 3F 04 ?? ??
+            7F
+        }
 
         $ext1 = ".zoo" ascii
         $ext2 = ".arc" ascii

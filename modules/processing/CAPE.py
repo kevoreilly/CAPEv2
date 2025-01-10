@@ -257,12 +257,11 @@ class CAPE(Processing):
         # Prefilter extracted data + beauty is better than oneliner:
         all_files = []
         for key, value in file_info.get("selfextract", {}).items():
-            extracted_files = value.get("extracted_files")
-            for file in extracted_files:
+            for file in  value.get("extracted_files", []):
                 if not file.get("cape_yara", []):
                     continue
                 if file.get("data", b""):
-                    extracted_file_data = make_bytes(extracted_file["data"])
+                    extracted_file_data = make_bytes(file["data"])
                 else:
                     extracted_file_data = Path(file["path"]).read_bytes()
                 for yara in file["cape_yara"]:

@@ -207,7 +207,6 @@ class CAPE(Processing):
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 
-        # import code;code.interact(local=dict(locals(), **globals()))
         if category in ("static", "file"):
             if MISP_HASH_LOOKUP:
                 misp_hash_lookup(file_info["sha256"], str(self.task["id"]), file_info)

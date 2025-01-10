@@ -256,21 +256,22 @@ class CAPE(Processing):
         # Process CAPE Yara hits
         # Prefilter extracted data + beauty is better than oneliner:
         all_files = []
-        for extracted_file in file_info.get("extracted_files", []):
-            if not extracted_file["cape_yara"]:
-                continue
-            if extracted_file.get("data", b""):
-                extracted_file_data = make_bytes(extracted_file["data"])
-            else:
-                extracted_file_data = Path(extracted_file["path"]).read_bytes()
-            for yara in extracted_file["cape_yara"]:
-                all_files.append(
-                    (
-                        f"[{extracted_file.get('sha256', '')}]{file_info['path']}",
-                        extracted_file_data,
-                        yara,
+        for key, value in file_info.get("selfextract", {}).items():
+            for file in value.get("extracted_files", []):
+                if not file.get("cape_yara", []):
+                    continue
+                if file.get("data", b""):
+                    extracted_file_data = make_bytes(file["data"])
+                else:
+                    extracted_file_data = Path(file["path"]).read_bytes()
+                for yara in file["cape_yara"]:
+                    all_files.append(
+                        (
+                            f"[{file.get('sha256', '')}]{file_info['path']}",
+                            extracted_file_data,
+                            yara,
+                        )
                     )
-                )
 
         # Get the file data
         file_data = None

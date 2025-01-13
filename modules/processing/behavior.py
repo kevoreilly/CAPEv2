@@ -1182,7 +1182,7 @@ class BehaviorAnalysis(Processing):
         @return: results dict.
         """
 
-        behavior = []
+        behavior = {"processes": []}
         if path_exists(self.logs_path) and len(os.listdir(self.logs_path)) != 0:
             behavior = {"processes": Processes(self.logs_path, self.task, self.options).run()}
 

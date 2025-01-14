@@ -48,6 +48,11 @@ browsermonitor = no
 wmi_etw = no
 dns_etw = no
 
+# The same as auxiliary_modules but not need to include in unittesting
+[auxiliary_modules_custom]
+# Url analysis, upload all files from Downloads folder
+upload_downloads_folder = no
+
 [AzSniffer]
 # Enable or disable the use of Azure Network Watcher packet capture feature, disable standard sniffer if this is in use to not create concurrent .pcap files
 enabled = no

@@ -257,6 +257,10 @@ class AnalysisManager(threading.Thread):
         for plugin in self.aux_cfg.auxiliary_modules.keys():
             options[plugin] = self.aux_cfg.auxiliary_modules[plugin]
 
+        # custom options from auxiliary.conf
+        for plugin in self.aux_cfg.auxiliary_modules_custom.keys():
+            options[plugin] = self.aux_cfg.auxiliary_modules_custom[plugin]
+
         return options
 
     def category_checks(self) -> Optional[bool]:

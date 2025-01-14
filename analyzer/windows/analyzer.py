@@ -337,7 +337,7 @@ class Analyzer:
         upload_files("tlsdump")
 
         # Upload downloads folder if URL
-        if self.config.category == "url":
+        if self.config.category == "url" and self.config.upload_downloads_folder:
             upload_files("downloads", prefix=os.environ["HOMEPATH"], upload_folder="files")
 
         # Stop the Pipe Servers.

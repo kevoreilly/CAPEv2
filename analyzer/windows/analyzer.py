@@ -183,9 +183,11 @@ def del_pid_from_aux_modules(pid):
             continue
 
 
-def upload_files(folder):
+def upload_files(folder, prefix=PATHS['root'], upload_folder=None):
     """Create a copy of the given file path."""
-    log_folder = f"{PATHS['root']}\\{folder}"
+    if upload_folder is None:
+        upload_folder = folder
+    log_folder = f"{prefix}\\{folder}"
     try:
         if os.path.exists(log_folder):
             log.info('Uploading files at path "%s"', log_folder)
@@ -199,7 +201,7 @@ def upload_files(folder):
     for root, _, files in os.walk(log_folder):
         for file in files:
             file_path = os.path.join(root, file)
-            upload_path = os.path.join(folder, file)
+            upload_path = os.path.join(upload_folder, file)
             try:
                 upload_to_host(file_path, upload_path, category=folder)
             except (IOError, socket.error) as e:
@@ -333,6 +335,10 @@ class Analyzer:
 
         # TLS secrets (if any)
         upload_files("tlsdump")
+
+        # Upload downloads folder if URL
+        if self.config.category == "url":
+            upload_files("downloads", prefix=os.environ["HOMEPATH"], upload_folder="files")
 
         # Stop the Pipe Servers.
         if hasattr(self, "command_pipe"):

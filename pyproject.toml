@@ -98,6 +98,7 @@ maco = ["maco"]
 [tool.poetry.dev-dependencies]
 black = "^24.3.0"
 isort = "^5.10.1"
+mypy = "1.14.1"
 pytest = "7.2.2"
 pytest-pretty = "1.1.0"
 pytest-cov = "3.0.0"
@@ -108,6 +109,7 @@ pytest-xdist = "3.6.1"
 pytest-asyncio = "0.18.3"
 pytest-freezer = "0.4.8"
 tenacity = "8.1.0"
+types-requests = "^2.32"
 httpretty = "^1.1.4"
 func-timeout = "^4.3.5"
 pre-commit = "^2.19.0"
@@ -147,3 +149,9 @@ build-backend = "poetry.core.masonry.api"
 [lint]
 select = ["E", "F"]
 ignore = ["E402","E501"]
+
+[tool.mypy]
+warn_unused_configs = true
+files = [
+    "agent/**/*.py",
+]

@@ -36,9 +36,9 @@ try:
     import libvirt
 
     HAVE_LIBVIRT = True
-except ImportError as e:
+except ImportError:
     HAVE_LIBVIRT = False
-    log.error(e)
+    # log.error(e)
 
 
 SHOT_DELAY = 1

@@ -95,3 +95,7 @@ timeout = 60
 [overlay]
 enabled = yes
 timeout = 60
+
+[UnGPG_extract]
+enabled = no
+timeout = 60

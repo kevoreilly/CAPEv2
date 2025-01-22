@@ -443,6 +443,7 @@ def generic_file_extractors(
         eziriz_deobfuscate,
         office_one,
         msix_extract,
+        UnGPG_extract,
     ]
 
     futures = {}
@@ -850,8 +851,8 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     if any(
         "7-zip Installer data" in string for string in data_dictionary.get("die", [])
     ) or "Zip archive data" in data_dictionary.get("type", ""):
-        tool = "7Zip"
-        prefix = "7zip_"
+        tool = "SevenZip"
+        prefix = "SevenZip_"
         password = options.get("password", "infected")
         password = f"-p{password}"
 
@@ -965,5 +966,27 @@ def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
             stderr=subprocess.PIPE,
         )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
+
+    return ctx
+
+
+
+@time_tracker
+def UnGPG_extract(file: str, filetype: str, data_dictionary: dict, options: dict, **_) -> ExtractorReturnType:
+
+    if "PGP symmetric key encrypted data" not in data_dictionary.get("type", ""):
+        return
+
+    password = options.get("password", "infected")
+    filename = os.path.basename(file)
+    with extractor_ctx(file, "UnGPG", prefix="unpgp", folder=tools_folder) as ctx:
+        tempdir = ctx["tempdir"]
+        output = run_tool(
+            ["gpg", "--passphrase", password, "--batch", "--quiet", "--yes", "-o", os.path.join(tempdir, filename), "-d", file],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        if output:
+            ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

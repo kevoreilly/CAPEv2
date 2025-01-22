@@ -970,7 +970,6 @@ def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
     return ctx
 
 
-
 @time_tracker
 def UnGPG_extract(file: str, filetype: str, data_dictionary: dict, options: dict, **_) -> ExtractorReturnType:
 

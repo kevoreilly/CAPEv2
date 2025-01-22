@@ -26,7 +26,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
-from lib.cuckoo.common.replace_patterns_utils import _clean_path, check_deny_pattern
+from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,

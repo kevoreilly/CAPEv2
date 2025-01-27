@@ -2515,7 +2515,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         "xlsdeobf",
         "strings",
         "floss",
-    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    ) and not getattr(on_demand_config_mapper.get(service, {}), service).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     # Self Extracted support folder

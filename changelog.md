@@ -1,3 +1,6 @@
+### [27.01.2025]
+* Monitor update: Fix import reconstruction (advanced submission option)
+
 ### [23.01.2025]
 * Monitor update: Fix bug with dumping PE images with abnormally large PE header (e.g. 5ba3d13c57f6b08f34d8ec4f200091b458fdf48141c23ce959d9cda4804a7f5e) (thanks Kevin Ross)
 

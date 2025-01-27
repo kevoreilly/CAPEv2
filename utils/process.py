@@ -286,18 +286,11 @@ def processing_finished(future):
             _ = future.result()
             log.info("Reports generation completed for Task #%d", task_id)
         except TimeoutError as error:
-            exc_clsname = error.__class__.__name__
-            exc_message = str(error) or "unknown error"
-            log.error("[%d] Processing Timeout %s. Function: %s - %s", task_id, exc_message, error.args[1], exc_clsname)
-            Database().set_status(task_id, TASK_FAILED_PROCESSING)
-        except pebble.ProcessExpired as error:
-            exc_clsname = error.__class__.__name__
-            exc_message = str(error) or "unknown error"
-            log.error("[%d] Exception when processing task: %s - %s", task_id, exc_message, exc_clsname, exc_info=True)
-            Database().set_status(task_id, TASK_FAILED_PROCESSING)
-        except Exception as error:
+            log.error("[%d] Processing timeout: %s. Function: %s", task_id, error, error.args[1])
+            db.set_status(task_id, TASK_FAILED_PROCESSING)
+        except (pebble.ProcessExpired, Exception) as error:
             log.error("[%d] Exception when processing task: %s", task_id, error, exc_info=True)
-            Database().set_status(task_id, TASK_FAILED_PROCESSING)
+            db.set_status(task_id, TASK_FAILED_PROCESSING)
 
     pending_future_map.pop(future)
     pending_task_id_map.pop(task_id)

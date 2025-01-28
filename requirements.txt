@@ -318,23 +318,6 @@ daphne==3.0.2 ; python_version >= "3.10" and python_version < "4.0" \
 defusedxml==0.7.1 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
-die-python==0.2.0 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:02e953a316a7115555719abf46489ed4eb3ef3230f183de171d1b8325dd2910f \
-    --hash=sha256:0d0eb33bc008df9b46313e6a1ece219829c63383bc9e8aa1dd5ca06225ca3e4a \
-    --hash=sha256:156041162917a1648bc77a7c645947fea76cff9f2de7f19571eb6b388d93301f \
-    --hash=sha256:1ad23587701ee3dac29f041e8998d738d44ff0654c7c53b8c3188aef6c678e37 \
-    --hash=sha256:3e1c74de71b4d5b7d94cb6ad18ba2040b3f557a91f4f953cc4080b4d4cc38dda \
-    --hash=sha256:3e8981bbd0a1e1b6484b8849a19b183b9d5e00280ad8660137034449c8476337 \
-    --hash=sha256:51620fbf823a31a3d5e06e575ac56afe27865dba91bedb61c71d50c14507a189 \
-    --hash=sha256:613fcf9cc771577fbfc04af5961e70e8211e602d4cda4fb2ffe1152609ac2c38 \
-    --hash=sha256:78d36bd7da6808cca672c88baa09bca5a64bd06d4a5d81c752130ead3390e291 \
-    --hash=sha256:81519e947e47437cb314b4c3724f7ed566f92c686675e301e2a4aaf4e360aa37 \
-    --hash=sha256:913de5a7d74f48015b522ecc25320f8309be947964e1aa00f3d5434937418bf0 \
-    --hash=sha256:931c350fe7066d5b201a082060ec643b3331116bd055bf2773d678bef8acc444 \
-    --hash=sha256:9556d57c3845998a41d0109294e0f841a25c6920b0d77adc302b9cc79a698d00 \
-    --hash=sha256:a1e0ce4b06f1a7f3a979e694838e3effd634f38ef51a6180579b0e5cc33c7376 \
-    --hash=sha256:b4bcc635895807eeed039c4cf363768671de4569150bff1a38580df7f4d9b4cc \
-    --hash=sha256:c9ab5804db84c9931112fb43f08426012c1084821e4c563ae069a1ce6b0843ec
 django-allauth==0.54.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:120e265f802b65738899c6cb627b827fde46a4d03067034c633f516c2adf3e3e
 django-crispy-forms==1.14.0 ; python_version >= "3.10" and python_version < "4.0" \
@@ -692,9 +675,6 @@ maxminddb==2.6.2 ; python_version >= "3.10" and python_version < "4.0" \
 msoffcrypto-tool==5.4.2 ; python_version >= "3.10" and python_version < "4.0" and platform_python_implementation != "PyPy" or python_version >= "3.10" and python_version < "4.0" and (platform_system != "Windows" and platform_system != "Darwin") \
     --hash=sha256:274fe2181702d1e5a107ec1b68a4c9fea997a44972ae1cc9ae0cb4f6a50fef0e \
     --hash=sha256:44b545adba0407564a0cc3d6dde6ca36b7c0fdf352b85bca51618fa1d4817370
-nanobind==2.4.0 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:8cf27b04fbadeb9deb4a73f02bd838bf9f7e3e5a8ce44c50c93142b5728da58a \
-    --hash=sha256:a0392dee5f58881085b2ac8bfe8e53f74285aa4868b1472bfaf76cfb414e1c96
 netstruct==1.1.2 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:70b6a5c73f5bbc7ab57b019369642adfb34dd8af41b948c400ce95f952b7df9a
 oauthlib==3.2.2 ; python_version >= "3.10" and python_version < "4.0" \
@@ -1576,9 +1556,6 @@ websockets==14.1 ; python_version >= "3.10" and python_version < "4.0" \
 werkzeug==3.0.6 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:1bc0c2310d2fbb07b1dd1105eba2f7af72f322e1e455f2f93c993bee8c8a5f17 \
     --hash=sha256:a8dd59d4de28ca70471a34cba79bed5f7ef2e036a76b3ab0835474246eb41f8d
-wheel==0.45.1 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:661e1abd9198507b1409a20c02106d9670b2576e916d58f520316666abca6729 \
-    --hash=sha256:708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248
 win-unicode-console==0.5 ; python_version >= "3.10" and python_version < "4.0" and platform_system == "Windows" and platform_python_implementation != "PyPy" \
     --hash=sha256:d4142d4d56d46f449d6f00536a73625a871cba040f0bc1a2e305a04578f07d1e
 yara-python==4.5.1 ; python_version >= "3.10" and python_version < "4.0" \

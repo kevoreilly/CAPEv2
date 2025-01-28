@@ -70,13 +70,6 @@ try:
     from modules.signatures.recon_checkip import dns_indicators
 except ImportError:
     dns_indicators = ()
-"""
-HAVE_DIE = False
-with suppress(ImportError):
-    import die
-
-    HAVE_DIE = True
-"""
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
@@ -230,7 +223,7 @@ def static_file_info(
         if processing_conf.trid.enabled:
             data_dictionary["trid"] = trid_info(file_path)
 
-        if processing_conf.die.enabled:  # and HAVE_DIE:
+        if processing_conf.die.enabled:
             data_dictionary["die"] = detect_it_easy_info(file_path)
 
         if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
@@ -268,13 +261,10 @@ def static_file_info(
 
 
 def detect_it_easy_info(file_path: str):
+    if not path_exists(processing_conf.die.binary):
+        return []
+
     try:
-        """
-        try:
-            result_json = die.scan_file(file_path, die.ScanFlags.RESULT_AS_JSON, str(die.database_path / "db"))
-        except Exception as e:
-            log.error("DIE error: %s", str(e))
-        """
         result_json = subprocess.check_output(
             [processing_conf.die.binary, "-j", file_path],
             stderr=subprocess.STDOUT,
@@ -355,7 +345,7 @@ def _extracted_files_metadata(
             if processing_conf.trid.enabled:
                 file_info["trid"] = trid_info(full_path)
 
-            if processing_conf.die.enabled:  # and HAVE_DIE:
+            if processing_conf.die.enabled:
                 file_info["die"] = detect_it_easy_info(full_path)
 
             dest_path = os.path.join(destination_folder, file_info["sha256"])

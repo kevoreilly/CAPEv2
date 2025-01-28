@@ -47,6 +47,7 @@ sslkeylogfile = no
 browsermonitor = no
 wmi_etw = no
 dns_etw = no
+watchdownloads = no
 
 [AzSniffer]
 # Enable or disable the use of Azure Network Watcher packet capture feature, disable standard sniffer if this is in use to not create concurrent .pcap files

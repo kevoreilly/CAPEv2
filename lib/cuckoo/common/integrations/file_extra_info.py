@@ -229,7 +229,7 @@ def static_file_info(
         if processing_conf.trid.enabled:
             data_dictionary["trid"] = trid_info(file_path)
 
-        if processing_conf.die.enabled: # and HAVE_DIE:
+        if processing_conf.die.enabled:  # and HAVE_DIE:
             data_dictionary["die"] = detect_it_easy_info(file_path)
 
         if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:

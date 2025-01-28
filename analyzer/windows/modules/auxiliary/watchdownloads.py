@@ -32,7 +32,7 @@ try:
                     log.info("Monitor uploading %s", filename)
                     upload_to_host(event.src_path, f"files/{filename}")
             except Exception as e:
-                log.exception("Can't upload new file %s to host", event.src_path)
+                log.exception("Can't upload new file %s to host. %s", event.src_path, str(e))
 
 
     HAVE_WATCHDOG = True

@@ -19,14 +19,16 @@ folders_to_monitor = [
 
 HAVE_WATCHDOG = False
 try:
-    from watchdog.events import FileSystemEvent, FileSystemEventHandler
+    from watchdog.events import FileSystemEvent, FileSystemEventHandler, EVENT_TYPE_DELETED
     from watchdog.observers import Observer
 
     class MyEventHandler(FileSystemEventHandler):
-        def on_created(self, event: FileSystemEvent) -> None:
+        def on_any_event(self, event: FileSystemEvent) -> None:
+            if event.event_type == EVENT_TYPE_DELETED:
+                return
             try:
                 filename = os.path.basename(event.src_path)
-                if not filename.endswith('.part'):
+                if not filename.endswith(('.part', 'desktop.ini')):
                     log.info("Monitor uploading %s", filename)
                     upload_to_host(event.src_path, f"files/{filename}")
             except Exception as e:

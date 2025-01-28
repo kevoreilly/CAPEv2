@@ -8,7 +8,7 @@ import shlex
 import shutil
 import signal
 import subprocess
-from contextlib import suppress
+# from contextlib import suppress
 from typing import DefaultDict, List, Optional, Set, Union
 
 import pebble
@@ -354,7 +354,7 @@ def _extracted_files_metadata(
             if processing_conf.trid.enabled:
                 file_info["trid"] = trid_info(full_path)
 
-            if processing_conf.die.enabled and HAVE_DIE:
+            if processing_conf.die.enabled: # and HAVE_DIE:
                 file_info["die"] = detect_it_easy_info(full_path)
 
             dest_path = os.path.join(destination_folder, file_info["sha256"])

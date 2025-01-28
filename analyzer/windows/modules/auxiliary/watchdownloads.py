@@ -2,8 +2,8 @@
 # This file is part of CAPE Sandbox
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
 import logging
+import os
 import time
 from threading import Thread
 
@@ -19,7 +19,7 @@ folders_to_monitor = [
 
 HAVE_WATCHDOG = False
 try:
-    from watchdog.events import FileSystemEvent, FileSystemEventHandler, EVENT_TYPE_DELETED
+    from watchdog.events import EVENT_TYPE_DELETED, FileSystemEvent, FileSystemEventHandler
     from watchdog.observers import Observer
 
     class MyEventHandler(FileSystemEventHandler):
@@ -28,18 +28,15 @@ try:
                 return
             try:
                 filename = os.path.basename(event.src_path)
-                if not filename.endswith(('.part', 'desktop.ini')):
+                if not filename.endswith((".part", "desktop.ini")):
                     log.info("Monitor uploading %s", filename)
                     upload_to_host(event.src_path, f"files/{filename}")
             except Exception as e:
                 log.exception("Can't upload new file %s to host. %s", event.src_path, str(e))
 
-
     HAVE_WATCHDOG = True
 except ImportError as e:
-    log.debug(
-        f"Could not load auxiliary module WatchDownloads due to '{e}'"
-    )
+    log.debug(f"Could not load auxiliary module WatchDownloads due to '{e}'")
 
 
 class WatchDownloads(Auxiliary, Thread):

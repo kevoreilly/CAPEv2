@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "CAPE: Malware Configuration And Payload Extraction"
 authors = ["Kevin O'Reilly <kev@capesandbox.com>", "doomedraven <doomedraven@capesandbox.com>"]
 license = "MIT"
+package-mode = false
+requires-poetry = ">=2.0"
 
 [tool.poetry.dependencies]
 python = ">=3.10, <4.0"
@@ -34,16 +36,16 @@ pyzipper = "0.3.6"
 flare-capa = "8.0.1"
 Cython = "0.29.24"
 # pyre2 = "0.3.6" # Dead for python3.11
-Django = "4.2.17"
+Django = "4.2.18"
 SQLAlchemy = "1.4.50"
 SQLAlchemy-Utils = "0.41.1"
-Jinja2 = "^3.1.4"
+Jinja2 = "^3.1.5"
 chardet = "4.0.0"
 pygal = "2.4.0"
 dpkt = "1.9.6"
 dnspython = "2.6.1"
 pytz = "2021.1"
-maxminddb = "2.5.1"
+maxminddb = "2.6.2"
 Pillow = ">=8.2.0"
 python-whois = "0.7.3"
 bs4 = "0.0.1"
@@ -67,7 +69,6 @@ django-allauth = "0.54.0"  # https://django-allauth.readthedocs.io/en/latest/con
 # socks5man = {git = "https://github.com/CAPESandbox/socks5man.git", rev = "7b335d027297b67abdf28f38cc7d5d42c9d810b5"}
 # httpreplay = {git = "https://github.com/CAPESandbox/httpreplay.git", rev = "0d5a5b3144ab15f93189b83ca8188afde43db134"}
 # bingraph = {git = "https://github.com/CAPESandbox/binGraph.git", rev = "552d1210ac6770f8b202d0d1fc4610cc14d878ec"}
-die-python = "0.1.0"
 psycopg2-binary = "^2.9.5"
 ruff = ">=0.7.2"
 paramiko = "3.4.0"
@@ -94,9 +95,10 @@ maco = "1.1.8"
 [tool.poetry.extras]
 maco = ["maco"]
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 black = "^24.3.0"
 isort = "^5.10.1"
+mypy = "1.14.1"
 pytest = "7.2.2"
 pytest-pretty = "1.1.0"
 pytest-cov = "3.0.0"
@@ -107,6 +109,7 @@ pytest-xdist = "3.6.1"
 pytest-asyncio = "0.18.3"
 pytest-freezer = "0.4.8"
 tenacity = "8.1.0"
+types-requests = "^2.32"
 httpretty = "^1.1.4"
 func-timeout = "^4.3.5"
 pre-commit = "^2.19.0"
@@ -146,3 +149,9 @@ build-backend = "poetry.core.masonry.api"
 [lint]
 select = ["E", "F"]
 ignore = ["E402","E501"]
+
+[tool.mypy]
+warn_unused_configs = true
+files = [
+    "agent/**/*.py",
+]

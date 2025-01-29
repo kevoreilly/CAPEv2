@@ -1170,7 +1170,10 @@ class _Database:
 
         elif isinstance(obj, URL):
             task = Task(obj.url)
-            tags = "x64,x86"
+            _tags = tags.split(",") if isinstance(tags, str) else []
+            _tags.append("x64")
+            _tags.append("x86")
+            tags = ",".join(set(_tags))
 
         else:
             return None

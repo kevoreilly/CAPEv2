@@ -25,12 +25,13 @@ import tempfile
 import time
 import traceback
 from io import StringIO
+from multiprocessing.synchronize import Event as EventClass
 from threading import Lock
-from typing import Iterable
+from typing import Iterable, Optional
 from zipfile import ZipFile
 
 try:
-    import re2 as re
+    import re2 as re  # type: ignore
 except ImportError:
     import re
 
@@ -96,7 +97,7 @@ class Status(enum.IntEnum):
 AGENT_BROWSER_EXT_PATH = ""
 AGENT_BROWSER_LOCK = Lock()
 ANALYZER_FOLDER = ""
-agent_mutexes = {}
+agent_mutexes: dict[str, str] = {}
 """Holds handles of mutexes held by the agent."""
 state = {
     "status": Status.INIT,
@@ -177,12 +178,12 @@ class MiniHTTPServer:
 
     def run(
         self,
-        host: ipaddress.IPv4Address = "0.0.0.0",
+        host: ipaddress.IPv4Address = ipaddress.IPv4Address("0.0.0.0"),
         port: int = 8000,
-        event: multiprocessing.Event = None,
+        event: Optional[EventClass] = None,
     ):
         socketserver.ThreadingTCPServer.allow_reuse_address = True
-        self.s = socketserver.ThreadingTCPServer((host, port), self.handler)
+        self.s = socketserver.ThreadingTCPServer((str(host), port), self.handler)
 
         # tell anyone waiting that they're good to go
         if event:
@@ -248,7 +249,7 @@ class jsonify:
     def init(self):
         pass
 
-    def json(self):
+    def json(self) -> str:
         for valkey in self.values:
             if isinstance(self.values[valkey], bytes):
                 self.values[valkey] = self.values[valkey].decode("utf8", "replace")
@@ -324,8 +325,8 @@ class send_file:
 
 
 class request:
-    form = {}
-    files = {}
+    form: dict[str, str] = {}
+    files: dict[str, str] = {}
     client_ip = None
     client_port = None
     method = None
@@ -334,7 +335,7 @@ class request:
     }
 
 
-app = MiniHTTPServer()
+app: MiniHTTPServer = MiniHTTPServer()
 
 
 def isAdmin():

@@ -16,6 +16,12 @@
             </tr>
             {% endif %}
 
+        {% if file.note %}
+            <tr>
+                <th style="border-top: 0; width: 15%;">Note</th>
+                <td style="border-top: 0; word-wrap: break-word;"><b>{{file.note}}</b></td>
+            </tr>
+        {% endif %}
         {% if file.cape_type %}
             <tr>
                 <th style="border-top: 0; width: 15%;">Type</th>

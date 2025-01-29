@@ -352,7 +352,7 @@ function install_nginx() {
     wget https://ftp.exim.org/pub/pcre/pcre-8.45.tar.gz && tar xzvf pcre-8.45.tar.gz
 
     # zlib version 1.2.11
-    wget https://www.zlib.net/zlib-1.3.tar.gz && tar xzvf zlib-1.3.tar.gz
+    wget https://www.zlib.net/zlib-1.3.1.tar.gz && tar xzvf zlib-1.3.1.tar.gz
 
     # OpenSSL version 3.2.0
     wget https://www.openssl.org/source/openssl-3.2.0.tar.gz && tar xzvf openssl-3.2.0.tar.gz
@@ -390,7 +390,7 @@ function install_nginx() {
                 --with-openssl-opt=no-ssl3 \
                 --with-pcre=../pcre-8.45 \
                 --with-pcre-jit \
-                --with-zlib=../zlib-1.3 \
+                --with-zlib=../zlib-1.3.1 \
                 --with-compat \
                 --with-file-aio \
                 --with-threads \
@@ -942,7 +942,7 @@ function dependencies() {
     # deps
     apt-get install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common -y
     apt-get install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
-    apt-get install zpaq upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
+    apt-get install zpaq upx-ucl wget zip unzip 7zip lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
     apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common -y
     apt-get install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt-get install openvpn wireguard -y

@@ -354,6 +354,9 @@ class TestAnalysisManager:
             "usage": False,
             "windows_static_route": False,
             "windows_static_route_gateway": "192.168.1.1",
+            "dns_etw": False,
+            "wmi_etw": False,
+            "watchdownloads": False,
         }
 
     def test_build_options_pe(
@@ -416,6 +419,9 @@ class TestAnalysisManager:
             "usage": False,
             "windows_static_route": False,
             "windows_static_route_gateway": "192.168.1.1",
+            "dns_etw": False,
+            "wmi_etw": False,
+            "watchdownloads": False,
         }
 
     def test_category_checks(

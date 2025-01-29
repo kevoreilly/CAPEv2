@@ -53,6 +53,7 @@ timeout = 60
 
 # Nsis, 7Zip SFX, etc
 [SevenZip_unpack]
+binary = data/7zz
 enabled = yes
 timeout = 60
 
@@ -93,4 +94,8 @@ timeout = 60
 # PE file overlay
 [overlay]
 enabled = yes
+timeout = 60
+
+[UnGPG_extract]
+enabled = no
 timeout = 60

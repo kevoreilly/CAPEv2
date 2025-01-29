@@ -150,6 +150,7 @@ definitions = data/trid/triddefs.trd
 [die]
 # Detect it Easy
 enabled = no
+binary = /usr/bin/diec
 
 [virustotal]
 enabled = yes

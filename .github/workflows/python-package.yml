@@ -42,6 +42,10 @@ jobs:
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append
 
+      # see the mypy configuration in pyproject.toml
+      - name: Run mypy
+        run: poetry run mypy
+
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 20

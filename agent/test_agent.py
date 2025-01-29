@@ -15,6 +15,7 @@ import time
 import unittest
 import uuid
 import zipfile
+from typing import Optional
 from unittest import mock
 from urllib.parse import urljoin
 
@@ -180,7 +181,7 @@ class TestMutexAPIWin32(unittest.TestCase):
 class TestAgent:
     """Test the agent API."""
 
-    agent_process: multiprocessing.Process = None
+    agent_process: Optional[multiprocessing.Process] = None
 
     def setup_method(self):
         agent.state = {"status": agent.Status.INIT, "description": "", "async_subprocess": None}

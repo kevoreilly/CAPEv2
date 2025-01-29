@@ -705,6 +705,9 @@ class RunReporting:
 
         # remove unwanted/duplicate information from reporting
         for process in results["behavior"]["processes"]:
+            # Reprocessing and Behavior set from json file
+            if isinstance(process["calls"], list) and type(process["calls"]).__name__ != "ParseProcessLog":
+                break
             process["calls"].begin_reporting()
             # required to convert object to list
             process["calls"] = list(process["calls"])

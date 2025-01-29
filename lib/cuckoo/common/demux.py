@@ -213,15 +213,24 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
             return [], "blacklisted package"
         for sf_child in unpacked.children:
             if sf_child.to_dict().get("children"):
-                retlist.extend(_sf_children(ch) for ch in sf_child.children)
+                for ch in sf_child.children:
+                    tmp_child = _sf_children(ch)
+                    # check if path is not empty
+                    if tmp_child and tmp_child[0]:
+                        retlist.extend(tmp_child)
                 # child is not available, the original file should be put into the list
-                if filter(None, retlist):
-                    retlist.append(_sf_children(sf_child))
+                tmp_child = _sf_children(sf_child)
+                # check if path is not empty
+                if tmp_child and tmp_child[0]:
+                    retlist.append(tmp_child)
             else:
-                retlist.append(_sf_children(sf_child))
+                tmp_child = _sf_children(sf_child)
+                # check if path is not empty
+                if tmp_child and tmp_child[0]:
+                    retlist.append(tmp_child)
     except Exception as e:
         log.error(e, exc_info=True)
-    return list(filter(None, retlist)), ""
+    return retlist, ""
 
 
 def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""):  # -> tuple[bytes, str]:

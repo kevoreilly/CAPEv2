@@ -1,5 +1,7 @@
 # This is aux requirements file to install all side dependencies
 # Run: poetry run pip -r extra/optional_dependencies.txt
+# Those deps are not in pyproject due to their hardcoded dependencies and conflicts with another libraries.
+# Those deps adds big value to specific tasks, but we can't satisfy all use cases. So end user MUST make it work by himself.
 ImageHash
 deepdiff
 flask

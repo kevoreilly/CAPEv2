@@ -35,4 +35,5 @@ class UrlAnalysis(Processing):
                 if vt_details:
                     self.results["url"].setdefault("virustotal", vt_details)
 
+            self.results["target"] = {"category": "url"}
         return target_info

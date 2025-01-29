@@ -4,13 +4,14 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shlex
 import shutil
 import signal
 import subprocess
 
 # from contextlib import suppress
-from typing import DefaultDict, List, Optional, Set, Union
+from typing import Any, DefaultDict, List, Optional, Set, Union
 
 import pebble
 
@@ -262,27 +263,37 @@ def static_file_info(
 
 def detect_it_easy_info(file_path: str):
     if not path_exists(processing_conf.die.binary):
+        log.warning("detect-it-easy binary not found at path %s", processing_conf.die.binary)
         return []
 
     try:
-        result_json = subprocess.check_output(
+        die_output = subprocess.check_output(
             [processing_conf.die.binary, "-j", file_path],
             stderr=subprocess.STDOUT,
             universal_newlines=True,
         )
 
-        if "detects" not in result_json:
-            return []
+        def get_json() -> dict[str, Any]:
+            """Get the JSON element from the detect it easy output.
 
-        if "Invalid signature" in result_json and "{" in result_json:
-            start = result_json.find("{")
-            if start != -1:
-                result_json = result_json[start:]
+            This is required due to non-JSON output in JSON mode.
+            https://github.com/horsicq/Detect-It-Easy/issues/242
+            """
+            matches = re.findall(r"\{.*\}", die_output, re.S)
+            return json.loads(matches[0]) if matches else {}
 
-        strings = [sub["string"] for block in json.loads(result_json).get("detects", []) for sub in block.get("values", [])]
+        def get_matches() -> list[str]:
+            """Get the string values from the detect it easy output."""
+            return [sub["string"] for block in get_json().get("detects", []) for sub in block.get("values", [])]
 
-        if strings:
-            return strings
+        return [] if "detects" not in die_output else get_matches()
+    except subprocess.CalledProcessError as err:
+        log.error(
+            "Detect-It-Easy: Failed to execute cmd=`%s`, stdout=`%s`, stderr=`%s`",
+            shlex.join(err.cmd),
+            err.stdout,
+            err.stderr,
+        )
     except json.decoder.JSONDecodeError as e:
         log.debug("DIE results are not in json format: %s", str(e))
     except Exception as e:

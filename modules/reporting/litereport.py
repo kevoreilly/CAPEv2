@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-
+import chardet
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.path_utils import path_write_file

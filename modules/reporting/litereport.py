@@ -23,11 +23,11 @@ class LiteReport(Report):
 
     def default(self, obj):
         if isinstance(obj, bytes):
-            encoding = chardet.detect(obj)['encoding']
+            encoding = chardet.detect(obj)["encoding"]
             if encoding:
-                return obj.decode(encoding, errors='replace')
+                return obj.decode(encoding, errors="replace")
             else:
-                return (obj.decode("utf-8", errors='replace'))
+                return obj.decode("utf-8", errors="replace")
         raise TypeError
 
     def run(self, results):

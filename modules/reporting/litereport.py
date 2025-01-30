@@ -26,7 +26,7 @@ class LiteReport(Report):
             try:
                 return obj.decode()
             except UnicodeDecodeError:
-                return obj.decode('latin1')
+                return obj.decode("latin1")
         raise TypeError
 
     def run(self, results):

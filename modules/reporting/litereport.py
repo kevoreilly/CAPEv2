@@ -23,7 +23,10 @@ class LiteReport(Report):
 
     def default(self, obj):
         if isinstance(obj, bytes):
-            return obj.decode()
+            try:
+                return obj.decode()
+            except UnicodeDecodeError:
+                return obj.decode('latin1')
         raise TypeError
 
     def run(self, results):

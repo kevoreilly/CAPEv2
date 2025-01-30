@@ -171,6 +171,12 @@ def process(
 
     log.removeHandler(per_analysis_handler)
 
+    # Remove the SQLAlchemy session to ensure the next task pulls objects from
+    # the database, instead of relying on a potentially outdated object cache.
+    # Stale data can prevent SQLAlchemy from querying the database or issuing
+    # statements, resulting in unexpected errors and inconsistencies.
+    db.session.remove()
+
 
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)

@@ -287,15 +287,14 @@ Let's Encrypt certificates
 
 If you would like to install a free Let's Encrypt certificate on your NGINX
 server, follow these steps, replacing ``capesandbox.com`` with your actual
-hostname.
+hostname. Use ``cape2.sh`` to install dependencies. But also ensure that instruction
+are up to date with this https://certbot.eff.org/
 
 Install `certbot`.
 
 .. code-block:: bash
 
-    sudo snap install core; sudo snap refresh core
-    sudo snap install --classic certbot
-    sudo ln -s /snap/bin/certbot /usr/bin/certbot
+    sudo cape2.sh letsencrypt
 
 Request the certificate
 

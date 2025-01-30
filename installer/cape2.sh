@@ -20,10 +20,12 @@ PASSWD="SuperPuperSecret"
 DIST_MASTER_IP="192.168.1.1"
 USER="cape"
 # https://nginx.org/en/linux_packages.html
-nginx_version=1.25.3
+nginx_version=1.27.3
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
+# https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/v$CSNB_VERSION/crowdsec-nginx-bouncer.tgz
+CSNB_VERSION="1.0.8"
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0
@@ -53,13 +55,13 @@ librenms_megaraid_enable=0
 # disabling this will result in the web interface being disabled
 MONGO_ENABLE=1
 
-DIE_VERSION="3.09"
+DIE_VERSION="3.10"
 
 TOR_SOCKET_TIMEOUT="60"
 
 # if a config file is present, read it in
 if [ -f "./cape-config.sh" ]; then
-	. ./cape-config.sh
+    . ./cape-config.sh
 fi
 
 UBUNTU_VERSION=$(lsb_release -rs)
@@ -149,18 +151,20 @@ function install_crowdsecurity() {
         curl -s https://api.github.com/repos/crowdsecurity/crowdsec/releases/latest | grep browser_download_url| cut -d '"' -f 4  | wget -i -
     fi
     tar xvzf crowdsec-release.tgz
+    # ToDo fix this
     directory=$(ls | grep "crowdsec-v*")
     cd "$directory" || return
     sudo ./wizard.sh -i
     sudo cscli collections install crowdsecurity/nginx
     sudo systemctl reload crowdsec
-    install_docker
-    sudo cscli dashboard setup -l 127.0.0.1 -p 8448
+    # install_docker
+    # sudo cscli dashboard setup -l 127.0.0.1 -p 8448
 
-    wget https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/v0.0.4/cs-nginx-bouncer.tgz
-    tar xvzf cs-nginx-bouncer.tgz
-    directory=$(ls | grep "cs-nginx-bouncer*")
-    cd "$directory" || return
+    if [ ! -f crowdsec-nginx-bouncer-v$CSNB_VERSION ]; then
+        wget https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/v$CSNB_VERSION/crowdsec-nginx-bouncer.tgz
+        tar xvzf crowdsec-nginx-bouncer.tgz
+    fi
+    cd crowdsec-nginx-bouncer-v$CSNB_VERSION || return
     sudo ./install.sh
 }
 
@@ -178,131 +182,130 @@ function install_docker() {
 }
 
 function install_jemalloc() {
-
     # https://zapier.com/engineering/celery-python-jemalloc/
     if ! $(dpkg -l "libjemalloc*" | grep -q "ii  libjemalloc"); then
-        apt-get install -f checkinstall curl build-essential jq autoconf libjemalloc-dev -y
+        apt-get install libjemalloc-dev -y
     fi
 }
 
 function librenms_cron_config() {
-	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/sneck -u 2> /dev/null > /dev/null'
-	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/cape | /usr/local/bin/librenms_return_optimizer 2> /dev/null > /var/cache/cape.cache'
-	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/smart -u'
-	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/hv_monitor -c 2> /dev/null > /var/cache/hv_monitor.cache'
-	echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/osupdate 2> /dev/null > /var/cache/osupdate.extend'
-	echo '1 1 * * * root /bin/cat /sys/devices/virtual/dmi/id/board_serial > /etc/snmp/serial'
+    echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/sneck -u 2> /dev/null > /dev/null'
+    echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/cape | /usr/local/bin/librenms_return_optimizer 2> /dev/null > /var/cache/cape.cache'
+    echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/smart -u'
+    echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/hv_monitor -c 2> /dev/null > /var/cache/hv_monitor.cache'
+    echo '*/5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/osupdate 2> /dev/null > /var/cache/osupdate.extend'
+    echo '1 1 * * * root /bin/cat /sys/devices/virtual/dmi/id/board_serial > /etc/snmp/serial'
 }
 
 function librenms_sneck_config() {
-	if [ "$librenms_ipmi" -ge 1 ]; then
-		echo 'ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
-	else
-		echo '#ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
-	fi
-	echo 'virtqemud_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "^/usr/sbin/virtqemud" 1:1'
-	echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python cuckoo.py" 1:1'
-	echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python process.py" 1:'
-	echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python rooter.py" 1'
-	if [ "$clamav_enable" -ge 1 ]; then
-		echo "clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
-	else
-		echo "#clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
-	fi
-	if [ "$MONGO_ENABLE" -ge 1 ]; then
-		echo "mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-		echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 1:'
-	else
-		echo "#mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-		echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 0'
-	fi
+    if [ "$librenms_ipmi" -ge 1 ]; then
+        echo 'ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
+    else
+        echo '#ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
+    fi
+    echo 'virtqemud_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "^/usr/sbin/virtqemud" 1:1'
+    echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python cuckoo.py" 1:1'
+    echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python process.py" 1:'
+    echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python rooter.py" 1'
+    if [ "$clamav_enable" -ge 1 ]; then
+        echo "clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
+    else
+        echo "#clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
+    fi
+    if [ "$MONGO_ENABLE" -ge 1 ]; then
+        echo "mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 1:'
+    else
+        echo "#mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 0'
+    fi
 }
 
 function librenms_snmpd_config() {
-	echo "rocommunity $snmp_community"
-	echo
-	echo "syslocation $snmp_location"
-	echo "syscontact $snmp_contact"
-	echo
-	if [ "$librenms_megaraid_enable" -ge 1 ]; then
-		echo "pass .1.3.6.1.4.1.3582 /usr/sbin/lsi_mrdsnmpmain"
-	else
-		echo  "#pass .1.3.6.1.4.1.3582 /usr/sbin/lsi_mrdsnmpmain"
-	fi
-	echo
-	echo 'extend distro /etc/snmp/extends/distro'
-	echo "extend hardware '/bin/cat /sys/devices/virtual/dmi/id/product_name'"
-	echo "extend manufacturer '/bin/cat /sys/devices/virtual/dmi/id/sys_vendor'"
-	echo "extend serial '/bin/cat /etc/snmp/serial'"
-	echo
-	echo "extend cape /bin/cat /var/cache/cape.cache"
-	echo "extend smart /bin/cat /var/cache/smart"
-	echo "extend sneck /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/sneck -c -b"
-	echo "extend hv-monitor /bin/cat /var/cache/hv_monitor.cache"
-	echo "extend osupdate /bin/cat /var/cache/osupdate.extend"
-	if [ "$librenms_mdadm_enable" -ge 1 ]; then
-		echo "extend mdadm /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/mdadm"
-	else
-		echo "#extend mdadm /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/mdadm"
-	fi
-	echo
-	if [ ! -z "$snmp_agentaddress" ]; then
-		echo "agentaddress $snmp_agentaddress"
-	fi
+    echo "rocommunity $snmp_community"
+    echo
+    echo "syslocation $snmp_location"
+    echo "syscontact $snmp_contact"
+    echo
+    if [ "$librenms_megaraid_enable" -ge 1 ]; then
+        echo "pass .1.3.6.1.4.1.3582 /usr/sbin/lsi_mrdsnmpmain"
+    else
+        echo  "#pass .1.3.6.1.4.1.3582 /usr/sbin/lsi_mrdsnmpmain"
+    fi
+    echo
+    echo 'extend distro /etc/snmp/extends/distro'
+    echo "extend hardware '/bin/cat /sys/devices/virtual/dmi/id/product_name'"
+    echo "extend manufacturer '/bin/cat /sys/devices/virtual/dmi/id/sys_vendor'"
+    echo "extend serial '/bin/cat /etc/snmp/serial'"
+    echo
+    echo "extend cape /bin/cat /var/cache/cape.cache"
+    echo "extend smart /bin/cat /var/cache/smart"
+    echo "extend sneck /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /usr/local/bin/sneck -c -b"
+    echo "extend hv-monitor /bin/cat /var/cache/hv_monitor.cache"
+    echo "extend osupdate /bin/cat /var/cache/osupdate.extend"
+    if [ "$librenms_mdadm_enable" -ge 1 ]; then
+        echo "extend mdadm /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/mdadm"
+    else
+        echo "#extend mdadm /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/mdadm"
+    fi
+    echo
+    if [ ! -z "$snmp_agentaddress" ]; then
+        echo "agentaddress $snmp_agentaddress"
+    fi
 }
 
 function install_librenms() {
-    echo "[+] Install librenms"
-	if [ "$librenms_enable" -ge 1 ]; then
-		echo "Enabling stuff for LibreNMS"
-		apt-get install -y zlib1g-dev cpanminus libjson-perl libfile-readbackwards-perl \
-				libjson-perl libconfig-tiny-perl libdbi-perl libfile-slurp-perl \
-				libstatistics-lite-perl libdbi-perl libdbd-pg-perl monitoring-plugins \
-				monitoring-plugins-contrib monitoring-plugins-standard dmidecode wget snmpd
-		cpanm HV::Monitor Monitoring::Sneck
-		mkdir -p /etc/snmp/extends
-		wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/distro -O /etc/snmp/extends/distro
-		wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/cape -O /etc/snmp/extends/cape
-		wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/smart -O /etc/snmp/extends/smart
-		wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/osupdate -O /etc/snmp/extends/osupdate
-		chmod +x /etc/snmp/extends/distro /etc/snmp/extends/cape  /etc/snmp/extends/smart /etc/snmp/extends/osupdate
+    if [ "$librenms_enable" -ge 1 ]; then
+        echo "[+] Install librenms"
+        echo "Enabling stuff for LibreNMS"
+        apt-get install -y zlib1g-dev cpanminus libjson-perl libfile-readbackwards-perl \
+                libjson-perl libconfig-tiny-perl libdbi-perl libfile-slurp-perl \
+                libstatistics-lite-perl libdbi-perl libdbd-pg-perl monitoring-plugins \
+                monitoring-plugins-contrib monitoring-plugins-standard dmidecode wget snmpd
+        cpanm HV::Monitor Monitoring::Sneck
+        mkdir -p /etc/snmp/extends
+        wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/distro -O /etc/snmp/extends/distro
+        wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/cape -O /etc/snmp/extends/cape
+        wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/smart -O /etc/snmp/extends/smart
+        wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/osupdate -O /etc/snmp/extends/osupdate
+        chmod +x /etc/snmp/extends/distro /etc/snmp/extends/cape  /etc/snmp/extends/smart /etc/snmp/extends/osupdate
 
-		if [ "$librenms_mdadm_enable" -ge 1 ]; then
-			apt-get install -y jq
-			wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/mdadm -O /etc/snmp/extends/mdadm
-			chmod +x /etc/snmp/extends/mdadm
-		fi
+        if [ "$librenms_mdadm_enable" -ge 1 ]; then
+            apt-get install -y jq
+            wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/mdadm -O /etc/snmp/extends/mdadm
+            chmod +x /etc/snmp/extends/mdadm
+        fi
 
-		/etc/snmp/extends/smart -g > /etc/snmp/extends/smart.config
-		echo "You will want to check /etc/snmp/extends/smart.config to see if it looks good."
-		echo "See /etc/snmp/extends/smart for more info"
+        /etc/snmp/extends/smart -g > /etc/snmp/extends/smart.config
+        echo "You will want to check /etc/snmp/extends/smart.config to see if it looks good."
+        echo "See /etc/snmp/extends/smart for more info"
 
-		cat /sys/devices/virtual/dmi/id/board_serial > /etc/snmp/serial
+        cat /sys/devices/virtual/dmi/id/board_serial > /etc/snmp/serial
 
-		librenms_sneck_config > /usr/local/etc/sneck.conf
-		librenms_cron_config > /etc/cron.d/librenms_auto
-		librenms_snmpd_config > /etc/snmp/snmpd.conf
+        librenms_sneck_config > /usr/local/etc/sneck.conf
+        librenms_cron_config > /etc/cron.d/librenms_auto
+        librenms_snmpd_config > /etc/snmp/snmpd.conf
 
-		systemctl enable snmpd.service
-		systemctl restart snmpd.service
-		systemctl restart cron.service
-	else
-		echo "Skipping stuff for LibreNMS"
-	fi
+        systemctl enable snmpd.service
+        systemctl restart snmpd.service
+        systemctl restart cron.service
+    else
+        echo "Skipping stuff for LibreNMS"
+    fi
 }
 
 function install_modsecurity() {
     echo "[+] Install modsecurity"
     # Tested on nginx 1.(16|18).X Based on https://www.nginx.com/blog/compiling-and-installing-modsecurity-for-open-source-nginx/ with fixes
-    apt-get install -y apt-utils autoconf automake build-essential git libcurl4-openssl-dev libgeoip-dev liblmdb-dev libpcre++-dev libtool libxml2-dev libyajl-dev pkgconf wget zlib1g-dev
-    git clone --depth 1 -b v3/master --single-branch https://github.com/SpiderLabs/ModSecurity
+    sudo apt-get install git g++ apt-utils autoconf automake build-essential libcurl4-openssl-dev libgeoip-dev liblmdb-dev libpcre2-dev libtool libxml2-dev libyajl-dev pkgconf zlib1g-dev
+    git clone --depth 500 -b v3/master --single-branch https://github.com/SpiderLabs/ModSecurity
     cd ModSecurity || return
     git submodule init
     git submodule update
     ./build.sh
-    ./configure
+    ./configure --with-pcre2
     make -j"$(nproc)"
-    checkinstall -D --pkgname="ModSecurity" --default
+    make install
 
     cd .. || return
     git clone --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git
@@ -328,16 +331,15 @@ function install_modsecurity() {
     sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' /etc/nginx/modsec/modsecurity.conf
     echo 'Include "/etc/nginx/modsec/modsecurity.conf"' >/etc/nginx/modsec/main.conf
 
+    # ToDo
     echo '''
-
-    1. Add next line to the top of /etc/nginx/nginx.conf
-        * load_module modules/ngx_http_modsecurity_module.so;
-    2. Add next 2 rules to enabled-site under server section
+    1. Add next 2 rules to enabled-site under server section
         modsecurity on;
         modsecurity_rules_file /etc/nginx/modsec/main.conf;
     '''
 
 }
+
 
 function install_nginx() {
     echo "[+] Install nginx"
@@ -348,15 +350,20 @@ function install_nginx() {
         tar xzvf nginx-$nginx_version.tar.gz
     fi
 
-    # PCRE version 8.42
-    wget https://ftp.exim.org/pub/pcre/pcre-8.45.tar.gz && tar xzvf pcre-8.45.tar.gz
+    PCRE_VERSION="10.37"
+    OPENSSL_VERSION="3.4.0"
+    ZLIB_VERSION="1.3.1"
+    if [ ! -d pcre2-$PCRE_VERSION ]; then
+        wget https://ftp.exim.org/pub/pcre/pcre2-$PCRE_VERSION.tar.gz  && tar xzvf pcre2-$PCRE_VERSION.tar.gz
+    fi
 
-    # zlib version 1.2.11
-    wget https://www.zlib.net/zlib-1.3.1.tar.gz && tar xzvf zlib-1.3.1.tar.gz
+    if [ ! -d zlib-1.3.1]; then
+        wget https://www.zlib.net/zlib-$ZLIB_VERSION.tar.gz && tar xzvf zlib-$ZLIB_VERSION.tar.gz
+    fi
 
-    # OpenSSL version 3.2.0
-    wget https://www.openssl.org/source/openssl-3.2.0.tar.gz && tar xzvf openssl-3.2.0.tar.gz
-
+    if [ ! -d openssl-$OPENSSL_VERSION ]; then
+        wget https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz && tar xzvf openssl-$OPENSSL_VERSION.tar.gz
+    fi
     sudo add-apt-repository -y ppa:maxmind/ppa
     sudo apt-get update && sudo apt-get upgrade -y
     sudo apt-get install -y perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev libxslt1.1 libxslt1-dev
@@ -364,6 +371,7 @@ function install_nginx() {
     cd nginx-$nginx_version || return
 
     sudo cp man/nginx.8 /usr/share/man/man8
+    # ToDo auto confirmation of overwrite
     sudo gzip /usr/share/man/man8/nginx.8
     ls /usr/share/man/man8/ | grep nginx.8.gz
 
@@ -383,14 +391,14 @@ function install_nginx() {
                 --http-proxy-temp-path=/var/lib/nginx/proxy \
                 --http-scgi-temp-path=/var/lib/nginx/scgi \
                 --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
-                --with-openssl=../openssl-3.2.0 \
+                --with-openssl=../openssl-$OPENSSL_VERSION \
                 --with-openssl-opt=enable-ec_nistp_64_gcc_128 \
                 --with-openssl-opt=no-nextprotoneg \
                 --with-openssl-opt=no-weak-ssl-ciphers \
                 --with-openssl-opt=no-ssl3 \
-                --with-pcre=../pcre-8.45 \
+                --with-pcre=../pcre2-$PCRE_VERSION \
                 --with-pcre-jit \
-                --with-zlib=../zlib-1.3.1 \
+                --with-zlib=../zlib-$ZLIB_VERSION \
                 --with-compat \
                 --with-file-aio \
                 --with-threads \
@@ -459,6 +467,9 @@ ExecStop=/bin/kill -s TERM $MAINPID
 WantedBy=multi-user.target
 EOF
     fi
+
+    cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf_backup
+    sed -i '1 i\load_module modules/ngx_http_modsecurity_module.so;' /etc/nginx/nginx.conf
 
     sudo systemctl enable nginx.service
     sudo systemctl start nginx.service
@@ -569,11 +580,12 @@ fi
 
 function install_letsencrypt(){
     echo "[+] Install and configure letsencrypt"
-    sudo add-apt-repository ppa:certbot/certbot -y
-    sudo apt-get update
-    sudo apt-get install python3-certbot-nginx -y
+    sudo apt-get install python3 python3-venv libaugeas0
+    sudo pip install certbot certbot-nginx --break-system-packages
     echo "server_name $1 www.$1;" > /etc/nginx/sites-available/"$1"
+    sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
     sudo certbot --nginx -d "$1" -d www."$1"
+
 }
 
 function install_fail2ban() {
@@ -783,9 +795,9 @@ function install_yara() {
 }
 
 function install_mongo(){
-	if [ "$MONGO_ENABLE" -ge 1 ]; then
-		echo "[+] Installing MongoDB"
-		# Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
+    if [ "$MONGO_ENABLE" -ge 1 ]; then
+        echo "[+] Installing MongoDB"
+        # Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
 
         MONGO_VERSION="8.0"
         if ! grep -q ' avx ' /proc/cpuinfo; then
@@ -795,12 +807,12 @@ function install_mongo(){
             fi
         fi
 
-		sudo curl -fsSL "https://pgp.mongodb.com/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
-		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
+        sudo curl -fsSL "https://pgp.mongodb.com/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
+        echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
-		apt-get update 2>/dev/null
-		apt-get install libpcre3-dev numactl cron -y
-		apt-get install -y mongodb-org
+        apt-get update 2>/dev/null
+        apt-get install libpcre3-dev numactl cron -y
+        apt-get install -y mongodb-org
 
         # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
         PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
@@ -810,26 +822,26 @@ function install_mongo(){
             pip3 install pymongo -U
         fi
 
-		apt-get install -y ntp
-		systemctl start ntp.service && sudo systemctl enable ntp.service
+        apt-get install -y ntp
+        systemctl start ntp.service && sudo systemctl enable ntp.service
 
-		if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
-			sudo apt-get install sysfsutils -y
-			echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
-			echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
-		fi
+        if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
+            sudo apt-get install sysfsutils -y
+            echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
+            echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
+        fi
 
-		if [ -f /lib/systemd/system/mongod.service ]; then
-			systemctl stop mongod.service
-			systemctl disable mongod.service
-			rm /lib/systemd/system/mongod.service
-			rm /lib/systemd/system/mongod.service
-			systemctl daemon-reload
-		fi
+        if [ -f /lib/systemd/system/mongod.service ]; then
+            systemctl stop mongod.service
+            systemctl disable mongod.service
+            rm /lib/systemd/system/mongod.service
+            rm /lib/systemd/system/mongod.service
+            systemctl daemon-reload
+        fi
 
-		if [ ! -f /lib/systemd/system/mongodb.service ]; then
-			crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
-			cat >> /lib/systemd/system/mongodb.service <<EOF
+        if [ ! -f /lib/systemd/system/mongodb.service ]; then
+            crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
+            cat >> /lib/systemd/system/mongodb.service <<EOF
 [Unit]
 Description=High-performance, schema-free document-oriented database
 Wants=network.target
@@ -853,21 +865,21 @@ LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 EOF
-		fi
-		sudo mkdir -p /data/{config,}db
+        fi
+        sudo mkdir -p /data/{config,}db
         sudo chown mongodb:mongodb /data/ -R
-		systemctl unmask mongodb.service
-		systemctl enable mongodb.service
-		systemctl restart mongodb.service
+        systemctl unmask mongodb.service
+        systemctl enable mongodb.service
+        systemctl restart mongodb.service
 
-		if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
-			crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
-		fi
+        if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
+            crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+        fi
 
-		echo "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
-	else
-		echo "[+] Skipping MongoDB"
-	fi
+        echo "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
+    else
+        echo "[+] Skipping MongoDB"
+    fi
 
 }
 
@@ -1285,14 +1297,14 @@ function install_CAPE() {
 
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
-	if [ "$MONGO_ENABLE" -ge 1 ]; then
-		crudini --set conf/reporting.conf mongodb enabled yes
-	fi
+    if [ "$MONGO_ENABLE" -ge 1 ]; then
+        crudini --set conf/reporting.conf mongodb enabled yes
+    fi
 
-	if [ "$librenms_enable" -ge 1 ]; then
-		crudini --set conf/reporting.conf litereport enabled yes
-		crudini --set conf/reporting.conf runstatistics enabled yes
-	fi
+    if [ "$librenms_enable" -ge 1 ]; then
+        crudini --set conf/reporting.conf litereport enabled yes
+        crudini --set conf/reporting.conf runstatistics enabled yes
+    fi
 
     python3 utils/community.py -waf -cr
 
@@ -1315,10 +1327,10 @@ function install_systemd() {
     cp /opt/CAPEv2/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
     cp /opt/CAPEv2/systemd/suricata.service /lib/systemd/system/suricata.service
     systemctl daemon-reload
-	cape_web_enable_string=''
-	if [ "$MONGO_ENABLE" -ge 1 ]; then
-		cape_web_enable_string="cape-web"
-	fi
+    cape_web_enable_string=''
+    if [ "$MONGO_ENABLE" -ge 1 ]; then
+        cape_web_enable_string="cape-web"
+    fi
 
     systemctl enable cape cape-rooter cape-processor "$cape_web_enable_string" suricata
     systemctl restart cape cape-rooter cape-processor "$cape_web_enable_string" suricata
@@ -1570,10 +1582,10 @@ case "$COMMAND" in
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
         crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && poetry --directory /opt/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
-	install_librenms
-	if [ "$clamav_enable" -ge 1 ]; then
-		install_clamav
-	fi
+    install_librenms
+    if [ "$clamav_enable" -ge 1 ]; then
+        install_clamav
+    fi
     ;;
 'systemd')
     install_systemd;;
@@ -1606,13 +1618,13 @@ case "$COMMAND" in
 'logrotate')
     install_logrotate;;
 'librenms')
-	install_librenms;;
+    install_librenms;;
 'librenms_cron_config')
-	librenms_cron_config;;
+    librenms_cron_config;;
 'librenms_snmpd_config')
-	librenms_snmpd_config;;
+    librenms_snmpd_config;;
 'librenms_sneck_config')
-	librenms_sneck_config;;
+    librenms_sneck_config;;
 'mitmproxy')
     install_mitmproxy;;
 'issues')

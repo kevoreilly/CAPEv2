@@ -321,6 +321,10 @@ function install_modsecurity() {
     cd nginx-"$nginx_version" || return
     ./configure --with-compat --add-dynamic-module=../ModSecurity-nginx
     make modules
+    mkdir -p /usr/lib/nginx/modules
+    mkdir -p /usr/share/nginx/modules
+    mkdir -p /var/lib/nginx/body
+    cp objs/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/ngx_http_modsecurity_module.so
     cp objs/ngx_http_modsecurity_module.so /usr/share/nginx/modules/ngx_http_modsecurity_module.so
     cd .. || return
 
@@ -512,7 +516,7 @@ server {
 }
 
 server {
-     if ($http_user_agent = "") {
+    if ($http_user_agent = "") {
         return 444;
     }
     # SSL configuration

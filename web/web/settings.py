@@ -359,7 +359,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.zoom",
     "allauth.socialaccount.providers.okta",
     "crispy_forms",
-    "captcha",  # https://pypi.org/project/django-recaptcha/
+    "django_recaptcha",  # https://pypi.org/project/django-recaptcha/
     "rest_framework",
     "rest_framework.authtoken",
 ]

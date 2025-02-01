@@ -324,6 +324,7 @@ function install_modsecurity() {
     mkdir -p /usr/lib/nginx/modules
     mkdir -p /usr/share/nginx/modules
     mkdir -p /var/lib/nginx/body
+    mkdir -p /etc/nginx/cert
 
     cp objs/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/ngx_http_modsecurity_module.so
     cp objs/ngx_http_modsecurity_module.so /usr/share/nginx/modules/ngx_http_modsecurity_module.so
@@ -447,6 +448,10 @@ function install_nginx() {
     sudo adduser --system --home /nonexistent --shell /bin/false --no-create-home --disabled-login --disabled-password --gecos "nginx user" --group nginx
 
     install_modsecurity
+    mkdir -p /var/lib/nginx/body
+    mkdir -p /etc/nginx/cert
+
+    sudo openssl dhparam -out /etc/nginx/cert/dhparam.pem 2048
 
     sudo mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/proxy_temp /var/cache/nginx/scgi_temp /var/cache/nginx/uwsgi_temp
     sudo chmod 700 /var/cache/nginx/*
@@ -981,6 +986,7 @@ function dependencies() {
     curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -
     echo "PATH=$PATH:/etc/poetry/bin/" >> /etc/bash.bashrc
     source /etc/bash.bashrc
+    poetry self add poetry-plugin-shell
 
     apt-get install locate # used by extra/libvirt_installer.sh
 

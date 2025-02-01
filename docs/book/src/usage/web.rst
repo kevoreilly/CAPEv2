@@ -90,7 +90,7 @@ To extend the capabilities of control what users can do check `Django migrations
 
 .. _`Django migrations a primer`: https://realpython.com/django-migrations-a-primer/
 
-In few works you need to add new fields to ``models.py`` and run ``poetry run python3 manage.py makemigrations``
+In few words you need to add new fields to ``models.py`` and run ``poetry run python3 manage.py makemigrations``
 
 
 Exposed to internet
@@ -99,7 +99,7 @@ Exposed to internet
 To get rid of many bots/scrappers so we suggest deploying this amazing project `Nginx Ultimate bad bot blocker`_, follow the README for installation steps
 
 * Enable web auth with captcha in `conf/web.conf` properly to avoid any brute force.
-* Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/settings.py``
+* Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/local_settings.py``
 * You might need to "Verify" and set as "Stuff user" to your admin in the Django admin panel and add your domain to Sites in Django admin too
 * `AllAuth`_ aka SSO authentication with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
     * Note ``SITE_ID=1`` in django admin is ``example.com`` rename it to your domain to get it working
@@ -132,8 +132,8 @@ Run
 
 .. code:: bash
 
-   sudo systemctl daemon-reload
-   sudo service cape-web restart
+    sudo systemctl daemon-reload
+    sudo service cape-web restart
 
 NGINX
 -----
@@ -141,9 +141,10 @@ Next, install NGINX and configure it to be a reverse proxy to Gunicorn.
 
 .. code:: bash
 
-   sudo apt install nginx
+    sudo apt install nginx
 
-Create a configuration file at ``/etc/nginx/conf.d/cape``
+Create a configuration file at ``/etc/nginx/conf.d/cape``.
+You might need to add ``include /etc/nginx/conf.d/*.conf;`` to ``http`` section inside of ``/etc/nginx/nginx.conf``.
 
 Replace ``www.capesandbox.com`` with your actual hostname.
 
@@ -159,14 +160,14 @@ Replace ``www.capesandbox.com`` with your actual hostname.
 
 
         location ^~ /.well-known/acme-challenge/ {
-          default_type "text/plain";
-          root         /var/www/html;
-          break;
-      }
+            default_type "text/plain";
+            root         /var/www/html;
+            break;
+        }
 
-      location = /.well-known/acme-challenge/ {
-        return 404;
-      }
+        location = /.well-known/acme-challenge/ {
+            return 404;
+        }
 
         location / {
             proxy_pass http://127.0.0.1:8000;
@@ -210,8 +211,8 @@ Now enable the nginx configuration by executing the following:
 
 .. code:: bash
 
-   rm -f /etc/nginx/conf.d/default
-   ln -s /etc/nginx/conf.d/cape /etc/nginx/conf.d/default
+    rm -f /etc/nginx/conf.d/default
+    ln -s /etc/nginx/conf.d/cape /etc/nginx/conf.d/default
 
 
 If you want to block users from changing their own email addresses, add the following `location` directive inside of the `server` directive:

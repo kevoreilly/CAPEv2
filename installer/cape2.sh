@@ -974,13 +974,14 @@ function dependencies() {
     #sudo canonical-livepatch enable APITOKEN
 
     # deps
-    apt-get install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common -y
+    apt-get install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common crudini -y
     apt-get install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
-    apt-get install zpaq upx-ucl wget zip unzip 7zip lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
+    apt-get install zpaq upx-ucl wget zip unzip lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
     apt-get install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common -y
     apt-get install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt-get install openvpn wireguard -y
-    apt-get install crudini -y
+    # for bingraph
+    sudo apt install libgraphviz-dev
 
     # APT poetry is ultra outdated
     curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -

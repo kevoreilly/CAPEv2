@@ -99,7 +99,7 @@ Exposed to internet
 To get rid of many bots/scrappers so we suggest deploying this amazing project `Nginx Ultimate bad bot blocker`_, follow the README for installation steps
 
 * Enable web auth with captcha in `conf/web.conf` properly to avoid any brute force.
-* Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/local_settings.py``
+* Enable `ReCaptcha`_. You will need to set ``RECAPTCHA_PUBLIC_KEY`` and ``RECAPTCHA_PRIVATE_KEY`` keys in ``web/web/local_settings.py``
 * You might need to "Verify" and set as "Stuff user" to your admin in the Django admin panel and add your domain to Sites in Django admin too
 * `AllAuth`_ aka SSO authentication with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
     * Note ``SITE_ID=1`` in django admin is ``example.com`` rename it to your domain to get it working

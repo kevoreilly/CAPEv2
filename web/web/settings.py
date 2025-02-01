@@ -258,11 +258,11 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-    "allauth.socialaccount.providers.github",
-    "allauth.socialaccount.providers.gitlab",
-    "allauth.socialaccount.providers.google",
-    "allauth.socialaccount.providers.microsoft",
-    "allauth.socialaccount.providers.naver",
+    # Keeping this as example but disabling as some of them has extra dependencies. Check official docs.
+    # "allauth.socialaccount.providers.github",
+    # "allauth.socialaccount.providers.gitlab",
+    # "allauth.socialaccount.providers.google",
+    # "allauth.socialaccount.providers.microsoft",
     "crispy_forms",
     "django_recaptcha",  # https://pypi.org/project/django-recaptcha/
     "rest_framework",

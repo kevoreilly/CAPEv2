@@ -1,6 +1,6 @@
+from django import forms
 from django_recaptcha.fields import ReCaptchaField
 from django_recaptcha.widgets import ReCaptchaV2Checkbox
-from django import forms
 
 
 class CaptchedSignUpForm(forms.Form):

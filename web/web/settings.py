@@ -221,6 +221,7 @@ MIDDLEWARE = [
     # in case you want custom auth, place logic in web/web/middleware/custom_auth.py
     # "web.middleware.CustomAuth",
     "web.middleware.DBTransactionMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 OTP_TOTP_ISSUER = "CAPE Sandbox"
@@ -338,7 +339,7 @@ else:
 
 ACCOUNT_EMAIL_REQUIRED = web_cfg.registration.get("email_required", False)
 ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", False)
-ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 3
+ACCOUNT_RATE_LIMITS = {"login_failed": 3}
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/accounts/login/"
 MANUAL_APPROVE = web_cfg.registration.get("manual_approve", False)

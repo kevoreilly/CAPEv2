@@ -292,6 +292,7 @@ TWOFA = web_cfg.web_auth.get("2fa", False)
 
 NOCAPTCHA = web_cfg.web_auth.get("captcha", False)
 # create your keys here -> https://www.google.com/recaptcha/about/
+# Set those in local_settings.py
 RECAPTCHA_PRIVATE_KEY = "TEST_PUBLIC_KEY"
 RECAPTCHA_PUBLIC_KEY = "TEST_PRIVATE_KEY"
 RECAPTCHA_DEFAULT_ACTION = "generic"

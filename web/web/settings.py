@@ -118,8 +118,7 @@ SITE_ID = 1
 USE_I18N = True
 
 # Deprecated in Django 5.0
-# If you set this to False, Django will not format dates, numbers and
-# calendars according to the current locale.
+# If you set this to False, Django will not format dates, numbers and calendars according to the current locale.
 USE_L10N = True
 
 # Disabling time zone support and using local time for web interface and storage.

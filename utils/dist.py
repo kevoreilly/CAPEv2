@@ -807,7 +807,7 @@ class Retriever(threading.Thread):
                 except pyzipper.zipfile.BadZipFile:
                     log.error("File is not a zip file")
                 except Exception as e:
-                    log.exception("Exception: %s" % e)
+                    log.exception("Exception: %s", str(e))
                     if path_exists(os.path.join(report_path, "reports", "report.json")):
                         path_delete(os.path.join(report_path, "reports", "report.json"))
             except Exception as e:
@@ -1392,16 +1392,16 @@ def update_machine_table(node_name):
     # delete all old vms
     _ = db.query(Machine).filter_by(node_id=node.id).delete()
 
-    log.info("Available VM's on %s:" % node_name)
+    log.info("Available VM's on %s:", node_name)
     # replace with new vms
     for machine in new_machines:
-        log.info("-->\t%s" % machine.name)
+        log.info("-->\t%s", machine.name)
         node.machines.append(machine)
         db.add(machine)
 
     db.commit()
 
-    log.info("Updated the machine table for node: %s" % node_name)
+    log.info("Updated the machine table for node: %s", node_name)
 
 
 def delete_vm_on_node(node_name, vm_name):

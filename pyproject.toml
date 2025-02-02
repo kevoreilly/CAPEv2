@@ -160,6 +160,7 @@ ignore = [
     "N818",    # exceptions don't need the Error suffix
     "E741",    # allow ambiguous variable names
     "E402",
+    "W605",    # ToDo to fix - Invalid escape sequence
 ]
 
 fixable = ["ALL"]

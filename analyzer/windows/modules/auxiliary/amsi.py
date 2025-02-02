@@ -986,7 +986,7 @@ class EventConsumer:
 
         if status != ERROR_SUCCESS:
             # We can handle this error and still capture the data.
-            logger.warning("Failed to get data field data for %s, incrementing by reported size" str(name_field))
+            logger.warning("Failed to get data field data for %s, incrementing by reported size", str(name_field))
             self.index += property_length
             return {name_field: None}
 

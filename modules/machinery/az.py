@@ -767,7 +767,7 @@ class Azure(Machinery):
             # For ClientRequestErrors, they do not have the attribute 'error'
             error = exc.error.error if getattr(exc, "error", False) else exc
             log.warning(
-                f"Failed to {api_call} due to the Azure error '{error}': '{exc.message if hasattr(exc, 'message') else repr(exc)}'."
+                "Failed to 5s due to the Azure error '%s': '%s'.", str(api_call), str(error), f"{exc.message if hasattr(exc, 'message') else repr(exc)}"
             )
             if "NotFound" in repr(exc) or (hasattr(exc, "status_code") and exc.status_code == 404):
                 # Note that this exception is used to represent if an Azure resource
@@ -1437,7 +1437,7 @@ class Azure(Machinery):
                 with current_operations_lock:
                     current_vmss_operations -= 1
                 log.debug(
-                    f"{'S' if deleted else 'Uns'}uccessfully deleting instances {instance_ids} in {vmss_to_delete_from} took {round(timeit.default_timer() - start_time)}s"
+                    "%successfully deleting instances %s in {vmss_to_delete_from} took %ss", 'S' if deleted else 'Uns', str(instance_ids), str(round(timeit.default_timer() - start_time))
                 )
             except Exception as e:
                 log.error("Exception occurred in the delete thread: %s. Trying again...", str(e))

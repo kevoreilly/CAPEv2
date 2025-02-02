@@ -15,8 +15,8 @@ import stat
 import subprocess
 import sys
 
-if sys.version_info[:2] < (3, 8):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+if sys.version_info[:2] < (3, 10):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.10")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -153,7 +153,7 @@ def delete_dev_from_vrf(dev):
 def vpn_status(name):
     """Gets current VPN status."""
     ret = {}
-    for line in run(settings.systemctl, "status", "openvpn@{}.service".format(name))[0].split("\n"):
+    for line in run(settings.systemctl, "status", f"openvpn@{name}.service")[0].split("\n"):
         if "running" in line:
             ret[name] = "running"
             break
@@ -893,14 +893,6 @@ if __name__ == "__main__":
             try:
                 output = handlers[command](*args, **kwargs)
             except Exception as e:
-                log.exception("Error executing command: {}".format(command))
+                log.exception("Error executing command: %s", command)
                 error = str(e)
-            server.sendto(
-                json.dumps(
-                    {
-                        "output": output,
-                        "exception": error,
-                    }
-                ).encode(),
-                addr,
-            )
+            server.sendto(json.dumps({"output": output, "exception": error}).encode(), addr)

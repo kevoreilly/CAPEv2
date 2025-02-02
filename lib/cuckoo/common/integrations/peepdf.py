@@ -74,7 +74,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
     try:
         _, pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
     except Exception as e:
-        log.debug("Error parsing pdf: {}".format(e))
+        log.debug("Error parsing pdf: %s", str(e))
         return pdfresult
     urlset = set()
     annoturiset = set()

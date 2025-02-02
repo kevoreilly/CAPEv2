@@ -295,7 +295,7 @@ def processing_finished(future):
             log.error("[%d] Processing timeout: %s. Function: %s", task_id, error, error.args[1])
             db.set_status(task_id, TASK_FAILED_PROCESSING)
         except (pebble.ProcessExpired, Exception) as error:
-            log.error("[%d] Exception when processing task: %s", task_id, error, exc_info=True)
+            log.exception("[%d] Exception when processing task: %s", task_id, error)
             db.set_status(task_id, TASK_FAILED_PROCESSING)
 
     pending_future_map.pop(future)

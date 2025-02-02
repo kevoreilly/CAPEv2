@@ -209,7 +209,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
             try:
                 urlscrub_compiled_re = re.compile(urlscrub)
             except Exception as e:
-                log.error(f"Failed to compile urlscrub regex: {e}")
+                log.error("Failed to compile urlscrub regex:", str(e))
                 return {}
             try:
                 target = re.sub(urlscrub_compiled_re, "", target)

@@ -199,9 +199,7 @@ def check_linux_dist():
     with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
-            log.info(
-                f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS {ubuntu_versions}"
-            )
+            log.info("[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS %s", ubuntu_versions)
 
 
 def init_logging(level: int):
@@ -562,4 +560,4 @@ def check_vms_n_resultserver_networking():
         vm_ip, vm_rs = network
         # is there are better way to check networkrange without range CIDR?
         if not resultserver_block.startswith(vm_ip) or (vm_rs and not vm_rs.startswith(vm_ip)):
-            log.error(f"Your resultserver and VM:{vm} are in different nework ranges. This might give you: CuckooDeadMachine")
+            log.error("Your resultserver and VM: %s are in different nework ranges. This might give you: CuckooDeadMachine", vm)

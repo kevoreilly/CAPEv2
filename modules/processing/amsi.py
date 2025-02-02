@@ -23,10 +23,10 @@ class Amsi(Processing):
                 try:
                     decoded = self.decode_event(json.loads(line))
                 except Exception:
-                    log.exception(f"Failed to process line {idx} of {jsonl_file}.")
+                    log.exception("Failed to process line %d of %s.", idx, jsonl_file)
                     break
                 result.append(decoded)
-            log.info(f"Processed {idx} AMSI event{'s' if idx != 1 else ''}.")
+            log.info("Processed %d AMSI event{'s' if idx != 1 else ''}.", idx)
 
         return result
 

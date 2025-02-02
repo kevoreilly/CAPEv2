@@ -102,7 +102,7 @@ class ScreenshotThread(Thread):
                 # log.info(f'Screenshot saved to {file_path}')
                 img_counter += 1
             except (IOError, libvirt.libvirtError) as e:
-                log.error(f"Cannot take screenshot: {e}")
+                log.error("Cannot take screenshot: %s", str(e))
                 continue
 
     def _take_screenshot(self):

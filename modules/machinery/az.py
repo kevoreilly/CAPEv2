@@ -157,14 +157,14 @@ class Azure(Machinery):
                 # scale set, which is bad for Cuckoo logic
                 if scale_set_opts["initial_pool_size"] <= 0:
                     raise CuckooCriticalError(
-                        f"The initial pool size for VMSS '{scale_set_id}'  is 0. Please set it to a positive integer."
+                        "The initial pool size for VMSS '%s'  is 0. Please set it to a positive integer.", scale_set_id
                     )
 
                 # Insert the scale_set_opts into the module.scale_sets attribute
                 mmanager_opts["scale_sets"][scale_set_id] = scale_set_opts
 
             except (AttributeError, CuckooCriticalError) as e:
-                log.warning(f"Configuration details about scale set {scale_set_id.strip()} are missing: {e}")
+                log.warning("Configuration details about scale set %s are missing: %s", str(scale_set_id.strip()), str(e))
                 continue
 
     def _initialize_check(self):
@@ -242,7 +242,7 @@ class Azure(Machinery):
         and compute clients using an updated ClientSecretCredential
         object.
         """
-        log.debug(f"Connecting to Azure for the region '{self.options.az.region_name}'.")
+        log.debug("Connecting to Azure for the region '%s'.", self.options.az.region_name)
 
         # Getting an updated ClientSecretCredential
         credentials = self._get_credentials()
@@ -286,7 +286,7 @@ class Azure(Machinery):
                     operation=self.compute_client.gallery_images.get,
                 )
             except CuckooMachineError:
-                raise CuckooCriticalError(f"Gallery image '{scale_set_values.gallery_image_name}' does not exist")
+                raise CuckooCriticalError("Gallery image '%s' does not exist", scale_set_values.gallery_image_name)
 
             # Map the Image Reference to the VMSS
             self.required_vmsss[scale_set_id]["platform"] = scale_set_values.platform.capitalize()
@@ -297,13 +297,13 @@ class Azure(Machinery):
         # All required VMSSs must have an image reference, tag and os
         for required_vmss_name, required_vmss_values in self.required_vmsss.items():
             if required_vmss_values["image"] is None:
-                raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an image reference.")
+                raise CuckooCriticalError("The VMSS '5s' does not have an image reference.", required_vmss_name)
             elif required_vmss_values["tag"] is None:
-                raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an tag.")
+                raise CuckooCriticalError("The VMSS '%s' does not have an tag.", required_vmss_name)
             elif required_vmss_values["platform"] is None:
-                raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an OS value.")
+                raise CuckooCriticalError("The VMSS '%s' does not have an OS value.", required_vmss_name)
             elif required_vmss_values["initial_pool_size"] is None:
-                raise CuckooCriticalError(f"The VMSS '{required_vmss_name}' does not have an initial pool size.")
+                raise CuckooCriticalError("The VMSS '%s' does not have an initial pool size.", required_vmss_name)
 
         self._process_pre_existing_vmsss()
         self._check_cpu_cores()
@@ -490,7 +490,7 @@ class Azure(Machinery):
         # Something bad happened, we are starting a task on a machine that needs to be deleted
         with vms_currently_being_deleted_lock:
             if label in vms_currently_being_deleted:
-                raise CuckooMachineError(f"Attempting to start a task with machine {label} while it is scheduled for deletion.")
+                raise CuckooMachineError("Attempting to start a task with machine %s while it is scheduled for deletion.", label)
 
     def stop(self, label=None):
         """
@@ -498,7 +498,7 @@ class Azure(Machinery):
         @param label: virtual machine label
         @return: End method call
         """
-        log.debug(f"Stopping machine '{label}'")
+        log.debug("Stopping machine '%s'", label)
         # Parse the tag and instance id out to confirm which VMSS to modify
         vmss_name, instance_id = label.split("_")
         # If we aren't scaling down, then reimage
@@ -558,7 +558,7 @@ class Azure(Machinery):
         @param vmss_name: the name of the VMSS to be queried
         """
         try:
-            log.debug(f"Adding machines to database for {vmss_name}.")
+            log.debug("Adding machines to database for %s.", vmss_name)
             # We don't want to re-add machines! Therefore, let's see what we're working with
             machines_in_db = self.db.list_machines()
             db_machine_labels = [machine.label for machine in machines_in_db]
@@ -592,13 +592,13 @@ class Azure(Machinery):
                     continue
                 if vmss_vm.name in vms_to_avoid_adding:
                     # Don't add it if it is currently being deleted!
-                    log.debug(f"{vmss_vm.name} is currently being deleted!")
+                    log.debug("%s is currently being deleted!", vmss_vm.name)
                     continue
                 # According to Microsoft, the OS type is...
                 platform = vmss_vm.storage_profile.os_disk.os_type.lower()
 
                 if not vmss_vm.network_profile:
-                    log.error(f"{vmss_vm.name} does not have a network profile")
+                    log.error("%s does not have a network profile", vmss_vm.name)
                     continue
 
                 vmss_vm_nic = next(
@@ -611,7 +611,7 @@ class Azure(Machinery):
                 )
                 if not vmss_vm_nic:
                     log.error(
-                        f"{vmss_vm.network_profile.network_interfaces[0].id.lower()} does not match any NICs in {[vmss_vm_nic.id.lower() for vmss_vm_nic in vmss_vm_nics]}"
+                        "%s does not match any NICs in %s", vmss_vm.network_profile.network_interfaces[0].id.lower(), str([vmss_vm_nic.id.lower() for vmss_vm_nic in vmss_vm_nics])
                     )
                     continue
                 # Sets "new_machine" object in configuration object to
@@ -620,7 +620,7 @@ class Azure(Machinery):
 
                 private_ip = vmss_vm_nic.ip_configurations[0].private_ip_address
                 if private_ip in db_machine_ips:
-                    log.error(f"The IP '{private_ip}' is already associated with a machine in the DB. Moving on...")
+                    log.error("The IP '%s' is already associated with a machine in the DB. Moving on...", private_ip)
                     continue
 
                 # Add machine to DB.
@@ -656,7 +656,7 @@ class Azure(Machinery):
                     try:
                         thr.join()
                     except CuckooGuestCriticalTimeout:
-                        log.debug(f"Rough start for {vm}, deleting.")
+                        log.debug("Rough start for %s, deleting.", vm)
                         self.delete_machine(vm)
                         raise
         except Exception as e:
@@ -664,7 +664,7 @@ class Azure(Machinery):
 
             # If no machines on any VMSSs are in the db when we leave this method, CAPE will crash.
             if not self.machines() and self.required_vmsss[vmss_name]["retries"] > 0:
-                log.warning(f"No available VMs after initializing {vmss_name}. Attempting to reinitialize VMSS.")
+                log.warning("No available VMs after initializing %s. Attempting to reinitialize VMSS.", vmss_name)
                 self.required_vmsss[vmss_name]["retries"] -= 1
                 start_time = timeit.default_timer()
 
@@ -675,14 +675,14 @@ class Azure(Machinery):
                             continue
                     self._update_or_create_vmsss(vmsss_dict={vmss_name: self.required_vmsss[vmss_name]})
                     return
-                log.debug(f"{vmss_name} initialize retry failed. Timed out waiting for VMs to be deleted.")
+                log.debug("%s initialize retry failed. Timed out waiting for VMs to be deleted.", vmss_name)
 
     def _delete_machines_from_db_if_missing(self, vmss_name):
         """
         Delete machine from database if it does not exist in the VMSS.
         @param vmss_name: the name of the VMSS to be queried
         """
-        log.debug(f"Deleting machines from database if they do not exist in the VMSS {vmss_name}.")
+        log.debug("Deleting machines from database if they do not exist in the VMSS %s.", vmss_name)
         # Get all VMs in the VMSS
         paged_vmss_vms = Azure._azure_api_call(
             self.options.az.sandbox_resource_group,
@@ -801,7 +801,7 @@ class Azure(Machinery):
             ).id  # note the id attribute here
         except CuckooMachineError:
             raise CuckooCriticalError(
-                f"Subnet '{self.options.az.subnet}' does not exist in Virtual Network '{self.options.az.vnet}'"
+                "Subnet '%s' does not exist in Virtual Network '%s'", self.options.az.subnet, self.options.az.vnet
             )
 
         vmss_managed_disk = models.VirtualMachineScaleSetManagedDiskParameters(
@@ -1021,7 +1021,7 @@ class Azure(Machinery):
                             number_of_relevant_machines + number_of_new_cpus_available / self.instance_type_cpus
                         )
                         log.debug(
-                            f"Quota could be exceeded with projected number of machines ({old_number_of_relevant_machines_required}). Setting new limit to {number_of_relevant_machines_required}"
+                            "Quota could be exceeded with projected number of machines (%s). Setting new limit to %s", str(old_number_of_relevant_machines_required), str(number_of_relevant_machines_required)
                         )
 
             if machine_pools[vmss_name]["size"] == number_of_relevant_machines_required:
@@ -1031,7 +1031,7 @@ class Azure(Machinery):
                 self._delete_machines_from_db_if_missing(vmss_name)
                 # Update the VMSS size accordingly
                 machine_pools[vmss_name]["size"] = len(self._get_relevant_machines(tag))
-                log.debug(f"The size of the machine pool {vmss_name} is already the size that we want")
+                log.debug("The size of the machine pool %s is already the size that we want", vmss_name)
                 machine_pools[vmss_name]["is_scaling"] = False
                 if platform:
                     is_platform_scaling[platform] = False
@@ -1091,7 +1091,7 @@ class Azure(Machinery):
                         # Relaxxxx
                         time.sleep(self.options.az.scale_down_polling_period)
                         log.debug(
-                            f"Scaling {vmss_name} down until new task is received. {number_of_relevant_machines} -> {number_of_relevant_machines_required}"
+                            "Scaling %s down until new task is received. %s -> %s", vmss_name, str(number_of_relevant_machines), str(number_of_relevant_machines_required)
                         )
 
                         # Get an updated count of relevant machines
@@ -1109,7 +1109,7 @@ class Azure(Machinery):
                     return
 
             # Update the capacity of the VMSS
-            log.debug(f"Scaling {vmss_name} size from {initial_capacity} -> {number_of_relevant_machines_required}")
+            log.debug("Scaling %s size from %s -> %s", vmss_name, initial_capacity, str(number_of_relevant_machines_required))
             vmss = Azure._azure_api_call(
                 self.options.az.sandbox_resource_group,
                 vmss_name,
@@ -1145,7 +1145,7 @@ class Azure(Machinery):
             machine_pools[vmss_name]["size"] = number_of_relevant_machines_required
 
             # Alter the database based on if we scaled up or down
-            log.debug(f"Updated {vmss_name} capacity: {number_of_relevant_machines_required}; Initial capacity: {initial_capacity}")
+            log.debug("Updated %s capacity: %s; Initial capacity: %s", vmss_name, str(number_of_relevant_machines_required), str(initial_capacity))
             if number_of_relevant_machines_required > initial_capacity:
                 self._add_machines_to_db(vmss_name)
             else:
@@ -1162,8 +1162,7 @@ class Azure(Machinery):
             machine_pools[vmss_name]["is_scaling"] = False
             if platform:
                 is_platform_scaling[platform] = False
-            log.exception(repr(exc))
-            log.debug(f"Scaling {vmss_name} has completed with errors {exc!r}.")
+            log.exception("Scaling %s has completed with errors %s.", vmss_name, str(exc))
 
     @staticmethod
     def _handle_poller_result(lro_poller_object):
@@ -1319,10 +1318,10 @@ class Azure(Machinery):
 
                     for instance_id in instance_ids_that_should_not_be_reimaged_again:
                         if "InvalidParameter" in repr(exc):
-                            log.warning(f"Machine {vmss_to_reimage}_{instance_id} does not exist anymore. Deleting from database.")
+                            log.warning("Machine %s does not exist anymore. Deleting from database.", f"{vmss_to_reimage}_{instance_id}")
                         elif "BadRequest" in repr(exc):
                             log.warning(
-                                f"Machine {vmss_to_reimage}_{instance_id} cannot start due to ephemeral disk issues with Azure. Deleting from database and Azure."
+                                "Machine %s cannot start due to ephemeral disk issues with Azure. Deleting from database and Azure.", f"{vmss_to_reimage}_{instance_id}"
                             )
                             with vms_currently_being_deleted_lock:
                                 vms_currently_being_deleted.append(f"{vmss_to_reimage}_{instance_id}")
@@ -1345,7 +1344,7 @@ class Azure(Machinery):
                         reimaged = False
 
                         log.warning(
-                            f"Reimaging machines {instance_ids} in {vmss_to_reimage} took too long, deleting them from the DB and the VMSS."
+                            "Reimaging machines %s in %s took too long, deleting them from the DB and the VMSS.", str(instance_ids), str(vmss_to_reimage)
                         )
                         # That sucks, now we have mark each one for deletion
                         for instance_id in instance_ids:
@@ -1420,7 +1419,7 @@ class Azure(Machinery):
                 while not async_delete_some_machines.done():
                     deleted = True
                     if (timeit.default_timer() - start_time) > AZURE_TIMEOUT:
-                        log.warning(f"Deleting machines {instance_ids} in {vmss_to_delete_from} took too long.")
+                        log.warning("Deleting machines %s in %s took too long.", str(instance_ids), str(vmss_to_delete_from))
                         deleted = False
                         break
                     time.sleep(2)

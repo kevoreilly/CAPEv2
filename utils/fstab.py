@@ -192,14 +192,6 @@ if __name__ == "__main__":
             try:
                 output = handlers[command](*args, **kwargs)
             except Exception as e:
-                log.exception("Error executing command: {}".format(command))
+                log.exception("Error executing command: %s", command)
                 error = str(e)
-            server.sendto(
-                json.dumps(
-                    {
-                        "output": output,
-                        "exception": error,
-                    }
-                ).encode(),
-                addr,
-            )
+            server.sendto(json.dumps({"output": output, "exception": error}).encode(), addr)

@@ -249,17 +249,17 @@ def add_file_to_path(src_path, dst_path, overwrite=False):
     if os.path.exists(dst_path) and overwrite:
         # in case of the src and dst are the same file
         if os.path.samefile(src_path, dst_path):
-            log.info(f"Same file {dst_path} already in the victim vm")
+            log.info("Same file %s already in the victim vm", str(dst_path))
             return
         os.remove(dst_path)
         shutil.copyfile(src=src_path, dst=dst_path)
-        log.info(f"File {dst_path} modified in the victim vm")
+        log.info("File %s modified in the victim vm", str(dst_path))
     elif os.path.exists(dst_path):
-        log.info(f"File {dst_path} already in the victim vm")
+        log.info("File %s already in the victim vm", str(dst_path))
         return
     else:
         shutil.copyfile(src=src_path, dst=dst_path)
-        log.info(f"File {dst_path} added to victim vm")
+        log.info("File %s added to victim vm", str(dst_path))
 
 
 def run_script(script_path, args, timeout):
@@ -268,12 +268,12 @@ def run_script(script_path, args, timeout):
         subprocess.check_output("python " + exec, timeout=timeout, stderr=subprocess.STDOUT)
     else:
         subprocess.check_output(exec, timeout=timeout, stderr=subprocess.STDOUT)
-    log.info(f"Running script {script_path} with parameters {args} on the victim vm")
+    log.info("Running script %s with parameters %s on the victim vm", str(script_path), str(args))
 
 
 def add_directory(path):
     os.makedirs(path, exist_ok=True)
-    log.info(f"Folder {path} added to victim vm")
+    log.info("Folder %s added to victim vm", str(path))
 
 
 def registry_path_to_winreg(path):
@@ -304,7 +304,7 @@ def create_registry(path, key, value, value_type):
         RegistryKey = CreateKey(path, key)
     SetValueEx(RegistryKey, key, 0, value_type, value)
     CloseKey(RegistryKey)
-    log.info(f"Created registry {path}, with key {key} and value {value} on the victim vm")
+    log.info("Created registry %s, with key %s and value %s on the victim vm", str(path), str(key), str(value))
 
 
 def modify_registry(path, key, value, value_type):
@@ -312,9 +312,9 @@ def modify_registry(path, key, value, value_type):
     try:
         RegistryKey = OpenKey(path, key, 0, KEY_ALL_ACCESS)
     except Exception as _:
-        log.info(f"The target registry doesn't exist on the victim vm at path {path} with key {key}")
+        log.info("The target registry doesn't exist on the victim vm at path %s with key %s", str(path), str(key))
     SetValueEx(RegistryKey, key, 0, value_type, value)
-    log.info(f"Modified registry {path}, with key {key} to value {value} on the victim vm")
+    log.info("Modified registry %s, with key %s to value %s on the victim vm", str(path), str(key), str(value))
 
 
 def create_scheduled_task(
@@ -346,7 +346,7 @@ def create_scheduled_task(
     tr.SetTrigger(trigger)
     pf = new_task.QueryInterface(pythoncom.IID_IPersistFile)
     pf.Save(None, 1)
-    log.info(f"Scheduled task {task_name} created on the victim vm")
+    log.info("Scheduled task %s created on the victim vm", str(task_name))
 
 
 def create_scheduled_task2(
@@ -567,7 +567,7 @@ def modify_scheduled_task(
                 folder.DeleteTask(task_name, 0)
             else:
                 folder.RegisterTaskDefinition(task_name, modified_task, TASK_CREATION.TASK_UPDATE.value, "", "", 0)
-    log.info(f"Scheduled task {task_name} modified on the victim vm")
+    log.info("Scheduled task %s modified on the victim vm", str(task_name))
 
 
 def create_trigger(

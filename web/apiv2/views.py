@@ -2438,7 +2438,7 @@ def tasks_file_stream(request, task_id):
         resp = {"error": True, "error_value": "filepath not set"}
         return Response(resp)
     if request.data.get("is_local", ""):
-        if filepath.startswith(("/", "\/")):
+        if filepath.startswith(("/", r"\/")):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
         filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)

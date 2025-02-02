@@ -88,7 +88,7 @@ class vSphere(Machinery):
 
             sslContext = ssl._create_unverified_context()
             self.connect_opts["sslContext"] = sslContext
-            log.warn("Turning off SSL certificate verification!")
+            log.warning("Turning off SSL certificate verification!")
 
         # Check that a snapshot is configured for each machine
         # and that it was taken in a powered-on state

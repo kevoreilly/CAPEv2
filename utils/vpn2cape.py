@@ -30,7 +30,7 @@ rt_table = {rt}
 
             # rt_table
             rt = ""
-            rt = re.findall(f"remote\s(.*)\s{port}", tmp)
+            rt = re.findall(fr"remote\s(.*)\s{port}", tmp)
             if rt:
                 # start from id idx_start
                 rt_table.setdefault(str(index + idx_start), rt[0])
@@ -70,7 +70,7 @@ rt_table = {rt}
             )
             vpns.append(f"vpn_{index + idx_start}")
 
-            file = file.replace(" ", "\ ")
+            file = file.replace(" ", r"\ ")
             paths.append(f"sudo openvpn --config {file} &")
 
             if write:

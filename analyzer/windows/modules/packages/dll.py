@@ -97,7 +97,7 @@ class Dll(Package):
 
             # If the user has not enabled multi, but requested multiple functions, log it and default to #1
             elif not enable_multi and (":" in function or "-" in function or ".." in function):
-                log.warning(f"You need to enable the `{_OPT_ENABLE_MULTI}` option if you want to run multiple functions.")
+                log.warning("You need to enable the `%s` option if you want to run multiple functions.", str(_OPT_ENABLE_MULTI))
                 # Setting function to the first ordinal number since the user does not want use to run multiple functions.
                 function = "#1"
 

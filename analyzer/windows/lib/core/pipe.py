@@ -224,7 +224,7 @@ class PipeServer(threading.Thread):
                 if h.is_alive():
                     h.stop()
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
 
 
 def disconnect_pipes():

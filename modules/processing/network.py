@@ -1103,7 +1103,6 @@ class NetworkAnalysis(Processing):
         return ja3_fprints
 
     def run(self):
-
         if not path_exists(self.pcap_path):
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}

@@ -29,7 +29,7 @@ class FilePickup(Auxiliary):
     def stop(self):
         if hasattr(self, "file_to_get"):
             if self.file_to_get:
-                log.info(f"Uploading {self.file_to_get}")
+                log.info("Uploading %s", self.file_to_get)
                 upload_to_host(self.file_to_get, os.path.join("files", os.path.basename(self.file_to_get)))
 
         self.do_run = False

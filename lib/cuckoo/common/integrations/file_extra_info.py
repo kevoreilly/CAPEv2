@@ -574,7 +574,7 @@ def vbe_extract(file: str, **_) -> ExtractorReturnType:
     try:
         decoded = vbe_decode_file(file, data)
     except Exception as e:
-        log.error(e, exc_info=True)
+        log.exception(e)
 
     if not decoded:
         log.debug("VBE content wasn't decoded")

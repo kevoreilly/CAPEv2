@@ -81,7 +81,6 @@ class TestAnalyzerInternals(unittest.TestCase):
 
 
 class TestAnalyzerChoosePackage(unittest.TestCase):
-
     def test_choose_package_shellcode(self):
         test = analyzer.Analyzer()
         test.config = MagicMock()

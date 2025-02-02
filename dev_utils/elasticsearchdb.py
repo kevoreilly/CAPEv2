@@ -92,7 +92,7 @@ def get_calls_index():
 def delete_analysis_and_related_calls(task_id: str):
     analyses = elastic_handler.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
     if analyses:
-        log.debug("Deleting analysis data for Task %s" % task_id)
+        log.debug("Deleting analysis data for Task %s", task_id)
         for analysis in analyses:
             analysis = analysis["_source"]
             for process in analysis["behavior"].get("processes", []):
@@ -100,7 +100,7 @@ def delete_analysis_and_related_calls(task_id: str):
                     elastic_handler.delete_by_query(index=get_calls_index(), body={"query": {"match": {"_id": call}}})
 
             elastic_handler.delete_by_query(index=get_analysis_index(), body={"query": get_query_by_info_id(task_id)})
-        log.debug("Deleted previous ElasticsearchDB data for Task %s" % task_id)
+        log.debug("Deleted previous ElasticsearchDB data for Task %s", task_id)
 
 
 def scroll(scroll_id: str) -> dict:

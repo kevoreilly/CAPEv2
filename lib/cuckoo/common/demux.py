@@ -184,7 +184,7 @@ def _sf_children(child: sfFile):  # -> bytes:
                 path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()))
                 _ = path_write_file(path_to_extract, child.contents)
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
     return (path_to_extract.encode(), child.platform, child.magic, child.filesize)
 
 
@@ -229,7 +229,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
                 if tmp_child and tmp_child[0]:
                     retlist.append(tmp_child)
     except Exception as e:
-        log.error(e, exc_info=True)
+        log.exception(e)
     return retlist, ""
 
 

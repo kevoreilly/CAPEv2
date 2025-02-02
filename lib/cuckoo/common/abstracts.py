@@ -834,7 +834,6 @@ class Signature:
             CuckooReportError(e)
 
     def yara_detected(self, name):
-
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for keyword in ("cape_yara", "yara"):
@@ -896,16 +895,22 @@ class Signature:
             for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
                 for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
                     if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(macro_path, macroname), sub_block, self.results["static"]["office"]["Macro"][
-                            "info"
-                        ]
+                        yield (
+                            "macro",
+                            os.path.join(macro_path, macroname),
+                            sub_block,
+                            self.results["static"]["office"]["Macro"]["info"],
+                        )
 
         if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
             for yara_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
                 if re.findall(name, yara_block["name"], re.I):
-                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, self.results["static"]["office"][
-                        "XLMMacroDeobfuscator"
-                    ]["info"]
+                    yield (
+                        "macro",
+                        os.path.join(macro_path, "xlm_macro"),
+                        yara_block,
+                        self.results["static"]["office"]["XLMMacroDeobfuscator"]["info"],
+                    )
 
     def signature_matched(self, signame: str) -> bool:
         # Check if signature has matched (useful for ordered signatures)
@@ -971,7 +976,6 @@ class Signature:
         )
 
     def _get_ip_by_host_dns(self, hostname):
-
         ips = []
 
         try:
@@ -1729,7 +1733,7 @@ class Feed:
             try:
                 req = requests.get(self.downloadurl, headers=headers, verify=True)
             except requests.exceptions.RequestException as e:
-                log.warn("Error downloading feed for %s: %s", self.feedname, e)
+                log.warning("Error downloading feed for %s: %s", self.feedname, e)
                 return False
             if req.status_code == 200:
                 self.downloaddata = req.content

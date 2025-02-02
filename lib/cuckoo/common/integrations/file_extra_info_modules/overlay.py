@@ -17,7 +17,6 @@ log = logging.getLogger(__name__)
 
 @time_tracker
 def extract_details(file, *, data_dictionary, **_) -> ExtractorReturnType:
-
     if not data_dictionary.get("pe", {}).get("overlay"):
         return {}
 

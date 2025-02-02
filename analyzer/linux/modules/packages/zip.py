@@ -17,7 +17,6 @@ log = logging.getLogger(__name__)
 
 
 class Zip(Package):
-
     real_package = None
 
     def prepare(self):

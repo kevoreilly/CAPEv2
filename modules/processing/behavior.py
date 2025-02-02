@@ -310,7 +310,7 @@ class ParseProcessLog(list):
             try:
                 argument["value"] = convert_to_printable(arg_value, self.conversion_cache)
             except Exception:
-                log.error(arg_value, exc_info=True)
+                log.exception(arg_value)
                 continue
             if not self.reporting_mode:
                 if isinstance(arg_value_raw, bytes):

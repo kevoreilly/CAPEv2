@@ -517,7 +517,7 @@ class Human(Auxiliary, Thread):
                 pass
             else:
                 for instruction in GIVEN_INSTRUCTIONS:
-                    log.info("Instruction: %s" % instruction)
+                    log.info("Instruction: %s", instruction)
                     try:
                         if instruction.lower() == CLICK_CMD:
                             click_mouse()
@@ -536,7 +536,7 @@ class Human(Auxiliary, Thread):
                         if match and len(match.regs) == 2:
                             interval = int(match.group(1))
                     except Exception as e:
-                        log.error("One of the instruction given is invalid: %s with error %s" % (instruction, e))
+                        log.error("One of the instruction given is invalid: %s with error %s", instruction, str(e))
                         continue
 
             while self.do_run:

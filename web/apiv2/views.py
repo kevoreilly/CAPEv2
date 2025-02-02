@@ -1265,7 +1265,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
                         else:
                             zf.write(filepath, filedir)
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
 
             # exception for lite report that is under reports/lite.json
             if report_format.lower() == "lite":
@@ -2438,7 +2438,7 @@ def tasks_file_stream(request, task_id):
         resp = {"error": True, "error_value": "filepath not set"}
         return Response(resp)
     if request.data.get("is_local", ""):
-        if filepath.startswith(("/", "\/")):
+        if filepath.startswith(("/", r"\/")):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
         filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
@@ -2455,7 +2455,7 @@ def tasks_file_stream(request, task_id):
             return Response(resp)
         return StreamingHttpResponse(streaming_content=r.iter_content(chunk_size=1024), content_type="application/octet-stream")
     except requests.exceptions.RequestException as ex:
-        log.error(ex, exc_info=True)
+        log.exception(ex)
         resp = {"error": True, "error_value": f"Requests exception: {ex}"}
     return Response(resp)
 

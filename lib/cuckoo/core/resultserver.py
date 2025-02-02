@@ -383,7 +383,6 @@ class BsonStore(ProtocolHandler):
                 argdict = {argnames[i]: converters[i](arg) for i, arg in enumerate(args)}
 
                 if apiname == "__process__":
-
                     # pid = argdict["ProcessIdentifier"]
                     ppid = argdict["ParentProcessIdentifier"]
                     modulepath = argdict["ModulePath"]
@@ -464,7 +463,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             try:
                 create_folder(self.storagepath, folder=folder.decode())
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
             # ToDo
             # except CuckooOperationalError as e:
             #    log.error("Unable to create folder %s", folder)
@@ -511,7 +510,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 with protocol:
                     protocol.handle()
             except CuckooOperationalError as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
             finally:
                 with self.task_mgmt_lock:
                     s.discard(ctx)

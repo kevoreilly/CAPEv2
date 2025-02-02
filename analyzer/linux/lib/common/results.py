@@ -38,7 +38,7 @@ def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", categor
                     nc.send(buf, retry=True)
                     buf = infd.read(BUFSIZE)
     except Exception as e:
-        log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
+        log.exception("Exception uploading file %s to host: %s", file_path, e)
     finally:
         if nc:
             nc.close()

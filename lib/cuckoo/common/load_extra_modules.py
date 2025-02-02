@@ -35,7 +35,6 @@ def ratdecodedr_load_decoders(path: str):
 
 
 def cape_load_custom_decoders(CUCKOO_ROOT: str):
-
     cape_modules = {}
     cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
     CAPE_DECODERS = {"cape": [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{cape_decoders}/[!_]*.py")]}
@@ -68,7 +67,6 @@ def cape_load_custom_decoders(CUCKOO_ROOT: str):
 
 
 def malduck_load_decoders(CUCKOO_ROOT: str):
-
     malduck_modules = {}
     malduck_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck")
     MALDUCK_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{malduck_decoders}/[!_]*.py")]

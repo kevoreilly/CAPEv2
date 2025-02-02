@@ -52,7 +52,7 @@ class AWS(Machinery):
         self.ec2_machines = {}
         self.dynamic_machines_sequence = 0
         self.dynamic_machines_count = 0
-        log.info("connecting to AWS:{}".format(self.options.aws.region_name))
+        log.info("connecting to AWS: %s", self.options.aws.region_name)
 
         # Performing a check to see if the access and secret keys were passed through the configuration file
         access_key = getattr(self.options.aws, "aws_access_key_id", None)
@@ -81,7 +81,7 @@ class AWS(Machinery):
             ]
         ):
             if self._is_autoscaled(instance):
-                log.info("Terminating autoscaled instance %s" % instance.id)
+                log.info("Terminating autoscaled instance %s", instance.id)
                 instance.terminate()
 
         instance_ids = self._list()
@@ -165,7 +165,7 @@ class AWS(Machinery):
                 break
             except Exception as e:
                 attempts += 1
-                log.warning(f"Failed while creating new instance {e}. Trying again.")
+                log.warning("Failed while creating new instance %s. Trying again.", str(e))
                 instance = None
 
         if instance is None:
@@ -200,7 +200,7 @@ class AWS(Machinery):
         #  if no sufficient machines left  -> launch a new machines
         while autoscale_options["autoscale"] and current_available_machines < running_machines_gap:
             if self.dynamic_machines_count >= dynamic_machines_limit:
-                log.debug("Reached dynamic machines limit - %d machines" % dynamic_machines_limit)
+                log.debug("Reached dynamic machines limit - %d machines", dynamic_machines_limit)
                 break
             if not self._allocate_new_machine():
                 break
@@ -245,10 +245,10 @@ class AWS(Machinery):
                 status = AWS.ERROR
             else:
                 status = AWS.ERROR
-            log.info("instance state: {}".format(status))
+            log.info("instance state: %s", status)
             return status
         except Exception as e:
-            log.exception("can't retrieve the status: {}".format(e))
+            log.exception("can't retrieve the status: %s", e)
             return AWS.ERROR
 
     """override Machinery method"""
@@ -259,8 +259,7 @@ class AWS(Machinery):
         @param label: virtual machine label.
         @raise CuckooMachineError: if unable to start.
         """
-        log.debug("Starting vm {}".format(label))
-
+        log.debug("Starting vm %s", label)
         if not self._is_autoscaled(self.ec2_machines[label]):
             self.ec2_machines[label].start()
             self._wait_status(label, AWS.RUNNING)
@@ -274,7 +273,7 @@ class AWS(Machinery):
         @param label: virtual machine label.
         @raise CuckooMachineError: if unable to stop.
         """
-        log.debug("Stopping vm %s" % label)
+        log.debug("Stopping vm %s", label)
 
         status = self._status(label)
 
@@ -364,7 +363,7 @@ class AWS(Machinery):
         This method detaches and deletes the current volume, then creates a new one and attaches it.
         :param label: machine label
         """
-        log.info("restoring machine: {}".format(label))
+        log.info("restoring machine: %s", label)
         vm_info = self.db.view_machine_by_label(label)
         snap_id = vm_info.snapshot
         instance = self.ec2_machines[label]
@@ -378,7 +377,7 @@ class AWS(Machinery):
 
         log.debug("Detaching %s", old_volume.id)
         resp = instance.detach_volume(VolumeId=old_volume.id, Force=True)
-        log.debug("response: {}".format(resp))
+        log.debug("response: %s", resp)
         while True:
             old_volume.reload()
             if old_volume.state != "in-use":
@@ -412,7 +411,7 @@ class AWS(Machinery):
 
         log.debug("Attaching new volume")
         resp = instance.attach_volume(VolumeId=new_volume.id, Device="/dev/sda1")
-        log.debug("response {}".format(resp))
+        log.debug("response %s", resp)
         while True:
             new_volume.reload()
             if new_volume.state != "available":
@@ -421,4 +420,4 @@ class AWS(Machinery):
         log.debug("new volume %s in state %s", new_volume.id, new_volume.state)
         if new_volume.state != "in-use":
             new_volume.delete()
-            raise CuckooMachineError("New volume turned into state %s instead of 'in-use'" % old_volume.state)
+            raise CuckooMachineError("New volume turned into state %s instead of 'in-use'", old_volume.state)

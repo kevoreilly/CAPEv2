@@ -85,9 +85,8 @@ HAVE_DIST = False
 if dist_conf.distributed.enabled:
     try:
         # Tags
-        from lib.cuckoo.common.dist_db import Machine, Node
+        from lib.cuckoo.common.dist_db import Machine, Node, create_session
         from lib.cuckoo.common.dist_db import Task as DTask
-        from lib.cuckoo.common.dist_db import create_session
 
         HAVE_DIST = True
         dist_session = create_session(dist_conf.distributed.db)
@@ -1295,7 +1294,7 @@ def _malwarebazaar_dl(hash):
             except pyzipper.zipfile.BadZipFile:
                 print(data.content)
     except Exception as e:
-        logging.error(e, exc_info=True)
+        log.exception(e)
 
     return sample
 
@@ -1501,7 +1500,7 @@ def submit_task(
             filename=filename,
         )
     if not task_id:
-        log.warn("Error adding CAPE task to database: %s", package)
+        log.warning("Error adding CAPE task to database: %s", package)
         return task_id
 
     log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)

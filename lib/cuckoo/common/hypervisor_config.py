@@ -8,7 +8,6 @@ proxmox_conf = Config("proxmox")
 
 
 def proxmox_shutdown_vm(machineName: str):
-
     proxmox_server = proxmox_conf.proxmox.hostname
     # Not supporting multiple servers
     nodes = proxmox_conf.proxmox.nodes

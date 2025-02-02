@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from django.urls import re_path
+
 from submission import views
 
 urlpatterns = [

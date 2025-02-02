@@ -65,7 +65,7 @@ def get_malware_paths(path):
 
 def get_sample(hash, download_location):
     if os.path.isfile(download_location) and hash == hashlib.sha256(open(download_location, "rb").read()).hexdigest():
-        logging.warning(download_location + " already there, skipping!")
+        logging.warning("%s already there, skipping!", download_location)
     else:
         r = s.get(SAMPLE_STORAGE + hash, verify=False, timeout=10)
         if r and r.status_code == 200:
@@ -74,7 +74,7 @@ def get_sample(hash, download_location):
                 raise Exception("Hashes doens't match")
             with open(download_location, mode="wb+") as file:
                 file.write(r.content)
-                logging.warning(download_location + " grabbed!")
+                logging.warning("%s grabbed!", download_location)
         else:
-            logging.warning("Status code: {} - content: {}".format(r.status_code, r.content))
+            logging.warning("Status code: %d - content: %s", r.status_code, r.text)
             raise Exception("Non 200 status code")

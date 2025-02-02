@@ -661,7 +661,7 @@ class _Database:
             self.session.delete(machine)
             return True
         else:
-            log.warning(f"{name} does not exist in the database.")
+            log.warning("%s does not exist in the database.", name)
             return False
 
     def add_machine(
@@ -1329,7 +1329,7 @@ class _Database:
             try:
                 tmp_package = sflock_identify(f, check_shellcode=check_shellcode)
             except Exception as e:
-                log.error(f"Failed to sflock_ident due to {e}")
+                log.error("Failed to sflock_ident due to %s", str(e))
                 tmp_package = "generic"
 
         if tmp_package and tmp_package in sandbox_packages:
@@ -1369,7 +1369,6 @@ class _Database:
         cape=False,
         category=None,
     ):
-
         # Get file filetype to ensure self extracting archives run longer
         if not isinstance(filename, str):
             filename = bytes2str(filename)

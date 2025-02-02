@@ -167,7 +167,7 @@ def is_reporting_db_connected():
             connect_to_es()
             return True
     except Exception as e:
-        log.error(f"Can't connect to reporting db {e}")
+        log.error("Can't connect to reporting db %s", str(e))
         return False
 
 
@@ -185,7 +185,7 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             for id in ids_tmp:
                 if db.delete_task(id):
                     try:
-                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
+                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s", str(id))
                         if path_is_dir(path):
                             delete_folder(path)
                     except Exception as e:
@@ -194,7 +194,7 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             # If we don't remove from mongo we should keep in db to be able to show task in webgui
             for id in ids_tmp:
                 try:
-                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
+                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s", str(id))
                     if path_is_dir(path):
                         delete_folder(path)
                 except Exception as e:
@@ -209,7 +209,7 @@ def fail_job(tid):
             tid = tid["info"]["id"]
         elif "id" in tid:
             tid = tid["id"]
-    log.info("set %s job to failed" % (tid))
+    log.info("set %s job to failed", tid)
 
     db.set_status(tid, TASK_FAILED_ANALYSIS)
 
@@ -223,18 +223,18 @@ def delete_data(tid):
         elif "id" in tid:
             tid = tid["id"]
     try:
-        log.info("removing %s from analysis db" % (tid))
+        log.info("removing %s from analysis db", tid)
         if repconf.mongodb.enabled:
             mongo_delete_data(tid)
         elif repconf.elasticsearchdb.enabled:
             delete_analysis_and_related_calls(tid)
     except Exception as e:
-        log.error("failed to remove analysis info (may not exist) %s due to %s" % (tid, e), exc_info=True)
+        log.exception("failed to remove analysis info (may not exist) %s due to %s", tid, e)
     with db.session.begin():
         if db.delete_task(tid):
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid)))
         else:
-            log.info("failed to remove faile task %s from DB" % (tid))
+            log.info("failed to remove faile task %s from DB", tid)
 
 
 def dist_delete_data(data, dist_db):
@@ -345,18 +345,18 @@ def cuckoo_clean_bson_suri_logs():
         for el2 in e:
             new = el2.to_dict()
             id = new["id"]
-            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % id)
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
             if path_exists(path):
-                jsonlogs = glob("%s/logs/*json*" % (path))
-                bsondata = glob("%s/logs/*.bson" % (path))
-                filesmeta = glob("%s/logs/files/*.meta" % (path))
+                jsonlogs = glob(f"{path}/logs/*json*")
+                bsondata = glob(f"{path}/logs/*.bson")
+                filesmeta = glob(f"{path}/logs/files/*.meta")
                 for f in jsonlogs, bsondata, filesmeta:
                     for fe in f:
                         try:
-                            log.info(("removing %s" % (fe)))
+                            log.info("removing %s", fe)
                             path_delete(fe)
                         except Exception as Err:
-                            log.info(("failed to remove sorted_pcap from disk %s" % (Err)))
+                            log.info("failed to remove sorted_pcap from disk %s", Err)
 
 
 def cuckoo_clean_failed_url_tasks():
@@ -414,7 +414,7 @@ def cuckoo_clean_lower_score(malscore: int):
                 index=get_analysis_index(), query={"query": {"range": {"malscore": {"lte": malscore}}}}, _source=["info.id"]
             )
         ]
-    log.info(("number of matching records %s" % len(id_arr)))
+    log.info("number of matching records %s", len(id_arr))
     resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 
@@ -478,7 +478,7 @@ def cuckoo_clean_before_day(args: dict):
     for e in old_tasks:
         id_arr.append({"info.id": (int(e.to_dict()["id"]))})
 
-    log.info(("number of matching records %s before suri/custom filter " % len(id_arr)))
+    log.info("number of matching records %s before suri/custom filter", len(id_arr))
     if id_arr and args.get("suricata_zero_alert_filter"):
         result = list(
             mongo_find("analysis", {"suricata.alerts.alert": {"$exists": False}, "$or": id_arr}, {"info.id": 1, "_id": 0})
@@ -491,7 +491,7 @@ def cuckoo_clean_before_day(args: dict):
             )
         )
         id_arr = [entry["info"]["id"] for entry in result]
-    log.info("number of matching records %s" % len(id_arr))
+    log.info("number of matching records %s", len(id_arr))
     delete_bulk_tasks_n_folders(id_arr, args.get("delete_mongo"))
     # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
@@ -542,12 +542,12 @@ def cuckoo_clean_sorted_pcap_dump():
                         elif repconf.elasticsearchdb.enabled:
                             es.update(index=e["index"], id=e["info"]["id"], body={"network.sorted_pcap_id": ""})
                     except Exception:
-                        log.info(("failed to remove sorted pcap from db for id %s" % (e["info"]["id"])))
+                        log.info(("failed to remove sorted pcap from db for id %s", e["info"]["id"]))
                     try:
-                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % (e["info"]["id"]), "dump_sorted.pcap")
+                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(e["info"]["id"]), "dump_sorted.pcap")
                         path_delete(path)
                     except Exception as e:
-                        log.info(("failed to remove sorted_pcap from disk %s" % (e)))
+                        log.info(("failed to remove sorted_pcap from disk %s", e))
                 else:
                     done = True
         else:
@@ -654,7 +654,6 @@ def binaries_clean_before_day(days: int):
 
 
 def execute_cleanup(args: dict, init_log=True):
-
     if init_log:
         init_console_logging()
 

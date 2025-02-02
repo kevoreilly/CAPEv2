@@ -30,7 +30,6 @@ import json
 import logging
 import sys
 import threading
-# import traceback
 import uuid
 
 logger = logging.getLogger(__name__)

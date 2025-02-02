@@ -165,7 +165,7 @@ class AWS(Machinery):
                 break
             except Exception as e:
                 attempts += 1
-                log.warning(f"Failed while creating new instance {e}. Trying again.")
+                log.warning("Failed while creating new instance %s. Trying again.", str(e))
                 instance = None
 
         if instance is None:
@@ -273,7 +273,7 @@ class AWS(Machinery):
         @param label: virtual machine label.
         @raise CuckooMachineError: if unable to stop.
         """
-        log.debug("Stopping vm %s" % label)
+        log.debug("Stopping vm %s", label)
 
         status = self._status(label)
 

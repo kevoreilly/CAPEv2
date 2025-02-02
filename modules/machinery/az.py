@@ -982,7 +982,7 @@ class Azure(Machinery):
 
             if number_of_relevant_machines_required > self.subnet_limit:
                 number_of_relevant_machines_required = self.subnet_limit
-                log.debug("Scaling limited by the size of the subnet: %s" % self.subnet_limit)
+                log.debug("Scaling limited by the size of the subnet: %s", self.subnet_limit)
 
             number_of_machines = len(self.db.list_machines())
             projected_total_machines = number_of_machines - number_of_relevant_machines + number_of_relevant_machines_required
@@ -1361,7 +1361,7 @@ class Azure(Machinery):
                     current_vmss_operations -= 1
                 timediff = timeit.default_timer() - start_time
                 log.debug(
-                    f"{'S' if reimaged else 'Uns'}uccessfully reimaging instances {instance_ids} in {vmss_to_reimage} took {round(timediff)}s"
+                    "%successfully reimaging instances %s in %s took %ds", {'S' if reimaged else 'Uns'}, str(instance_ids), str(vmss_to_reimage), round(timediff)
                 )
             except Exception as e:
                 log.error("Exception occurred in the reimage thread: %s. Trying again...", str(e))

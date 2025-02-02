@@ -160,8 +160,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
             params["completed_after"] = since
         r = requests.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False)
         if not r.ok:
-            log.error(f"Error fetching task list. Status code: {r.status_code} - {r.url}")
-            log.info("Saving error to /tmp/dist_error.html")
+            log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
             _ = path_write_file("/tmp/dist_error.html", r.content)
             return []
         return r.json().get("data", [])
@@ -201,13 +200,13 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
     worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
 
     if not path_mount_point(worker_path):
-        log.error(f"[-] Worker: {worker_name} is not mounted to: {worker_path}!")
+        log.error("[-] Worker: %s is not mounted to: %s!", worker_name, worker_path)
         return True
 
     worker_path = os.path.join(worker_path, "storage", "analyses", str(task_id))
 
     if not path_exists(worker_path):
-        log.error(f"File on destiny doesn't exist: {worker_path}")
+        log.error("File on destiny doesn't exist: %s", worker_path)
         return True
 
     analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(main_task_id))
@@ -444,7 +443,7 @@ class Retriever(threading.Thread):
         for thr in self.threads:
             try:
                 thr.join(timeout=0.0)
-                log.info(f"Thread: {thr.name} - Alive: {thr.is_alive()}")
+                log.info("Thread: %s - Alive: %s", thr.name, str(thr.is_alive()))
             except Exception as e:
                 log.exception(e)
             time.sleep(60)
@@ -644,18 +643,18 @@ class Retriever(threading.Thread):
                         main_db.set_status(t.main_task_id, TASK_REPORTED)
 
                     # Fetch each requested report.
-                    report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
+                    report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
                     # ToDo option
                     node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
                     start_copy = timeit.default_timer()
                     copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
                     timediff = timeit.default_timer() - start_copy
                     log.info(
-                        f"It took {timediff:.2f} seconds to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
+                        "It took %s seconds to copy report %d from node: %s for task: %d", f"{timediff:.2f}", t.task_id, node.name, t.main_task_id
                     )
 
                     if not copied:
-                        log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
+                        log.error("Can't copy report %d from node: %s for task: %d", t.task_id, node.name, t.main_task_id)
                         continue
 
                     # this doesn't exist for some reason
@@ -675,9 +674,7 @@ class Retriever(threading.Thread):
                             try:
                                 shutil.move(t.path, destination)
                             except FileNotFoundError as e:
-                                print(f"Failed to move: {t.path} - {e}")
-                                pass
-
+                                log.error("Failed to move: %s - %s", t.path, str(e))
                         # creating link to analysis folder
                         if path_exists(destination):
                             try:
@@ -751,16 +748,14 @@ class Retriever(threading.Thread):
 
                 if report.status_code != 200:
                     log.info(
-                        "dist report retrieve failed - status_code {}: task_id: {} from node: {}".format(
-                            report.status_code, t.task_id, node_id
-                        )
+                        "dist report retrieve failed - status_code %d: task_id: %d from node: %s", report.status_code, t.task_id, node_id
                     )
                     if report.status_code == 400 and (node_id, task.get("id")) not in self.cleaner_queue.queue:
                         self.cleaner_queue.put((node_id, task.get("id")))
-                        log.info(f"Status code: {report.status_code} - MSG: {report.text}")
+                        log.info("Status code: %d - MSG: %s", report.status_code, report.text)
                     continue
 
-                log.info(f"Report size for task {t.task_id} is: {int(report.headers.get('Content-length', 1))/int(1<<20):,.0f} MB")
+                log.info("Report size for task %s is: %s MB", t.task_id, f"{int(report.headers.get('Content-length', 1))/int(1<<20):,.0f}")
 
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
                 if not path_exists(report_path):
@@ -804,7 +799,7 @@ class Retriever(threading.Thread):
                                 self.delete_target_file(t.main_task_id, sample_sha256, t.path)
 
                         else:
-                            log.debug(f"{t.path} doesn't exist")
+                            log.debug("%s doesn't exist", t.path)
 
                         t.retrieved = True
                         t.finished = True
@@ -861,7 +856,7 @@ class StatusThread(threading.Thread):
         try:
             node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=node_id).first()
         except (OperationalError, SQLAlchemyError) as e:
-            log.warning(f"Got an operational Exception when trying to submit tasks: {e}")
+            log.warning("Got an operational Exception when trying to submit tasks: %s", str(e))
             return False
 
         if node.name not in SERVER_TAGS:
@@ -898,7 +893,7 @@ class StatusThread(threading.Thread):
                         # Check if file exist, if no wipe from db and continue, rare cases
                         if t.category in ("file", "pcap", "static"):
                             if not path_exists(t.target):
-                                log.info(f"Task id: {t.id} - File doesn't exist: {t.target}")
+                                log.info("Task id: %d - File doesn't exist: %s", t.id, t.target)
                                 main_db.set_status(t.id, TASK_BANNED)
                                 continue
 
@@ -907,7 +902,7 @@ class StatusThread(threading.Thread):
                                 file_size = path_get_size(t.target)
                                 if file_size > web_conf.general.max_sample_size:
                                     log.warning(
-                                        f"File size: {file_size} is bigger than allowed: {web_conf.general.max_sample_size}"
+                                        "File size: %d is bigger than allowed: %d", file_size, web_conf.general.max_sample_size
                                     )
                                     main_db.set_status(t.id, TASK_BANNED)
                                     continue

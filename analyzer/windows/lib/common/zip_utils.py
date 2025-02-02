@@ -1,15 +1,11 @@
 import hashlib
 import logging
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
 from zipfile import BadZipfile, ZipFile
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 from lib.common.constants import OPT_MULTI_PASSWORD
 from lib.common.exceptions import CuckooPackageError
@@ -18,7 +14,7 @@ from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
-FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\]+( [a-zA-Z0-9\.\-,_\\]+)?)+)\r")
 FILE_EXT_OF_INTEREST = [
     ".bat",
     ".cmd",

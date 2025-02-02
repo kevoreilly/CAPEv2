@@ -21,6 +21,7 @@ class CuckooHeaders(MiddlewareMixin):
     def __init__(self, get_response):
         self.get_response = get_response
         self._is_coroutine = False
+        self.async_mode = False
 
     def process_response(self, request, response):
         response["Server"] = "Machete Server"

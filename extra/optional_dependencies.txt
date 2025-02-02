@@ -1,11 +1,13 @@
 # This is aux requirements file to install all side dependencies
-# Run: poetry run pip -r extra/optional_dependencies.txt
+# Run: poetry run pip install -r extra/optional_dependencies.txt
+# Those deps are not in pyproject due to their hardcoded dependencies and conflicts with another libraries.
+# Those deps adds big value to specific tasks, but we can't satisfy all use cases. So end user MUST make it work by himself.
 ImageHash
 deepdiff
 flask
 flask-restful
 flask-sqlalchemy==3.0.5
-git+https://github.com/CAPESandbox/binGraph
+git+https://github.com/CAPESandbox/binGraph # requires sudo apt install libgraphviz-dev
 git+https://github.com/CAPESandbox/httpreplay
 git+https://github.com/CAPESandbox/socks5man
 git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git
@@ -23,4 +25,4 @@ urlextract==1.5.0
 pdfminer==20191125
 pg_activity
 python-tlsh
-pyattck==7.1.2
+git+https://github.com/CAPESandbox/pyattck/

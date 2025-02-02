@@ -56,10 +56,10 @@ QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux
 
 
 #https://www.qemu.org/download/#source or https://download.qemu.org/
-qemu_version=9.0.0
+qemu_version=9.2.0
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
-libvirt_version=10.3.0
+libvirt_version=10.10.0
 # virt-manager - https://github.com/virt-manager/virt-manager/releases
 # autofilled
 OS=""
@@ -139,9 +139,16 @@ if [ -f "./kvm-config.sh" ]; then
         . ./kvm-config.sh
 fi
 
-# ToDo check if aptitude is installed if no refresh and install
-sudo apt-get update 2>/dev/null
-sudo apt-get install aptitude -y 2>/dev/null
+which aptitude 2>/dev/null
+if [ $? -eq 1 ]; then
+    sudo apt-get update 2>/dev/null
+    sudo apt-get install aptitude -y 2>/dev/null
+fi
+
+which pip3 2>/dev/null
+if [ $? -eq 1 ]; then
+    sudo python3-pip -y 2>/dev/null
+fi
 
 NC='\033[0m'
 RED='\033[0;31m'
@@ -150,6 +157,7 @@ echo -e "${RED}\t[!] NEVER install packages from APT that installed by this scri
 echo -e "${RED}\t[!] NEVER use 'make install' - it poison system and no easy way to upgrade/uninstall/cleanup, use dpkg-deb${NC}"
 echo -e "${RED}\t[!] NEVER run 'python setup.py install' DO USE 'pip intall .' the same as APT poisoning/upgrading${NC}\n"
 echo -e "${RED}\t[!] NEVER FORCE system upgrade, it will ignore blacklist and mess with packages installed by APT and this scritp!${NC}\n"
+echo -e "${RED}\t[!] NEVER! When upgrading ubuntu release, first uninstall qemu and libvirt, then upgrade and then install again! As is the same as force and bypasses apt mark-hold${NC}\n"
 
 function usage() {
 cat << EndOfHelp
@@ -177,7 +185,6 @@ cat << EndOfHelp
         Issues - will give you error - solution list
         noip - Install No-ip deamon and enable on boot
         SysRQ - enable SysRQ - https://sites.google.com/site/syscookbook/rhel/rhel-sysrq-key
-        jemalloc - install Jemalloc google if you need details ;)
 
     Tips:
         * Latest kernels having some KVM features :)
@@ -248,7 +255,7 @@ function _enable_tcp_bbr() {
 }
 
 function install_apparmor() {
-    aptitude install -f bison linux-generic-hwe-22.04 -y
+    aptitude install -f bison linux-generic-hwe-24.04 -y
     aptitude install -f apparmor apparmor-profiles apparmor-profiles-extra apparmor-utils libapparmor-dev libapparmor1  python3-apparmor python3-libapparmor libapparmor-perl -y
 }
 
@@ -353,7 +360,7 @@ function install_libvmi() {
         # git checkout add_vmi_request_page_fault
         # git pull
         #git clone https://github.com/libvmi/python.git libvmi-python
-        pip3 install libvmi
+        PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install libvmi
         echo "[+] Cloned LibVMI Python repo"
     fi
     cd "libvmi-python" || return
@@ -362,7 +369,7 @@ function install_libvmi() {
     aptitude install -f -y python3-pkgconfig python3-cffi python3-future
     #pip3 install .
     python3 setup.py build
-    pip3 install .
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install .
 
     # Rekall
     cd /tmp || return
@@ -481,7 +488,7 @@ EOH
     echo "[+] Checking/deleting old versions of Libvirt"
     apt-get purge libvirt0 libvirt-bin libvirt-$libvirt_version 2>/dev/null
     dpkg -l|grep "libvirt-[0-9]\{1,2\}\.[0-9]\{1,2\}\.[0-9]\{1,2\}"|cut -d " " -f 3|sudo xargs dpkg --purge --force-all 2>/dev/null
-    apt-get install meson plocate libxml2-utils gnutls-bin  gnutls-dev libxml2-dev bash-completion libreadline-dev numactl libnuma-dev python3-docutils flex -y
+    apt-get install meson plocate libxml2-utils gnutls-bin  gnutls-dev libxml2-dev bash-completion libreadline-dev numactl libnuma-dev python3-docutils flex libjson-c-dev pylint pycodestyle -y
     # Remove old links
     updatedb
     temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
@@ -519,7 +526,7 @@ EOH
         # To see whole config sudo meson configure
         # true now is enabled
         cd /tmp/libvirt-$libvirt_version || return
-        sudo meson build -D system=true -D driver_remote=enabled -D driver_qemu=enabled -D driver_libvirtd=enabled -D qemu_group=libvirt -D qemu_user=root -D secdriver_apparmor=enabled -D apparmor_profiles=enabled -D bash_completion=auto
+        sudo meson setup build -D system=true -D driver_remote=enabled -D driver_qemu=enabled -D driver_libvirtd=enabled -D qemu_group=libvirt -D qemu_user=root -D secdriver_apparmor=enabled -D apparmor_profiles=enabled -D bash_completion=auto
 
         sudo ninja -C build
         sudo ninja -C build install
@@ -533,11 +540,11 @@ EOH
         updatedb
         # ToDo fix bad destiny on some systems, example, first arg should be destiny to link not source
         # /usr/lib/x86_64-linux-gnu/libvirt-qemu.so.0 -> /usr/lib64/libvirt-qemu.so
-        temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
+        temp_libvirt_so_path=$(locate libvirt-qemu.so |grep -v "docker"| head -n1 | awk '{print $1;}')
         temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
         libvirt_so_path="${temp_libvirt_so_path%/*}/"
         if [[ $libvirt_so_path == "/usr/lib/x86_64-linux-gnu/" ]]; then
-            temp_libvirt_so_path=$(locate libvirt-qemu.so | tail -1 | awk '{print $1;}')
+            temp_libvirt_so_path=$(locate libvirt-qemu.so |grep -v "docker"| tail -1 | awk '{print $1;}')
             libvirt_so_path="${temp_libvirt_so_path%/*}/"
         fi
         export_path="${temp_export_path%/*}/"
@@ -545,7 +552,8 @@ EOH
 
         if [[ -n "$libvirt_so_path" ]]; then
             # #ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
-            for so_path in $(ls "${libvirt_so_path}"libvirt*.so.0); do ln -sf "$so_path" /lib/$(uname -m)-linux-gnu/$(basename "$so_path"); done
+            # 24.10.2024 Observed problem with ln -sf, but works just fine with cp
+            for so_path in $(ls "${libvirt_so_path}"libvirt*.so.0); do echo $so_path; cp "$so_path" /lib/$(uname -m)-linux-gnu/$(basename "$so_path"); done
             ldconfig
         else
             echo "${RED}[!] Problem to create symlink, unknown libvirt_so_path path${NC}"
@@ -597,7 +605,7 @@ EOH
 
     cd ..
     # Remove the $libvirt_version directory to permission errors when runing
-    # cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/poetry_libvirt_installer.sh later
+    # cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/poetry_libvirt_installer.sh later
     rm -r libvirt-python-$libvirt_version
 
     if [ "$OS" = "Linux" ]; then
@@ -660,12 +668,12 @@ function install_virt_manager() {
     gstreamer1.0-x adwaita-icon-theme at-spi2-core augeas-lenses cpu-checker dconf-gsettings-backend dconf-service \
     fontconfig fontconfig-config fonts-dejavu-core genisoimage gir1.2-appindicator3-0.1 gir1.2-secret-1 \
     gobject-introspection intltool pkg-config libxml2-dev libxslt-dev python3-dev gir1.2-gtk-vnc-2.0 gir1.2-spiceclientgtk-3.0 libgtk-3-dev \
-    mlocate gir1.2-gtksource-4 libgtksourceview-4-0 libgtksourceview-4-common -y
+    plocate gir1.2-gtksource-4 libgtksourceview-4-0 libgtksourceview-4-common pylint pycodestyle -y
     # should be installed first
     # moved out as some 20.04 doesn't have this libs %)
     aptitude install -f -y python3-ntlm-auth libpython3-stdlib libbrlapi-dev libgirepository1.0-dev python3-testresources
     apt-get -y -o Dpkg::Options::="--force-overwrite" install ovmf
-    pip3 install tqdm requests six urllib3 ipaddr ipaddress idna dbus-python certifi lxml cryptography pyOpenSSL chardet asn1crypto pycairo PySocks PyGObject pylint pytest
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install tqdm requests six urllib3 ipaddr ipaddress idna dbus-python certifi lxml cryptography pyOpenSSL chardet asn1crypto pycairo PySocks PyGObject pylint pytest
 
     # not available in 22.04
     if [ $(lsb_release -sc) != "jammy" ]; then
@@ -682,33 +690,17 @@ function install_virt_manager() {
     export PKG_CONFIG_PATH=$export_path
 
     cd /tmp || return
-    if [ ! -f libvirt-glib-3.0.0.tar.gz ]; then
-        wget -q https://libvirt.org/sources/glib/libvirt-glib-3.0.0.tar.gz
-        wget -q https://libvirt.org/sources/glib/libvirt-glib-3.0.0.tar.gz.asc
-        gpg --verify "libvirt-glib-3.0.0.tar.gz.asc"
-
+    if [ ! -d "libvirt-glib" ]; then
+        git clone https://gitlab.com/libvirt/libvirt-glib.git
     fi
-    # ToDo add blacklist
-    tar xf libvirt-glib-3.0.0.tar.gz
-    cd libvirt-glib-3.0.0 || return
-    aclocal && libtoolize --force
-    automake --add-missing
-    ./configure
-    mkdir -p /tmp/libvirt-glib_builded/DEBIAN
-    echo -e "Package: libvirt-glib-1.0-0\nVersion: 1.0.0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom libvirt-glib-1.0-0" > /tmp/libvirt-glib_builded/DEBIAN/control
-    make -j"$(nproc)" install DESTDIR=/tmp/libvirt-glib_builded
-    dpkg-deb --build --root-owner-group /tmp/libvirt-glib_builded
-    apt-get -y -o Dpkg::Options::="--force-overwrite" install /tmp/libvirt-glib_builded.deb
-    make -j"$(nproc)"
-
-    # v4 is meson based
-    # sudo meson build -D system=true
-    cd /tmp || return
-    if [ ! -f gir1.2-libvirt-glib-1.0_1.0.0-1_amd64.deb ]; then
-        wget -q http://launchpadlibrarian.net/297448356/gir1.2-libvirt-glib-1.0_1.0.0-1_amd64.deb
-    fi
-    dpkg --force-confold -i gir1.2-libvirt-glib-1.0_1.0.0-1_amd64.deb
-
+    cd libvirt-glib
+    meson setup builddir
+    meson compile -C builddir
+    sudo ninja -C builddir install
+    # for some reason i have to run it twice
+    sudo ninja -C builddir install
+    mkdir -p /usr/local/lib/girepository-1.0/
+    cp builddir/libvirt-glib/LibvirtGLib-1.0.typelib /usr/local/lib/girepository-1.0/LibvirtGLib-1.0.typelib
     /sbin/ldconfig
 
     if [ ! -d "virt-manager" ]; then
@@ -744,7 +736,7 @@ function install_kvm_linux() {
     aptitude install -f gtk-update-icon-cache -y 2>/dev/null
 
     # WSL support
-    aptitude install -f gcc make gnutls-bin
+    aptitude install -f gcc make gnutls-bin -y
 
     install_libvirt
 
@@ -816,10 +808,11 @@ function replace_seabios_clues_public() {
     _sed_aux "s/04\/01\/2014/$src_bios_table_date2/g" src/fw/biostables.c 'change seabios date 2'
     _sed_aux "s/01\/01\/2011/$src_fw_smbios_date/g" src/fw/smbios.c 'change seabios date 3'
     _sed_aux 's/"SeaBios"/"AMIBios"/g' src/fw/biostables.c 'change seabios to amibios'
+    _sed_aux 's/"SeaBIOS"/"AMIBios"/g' src/fw/biostables.c 'change seabios to amibios'
 
     FILES=(
         src/hw/blockcmd.c
-        #src/fw/paravirt.c
+        src/fw/paravirt.c
     )
     for file in "${FILES[@]}"; do
         _sed_aux 's/"QEMU"/"'"$BOCHS_BLOCK_REPLACER2"'"/g' "$file" "QEMU was not replaced in $file"
@@ -855,14 +848,6 @@ function replace_seabios_clues_public() {
     for file in "${FILES[@]}"; do
         _sed_aux 's/"BXPC"/"A M I"/g' "$file" "BXPC was not replaced in $file"
     done
-}
-
-function install_jemalloc() {
-
-    # https://zapier.com/engineering/celery-python-jemalloc/
-    if ! $(dpkg -l "libjemalloc*" | grep -q "ii  libjemalloc"); then
-        aptitude install -f curl build-essential jq autoconf libjemalloc-dev -y
-    fi
 }
 
 function install_qemu() {
@@ -1206,7 +1191,7 @@ function cloning() {
         exit 1
     fi
 
-    which virt-manager
+    which virt-manager 2>/dev/null
     if [ $? -eq 1 ]; then
         echo "You need to install virt-manager. Run sudo $0 virtmanager"
         exit 1
@@ -1299,15 +1284,15 @@ esac
 
 #check if start with root
 if [ "$EUID" -ne 0 ]; then
-   echo 'This script must be run as root'
-   exit 1
+    echo 'This script must be run as root'
+    exit 1
 fi
 
 OS="$(uname -s)"
 MAINTAINER="$(whoami)"_"$(hostname)"
 ARCH="$(dpkg --print-architecture)"
-#add-apt-repository universe
-#apt-get update && apt-get upgrade
+# add-apt-repository universe
+# apt-get update && apt-get upgrade
 #make
 
 case "$COMMAND" in
@@ -1315,7 +1300,7 @@ case "$COMMAND" in
     issues;;
 'all')
     configure_needreboot
-    aptitude install -f language-pack-UTF-8 -y
+    aptitude install -f language-pack-UTF-8 python3-pip -y
     install_qemu
     install_seabios
     install_kvm_linux
@@ -1386,8 +1371,6 @@ case "$COMMAND" in
     ;;
 'grub')
     grub_iommu;;
-'jemalloc')
-    install_jemalloc;;
 'needreboot')
     configure_needreboot;;
 'mosh')

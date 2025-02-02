@@ -32,12 +32,15 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         params = urllib.parse.parse_qs(self.scope["query_string"].decode())
 
         if "rdp" in guest_protocol:
-            guest_host = params.get("guest_ip", "")
+            hosts = params.get("guest_ip", "")
+            guest_host = hosts[0]
             guest_port = int(web_cfg.guacamole.guest_rdp_port) or 3389
+            ignore_cert = "true" if web_cfg.guacamole.ignore_rdp_cert is True else "false"
         else:
             guest_host = web_cfg.guacamole.vnc_host or "localhost"
             ports = params.get("vncport", ["5900"])
             guest_port = int(ports[0])
+            ignore_cert = "false"
 
         guacd_recording_name = params.get("recording_name", ["task-recording"])[0]
 
@@ -53,6 +56,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             password=guest_password,
             recording_path=guacd_recording_path,
             recording_name=guacd_recording_name,
+            ignore_cert=ignore_cert,
         )
 
         if self.client.connected:

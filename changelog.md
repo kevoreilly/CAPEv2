@@ -1,3 +1,23 @@
+### [28.01.2025]
+* Require `poetry>=2.0`.
+
+### [27.01.2025]
+* Monitor update: Fix import reconstruction (advanced submission option)
+
+### [23.01.2025]
+* Monitor update: Fix bug with dumping PE images with abnormally large PE header (e.g. 5ba3d13c57f6b08f34d8ec4f200091b458fdf48141c23ce959d9cda4804a7f5e) (thanks Kevin Ross)
+
+### [07.01.2025]
+* Monitor update: Fix bug with dump limit being tripped by AMSI preventing unpacked capture in e.g. e69ab87e878305285eab44652fa72b0168b53d2c9d95d5e40ae6311a5b6eec7b (thanks @YungBinary)
+
+### [31.12.2024]
+* Monitor updates:
+    * CoGetClassObject hook: add inspect_clsid for improved injection (e.g. 38a9847cb5ce4918bdfee2d54d5d3b79e1399cce15c7b68d86e8f0a5f48e3131)
+    * SetFileInformationByHandle hook
+    * GetComputerNameExW hook: add fake results for all NameTypes (e.g. 8056b8ff55c452cc87e35d69928cccbcfc5af848db1abb4fe0364510986e068b)
+    * RmStartSession hook (thanks para0x0dise)
+    * LdrpCallInitRoutine hook for Win10+
+
 ### [01.11.2024] Parsers
 * Malware config parsers aka parsers are moved out of core of CAPE.
     * Now they are at their own [repository](https://github.com/CAPESandbox/CAPE-parsers).

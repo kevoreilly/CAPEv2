@@ -4,6 +4,8 @@
 
 import os
 
+import chardet
+
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.path_utils import path_write_file
@@ -23,7 +25,11 @@ class LiteReport(Report):
 
     def default(self, obj):
         if isinstance(obj, bytes):
-            return obj.decode()
+            encoding = chardet.detect(obj)["encoding"]
+            if encoding:
+                return obj.decode(encoding, errors="replace")
+            else:
+                return obj.decode("utf-8", errors="replace")
         raise TypeError
 
     def run(self, results):

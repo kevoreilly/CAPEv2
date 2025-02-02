@@ -4,12 +4,14 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shlex
 import shutil
 import signal
 import subprocess
-from contextlib import suppress
-from typing import DefaultDict, List, Optional, Set, Union
+
+# from contextlib import suppress
+from typing import Any, DefaultDict, List, Optional, Set, Union
 
 import pebble
 
@@ -70,13 +72,6 @@ try:
 except ImportError:
     dns_indicators = ()
 
-HAVE_DIE = False
-with suppress(ImportError):
-    import die
-
-    HAVE_DIE = True
-
-
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
@@ -114,6 +109,10 @@ except ImportError:
     print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
 unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
+innoextact_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.Inno_extract.binary)
+sevenzip_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.SevenZip_unpack.binary)
+if not path_exists(sevenzip_binary):
+    sevenzip_binary = "/usr/bin/7z"
 
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
@@ -175,7 +174,7 @@ def static_file_info(
             if capa_details:
                 data_dictionary["flare_capa"] = capa_details
 
-        if HAVE_FLOSS:
+        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
@@ -225,10 +224,10 @@ def static_file_info(
         if processing_conf.trid.enabled:
             data_dictionary["trid"] = trid_info(file_path)
 
-        if processing_conf.die.enabled and HAVE_DIE:
+        if processing_conf.die.enabled:
             data_dictionary["die"] = detect_it_easy_info(file_path)
 
-        if HAVE_FLOSS and processing_conf.floss.enabled:
+        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
             floss_strings = Floss(file_path, package).run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
@@ -263,24 +262,38 @@ def static_file_info(
 
 
 def detect_it_easy_info(file_path: str):
+    if not path_exists(processing_conf.die.binary):
+        log.warning("detect-it-easy binary not found at path %s", processing_conf.die.binary)
+        return []
+
     try:
-        try:
-            result_json = die.scan_file(file_path, die.ScanFlags.RESULT_AS_JSON, str(die.database_path / "db"))
-        except Exception as e:
-            log.error("DIE error: %s", str(e))
+        die_output = subprocess.check_output(
+            [processing_conf.die.binary, "-j", file_path],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+        )
 
-        if "detects" not in result_json:
-            return []
+        def get_json() -> dict[str, Any]:
+            """Get the JSON element from the detect it easy output.
 
-        if "Invalid signature" in result_json and "{" in result_json:
-            start = result_json.find("{")
-            if start != -1:
-                result_json = result_json[start:]
+            This is required due to non-JSON output in JSON mode.
+            https://github.com/horsicq/Detect-It-Easy/issues/242
+            """
+            matches = re.findall(r"\{.*\}", die_output, re.S)
+            return json.loads(matches[0]) if matches else {}
 
-        strings = [sub["string"] for block in json.loads(result_json).get("detects", []) for sub in block.get("values", [])]
+        def get_matches() -> list[str]:
+            """Get the string values from the detect it easy output."""
+            return [sub["string"] for block in get_json().get("detects", []) for sub in block.get("values", [])]
 
-        if strings:
-            return strings
+        return [] if "detects" not in die_output else get_matches()
+    except subprocess.CalledProcessError as err:
+        log.error(
+            "Detect-It-Easy: Failed to execute cmd=`%s`, stdout=`%s`, stderr=`%s`",
+            shlex.join(err.cmd),
+            err.stdout,
+            err.stderr,
+        )
     except json.decoder.JSONDecodeError as e:
         log.debug("DIE results are not in json format: %s", str(e))
     except Exception as e:
@@ -343,7 +356,7 @@ def _extracted_files_metadata(
             if processing_conf.trid.enabled:
                 file_info["trid"] = trid_info(full_path)
 
-            if processing_conf.die.enabled and HAVE_DIE:
+            if processing_conf.die.enabled:
                 file_info["die"] = detect_it_easy_info(full_path)
 
             dest_path = os.path.join(destination_folder, file_info["sha256"])
@@ -439,6 +452,7 @@ def generic_file_extractors(
         eziriz_deobfuscate,
         office_one,
         msix_extract,
+        UnGPG_extract,
     ]
 
     futures = {}
@@ -505,6 +519,7 @@ def generic_file_extractors(
             data_dictionary["selfextract"][new_tool_name] = {
                 "extracted_files": metadata,
                 "extracted_files_time": func_result["took_seconds"],
+                "password": extraction_result.get("password", ""),
             }
         finally:
             if tempdir:
@@ -699,17 +714,36 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
     if all("Inno Setup" not in string for string in data_dictionary.get("die", [])):
         return
 
-    if not path_exists(selfextract_conf.Inno_extract.binary):
-        log.error("Missed dependency: sudo apt install innoextract")
+    if not path_exists(innoextact_binary):
+        log.error("Missed dependency: Get a release from https://github.com/gdesmar/innoextract")
         return
 
+    password = ""
     with extractor_ctx(file, "InnoExtract", prefix="innoextract_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
-        run_tool(
-            [selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir],
+        output = run_tool(
+            [innoextact_binary, file, "--output-dir", tempdir],
             universal_newlines=True,
             stderr=subprocess.PIPE,
         )
+        if (
+            "Warning: Setup contains encrypted files, use the --password option to extract them" in output
+            or "- encrypted" in output
+        ):
+            output = run_tool(
+                [innoextact_binary, "--crack", file],
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
+            if "Password found: " in output:
+                password = output.split("\n")[0].split(": ")[1]
+            if password:
+                _ = run_tool(
+                    [innoextact_binary, file, "--output-dir", tempdir, "--password", password],
+                    universal_newlines=True,
+                    stderr=subprocess.PIPE,
+                )
+                ctx["password"] = password
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx
@@ -801,8 +835,8 @@ def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> Extra
 def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options: dict, **_) -> ExtractorReturnType:
     tool = False
 
-    if not path_exists("/usr/bin/7z"):
-        logging.error("Missed 7z package: apt install p7zip-full")
+    if not path_exists(sevenzip_binary):
+        logging.error("Missed 7zip executable. Run: poetry run python utils/community.py -waf")
         return
 
     # Check for msix file since it's a zip
@@ -821,14 +855,13 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     if all([pattern in file_data for pattern in (b"AndroidManifest.xml", b"classes.dex")]):
         return
 
-    password = ""
     # Only for real 7zip, breaks others
     password = options.get("password", "infected")
     if any(
         "7-zip Installer data" in string for string in data_dictionary.get("die", [])
     ) or "Zip archive data" in data_dictionary.get("type", ""):
-        tool = "7Zip"
-        prefix = "7zip_"
+        tool = "SevenZip"
+        prefix = "SevenZip_"
         password = options.get("password", "infected")
         password = f"-p{password}"
 
@@ -839,9 +872,12 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         prefix = "cab_"
         password = ""
 
-    elif "Nullsoft Installer self-extracting archive" in filetype:
+    elif "Nullsoft Installer self-extracting archive" in filetype or any(
+        "Nullsoft Scriptable Install System" in string for string in data_dictionary.get("die", [])
+    ):
         tool = "UnNSIS"
         prefix = "unnsis_"
+        password = ""
         """
         elif (
             any("SFX: WinRAR" in string for string in data_dictionary.get("die", [{}]))
@@ -857,24 +893,16 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     with extractor_ctx(file, tool, prefix=prefix, folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         HAVE_SFLOCK = False
-        if HAVE_SFLOCK:
+        if HAVE_SFLOCK and tool not in ("UnNSIS",):
             unpacked = unpack(file.encode(), password=password)
             for child in unpacked.children:
                 _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
         else:
-            _ = run_tool(
-                [
-                    "7z",
-                    "e",
-                    file,
-                    password,
-                    f"-o{tempdir}",
-                    "-y",
-                ],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
-
+            sevenzip_args = [sevenzip_binary, "e", file, f"-o{tempdir}", "-y"]
+            # Need this, otherwie NSIS fails
+            if password:
+                sevenzip_args.append(password)
+            _ = run_tool(sevenzip_args, universal_newlines=True, stderr=subprocess.PIPE)
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx
@@ -947,5 +975,26 @@ def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
             stderr=subprocess.PIPE,
         )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
+
+    return ctx
+
+
+@time_tracker
+def UnGPG_extract(file: str, filetype: str, data_dictionary: dict, options: dict, **_) -> ExtractorReturnType:
+
+    if "PGP symmetric key encrypted data" not in data_dictionary.get("type", ""):
+        return
+
+    password = options.get("password", "infected")
+    filename = os.path.basename(file)
+    with extractor_ctx(file, "UnGPG", prefix="unpgp", folder=tools_folder) as ctx:
+        tempdir = ctx["tempdir"]
+        output = run_tool(
+            ["gpg", "--passphrase", password, "--batch", "--quiet", "--yes", "-o", os.path.join(tempdir, filename), "-d", file],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
+        if output:
+            ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

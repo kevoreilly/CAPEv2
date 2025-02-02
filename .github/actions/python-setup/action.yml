@@ -12,11 +12,13 @@ runs:
       if: ${{ runner.os == 'Linux' }}
       shell: bash
       run: |
-        sudo apt update && sudo apt-get install -y --no-install-recommends libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev p7zip-full innoextract unrar upx
+        sudo apt update && sudo apt-get install -y --no-install-recommends libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev 7zip innoextract unrar upx
 
     - name: Install poetry
       shell: bash
       run: PIP_BREAK_SYSTEM_PACKAGES=1 pip install poetry poetry-plugin-export
+    #- name: Python Poetry Action
+    #  uses: abatilo/actions-poetry@v3.0.1
 
     - name: Set up Python ${{ inputs.python-version }}
       uses: actions/setup-python@v5
@@ -27,4 +29,4 @@ runs:
     - name: Install requirements
       shell: bash
       run: |
-        PIP_BREAK_SYSTEM_PACKAGES=1 poetry install --no-interaction --no-root
+        PIP_BREAK_SYSTEM_PACKAGES=1 poetry install --no-interaction

@@ -1170,7 +1170,10 @@ class _Database:
 
         elif isinstance(obj, URL):
             task = Task(obj.url)
-            tags = "x64,x86"
+            _tags = tags.split(",") if isinstance(tags, str) else []
+            _tags.append("x64")
+            _tags.append("x86")
+            tags = ",".join(set(_tags))
 
         else:
             return None
@@ -1546,6 +1549,9 @@ class _Database:
 
         # create tasks for each file in the archive
         for file, platform in extracted_files:
+            if not path_exists(file):
+                log.error("Extracted file doesn't exist: %s", file)
+                continue
             # ToDo we lose package here and send APKs to windows
             if platform in ("linux", "darwin") and LINUX_STATIC:
                 task_ids += self.add_static(

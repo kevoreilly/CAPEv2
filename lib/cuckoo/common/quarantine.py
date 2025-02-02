@@ -558,12 +558,15 @@ def kav_unquarantine(file):
 
 
 def trend_unquarantine(f):
-    qdata = Path(f).read_bytes()
-    data = bytearray_xor(bytearray(qdata), 0xFF)
+    # Read first 10 bytes
+    with open(f, "rb") as fil:
+        qheader = fil.read(10)
+        header = bytearray_xor(bytearray(qheader), 0xFF)
 
-    magic, dataoffset, numtags = struct.unpack("<IIH", data[:10])
+    magic, dataoffset, numtags = struct.unpack("<IIH", header[:10])
     if magic != 0x58425356:  # VSBX
         return None
+
     origname = "UnknownTrendFile.bin"
     basekey = 0x00000000
     encmethod = 0
@@ -571,19 +574,23 @@ def trend_unquarantine(f):
     if numtags > 15:
         return None
 
+    # If file looks like a quarantine file, then read it all
+    qdata = Path(f).read_bytes()
+    data = bytearray_xor(bytearray(qdata), 0xFF)
+
     dataoffset += 10
     offset = 10
     for _ in range(numtags):
         code, tagdata = read_trend_tag(data, offset)
         if code == 2:  # original filename
-            origname = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
+            origname = str(tagdata).encode("utf16").decode(errors="ignore").rstrip("\0")
         elif code == 6:  # base key
             basekey = struct.unpack("<I", tagdata)[0]
         elif code == 7:  # encryption method: 1 == xor FF, 2 = CRC method
             encmethod = struct.unpack("<I", tagdata)[0]
         """
         elif code == 1:  # original pathname
-            origpath = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
+            origpath = str(tagdata).encode("utf16").decode(errors="ignore").rstrip("\0")
         elif code == 3:  # platform
             platform = str(tagdata)
         elif code == 4:  # file attributes

@@ -1,7 +1,7 @@
 rule Arkei
 {
     meta:
-        author = "kevoreilly"
+        author = "kevoreilly, YungBinary"
         description = "Arkei Payload"
         cape_type = "Arkei Payload"
     strings:
@@ -19,6 +19,32 @@ rule Arkei
         $v7 = "files\\cc_" ascii wide
         $v8 = "files\\autofill_" ascii wide
         $v9 = "files\\cookies_" ascii wide
+        
+        $loaded_modules = {
+            64 A1 30 00 00 00
+            8B 40 0C
+            8B 40 0C
+            8B 00
+            8B 00
+            8B 40 18
+            89 45 FC
+            8B 45 FC
+            8B E5
+            5D
+            C3
+        }
+
+        $language_check = {
+            FF 15 ?? ?? ?? ??
+            0F B7 C0
+            89 45 ??
+            81 7D ?? 3F 04 ?? ??
+            7F
+        }
+
+        $ext1 = ".zoo" ascii
+        $ext2 = ".arc" ascii
+
     condition:
-        uint16(0) == 0x5A4D and (all of ($string*) or 7 of ($v*))
+        uint16(0) == 0x5A4D and (($loaded_modules and $language_check and $ext1 and $ext2) or (all of ($string*) or 7 of ($v*)))
 }

@@ -17,6 +17,25 @@ from pathlib import Path
 
 # Private
 import custom.signatures
+
+try:
+    import custom.signatures.all
+except ImportError:
+    HAS_CUSTOM_SIGNATURES_ALL = False
+else:
+    HAS_CUSTOM_SIGNATURES_ALL = True
+try:
+    import custom.signatures.linux
+except ImportError:
+    HAS_CUSTOM_SIGNATURES_LINUX = False
+else:
+    HAS_CUSTOM_SIGNATURES_LINUX = True
+try:
+    import custom.signatures.windows
+except ImportError:
+    HAS_CUSTOM_SIGNATURES_WINDOWS = False
+else:
+    HAS_CUSTOM_SIGNATURES_WINDOWS = True
 import modules.auxiliary
 import modules.feeds
 import modules.processing
@@ -272,6 +291,12 @@ def init_modules():
     import_package(modules.signatures.linux)
     # Import all private signatures
     import_package(custom.signatures)
+    if HAS_CUSTOM_SIGNATURES_ALL:
+        import_package(custom.signatures.all)
+    if HAS_CUSTOM_SIGNATURES_LINUX:
+        import_package(custom.signatures.linux)
+    if HAS_CUSTOM_SIGNATURES_WINDOWS:
+        import_package(custom.signatures.windows)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
         log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
     # Import all reporting modules.

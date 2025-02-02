@@ -80,6 +80,7 @@ class PcapNg(Processing):
             dst.write(src.read())
 
     def generate_pcapng(self, sslkeylogfile_path):
+        # ToDo bail if file is empty
         cmd = [EDITCAP, "--inject-secrets", "tls," + sslkeylogfile_path, self.pcap_path, self.pcapng_path]
         log.debug("generating pcapng with command '%s", cmd)
         subprocess.check_call(cmd, timeout=EDITCAP_TIMEOUT)

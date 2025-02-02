@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # ubuntu-latest
     timeout-minutes: 20
     strategy:
       matrix:
@@ -34,7 +34,7 @@ jobs:
 
       - name: Install pyattck
         run: |
-          poetry run pip install pyattck==7.1.2 maco
+          poetry run pip install git+https://github.com/CAPESandbox/pyattck maco
 
       - name: Run Ruff
         run: poetry run ruff check . --output-format=github .
@@ -42,12 +42,16 @@ jobs:
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append
 
+      # see the mypy configuration in pyproject.toml
+      - name: Run mypy
+        run: poetry run mypy
+
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10"]
     if: ${{ github.ref == 'refs/heads/master' }}
 
     steps:

@@ -171,6 +171,12 @@ def process(
 
     log.removeHandler(per_analysis_handler)
 
+    # Remove the SQLAlchemy session to ensure the next task pulls objects from
+    # the database, instead of relying on a potentially outdated object cache.
+    # Stale data can prevent SQLAlchemy from querying the database or issuing
+    # statements, resulting in unexpected errors and inconsistencies.
+    db.session.remove()
+
 
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -286,14 +292,11 @@ def processing_finished(future):
             _ = future.result()
             log.info("Reports generation completed for Task #%d", task_id)
         except TimeoutError as error:
-            log.error("[%d] Processing Timeout %s. Function: %s", task_id, error, error.args[1])
-            Database().set_status(task_id, TASK_FAILED_PROCESSING)
-        except pebble.ProcessExpired as error:
-            log.exception("[%d] Exception when processing task: %s", task_id, error)
-            Database().set_status(task_id, TASK_FAILED_PROCESSING)
-        except Exception as error:
-            log.exception("[%d] Exception when processing task: %s", task_id, error)
-            Database().set_status(task_id, TASK_FAILED_PROCESSING)
+            log.error("[%d] Processing timeout: %s. Function: %s", task_id, error, error.args[1])
+            db.set_status(task_id, TASK_FAILED_PROCESSING)
+        except (pebble.ProcessExpired, Exception) as error:
+            log.error("[%d] Exception when processing task: %s", task_id, error, exc_info=True)
+            db.set_status(task_id, TASK_FAILED_PROCESSING)
 
     pending_future_map.pop(future)
     pending_task_id_map.pop(task_id)

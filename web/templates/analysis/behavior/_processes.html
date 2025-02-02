@@ -84,9 +84,9 @@
     }
     function load_filtered_chunk(pid, category, caller, tid) {
         // Trim leading and trailing spaces
-        var inputValue = $("#apifilter_" + pid).val().trim(); 
+        var inputValue = $("#apifilter_" + pid).val().trim();
         // Split input by commas, trim spaces, and join back with commas
-        var apis = inputValue.split(',').map(api => api.trim()).join(','); 
+        var apis = inputValue.split(',').map(api => api.trim()).join(',');
         var encodedlist = (apis === "") ? encodeURI("!null") : encodeURI(apis);
 
         $("#process_" + pid + " div.calltable").load("/analysis/filtered/{{id}}/" + pid + "/" + category + "/" + encodedlist + "/" + caller + "/" + tid + "/", function (data, status, xhr) {
@@ -134,6 +134,9 @@
                 <br />Full Path: <b>{{process.module_path}}</b>
                 {% if process.environ.CommandLine %}
                 <br />Command Line: <b>{{ process.environ.CommandLine }}</b>
+                {% endif %}
+                {% if process.environ.DllBase %}
+                    <br />Dll Image Base: <b>{{ process.environ.DllBase }}</b>,
                 {% endif %}
                 {% if process.environ.MainExeBase %}
                     <br />Image Base: <b>{{ process.environ.MainExeBase }}</b>,

@@ -2,12 +2,15 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import os
 import pathlib
+import struct
 import tempfile
+from unittest import mock
 
 import pytest
 
-from lib.cuckoo.common.quarantine import mbam_unquarantine, mse_unquarantine, unquarantine
+from lib.cuckoo.common.quarantine import bytearray_xor, mbam_unquarantine, mse_unquarantine, trend_unquarantine, unquarantine
 
 # from tcr_misc import get_sample
 
@@ -23,12 +26,50 @@ def grab_sample():
     return _grab_sample
 """
 
+QUARANTINED_DATA = b"\xff\xee\xdd\xcc\xbb\xaa"
+
 
 @pytest.fixture
 def empty_file():
     empty_file = tempfile.NamedTemporaryFile(suffix=".but")
     yield empty_file
     empty_file.close()
+
+
+@pytest.fixture
+def temp_trend_qarantined_pe(tmp_path):
+    def trend_tag(code: int, tag_data: bytes) -> bytes:
+        return struct.pack("<BH", code, len(tag_data)) + tag_data
+
+    def write_quarantine_file(dir):
+        tags = b"".join(
+            [
+                trend_tag(1, ("C:\\" + "\0").encode("utf-16le")),
+                trend_tag(2, ("dangerous.exe" + "\0").encode("utf-16le")),
+                trend_tag(3, b"win32"),
+                trend_tag(4, b"\x00"),
+                trend_tag(5, b"\x01"),
+                trend_tag(6, b"\x00\x00\x00\x00"),
+                trend_tag(7, b"\x01\x00\x00\x00"),
+            ]
+        )
+        magic = 0x58425356
+        offset = len(tags) + 10
+        numtags = 7
+        header = struct.pack("<IIH", magic, offset, numtags)
+        file_data = bytearray(header)
+        file_data.extend(tags)
+        file_data.extend(b"\x00" * 10)
+        file_data.extend(QUARANTINED_DATA)
+        file_data = bytearray_xor(file_data, 0xFF)
+        qfilepath = os.path.join(dir, "quarantined_file")
+        with open(qfilepath, "wb") as qfil:
+            qfil.write(file_data)
+        return qfilepath
+
+    qpath = write_quarantine_file(tmp_path)
+    yield qpath
+    os.unlink(qpath)
 
 
 class TestUnquarantine:
@@ -100,3 +141,57 @@ class TestUnquarantine:
 
     def test_ext_err(self, empty_file):
         assert unquarantine(empty_file.name) is None
+
+    def test_trend_unquarantine_normal_file(self, temp_pe32):
+        """Test only the file header (first 10 bytes) is XOR'd for non-quarantined files."""
+        # The expected output is None
+        expected = None
+
+        def bytearray_xor_wrapper(data, key):
+            expected_header_length = 10
+            actual_header_length = len(data)
+            # We only want to see the 10 byte header here if the file is not
+            # quarantined.
+            assert expected_header_length == actual_header_length
+            return data
+
+        def store_temp_file_(filedata, filename, path=None):
+            return expected
+
+        # Mock `store_temp_file` to give us visibility into the call.
+        with mock.patch("lib.cuckoo.common.quarantine.store_temp_file") as mock_store_temp_file:
+            mock_store_temp_file.side_effect = store_temp_file_
+            # Mock `bytearray_xor` to give us visibility into any calls.
+            with mock.patch("lib.cuckoo.common.quarantine.bytearray_xor") as bytearray_xor_mock:
+                bytearray_xor_mock.side_effect = bytearray_xor_wrapper
+                actual = trend_unquarantine(temp_pe32)
+        # Check there is only a single call to `bytearray_xor`. Two calls means
+        # it XOR'd the whole file, which is not what we want.
+        bytearray_xor_mock.assert_called_once()
+        # Check that it didn't try to save any new files.
+        mock_store_temp_file.assert_not_called()
+        # Ensure `None` response when no action was performed.
+        assert actual == expected
+
+    def test_trend_unquarantine_quarantined_file(self, temp_trend_qarantined_pe, tmp_path):
+        """Test the whole file is XOR'd for quarantined files."""
+        # We expect the output to be None
+        expected = os.path.join(tmp_path, "unqarantined_file")
+
+        def store_temp_file_(filedata, filename, path=None):
+            return expected
+
+        # Mock `store_temp_file` to give us visibility into the call.
+        with mock.patch("lib.cuckoo.common.quarantine.store_temp_file") as mock_store_temp_file:
+            mock_store_temp_file.side_effect = store_temp_file_
+            # Mock `bytearray_xor` to give us visibility into the calls.
+            with mock.patch("lib.cuckoo.common.quarantine.bytearray_xor") as mock_bytearray_xor:
+                mock_bytearray_xor.side_effect = bytearray_xor
+                actual = trend_unquarantine(temp_trend_qarantined_pe)
+        # Check there are two calls to `bytearray_xor`. One for the header and
+        # one for the full file.
+        mock_bytearray_xor.assert_has_calls([mock.call(mock.ANY, mock.ANY), mock.call(mock.ANY, mock.ANY)])
+        # Assert that it attempts to create a new file with unquarantined data.
+        # mock_store_temp_file.assert_called_once_with(QUARANTINED_DATA, mock.ANY)
+        # Check that `trend_unquarantine` returns the filepath of the new file.
+        assert actual == expected

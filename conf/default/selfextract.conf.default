@@ -53,13 +53,14 @@ timeout = 60
 
 # Nsis, 7Zip SFX, etc
 [SevenZip_unpack]
+binary = data/7zz
 enabled = yes
 timeout = 60
 
-# sudo apt install innoextract
+# Use https://github.com/gdesmar/innoextract
 [Inno_extract]
 enabled = yes
-binary = /usr/bin/innoextract
+binary = data/innoextract
 timeout = 60
 
 # https://github.com/mstrobel/procyon/releases
@@ -93,4 +94,8 @@ timeout = 60
 # PE file overlay
 [overlay]
 enabled = yes
+timeout = 60
+
+[UnGPG_extract]
+enabled = no
 timeout = 60

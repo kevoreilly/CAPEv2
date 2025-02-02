@@ -28,7 +28,7 @@
                     </td>
                     <td>{{host.country_name}}</td>
                     {% if host.asn %}
-                        <td><a href="/analysis/search/asn:{{host.asn}}"><span style="font-weight: bold;">{{host.asn}}</span></a></td>
+                        <td><a href="/analysis/search/asn:{{host.asn}}"><span title="{{host.asn_name}}" style="font-weight: bold;">{{host.asn}}</span></a></td>
                     {% endif %}
                 {% endif %}
             </tr>

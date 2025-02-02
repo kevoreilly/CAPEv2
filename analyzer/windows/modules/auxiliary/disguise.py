@@ -30,7 +30,6 @@ from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
 
 log = logging.getLogger(__name__)
-PERSISTENT_ROUTE_GATEWAY = "192.168.1.1"
 si = subprocess.STARTUPINFO()
 si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
@@ -243,18 +242,14 @@ class Disguise(Auxiliary):
             # Replace the UUID with the new UUID
             SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
 
-    def add_persistent_route(self):
-        self.run_as_system(
-            ["C:\\Windows\\System32\\ROUTE.exe", "-p", "add", "0.0.0.0", "mask", "0.0.0.0", PERSISTENT_ROUTE_GATEWAY]
-        )
-        self.run_as_system(
-            ["C:\\Windows\\System32\\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", PERSISTENT_ROUTE_GATEWAY]
-        )
+    def add_persistent_route(self, gateway: str):
+        self.run_as_system(["C:\\Windows\\System32\\ROUTE.exe", "-p", "add", "0.0.0.0", "mask", "0.0.0.0", gateway])
+        self.run_as_system(["C:\\Windows\\System32\\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", gateway])
 
     def start(self):
         if self.config.windows_static_route:
             log.info(f"Config for route is: {str(self.config.windows_static_route)}")
-            self.add_persistent_route()
+            self.add_persistent_route(self.config.windows_static_route_gateway)
         self.change_productid()
         self.set_office_mrus()
         self.ramnit()

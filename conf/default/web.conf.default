@@ -194,6 +194,7 @@ guest_width = 1280
 guest_height = 1024
 # rdp settings
 guest_rdp_port = 3389
+ignore_rdp_cert = false
 
 [packages]
 # VM tags may be used to specify on which guest machines a sample should be run

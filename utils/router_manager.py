@@ -28,6 +28,11 @@ except ImportError:
     print("Missing dependency: poetry run pip install psutil")
 
 
+def check_privileges():
+    if not os.environ.get("SUDO_UID") and os.geteuid() != 0:
+        raise PermissionError("You need to run this script with sudo or as root.")
+
+
 def _rooter_response_check(rooter_response):
     if rooter_response and rooter_response["exception"] is not None:
         raise CuckooCriticalError(f"Error execution rooter command: {rooter_response['exception']}")
@@ -149,7 +154,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
-
+    check_privileges()
     route = args.route
     rt_table = None
     reject_segments = None

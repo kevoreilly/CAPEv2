@@ -131,8 +131,11 @@ class MongoDB(Report):
         try:
             mongo_insert_one("analysis", report)
         except OperationFailure as e:
-            # check for error code 10334, BSONObjectTooLarge
-            if e.code == 10334:
+            # Check for error codes indicating the BSON object was too large
+            # (10334 BSONObjectTooLarge) or the maximum nested object depth was
+            # exceeded (15 Overflow).
+            if e.code in (10334, 15):
+                log.error("Got MongoDB OperationFailure, code %d", e.code)
                 # ToDo rewrite how children are stored
                 log.warning("Deleting behavior process tree children from results.")
                 del report["behavior"]["processtree"][0]["children"]

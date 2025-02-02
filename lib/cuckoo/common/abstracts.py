@@ -13,9 +13,9 @@ import time
 import timeit
 import xml.etree.ElementTree as ET
 from builtins import NotImplementedError
+from contextlib import suppress
 from pathlib import Path
 from typing import Dict, List
-from contextlib import suppress
 
 try:
     import dns.resolver
@@ -25,6 +25,7 @@ except ImportError:
 import PIL
 import requests
 
+from data.dnsbl import dnsbl_servers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.dictionary import Dictionary
@@ -40,7 +41,6 @@ from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
 from lib.cuckoo.core.database import Database, Machine, _Database
-from data.dnsbl import dnsbl_servers
 
 try:
     import re2 as re
@@ -1361,13 +1361,13 @@ class Signature:
 
     def check_dnsbbl(self, domain: str):
         """
-            https://en.wikipedia.org/wiki/Domain_Name_System_blocklist
-            @param domain: domain to check in black list
+        https://en.wikipedia.org/wiki/Domain_Name_System_blocklist
+        @param domain: domain to check in black list
         """
         try:
             ip_address = socket.gethostbyname(domain)
             for server in dnsbl_servers:
-                query = '.'.join(reversed(str(ip_address).split("."))) + "." + server
+                query = ".".join(reversed(str(ip_address).split("."))) + "." + server
                 with suppress(socket.error):
                     threading.Thread(target=socket.gethostbyname, args=(query,)).start()
                     return True, server  # Found blacklisted server

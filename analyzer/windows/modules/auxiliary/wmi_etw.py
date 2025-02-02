@@ -22,8 +22,8 @@ try:
     HAVE_ETW = True
 except ImportError as e:
     log.debug(
-        f"Could not load auxiliary module WMI_ETW due to '{e}'\nIn order to use WMI_ETW functionality, it "
-        "is required to have pywintrace setup in python"
+        "Could not load auxiliary module WMI_ETW due to '%s'\nIn order to use WMI_ETW functionality, it "
+        "is required to have pywintrace setup in python", str(e)
     )
 
 __author__ = "[Andrea Oliveri starting from code of Canadian Centre for Cyber Security]"
@@ -118,7 +118,7 @@ if HAVE_ETW:
             event_id, event = event_tufo
 
             if self.no_conout is False:
-                log.info("{:d} ({:s})\n{:s}\n".format(event_id, event["Task Name"], pprint.pformat(encode(event))))
+                log.info("%d (%s)\n%s\n", event_id, event["Task Name"], pprint.pformat(encode(event)))
 
             if self.logfile is not None:
                 with open(self.logfile, "a") as file:
@@ -188,5 +188,5 @@ if HAVE_ETW:
             log.debug(files_to_upload)
             for f in files_to_upload:
                 dumppath = os.path.join("aux", "wmi_etw.json")
-                log.debug("WMI_ETW Aux Module is uploading %s" % f)
+                log.debug("WMI_ETW Aux Module is uploading %s", f)
                 upload_to_host(f, dumppath)

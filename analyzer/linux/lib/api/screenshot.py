@@ -139,7 +139,7 @@ if HAVE_DBUS_NEXT:
                     log.info("Detected non-Gnome desktop environment.")
                 else:
                     self._is_gnome = True
-                    log.info(f"Detected Gnome version {version}")
+                    log.info("Detected Gnome version %s", str(version))
                     name = "org.gnome.Screenshot"
                     resp = await self.bus.request_name(name)
                     if resp not in (
@@ -205,8 +205,8 @@ if HAVE_DBUS_NEXT:
                 "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
                 <node>
                     <interface name="org.gnome.Shell.Screenshot">
-                      <method name="Screenshot">
-                          <arg name="include_cursor" direction="in" type="b" />
+                        <method name="Screenshot">
+                            <arg name="include_cursor" direction="in" type="b" />
                             <arg name="flash" direction="in" type="b" />
                             <arg name="filename" direction="in" type="s" />
                             <arg name="success" direction="out" type="b" />
@@ -260,7 +260,7 @@ if HAVE_DBUS_NEXT:
                 if response == 0:
                     await queue.put(urllib.parse.urlparse(results["uri"].value).path)
                 else:
-                    log.warning(f"Received non-zero response when taking screenshot: {response}")
+                    log.warning("Received non-zero response when taking screenshot: %s", str(response))
                     await queue.put(None)
 
             # Set up the signal handler

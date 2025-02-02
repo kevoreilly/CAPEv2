@@ -945,7 +945,7 @@ class EventConsumer:
 
         # if there is no data remaining then return
         if user_data_remaining <= 0:
-            logger.warning("No more user data left, returning none for field {:s}".format(name_field))
+            logger.warning("No more user data left, returning none for field %s", str(name_field))
             return {name_field: None}
 
         in_type = event_property.epi_u1.nonStructType.InType
@@ -986,7 +986,7 @@ class EventConsumer:
 
         if status != ERROR_SUCCESS:
             # We can handle this error and still capture the data.
-            logger.warning("Failed to get data field data for {:s}, incrementing by reported size".format(name_field))
+            logger.warning("Failed to get data field data for %s, incrementing by reported size" str(name_field))
             self.index += property_length
             return {name_field: None}
 
@@ -1135,7 +1135,7 @@ class EventConsumer:
             if record.contents.EventHeader.Flags & EVENT_HEADER_FLAG_EXTENDED_INFO:
                 parsed_data["EventExtendedData"] = self._parseExtendedData(record)
         except Exception as e:
-            logger.warning("Unable to parse event: {}".format(e))
+            logger.warning("Unable to parse event: %s", str(e))
 
         try:
             out.update(parsed_data)
@@ -1143,8 +1143,7 @@ class EventConsumer:
             if self.event_callback:
                 self.event_callback(out)
         except Exception as e:
-            logger.error("Exception during callback: {}".format(e))
-            logger.error(traceback.format_exc())
+            logger.exception("Exception during callback: %s", str(e))
 
 
 class TraceProperties:
@@ -1170,7 +1169,7 @@ class AMSI:
             raise OSError("AMSI not supported on this platform") from err
         self.provider = None
         self.properties = TraceProperties()
-        self.session_name = "{:s}".format(str(uuid.uuid4()))
+        self.session_name = str(uuid.uuid4())
         self.running = False
         self.event_callback = event_callback
         self.trace_logfile = None

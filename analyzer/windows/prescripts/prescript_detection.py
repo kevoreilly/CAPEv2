@@ -598,7 +598,7 @@ def create_trigger(
 
 
 def change_execution_dir(dir):
-    log.info(f"Changing execution directory to {dir}")
+    log.info("Changing execution directory to %s", dir)
     log.warning("Changing directory not available in prescript testing")
 
 
@@ -681,8 +681,8 @@ def main(args):
                     args=params_dict[ACTIONS_PARAMETERS[parsed_action][1]],
                     timeout=int(params_dict[ACTIONS_PARAMETERS[parsed_action][2]]),
                 )
-                log.info(f"Runned script with {params_dict}")
-                print(f"Runned script with {params_dict}")
+                log.info("Runned script with %s", str(params_dict))
+                # print(f"Runned script with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[1]:
                 add_file_to_path(
                     src_path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]],
@@ -690,15 +690,15 @@ def main(args):
                     overwrite=bool(params_dict[ACTIONS_PARAMETERS[parsed_action][2]]),
                 )
                 log.info(
-                    f"Adding file from {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]} to {params_dict[ACTIONS_PARAMETERS[parsed_action][1]]}"
+                    "Adding file from %s to %s", params_dict[ACTIONS_PARAMETERS[parsed_action][0]], params_dict[ACTIONS_PARAMETERS[parsed_action][1]]
                 )
-                print(
-                    f"Adding file from {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]} to {params_dict[ACTIONS_PARAMETERS[parsed_action][1]]}"
-                )
+                # print(
+                #    f"Adding file from {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]} to {params_dict[ACTIONS_PARAMETERS[parsed_action][1]]}"
+                # )
             elif parsed_action == LIST_OF_VALID_ACTIONS[2]:
                 add_directory(path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]])
-                log.info(f"Created directory with {params_dict}")
-                print(f"Created directory with {params_dict}")
+                log.info("Created directory with %s", str(params_dict))
+                # print(f"Created directory with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[3]:
                 value_type = identify_registry_value_type(params_dict[ACTIONS_PARAMETERS[parsed_action][2]])
                 create_registry(
@@ -707,8 +707,8 @@ def main(args):
                     value=params_dict[ACTIONS_PARAMETERS[parsed_action][2]],
                     value_type=value_type,
                 )
-                log.info(f"Created registry with {params_dict}")
-                print(f"Created registry with {params_dict}")
+                log.info("Created registry with %s", str(params_dict))
+                # print(f"Created registry with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[4]:
                 value_type = identify_registry_value_type(params_dict[ACTIONS_PARAMETERS[parsed_action][2]])
                 modify_registry(
@@ -717,8 +717,8 @@ def main(args):
                     value=params_dict[ACTIONS_PARAMETERS[parsed_action][2]],
                     value_type=value_type,
                 )
-                log.info(f"Modified registry with {params_dict}")
-                print(f"Modified registry with {params_dict}")
+                log.info("Modified registry with %s", str(params_dict))
+                # print(f"Modified registry with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[5]:
                 parsed_params_dict = {}
                 for param in ACTIONS_PARAMETERS[parsed_action]:
@@ -747,15 +747,15 @@ def main(args):
                     else:
                         parsed_params_dict[param] = params_dict[param]
                 create_scheduled_task2(**parsed_params_dict)
-                log.info(f"Created scheduled task with {params_dict}")
-                print(f"Created scheduled task with {params_dict}")
+                log.info("Created scheduled task with %s", str(params_dict))
+                # print(f"Created scheduled task with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[6]:
                 create_scheduled_task_from_xml(
                     task_name=params_dict[ACTIONS_PARAMETERS[parsed_action][0]],
                     xml_path=params_dict[ACTIONS_PARAMETERS[parsed_action][1]],
                 )
-                log.info(f"Created scheduled task from xml with {params_dict}")
-                print(f"Created scheduled task from xml with {params_dict}")
+                log.info("Created scheduled task from xml with %s", str(params_dict))
+                # print(f"Created scheduled task from xml with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[7]:
                 parsed_params_dict = {}
                 for param in ACTIONS_PARAMETERS[parsed_action]:
@@ -770,16 +770,16 @@ def main(args):
                     else:
                         parsed_params_dict[param] = params_dict[param]
                 modify_scheduled_task(**parsed_params_dict)
-                log.info(f"Modified scheduled task with {params_dict}")
-                print(f"Modified scheduled task with {params_dict}")
+                log.info("Modified scheduled task with %s", str(params_dict))
+                # print(f"Modified scheduled task with {params_dict}")
             elif parsed_action == LIST_OF_VALID_ACTIONS[8]:
                 change_execution_dir(path=params_dict[ACTIONS_PARAMETERS[parsed_action][0]])
-                log.info(f"Changed execution dir to {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]}")
-                print(f"Changed execution dir to {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]}")
+                log.info("Changed execution dir to %s", params_dict[ACTIONS_PARAMETERS[parsed_action][0]])
+                # print(f"Changed execution dir to {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]}")
 
         except Exception as e:
-            log.debug(f"Invalid action {action} with parameters {params_dict} --> {e}")
-            print(f"Invalid action {action} with parameters {params_dict} --> {e}")
+            log.debug("Invalid action %s with parameters %s --> %s", str(action), str(params_dict), str(e))
+            # print(f"Invalid action {action} with parameters {params_dict} --> {e}")
 
 
 if __name__ == "__main__":

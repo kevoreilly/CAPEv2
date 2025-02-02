@@ -504,7 +504,7 @@ class Retriever(threading.Thread):
                             self.cleaner_queue.put((t.node_id, t.task_id))
                         lock_retriever.release()
                     else:
-                        log.debug("failed_cleaner t is None for: %s - node_id: %d", str(task["id"]), node.id))
+                        log.debug("failed_cleaner t is None for: %s - node_id: %d", str(task["id"]), node.id)
                         lock_retriever.acquire()
                         if (node.id, task["id"]) not in self.cleaner_queue.queue:
                             self.cleaner_queue.put((node.id, task["id"]))

@@ -22,8 +22,8 @@ try:
     HAVE_ETW = True
 except ImportError as e:
     log.debug(
-        f"Could not load auxiliary module DNS_ETW due to '{e}'\nIn order to use DNS_ETW functionality, it "
-        "is required to have pywintrace setup in python"
+        "Could not load auxiliary module DNS_ETW due to '%s'\nIn order to use DNS_ETW functionality, it "
+        "is required to have pywintrace setup in python", str(e)
     )
 
 __author__ = "[Canadian Centre for Cyber Security] @CybercentreCanada"
@@ -119,7 +119,7 @@ if HAVE_ETW:
             if event_id not in self.event_id_filters:
                 return
             if self.no_conout is False:
-                log.info("{:d} ({:s})\n{:s}\n".format(event_id, event["Task Name"], pprint.pformat(encode(event))))
+                log.info("%d (%s)\n%s\n", event_id, event["Task Name"], pprint.pformat(encode(event)))
             if event["QueryName"] in SAFELIST:
                 return
             # Event 3010 query
@@ -226,5 +226,5 @@ if HAVE_ETW:
                 # file_name = file_path_list[-1]
                 # process = file_path_list[-2]
                 dumppath = os.path.join("DNS_ETW", "etw_dns.json")
-                log.debug("DNS_ETW Aux Module is uploading %s" % f)
+                log.debug("DNS_ETW Aux Module is uploading %s", f)
                 upload_to_host(f, dumppath)

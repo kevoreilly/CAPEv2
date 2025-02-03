@@ -543,6 +543,7 @@ class AnalysisManager(threading.Thread):
         elif self.route in self.socks5s:
             self.interface = ""
         elif self.route[:3] == 'tun' and is_network_interface(self.route):
+            # tunnel interface starts with "tun" and interface exists on machine
             self.interface = self.route
         else:
             self.log.warning("Unknown network routing destination specified, ignoring routing for this analysis: %s", self.route)

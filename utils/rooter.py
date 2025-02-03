@@ -7,6 +7,7 @@ import argparse
 import errno
 import grp
 import json
+import ipaddress
 import logging.handlers
 import os
 import signal
@@ -45,6 +46,49 @@ def run(*args):
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     stdout, stderr = p.communicate()
     return stdout, stderr
+
+
+def get_tun_peer_address(interface_name):
+    """Gets the peer address of a tun interface.
+
+    Args:
+        interface_name: The name of the tun interface (e.g., "tun0").
+
+    Returns:
+        The peer IP address as a string, or None if an error occurs.  Returns None if the interface does not exist, or does not have a peer.
+    """
+    try:
+        result = subprocess.run(["ip", "addr", "show", interface_name], capture_output=True, text=True, check=True)
+        output = result.stdout
+
+        for line in output.splitlines():
+            if "peer" in line:
+                parts = line.split()
+                if len(parts) > 1: # Check if there's a second element to avoid IndexError
+                    peer_with_cidr = parts[1]
+                    try:
+                        # Handle CIDR notation using ipaddress library
+                        peer_ip = ipaddress.ip_interface(peer_with_cidr).ip.exploded
+                        return peer_ip
+                    except ValueError: # Handle invalid CIDR notations
+                        try:
+                            peer_ip = peer_with_cidr.split('/')[0] # Try just splitting by /
+                            return peer_ip
+                        except IndexError:
+                            return None # Invalid format - give up.
+                else:
+                    return None # No peer address found on the line.
+        return None  # "peer" not found in the output
+
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 1:  # Interface not found
+            return None
+        else:
+            print(f"Error executing ip command: {e}")
+            return None
+    except FileNotFoundError:
+        print("ip command not found. Is iproute2 installed?")
+        return None
 
 
 def enable_ip_forwarding(sysctl="/usr/sbin/sysctl"):
@@ -641,6 +685,116 @@ def inetsim_disable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
     run_iptables("-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 
+def interface_route_tun_enable(ipaddr: str, out_interface: str, task_id:str):
+    """Enable routing and NAT via tun output_interface."""
+    log.info(f"Enabling interface routing via: {out_interface} for task: {task_id}")
+
+    # mark packets from analysis VM
+    run_iptables(
+        "-t",
+        "mangle",
+        "-I",
+        "PREROUTING",
+        "--source",
+        ipaddr,
+        "-j",
+        "MARK",
+        "--set-mark",
+        task_id
+    )
+
+    run_iptables(
+        "-t",
+        "nat",
+        "-I",
+        "POSTROUTING",
+        "--source",
+        ipaddr,
+        "-o",
+        out_interface,
+        "-j",
+        "MASQUERADE"
+    )
+    # ACCEPT forward
+    run_iptables(
+        "-t",
+        "filter",
+        "-I",
+        "FORWARD",
+        "--source",
+        ipaddr,
+        "-o",
+        out_interface,
+        "-j",
+        "ACCEPT"
+    )
+
+    # in routing table add route table task_id
+    run(s.ip, "rule", "add", "fwmark", task_id, "lookup", task_id)
+
+    peer_ip = get_tun_peer_address(out_interface)
+    if peer_ip:
+        log.info(f"interface_route_enable {out_interface} has peer {peer_ip}")
+        run(s.ip, "route", "add", "default", "via", peer_ip, "table", task_id)
+    else:
+        log.error("interface_route_enable missing peer IP ")
+
+def interface_route_tun_disable(ipaddr: str, out_interface: str, task_id:str):
+    """Disable routing and NAT via tun output_interface."""
+    log.info(f"Disable interface routing via: {out_interface} for task: {task_id}")
+
+    # mark packets from analysis VM
+    run_iptables(
+        "-t",
+        "mangle",
+        "-D",
+        "PREROUTING",
+        "--source",
+        ipaddr,
+        "-j",
+        "MARK",
+        "--set-mark",
+        task_id
+    )
+
+    run_iptables(
+        "-t",
+        "nat",
+        "-D",
+        "POSTROUTING",
+        "--source",
+        ipaddr,
+        "-o",
+        out_interface,
+        "-j",
+        "MASQUERADE"
+    )
+    # ACCEPT forward
+    run_iptables(
+        "-t",
+        "filter",
+        "-D",
+        "FORWARD",
+        "--source",
+        ipaddr,
+        "-o",
+        out_interface,
+        "-j",
+        "ACCEPT"
+    )
+
+    # in routing table add route table task_id
+    run(s.ip, "rule", "del", "fwmark", task_id, "lookup", task_id)
+
+    peer_ip = get_tun_peer_address(out_interface)
+    if peer_ip:
+        log.info(f"interface_route_disable {out_interface} has peer {peer_ip}")
+        run(s.ip, "route", "del", "default", "via", peer_ip, "table", task_id)
+    else:
+        log.error("interface_route_disable missing peer IP ")
+
+
+
 def socks5_enable(ipaddr, resultserver_port, dns_port, proxy_port):
     """Enable hijacking of all traffic and send it to socks5."""
     log.info("Enabling socks route.")
@@ -750,6 +904,8 @@ handlers = {
     "srcroute_disable": srcroute_disable,
     "inetsim_enable": inetsim_enable,
     "inetsim_disable": inetsim_disable,
+    "interface_route_tun_enable": interface_route_tun_enable,
+    "interface_route_tun_disable": interface_route_tun_disable,
     "socks5_enable": socks5_enable,
     "socks5_disable": socks5_disable,
     "drop_enable": drop_enable,

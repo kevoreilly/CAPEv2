@@ -1,7 +1,7 @@
 import itertools
 import logging
 
-from pymongo import UpdateOne
+from pymongo import UpdateOne, errors
 
 from dev_utils.mongodb import (
     mongo_bulk_write,
@@ -82,8 +82,12 @@ def normalize_files(report):
         request = normalize_file(file_dict, report["info"]["id"])
         if request:
             requests.append(request)
-    if requests:
-        mongo_bulk_write(FILES_COLL, requests, ordered=False)
+
+    try:
+        if requests:
+            mongo_bulk_write(FILES_COLL, requests, ordered=False)
+    except errors.OperationFailure as exc:
+        log.error("Mongo hook 'normalize_files' failed with code %d: %s", exc.code, exc)
 
     return report
 

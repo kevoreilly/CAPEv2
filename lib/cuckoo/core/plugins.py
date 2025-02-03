@@ -346,7 +346,10 @@ class RunSignatures:
         for signature in list_plugins(group="signatures"):
             if self._should_load_signature(signature):
                 # Initialize them all
-                self.signatures.append(signature(self.results))
+                try:
+                    self.signatures.append(signature(self.results))
+                except Exception as exc:
+                    log.error("failed to initialize signature %s: %s", signature.__name__, exc)
 
         overlay = self._load_overlay()
         log.debug("Applying signature overlays for signatures: %s", ", ".join(overlay))

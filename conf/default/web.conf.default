@@ -59,6 +59,8 @@ reports_dl_allowed_to_all = yes
 expose_process_log = no
 # Show button to reprocess the task
 reprocess_tasks = no
+# Allows you to define URL splitter, "," is default
+url_splitter = ","
 
 # ratelimit for anon users
 [ratelimit]

@@ -43,10 +43,11 @@ except ImportError:
 
 latest_symlink_lock = threading.Lock()
 
+
 def is_network_interface(intf: str):
-  global network_interfaces
-  network_interfaces = list(psutil.net_if_addrs().keys())
-  return intf in network_interfaces
+    global network_interfaces
+    network_interfaces = list(psutil.net_if_addrs().keys())
+    return intf in network_interfaces
 
 
 class CuckooDeadMachine(Exception):
@@ -542,7 +543,7 @@ class AnalysisManager(threading.Thread):
             self.rt_table = vpns[self.route].rt_table
         elif self.route in self.socks5s:
             self.interface = ""
-        elif self.route[:3] == 'tun' and is_network_interface(self.route):
+        elif self.route[:3] == "tun" and is_network_interface(self.route):
             # tunnel interface starts with "tun" and interface exists on machine
             self.interface = self.route
         else:
@@ -592,14 +593,9 @@ class AnalysisManager(threading.Thread):
 
         elif self.route in ("none", "None", "drop"):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.cfg.resultserver.port))
-        elif self.route[:3] == 'tun' and is_network_interface(self.route):
+        elif self.route[:3] == "tun" and is_network_interface(self.route):
             self.log.info("Network interface {} is tunnel", self.interface)
-            self.rooter_response = rooter(
-                "interface_route_tun_enable",
-                self.machine.ip,
-                self.route,
-                str(self.task.id)
-            )
+            self.rooter_response = rooter("interface_route_tun_enable", self.machine.ip, self.route, str(self.task.id))
 
         self._rooter_response_check()
 
@@ -731,16 +727,9 @@ class AnalysisManager(threading.Thread):
 
         elif self.route in ("none", "None", "drop"):
             self.rooter_response = rooter("drop_disable", self.machine.ip, str(self.cfg.resultserver.port))
-        elif self.route[:3] == 'tun':
+        elif self.route[:3] == "tun":
             self.log.info("Disable tunnel interface {}", self.interface)
-            self.rooter_response = rooter(
-                "interface_route_tun_disable",
-                self.machine.ip,
-                self.route,
-                str(self.task.id)
-            )
-
-
+            self.rooter_response = rooter("interface_route_tun_disable", self.machine.ip, self.route, str(self.task.id))
 
         self._rooter_response_check()
 

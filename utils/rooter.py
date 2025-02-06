@@ -6,8 +6,8 @@
 import argparse
 import errno
 import grp
-import json
 import ipaddress
+import json
 import logging.handlers
 import os
 import signal
@@ -64,20 +64,20 @@ def get_tun_peer_address(interface_name):
         for line in output.splitlines():
             if "peer" in line:
                 parts = line.split()
-                if len(parts) > 1: # Check if there's a second element to avoid IndexError
+                if len(parts) > 1:  # Check if there's a second element to avoid IndexError
                     peer_with_cidr = parts[1]
                     try:
                         # Handle CIDR notation using ipaddress library
                         peer_ip = ipaddress.ip_interface(peer_with_cidr).ip.exploded
                         return peer_ip
-                    except ValueError: # Handle invalid CIDR notations
+                    except ValueError:  # Handle invalid CIDR notations
                         try:
-                            peer_ip = peer_with_cidr.split('/')[0] # Try just splitting by /
+                            peer_ip = peer_with_cidr.split("/")[0]  # Try just splitting by /
                             return peer_ip
                         except IndexError:
-                            return None # Invalid format - give up.
+                            return None  # Invalid format - give up.
                 else:
-                    return None # No peer address found on the line.
+                    return None  # No peer address found on the line.
         return None  # "peer" not found in the output
 
     except subprocess.CalledProcessError as e:
@@ -685,49 +685,16 @@ def inetsim_disable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
     run_iptables("-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 
-def interface_route_tun_enable(ipaddr: str, out_interface: str, task_id:str):
+def interface_route_tun_enable(ipaddr: str, out_interface: str, task_id: str):
     """Enable routing and NAT via tun output_interface."""
     log.info(f"Enabling interface routing via: {out_interface} for task: {task_id}")
 
     # mark packets from analysis VM
-    run_iptables(
-        "-t",
-        "mangle",
-        "-I",
-        "PREROUTING",
-        "--source",
-        ipaddr,
-        "-j",
-        "MARK",
-        "--set-mark",
-        task_id
-    )
+    run_iptables("-t", "mangle", "-I", "PREROUTING", "--source", ipaddr, "-j", "MARK", "--set-mark", task_id)
 
-    run_iptables(
-        "-t",
-        "nat",
-        "-I",
-        "POSTROUTING",
-        "--source",
-        ipaddr,
-        "-o",
-        out_interface,
-        "-j",
-        "MASQUERADE"
-    )
+    run_iptables("-t", "nat", "-I", "POSTROUTING", "--source", ipaddr, "-o", out_interface, "-j", "MASQUERADE")
     # ACCEPT forward
-    run_iptables(
-        "-t",
-        "filter",
-        "-I",
-        "FORWARD",
-        "--source",
-        ipaddr,
-        "-o",
-        out_interface,
-        "-j",
-        "ACCEPT"
-    )
+    run_iptables("-t", "filter", "-I", "FORWARD", "--source", ipaddr, "-o", out_interface, "-j", "ACCEPT")
 
     # in routing table add route table task_id
     run(s.ip, "rule", "add", "fwmark", task_id, "lookup", task_id)
@@ -739,49 +706,17 @@ def interface_route_tun_enable(ipaddr: str, out_interface: str, task_id:str):
     else:
         log.error("interface_route_enable missing peer IP ")
 
-def interface_route_tun_disable(ipaddr: str, out_interface: str, task_id:str):
+
+def interface_route_tun_disable(ipaddr: str, out_interface: str, task_id: str):
     """Disable routing and NAT via tun output_interface."""
     log.info(f"Disable interface routing via: {out_interface} for task: {task_id}")
 
     # mark packets from analysis VM
-    run_iptables(
-        "-t",
-        "mangle",
-        "-D",
-        "PREROUTING",
-        "--source",
-        ipaddr,
-        "-j",
-        "MARK",
-        "--set-mark",
-        task_id
-    )
+    run_iptables("-t", "mangle", "-D", "PREROUTING", "--source", ipaddr, "-j", "MARK", "--set-mark", task_id)
 
-    run_iptables(
-        "-t",
-        "nat",
-        "-D",
-        "POSTROUTING",
-        "--source",
-        ipaddr,
-        "-o",
-        out_interface,
-        "-j",
-        "MASQUERADE"
-    )
+    run_iptables("-t", "nat", "-D", "POSTROUTING", "--source", ipaddr, "-o", out_interface, "-j", "MASQUERADE")
     # ACCEPT forward
-    run_iptables(
-        "-t",
-        "filter",
-        "-D",
-        "FORWARD",
-        "--source",
-        ipaddr,
-        "-o",
-        out_interface,
-        "-j",
-        "ACCEPT"
-    )
+    run_iptables("-t", "filter", "-D", "FORWARD", "--source", ipaddr, "-o", out_interface, "-j", "ACCEPT")
 
     # in routing table add route table task_id
     run(s.ip, "rule", "del", "fwmark", task_id, "lookup", task_id)
@@ -792,7 +727,6 @@ def interface_route_tun_disable(ipaddr: str, out_interface: str, task_id:str):
         run(s.ip, "route", "del", "default", "via", peer_ip, "table", task_id)
     else:
         log.error("interface_route_disable missing peer IP ")
-
 
 
 def socks5_enable(ipaddr, resultserver_port, dns_port, proxy_port):

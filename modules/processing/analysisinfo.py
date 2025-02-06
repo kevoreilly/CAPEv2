@@ -2,22 +2,32 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import os
 import codecs
 import logging
 import time
 from contextlib import suppress
 from datetime import datetime
+from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.constants import CUCKOO_VERSION
+from lib.cuckoo.common.constants import CUCKOO_VERSION, CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import Database
+# https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
 
 log = logging.getLogger(__name__)
 
 db = Database()
+
+def get_running_commit() -> str:
+    git_folder = Path(CUCKOO_ROOT, ".git")
+    head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
+    return Path(git_folder, head_name).read_text().replace("\n", "")
+
+CAPE_CURRENT_COMMIT_HASH = get_running_commit()
 
 
 class AnalysisInfo(Processing):
@@ -111,4 +121,5 @@ class AnalysisInfo(Processing):
             "source_url": source_url,
             "route": self.task.get("route"),
             "user_id": self.task.get("user_id"),
+            "CAPE_current_commit": CAPE_CURRENT_COMMIT_HASH,
         }

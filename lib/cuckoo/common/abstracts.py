@@ -13,16 +13,19 @@ import time
 import timeit
 import xml.etree.ElementTree as ET
 from builtins import NotImplementedError
+from contextlib import suppress
 from pathlib import Path
 from typing import Dict, List
 
 try:
     import dns.resolver
 except ImportError:
-    print("Missed dependency -> pip3 install dnspython")
+    print("Missed dependency -> poetry install")
+
 import PIL
 import requests
 
+from data.dnsbl import dnsbl_servers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.dictionary import Dictionary
@@ -644,7 +647,7 @@ class LibVirtMachinery(Machinery):
         @param label: virtual machine name
         @return None or current snapshot
         @raise CuckooMachineError: if cannot find current snapshot or
-                                   when there are too many snapshots available
+            when there are too many snapshots available
         """
 
         def _extract_creation_time(node):
@@ -1360,15 +1363,31 @@ class Signature:
 
         return None
 
+    def check_dnsbbl(self, domain: str):
+        """
+        https://en.wikipedia.org/wiki/Domain_Name_System_blocklist
+        @param domain: domain to check in black list
+        """
+        try:
+            ip_address = socket.gethostbyname(domain)
+            for server in dnsbl_servers:
+                query = ".".join(reversed(str(ip_address).split("."))) + "." + server
+                with suppress(socket.error):
+                    threading.Thread(target=socket.gethostbyname, args=(query,)).start()
+                    return True, server  # Found blacklisted server
+            return False, None  # No blacklisted server found
+        except socket.gaierror:
+            return "Invalid domain or IP address.", None
+
     def check_ip(self, pattern, regex=False, all=False):
         """Checks for an IP address being contacted.
         @param pattern: string or expression to check for.
         @param regex: boolean representing if the pattern is a regular
-                      expression or not and therefore should be compiled.
+            expression or not and therefore should be compiled.
         @param all: boolean representing if all results should be returned
-                      in a set or not
+            in a set or not
         @return: depending on the value of param 'all', either a set of
-                      matched items or the first matched item
+            matched items or the first matched item
         """
 
         if all:
@@ -1398,11 +1417,11 @@ class Signature:
         """Checks for a domain being contacted.
         @param pattern: string or expression to check for.
         @param regex: boolean representing if the pattern is a regular
-                      expression or not and therefore should be compiled.
+            expression or not and therefore should be compiled.
         @param all: boolean representing if all results should be returned
-                      in a set or not
+            in a set or not
         @return: depending on the value of param 'all', either a set of
-                      matched items or the first matched item
+            matched items or the first matched item
         """
 
         if all:
@@ -1432,11 +1451,11 @@ class Signature:
         """Checks for a URL being contacted.
         @param pattern: string or expression to check for.
         @param regex: boolean representing if the pattern is a regular
-                      expression or not and therefore should be compiled.
+            expression or not and therefore should be compiled.
         @param all: boolean representing if all results should be returned
-                      in a set or not
+            in a set or not
         @return: depending on the value of param 'all', either a set of
-                      matched items or the first matched item
+            matched items or the first matched item
         """
 
         if all:

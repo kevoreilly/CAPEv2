@@ -14,7 +14,8 @@ from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
-FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+# FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+FILE_NAME_REGEX = re.compile(r"\s{2}((?:[a-zA-Z0-9.\-,_\\]+(?: [a-zA-Z0-9.\-,_\\]+)?)*)\r")
 FILE_EXT_OF_INTEREST = [
     ".bat",
     ".cmd",

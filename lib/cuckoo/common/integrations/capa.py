@@ -34,7 +34,7 @@ if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabl
         from packaging import version
 
         if version.parse(python_version()) >= version.parse("3.10.0"):
-            capa_compatible_version = "8"
+            capa_compatible_version = "9"
         else:
             capa_compatible_version = "7"
 

@@ -1,3 +1,6 @@
+### [05.02.2025]
+* Monitor update: Fix hooking deadlock with delay-loaded dlls & make LdrpCallInitRoutine hook transparent
+
 ### [28.01.2025]
 * Require `poetry>=2.0`.
 

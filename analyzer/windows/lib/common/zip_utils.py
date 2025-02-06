@@ -18,7 +18,8 @@ from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
-FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+# FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+FILE_NAME_REGEX = re.compile(r"\s{2}((?:[a-zA-Z0-9.\-,_\\]+(?: [a-zA-Z0-9.\-,_\\]+)?)*)\r")
 FILE_EXT_OF_INTEREST = [
     ".bat",
     ".cmd",
@@ -50,7 +51,7 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
     @param extract_path: where to extract
     @param password: archive password
     @param try_multiple_passwords: we will be splitting the password on the ':' symbol,
-           and trying each one to extract the archive
+        and trying each one to extract the archive
     """
     log.debug([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path])
     p = subprocess.run(
@@ -151,7 +152,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
     @param password: ZIP password
     @param recursion_depth: how deep we are in a nested archive
     @param try_multiple_passwords: we will be splitting the password on the ':' symbol,
-           and trying each one to extract the archive
+        and trying each one to extract the archive
     """
     # Test if zip file contains a file named as itself.
     if is_overwritten(zip_path):

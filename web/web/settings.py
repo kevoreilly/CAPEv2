@@ -265,6 +265,7 @@ INSTALLED_APPS = [
     # "allauth.socialaccount.providers.google",
     # "allauth.socialaccount.providers.microsoft",
     "crispy_forms",
+    "crispy_bootstrap4",
     "django_recaptcha",  # https://pypi.org/project/django-recaptcha/
     "rest_framework",
     "rest_framework.authtoken",
@@ -340,7 +341,7 @@ else:
 
 ACCOUNT_EMAIL_REQUIRED = web_cfg.registration.get("email_required", False)
 ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", False)
-ACCOUNT_RATE_LIMITS = {"login_failed": 3}
+ACCOUNT_RATE_LIMITS = {"login_failed": "3/m"}
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/accounts/login/"
 MANUAL_APPROVE = web_cfg.registration.get("manual_approve", False)

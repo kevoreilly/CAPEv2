@@ -53,6 +53,7 @@ bs4 = "0.0.1"
 pydeep2 = "0.5.1"
 django-recaptcha = "4.0.0"  # https://pypi.org/project/django-recaptcha/
 django-crispy-forms = "2.3"
+crispy-bootstrap4 = "2024.10"
 django-settings-export = "1.2.1"
 django-csp = "3.8"
 django-extensions = "3.2.3"

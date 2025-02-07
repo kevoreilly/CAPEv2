@@ -9,6 +9,7 @@ from lib.cuckoo.common.config import Config
 
 selfextract_conf = Config("selfextract")
 
+
 def ratdecodedr_load_decoders(path: str):
     from malwareconfig.common import Decoder
 

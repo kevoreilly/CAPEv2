@@ -99,3 +99,7 @@ timeout = 60
 [UnGPG_extract]
 enabled = no
 timeout = 60
+
+[pyinstaller]
+enabled = no
+timeout = 60

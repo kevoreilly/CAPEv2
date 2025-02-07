@@ -5,6 +5,9 @@ import os
 import pkgutil
 from pathlib import Path
 
+from lib.cuckoo.common.config import Config
+
+selfextract_conf = Config("selfextract")
 
 def ratdecodedr_load_decoders(path: str):
     from malwareconfig.common import Decoder
@@ -93,7 +96,7 @@ def file_extra_info_load_modules(CUCKOO_ROOT: str):
     for name in EXTRA_MODULES:
         try:
             module = importlib.import_module(f"lib.cuckoo.common.integrations.file_extra_info_modules.{name}")
-            if not getattr(module, "enabled", False):
+            if not getattr(module, "enabled", False) and not selfextract_conf.__dict__.get(name, {}).get("enabled", False):
                 continue
             file_extra_modules.append(module)
         except (ImportError, IndexError, AttributeError) as e:

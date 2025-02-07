@@ -687,7 +687,7 @@ def inetsim_disable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
 
 def interface_route_tun_enable(ipaddr: str, out_interface: str, task_id: str):
     """Enable routing and NAT via tun output_interface."""
-    log.info(f"Enabling interface routing via: {out_interface} for task: {task_id}")
+    log.info("Enabling interface routing via: %s for task: %s", out_interface, task_id)
 
     # mark packets from analysis VM
     run_iptables("-t", "mangle", "-I", "PREROUTING", "--source", ipaddr, "-j", "MARK", "--set-mark", task_id)
@@ -701,7 +701,7 @@ def interface_route_tun_enable(ipaddr: str, out_interface: str, task_id: str):
 
     peer_ip = get_tun_peer_address(out_interface)
     if peer_ip:
-        log.info(f"interface_route_enable {out_interface} has peer {peer_ip}")
+        log.info("interface_route_enable %s has peer: %s ", out_interface, peer_ip)
         run(s.ip, "route", "add", "default", "via", peer_ip, "table", task_id)
     else:
         log.error("interface_route_enable missing peer IP ")
@@ -709,7 +709,7 @@ def interface_route_tun_enable(ipaddr: str, out_interface: str, task_id: str):
 
 def interface_route_tun_disable(ipaddr: str, out_interface: str, task_id: str):
     """Disable routing and NAT via tun output_interface."""
-    log.info(f"Disable interface routing via: {out_interface} for task: {task_id}")
+    log.info("Disable interface routing via: %s for task: %s", out_interface, task_id)
 
     # mark packets from analysis VM
     run_iptables("-t", "mangle", "-D", "PREROUTING", "--source", ipaddr, "-j", "MARK", "--set-mark", task_id)
@@ -723,7 +723,7 @@ def interface_route_tun_disable(ipaddr: str, out_interface: str, task_id: str):
 
     peer_ip = get_tun_peer_address(out_interface)
     if peer_ip:
-        log.info(f"interface_route_disable {out_interface} has peer {peer_ip}")
+        log.info("interface_route_disable %s has peer %s", out_interface, peer_ip)
         run(s.ip, "route", "del", "default", "via", peer_ip, "table", task_id)
     else:
         log.error("interface_route_disable missing peer IP ")

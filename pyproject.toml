@@ -36,7 +36,6 @@ pyzipper = "0.3.6"
 flare-capa = "9.0.0"
 
 Cython = "3.0.11"
-# pyre2 = "0.3.6" # Dead for python3.11
 Django = ">=4.2.18"
 SQLAlchemy = "1.4.50"
 SQLAlchemy-Utils = "0.41.1"

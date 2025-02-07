@@ -521,7 +521,7 @@ class RunSignatures:
                 # Return information on the matched signature.
                 return signature.as_result()
         except KeyError as e:
-            log.error('Failed to run signature "%s": %s', signature.name, e)
+            log.debug('Failed to run signature "%s": %s', signature.name, e)
         except NotImplementedError:
             return None
         except Exception as e:

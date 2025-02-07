@@ -84,14 +84,14 @@ Version 2.0 (March 26, 2020)
 """
 
 from __future__ import print_function
+import logging
+import marshal
 import os
 import struct
-import marshal
-import zlib
 import sys
-from uuid import uuid4 as uniquename
+import zlib
 from contextlib import suppress
-import logging
+from uuid import uuid4 as uniquename
 
 log = logging.getLogger()
 

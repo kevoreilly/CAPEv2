@@ -2,13 +2,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import sys
 import contextlib
 import enum
 import logging
 import os
 import queue
 import signal
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -319,7 +319,6 @@ class Scheduler:
         self.loop_state = LoopState.STOPPING
         if self.cfg.cuckoo.ignore_signals:
             sys.exit()
-
 
     def thr_periodic_log(self, oneshot=False):
         # Ordinarily, this is the entry-point for a child thread. The oneshot parameter makes

@@ -79,12 +79,15 @@ Following is the list of available routing options.
 +-------------------------+--------------------------------------------------+
 | :ref:`routing_tor`      | Routes all traffic through Tor.                  |
 +-------------------------+--------------------------------------------------+
+| :ref:`routing_tun`      | Route traffic though any "tun" interface         |
++-------------------------+--------------------------------------------------+
 | :ref:`routing_vpn`      | Routes all traffic through one of perhaps        |
 |                         | multiple pre-defined VPN endpoints.              |
 +-------------------------+--------------------------------------------------+
 | :ref:`routing_socks`    | Routes all traffic through one of perhaps        |
 |                         | multiple pre-defined VPN endpoints.              |
 +-------------------------+--------------------------------------------------+
+
 
 Using Per-Analysis Network Routing
 ==================================
@@ -358,6 +361,18 @@ correctly.
 
 .. _`latest stable version of Tor here`: https://www.torproject.org/docs/debian.html.en
 
+
+.. _routing_tun:
+
+Tun Routing
+^^^^^^^^^^^
+This allows you to route via any ``tun`` interface.  You can pass the tun
+interface name on demand per analysis. The interface name can be ``tunX``
+or ``tun_foo``.  This assumes you create the tunnel inferface outside of CAPE.
+
+Then you set the ``route=tun_foo`` on the ``/apiv2/tasks/create/file/``
+API call.
+
 .. _routing_vpn:
 
 VPN Routing
@@ -454,13 +469,13 @@ VPN persistence & auto-restart `source`_::
     6. Reload the daemons:
     # sudo systemctl daemon-reload
 
-    1. Start the OpenVPN service:
+    7. Start the OpenVPN service:
         # sudo systemctl start openvpn
 
-    2. Test if it is working by checking the external IP:
+    8. Test if it is working by checking the external IP:
         # curl ifconfig.co
 
-    3. If curl is not installed:
+    9. If curl is not installed:
         # sudo apt install curl
 
 .. _`source`: https://www.ivpn.net/knowledgebase/linux/linux-autostart-openvpn-in-systemd-ubuntu/
@@ -568,7 +583,7 @@ Assuming you already have any VM running, to test the internet connection using 
     $ sudo python3 router_manager.py -r internet -e --vm-name win1 --verbose
     $ sudo python3 router_manager.py -r internet -d --vm-name win1 --verbose
 
-The ``-e`` flag is used to enable a route and ``-d`` is used to disable it. You can read more about all the options the utility has by running:: 
+The ``-e`` flag is used to enable a route and ``-d`` is used to disable it. You can read more about all the options the utility has by running::
 
     $ sudo python3 router_manager.py -h
 

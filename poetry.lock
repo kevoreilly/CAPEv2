@@ -703,6 +703,22 @@ tomli = {version = "*", optional = true, markers = "python_full_version <= \"3.1
 toml = ["tomli"]
 
 [[package]]
+name = "crispy-bootstrap4"
+version = "2024.10"
+description = "Bootstrap4 template pack for django-crispy-forms"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "crispy-bootstrap4-2024.10.tar.gz", hash = "sha256:503e8922b0f3b5262a6fdf303a3a94eb2a07514812f1ca130b88f7c02dd25e2b"},
+    {file = "crispy_bootstrap4-2024.10-py3-none-any.whl", hash = "sha256:138a97884044ae4c4799c80595b36c42066e4e933431e2e971611e251c84f96c"},
+]
+
+[package.dependencies]
+django = ">=4.2"
+django-crispy-forms = ">=2.3"
+
+[[package]]
 name = "crudini"
 version = "0.9.5"
 description = "A utility for manipulating ini files"
@@ -5032,4 +5048,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "e6ad75fb46d8336a5f0b2a9ca9bd0ed931c1d96119263cb34847a3528ebbae30"
+content-hash = "ac21ceb76cd2d8a049442fec4a1370391c008b7044056754f44ec4b1eb0c7bb5"

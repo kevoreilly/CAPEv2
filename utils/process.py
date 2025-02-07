@@ -320,7 +320,7 @@ def autoprocess(
                 # If not enough free disk space is available, then we print an
                 # error message and wait another round (this check is ignored
                 # when the freespace configuration variable is set to zero).
-                if cfg.cuckoo.freespace:
+                if cfg.cuckoo.freespace_processing:
                     # Resolve the full base path to the analysis folder, just in
                     # case somebody decides to make a symbolic link out of it.
                     dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")

@@ -1099,7 +1099,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_read_file(self, pattern, regex=False, all=False):
@@ -1112,7 +1112,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["read_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("read_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_write_file(self, pattern, regex=False, all=False):
@@ -1125,7 +1125,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["write_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("write_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_delete_file(self, pattern, regex=False, all=False):
@@ -1138,7 +1138,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["delete_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("delete_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_key(self, pattern, regex=False, all=False):
@@ -1151,7 +1151,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_read_key(self, pattern, regex=False, all=False):
@@ -1164,7 +1164,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["read_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("read_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_write_key(self, pattern, regex=False, all=False):
@@ -1177,7 +1177,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["write_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("write_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_delete_key(self, pattern, regex=False, all=False):
@@ -1190,7 +1190,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["delete_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("delete_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_mutex(self, pattern, regex=False, all=False):
@@ -1203,7 +1203,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["mutexes"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("mutexes", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=False)
 
     def check_started_service(self, pattern, regex=False, all=False):
@@ -1216,7 +1216,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["started_services"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("started_services", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_created_service(self, pattern, regex=False, all=False):
@@ -1229,7 +1229,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["created_services"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("created_services", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
@@ -1244,7 +1244,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["executed_commands"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("executed_commands", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=ignorecase)
 
     def check_api(self, pattern, process=None, regex=False, all=False):

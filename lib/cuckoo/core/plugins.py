@@ -520,7 +520,7 @@ class RunSignatures:
                 log.debug('Analysis matched signature "%s"', signature.name)
                 # Return information on the matched signature.
                 return signature.as_result()
-        except (KeyError, TypeError) as e:
+        except (KeyError, TypeError, AttributeError) as e:
             log.debug('Failed to run signature "%s": %s', signature.name, e)
         except NotImplementedError:
             return None
@@ -614,7 +614,7 @@ class RunSignatures:
                     stats[sig.name] += timediff
                 except NotImplementedError:
                     continue
-                except (KeyError, TypeError) as e:
+                except (KeyError, TypeError, AttributeError) as e:
                     log.debug('Failed to run signature "%s": %s', sig.name, e)
                 except Exception as e:
                     log.exception('Failed run on_complete() method for signature "%s": %s', sig.name, e)

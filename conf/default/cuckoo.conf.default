@@ -1,5 +1,8 @@
 [cuckoo]
 
+# Ignore Signals, will quit CAPE inmediatelly instead wait jobs to finish
+ignore_signals = yes
+
 # Which category of tasks do you want to analyze?
 categories = static, pcap, url, file
 
@@ -35,7 +38,7 @@ scaling_semaphore_update_timer = 10
 
 # Specify a timeout for tasks, useful if you are bound to timely reports awaited by users
 task_timeout = off
-task_pending_timeout = 0 
+task_pending_timeout = 0
 task_timeout_scan_interval = 30
 
 # Enable creation of memory dump of the analysis machine before shutting

@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -15,14 +16,9 @@ from random import choice
 from typing import Dict, List, Optional
 
 import magic
+import pyzipper
 import requests
 from django.http import HttpResponse
-
-HAVE_PYZIPPER = False
-with suppress(ImportError):
-    import pyzipper
-
-    HAVE_PYZIPPER = True
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
@@ -73,11 +69,6 @@ rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
 
 db = Database()
 
-try:
-    import re2 as re
-except ImportError:
-    import re
-
 DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
 
 HAVE_DIST = False
@@ -85,9 +76,8 @@ HAVE_DIST = False
 if dist_conf.distributed.enabled:
     try:
         # Tags
-        from lib.cuckoo.common.dist_db import Machine, Node
+        from lib.cuckoo.common.dist_db import Machine, Node, create_session
         from lib.cuckoo.common.dist_db import Task as DTask
-        from lib.cuckoo.common.dist_db import create_session
 
         HAVE_DIST = True
         dist_session = create_session(dist_conf.distributed.db)
@@ -274,6 +264,17 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
+    """
+    Retrieves the top detections from the database, either from MongoDB or Elasticsearch,
+    and caches the results for 10 minutes.
+
+    Args:
+        date_since (datetime, optional): The starting date to filter detections. Defaults to False.
+        results_limit (int, optional): The maximum number of results to return. Defaults to 20.
+
+    Returns:
+        dict: A dictionary containing the top detections with their counts, or False if the feature is disabled.
+    """
     if web_cfg.general.get("top_detections", False) is False:
         return False
 
@@ -333,6 +334,23 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
 
 # ToDo extend this to directly extract per day
 def get_stats_per_category(category: str, date_since):
+    """
+    Retrieves statistical data for a given category from the MongoDB collection "analysis"
+    starting from a specified date.
+
+    Args:
+        category (str): The category to retrieve statistics for.
+        date_since (datetime): The starting date to filter the data.
+
+    Returns:
+        list: A list of dictionaries containing the aggregated statistics per category.
+            Each dictionary contains the following keys:
+            - name (str): The name of the category.
+            - successful (int): The count of successful extractions.
+            - runs (int): The total number of runs.
+            - total (float): The total time in minutes, rounded to 2 decimal places.
+            - average (float): The average time per run in minutes, rounded to 2 decimal places.
+    """
     aggregation_command = [
         {
             "$match": {
@@ -370,6 +388,26 @@ def get_stats_per_category(category: str, date_since):
 
 
 def statistics(s_days: int) -> dict:
+    """
+    Generate statistics for the given number of days.
+
+    Args:
+        s_days (int): The number of days to generate statistics for.
+
+    Returns:
+        dict: A dictionary containing various statistics including:
+            - signatures: Statistics related to signatures.
+            - processing: Statistics related to processing.
+            - reporting: Statistics related to reporting.
+            - top_samples: Top samples per day seen more than once.
+            - detections: Top detections.
+            - custom_statistics: Custom statistics.
+            - total: Total number of tasks completed.
+            - average: Average number of tasks completed per day.
+            - tasks: Detailed task statistics per day.
+            - distributed_tasks: Statistics related to distributed tasks (if applicable).
+            - asns: Top Autonomous System Numbers (ASNs).
+    """
     date_since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=s_days)
     date_till = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -516,6 +554,16 @@ def get_file_content(paths):
 
 
 def fix_section_permission(path):
+    """
+    Adjusts the permissions of the .rdata section in a PE file to include write permissions.
+
+    This function checks if the 'pefile' module is available and if the given file is a PE image.
+    If the .rdata section of the PE file has read-only permissions, it modifies the section
+    characteristics to include write permissions.
+
+    Args:
+        path (str): The file path to the PE file.
+    """
     if not HAVE_PEFILE:
         log.info("[-] Missed dependency pefile")
         return
@@ -771,6 +819,19 @@ def download_file(**kwargs):
 
 def save_script_to_storage(task_ids, kwargs):
     """
+    Save pre_script and during_script contents to a temporary storage.
+
+    Parameters:
+    task_ids (list): List of task IDs for which the scripts need to be saved.
+    kwargs (dict): Dictionary containing script names and contents. Expected keys are:
+        - "pre_script_name" (str): Name of the pre-script file.
+        - "pre_script_content" (bytes): Content of the pre-script file.
+        - "during_script_name" (str): Name of the during-script file.
+        - "during_script_content" (bytes): Content of the during-script file.
+
+    Raises:
+    ValueError: If the file extension of the script is not one of ".py", ".ps1", or ".exe".
+
     Parameters: task_ids, kwargs
     Retrieve pre_script and during_script contents and save it to a temp storage
     """
@@ -1282,11 +1343,12 @@ _bazaar_map = {
 
 def _malwarebazaar_dl(hash):
     sample = None
-    if len(hash) not in _bazaar_map:
-        return False
-
     try:
-        data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", _bazaar_map[len(hash)]: hash})
+        data = requests.post(
+            "https://mb-api.abuse.ch/api/v1/",
+            data={"query": "get_file", _bazaar_map[len(hash)]: hash},
+            headers={"API-KEY": web_cfg.download_services.malwarebazaar_api_key, "User-Agent": "CAPE Sandbox"},
+        )
         if data.ok and b"file_not_found" not in data.content:
             try:
                 with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
@@ -1324,6 +1386,9 @@ def thirdpart_aux(samples, prefix, opt_filename, details, settings):
         if prefix == "vt":
             details["url"] = f"https://www.virustotal.com/api/v3/files/{h.lower()}/download"
         elif prefix == "bazaar":
+            if len(hash) not in _bazaar_map:
+                details["errors"].append({h: "Invalid hash length for MalwareBazaar lookup"})
+                continue
             content = _malwarebazaar_dl(h)
             if content:
                 details["content"] = content
@@ -1346,6 +1411,20 @@ def thirdpart_aux(samples, prefix, opt_filename, details, settings):
 
 
 def download_from_vt(samples, details, opt_filename, settings):
+    """
+    Downloads samples from VirusTotal using the provided API key.
+
+    Args:
+        samples (list): List of sample identifiers to download.
+        details (dict): Dictionary containing details for the download process.
+            Must include an 'apikey' if not provided in settings.
+        opt_filename (str): Optional filename for the downloaded samples.
+        settings (object): Settings object containing configuration, must include 'VTDL_KEY' if 'apikey' is not in details.
+
+    Returns:
+        dict: Updated details dictionary with headers set for the API key and service set to "VirusTotal".
+            If no API key is configured, an error is appended to the details and the dictionary is returned.
+    """
     if settings.VTDL_KEY:
         details["headers"] = {"x-apikey": settings.VTDL_KEY}
     elif details.get("apikey", False):
@@ -1359,11 +1438,26 @@ def download_from_vt(samples, details, opt_filename, settings):
 
 
 def download_from_bazaar(samples, details, opt_filename, settings):
-    if not HAVE_PYZIPPER:
-        print("Malware Bazaar download: Missed pyzipper dependency: pip3 install pyzipper -U")
-        return
+    """
+    Downloads samples from MalwareBazaar.
 
+    This function attempts to download malware samples from the MalwareBazaar service.
+    It updates the details dictionary with the service name and any errors encountered
+    during the process.
+
+    Args:
+        samples (list): A list of sample identifiers to download.
+        details (dict): A dictionary to store details about the download process, including errors.
+        opt_filename (str): An optional filename for the downloaded samples.
+        settings (dict): A dictionary of settings for the download process.
+
+    Returns:
+        dict: The updated details dictionary with information about the download process.
+    """
     details["service"] = "MalwareBazaar"
+    if not web_cfg.download_services.malwarebazaar_api_key:
+        details["errors"].append({"error": "MalwareBazaar API key not configured. Configure it in web.conf"})
+        return details
     return thirdpart_aux(samples, "bazaar", opt_filename, details, settings)
 
 

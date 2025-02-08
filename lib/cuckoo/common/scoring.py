@@ -1,4 +1,28 @@
 def calc_scoring(results: dict, matched: list):
+    """
+    Calculate the final malware score and status based on the analysis results and matched signatures.
+
+    The scoring is determined by the type of file and the categories of signatures it triggers. The methodology is as follows:
+    1. Malicious-Known: The file is detected by YARA.
+        - Score: 10/10 (Malicious)
+    2. Malicious-Unknown: The file triggers signatures with specific malicious categories.
+        - Categories: ["malware", "ransomware", "infostealer", "rat", "trojan", "rootkit", "bootkit", "wiper", "banker", "bypass", "anti-sandbox", "keylogger"]
+        - Score: 7-9/10 (Malicious)
+    3. Suspicious-Unknown: The file triggers signatures with specific suspicious categories.
+        - Categories: ["network", "encryption", "anti-vm", "anti-analysis", "anti-av", "anti-debug", "anti-emulation", "persistence", "stealth", "discovery", "injection", "generic", "account", "bot", "browser", "allocation", "command", "execution"]
+        - Score: 4-6/10 (Suspicious)
+    4. Benign: The file is likely trusted and digitally signed.
+        - Score: 0-3/10 (Benign)
+    5. Undetected/Failed: The file does not trigger any signatures.
+        - Score: 0/10 (Undetected/Failed)
+
+    Parameters:
+    results (dict): The analysis results containing details about the file and its behavior.
+    matched (list): A list of matched signatures with their categories, severity, confidence, and weight.
+
+    Returns:
+    tuple: A tuple containing the final malware score (float) and the status (str).
+    """
     finalMalscore = 0.0
     status = None
     fileType = results.get("target", {}).get("file", {}).get("type")

@@ -11,6 +11,25 @@ selfextract_conf = Config("selfextract")
 
 
 def ratdecodedr_load_decoders(path: str):
+    """
+    Loads and returns a dictionary of RAT decoder modules from the specified path.
+
+    This function walks recursively through all modules and packages in the given path,
+    imports them, and collects classes that are subclasses of the `Decoder` class from
+    the `malwareconfig.common` module. It skips packages and handles import errors gracefully.
+
+    Args:
+        path (str): The path to the directory containing the RAT decoder modules.
+
+    Returns:
+        dict: A dictionary where the keys are decoder names and the values are dictionaries
+            containing the following information about each decoder:
+            - obj: The decoder class object.
+            - decoder_name: The name of the decoder.
+            - decoder_description: A description of the decoder.
+            - decoder_version: The version of the decoder.
+            - decoder_author: The author of the decoder.
+    """
     from malwareconfig.common import Decoder
 
     dec_modules = {}
@@ -39,6 +58,28 @@ def ratdecodedr_load_decoders(path: str):
 
 
 def cape_load_custom_decoders(CUCKOO_ROOT: str):
+    """
+    Loads custom decoders for CAPE from specified directories within the CUCKOO_ROOT path.
+
+    This function searches for Python modules in the "modules/processing/parsers/CAPE" and
+    "custom/parsers" directories within the CUCKOO_ROOT path. It imports these modules and
+    stores them in a dictionary where the keys are the module names with spaces replaced by
+    underscores, and the values are the imported modules.
+
+    Args:
+        CUCKOO_ROOT (str): The root directory of the CUCKOO installation.
+
+    Returns:
+        dict: A dictionary where the keys are the names of the decoders and the values are
+            the imported modules.
+
+    Raises:
+        ImportError: If a module cannot be imported.
+        IndexError: If there is an indexing error during module import.
+        AttributeError: If there is an attribute error during module import.
+        SyntaxError: If there is a syntax error in the module code.
+        Exception: For any other exceptions that occur during module import.
+    """
 
     cape_modules = {}
     cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
@@ -72,6 +113,19 @@ def cape_load_custom_decoders(CUCKOO_ROOT: str):
 
 
 def malduck_load_decoders(CUCKOO_ROOT: str):
+    """
+    Loads and imports malduck decoder modules from the specified CUCKOO_ROOT directory.
+
+    Args:
+        CUCKOO_ROOT (str): The root directory of the CUCKOO installation.
+
+    Returns:
+        dict: A dictionary where the keys are the names of the decoder modules and the values are the imported module objects.
+
+    Raises:
+        ImportError: If a module cannot be imported.
+        IndexError: If there is an issue with the module name.
+    """
 
     malduck_modules = {}
     malduck_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck")
@@ -87,6 +141,25 @@ def malduck_load_decoders(CUCKOO_ROOT: str):
 
 
 def file_extra_info_load_modules(CUCKOO_ROOT: str):
+    """
+    Loads extra file information modules from the specified CUCKOO_ROOT directory.
+
+    This function searches for Python modules in the "file_extra_info_modules" directory
+    within the given CUCKOO_ROOT path. It imports and returns a list of modules that are
+    enabled based on their internal configuration or the selfextract_conf settings.
+
+    Args:
+        CUCKOO_ROOT (str): The root directory of the CUCKOO installation.
+
+    Returns:
+        list: A list of imported modules that are enabled. If the directory does not exist,
+            an empty list is returned.
+
+    Raises:
+        ImportError: If a module cannot be imported.
+        IndexError: If there is an indexing error during module import.
+        AttributeError: If an attribute is missing during module import.
+    """
     file_extra_modules = []
     extra_modules = os.path.join(CUCKOO_ROOT, "lib", "cuckoo", "common", "integrations", "file_extra_info_modules")
     if not Path(extra_modules).exists():

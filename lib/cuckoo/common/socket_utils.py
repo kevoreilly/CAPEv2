@@ -12,6 +12,22 @@ lock = threading.Lock()
 
 
 def send_socket_command(socket_path: str, command: str, *args, **kwargs):
+    """
+    Sends a command via a Unix domain socket to a root-executed component.
+
+    Args:
+        socket_path (str): The path to the Unix domain socket.
+        command (str): The command to send.
+        args: Additional positional arguments to include in the command.
+        kwargs: Additional keyword arguments to include in the command.
+
+    Returns:
+        dict: The response from the socket, parsed from JSON. If there is a timeout or connection error,
+            a dictionary with an "exception" key will be returned.
+
+    Logs:
+        Critical errors if the socket path does not exist or if unable to connect to the Unix socket.
+    """
     """Aux function to send commands via socket to root executed components"""
     if not path_exists(socket_path):
         log.critical("Unable to passthrough root command (%s) as the rooter unix socket: %s doesn't exist", socket_path, command)

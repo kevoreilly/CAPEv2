@@ -1551,29 +1551,36 @@ _bazaar_map = {
 }
 
 
-def _malwarebazaar_dl(hash: str):
+def _malwarebazaar_dl(hash: str) -> bytes:
     """
     Downloads a malware sample from MalwareBazaar using the provided hash.
 
     Args:
         hash (str): The hash of the malware sample to download. The hash can be an MD5, SHA1, or SHA256.
-
     Returns:
         bytes: The downloaded malware sample as bytes, or None if the sample could not be downloaded.
 
     Raises:
         Exception: If there is an error during the download or extraction process, it will be logged.
     """
-    sample = None
+    sample = b""
     try:
         data = requests.post(
             "https://mb-api.abuse.ch/api/v1/",
             data={"query": "get_file", _bazaar_map[len(hash)]: hash},
             headers={"API-KEY": web_cfg.download_services.malwarebazaar_api_key, "User-Agent": "CAPE Sandbox"},
         )
-        if data.ok and b"file_not_found" not in data.content[:50]:
+        if data.ok:
             try:
-                with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
+                if isinstance(data.content, bytes):
+                    if  b"file_not_found" not in data.content[:50]:
+                        return sample
+                    tmp_sample = io.BytesIO(data.content)
+                elif isinstance(data.content, io.BytesIO):
+                    tmp_sample = data.content
+                else:
+                    return sample
+                with pyzipper.AESZipFile(tmp_sample) as zf:
                     zf.setpassword(b"infected")
                     sample = zf.read(zf.namelist()[0])
             except pyzipper.zipfile.BadZipFile:

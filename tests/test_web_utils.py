@@ -115,7 +115,7 @@ class TestMalwareBazaarDownload(unittest.TestCase):
         mock_post.return_value = mock_response
 
         # Call the function
-        result = _malwarebazaar_dl('dummyhash')
+        result = _malwarebazaar_dl('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
         # Check the result
         self.assertEqual(result, b'sample content')
@@ -129,10 +129,10 @@ class TestMalwareBazaarDownload(unittest.TestCase):
         mock_post.return_value = mock_response
 
         # Call the function
-        result = _malwarebazaar_dl('dummyhash')
+        result = _malwarebazaar_dl('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
         # Check the result
-        self.assertIsNone(result)
+        assert not result
 
     @patch('requests.post')
     def test_malwarebazaar_dl_bad_zip_file(self, mock_post):
@@ -143,10 +143,10 @@ class TestMalwareBazaarDownload(unittest.TestCase):
         mock_post.return_value = mock_response
 
         # Call the function
-        result = _malwarebazaar_dl('dummyhash')
+        result = _malwarebazaar_dl('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
         # Check the result
-        self.assertIsNone(result)
+        assert not result
 
     @patch('requests.post')
     def test_malwarebazaar_dl_exception(self, mock_post):
@@ -154,10 +154,10 @@ class TestMalwareBazaarDownload(unittest.TestCase):
         mock_post.side_effect = requests.exceptions.RequestException
 
         # Call the function
-        result = _malwarebazaar_dl('dummyhash')
+        result = _malwarebazaar_dl('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
         # Check the result
-        self.assertIsNone(result)
+        assert not result
 
 class TestDownloadFromVT(unittest.TestCase):
     @patch('lib.cuckoo.common.web_utils.thirdpart_aux')

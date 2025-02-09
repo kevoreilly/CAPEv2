@@ -59,7 +59,7 @@ QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux
 qemu_version=9.2.0
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
-libvirt_version=10.10.0
+libvirt_version=11.0.0
 # virt-manager - https://github.com/virt-manager/virt-manager/releases
 # autofilled
 OS=""

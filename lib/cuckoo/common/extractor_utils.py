@@ -5,6 +5,19 @@ import pefile
 
 # dotnet
 def get_mdtoken(data: bytes) -> int:
+    """
+    Extracts a metadata token from the given byte data.
+
+    The function interprets the first 4 bytes of the input data as an unsigned
+    integer in little-endian format and then masks it with 0xFFFFFF to obtain
+    the metadata token.
+
+    Args:
+        data (bytes): The byte data from which to extract the metadata token.
+
+    Returns:
+        int: The extracted metadata token.
+    """
     return struct.unpack_from("<I", data)[0] & 0xFFFFFF
 
 
@@ -15,6 +28,20 @@ def get_data_offset(pe: pefile.PE, string_offset: int, addr: int) -> int:
 
 def calc_section_alignment(pe: pefile.PE, offset: int, addr: int) -> int:
     """
+    Calculate the alignment between two sections in a PE file.
+
+    Args:
+        pe (pefile.PE): The PE file object.
+        offset (int): The offset value, typically calculated as
+                    struct.unpack("i", blob[0x43:0x47])[0] + 0x47.
+        addr (int): The address where data starts, which can be a YARA address match.
+
+    Returns:
+        int: The calculated alignment between the sections. Returns 0 if sections are not found or an error occurs.
+
+    Raises:
+        Exception: If an error occurs during the calculation, it will be caught and printed.
+
     offset is: Ex struct.unpack("i", blob[0x43:0x47])[0] + 0x47
     addr is where data starts, can be YARA address match
     """
@@ -31,7 +58,20 @@ def calc_section_alignment(pe: pefile.PE, offset: int, addr: int) -> int:
     return alignment
 
 
-def function_offset_from_VA(addr, blob, pe):
+def function_offset_from_VA(addr: int, blob: bytes, pe: pefile.PE):
+    """
+    Calculate the function offset from a given virtual address (VA) in a PE file.
+
+    Args:
+        addr (int): The virtual address to start from.
+        blob (bytes): The binary data blob containing the instructions.
+        pe (PE): The PE file object, typically from the pefile module.
+
+    Returns:
+        tuple: A tuple containing:
+            - function_addr (int): The calculated function address.
+            - offset (int): The offset of the next instruction after the function call.
+    """
     shift_pos = blob.find(b"\xE8") + 1
     function_addr = pe.get_rva_from_offset(addr + shift_pos) + pe.OPTIONAL_HEADER.ImageBase
     # print(f"Getting offset for function: {hex(function_addr)}")
@@ -41,6 +81,19 @@ def function_offset_from_VA(addr, blob, pe):
 
 
 def function_offset_from_offset(addr: int, binary: bytes, pe: pefile.PE):
+    """
+    Calculates the virtual address and file offset of a subfunction call within a binary.
+
+    Args:
+        addr (int): The starting address to search for the CALL instruction.
+        binary (bytes): The binary data of the executable.
+        pe (pefile.PE): The PE file object representing the executable.
+
+    Returns:
+        tuple: A tuple containing:
+            - call_virtual_address (int): The virtual address of the CALL instruction.
+            - subfunc_file_offset (int): The file offset of the subfunction being called.
+    """
     # where our subcall starts - example: 8
     shift_pos = binary[addr:].find(b"\xE8")
     call_file_offset = addr + shift_pos
@@ -56,6 +109,18 @@ def function_offset_from_offset(addr: int, binary: bytes, pe: pefile.PE):
 
 
 def find_function_xrefs(data, start, end):
+    """
+    Finds function cross-references (xrefs) within a specified range in the given binary data.
+
+    Args:
+        data (bytes): The binary data to search for function xrefs.
+        start (int): The starting address (inclusive) of the range to search.
+        end (int): The ending address (exclusive) of the range to search.
+
+    Returns:
+        dict: A dictionary where keys are target addresses of CALL instructions and values are lists of addresses
+            where these CALL instructions are located.
+    """
     function_xrefs = {}
     # The re.finditer function only finds *non-overlapping* matches, which fails to find some CALL instructions
     for rva in range(start, end):

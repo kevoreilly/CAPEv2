@@ -22,6 +22,16 @@ from lib.cuckoo.common.path_utils import path_exists
 
 
 def get_dga_lookup_dict():
+    """
+    Retrieves the DGA (Domain Generation Algorithm) lookup dictionary from a gzipped JSON file.
+
+    The function constructs the file path to the DGA lookup dictionary, checks if the file exists,
+    and if it does, reads and decompresses the file, then loads its contents as a JSON object.
+    If the file does not exist, it returns an empty dictionary.
+
+    Returns:
+        dict: The DGA lookup dictionary if the file exists, otherwise an empty dictionary.
+    """
     dga_lookup_path = os.path.join(CUCKOO_ROOT, "data", "dga_lookup_dict.json.gz")
     if path_exists(dga_lookup_path):
         with gzip.GzipFile(dga_lookup_path, "r") as fin:

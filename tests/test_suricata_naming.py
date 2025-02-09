@@ -1,8 +1,8 @@
 import os
 import sys
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+if sys.version_info[:2] < (3, 8):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -61,3 +61,6 @@ def test_suricata_naming():
     assert "Photoloader" == get_suricata_family("ET MALWARE W32/Photoloader.Downloader Request Cookie")
     assert "Pcrat" == get_suricata_family("ET MALWARE Backdoor family PCRat/Gh0st CnC traffic")
     assert "Stealc" == get_suricata_family("ET MALWARE [SEKOIA.IO] Win32/Stealc C2 Check-in")
+
+if __name__ == "__main__":
+    print("Suricata detects as:", get_suricata_family(sys.argv[1]))

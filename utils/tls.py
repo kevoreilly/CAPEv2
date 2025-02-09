@@ -2,10 +2,7 @@ import os
 from dataclasses import dataclass
 from typing import ClassVar
 
-try:
-    import re2 as re
-except ImportError:
-    import re
+import re
 
 
 @dataclass()

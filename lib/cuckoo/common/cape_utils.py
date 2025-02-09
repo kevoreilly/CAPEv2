@@ -191,7 +191,7 @@ def static_config_parsers(cape_name: str, file_path:str, file_data: bytes) -> di
                 extracted, an empty dictionary is returned.
     """
     """Process CAPE Yara hits"""
-    cape_config = {cape_name: {}}
+    cape_config = {}
     parser_loaded = False
     # CAPE - pure python parsers
     # MWCP
@@ -211,14 +211,14 @@ def static_config_parsers(cape_name: str, file_path:str, file_data: bytes) -> di
                     # python3 map object returns iterator by default, not list and not serializeable in JSON.
                     if isinstance(value, map):
                         value = list(value)
-                    cape_config[cape_name].update({key: [value]})
+                    cape_config.setdefault(cape_name, {}).update({key: [value]})
                 parser_loaded = True
             elif isinstance(cape_configraw, dict):
                 for key, value in cape_configraw.items():
                     # python3 map object returns iterator by default, not list and not serializeable in JSON.
                     if isinstance(value, map):
                         value = list(value)
-                    cape_config[cape_name].update({key: [value]})
+                    cape_config.setdefault(cape_name, {}).update({key: [value]})
                 parser_loaded = True
         except Exception as e:
             log.error("CAPE: parsing error on %s with %s: %s", file_path, cape_name, e, exc_info=True)
@@ -242,7 +242,7 @@ def static_config_parsers(cape_name: str, file_path:str, file_data: bytes) -> di
                     del reportmeta["other"]
 
                 tmp_dict.update(reportmeta)
-                cape_config[cape_name] = convert(tmp_dict)
+                cape_config.setdefault(cape_name, {}).update(convert(tmp_dict))
                 log.debug("CAPE: DC3-MWCP parser for %s completed", cape_name)
             else:
                 error_lines = report.errors[0].split("\n")
@@ -279,10 +279,10 @@ def static_config_parsers(cape_name: str, file_path:str, file_data: bytes) -> di
                 # ToDo remove
                 if isinstance(malwareconfig_config, list):
                     for key, value in malwareconfig_config[0].items():
-                        cape_config[cape_name].update({key: [value]})
+                        cape_config.setdefault(cape_name, {}).update({key: [value]})
                 elif isinstance(malwareconfig_config, dict):
                     for key, value in malwareconfig_config.items():
-                        cape_config[cape_name].update({key: [value]})
+                        cape_config.setdefault(cape_name, {}).update({key: [value]})
         except Exception as e:
             if "rules" in str(e):
                 log.warning("You probably need to compile yara-python with dotnet support")
@@ -294,9 +294,6 @@ def static_config_parsers(cape_name: str, file_path:str, file_data: bytes) -> di
                     cape_name,
                     str(e),
                 )
-
-        if cape_config.get(cape_name) == {}:
-            return {}
     """
     elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
         log.debug("Running Malduck on %s", file_path)
@@ -317,10 +314,9 @@ def static_config_parsers(cape_name: str, file_path:str, file_data: bytes) -> di
         del ext
         if tmp_config:
             for key, value in tmp_config[0].items():
-                cape_config[cape_name].update({key: [value]})
+                cape_config.setdefault(cape_name, {}).update({key: [value]})
     """
-    if not cape_config[cape_name]:
-        return {}
+
     return cape_config
 
 

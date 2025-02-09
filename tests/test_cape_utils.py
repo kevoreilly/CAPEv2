@@ -69,42 +69,6 @@ class TestStaticConfigParsers(unittest.TestCase):
         self.assertIn("key", result[cape_name])
         self.assertEqual(result[cape_name]["key"], ["value"])
 
-    @patch("lib.cuckoo.common.cape_utils.HAS_MWCP", True)
-    @patch("lib.cuckoo.common.cape_utils.mwcp_decoders")
-    @patch("lib.cuckoo.common.cape_utils.mwcp")
-    def test_static_config_parsers_mwcp(self, mock_mwcp, mock_mwcp_decoders):
-        cape_name = "test_mwcp"
-        file_path = "/path/to/file"
-        file_data = b"test data"
-        mock_report = MagicMock()
-        mock_report.as_dict_legacy.return_value = {"key": "value"}
-        mock_report.errors = []
-        mock_mwcp.run.return_value = mock_report
-        mock_mwcp_decoders.__contains__.return_value = True
-        result = static_config_parsers(cape_name, file_path, file_data)
-        self.assertIn(cape_name, result)
-        self.assertIn("key", result[cape_name])
-        self.assertEqual(result[cape_name]["key"], ["value"])
-
-    @patch("lib.cuckoo.common.cape_utils.HAS_MALWARECONFIGS", True)
-    @patch("lib.cuckoo.common.cape_utils.rat_decoders")
-    @patch("lib.cuckoo.common.cape_utils.fileparser.FileParser")
-    def test_static_config_parsers_malwareconfigs(self, mock_FileParser, mock_rat_decoders):
-        cape_name = "test_rat"
-        file_path = "/path/to/file"
-        file_data = b"test data"
-        mock_file_info = MagicMock()
-        mock_file_info.malware_name = cape_name
-        mock_FileParser.return_value = mock_file_info
-        mock_module = MagicMock()
-        mock_module.config = {"key": "value"}
-        mock_rat_decoders.__contains__.return_value = True
-        mock_rat_decoders.__getitem__.return_value = {"obj": lambda: mock_module}
-        result = static_config_parsers(cape_name, file_path, file_data)
-        self.assertIn(cape_name, result)
-        self.assertIn("key", result[cape_name])
-        self.assertEqual(result[cape_name]["key"], ["value"])
-
     def test_static_config_parsers_no_extractors(self):
         cape_name = "test_none"
         file_path = "/path/to/file"

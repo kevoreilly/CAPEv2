@@ -133,6 +133,7 @@ class TestAnalysisManager:
             "task_timeout": False,
             "task_timeout_scan_interval": 30,
             "freespace_processing": 15000,
+            "ignore_signals": True,
             "periodic_log": False,
             "fail_unserviceable": True,
         }

@@ -1571,7 +1571,7 @@ def _malwarebazaar_dl(hash: str):
             data={"query": "get_file", _bazaar_map[len(hash)]: hash},
             headers={"API-KEY": web_cfg.download_services.malwarebazaar_api_key, "User-Agent": "CAPE Sandbox"},
         )
-        if data.ok and b"file_not_found" not in data.content:
+        if data.ok and b"file_not_found" not in data.content[:50]:
             try:
                 with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
                     zf.setpassword(b"infected")

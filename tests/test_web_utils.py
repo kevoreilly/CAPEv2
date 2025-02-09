@@ -109,7 +109,7 @@ class TestMalwareBazaarDownload(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.ok = True
         mock_response.content = io.BytesIO()
-        with pyzipper.AESZipFile(mock_response.content, 'w', compression=pyzipper.ZIP_DEFLATED) as zf:
+        with pyzipper.AESZipFile(mock_response.content, 'w') as zf:
             zf.setpassword(b"infected")
             zf.writestr('sample.txt', 'sample content')
         mock_post.return_value = mock_response

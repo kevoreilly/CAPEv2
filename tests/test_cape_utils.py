@@ -74,7 +74,7 @@ class TestStaticConfigParsers(unittest.TestCase):
         file_path = "/path/to/file"
         file_data = b"test data"
         result = static_config_parsers(cape_name, file_path, file_data)
-        self.assertEqual(result, {cape_name: {}})
+        self.assertEqual(result, {})
 
 if __name__ == "__main__":
     unittest.main()

@@ -116,7 +116,7 @@ pe_map = {
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
 
-def hash_file(method, path:str) -> str:
+def hash_file(method, path: str) -> str:
     """Calculates an hash on a file by path.
     @param method: callable hashing method
     @param path: file path
@@ -173,22 +173,22 @@ def is_duplicated_binary(file_info: dict, cape_file: dict, append_file: bool) ->
     return append_file
 
 
-def static_config_parsers(cape_name: str, file_path:str, file_data: bytes) -> dict:
+def static_config_parsers(cape_name: str, file_path: str, file_data: bytes) -> dict:
     """
-        Process CAPE Yara hits and extract configuration data using various parsers.
+    Process CAPE Yara hits and extract configuration data using various parsers.
 
-        This function attempts to extract configuration data from a given file using different parsers
-        such as CAPE extractors, DC3-MWCP, and Malwareconfigs. The function returns a dictionary containing
-        the extracted configuration data.
+    This function attempts to extract configuration data from a given file using different parsers
+    such as CAPE extractors, DC3-MWCP, and Malwareconfigs. The function returns a dictionary containing
+    the extracted configuration data.
 
-        Args:
-            cape_name (str): The name of the CAPE parser to use.
-            file_path (str): The path to the file being analyzed.
-            file_data (bytes): The binary data of the file being analyzed.
+    Args:
+        cape_name (str): The name of the CAPE parser to use.
+        file_path (str): The path to the file being analyzed.
+        file_data (bytes): The binary data of the file being analyzed.
 
-        Returns:
-            dict: A dictionary containing the extracted configuration data. If no configuration data is
-                extracted, an empty dictionary is returned.
+    Returns:
+        dict: A dictionary containing the extracted configuration data. If no configuration data is
+            extracted, an empty dictionary is returned.
     """
     """Process CAPE Yara hits"""
     cape_config = {}
@@ -320,7 +320,7 @@ def static_config_parsers(cape_name: str, file_path:str, file_data: bytes) -> di
     return cape_config
 
 
-def static_config_lookup(file_path: str, sha256: str=False) -> dict:
+def static_config_lookup(file_path: str, sha256: str = False) -> dict:
     """
     Look up static configuration information for a given file based on its SHA-256 hash.
 
@@ -363,7 +363,7 @@ def static_config_lookup(file_path: str, sha256: str=False) -> dict:
 named_static_extractors = []
 
 
-def static_extraction(path:str) -> dict:
+def static_extraction(path: str) -> dict:
     """
     Extracts static configuration from a file using YARA rules and named static extractors.
 

@@ -58,7 +58,7 @@ def calc_section_alignment(pe: pefile.PE, offset: int, addr: int) -> int:
     return alignment
 
 
-def function_offset_from_VA(addr: int, blob:bytes, pe:pefile.PE):
+def function_offset_from_VA(addr: int, blob: bytes, pe: pefile.PE):
     """
     Calculate the function offset from a given virtual address (VA) in a PE file.
 

@@ -172,22 +172,22 @@ _all_nodes_exits: Optional[Dict[str, List[str]]] = None
 _load_vms_exits_lock = threading.Lock()
 
 
-def load_vms_exits(force:bool = False):
+def load_vms_exits(force: bool = False):
     """
-        Load the VM exits information.
+    Load the VM exits information.
 
-        This function loads the VM exit nodes information and stores it in the global
-        variable `_all_nodes_exits`. If the information is already loaded and the
-        `force` parameter is not set to True, it returns the cached information.
-        Otherwise, it reloads the information.
+    This function loads the VM exit nodes information and stores it in the global
+    variable `_all_nodes_exits`. If the information is already loaded and the
+    `force` parameter is not set to True, it returns the cached information.
+    Otherwise, it reloads the information.
 
-        Args:
-            force (bool): If set to True, forces the reloading of the VM exits
-                        information even if it is already loaded. Default is False.
+    Args:
+        force (bool): If set to True, forces the reloading of the VM exits
+                    information even if it is already loaded. Default is False.
 
-        Returns:
-            dict: A dictionary where the keys are exit node names and the values are
-                lists of node names associated with each exit node.
+    Returns:
+        dict: A dictionary where the keys are exit node names and the values are
+            lists of node names associated with each exit node.
     """
     global _all_nodes_exits
     with _load_vms_exits_lock:
@@ -212,7 +212,7 @@ _all_vms_tags: Optional[List[str]] = None
 _load_vms_tags_lock = threading.Lock()
 
 
-def load_vms_tags(force:bool=False):
+def load_vms_tags(force: bool = False):
     """
     Load and return the tags associated with all virtual machines (VMs).
 
@@ -575,7 +575,7 @@ def statistics(s_days: int) -> dict:
 
 # Same jsonize function from api.py except we can now return Django
 # HttpResponse objects as well. (Shortcut to return errors)
-def jsonize(data: dict, response: bool=False):
+def jsonize(data: dict, response: bool = False):
     """Converts data dict to JSON.
     @param data: data dict
     @return: JSON formatted data or HttpResponse object with json data
@@ -1024,22 +1024,22 @@ def _download_file(route: str, url: str, options: str):
     return response
 
 
-def category_all_files(task_id: str, category:str, base_path:str):
+def category_all_files(task_id: str, category: str, base_path: str):
     """
-        Retrieve all file paths for a given task and category.
+    Retrieve all file paths for a given task and category.
 
-        Args:
-            task_id (str): The ID of the task to retrieve files for.
-            category (str): The category of files to retrieve. Special handling for "CAPE" category.
-            base_path (str): The base path to prepend to the file paths.
+    Args:
+        task_id (str): The ID of the task to retrieve files for.
+        category (str): The category of files to retrieve. Special handling for "CAPE" category.
+        base_path (str): The base path to prepend to the file paths.
 
-        Returns:
-            list: A list of file paths corresponding to the given task and category.
+    Returns:
+        list: A list of file paths corresponding to the given task and category.
 
-        Notes:
-            - If the category is "CAPE", it will be internally mapped to "CAPE.payloads".
-            - The function currently supports MongoDB as the database backend.
-            - Elasticsearch support is mentioned but not implemented.
+    Notes:
+        - If the category is "CAPE", it will be internally mapped to "CAPE.payloads".
+        - The function currently supports MongoDB as the database backend.
+        - Elasticsearch support is mentioned but not implemented.
     """
     analysis = False
     query_category = category
@@ -1246,21 +1246,23 @@ normalized_int_terms = (
 )
 
 
-def perform_search(term: str, value: str, search_limit: int=0, user_id: int=0, privs:bool=False, web:bool=True, projection: dict=None):
+def perform_search(
+    term: str, value: str, search_limit: int = 0, user_id: int = 0, privs: bool = False, web: bool = True, projection: dict = None
+):
     """
-        Perform a search based on the provided term and value.
+    Perform a search based on the provided term and value.
 
-        Args:
-            term (str): The search term to use.
-            value (str): The value to search for.
-            search_limit (int, optional): The maximum number of search results to return. Defaults to 0.
-            user_id (int, optional): The user ID to filter tasks by. Defaults to 0.
-            privs (bool, optional): Indicates if the user has privileges. Defaults to False.
-            web (bool, optional): Indicates if the search is performed via the web interface. Defaults to True.
-            projection (dict, optional): Fields to include or exclude in the search results. Defaults to None.
+    Args:
+        term (str): The search term to use.
+        value (str): The value to search for.
+        search_limit (int, optional): The maximum number of search results to return. Defaults to 0.
+        user_id (int, optional): The user ID to filter tasks by. Defaults to 0.
+        privs (bool, optional): Indicates if the user has privileges. Defaults to False.
+        web (bool, optional): Indicates if the search is performed via the web interface. Defaults to True.
+        projection (dict, optional): Fields to include or exclude in the search results. Defaults to None.
 
-        Returns:
-            list: A list of search results matching the criteria.
+    Returns:
+        list: A list of search results matching the criteria.
     """
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
@@ -1573,7 +1575,7 @@ def _malwarebazaar_dl(hash: str) -> bytes:
         if data.ok:
             try:
                 if isinstance(data.content, bytes):
-                    if  b"file_not_found" not in data.content[:50]:
+                    if b"file_not_found" not in data.content[:50]:
                         return sample
                     tmp_sample = io.BytesIO(data.content)
                 elif isinstance(data.content, io.BytesIO):
@@ -1591,7 +1593,7 @@ def _malwarebazaar_dl(hash: str) -> bytes:
     return sample
 
 
-def thirdpart_aux(samples: str, prefix: str, opt_filename:str, details: dict, settings) -> dict:
+def thirdpart_aux(samples: str, prefix: str, opt_filename: str, details: dict, settings) -> dict:
     """
     Processes a list of samples by downloading or retrieving their content from local storage,
     and updates the details dictionary with the file path, hash, and other relevant information.
@@ -1653,7 +1655,7 @@ def thirdpart_aux(samples: str, prefix: str, opt_filename:str, details: dict, se
     return details
 
 
-def download_from_vt(samples:str, details:dict, opt_filename:str, settings) -> dict:
+def download_from_vt(samples: str, details: dict, opt_filename: str, settings) -> dict:
     """
     Downloads samples from VirusTotal using the provided API key.
 
@@ -1680,7 +1682,7 @@ def download_from_vt(samples:str, details:dict, opt_filename:str, settings) -> d
     return thirdpart_aux(samples, "vt", opt_filename, details, settings)
 
 
-def download_from_bazaar(samples:str, details:dict, opt_filename:str, settings):
+def download_from_bazaar(samples: str, details: dict, opt_filename: str, settings):
     """
     Downloads samples from MalwareBazaar.
 
@@ -1704,30 +1706,30 @@ def download_from_bazaar(samples:str, details:dict, opt_filename:str, settings):
     return thirdpart_aux(samples, "bazaar", opt_filename, details, settings)
 
 
-def process_new_task_files(request, samples:list, details:dict, opt_filename:str, unique:bool=False) -> tuple:
+def process_new_task_files(request, samples: list, details: dict, opt_filename: str, unique: bool = False) -> tuple:
     """
-        Processes new task files by validating and storing them.
+    Processes new task files by validating and storing them.
 
-        Args:
-            request: The HTTP request object containing user information.
-            samples (list): A list of sample files to be processed.
-            details (dict): A dictionary to store error messages and other details.
-            opt_filename (str): An optional filename to use for the stored files.
-            unique (bool, optional): A flag to enforce unique file submission. Defaults to False.
+    Args:
+        request: The HTTP request object containing user information.
+        samples (list): A list of sample files to be processed.
+        details (dict): A dictionary to store error messages and other details.
+        opt_filename (str): An optional filename to use for the stored files.
+        unique (bool, optional): A flag to enforce unique file submission. Defaults to False.
 
-        Returns:
-            tuple: A tuple containing a list of processed files and the updated details dictionary.
+    Returns:
+        tuple: A tuple containing a list of processed files and the updated details dictionary.
 
-        The function performs the following steps:
-            1. Checks if each sample file is empty and logs an error if so.
-            2. Validates the size of each sample file against the configured maximum size.
-            3. Reads the data from each sample file.
-            4. Sanitizes the filename or uses the optional filename provided.
-            5. Stores the sample file in temporary storage and calculates its SHA-256 hash.
-            6. Checks for duplicate file submissions if the unique flag is set.
-            7. Appends the processed file data, path, and SHA-256 hash to the list of files.
+    The function performs the following steps:
+        1. Checks if each sample file is empty and logs an error if so.
+        2. Validates the size of each sample file against the configured maximum size.
+        3. Reads the data from each sample file.
+        4. Sanitizes the filename or uses the optional filename provided.
+        5. Stores the sample file in temporary storage and calculates its SHA-256 hash.
+        6. Checks for duplicate file submissions if the unique flag is set.
+        7. Appends the processed file data, path, and SHA-256 hash to the list of files.
 
-        Errors encountered during processing are appended to the details dictionary.
+    Errors encountered during processing are appended to the details dictionary.
     """
     list_of_files = []
     for sample in samples:
@@ -1782,7 +1784,7 @@ def process_new_task_files(request, samples:list, details:dict, opt_filename:str
     return list_of_files, details
 
 
-def process_new_dlnexec_task(url:str, route:str, options:str, custom:str):
+def process_new_dlnexec_task(url: str, route: str, options: str, custom: str):
     """
     Processes a new download and execute task by downloading a file from a given URL,
     sanitizing the URL, and storing the file temporarily.

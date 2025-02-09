@@ -1,18 +1,14 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from lib.cuckoo.common.cape_utils import cape_name_from_yara
-from lib.cuckoo.common.cape_utils import static_config_parsers
+from unittest.mock import MagicMock, patch
+
+from lib.cuckoo.common.cape_utils import cape_name_from_yara, static_config_parsers
+
 
 class TestCapeUtils(unittest.TestCase):
     @patch("lib.cuckoo.common.cape_utils.File.yara_hit_provides_detection")
     @patch("lib.cuckoo.common.cape_utils.File.get_cape_name_from_yara_hit")
     def test_cape_name_from_yara(self, mock_get_cape_name_from_yara_hit, mock_yara_hit_provides_detection):
-        details = {
-            "cape_yara": [
-                {"rule": "test_rule_1"},
-                {"rule": "test_rule_2"}
-            ]
-        }
+        details = {"cape_yara": [{"rule": "test_rule_1"}, {"rule": "test_rule_2"}]}
         pid = 1234
         results = {}
 
@@ -28,11 +24,7 @@ class TestCapeUtils(unittest.TestCase):
 
     @patch("lib.cuckoo.common.cape_utils.File.yara_hit_provides_detection")
     def test_cape_name_from_yara_no_detection(self, mock_yara_hit_provides_detection):
-        details = {
-            "cape_yara": [
-                {"rule": "test_rule_1"}
-            ]
-        }
+        details = {"cape_yara": [{"rule": "test_rule_1"}]}
         pid = 1234
         results = {}
 
@@ -52,6 +44,7 @@ class TestCapeUtils(unittest.TestCase):
 
         self.assertIsNone(name)
         self.assertNotIn("detections2pid", results)
+
 
 class TestStaticConfigParsers(unittest.TestCase):
     @patch("lib.cuckoo.common.cape_utils.HAVE_CAPE_EXTRACTORS", True)
@@ -75,6 +68,7 @@ class TestStaticConfigParsers(unittest.TestCase):
         file_data = b"test data"
         result = static_config_parsers(cape_name, file_path, file_data)
         self.assertEqual(result, {})
+
 
 if __name__ == "__main__":
     unittest.main()

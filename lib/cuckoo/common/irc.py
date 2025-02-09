@@ -10,10 +10,7 @@ from io import BytesIO
 
 from lib.cuckoo.common.utils import convert_to_printable
 
-try:
-    import re2 as re
-except ImportError:
-    import re
+import re
 
 log = logging.getLogger("Processing.Pcap.irc.protocol")
 

@@ -172,7 +172,23 @@ _all_nodes_exits: Optional[Dict[str, List[str]]] = None
 _load_vms_exits_lock = threading.Lock()
 
 
-def load_vms_exits(force=False):
+def load_vms_exits(force:bool = False):
+    """
+        Load the VM exits information.
+
+        This function loads the VM exit nodes information and stores it in the global
+        variable `_all_nodes_exits`. If the information is already loaded and the
+        `force` parameter is not set to True, it returns the cached information.
+        Otherwise, it reloads the information.
+
+        Args:
+            force (bool): If set to True, forces the reloading of the VM exits
+                        information even if it is already loaded. Default is False.
+
+        Returns:
+            dict: A dictionary where the keys are exit node names and the values are
+                lists of node names associated with each exit node.
+    """
     global _all_nodes_exits
     with _load_vms_exits_lock:
         if _all_nodes_exits is not None and not force:
@@ -196,7 +212,22 @@ _all_vms_tags: Optional[List[str]] = None
 _load_vms_tags_lock = threading.Lock()
 
 
-def load_vms_tags(force=False):
+def load_vms_tags(force:bool=False):
+    """
+    Load and return the tags associated with all virtual machines (VMs).
+
+    This function retrieves tags from both a distributed database (if enabled)
+    and a local database, combines them, and returns a sorted list of unique tags.
+    The result is cached globally and can be forced to refresh by setting the
+    `force` parameter to True.
+
+    Args:
+        force (bool): If True, forces the function to reload the tags from the
+                    databases even if they are already cached. Default is False.
+
+    Returns:
+        list: A sorted list of unique tags associated with all VMs.
+    """
     global _all_vms_tags
     with _load_vms_tags_lock:
         if _all_vms_tags is not None and not force:
@@ -220,6 +251,19 @@ def load_vms_tags(force=False):
 
 
 def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
+    """
+    Retrieves the top Autonomous System Numbers (ASNs) based on the number of occurrences in the database.
+
+    This function queries a MongoDB collection to aggregate and count the occurrences of ASNs in the network hosts.
+    The results are cached for 10 minutes to improve performance.
+
+    Args:
+        date_since (datetime, optional): A datetime object to filter results starting from this date. Defaults to False.
+        results_limit (int, optional): The maximum number of ASNs to return. Defaults to 20.
+
+    Returns:
+        dict: A dictionary containing the top ASNs and their counts. Returns False if the MongoDB is not enabled or if the "top_asn" configuration is disabled.
+    """
     if web_cfg.general.get("top_asn", False) is False:
         return False
 
@@ -334,7 +378,7 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
 
 
 # ToDo extend this to directly extract per day
-def get_stats_per_category(category: str, date_since):
+def get_stats_per_category(category: str, date_since: datetime) -> List[Dict[str, int]]:
     """
     Retrieves statistical data for a given category from the MongoDB collection "analysis"
     starting from a specified date.
@@ -531,7 +575,7 @@ def statistics(s_days: int) -> dict:
 
 # Same jsonize function from api.py except we can now return Django
 # HttpResponse objects as well. (Shortcut to return errors)
-def jsonize(data, response=False):
+def jsonize(data: dict, response: bool=False):
     """Converts data dict to JSON.
     @param data: data dict
     @return: JSON formatted data or HttpResponse object with json data
@@ -542,7 +586,16 @@ def jsonize(data, response=False):
     return json.dumps(data, sort_keys=False, indent=4)
 
 
-def get_file_content(paths):
+def get_file_content(paths: list) -> bytes:
+    """
+    Retrieves the content of the first existing file from a list of file paths.
+
+    Args:
+        paths (str or list of str): A single file path or a list of file paths to check.
+
+    Returns:
+        bytes or bool: The content of the first existing file as bytes, or False if no file exists.
+    """
     content = False
     if not isinstance(paths, list):
         paths = [paths]
@@ -554,7 +607,7 @@ def get_file_content(paths):
     return content
 
 
-def fix_section_permission(path):
+def fix_section_permission(path: str):
     """
     Adjusts the permissions of the .rdata section in a PE file to include write permissions.
 
@@ -583,7 +636,22 @@ def fix_section_permission(path):
         log.info(e)
 
 
-def get_magic_type(data):
+def get_magic_type(data: bytes) -> str:
+    """
+    Determine the MIME type of the given data using the `magic` library.
+
+    This function attempts to identify the MIME type of the provided data. If the data
+    represents a file path and the file exists, it uses `magic.from_file` to determine
+    the MIME type. Otherwise, it uses `magic.from_buffer` to determine the MIME type
+    from the data buffer.
+
+    Args:
+        data (bytes): The data to analyze, which can be a file path or a data buffer.
+
+    Returns:
+        str: The MIME type of the data if successfully determined.
+        bool: False if an error occurs during MIME type determination.
+    """
     try:
         if path_exists(data):
             return magic.from_file(data)
@@ -596,7 +664,30 @@ def get_magic_type(data):
 
 
 def download_file(**kwargs):
-    """Example of kwargs
+    """
+    Downloads a file based on the provided arguments and handles various conditions and errors.
+
+    Keyword Arguments:
+    errors (list): List to store error messages.
+    content (bytes): Content of the file to be downloaded.
+    request (object): Request object containing details of the request.
+    task_id (list): List to store task IDs.
+    url (str): URL to download the file from.
+    params (dict): Parameters to be sent in the request.
+    headers (dict): Headers to be sent in the request.
+    service (str): Name of the service to download the file from.
+    path (str): Path to save the downloaded file.
+    fhash (str): Expected hash of the file to verify integrity.
+    options (str): Additional options for the download.
+    only_extraction (bool): Flag to indicate if only extraction is needed.
+    user_id (int): ID of the user requesting the download.
+    source_url (str): Source URL of the file.
+
+    Returns:
+    tuple: A tuple containing the status ("ok" or "error") and a dictionary with task IDs and errors.
+    """
+    """
+    Example of kwargs
     {
         "errors": [],
         "content": content,
@@ -818,7 +909,7 @@ def download_file(**kwargs):
     return "ok", {"task_ids": kwargs["task_ids"], "errors": extra_details.get("errors", [])}
 
 
-def save_script_to_storage(task_ids, kwargs):
+def save_script_to_storage(task_ids: list, kwargs):
     """
     Save pre_script and during_script contents to a temporary storage.
 
@@ -857,14 +948,46 @@ def save_script_to_storage(task_ids, kwargs):
             _ = Path(os.path.join(script_temp_path, f"during_script{file_ext}")).write_bytes(kwargs["during_script_content"])
 
 
-def url_defang(url):
+def url_defang(url: str):
+    """
+    Defangs a given URL by replacing common defanged components with their original counterparts.
+
+    This function performs the following replacements:
+    - "[.]" with "."
+    - "[." with "."
+    - ".]" with "."
+    - "hxxp" with "http"
+    - "hxtp" with "http"
+
+    Additionally, if the URL does not start with "http", it prepends "http://" to the URL.
+
+    Args:
+        url (str): The defanged URL to be processed.
+
+    Returns:
+        str: The refanged URL.
+    """
     url = url.replace("[.]", ".").replace("[.", ".").replace(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
     if not url.startswith("http"):
         url = f"http://{url}"
     return url
 
 
-def _download_file(route, url, options):
+def _download_file(route: str, url: str, options: str):
+    """
+    Downloads a file from the specified URL using optional proxy settings and custom headers.
+
+    Args:
+        route (str): The route to determine proxy settings. If "tor", uses Tor network.
+                    If in socks5s, uses the specified SOCKS5 proxy settings.
+        url (str): The URL of the file to download.
+        options (str): Comma-separated string of options to customize headers.
+                    Options starting with "dne_" will be added to headers.
+
+    Returns:
+        bytes: The content of the downloaded file if the request is successful.
+        bool: False if the request fails or an exception occurs.
+    """
     socks5s = _load_socks5_operational()
     proxies = {}
     response = False
@@ -901,7 +1024,23 @@ def _download_file(route, url, options):
     return response
 
 
-def category_all_files(task_id, category, base_path):
+def category_all_files(task_id: str, category:str, base_path:str):
+    """
+        Retrieve all file paths for a given task and category.
+
+        Args:
+            task_id (str): The ID of the task to retrieve files for.
+            category (str): The category of files to retrieve. Special handling for "CAPE" category.
+            base_path (str): The base path to prepend to the file paths.
+
+        Returns:
+            list: A list of file paths corresponding to the given task and category.
+
+        Notes:
+            - If the category is "CAPE", it will be internally mapped to "CAPE.payloads".
+            - The function currently supports MongoDB as the database backend.
+            - Elasticsearch support is mentioned but not implemented.
+    """
     analysis = False
     query_category = category
     if category == "CAPE":
@@ -1107,7 +1246,22 @@ normalized_int_terms = (
 )
 
 
-def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True, projection=None):
+def perform_search(term: str, value: str, search_limit: int=0, user_id: int=0, privs:bool=False, web:bool=True, projection: dict=None):
+    """
+        Perform a search based on the provided term and value.
+
+        Args:
+            term (str): The search term to use.
+            value (str): The value to search for.
+            search_limit (int, optional): The maximum number of search results to return. Defaults to 0.
+            user_id (int, optional): The user ID to filter tasks by. Defaults to 0.
+            privs (bool, optional): Indicates if the user has privileges. Defaults to False.
+            web (bool, optional): Indicates if the search is performed via the web interface. Defaults to True.
+            projection (dict, optional): Fields to include or exclude in the search results. Defaults to None.
+
+        Returns:
+            list: A list of search results matching the criteria.
+    """
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
@@ -1239,6 +1393,20 @@ def force_int(value):
 
 
 def force_bool(value):
+    """
+    Converts a given value to a boolean.
+
+    Args:
+        value: The value to be converted. It can be of any type.
+
+    Returns:
+        bool: The boolean representation of the input value. Returns True if the value is one of
+            ("true", "yes", "on", "1") (case insensitive). Returns False if the value is one of
+            ("false", "no", "off", "0") (case insensitive), or if the value is None or empty.
+
+    Logs:
+        A warning is logged if the value cannot be converted from string to bool.
+    """
     if isinstance(value, bool):
         return value
 
@@ -1255,6 +1423,38 @@ def force_bool(value):
 
 
 def parse_request_arguments(request, keyword="POST"):
+    """
+    Parses request arguments from a Django or API request object.
+
+    Args:
+        request (HttpRequest): The request object containing the arguments.
+        keyword (str, optional): The attribute of the request object to extract arguments from. Defaults to "POST".
+
+    Returns:
+        tuple: A tuple containing the following parsed arguments:
+            - static (str): Static argument.
+            - package (str): Package argument.
+            - timeout (int): Timeout argument.
+            - priority (int): Priority argument.
+            - options (str): Options argument.
+            - machine (str): Machine argument.
+            - platform (str): Platform argument.
+            - tags (str): Tags argument.
+            - custom (str): Custom argument.
+            - memory (bool): Memory argument.
+            - clock (str): Clock argument.
+            - enforce_timeout (bool): Enforce timeout argument.
+            - shrike_url (str): Shrike URL argument.
+            - shrike_msg (str): Shrike message argument.
+            - shrike_sid (str): Shrike SID argument.
+            - shrike_refer (str): Shrike refer argument.
+            - unique (bool): Unique argument.
+            - referrer (str): Referrer argument.
+            - tlp (str): TLP argument.
+            - tags_tasks (str): Tags tasks argument.
+            - route (str): Route argument.
+            - cape (str): CAPE argument.
+    """
     # Django uses request.POST and API uses request.data
     static = getattr(request, keyword).get("static", "")
     referrer = validate_referrer(getattr(request, keyword).get("referrer"))
@@ -1319,7 +1519,16 @@ def parse_request_arguments(request, keyword="POST"):
     )
 
 
-def get_hash_list(hashes):
+def get_hash_list(hashes: str) -> list:
+    """
+    Parses a string of hashes separated by commas or spaces and returns a list of cleaned hash values.
+
+    Args:
+        hashes (str): A string containing hash values separated by commas or spaces.
+
+    Returns:
+        list: A list of cleaned hash values. If a hash value is a URL ending with a slash,  the hash is extracted from the URL.
+    """
     hashlist = []
     if "," in hashes:
         hashlist = list(filter(None, hashes.replace(" ", "").strip().split(",")))
@@ -1342,28 +1551,61 @@ _bazaar_map = {
 }
 
 
-def _malwarebazaar_dl(hash):
-    sample = None
+def _malwarebazaar_dl(hash: str) -> bytes:
+    """
+    Downloads a malware sample from MalwareBazaar using the provided hash.
+
+    Args:
+        hash (str): The hash of the malware sample to download. The hash can be an MD5, SHA1, or SHA256.
+    Returns:
+        bytes: The downloaded malware sample as bytes, or None if the sample could not be downloaded.
+
+    Raises:
+        Exception: If there is an error during the download or extraction process, it will be logged.
+    """
+    sample = b""
     try:
         data = requests.post(
             "https://mb-api.abuse.ch/api/v1/",
             data={"query": "get_file", _bazaar_map[len(hash)]: hash},
             headers={"API-KEY": web_cfg.download_services.malwarebazaar_api_key, "User-Agent": "CAPE Sandbox"},
         )
-        if data.ok and b"file_not_found" not in data.content:
+        if data.ok:
             try:
-                with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:
+                if isinstance(data.content, bytes):
+                    if  b"file_not_found" not in data.content[:50]:
+                        return sample
+                    tmp_sample = io.BytesIO(data.content)
+                elif isinstance(data.content, io.BytesIO):
+                    tmp_sample = data.content
+                else:
+                    return sample
+                with pyzipper.AESZipFile(tmp_sample) as zf:
                     zf.setpassword(b"infected")
                     sample = zf.read(zf.namelist()[0])
             except pyzipper.zipfile.BadZipFile:
-                print(data.content)
+                print("_malwarebazaar_dl", data.content[:100])
     except Exception as e:
         logging.error(e, exc_info=True)
 
     return sample
 
 
-def thirdpart_aux(samples, prefix, opt_filename, details, settings):
+def thirdpart_aux(samples: str, prefix: str, opt_filename:str, details: dict, settings) -> dict:
+    """
+    Processes a list of samples by downloading or retrieving their content from local storage,
+    and updates the details dictionary with the file path, hash, and other relevant information.
+
+    Args:
+        samples (list): A list of sample hashes to process.
+        prefix (str): A prefix indicating the source of the samples (e.g., "vt" for VirusTotal, "bazaar" for MalwareBazaar).
+        opt_filename (str): An optional filename to use for the downloaded files. If not provided, the hash will be used as the filename.
+        details (dict): A dictionary to store details about the processed samples, including path, hash, content, errors, etc.
+        settings (object): An object containing configuration settings, including the temporary path.
+
+    Returns:
+        dict: The updated details dictionary with information about the processed samples, including any errors encountered.
+    """
     folder = os.path.join(settings.TEMP_PATH, "cape-external")
     if not path_exists(folder):
         path_mkdir(folder, exist_ok=True)
@@ -1411,7 +1653,7 @@ def thirdpart_aux(samples, prefix, opt_filename, details, settings):
     return details
 
 
-def download_from_vt(samples, details, opt_filename, settings):
+def download_from_vt(samples:str, details:dict, opt_filename:str, settings) -> dict:
     """
     Downloads samples from VirusTotal using the provided API key.
 
@@ -1438,7 +1680,7 @@ def download_from_vt(samples, details, opt_filename, settings):
     return thirdpart_aux(samples, "vt", opt_filename, details, settings)
 
 
-def download_from_bazaar(samples, details, opt_filename, settings):
+def download_from_bazaar(samples:str, details:dict, opt_filename:str, settings):
     """
     Downloads samples from MalwareBazaar.
 
@@ -1462,7 +1704,31 @@ def download_from_bazaar(samples, details, opt_filename, settings):
     return thirdpart_aux(samples, "bazaar", opt_filename, details, settings)
 
 
-def process_new_task_files(request, samples, details, opt_filename, unique):
+def process_new_task_files(request, samples:list, details:dict, opt_filename:str, unique:bool=False) -> tuple:
+    """
+        Processes new task files by validating and storing them.
+
+        Args:
+            request: The HTTP request object containing user information.
+            samples (list): A list of sample files to be processed.
+            details (dict): A dictionary to store error messages and other details.
+            opt_filename (str): An optional filename to use for the stored files.
+            unique (bool, optional): A flag to enforce unique file submission. Defaults to False.
+
+        Returns:
+            tuple: A tuple containing a list of processed files and the updated details dictionary.
+
+        The function performs the following steps:
+            1. Checks if each sample file is empty and logs an error if so.
+            2. Validates the size of each sample file against the configured maximum size.
+            3. Reads the data from each sample file.
+            4. Sanitizes the filename or uses the optional filename provided.
+            5. Stores the sample file in temporary storage and calculates its SHA-256 hash.
+            6. Checks for duplicate file submissions if the unique flag is set.
+            7. Appends the processed file data, path, and SHA-256 hash to the list of files.
+
+        Errors encountered during processing are appended to the details dictionary.
+    """
     list_of_files = []
     for sample in samples:
         # Error if there was only one submitted sample, and it's empty.
@@ -1516,7 +1782,26 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
     return list_of_files, details
 
 
-def process_new_dlnexec_task(url, route, options, custom):
+def process_new_dlnexec_task(url:str, route:str, options:str, custom:str):
+    """
+    Processes a new download and execute task by downloading a file from a given URL,
+    sanitizing the URL, and storing the file temporarily.
+
+    Args:
+        url (str): The URL of the file to download. The URL may use obfuscation techniques
+                such as "hxxp" instead of "http" and "[.]" instead of ".".
+        route (str): The route or path where the file should be downloaded.
+        options (dict): Additional options for downloading the file.
+        custom (str): Custom parameters or settings for the task.
+
+    Returns:
+        tuple: A tuple containing:
+            - path (str): The temporary file path where the downloaded file is stored.
+            - response (bytes): The content of the downloaded file.
+            - str: An empty string (reserved for future use or additional information).
+
+        If the download fails, returns (False, False, False).
+    """
     url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
     response = _download_file(route, url, options)
     if not response:
@@ -1596,7 +1881,7 @@ def submit_task(
             filename=filename,
         )
     if not task_id:
-        log.warn("Error adding CAPE task to database: %s", package)
+        log.warning("Error adding CAPE task to database: %s", package)
         return task_id
 
     log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)
@@ -1605,6 +1890,16 @@ def submit_task(
 
 # https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
 def get_running_commit() -> str:
+    """
+    Retrieves the current Git commit hash of the repository.
+
+    This function reads the HEAD file in the .git directory to determine the
+    current branch or commit reference, then reads the corresponding file to
+    get the commit hash.
+
+    Returns:
+        str: The current Git commit hash as a string.
+    """
     git_folder = Path(CUCKOO_ROOT, ".git")
     head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
     return Path(git_folder, head_name).read_text().replace("\n", "")

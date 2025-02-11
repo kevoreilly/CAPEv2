@@ -288,8 +288,9 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 log.error("Detected password protected office file, but no sflock is installed: poetry install")
                 error_list.append(
                     {
-                        os.path.basename(filename).decode():
-                        "Detected password protected office file, but no sflock is installed or correct password provided"
+                        os.path.basename(
+                            filename
+                        ).decode(): "Detected password protected office file, but no sflock is installed or correct password provided"
                     }
                 )
 
@@ -312,8 +313,9 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             else:
                 error_list.append(
                     {
-                        os.path.basename(filename).decode():
-                        "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
+                        os.path.basename(
+                            filename
+                        ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
                     }
                 )
         return retlist, error_list
@@ -348,8 +350,9 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 else:
                     error_list.append(
                         {
-                            os.path.basename(filename).decode():
-                            "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
+                            os.path.basename(
+                                filename
+                            ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
                         }
                     )
             new_retlist.append((filename, platform))

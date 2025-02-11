@@ -32,6 +32,7 @@ def get_running_commit() -> str:
         log.error(f"Error getting running commit hash: {e}")
         return "unknown"
 
+
 CAPE_CURRENT_COMMIT_HASH = get_running_commit()
 
 

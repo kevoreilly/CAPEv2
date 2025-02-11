@@ -24,10 +24,13 @@ db = Database()
 
 
 def get_running_commit() -> str:
-    git_folder = Path(CUCKOO_ROOT, ".git")
-    head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
-    return Path(git_folder, head_name).read_text().replace("\n", "")
-
+    try:
+        git_folder = Path(CUCKOO_ROOT, ".git")
+        head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
+        return Path(git_folder, head_name).read_text().replace("\n", "")
+    except Exception as e:
+        log.error(f"Error getting running commit hash: {e}")
+        return "unknown"
 
 CAPE_CURRENT_COMMIT_HASH = get_running_commit()
 

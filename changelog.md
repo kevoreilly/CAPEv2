@@ -1,3 +1,13 @@
+### [10.02.2025]
+* We are now on `Poetry v2`. If you see next message, you need to upgrade your `poetry` version.
+    * This one might be tricky as depends if your `poetry` was installed with `apt` or script. But something like this should works:
+        * `curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -`
+```
+The Poetry configuration is invalid:
+  - Additional properties are not allowed ('requires-poetry' was unexpected)
+```
+* If you see missed `crispy_bootstrap4`. Just run `poetry install` as `cape` user.
+
 ### [05.02.2025]
 * Monitor update: Fix hooking deadlock with delay-loaded dlls & make LdrpCallInitRoutine hook transparent
 

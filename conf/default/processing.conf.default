@@ -340,3 +340,9 @@ sigs_path = data/flare-signatures
 
 [html_scraper]
 enabled = no
+
+### Signature utility
+# Create your apikey: https://threatfox.abuse.ch/api/#auth_key
+[threatfox]
+enabled = no
+apikey =

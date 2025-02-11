@@ -3393,6 +3393,38 @@ full = ["Pillow (>=8.0.0)", "cryptography"]
 image = ["Pillow (>=8.0.0)"]
 
 [[package]]
+name = "pyre2-updated"
+version = "0.3.8"
+description = "Python wrapper for Google's RE2 using Cython"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "pyre2-updated-0.3.8.tar.gz", hash = "sha256:6d6aaa2f41a085095993b2d09562511cf40d4aedfc5bd00d78f53112be051e19"},
+    {file = "pyre2_updated-0.3.8-cp310-cp310-macosx_10_15_universal2.whl", hash = "sha256:65e67527eb472cd5045966df42414205cbfc187633a844ba7d9f59480f46e748"},
+    {file = "pyre2_updated-0.3.8-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ab79cd5c663d20eca146361f2b2b7cf23c631109e43064d4bb35a43cb0607ffd"},
+    {file = "pyre2_updated-0.3.8-cp310-cp310-win_amd64.whl", hash = "sha256:b0820d8420caca762184f5eebe57631be5b985e405c53e807aac24897daa892a"},
+    {file = "pyre2_updated-0.3.8-cp311-cp311-macosx_10_15_universal2.whl", hash = "sha256:2bda9bf4d59568152e085450ffc1c08fcf659000d06766861f7ff340ba601c3e"},
+    {file = "pyre2_updated-0.3.8-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:54de291bb8b3aa2223f864293e0a9e62ea2877fea72a632fe5cd36a60012f7bc"},
+    {file = "pyre2_updated-0.3.8-cp311-cp311-win_amd64.whl", hash = "sha256:45c0940dbda4a2c45652e69ab52946c2395171f3e3a96bce456a8ddb45b337e1"},
+    {file = "pyre2_updated-0.3.8-cp312-cp312-macosx_10_15_universal2.whl", hash = "sha256:4db83d0f148d91f9b67b71eb3fd04a7e1d09397e7ecea75972632cd46c27ba6e"},
+    {file = "pyre2_updated-0.3.8-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:53d27f552fac2149c9dbe45faf1f6236c55fba42ea579799a07cdc853e3732d6"},
+    {file = "pyre2_updated-0.3.8-cp312-cp312-win_amd64.whl", hash = "sha256:648196c6fe7b115431f2bedc48660333a61f6628bde7efefc14098d67f86b7b4"},
+    {file = "pyre2_updated-0.3.8-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:802dec5801912c76b21dcc3d91810ae9ff0cc308e78fb0aa32d93e921783f5d8"},
+    {file = "pyre2_updated-0.3.8-cp37-cp37m-win_amd64.whl", hash = "sha256:daf366a83b70b08cc4c59477455a28b2a108484d282824d350217a8a7378d229"},
+    {file = "pyre2_updated-0.3.8-cp38-cp38-macosx_10_15_universal2.whl", hash = "sha256:f1c406e30aed02699888ae6938b83058f0845650991cd97db09e1686ce8a181a"},
+    {file = "pyre2_updated-0.3.8-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8331fc7bb1fa57d2654046ed189631d70db1170d935264ce82a7291413ce60e4"},
+    {file = "pyre2_updated-0.3.8-cp38-cp38-win_amd64.whl", hash = "sha256:407ca7082e2049aeae0b2c716cc53cd92217d17886694fe0047ce5d636161155"},
+    {file = "pyre2_updated-0.3.8-cp39-cp39-macosx_10_15_universal2.whl", hash = "sha256:99942f75a252691117880fc60941f20170d35bcb3ccb72aff9a1bbce951d4db0"},
+    {file = "pyre2_updated-0.3.8-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ff764613bd436689cf5e4d3c14a25cf8465474e1db9f2a39738bbf481dd07300"},
+    {file = "pyre2_updated-0.3.8-cp39-cp39-win_amd64.whl", hash = "sha256:350be9580700b67af87f5227453d1123bc9f4513f0bcc60450574f1bc46cb24f"},
+]
+
+[package.extras]
+perf = ["regex"]
+test = ["pytest"]
+
+[[package]]
 name = "pysocks"
 version = "1.7.1"
 description = "A Python SOCKS client module. See https://github.com/Anorov/PySocks for more information."
@@ -5048,4 +5080,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "ac21ceb76cd2d8a049442fec4a1370391c008b7044056754f44ec4b1eb0c7bb5"
+content-hash = "212481dbe2629a287e093656bb9a46849381c3035b12fabe664517c7c95275fc"

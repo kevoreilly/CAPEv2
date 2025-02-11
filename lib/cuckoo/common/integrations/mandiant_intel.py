@@ -22,6 +22,7 @@ processing_conf = Config("processing")
 api_access = processing_conf.mandiant_intel.api_access
 api_secret = processing_conf.mandiant_intel.api_secret
 
+
 class MandiantAPIClient:
     def __init__(self):
         self.api_access = api_access
@@ -43,18 +44,12 @@ class MandiantAPIClient:
             "Authorization": f"Basic {self._generate_auth_header()}",
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
-            "X-App-Name": "get-indicator-infos"
+            "X-App-Name": "get-indicator-infos",
         }
         params = {"grant_type": "client_credentials"}
 
         try:
-            response = requests.post(
-                url=self.auth_url,
-                headers=headers,
-                verify=False,
-                allow_redirects=False,
-                data=params
-            )
+            response = requests.post(url=self.auth_url, headers=headers, verify=False, allow_redirects=False, data=params)
         except Exception as e:
             return {"error": True, "msg": f"Error during token request: {e}"}
 
@@ -73,7 +68,7 @@ class MandiantAPIClient:
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "X-App-Name": "get-indicator-infos"
+            "X-App-Name": "get-indicator-infos",
         }
 
         body = {
@@ -87,11 +82,7 @@ class MandiantAPIClient:
 
         try:
             response = requests.post(
-                url=self.search_url,
-                headers=headers,
-                verify=False,
-                allow_redirects=False,
-                data=json.dumps(body)
+                url=self.search_url, headers=headers, verify=False, allow_redirects=False, data=json.dumps(body)
             )
         except Exception as e:
             return {"error": True, "msg": f"Error during search request: {e}"}
@@ -121,10 +112,8 @@ class MandiantAPIClient:
             if "malwares" in obj:
                 malwares.extend(malware.get("name") for malware in obj["malwares"] if "name" in malware)
 
-        return {
-            "actor": actors,
-            "malware": malwares
-        }
+        return {"actor": actors, "malware": malwares}
+
 
 def mandiant_lookup(category: str, target: str, results: dict = {}):
     if not processing_conf.mandiant_intel.enabled:
@@ -154,6 +143,7 @@ def mandiant_lookup(category: str, target: str, results: dict = {}):
 
 if __name__ == "__main__":
     import sys
+
     indicator = sys.argv[1]
 
     client = MandiantAPIClient()

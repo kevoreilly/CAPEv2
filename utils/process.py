@@ -76,6 +76,15 @@ original_proctitle = getproctitle()
 
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
 def memory_limit(percentage: float = 0.8):
+    """
+    Sets a memory limit for the current process on Linux systems.
+
+    Args:
+        percentage (float): Percentage of the total system memory that is allowed to be used. Defaults to 0.8 (80%).
+
+    Returns:
+        None
+    """
     if platform.system() != "Linux":
         print("Only works on linux!")
         return
@@ -185,6 +194,16 @@ def init_worker():
 
 
 def get_formatter_fmt(task_id=None, main_task_id=None):
+    """
+    Generates a logging format string with optional task identifiers.
+
+    Args:
+        task_id (int, optional): The ID of the task. Defaults to None.
+        main_task_id (int, optional): The ID of the main task. Defaults to None.
+
+    Returns:
+        str: A formatted string for logging that includes the task information if provided.
+    """
     task_info = f"[Task {task_id}" if task_id is not None else ""
     if main_task_id:
         task_info += f" ({main_task_id})"
@@ -201,6 +220,20 @@ def set_formatter_fmt(task_id=None, main_task_id=None):
 
 
 def init_logging(debug=False):
+    """
+    Initializes logging for the application.
+
+    This function sets up logging handlers for console output, syslog, and file output.
+    It also configures log rotation if enabled in the configuration.
+
+    Args:
+        debug (bool): If True, sets the logging level to DEBUG. Otherwise, sets it to INFO.
+
+    Returns:
+        tuple: A tuple containing the console handler, file handler, and syslog handler (if configured).
+
+    Raises:
+        PermissionError: If there is an issue creating or accessing the log file, typically due to incorrect user permissions.
     # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
     # If basicConfig was already called by something and had a StreamHandler added,
     # replace it with a ConsoleHandler.
@@ -208,7 +241,7 @@ def init_logging(debug=False):
         if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
             log.removeHandler(h)
             h.close()
-
+    """
     """
     Handlers:
         - ch - console handler
@@ -286,6 +319,21 @@ def init_per_analysis_logging(tid=0, debug=False):
 
 
 def processing_finished(future):
+    """
+    Callback function to handle the completion of a processing task.
+
+    This function is called when a future task is completed. It retrieves the task ID from the
+    pending_future_map, logs the result, and updates the task status in the database. If an
+    exception occurs during processing, it logs the error and sets the task status to failed.
+
+    Args:
+        future (concurrent.futures.Future): The future object representing the asynchronous task.
+
+    Raises:
+        TimeoutError: If the processing task times out.
+        pebble.ProcessExpired: If the processing task expires.
+        Exception: For any other exceptions that occur during processing.
+    """
     task_id = pending_future_map.get(future)
     with db.session.begin():
         try:
@@ -307,6 +355,24 @@ def processing_finished(future):
 def autoprocess(
     parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False
 ):
+    """
+    Automatically processes analysis data using a process pool.
+
+    Args:
+        parallel (int): Number of parallel processes to use. Default is 1.
+        failed_processing (bool): Whether to process failed tasks. Default is False.
+        maxtasksperchild (int): Maximum number of tasks per child process. Default is 7.
+        memory_debugging (bool): Whether to enable memory debugging. Default is False.
+        processing_timeout (int): Timeout for processing each task in seconds. Default is 300.
+        debug (bool): Whether to enable debug mode. Default is False.
+
+    Raises:
+        KeyboardInterrupt: If the process is interrupted by the user.
+        MemoryError: If there is not enough free RAM to run processing.
+        OSError: If an OS-related error occurs.
+        Exception: If any other exception occurs during processing.
+
+    """
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     # pool = multiprocessing.Pool(parallel, init_worker)
@@ -394,6 +460,18 @@ def autoprocess(
 
 
 def _load_report(task_id: int):
+    """
+    Load the analysis report for a given task ID from the configured database.
+
+    This function attempts to load the analysis report from MongoDB if it is enabled.
+    If MongoDB is not enabled, it tries to load the report from Elasticsearch if it is enabled and not in search-only mode.
+
+    Args:
+        task_id (int): The ID of the task for which to load the analysis report.
+
+    Returns:
+        dict or bool: The analysis report as a dictionary if found, otherwise False.
+    """
     if repconf.mongodb.enabled:
         analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
         for process in analysis.get("behavior", {}).get("processes", []):
@@ -419,6 +497,20 @@ def _load_report(task_id: int):
 
 
 def parse_id(id_string: str):
+    """
+    Parses a string representing a range or list of ranges of IDs and returns a list of tuples.
+
+    Args:
+        id_string (str): A string representing IDs. It can be "auto" or a string of comma-separated
+            ranges (e.g., "1-3,5,7-9").
+
+    Returns:
+        list: A list of tuples where each tuple represents a range of IDs. If the input is "auto",
+            it returns the string "auto".
+
+    Raises:
+        TypeError: If the input string is not in the correct format or if a range is invalid.
+    """
     if id_string == "auto":
         return id_string
     id_string = id_string.replace(" ", "")

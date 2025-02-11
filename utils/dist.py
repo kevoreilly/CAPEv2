@@ -142,6 +142,21 @@ if not path_exists(binaries_folder):
 
 
 def node_status(url: str, name: str, apikey: str) -> dict:
+    """
+    Retrieve the status of a CAPE node.
+
+    This function sends a GET request to the specified CAPE node URL to retrieve its status.
+    It uses the provided API key for authorization.
+
+    Args:
+        url (str): The base URL of the CAPE node.
+        name (str): The name of the CAPE node.
+        apikey (str): The API key for authorization.
+
+    Returns:
+        dict: A dictionary containing the status data of the CAPE node. If an error occurs,
+            an empty dictionary is returned.
+    """
     try:
         r = requests.get(
             os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=300
@@ -153,6 +168,19 @@ def node_status(url: str, name: str, apikey: str) -> dict:
 
 
 def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
+    """
+    Fetches tasks from a remote server based on the given status and other parameters.
+
+    Args:
+        status (str): The status of the tasks to fetch (e.g., "completed", "pending").
+        url (str): The base URL of the remote server.
+        apikey (str): The API key for authentication.
+        action (str, optional): The action to perform. Defaults to "fetch".
+        since (int, optional): The timestamp to fetch tasks completed after. Defaults to 0.
+
+    Returns:
+        list: A list of tasks fetched from the remote server. Returns an empty list if an error occurs.
+    """
     try:
         url = os.path.join(url, "tasks", "list/")
         params = dict(status=status, ids=True)
@@ -171,6 +199,19 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
 
 
 def node_list_machines(url, apikey):
+    """
+    Retrieves a list of machines from a CAPE node and yields Machine objects.
+
+    Args:
+        url (str): The base URL of the CAPE node.
+        apikey (str): The API key for authentication.
+
+    Yields:
+        Machine: An instance of the Machine class with the machine's details.
+
+    Raises:
+        HTTPException: If the request to the CAPE node fails or returns an error.
+    """
     try:
         r = requests.get(os.path.join(url, "machines", "list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for machine in r.json()["data"]:
@@ -180,6 +221,19 @@ def node_list_machines(url, apikey):
 
 
 def node_list_exitnodes(url, apikey):
+    """
+    Fetches a list of exit nodes from a given URL using the provided API key.
+
+    Args:
+        url (str): The base URL of the CAPE node.
+        apikey (str): The API key for authorization.
+
+    Yields:
+        dict: Each exit node data as a dictionary.
+
+    Raises:
+        HTTPException: If the request fails or the response is invalid.
+    """
     try:
         r = requests.get(os.path.join(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for exitnode in r.json()["data"]:
@@ -189,6 +243,22 @@ def node_list_exitnodes(url, apikey):
 
 
 def node_get_report(task_id, fmt, url, apikey, stream=False):
+    """
+    Fetches a report for a given task from a specified URL.
+
+    Args:
+        task_id (int): The ID of the task for which the report is to be fetched.
+        fmt (str): The format of the report (e.g., 'json', 'html').
+        url (str): The base URL of the server from which to fetch the report.
+        apikey (str): The API key for authorization.
+        stream (bool, optional): Whether to stream the response. Defaults to False.
+
+    Returns:
+        requests.Response: The response object containing the report.
+
+    Raises:
+        Exception: If there is an error fetching the report.
+    """
     try:
         url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
         return requests.get(url, stream=stream, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=800)
@@ -197,6 +267,23 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
 
 
 def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
+    """
+    Retrieves a report from a worker node via NFS and copies it to the main task's analysis directory.
+
+    Args:
+        task_id (int): The ID of the task on the worker node.
+        worker_name (str): The name of the worker node.
+        main_task_id (int): The ID of the main task on the main node.
+
+    Returns:
+        bool: True if the operation was successful, False otherwise.
+
+    Raises:
+        Exception: If there is an error during the copying process.
+
+    Logs:
+        Error messages if the worker node is not mounted, the file does not exist, or if there is an exception during copying.
+    """
     worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
 
     if not path_mount_point(worker_path):
@@ -223,6 +310,26 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
 
 def _delete_many(node, ids, nodes, db):
+    """
+    Deletes multiple tasks from a specified node if the node is not the main server.
+
+    Args:
+        node (str): The identifier of the node from which tasks are to be deleted.
+        ids (list): A list of task IDs to be deleted.
+        nodes (dict): A dictionary containing node information, where keys are node identifiers and values are node details.
+        db (object): The database connection object to perform rollback in case of failure.
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If there is an error during the deletion process.
+
+    Logs:
+        Debug: Logs the task IDs and node name from which tasks are being deleted.
+        Info: Logs the status code and content if the response status code is not 200.
+        Critical: Logs the error message if an exception occurs during the deletion process.
+    """
     if nodes[node].name == main_server_name:
         return
     try:
@@ -245,6 +352,29 @@ def _delete_many(node, ids, nodes, db):
 
 
 def node_submit_task(task_id, node_id, main_task_id):
+    """
+    Submits a task to a specified node for processing.
+
+    Args:
+        task_id (int): The ID of the task to be submitted.
+        node_id (int): The ID of the node to which the task will be submitted.
+        main_task_id (int): The ID of the main task associated with this task.
+
+    Returns:
+        bool: True if the task was successfully submitted, False otherwise.
+
+    Raises:
+        Exception: If there is an error during the task submission process.
+
+    The function performs the following steps:
+    1. Retrieves the node and task information from the database.
+    2. Checks if the node is the main server and returns if it is.
+    3. Prepares the task data for submission based on the task category.
+    4. Submits the task to the node using an HTTP POST request.
+    5. Handles different response statuses from the node.
+    6. Updates the task status in the database based on the submission result.
+    7. Logs relevant information and errors during the process.
+    """
     db = session()
     node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
     task = db.query(Task).filter_by(id=task_id).first()
@@ -379,6 +509,38 @@ def node_submit_task(task_id, node_id, main_task_id):
 
 # class Retriever():
 class Retriever(threading.Thread):
+    """
+    A class that retrieves and processes tasks from distributed nodes.
+
+    Methods
+    -------
+    run():
+        Initializes and starts various threads for fetching and processing tasks.
+
+    free_space_mon():
+        Monitors free disk space and logs an error if space is insufficient.
+
+    notification_loop():
+        Sends notifications for completed tasks to configured callback URLs.
+
+    failed_cleaner():
+        Cleans up failed tasks from nodes and updates their status in the database.
+
+    fetcher():
+        Continuously fetches tasks from enabled nodes and processes them.
+
+    delete_target_file(task_id: int, sample_sha256: str, target: str):
+        Deletes the original file and its binary copy if configured to do so.
+
+    fetch_latest_reports_nfs():
+        Fetches the latest reports from nodes using NFS and processes them.
+
+    fetch_latest_reports():
+        Fetches the latest reports from nodes using REST API and processes them.
+
+    remove_from_worker():
+        Removes tasks from worker nodes and updates their status in the database.
+    """
     def run(self):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
@@ -448,6 +610,18 @@ class Retriever(threading.Thread):
             time.sleep(60)
 
     def free_space_mon(self):
+        """
+        Monitors the free disk space in the analysis folder and logs an error
+        message if the available space is below the configured threshold. This
+        check is performed periodically every 10 minutes. The check is ignored
+        if the 'freespace' configuration variable is set to zero.
+
+        The analysis folder path is resolved to its full base path to handle
+        cases where it might be a symbolic link.
+
+        Returns:
+            None
+        """
         # If not enough free disk space is available, then we print an
         # error message and wait another round (this check is ignored
         # when the freespace configuration variable is set to zero).
@@ -460,6 +634,22 @@ class Retriever(threading.Thread):
                 time.sleep(600)
 
     def notification_loop(self):
+        """
+        Continuously checks for completed tasks that have not been notified and sends notifications to specified URLs.
+
+        This method runs an infinite loop that:
+        1. Queries the database for tasks that are finished, retrieved, but not yet notified.
+        2. For each task, updates the main task status to `TASK_REPORTED`.
+        3. Sends a POST request to each URL specified in the configuration with the task ID in the payload.
+        4. Marks the task as notified if the POST request is successful.
+        5. Logs the status of each notification attempt.
+
+        The loop sleeps for 20 seconds before repeating the process.
+
+        Raises:
+            requests.exceptions.ConnectionError: If there is a connection error while sending the POST request.
+            Exception: For any other exceptions that occur during the notification process.
+        """
         urls = reporting_conf.callback.url.split(",")
         headers = {"x-api-key": reporting_conf.callback.key}
 
@@ -486,6 +676,30 @@ class Retriever(threading.Thread):
                 time.sleep(20)
 
     def failed_cleaner(self):
+        """
+        Periodically checks for failed tasks on enabled nodes and cleans them up.
+
+        This method continuously queries the database for nodes that are enabled and
+        checks for tasks that have failed either during analysis or processing. If a
+        failed task is found, it updates the task status to indicate failure, marks
+        the task as finished, retrieved, and notified, and then adds the task to the
+        cleaner queue for further processing.
+
+        The method runs indefinitely, sleeping for 600 seconds between each iteration.
+
+        Attributes:
+            self.cleaner_queue (Queue): A queue to hold tasks that need to be cleaned.
+
+        Notes:
+            - This method acquires and releases a lock (`lock_retriever`) to ensure
+              thread-safe operations when adding tasks to the cleaner queue.
+            - The method commits changes to the database after processing each node.
+            - The method closes the database session before exiting.
+
+        Raises:
+            Any exceptions raised during database operations or task processing are
+            not explicitly handled within this method.
+        """
         db = session()
         while True:
             for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(enabled=True).all():
@@ -514,7 +728,25 @@ class Retriever(threading.Thread):
         db.close()
 
     def fetcher(self):
-        """Method that runs forever"""
+        """
+        Method that runs indefinitely to fetch tasks from nodes and process them.
+
+        This method continuously checks for tasks from enabled nodes and processes them.
+        It maintains a status count and last check time for each node. If a node's tasks
+        are fetched successfully, they are added to the fetcher queue. If a node is deemed
+        dead after a certain number of failures, it is logged.
+
+        Attributes:
+            last_checks (dict): Dictionary to keep track of the last check time for each node.
+            status_count (dict): Dictionary to keep track of the status count for each node.
+            stop_dist (threading.Event): Event to signal stopping the distribution.
+            cleaner_queue (queue.Queue): Queue to hold tasks that need cleaning.
+            fetcher_queue (queue.Queue): Queue to hold tasks that need fetching.
+            current_queue (dict): Dictionary to keep track of the current queue for each node.
+
+        Raises:
+            Exception: If an error occurs during task processing, it is logged and the status count is incremented
+        """
         last_checks = {}
         # to not exit till cleaner works
         with session() as db:
@@ -585,6 +817,22 @@ class Retriever(threading.Thread):
                 # time.sleep(5)
 
     def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
+        """
+        Deletes the target file and its binary copy if certain conditions are met.
+
+        Args:
+            task_id (int): The ID of the task associated with the file.
+            sample_sha256 (str): The SHA-256 hash of the sample file.
+            target (str): The path to the target file.
+
+        Behavior:
+            - Deletes the target file if `cfg.cuckoo.delete_original` is True and the target file exists.
+            - Deletes the binary copy of the file if `cfg.cuckoo.delete_bin_copy` is True and no other tasks are using the sample.
+
+        Note:
+            - The function checks if the target file exists before attempting to delete it.
+            - The function checks if the binary copy is still in use by other tasks before deleting it.
+        """
         # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
         if cfg.cuckoo.delete_original and target and path_exists(target):
             path_delete(target)
@@ -599,6 +847,32 @@ class Retriever(threading.Thread):
 
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports_nfs(self):
+        """
+        Fetches the latest reports from NFS (Network File System) for distributed tasks.
+
+        This method continuously checks for new tasks in the fetcher queue and processes them.
+        It retrieves the task details from the database, fetches the corresponding report from
+        the specified node, and updates the task status in the main database.
+
+        The method performs the following steps:
+        1. Continuously checks for new tasks in the fetcher queue.
+        2. Retrieves task details from the database.
+        3. Fetches the report from the specified node.
+        4. Updates the task status in the main database.
+        5. Moves the report to the appropriate location.
+        6. Creates a symbolic link to the analysis folder.
+        7. Deletes the target file if necessary.
+        8. Marks the task as retrieved and finished in the database.
+
+        The method handles various exceptions and logs relevant information for debugging purposes.
+
+        Note:
+            This method runs indefinitely until the `stop_dist` event is set.
+
+        Raises:
+            Exception: If any error occurs during the processing of tasks.
+
+        """
         # db = session()
         with session() as db:
             # to not exit till cleaner works
@@ -694,6 +968,24 @@ class Retriever(threading.Thread):
 
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports(self):
+        """
+        Continuously fetches the latest reports from distributed nodes and processes them.
+
+        This method runs in an infinite loop until `self.stop_dist` is set. It retrieves tasks from the `fetcher_queue`,
+        fetches the corresponding reports from the nodes, and processes them. The reports are saved to the local storage
+        and the task status is updated in the database.
+
+        The method handles various scenarios such as:
+        - Task not found or already processed.
+        - Report retrieval failures.
+        - Report extraction and saving.
+        - Handling of sample binaries associated with the tasks.
+
+        The method also manages a cleaner queue to handle tasks that need to be cleaned up.
+
+        Raises:
+            Exception: If any unexpected error occurs during the report fetching and processing.
+        """
         db = session()
         # to not exit till cleaner works
         while True:
@@ -817,6 +1109,30 @@ class Retriever(threading.Thread):
         db.close()
 
     def remove_from_worker(self):
+        """
+        Removes tasks from worker nodes.
+
+        This method continuously processes tasks from the cleaner queue and removes them from the worker nodes.
+        It retrieves the list of nodes from the database and processes tasks in the cleaner queue.
+        If a task is found in the `t_is_none` dictionary for a node, it is removed from the list.
+        The method then sends a request to delete the tasks from the worker node.
+
+        The method performs the following steps:
+        1. Retrieves the list of nodes from the database.
+        2. Continuously processes tasks from the cleaner queue.
+        3. Groups tasks by node ID.
+        4. Removes tasks from the `t_is_none` dictionary if present.
+        5. Sends a request to delete tasks from the worker node.
+        6. Commits the changes to the database.
+        7. Sleeps for 20 seconds before processing the next batch of tasks.
+
+        Note:
+            The method runs indefinitely until manually stopped.
+
+        ToDo:
+            Determine if additional actions are needed when the length of `t_is_none[node_id]` exceeds 50.
+
+        """
         nodes = {}
         with session() as db:
             for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).all():
@@ -848,7 +1164,38 @@ class Retriever(threading.Thread):
 
 
 class StatusThread(threading.Thread):
+    """
+    A thread that handles the submission of tasks to nodes and manages the status of nodes.
+
+    Methods
+    -------
+    submit_tasks(node_id, pend_tasks_num, options_like=False, force_push_push=False, db=None)
+        Submits tasks to a specified node.
+
+    load_vm_tags(db, node_id, node_name)
+        Loads the tags for virtual machines associated with a node.
+
+    run()
+        The main loop that continuously checks the status of nodes and submits tasks.
+    """
     def submit_tasks(self, node_id, pend_tasks_num, options_like=False, force_push_push=False, db=None):
+        """
+        Submits tasks to a specified node.
+
+        Args:
+            node_id (str): The identifier of the node to which tasks will be submitted.
+            pend_tasks_num (int): The number of pending tasks to be submitted.
+            options_like (bool, optional): Flag to filter tasks based on options. Defaults to False.
+            force_push_push (bool, optional): Flag to forcefully push tasks to the node. Defaults to False.
+            db (Session, optional): The database session to use. Defaults to None.
+
+        Returns:
+            bool: True if tasks were successfully submitted, False otherwise.
+
+        Raises:
+            OperationalError: If there is an operational error when querying the database.
+            SQLAlchemyError: If there is a SQLAlchemy error when querying the database.
+        """
         # HACK do not create a new session if the current one (passed as parameter) is still valid.
         try:
             node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=node_id).first()
@@ -1046,6 +1393,17 @@ class StatusThread(threading.Thread):
         return True
 
     def load_vm_tags(self, db, node_id, node_name):
+        """
+        Load virtual machine tags for a specific node and store them in the global SERVER_TAGS dictionary.
+
+        Args:
+            db (Session): The database session to query the machines.
+            node_id (int): The ID of the node to load tags for.
+            node_name (str): The name of the node to load tags for.
+
+        Returns:
+            None
+        """
         global SERVER_TAGS
         # Get available node tags
         machines = db.query(Machine).filter_by(node_id=node_id).all()
@@ -1191,6 +1549,17 @@ class StatusThread(threading.Thread):
 
 
 def output_json(data, code, headers=None):
+    """
+    Create a JSON response with the given data, HTTP status code, and optional headers.
+
+    Args:
+        data (dict): The data to be serialized to JSON.
+        code (int): The HTTP status code for the response.
+        headers (dict, optional): Additional headers to include in the response. Defaults to None.
+
+    Returns:
+        Response: A Flask response object with the JSON data and specified headers.
+    """
     resp = make_response(json.dumps(data), code)
     resp.headers.extend(headers or {})
     return resp
@@ -1431,6 +1800,23 @@ def node_enabled(node_name, status):
 
 
 def cron_cleaner(clean_x_hours=False):
+    """
+    Method that runs forever to clean up tasks.
+
+    Args:
+        clean_x_hours (bool or int, optional): If provided, only clean up tasks that were
+        notified and created within the last `clean_x_hours` hours.
+
+    The method performs the following steps:
+    1. Checks if the cleaner is already running by looking for a PID file at "/tmp/dist_cleaner.pid".
+    2. If the cleaner is not running, it creates a PID file to indicate that it is running.
+    3. Connects to the database and retrieves all nodes.
+    4. Depending on the `clean_x_hours` argument, it retrieves tasks that need to be cleaned up.
+    5. Marks the retrieved tasks as deleted and groups them by node.
+    6. Deletes the tasks from the nodes.
+    7. Commits the changes to the database and closes the connection.
+    8. Deletes the PID file to indicate that the cleaner has finished running.
+    """
     """Method that runs forever"""
 
     # Check if we are not runned

@@ -17,10 +17,10 @@ log = logging.getLogger(__name__)
 MANDIANT_AUTH_URL = "https://api.intelligence.mandiant.com/token"
 MANDIANT_SEARCH_URL = "https://api.intelligence.mandiant.com/v4/search"
 
-processing_conf = Config("processing")
+integragrations_conf = Config("integrations")
 
-api_access = processing_conf.mandiant_intel.api_access
-api_secret = processing_conf.mandiant_intel.api_secret
+api_access = integragrations_conf.mandiant_intel.api_access
+api_secret = integragrations_conf.mandiant_intel.api_secret
 
 
 class MandiantAPIClient:
@@ -116,7 +116,7 @@ class MandiantAPIClient:
 
 
 def mandiant_lookup(category: str, target: str, results: dict = {}):
-    if not processing_conf.mandiant_intel.enabled:
+    if not integragrations_conf.mandiant_intel.enabled:
         return results
 
     mandiant_intel = {}

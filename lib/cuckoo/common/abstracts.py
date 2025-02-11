@@ -63,7 +63,7 @@ except ImportError:
     HAVE_TLDEXTRACT = False
 
 repconf = Config("reporting")
-procconf = Config("processing")
+integrations_conf = Config("integrations")
 _, categories_need_VM = load_categories()
 
 mitre, HAVE_MITRE, _ = mitre_load(repconf.mitre.enabled)
@@ -1361,13 +1361,13 @@ class Signature:
         return None
 
     def check_threatfox(self, searchterm: str):
-        if not procconf.threatfox.enabled or not procconf.threatfox.apikey:
+        if not integrations_conf.threatfox.enabled or not integrations_conf.threatfox.apikey:
             return
         try:
             response = requests.post(
                 "https://threatfox-api.abuse.ch/api/v1/",
                 data={"query": "search_ioc", "search_term": searchterm},
-                headers={"Auth-Key": procconf.threatfox.apikey, "User-Agent": "CAPE Sandbox"},
+                headers={"Auth-Key": integrations_conf.threatfox.apikey, "User-Agent": "CAPE Sandbox"},
             )
             return response.json()
         except Exception as e:

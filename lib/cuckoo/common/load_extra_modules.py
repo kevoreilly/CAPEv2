@@ -7,7 +7,7 @@ from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 
-selfextract_conf = Config("selfextract")
+integrations_conf = Config("integrations")
 
 
 def ratdecodedr_load_decoders(path: str):
@@ -146,7 +146,7 @@ def file_extra_info_load_modules(CUCKOO_ROOT: str):
 
     This function searches for Python modules in the "file_extra_info_modules" directory
     within the given CUCKOO_ROOT path. It imports and returns a list of modules that are
-    enabled based on their internal configuration or the selfextract_conf settings.
+    enabled based on their internal configuration or the integrations_conf settings.
 
     Args:
         CUCKOO_ROOT (str): The root directory of the CUCKOO installation.
@@ -170,7 +170,7 @@ def file_extra_info_load_modules(CUCKOO_ROOT: str):
     for name in EXTRA_MODULES:
         try:
             module = importlib.import_module(f"lib.cuckoo.common.integrations.file_extra_info_modules.{name}")
-            if not getattr(module, "enabled", False) and not selfextract_conf.__dict__.get(name, {}).get("enabled", False):
+            if not getattr(module, "enabled", False) and not integrations_conf.__dict__.get(name, {}).get("enabled", False):
                 continue
             file_extra_modules.append(module)
         except (ImportError, IndexError, AttributeError) as e:

@@ -135,6 +135,12 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 
     HAVE_VIRUSTOTAL = True
 
+HAVE_MANDIANT_INTEL = False
+if processing_conf.mandiant_intel.enabled:
+    from lib.cuckoo.common.integrations.mandiant_intel import mandiant_lookup
+
+    HAVE_MANDIANT_INTEL = True
+
 exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
 tools_folder = os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
@@ -250,6 +256,11 @@ def static_file_info(
             vt_details = vt_lookup("file", file_path, results)
             if vt_details:
                 data_dictionary["virustotal"] = vt_details
+
+        if HAVE_MANDIANT_INTEL and processing_conf.mandiant_intel.enabled:
+            mandiant_intel_details = mandiant_lookup("file", file_path, results)
+            if mandiant_intel_details:
+                data_dictionary["mandiant_intel"] = mandiant_intel_details
 
     generic_file_extractors(
         file_path,

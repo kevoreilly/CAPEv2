@@ -1362,15 +1362,16 @@ class Signature:
 
     def check_threatfox(self, searchterm: str):
         if not procconf.threatfox.enabled or not procconf.threatfox.apikey:
-            try:
-                response = requests.post(
-                    "https://threatfox-api.abuse.ch/api/v1/",
+            return
+        try:
+            response = requests.post(
+                "https://threatfox-api.abuse.ch/api/v1/",
                     data={"query": "search_ioc", "search_term": searchterm},
                     headers={"Auth-Key": procconf.threatfox.apikey, "User-Agent": "CAPE Sandbox"},
-                )
-                return response.json()
-            except Exception as e:
-                log.error("ThreatFox error: %s", str(e))
+            )
+            return response.json()
+        except Exception as e:
+            log.error("ThreatFox error: %s", str(e))
 
     def check_dnsbbl(self, domain: str):
         """

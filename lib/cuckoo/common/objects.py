@@ -343,10 +343,10 @@ class File:
         if self.path_object.exists():
             if HAVE_MAGIC:
                 fn = False
-                if hasattr(magic, "detect_from_filename"):
-                    fn = magic.detect_from_filename
                 if hasattr(magic, "from_file"):
                     fn = magic.from_file
+                if hasattr(magic, "detect_from_filename"):
+                    fn = magic.detect_from_filename
                 if fn:
                     try:
                         file_type = fn(self.file_path_ansii)

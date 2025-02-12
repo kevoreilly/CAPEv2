@@ -56,7 +56,7 @@ class DotNETExecutable:
         except subprocess.CalledProcessError as e:
             log.error("Monodis: %s", str(e))
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
             return None
 
     def _get_assembly_refs(self) -> List[Dict[str, str]]:
@@ -84,7 +84,7 @@ class DotNETExecutable:
         except subprocess.CalledProcessError as e:
             log.error("Monodis: %s", str(e))
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
             return None
 
     def _get_assembly_info(self) -> Dict[str, str]:
@@ -103,7 +103,7 @@ class DotNETExecutable:
         except subprocess.CalledProcessError as e:
             log.error("Monodis: %s", str(e))
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
             return None
 
     def _get_type_refs(self) -> List[Dict[str, str]]:
@@ -128,7 +128,7 @@ class DotNETExecutable:
         except subprocess.CalledProcessError as e:
             log.error("Monodis: %s", str(e))
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
             return None
 
     def run(self) -> Dict[str, Any]:
@@ -151,5 +151,5 @@ class DotNETExecutable:
             else:
                 return
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
             return None

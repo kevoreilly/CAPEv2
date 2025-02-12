@@ -210,7 +210,7 @@ def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
                 for hook in hooks[mongo_delete_data]["analysis"]:
                     hook(found_task_ids)
     except Exception as e:
-        log.error(e, exc_info=True)
+        log.exception(e)
 
 
 def mongo_is_cluster():

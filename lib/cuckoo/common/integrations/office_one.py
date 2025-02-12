@@ -115,10 +115,10 @@ class OneNoteExtractor:
                     size = self.data[size_offset : size_offset + 4]
                     i_size = struct.unpack("<I", bytearray(size))[0]
                     yield self.data[m.start() + 36 : m.start() + 36 + i_size]
-                logger.debug(f"{counter} files extracted.")
+                logger.debug("%d files extracted.", counter)
                 return
             except Exception as e:
-                logger.error(f"Error while parsing the file: {e}.")
+                logger.error("Error while parsing the file: %s", str(e))
                 return
         else:
             logger.debug("No embedded files found.")
@@ -169,8 +169,6 @@ class OneNoteExtractor:
                         creation_date=h_createDate,
                         last_modification_date=h_LastDate,
                     )
-
                 except Exception as e:
-                    logger.error(f"Error while parsing  object {cpt}")
-                    logger.error(f"Error: {e}.")
+                    logger.error("Error while parsing object %s - Error: %s", cpt, str(e))
         return ret

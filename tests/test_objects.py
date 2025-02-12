@@ -82,7 +82,7 @@ class TestEmptyFile:
             assert empty_file["file"].get_ssdeep() is not None
         except ImportError:
             assert empty_file["file"].get_ssdeep() is None
-            logging.warn("Need to install pydeep python module")
+            logging.warning("Need to install pydeep python module")
 
     def test_get_type(self, empty_file):
         assert empty_file["file"].get_type() == "empty"

@@ -28,7 +28,6 @@ def find_attachments_in_email(s, expand_attachment):
 
 
 def _find_attachments_in_email(mesg, expand_attachment, atts):
-
     # MHTML detection
     if mesg.get_content_maintype() == "multipart" and mesg.get_content_subtype() == "related":
         for part in mesg.walk():

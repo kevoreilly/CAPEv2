@@ -2,11 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file "docs/LICENSE" for copying permission.
 
-from apiv2 import views
-
 # from django.conf.urls import include
 from django.urls import path, re_path
 from rest_framework.authtoken.views import obtain_auth_token
+
+from apiv2 import views
 
 urlpatterns = [
     re_path(r"^$", views.index, name="apiv2"),

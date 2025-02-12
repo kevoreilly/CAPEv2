@@ -26,7 +26,6 @@ class PUB2007(Package):
     The .pub filename extension will be added automatically."""
 
     def set_keys(self):
-
         baseOfficeKeyPath = r"Software\Microsoft\Office"
         installedVersions = []
         try:

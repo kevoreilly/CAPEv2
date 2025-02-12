@@ -43,13 +43,13 @@ if sys.platform == "win32":
         CAPEMON64_NAME,
         LOADER32_NAME,
         LOADER64_NAME,
-        TTD32_NAME,
-        TTD64_NAME,
         LOGSERVER_PREFIX,
         PATHS,
         PIPE,
         SHUTDOWN_MUTEX,
         TERMINATE_EVENT,
+        TTD32_NAME,
+        TTD64_NAME,
     )
     from lib.common.defines import (
         KERNEL32,
@@ -601,7 +601,6 @@ class Process:
         return False
 
     def write_monitor_config(self, interest=None, nosleepskip=False):
-
         config_path = os.path.join(Path.cwd(), "dll", f"{self.pid}.ini")
         log.info("Monitor config for %s: %s", self, config_path)
 
@@ -759,7 +758,7 @@ class Process:
         try:
             upload_to_host(file_path, os.path.join("memory", f"{self.pid}.dmp"), category="memory")
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
             log.error(os.path.join("memory", f"{self.pid}.dmp"))
             log.error(file_path)
         log.info("Memory dump of %s uploaded", self)

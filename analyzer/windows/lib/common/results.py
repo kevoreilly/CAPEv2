@@ -61,7 +61,7 @@ def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", categor
                         size -= read_size
                         buf = infd.read(BUFSIZE)
     except Exception as e:
-        log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
+        log.exception("Exception uploading file %s to host: %s", file_path, e)
 
 
 def upload_buffer_to_host(buffer, dump_path, filepath=False, pids="", ppids="", metadata="", category="", duplicated=False):

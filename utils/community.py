@@ -57,9 +57,10 @@ def flare_capa(proxy=None):
             path_mkdir(capa_sigs_path)
         for url in signature_urls:
             signature_name = url.rsplit("/", 1)[-1]
-            with http.request("GET", url, preload_content=False) as sig, open(
-                os.path.join(capa_sigs_path, signature_name), "wb"
-            ) as out_sig:
+            with (
+                http.request("GET", url, preload_content=False) as sig,
+                open(os.path.join(capa_sigs_path, signature_name), "wb") as out_sig,
+            ):
                 shutil.copyfileobj(sig, out_sig)
 
         print("[+] FLARE CAPA rules/signatures installed")

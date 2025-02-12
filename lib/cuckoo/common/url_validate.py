@@ -17,7 +17,10 @@ regex = re.compile(  # noqa: W605
     # protocol identifier
     r"(?:(?:https?|ftp|tcp|udp)://)"
     # user:pass authentication
-    r"(?:[-a-z\u00a1-\uffff0-9._~%!$&'()*+,;=:]+" r"(?::[-a-z0-9._~%!$&'()*+,;=:]*)?@)?" r"(?:" r"(?P<private_ip>"
+    r"(?:[-a-z\u00a1-\uffff0-9._~%!$&'()*+,;=:]+"
+    r"(?::[-a-z0-9._~%!$&'()*+,;=:]*)?@)?"
+    r"(?:"
+    r"(?P<private_ip>"
     # IP address exclusion
     # private & local networks
     r"(?:(?:10|127)" + ip_middle_octet + r"{2}" + ip_last_octet + r")|"
@@ -25,13 +28,19 @@ regex = re.compile(  # noqa: W605
     r"(?:172\.(?:1[6-9]|2\d|3[0-1])" + ip_middle_octet + ip_last_octet + r"))"
     r"|"
     # private & local hosts
-    r"(?P<private_host>" r"(?:localhost))" r"|"
+    r"(?P<private_host>"
+    r"(?:localhost))"
+    r"|"
     # IP address dotted notation octets
     # excludes loopback network 0.0.0.0
     # excludes reserved space >= 224.0.0.0
     # excludes network & broadcast addresses
     # (first & last IP address of each class)
-    r"(?P<public_ip>" r"(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])" r"" + ip_middle_octet + r"{2}" r"" + ip_last_octet + r")" r"|"
+    r"(?P<public_ip>"
+    r"(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])"
+    r"" + ip_middle_octet + r"{2}"
+    r"" + ip_last_octet + r")"
+    r"|"
     # IPv6 RegEx from https://stackoverflow.com/a/17871737
     r"\[("
     # 1:2:3:4:5:6:7:8
@@ -59,16 +68,23 @@ regex = re.compile(  # noqa: W605
     r"((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}"
     # ::255.255.255.255   ::ffff:255.255.255.255  ::ffff:0:255.255.255.255
     # (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
-    r"(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|" r"([0-9a-fA-F]{1,4}:){1,4}:" r"((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}"
+    r"(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|"
+    r"([0-9a-fA-F]{1,4}:){1,4}:"
+    r"((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}"
     # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33
     # (IPv4-Embedded IPv6 Address)
-    r"(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])" r")\]|"
+    r"(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])"
+    r")\]|"
     # host name
-    r"(?:(?:(?:xn--[-]{0,2})|[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]-?)*" r"[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]+)"
+    r"(?:(?:(?:xn--[-]{0,2})|[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]-?)*"
+    r"[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]+)"
     # domain name
-    r"(?:\.(?:(?:xn--[-]{0,2})|[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]-?)*" r"[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]+)*"
+    r"(?:\.(?:(?:xn--[-]{0,2})|[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]-?)*"
+    r"[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]+)*"
     # TLD identifier
-    r"(?:\.(?:(?:xn--[-]{0,2}[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]{2,})|" r"[a-z\u00a1-\uffff\U00010000-\U0010ffff]{2,}))" r")"
+    r"(?:\.(?:(?:xn--[-]{0,2}[a-z\u00a1-\uffff\U00010000-\U0010ffff0-9]{2,})|"
+    r"[a-z\u00a1-\uffff\U00010000-\U0010ffff]{2,}))"
+    r")"
     # port number
     r"(?::\d{2,5})?"
     # resource path
@@ -76,7 +92,8 @@ regex = re.compile(  # noqa: W605
     # query string
     r"(?:\?\S*)?"
     # fragment
-    r"(?:#\S*)?" r"$",
+    r"(?:#\S*)?"
+    r"$",
     re.UNICODE | re.IGNORECASE,
 )
 

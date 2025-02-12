@@ -59,7 +59,7 @@ def _set_base_uri(pdf):
                 if elem:
                     return elem.getValue()
     except Exception as e:
-        log.error(e, exc_info=True)
+        log.exception(e)
         return ""
 
 
@@ -74,7 +74,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
     try:
         _, pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
     except Exception as e:
-        log.debug("Error parsing pdf: {}".format(e))
+        log.debug("Error parsing pdf: %s", str(e))
         return pdfresult
     urlset = set()
     annoturiset = set()
@@ -109,7 +109,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                         jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
                         jsdata = jslist[0]
                     except Exception as e:
-                        log.error(e, exc_info=True)
+                        log.exception(e)
                         continue
                     if errors or jsdata is None:
                         continue
@@ -137,7 +137,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                         jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(js_elem.value)
                         jsdata = jslist[0]
                     except Exception as e:
-                        log.error(e, exc_info=True)
+                        log.exception(e)
                         continue
                     if errors or not jsdata:
                         continue

@@ -838,7 +838,6 @@ class Signature:
             CuckooReportError(e)
 
     def yara_detected(self, name):
-
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for keyword in ("cape_yara", "yara"):
@@ -900,16 +899,22 @@ class Signature:
             for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
                 for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
                     if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(macro_path, macroname), sub_block, self.results["static"]["office"]["Macro"][
-                            "info"
-                        ]
+                        yield (
+                            "macro",
+                            os.path.join(macro_path, macroname),
+                            sub_block,
+                            self.results["static"]["office"]["Macro"]["info"],
+                        )
 
         if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
             for yara_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
                 if re.findall(name, yara_block["name"], re.I):
-                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, self.results["static"]["office"][
-                        "XLMMacroDeobfuscator"
-                    ]["info"]
+                    yield (
+                        "macro",
+                        os.path.join(macro_path, "xlm_macro"),
+                        yara_block,
+                        self.results["static"]["office"]["XLMMacroDeobfuscator"]["info"],
+                    )
 
     def signature_matched(self, signame: str) -> bool:
         # Check if signature has matched (useful for ordered signatures)
@@ -975,7 +980,6 @@ class Signature:
         )
 
     def _get_ip_by_host_dns(self, hostname):
-
         ips = []
 
         try:
@@ -1096,7 +1100,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_read_file(self, pattern, regex=False, all=False):
@@ -1109,7 +1113,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["read_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("read_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_write_file(self, pattern, regex=False, all=False):
@@ -1122,7 +1126,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["write_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("write_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_delete_file(self, pattern, regex=False, all=False):
@@ -1135,7 +1139,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["delete_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("delete_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_key(self, pattern, regex=False, all=False):
@@ -1148,7 +1152,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_read_key(self, pattern, regex=False, all=False):
@@ -1161,7 +1165,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["read_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("read_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_write_key(self, pattern, regex=False, all=False):
@@ -1174,7 +1178,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["write_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("write_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_delete_key(self, pattern, regex=False, all=False):
@@ -1187,7 +1191,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["delete_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("delete_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_mutex(self, pattern, regex=False, all=False):
@@ -1200,7 +1204,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["mutexes"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("mutexes", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=False)
 
     def check_started_service(self, pattern, regex=False, all=False):
@@ -1213,7 +1217,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["started_services"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("started_services", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_created_service(self, pattern, regex=False, all=False):
@@ -1226,7 +1230,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["created_services"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("created_services", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
@@ -1241,7 +1245,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["executed_commands"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("executed_commands", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=ignorecase)
 
     def check_api(self, pattern, process=None, regex=False, all=False):
@@ -1762,7 +1766,7 @@ class Feed:
             try:
                 req = requests.get(self.downloadurl, headers=headers, verify=True)
             except requests.exceptions.RequestException as e:
-                log.warn("Error downloading feed for %s: %s", self.feedname, e)
+                log.warning("Error downloading feed for %s: %s", self.feedname, e)
                 return False
             if req.status_code == 200:
                 self.downloaddata = req.content

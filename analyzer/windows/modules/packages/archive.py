@@ -108,7 +108,7 @@ class Archive(Package):
         files_at_root = [os.path.join(r, f).replace(f"{root}\\", "") for r, _, files in os.walk(root) for f in files]
         log.debug(files_at_root)
         if set(file_names) != set(files_at_root):
-            log.debug(f"Replacing {file_names} with {files_at_root}")
+            log.debug("Replacing %s with %s", str(file_names), str(files_at_root))
             file_names = files_at_root
 
         upload_extracted_files(root, files_at_root)
@@ -123,12 +123,12 @@ class Archive(Package):
                     try:
                         shutil.copytree(d, os.path.join("C:\\", item))
                     except Exception as e:
-                        log.warning(f"Couldn't copy {d} to root of C: {e}")
+                        log.warning("Couldn't copy %s to root of C: %s", d, str(e))
             else:
                 try:
                     shutil.copy(d, "C:\\")
                 except Exception as e:
-                    log.warning(f"Couldn't copy {d} to root of C: {e}")
+                    log.warning("Couldn't copy %s to root of C: %s", d, str(e))
 
         file_name = self.options.get(OPT_FILE)
         # If no file name is provided via option, discover files to execute.

@@ -76,9 +76,8 @@ HAVE_DIST = False
 if dist_conf.distributed.enabled:
     try:
         # Tags
-        from lib.cuckoo.common.dist_db import Machine, Node
+        from lib.cuckoo.common.dist_db import Machine, Node, create_session
         from lib.cuckoo.common.dist_db import Task as DTask
-        from lib.cuckoo.common.dist_db import create_session
 
         HAVE_DIST = True
         dist_session = create_session(dist_conf.distributed.db)
@@ -1588,7 +1587,7 @@ def _malwarebazaar_dl(hash: str) -> bytes:
             except pyzipper.zipfile.BadZipFile:
                 print("_malwarebazaar_dl", data.content[:100])
     except Exception as e:
-        logging.error(e, exc_info=True)
+        log.exception(e)
 
     return sample
 

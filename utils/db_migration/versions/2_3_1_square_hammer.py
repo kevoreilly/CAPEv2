@@ -9,6 +9,7 @@ Revises: 6ab863a3b510
 Create Date: 2021-05-02 18:24:43.075702
 
 """
+
 from contextlib import suppress
 
 # revision identifiers, used by Alembic.

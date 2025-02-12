@@ -372,7 +372,7 @@ def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
             ssh_out = ssh_stdout.read().decode("utf-8").strip()
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
-                log.info("[+] Service " + green("restarted successfully and is UP"))
+                log.info("[+] Service %s", green("restarted successfully and is UP"))
             else:
                 if ssh_out:
                     log.info(green(f"[+] {server} - {ssh_out}"))
@@ -382,7 +382,7 @@ def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
         except TimeoutError as e:
             sys.exit(f"Did you forget to use jump box? {str(e)}")
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
 
 def bulk_deploy(files, yara_category, dry_run=False, servers: list = [], ssh_proxy: SSHClient = False):

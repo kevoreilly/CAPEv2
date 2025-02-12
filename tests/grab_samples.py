@@ -43,7 +43,7 @@ def get_filepaths(directory, args):
 def load_sample_lists(args):
     sample_json_list = get_filepaths("tests/Extractors/StandAlone/unit_tests", args)
     for sample_json_location in sample_json_list:
-        logging.warning("Found sample.json: " + sample_json_location)
+        logging.warning("Found sample.json: %s", sample_json_location)
         with open(sample_json_location, "r") as samples:
             sample_dict = json.load(samples)
             for hash_item in sample_dict["hashes"]:
@@ -60,7 +60,7 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Grab malicious samples from sample.json files via https://10.203.112.173/centralrepo/"
+        description="Grab malicious samples from sample.json"
     )
 
     parser.add_argument("--family", action="store", dest="family", type=str)

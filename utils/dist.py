@@ -51,9 +51,10 @@ from lib.cuckoo.core.database import (
     TASK_REPORTED,
     TASK_RUNNING,
     Database,
+    _Database,
+    init_database,
 )
 from lib.cuckoo.core.database import Task as MD_Task
-from lib.cuckoo.core.database import _Database, init_database
 
 dist_conf = Config("distributed")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")
@@ -141,6 +142,21 @@ if not path_exists(binaries_folder):
 
 
 def node_status(url: str, name: str, apikey: str) -> dict:
+    """
+    Retrieve the status of a CAPE node.
+
+    This function sends a GET request to the specified CAPE node URL to retrieve its status.
+    It uses the provided API key for authorization.
+
+    Args:
+        url (str): The base URL of the CAPE node.
+        name (str): The name of the CAPE node.
+        apikey (str): The API key for authorization.
+
+    Returns:
+        dict: A dictionary containing the status data of the CAPE node. If an error occurs,
+            an empty dictionary is returned.
+    """
     try:
         r = requests.get(
             os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=300
@@ -152,6 +168,19 @@ def node_status(url: str, name: str, apikey: str) -> dict:
 
 
 def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
+    """
+    Fetches tasks from a remote server based on the given status and other parameters.
+
+    Args:
+        status (str): The status of the tasks to fetch (e.g., "completed", "pending").
+        url (str): The base URL of the remote server.
+        apikey (str): The API key for authentication.
+        action (str, optional): The action to perform. Defaults to "fetch".
+        since (int, optional): The timestamp to fetch tasks completed after. Defaults to 0.
+
+    Returns:
+        list: A list of tasks fetched from the remote server. Returns an empty list if an error occurs.
+    """
     try:
         url = os.path.join(url, "tasks", "list/")
         params = dict(status=status, ids=True)
@@ -159,8 +188,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
             params["completed_after"] = since
         r = requests.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False)
         if not r.ok:
-            log.error(f"Error fetching task list. Status code: {r.status_code} - {r.url}")
-            log.info("Saving error to /tmp/dist_error.html")
+            log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
             _ = path_write_file("/tmp/dist_error.html", r.content)
             return []
         return r.json().get("data", [])
@@ -171,6 +199,19 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
 
 
 def node_list_machines(url, apikey):
+    """
+    Retrieves a list of machines from a CAPE node and yields Machine objects.
+
+    Args:
+        url (str): The base URL of the CAPE node.
+        apikey (str): The API key for authentication.
+
+    Yields:
+        Machine: An instance of the Machine class with the machine's details.
+
+    Raises:
+        HTTPException: If the request to the CAPE node fails or returns an error.
+    """
     try:
         r = requests.get(os.path.join(url, "machines", "list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for machine in r.json()["data"]:
@@ -180,6 +221,19 @@ def node_list_machines(url, apikey):
 
 
 def node_list_exitnodes(url, apikey):
+    """
+    Fetches a list of exit nodes from a given URL using the provided API key.
+
+    Args:
+        url (str): The base URL of the CAPE node.
+        apikey (str): The API key for authorization.
+
+    Yields:
+        dict: Each exit node data as a dictionary.
+
+    Raises:
+        HTTPException: If the request fails or the response is invalid.
+    """
     try:
         r = requests.get(os.path.join(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for exitnode in r.json()["data"]:
@@ -189,6 +243,22 @@ def node_list_exitnodes(url, apikey):
 
 
 def node_get_report(task_id, fmt, url, apikey, stream=False):
+    """
+    Fetches a report for a given task from a specified URL.
+
+    Args:
+        task_id (int): The ID of the task for which the report is to be fetched.
+        fmt (str): The format of the report (e.g., 'json', 'html').
+        url (str): The base URL of the server from which to fetch the report.
+        apikey (str): The API key for authorization.
+        stream (bool, optional): Whether to stream the response. Defaults to False.
+
+    Returns:
+        requests.Response: The response object containing the report.
+
+    Raises:
+        Exception: If there is an error fetching the report.
+    """
     try:
         url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
         return requests.get(url, stream=stream, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=800)
@@ -197,16 +267,33 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
 
 
 def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
+    """
+    Retrieves a report from a worker node via NFS and copies it to the main task's analysis directory.
+
+    Args:
+        task_id (int): The ID of the task on the worker node.
+        worker_name (str): The name of the worker node.
+        main_task_id (int): The ID of the main task on the main node.
+
+    Returns:
+        bool: True if the operation was successful, False otherwise.
+
+    Raises:
+        Exception: If there is an error during the copying process.
+
+    Logs:
+        Error messages if the worker node is not mounted, the file does not exist, or if there is an exception during copying.
+    """
     worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
 
     if not path_mount_point(worker_path):
-        log.error(f"[-] Worker: {worker_name} is not mounted to: {worker_path}!")
+        log.error("[-] Worker: %s is not mounted to: %s!", worker_name, worker_path)
         return True
 
     worker_path = os.path.join(worker_path, "storage", "analyses", str(task_id))
 
     if not path_exists(worker_path):
-        log.error(f"File on destiny doesn't exist: {worker_path}")
+        log.error("File on destiny doesn't exist: %s", worker_path)
         return True
 
     analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(main_task_id))
@@ -223,12 +310,32 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
 
 def _delete_many(node, ids, nodes, db):
+    """
+    Deletes multiple tasks from a specified node if the node is not the main server.
+
+    Args:
+        node (str): The identifier of the node from which tasks are to be deleted.
+        ids (list): A list of task IDs to be deleted.
+        nodes (dict): A dictionary containing node information, where keys are node identifiers and values are node details.
+        db (object): The database connection object to perform rollback in case of failure.
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If there is an error during the deletion process.
+
+    Logs:
+        Debug: Logs the task IDs and node name from which tasks are being deleted.
+        Info: Logs the status code and content if the response status code is not 200.
+        Critical: Logs the error message if an exception occurs during the deletion process.
+    """
     if nodes[node].name == main_server_name:
         return
     try:
         url = os.path.join(nodes[node].url, "tasks", "delete_many/")
         apikey = nodes[node].apikey
-        log.debug("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
+        log.debug("Removing task id(s): %s - from node: %s", ids, nodes[node].name)
         res = requests.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
@@ -236,7 +343,7 @@ def _delete_many(node, ids, nodes, db):
             verify=False,
         )
         if res and res.status_code != 200:
-            log.info("{} - {}".format(res.status_code, res.content))
+            log.info("%d - %s", res.status_code, res.content)
             db.rollback()
 
     except Exception as e:
@@ -245,6 +352,29 @@ def _delete_many(node, ids, nodes, db):
 
 
 def node_submit_task(task_id, node_id, main_task_id):
+    """
+    Submits a task to a specified node for processing.
+
+    Args:
+        task_id (int): The ID of the task to be submitted.
+        node_id (int): The ID of the node to which the task will be submitted.
+        main_task_id (int): The ID of the main task associated with this task.
+
+    Returns:
+        bool: True if the task was successfully submitted, False otherwise.
+
+    Raises:
+        Exception: If there is an error during the task submission process.
+
+    The function performs the following steps:
+    1. Retrieves the node and task information from the database.
+    2. Checks if the node is the main server and returns if it is.
+    3. Prepares the task data for submission based on the task category.
+    4. Submits the task to the node using an HTTP POST request.
+    5. Handles different response statuses from the node.
+    6. Updates the task status in the database based on the submission result.
+    7. Logs relevant information and errors during the process.
+    """
     db = session()
     node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
     task = db.query(Task).filter_by(id=task_id).first()
@@ -314,7 +444,7 @@ def node_submit_task(task_id, node_id, main_task_id):
             files = dict(file=open(task.path, "rb"))
             r = requests.post(url, data=data, files=files, headers={"Authorization": f"Token {apikey}"}, verify=False)
         else:
-            log.debug("Target category is: {}".format(task.category))
+            log.debug("Target category is: %s", task.category)
             db.close()
             return
 
@@ -336,13 +466,12 @@ def node_submit_task(task_id, node_id, main_task_id):
                 check = True
             else:
                 log.debug(
-                    "Failed to submit: main_task_id: {} task {} to node: {}, code: {}, msg: {}".format(
+                    "Failed to submit: main_task_id: %d task %d to node: %s, code: %d, msg: %s",
                         task.main_task_id, task_id, node.name, r.status_code, r.content
-                    )
                 )
 
             if task.task_id:
-                log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
+                log.debug("Submitted task to worker: %s - %d - %d", node.name, task.task_id, task.main_task_id)
 
         elif r.status_code == 500:
             log.info("Saving error to /tmp/dist_error.html")
@@ -353,7 +482,7 @@ def node_submit_task(task_id, node_id, main_task_id):
             log.info((r.status_code, "see api auth for more details"))
 
         else:
-            log.info("Node: {} - Task submit to worker failed: {} - {}".format(node.id, r.status_code, r.content))
+            log.info("Node: %d - Task submit to worker failed: %d - %s", node.id, r.status_code, r.text)
 
         if check:
             task.node_id = node.id
@@ -380,6 +509,38 @@ def node_submit_task(task_id, node_id, main_task_id):
 
 # class Retriever():
 class Retriever(threading.Thread):
+    """
+    A class that retrieves and processes tasks from distributed nodes.
+
+    Methods
+    -------
+    run():
+        Initializes and starts various threads for fetching and processing tasks.
+
+    free_space_mon():
+        Monitors free disk space and logs an error if space is insufficient.
+
+    notification_loop():
+        Sends notifications for completed tasks to configured callback URLs.
+
+    failed_cleaner():
+        Cleans up failed tasks from nodes and updates their status in the database.
+
+    fetcher():
+        Continuously fetches tasks from enabled nodes and processes them.
+
+    delete_target_file(task_id: int, sample_sha256: str, target: str):
+        Deletes the original file and its binary copy if configured to do so.
+
+    fetch_latest_reports_nfs():
+        Fetches the latest reports from nodes using NFS and processes them.
+
+    fetch_latest_reports():
+        Fetches the latest reports from nodes using REST API and processes them.
+
+    remove_from_worker():
+        Removes tasks from worker nodes and updates their status in the database.
+    """
     def run(self):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
@@ -443,12 +604,24 @@ class Retriever(threading.Thread):
         for thr in self.threads:
             try:
                 thr.join(timeout=0.0)
-                log.info(f"Thread: {thr.name} - Alive: {thr.is_alive()}")
+                log.info("Thread: %s - Alive: %s", thr.name, str(thr.is_alive()))
             except Exception as e:
                 log.exception(e)
             time.sleep(60)
 
     def free_space_mon(self):
+        """
+        Monitors the free disk space in the analysis folder and logs an error
+        message if the available space is below the configured threshold. This
+        check is performed periodically every 10 minutes. The check is ignored
+        if the 'freespace' configuration variable is set to zero.
+
+        The analysis folder path is resolved to its full base path to handle
+        cases where it might be a symbolic link.
+
+        Returns:
+            None
+        """
         # If not enough free disk space is available, then we print an
         # error message and wait another round (this check is ignored
         # when the freespace configuration variable is set to zero).
@@ -461,6 +634,22 @@ class Retriever(threading.Thread):
                 time.sleep(600)
 
     def notification_loop(self):
+        """
+        Continuously checks for completed tasks that have not been notified and sends notifications to specified URLs.
+
+        This method runs an infinite loop that:
+        1. Queries the database for tasks that are finished, retrieved, but not yet notified.
+        2. For each task, updates the main task status to `TASK_REPORTED`.
+        3. Sends a POST request to each URL specified in the configuration with the task ID in the payload.
+        4. Marks the task as notified if the POST request is successful.
+        5. Logs the status of each notification attempt.
+
+        The loop sleeps for 20 seconds before repeating the process.
+
+        Raises:
+            requests.exceptions.ConnectionError: If there is a connection error while sending the POST request.
+            Exception: For any other exceptions that occur during the notification process.
+        """
         urls = reporting_conf.callback.url.split(",")
         headers = {"x-api-key": reporting_conf.callback.key}
 
@@ -471,30 +660,54 @@ class Retriever(threading.Thread):
                     for task in tasks:
                         with main_db.session.begin():
                             main_db.set_status(task.main_task_id, TASK_REPORTED)
-                        log.debug("reporting main_task_id: {}".format(task.main_task_id))
+                        log.debug("reporting main_task_id: %d", task.main_task_id)
                         for url in urls:
                             try:
                                 res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(task.main_task_id)}))
                                 if res and res.ok:
                                     task.notificated = True
                                 else:
-                                    log.info("failed to report: {} - {}".format(task.main_task_id, res.status_code))
+                                    log.info("failed to report: %d - %d", task.main_task_id, res.status_code)
                             except requests.exceptions.ConnectionError:
                                 log.info("Can't report to callback")
                             except Exception as e:
-                                log.info("failed to report: {} - {}".format(task.main_task_id, e))
+                                log.info("failed to report: %d - %s", task.main_task_id, str(e))
                 db.commit()
                 time.sleep(20)
 
     def failed_cleaner(self):
+        """
+        Periodically checks for failed tasks on enabled nodes and cleans them up.
+
+        This method continuously queries the database for nodes that are enabled and
+        checks for tasks that have failed either during analysis or processing. If a
+        failed task is found, it updates the task status to indicate failure, marks
+        the task as finished, retrieved, and notified, and then adds the task to the
+        cleaner queue for further processing.
+
+        The method runs indefinitely, sleeping for 600 seconds between each iteration.
+
+        Attributes:
+            self.cleaner_queue (Queue): A queue to hold tasks that need to be cleaned.
+
+        Notes:
+            - This method acquires and releases a lock (`lock_retriever`) to ensure
+              thread-safe operations when adding tasks to the cleaner queue.
+            - The method commits changes to the database after processing each node.
+            - The method closes the database session before exiting.
+
+        Raises:
+            Any exceptions raised during database operations or task processing are
+            not explicitly handled within this method.
+        """
         db = session()
         while True:
             for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(enabled=True).all():
-                log.info("Checking for failed tasks on: {}".format(node.name))
+                log.info("Checking for failed tasks on: %s", node.name)
                 for task in node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete"):
                     t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                     if t is not None:
-                        log.info("Cleaning failed for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
+                        log.info("Cleaning failed for id: %d, node: %s: main_task_id: %d", t.id, t.node_id, t.main_task_id)
                         with main_db.session.begin():
                             main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
                         t.finished = True
@@ -505,7 +718,7 @@ class Retriever(threading.Thread):
                             self.cleaner_queue.put((t.node_id, t.task_id))
                         lock_retriever.release()
                     else:
-                        log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
+                        log.debug("failed_cleaner t is None for: %s - node_id: %d", str(task["id"]), node.id)
                         lock_retriever.acquire()
                         if (node.id, task["id"]) not in self.cleaner_queue.queue:
                             self.cleaner_queue.put((node.id, task["id"]))
@@ -515,7 +728,25 @@ class Retriever(threading.Thread):
         db.close()
 
     def fetcher(self):
-        """Method that runs forever"""
+        """
+        Method that runs indefinitely to fetch tasks from nodes and process them.
+
+        This method continuously checks for tasks from enabled nodes and processes them.
+        It maintains a status count and last check time for each node. If a node's tasks
+        are fetched successfully, they are added to the fetcher queue. If a node is deemed
+        dead after a certain number of failures, it is logged.
+
+        Attributes:
+            last_checks (dict): Dictionary to keep track of the last check time for each node.
+            status_count (dict): Dictionary to keep track of the status count for each node.
+            stop_dist (threading.Event): Event to signal stopping the distribution.
+            cleaner_queue (queue.Queue): Queue to hold tasks that need cleaning.
+            fetcher_queue (queue.Queue): Queue to hold tasks that need fetching.
+            current_queue (dict): Dictionary to keep track of the current queue for each node.
+
+        Raises:
+            Exception: If an error occurs during task processing, it is logged and the status count is incremented
+        """
         last_checks = {}
         # to not exit till cleaner works
         with session() as db:
@@ -564,7 +795,7 @@ class Retriever(threading.Thread):
                                 ):
                                     limit += 1
                                     self.fetcher_queue.put(({"id": task.task_id}, node.id))
-                                    # log.debug("{} - {}".format(task, node.id))
+                                    # log.debug("%s - %d", task, node.id)
                                     """
                                     completed_on = datetime.strptime(task["completed_on"], "%Y-%m-%d %H:%M:%S")
                                     if node.last_check is None or completed_on > node.last_check:
@@ -576,9 +807,9 @@ class Retriever(threading.Thread):
                                     """
                             except Exception as e:
                                 self.status_count[node.name] += 1
-                                log.error(e, exc_info=True)
+                                log.exception(e)
                                 if self.status_count[node.name] == dead_count:
-                                    log.info("[-] {} dead".format(node.name))
+                                    log.info("[-] %s dead", node.name)
                                     # node_data = db.query(Node).filter_by(name=node.name).first()
                                     # node_data.enabled = False
                                     # db.commit()
@@ -586,6 +817,22 @@ class Retriever(threading.Thread):
                 # time.sleep(5)
 
     def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
+        """
+        Deletes the target file and its binary copy if certain conditions are met.
+
+        Args:
+            task_id (int): The ID of the task associated with the file.
+            sample_sha256 (str): The SHA-256 hash of the sample file.
+            target (str): The path to the target file.
+
+        Behavior:
+            - Deletes the target file if `cfg.cuckoo.delete_original` is True and the target file exists.
+            - Deletes the binary copy of the file if `cfg.cuckoo.delete_bin_copy` is True and no other tasks are using the sample.
+
+        Note:
+            - The function checks if the target file exists before attempting to delete it.
+            - The function checks if the binary copy is still in use by other tasks before deleting it.
+        """
         # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
         if cfg.cuckoo.delete_original and target and path_exists(target):
             path_delete(target)
@@ -600,6 +847,32 @@ class Retriever(threading.Thread):
 
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports_nfs(self):
+        """
+        Fetches the latest reports from NFS (Network File System) for distributed tasks.
+
+        This method continuously checks for new tasks in the fetcher queue and processes them.
+        It retrieves the task details from the database, fetches the corresponding report from
+        the specified node, and updates the task status in the main database.
+
+        The method performs the following steps:
+        1. Continuously checks for new tasks in the fetcher queue.
+        2. Retrieves task details from the database.
+        3. Fetches the report from the specified node.
+        4. Updates the task status in the main database.
+        5. Moves the report to the appropriate location.
+        6. Creates a symbolic link to the analysis folder.
+        7. Deletes the target file if necessary.
+        8. Marks the task as retrieved and finished in the database.
+
+        The method handles various exceptions and logs relevant information for debugging purposes.
+
+        Note:
+            This method runs indefinitely until the `stop_dist` event is set.
+
+        Raises:
+            Exception: If any error occurs during the processing of tasks.
+
+        """
         # db = session()
         with session() as db:
             # to not exit till cleaner works
@@ -632,9 +905,8 @@ class Retriever(threading.Thread):
                         continue
 
                     log.debug(
-                        "Fetching dist report for: id: {}, task_id: {}, main_task_id: {} from node: {}".format(
+                        "Fetching dist report for: id: %d, task_id: %d, main_task_id: %d from node: %s",
                             t.id, t.task_id, t.main_task_id, ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id
-                        )
                     )
                     with main_db.session.begin():
                         # set completed_on time
@@ -643,18 +915,18 @@ class Retriever(threading.Thread):
                         main_db.set_status(t.main_task_id, TASK_REPORTED)
 
                     # Fetch each requested report.
-                    report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
+                    report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
                     # ToDo option
                     node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
                     start_copy = timeit.default_timer()
                     copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
                     timediff = timeit.default_timer() - start_copy
                     log.info(
-                        f"It took {timediff:.2f} seconds to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
+                        "It took %s seconds to copy report %d from node: %s for task: %d", f"{timediff:.2f}", t.task_id, node.name, t.main_task_id
                     )
 
                     if not copied:
-                        log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
+                        log.error("Can't copy report %d from node: %s for task: %d", t.task_id, node.name, t.main_task_id)
                         continue
 
                     # this doesn't exist for some reason
@@ -674,9 +946,7 @@ class Retriever(threading.Thread):
                             try:
                                 shutil.move(t.path, destination)
                             except FileNotFoundError as e:
-                                print(f"Failed to move: {t.path} - {e}")
-                                pass
-
+                                log.error("Failed to move: %s - %s", t.path, str(e))
                         # creating link to analysis folder
                         if path_exists(destination):
                             try:
@@ -698,6 +968,24 @@ class Retriever(threading.Thread):
 
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports(self):
+        """
+        Continuously fetches the latest reports from distributed nodes and processes them.
+
+        This method runs in an infinite loop until `self.stop_dist` is set. It retrieves tasks from the `fetcher_queue`,
+        fetches the corresponding reports from the nodes, and processes them. The reports are saved to the local storage
+        and the task status is updated in the database.
+
+        The method handles various scenarios such as:
+        - Task not found or already processed.
+        - Report retrieval failures.
+        - Report extraction and saving.
+        - Handling of sample binaries associated with the tasks.
+
+        The method also manages a cleaner queue to handle tasks that need to be cleaned up.
+
+        Raises:
+            Exception: If any unexpected error occurs during the report fetching and processing.
+        """
         db = session()
         # to not exit till cleaner works
         while True:
@@ -730,9 +1018,8 @@ class Retriever(threading.Thread):
                     continue
 
                 log.debug(
-                    "Fetching dist report for: id: {}, task_id: {}, main_task_id:{} from node: {}".format(
+                    "Fetching dist report for: id: %d, task_id: %d, main_task_id: %d from node: %s",
                         t.id, t.task_id, t.main_task_id, ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id
-                    )
                 )
                 with main_db.session.begin():
                     # set completed_on time
@@ -745,23 +1032,21 @@ class Retriever(threading.Thread):
                 report = node_get_report(t.task_id, "dist/", node.url, node.apikey, stream=True)
 
                 if report is None:
-                    log.info("dist report retrieve failed NONE: task_id: {} from node: {}".format(t.task_id, node_id))
+                    log.info("dist report retrieve failed NONE: task_id: %d from node: %d", t.task_id, node_id)
                     continue
 
                 if report.status_code != 200:
                     log.info(
-                        "dist report retrieve failed - status_code {}: task_id: {} from node: {}".format(
-                            report.status_code, t.task_id, node_id
-                        )
+                        "dist report retrieve failed - status_code %d: task_id: %d from node: %s", report.status_code, t.task_id, node_id
                     )
                     if report.status_code == 400 and (node_id, task.get("id")) not in self.cleaner_queue.queue:
                         self.cleaner_queue.put((node_id, task.get("id")))
-                        log.info(f"Status code: {report.status_code} - MSG: {report.text}")
+                        log.info("Status code: %d - MSG: %s", report.status_code, report.text)
                     continue
 
-                log.info(f"Report size for task {t.task_id} is: {int(report.headers.get('Content-length', 1))/int(1<<20):,.0f} MB")
+                log.info("Report size for task %s is: %s MB", t.task_id, f"{int(report.headers.get('Content-length', 1))/int(1<<20):,.0f}")
 
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
+                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
                 if not path_exists(report_path):
                     path_mkdir(report_path, mode=0o755)
                 try:
@@ -774,7 +1059,7 @@ class Retriever(threading.Thread):
                                 if (node_id, task.get("id")) not in self.cleaner_queue.queue:
                                     self.cleaner_queue.put((node_id, task.get("id")))
                             except OSError:
-                                log.error("Permission denied: {}".format(report_path))
+                                log.error("Permission denied: %s", report_path)
 
                         if path_exists(t.path):
                             sample_sha256 = None
@@ -803,7 +1088,7 @@ class Retriever(threading.Thread):
                                 self.delete_target_file(t.main_task_id, sample_sha256, t.path)
 
                         else:
-                            log.debug(f"{t.path} doesn't exist")
+                            log.debug("%s doesn't exist", t.path)
 
                         t.retrieved = True
                         t.finished = True
@@ -814,7 +1099,7 @@ class Retriever(threading.Thread):
                 except pyzipper.zipfile.BadZipFile:
                     log.error("File is not a zip file")
                 except Exception as e:
-                    log.exception("Exception: %s" % e)
+                    log.exception("Exception: %s", str(e))
                     if path_exists(os.path.join(report_path, "reports", "report.json")):
                         path_delete(os.path.join(report_path, "reports", "report.json"))
             except Exception as e:
@@ -824,6 +1109,30 @@ class Retriever(threading.Thread):
         db.close()
 
     def remove_from_worker(self):
+        """
+        Removes tasks from worker nodes.
+
+        This method continuously processes tasks from the cleaner queue and removes them from the worker nodes.
+        It retrieves the list of nodes from the database and processes tasks in the cleaner queue.
+        If a task is found in the `t_is_none` dictionary for a node, it is removed from the list.
+        The method then sends a request to delete the tasks from the worker node.
+
+        The method performs the following steps:
+        1. Retrieves the list of nodes from the database.
+        2. Continuously processes tasks from the cleaner queue.
+        3. Groups tasks by node ID.
+        4. Removes tasks from the `t_is_none` dictionary if present.
+        5. Sends a request to delete tasks from the worker node.
+        6. Commits the changes to the database.
+        7. Sleeps for 20 seconds before processing the next batch of tasks.
+
+        Note:
+            The method runs indefinitely until manually stopped.
+
+        ToDo:
+            Determine if additional actions are needed when the length of `t_is_none[node_id]` exceeds 50.
+
+        """
         nodes = {}
         with session() as db:
             for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).all():
@@ -855,12 +1164,43 @@ class Retriever(threading.Thread):
 
 
 class StatusThread(threading.Thread):
+    """
+    A thread that handles the submission of tasks to nodes and manages the status of nodes.
+
+    Methods
+    -------
+    submit_tasks(node_id, pend_tasks_num, options_like=False, force_push_push=False, db=None)
+        Submits tasks to a specified node.
+
+    load_vm_tags(db, node_id, node_name)
+        Loads the tags for virtual machines associated with a node.
+
+    run()
+        The main loop that continuously checks the status of nodes and submits tasks.
+    """
     def submit_tasks(self, node_id, pend_tasks_num, options_like=False, force_push_push=False, db=None):
+        """
+        Submits tasks to a specified node.
+
+        Args:
+            node_id (str): The identifier of the node to which tasks will be submitted.
+            pend_tasks_num (int): The number of pending tasks to be submitted.
+            options_like (bool, optional): Flag to filter tasks based on options. Defaults to False.
+            force_push_push (bool, optional): Flag to forcefully push tasks to the node. Defaults to False.
+            db (Session, optional): The database session to use. Defaults to None.
+
+        Returns:
+            bool: True if tasks were successfully submitted, False otherwise.
+
+        Raises:
+            OperationalError: If there is an operational error when querying the database.
+            SQLAlchemyError: If there is a SQLAlchemy error when querying the database.
+        """
         # HACK do not create a new session if the current one (passed as parameter) is still valid.
         try:
             node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name=node_id).first()
         except (OperationalError, SQLAlchemyError) as e:
-            log.warning(f"Got an operational Exception when trying to submit tasks: {e}")
+            log.warning("Got an operational Exception when trying to submit tasks: %s", str(e))
             return False
 
         if node.name not in SERVER_TAGS:
@@ -897,7 +1237,7 @@ class StatusThread(threading.Thread):
                         # Check if file exist, if no wipe from db and continue, rare cases
                         if t.category in ("file", "pcap", "static"):
                             if not path_exists(t.target):
-                                log.info(f"Task id: {t.id} - File doesn't exist: {t.target}")
+                                log.info("Task id: %d - File doesn't exist: %s", t.id, t.target)
                                 main_db.set_status(t.id, TASK_BANNED)
                                 continue
 
@@ -906,7 +1246,7 @@ class StatusThread(threading.Thread):
                                 file_size = path_get_size(t.target)
                                 if file_size > web_conf.general.max_sample_size:
                                     log.warning(
-                                        f"File size: {file_size} is bigger than allowed: {web_conf.general.max_sample_size}"
+                                        "File size: %d is bigger than allowed: %d", file_size, web_conf.general.max_sample_size
                                     )
                                     main_db.set_status(t.id, TASK_BANNED)
                                     continue
@@ -925,12 +1265,12 @@ class StatusThread(threading.Thread):
                             if "timeout=" in t.options:
                                 t.timeout = options.get("timeout", 0)
                         except Exception as e:
-                            log.error(e, exc_info=True)
+                            log.exception(e)
                         # wtf are you doing in pendings?
                         tasks = db.query(Task).filter_by(main_task_id=t.id).all()
                         if tasks:
                             for task in tasks:
-                                # log.info("Deleting incorrectly uploaded file from dist db, main_task_id: {}".format(t.id))
+                                # log.info("Deleting incorrectly uploaded file from dist db, main_task_id: %s", t.id)
                                 if node.name == main_server_name:
                                     main_db.set_status(t.id, TASK_RUNNING)
                                 else:
@@ -960,7 +1300,7 @@ class StatusThread(threading.Thread):
                         if t.options:
                             t.options += ","
 
-                        t.options += "main_task_id={}".format(t.id)
+                        t.options += f"main_task_id={t.id}"
                         args = dict(
                             package=t.package,
                             category=t.category,
@@ -1033,7 +1373,7 @@ class StatusThread(threading.Thread):
                         log.info("nothing to upload? How? o_O")
                         return False
                     # Submit appropriate tasks to node
-                    log.debug("going to upload {} tasks to node {}".format(pend_tasks_num, node.name))
+                    log.debug("going to upload %d tasks to node %s", pend_tasks_num, node.name)
                     for task in to_upload:
                         submitted = node_submit_task(task.id, node.id, task.main_task_id)
                         if submitted:
@@ -1042,7 +1382,7 @@ class StatusThread(threading.Thread):
                             else:
                                 main_db.set_status(task.main_task_id, TASK_DISTRIBUTED)
                         else:
-                            log.info("something is wrong with submission of task: {}".format(task.id))
+                            log.info("something is wrong with submission of task: %d", task.id)
                             db.delete(task)
                             db.commit()
                         limit += 1
@@ -1053,6 +1393,17 @@ class StatusThread(threading.Thread):
         return True
 
     def load_vm_tags(self, db, node_id, node_name):
+        """
+        Load virtual machine tags for a specific node and store them in the global SERVER_TAGS dictionary.
+
+        Args:
+            db (Session): The database session to query the machines.
+            node_id (int): The ID of the node to load tags for.
+            node_name (str): The name of the node to load tags for.
+
+        Returns:
+            None
+        """
         global SERVER_TAGS
         # Get available node tags
         machines = db.query(Machine).filter_by(node_id=node_id).all()
@@ -1124,7 +1475,7 @@ class StatusThread(threading.Thread):
                         failed_count[node.name] += 1
                         # This will declare worker as dead after X failed connections checks
                         if failed_count[node.name] == dead_count:
-                            log.info("[-] {} dead".format(node.name))
+                            log.info("[-] %s dead", node.name)
                             # node.enabled = False
                             db.commit()
                             if node.name in STATUSES:
@@ -1140,7 +1491,7 @@ class StatusThread(threading.Thread):
                         res = self.submit_tasks(
                             node.name,
                             MINIMUMQUEUE[node.name],
-                            options_like="node={}".format(node.name),
+                            options_like=f"node={node.name}",
                             force_push_push=True,
                             db=db,
                         )
@@ -1188,7 +1539,7 @@ class StatusThread(threading.Thread):
                             continue
                 db.commit()
             except Exception as e:
-                log.error("Got an exception when trying to check nodes status and submit tasks: {}.".format(e), exc_info=True)
+                log.error("Got an exception when trying to check nodes status and submit tasks: %s.", str(e))
 
                 # ToDo hard test this rollback, this normally only happens on db restart and similar
                 db.rollback()
@@ -1198,6 +1549,17 @@ class StatusThread(threading.Thread):
 
 
 def output_json(data, code, headers=None):
+    """
+    Create a JSON response with the given data, HTTP status code, and optional headers.
+
+    Args:
+        data (dict): The data to be serialized to JSON.
+        code (int): The HTTP status code for the response.
+        headers (dict, optional): Additional headers to include in the response. Defaults to None.
+
+    Returns:
+        Response: A Flask response object with the JSON data and specified headers.
+    """
     resp = make_response(json.dumps(data), code)
     resp.headers.extend(headers or {})
     return resp
@@ -1399,16 +1761,16 @@ def update_machine_table(node_name):
     # delete all old vms
     _ = db.query(Machine).filter_by(node_id=node.id).delete()
 
-    log.info("Available VM's on %s:" % node_name)
+    log.info("Available VM's on %s:", node_name)
     # replace with new vms
     for machine in new_machines:
-        log.info("-->\t%s" % machine.name)
+        log.info("-->\t%s", machine.name)
         node.machines.append(machine)
         db.add(machine)
 
     db.commit()
 
-    log.info("Updated the machine table for node: %s" % node_name)
+    log.info("Updated the machine table for node: %s", node_name)
 
 
 def delete_vm_on_node(node_name, vm_name):
@@ -1438,6 +1800,23 @@ def node_enabled(node_name, status):
 
 
 def cron_cleaner(clean_x_hours=False):
+    """
+    Method that runs forever to clean up tasks.
+
+    Args:
+        clean_x_hours (bool or int, optional): If provided, only clean up tasks that were
+        notified and created within the last `clean_x_hours` hours.
+
+    The method performs the following steps:
+    1. Checks if the cleaner is already running by looking for a PID file at "/tmp/dist_cleaner.pid".
+    2. If the cleaner is not running, it creates a PID file to indicate that it is running.
+    3. Connects to the database and retrieves all nodes.
+    4. Depending on the `clean_x_hours` argument, it retrieves tasks that need to be cleaned up.
+    5. Marks the retrieved tasks as deleted and groups them by node.
+    6. Deletes the tasks from the nodes.
+    7. Commits the changes to the database and closes the connection.
+    8. Deletes the PID file to indicate that the cleaner has finished running.
+    """
     """Method that runs forever"""
 
     # Check if we are not runned

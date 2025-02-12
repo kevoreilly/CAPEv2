@@ -95,13 +95,13 @@ class AzSniffer(Auxiliary):
             result = poller.result()
 
             self.blob_url = result.storage_location.storage_path
-            log.info(f"Started Azure Network Watcher packet capture: {self.capture_name}")
-            log.debug(f"Blob URL for packet capture: {self.blob_url}")
+            log.info("Started Azure Network Watcher packet capture: %s",self.capture_name)
+            log.debug("Blob URL for packet capture: %s", self.blob_url)
         except AzureError as e:
-            log.error(f"Azure error occurred while creating packet capture: {str(e)}")
+            log.error("Azure error occurred while creating packet capture: %s", str(e))
             raise
         except Exception as e:
-            log.error(f"Unexpected error occurred while creating packet capture: {str(e)}")
+            log.error("Unexpected error occurred while creating packet capture: %s", str(e))
             raise
 
     def stop(self):
@@ -124,11 +124,11 @@ class AzSniffer(Auxiliary):
                 packet_capture_name=self.capture_name,
             )
             poller.result()
-            log.info(f"Stopped Azure Network Watcher packet capture: {self.capture_name}")
+            log.info("Stopped Azure Network Watcher packet capture: %s", self.capture_name)
         except AzureError as e:
-            log.error(f"Azure error occurred while stopping packet capture: {str(e)}")
+            log.error("Azure error occurred while stopping packet capture: %s", str(e))
         except Exception as e:
-            log.error(f"Unexpected error occurred while stopping packet capture: {str(e)}")
+            log.error("Unexpected error occurred while stopping packet capture: %s", str(e))
 
     def download_packet_capture(self):
         if not self.blob_url:
@@ -147,22 +147,22 @@ class AzSniffer(Auxiliary):
             blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
 
             self._download_to_file(blob_client, primary_output_file)
-            log.info(f"Downloaded packet capture for task {self.task.id} to {primary_output_file}")
+            log.info("Downloaded packet capture for task %s to %s", str(self.task.id), primary_output_file)
             self.convert_cap_to_pcap(primary_output_file)
         except AzureError as e:
-            log.error(f"Azure error occurred while downloading packet capture: {str(e)}")
+            log.error("Azure error occurred while downloading packet capture: %s", str(e))
             self._try_fallback_download(blob_client, fallback_output_file)
         except Exception as e:
-            log.error(f"Unexpected error occurred while downloading packet capture: {str(e)}")
+            log.error("Unexpected error occurred while downloading packet capture: %s", str(e))
             self._try_fallback_download(blob_client, fallback_output_file)
 
     def _try_fallback_download(self, blob_client, fallback_output_file):
         try:
             self._download_to_file(blob_client, fallback_output_file)
-            log.info(f"Downloaded packet capture for task {self.task.id} to fallback location {fallback_output_file}")
+            log.info("Downloaded packet capture for task %s to fallback location %s", self.task.id, fallback_output_file)
             self.convert_cap_to_pcap(fallback_output_file)
         except Exception as e:
-            log.error(f"Failed to download packet capture to fallback location: {str(e)}")
+            log.error("Failed to download packet capture to fallback location: %s", str(e))
 
     def _download_to_file(self, blob_client, output_file):
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -178,12 +178,12 @@ class AzSniffer(Auxiliary):
         try:
             os.makedirs(output_dir, exist_ok=True)
             subprocess.run(convert_cmd, check=True, capture_output=True, text=True)
-            log.info(f"Converted .cap file to .pcap: {pcap_file_path}")
+            log.info("Converted .cap file to .pcap: {pcap_file_path}")
             os.remove(cap_file_path)  # Remove the original .cap file
         except subprocess.CalledProcessError as e:
-            log.error(f"Failed to convert .cap file to .pcap: {e.stderr}")
+            log.error("Failed to convert .cap file to .pcap: %s", str(e.stderr))
         except OSError as e:
-            log.error(f"Failed to create directory or remove .cap file: {e}")
+            log.error("Failed to create directory or remove .cap file: %s", str(e))
 
     def delete_packet_capture(self):
         try:
@@ -193,11 +193,11 @@ class AzSniffer(Auxiliary):
                 packet_capture_name=self.capture_name,
             )
             poller.result()
-            log.info(f"Deleted Azure Network Watcher packet capture: {self.capture_name}")
+            log.info("Deleted Azure Network Watcher packet capture: %s", self.capture_name)
         except AzureError as e:
-            log.error(f"Azure error occurred while deleting packet capture: {str(e)}")
+            log.error("Azure error occurred while deleting packet capture: %s", str(e))
         except Exception as e:
-            log.error(f"Unexpected error occurred while deleting packet capture: {str(e)}")
+            log.error("Unexpected error occurred while deleting packet capture: %s", str(e))
 
     def set_task(self, task):
         self.task = task

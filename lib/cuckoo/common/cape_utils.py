@@ -221,7 +221,7 @@ def static_config_parsers(cape_name: str, file_path: str, file_data: bytes) -> d
                     cape_config.setdefault(cape_name, {}).update({key: [value]})
                 parser_loaded = True
         except Exception as e:
-            log.error("CAPE: parsing error on %s with %s: %s", file_path, cape_name, e, exc_info=True)
+            log.exception("CAPE: parsing error on %s with %s: %s", file_path, cape_name, e)
 
     # DC3-MWCP
     if HAS_MWCP and not parser_loaded and cape_name and cape_name in mwcp_decoders:
@@ -287,7 +287,7 @@ def static_config_parsers(cape_name: str, file_path: str, file_data: bytes) -> d
             if "rules" in str(e):
                 log.warning("You probably need to compile yara-python with dotnet support")
             else:
-                log.error(e, exc_info=True)
+                log.exception(e)
                 log.warning(
                     "malwareconfig parsing error for %s with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
                     file_path,

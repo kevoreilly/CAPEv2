@@ -348,7 +348,7 @@ class File:
                 except magic.MagicException as e:
                     log.error("Magic error: %s", str(e))
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
                 if not file_type and hasattr(magic, "open"):
                     try:
                         ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)
@@ -356,7 +356,7 @@ class File:
                         file_type = ms.file(self.file_path)
                         ms.close()
                     except Exception as e:
-                        log.error(e, exc_info=True)
+                        log.exception(e)
 
             if file_type is None:
                 try:
@@ -365,7 +365,7 @@ class File:
                     )
                     file_type = p.stdout.read().strip()
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
 
         return file_type
 
@@ -414,7 +414,7 @@ class File:
                         File.notified_pefile = True
                         log.warning("Unable to import pefile (install with `pip3 install pefile`)")
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
         if not self.file_type:
             self.file_type = self.get_content_type()
 

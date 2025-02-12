@@ -300,6 +300,6 @@ def flare_capa_details(
         except EmptyReportError:
             log.info("FLARE CAPA -> No process data available")
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
     return capa_output

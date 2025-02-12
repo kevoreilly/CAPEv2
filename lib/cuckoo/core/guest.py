@@ -388,7 +388,7 @@ class GuestManager:
                 )
                 continue
             except Exception as e:
-                log.error("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e, exc_info=True)
+                log.exception("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e)
                 continue
 
             if status["status"] in ("complete", "failed"):

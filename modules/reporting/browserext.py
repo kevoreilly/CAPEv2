@@ -23,5 +23,5 @@ class BrowserExt(Report):
         with open(browser_log_path, "r") as blp_fd:
             try:
                 results["browser"]["requests"] = json.load(blp_fd)
-            except Exception as ex:
-                log.debug(f"error parsing browser requests json: {ex}")
+            except Exception as e:
+                log.debug("error parsing browser requests json: %s", str(e))

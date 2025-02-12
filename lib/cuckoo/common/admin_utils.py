@@ -43,12 +43,14 @@ except ImportError:
     print("poetry run pip install -U paramiko scp")
     HAVE_PARAMIKO = False
 
+
 from utils.community_blocklist import blocklist
 
 from lib.cuckoo.common.colors import green, red
+from lib.cuckoo.common.sshclient import SSHJumpClient
 
 try:
-    from admin_conf import (  # POSTPROCESS,
+    from admin_conf import (
         CAPE_DIST_URL,
         CAPE_PATH,
         EXCLUDE_CAPE_FILES,
@@ -66,8 +68,6 @@ try:
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")
 
-# Only needed when jumping over nodes
-from lib.cuckoo.common.sshclient import SSHJumpClient
 
 # this is bad, but getLogger doesn't work, this can be cause of duplication of log entries if used outside
 logging.basicConfig(level=logging.INFO)
@@ -240,7 +240,6 @@ def file_recon(file, yara_category="CAPE"):
     if not Path(file).exists():
         return
 
-    global POSTPROCESS
     LOCAL_SHA256 = False
     filename = os.path.basename(file)
     OWNER = "cape:cape"

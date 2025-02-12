@@ -348,7 +348,7 @@ class File:
                 except magic.MagicException as e:
                     log.error("Magic error: %s", str(e))
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
                 if not file_type and hasattr(magic, "open"):
                     try:
                         ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)

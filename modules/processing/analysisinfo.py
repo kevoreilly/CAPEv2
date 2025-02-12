@@ -29,7 +29,7 @@ def get_running_commit() -> str:
         head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
         return Path(git_folder, head_name).read_text().replace("\n", "")
     except Exception as e:
-        log.error(f"Error getting running commit hash: {e}")
+        log.error("Error getting running commit hash: %s", str(e))
         return "unknown"
 
 

@@ -25,7 +25,6 @@ except ImportError:
 
 try:
     from paramiko import AutoAddPolicy, ProxyCommand, SSHClient, SSHConfig
-    from scp import SCPClient, SCPException
     from paramiko.ssh_exception import (
         AuthenticationException,
         BadHostKeyException,
@@ -33,6 +32,7 @@ try:
         ProxyCommandFailure,
         SSHException,
     )
+    from scp import SCPClient, SCPException
 
 
     conf = SSHConfig()
@@ -43,8 +43,9 @@ except ImportError:
     print("poetry run pip install -U paramiko scp")
     HAVE_PARAMIKO = False
 
-from lib.cuckoo.common.colors import green, red
 from utils.community_blocklist import blocklist
+
+from lib.cuckoo.common.colors import green, red
 
 try:
     from admin_conf import (  # POSTPROCESS,

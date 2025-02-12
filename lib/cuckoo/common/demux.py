@@ -218,11 +218,13 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
                     # check if path is not empty
                     if tmp_child and tmp_child[0]:
                         retlist.extend(tmp_child)
+
                 # child is not available, the original file should be put into the list
-                tmp_child = _sf_children(sf_child)
-                # check if path is not empty
-                if tmp_child and tmp_child[0]:
-                    retlist.append(tmp_child)
+                if not retlist:
+                    tmp_child = _sf_children(sf_child)
+                    # check if path is not empty
+                    if tmp_child and tmp_child[0]:
+                        retlist.append(tmp_child)
             else:
                 tmp_child = _sf_children(sf_child)
                 # check if path is not empty
@@ -230,7 +232,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
                     retlist.append(tmp_child)
     except Exception as e:
         log.exception(e)
-    return retlist, ""
+    return list(filter(None, retlist)), ""
 
 
 def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""):  # -> tuple[bytes, str]:
@@ -262,7 +264,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                         {
                             os.path.basename(
                                 filename
-                            ): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option"
+                            ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option"
                         }
                     )
         return retlist, error_list
@@ -332,13 +334,13 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # original file
     if not retlist:
         if error_msg:
-            error_list.append({os.path.basename(filename), error_msg})
+            error_list.append({os.path.basename(filename).decode(), error_msg})
         new_retlist.append((filename, platform))
     else:
         for filename, platform, magic_type, file_size in retlist:
             # verify not Windows binaries here:
             if platform == "linux" and not linux_enabled and "Python" not in magic_type:
-                error_list.append({os.path.basename(filename): "Linux processing is disabled"})
+                error_list.append({os.path.basename(filename).decode(): "Linux processing is disabled"})
                 continue
 
             if file_size > web_cfg.general.max_sample_size:

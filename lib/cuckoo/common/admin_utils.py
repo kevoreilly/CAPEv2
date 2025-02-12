@@ -44,10 +44,9 @@ except ImportError:
     HAVE_PARAMIKO = False
 
 
-from utils.community_blocklist import blocklist
-
 from lib.cuckoo.common.colors import green, red
 from lib.cuckoo.common.sshclient import SSHJumpClient
+from utils.community_blocklist import blocklist
 
 try:
     from admin_conf import (

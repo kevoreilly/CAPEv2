@@ -65,7 +65,7 @@ DuplicatesType = DefaultDict[str, Set[str]]
 
 cfg = Config()
 processing_conf = Config("processing")
-selfextract_conf = Config("selfextract")
+integration_conf = Config("integrations")
 
 try:
     from modules.signatures.recon_checkip import dns_indicators
@@ -108,9 +108,9 @@ except ImportError:
     HAVE_BAT_DECODER = False
     print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
-unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
-innoextact_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.Inno_extract.binary)
-sevenzip_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.SevenZip_unpack.binary)
+unautoit_binary = os.path.join(CUCKOO_ROOT, integration_conf.UnAutoIt_extract.binary)
+innoextact_binary = os.path.join(CUCKOO_ROOT, integration_conf.Inno_extract.binary)
+sevenzip_binary = os.path.join(CUCKOO_ROOT, integration_conf.SevenZip_unpack.binary)
 if not path_exists(sevenzip_binary):
     sevenzip_binary = "/usr/bin/7z"
 
@@ -134,6 +134,12 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
     from lib.cuckoo.common.integrations.virustotal import vt_lookup
 
     HAVE_VIRUSTOTAL = True
+
+HAVE_MANDIANT_INTEL = False
+if integration_conf.mandiant_intel.enabled:
+    from lib.cuckoo.common.integrations.mandiant_intel import mandiant_lookup
+
+    HAVE_MANDIANT_INTEL = True
 
 exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
@@ -180,40 +186,40 @@ def static_file_info(
                 data_dictionary["floss"] = floss_strings
 
         if "Mono" in data_dictionary["type"]:
-            if selfextract_conf.general.dotnet:
+            if integration_conf.general.dotnet:
                 data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
                 if processing_conf.strings.dotnet:
                     dotnet_strings = dotnet_user_strings(file_path)
                     if dotnet_strings:
                         data_dictionary.setdefault("dotnet_strings", dotnet_strings)
 
-    elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and selfextract_conf.general.office:
+    elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and integration_conf.general.office:
         # options is dict where we need to get pass get_options
         data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
-    elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and selfextract_conf.general.pdf:
+    elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and integration_conf.general.pdf:
         data_dictionary["pdf"] = PDF(file_path).run()
     elif (
         package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf")
-    ) and selfextract_conf.general.windows_script:
+    ) and integration_conf.general.windows_script:
         data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
-    elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and selfextract_conf.general.lnk:
+    elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and integration_conf.general.lnk:
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
-    elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and selfextract_conf.general.java:
-        if selfextract_conf.procyon.binary and not path_exists(selfextract_conf.procyon.binary):
+    elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and integration_conf.general.java:
+        if integration_conf.procyon.binary and not path_exists(integration_conf.procyon.binary):
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
-            data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
+            data_dictionary["java"] = Java(file_path, integration_conf.procyon.binary).run()
     elif file_path.endswith(".rdp") or data_dictionary.get("name", {}).endswith(".rdp"):
         data_dictionary["rdp"] = parse_rdp_file(file_path)
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.
-    # elif ("ELF" in data_dictionary["type"] or file_path.endswith(".elf")) and selfextract_conf.general.elf:
+    # elif ("ELF" in data_dictionary["type"] or file_path.endswith(".elf")) and integration_conf.general.elf:
     #    data_dictionary["elf"] = ELF(file_path).run()
     #    data_dictionary["keys"] = f.get_keys()
-    # elif HAVE_OLETOOLS and package == "hwp" and selfextract_conf.general.hwp:
+    # elif HAVE_OLETOOLS and package == "hwp" and integration_conf.general.hwp:
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
 
     data = path_read_file(file_path)
@@ -250,6 +256,11 @@ def static_file_info(
             vt_details = vt_lookup("file", file_path, results)
             if vt_details:
                 data_dictionary["virustotal"] = vt_details
+
+        if HAVE_MANDIANT_INTEL and processing_conf.mandiant_intel.enabled:
+            mandiant_intel_details = mandiant_lookup("file", file_path, results)
+            if mandiant_intel_details:
+                data_dictionary["mandiant_intel"] = mandiant_intel_details
 
     generic_file_extractors(
         file_path,
@@ -456,7 +467,7 @@ def generic_file_extractors(
     ]
 
     futures = {}
-    with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
+    with pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers)) as pool:
         # Prefer custom modules over the built-in ones, since only 1 is allowed
         # to be the extracted_files_tool.
         if extra_info_modules:
@@ -468,12 +479,12 @@ def generic_file_extractors(
         for extraction_func in file_info_funcs:
             funcname = extraction_func.__name__.split(".")[-1]
             if (
-                not getattr(selfextract_conf, funcname, {}).get("enabled", False)
+                not getattr(integration_conf, funcname, {}).get("enabled", False)
                 and getattr(extraction_func, "enabled", False) is False
             ):
                 continue
 
-            func_timeout = int(getattr(selfextract_conf, funcname, {}).get("timeout", 60))
+            func_timeout = int(getattr(integration_conf, funcname, {}).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
     pool.join()
 
@@ -591,7 +602,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
     if all(".NET Reactor" not in string for string in data_dictionary.get("die", [])):
         return
 
-    binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
+    binary = shlex.split(integration_conf.eziriz_deobfuscate.binary.strip())[0]
     binary = os.path.join(CUCKOO_ROOT, binary)
     if not binary:
         log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
@@ -614,7 +625,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
         _ = run_tool(
             [
                 os.path.join(CUCKOO_ROOT, binary),
-                *shlex.split(selfextract_conf.eziriz_deobfuscate.extra_args.strip()),
+                *shlex.split(integration_conf.eziriz_deobfuscate.extra_args.strip()),
                 file,
             ],
             universal_newlines=True,
@@ -633,7 +644,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     if "Mono" not in filetype:
         return
 
-    binary = shlex.split(selfextract_conf.de4dot_deobfuscate.binary.strip())[0]
+    binary = shlex.split(integration_conf.de4dot_deobfuscate.binary.strip())[0]
     if not binary:
         log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
         return
@@ -647,7 +658,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
         _ = run_tool(
             [
                 binary,
-                *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
+                *shlex.split(integration_conf.de4dot_deobfuscate.extra_args.strip()),
                 "-f",
                 file,
                 "-o",
@@ -676,7 +687,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
         if not kwargs.get("tests"):
             # msiextract in different way that 7z, we need to add subfolder support
             output = run_tool(
-                [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
+                [integration_conf.msi_extract.binary, file, "--directory", tempdir],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )

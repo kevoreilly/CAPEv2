@@ -1,4 +1,4 @@
-# This config is to be able to enable/disable things like MSI/NSIS/UnAutoIt etc
+# This config is to be able to enable/disable things like MSI/NSIS/UnAutoIt, 3rd part services integraitons, etc
 
 [general]
 pefiles = yes
@@ -13,6 +13,17 @@ hwp = yes
 
 # Number of workers for pool to run them in parallel
 max_workers = 6
+
+[mandiant_intel]
+enabled = no
+api_access =
+api_secret =
+
+# Create your apikey: https://threatfox.abuse.ch/api/#auth_key
+[threatfox]
+enabled = no
+apikey =
+
 
 # sudo apt install msitools
 [msi_extract]

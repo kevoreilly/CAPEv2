@@ -168,6 +168,8 @@ class Pcap:
         self.ja3_fprints = ja3_fprints
         self.options = options
 
+        self.ip_n_ports = {}
+
         # List of all hosts.
         self.hosts = []
         # List containing all non-private IP addresses.
@@ -306,6 +308,7 @@ class Pcap:
                     # first packet they appear in.
                     if not self._is_private_ip(ip):
                         self.unique_hosts.append(ip)
+                        self.ip_n_ports.setdefault(ip, []).append(connection["dport"])
 
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
@@ -338,6 +341,7 @@ class Pcap:
                     "asn_name": asn_name,
                     "hostname": hostname,
                     "inaddrarpa": inaddrarpa,
+                    "ports": self.ip_n_ports.get(ip, []),
                 }
             )
         return enriched_hosts
@@ -531,6 +535,7 @@ class Pcap:
         """Add a domain to unique list.
         @param domain: domain name.
         """
+        # ToDo global filter here right?
         filters = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
 
         regexps = [re.compile(filter) for filter in filters]

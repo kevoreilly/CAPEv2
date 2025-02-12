@@ -31,6 +31,7 @@ from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IM
 from lib.cuckoo.common.path_utils import path_exists
 
 try:
+    # python-magic, not file-magic!
     import magic
 
     HAVE_MAGIC = True
@@ -342,18 +343,12 @@ class File:
         file_type = None
         if self.path_object.exists():
             if HAVE_MAGIC:
-                fn = False
-                if hasattr(magic, "detect_from_filename"):
-                    fn = magic.detect_from_filename
-                if hasattr(magic, "from_file"):
-                    fn = magic.from_file
-                if fn:
-                    try:
-                        file_type = fn(self.file_path_ansii)
-                    except magic.MagicException as e:
-                        log.error("Magic error: %s", str(e))
-                    except Exception as e:
-                        log.exception(e)
+                try:
+                    file_type = magic.from_file(self.file_path_ansii)
+                except magic.MagicException as e:
+                    log.error("Magic error: %s", str(e))
+                except Exception as e:
+                    log.error(e, exc_info=True)
                 if not file_type and hasattr(magic, "open"):
                     try:
                         ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)

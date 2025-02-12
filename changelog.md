@@ -1,3 +1,17 @@
+### [11.02.2025]
+* `selfextract.conf` renamed to `integrations.conf`.
+    * Please rename your config file.
+
+### [10.02.2025]
+* We are now on `Poetry v2`. If you see next message, you need to upgrade your `poetry` version.
+    * This one might be tricky as depends if your `poetry` was installed with `apt` or script. But something like this should works:
+        * `curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -`
+```
+The Poetry configuration is invalid:
+  - Additional properties are not allowed ('requires-poetry' was unexpected)
+```
+* If you see missed `crispy_bootstrap4`. Just run `poetry install` as `cape` user.
+
 ### [05.02.2025]
 * Monitor update: Fix hooking deadlock with delay-loaded dlls & make LdrpCallInitRoutine hook transparent
 
@@ -524,7 +538,7 @@ rule X_cryptor {
     * You need to download version for your CPU and extract it to `data/NETReactorSlayer.CLI`
         * In case if you are on x64 host, then just run: `poetry run python utils/community.py -waf`
     * Add execution permission with `chmod a+x data/NETReactorSlayer.CLI`
-* Now each section inside of `selfextract.conf` has timeout value. Default is 60 seconds
+* Now each section inside of `integrations.conf` has timeout value. Default is 60 seconds
 
 ### [24.12.2022]
 * Monitor updates: Fix NtAllocateVirtualMemoryEx & NtMapViewOfSectionEx hooks and rebuild with Visual Studio 2022

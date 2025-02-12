@@ -62,5 +62,6 @@ def test_suricata_naming():
     assert "Pcrat" == get_suricata_family("ET MALWARE Backdoor family PCRat/Gh0st CnC traffic")
     assert "Stealc" == get_suricata_family("ET MALWARE [SEKOIA.IO] Win32/Stealc C2 Check-in")
 
+
 if __name__ == "__main__":
     print("Suricata detects as:", get_suricata_family(sys.argv[1]))

@@ -3,6 +3,7 @@ import os
 import logging
 
 from lib.cuckoo.common.load_extra_modules import load_downloaders
+from lib.cuckoo.common.constants import CUSTOM_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.config import Config
 
@@ -13,7 +14,7 @@ log = logging.getLogger(__name__)
 
 class Downloaders(object):
     def __init__(self, destination_folder=None):
-        self.downloaders = load_downloaders()
+        self.downloaders = load_downloaders(CUSTOM_ROOT)
         if integrations_cfg.downloaders.order:
             self.downloaders_order = [k.strip() for k in self.downloaders.keys() if k.strip() in integrations_cfg.downloaders.order]
         else:

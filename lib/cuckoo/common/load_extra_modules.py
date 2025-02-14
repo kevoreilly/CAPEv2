@@ -201,17 +201,18 @@ def load_downloaders(CUCKOO_ROOT: str):
     """
     downloaders = {}
     downloaders_modules = {}
-
+    versions = {}
     custom_downloaders = os.path.join(CUCKOO_ROOT, "custom", "parsers")
     if os.path.exists(custom_downloaders):
         downloaders_modules.setdefault("custom", []).extend(
             [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{custom_downloaders}/[!_]*.py")]
         )
-        versions = {"custom": "custom.downloaders."}
+        versions["custom"] = "custom.downloaders"
 
+    # breakpoint()
     downloaders_dir = os.path.join(CUCKOO_ROOT, "lib", "downloaders")
     downloaders_modules = {"cape": [os.path.basename(downloader)[:-3] for downloader in glob.glob(f"{downloaders_dir}/[!_]*.py")]}
-    versions["cape"] = "lib.downloaders."
+    versions["cape"] = "lib.downloaders"
 
     for version, names in downloaders_modules.items():
         for name in names:

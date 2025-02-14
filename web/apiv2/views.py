@@ -39,12 +39,11 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
-    download_from_3rdpart,
 )
 from lib.cuckoo.common.web_utils import (
     apiconf,
     download_file,
-    download_from_vt,
+    download_from_3rdpart,
     force_int,
     parse_request_arguments,
     perform_search,
@@ -54,7 +53,13 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import TASK_RECOVERED, TASK_RUNNING, Database, Task, _Database
+from lib.cuckoo.core.database import (
+    TASK_RECOVERED,
+    TASK_RUNNING,
+    Database,
+    Task,
+    _Database,
+)
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 try:
@@ -98,11 +103,20 @@ if reporting_conf.compression.compressiontool.strip() == "7zip":
 
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_delete_data, mongo_find, mongo_find_one, mongo_find_one_and_update
+    from dev_utils.mongodb import (
+        mongo_delete_data,
+        mongo_find,
+        mongo_find_one,
+        mongo_find_one_and_update,
+    )
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
+    from dev_utils.elasticsearchdb import (
+        elastic_handler,
+        get_analysis_index,
+        get_query_by_info_id,
+    )
 
     es_as_db = True
     es = elastic_handler

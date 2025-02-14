@@ -35,6 +35,8 @@ class Downloaders(object):
                     sample = self.downloaders[service].download(hash, apikey)
                     if sample:
                         return sample, self.downloaders[service].__name__
+                else:
+                    log.error("%s is not a valid hash for %s", hash, service)
             except Exception as e:
                 log.error("Error downloading sample from %s: %s", service, e)
         if not sample:

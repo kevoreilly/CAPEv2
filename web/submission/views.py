@@ -387,6 +387,8 @@ def index(request, task_id=None, resubmit_hash=None):
             "user_id": request.user.id or 0,
             "package": package,
         }
+        if opt_apikey:
+            details["apikey"] = opt_apikey
         task_category = False
         samples = []
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
@@ -625,9 +627,7 @@ def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].extend(tasks_details["errors"])
 
         elif task_category == "downloading_service":
-            if opt_apikey:
-                details["apikey"] = opt_apikey
-            details = download_from_3rdpart(samples, details, opt_filename)
+            details = download_from_3rdpart(samples, opt_filename, details)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])

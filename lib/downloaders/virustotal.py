@@ -21,7 +21,7 @@ def is_supported(hash: str, apikey: str) -> bool:
     if len(hash) not in (32, 40, 64):
         log.error("%s is not a valid hash for VirusTotal", hash)
         return False
-    elif not integrations_cfg.virustotal.apikey or not apikey:
+    elif not integrations_cfg.virustotal.apikey and not apikey:
         log.error("VirusTotal API key not configured. Configure it in integrations.conf")
         return False
 

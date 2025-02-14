@@ -585,7 +585,7 @@ def jsonize(data: dict, response: bool = False):
     return json.dumps(data, sort_keys=False, indent=4)
 
 
-def get_hash_list(self, hashes: str) -> list:
+def get_hash_list(hashes: str) -> list:
     """
     Parses a string of hashes separated by commas or spaces and returns a list of cleaned hash values.
     Args:
@@ -630,6 +630,7 @@ def download_from_3rdpart(samples: str, opt_filename: str, details: dict) -> dic
             filename = f"{base_dir}/{opt_filename}"
         else:
             filename = f"{base_dir}/{sanitize_filename(h)}"
+
         details["path"] = filename
         details["fhash"] = h
         # clean old content
@@ -641,7 +642,7 @@ def download_from_3rdpart(samples: str, opt_filename: str, details: dict) -> dic
             details["service"] = "Local"
 
         if not details.get("content", False):
-            content, service = downloader_services.download_file(h, details.get("apikey"))
+            content, service = downloader_services.download(h, details.get("apikey"))
             if not content:
                 details["errors"].append({h: "Can't download sample from external services"})
                 continue

@@ -39,6 +39,7 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
+    download_from_3rdpart,
 )
 from lib.cuckoo.common.web_utils import (
     apiconf,
@@ -2310,13 +2311,11 @@ dl_service_map = {
 }
 
 
-def common_download_func(service, request):
+def common_download_func(request):
     resp = {}
-    hashes = request.data.get(dl_service_map[service].strip())
+    hashes = request.POST.get("hashes").strip()
     if not hashes:
-        hashes = request.POST.get("hashes".strip(), None)
-    if not hashes:
-        return Response({"error": True, "error_value": f"hashes (hash list) or {dl_service_map[service]} value is empty"})
+        return Response({"error": True, "error_value": "hashes value is empty"})
     resp["error"] = False
     # Parse potential POST options (see submission/views.py)
     options = request.POST.get("options", "")
@@ -2328,18 +2327,10 @@ def common_download_func(service, request):
     task_machines = []
     vm_list = []
     opt_apikey = False
+    opts = get_options(options)
+    if opts:
+        opt_apikey = opts.get("apikey", False)
 
-    if service == "VirusTotal":
-        opts = get_options(options)
-        if opts:
-            opt_apikey = opts.get("apikey", False)
-
-        if not (settings.VTDL_KEY or opt_apikey):
-            resp = {
-                "error": True,
-                "error_value": ("You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"),
-            }
-            return Response(resp)
 
     for vm in db.list_machines():
         vm_list.append(vm.label)
@@ -2373,13 +2364,14 @@ def common_download_func(service, request):
         "fhash": False,
         "options": options,
         "only_extraction": False,
-        "service": service,
+        "service": "",
         "user_id": request.user.id or 0,
     }
 
-    if service == "VirusTotal":
-        details["apikey"] = settings.VTDL_KEY or opt_apikey
-        details = download_from_vt(hashes, details, opt_filename, settings)
+    if opt_apikey:
+        details["apikey"] = opt_apikey
+
+    details = download_from_3rdpart(hashes, details, opt_filename)
     if isinstance(details.get("task_ids"), list):
         tasks_count = len(details["task_ids"])
     else:
@@ -2459,11 +2451,11 @@ def tasks_file_stream(request, task_id):
         resp = {"error": True, "error_value": f"Requests exception: {ex}"}
     return Response(resp)
 
-
+#ToDo
 @csrf_exempt
 @api_view(["POST"])
-def tasks_vtdl(request):
+def tasks_download_services(request):
     # Check if this API function is enabled
-    if not apiconf.vtdl.get("enabled"):
+    if not apiconf.downloading_services.get("enabled"):
         return Response({"error": True, "error_value": "VTDL Create API is Disabled"})
-    return common_download_func("VirusTotal", request)
+    return common_download_func(request)

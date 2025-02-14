@@ -26,8 +26,6 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
     download_file,
-    download_from_bazaar,
-    download_from_vt,
     get_file_content,
     load_vms_exits,
     load_vms_tags,
@@ -35,9 +33,12 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     process_new_dlnexec_task,
     process_new_task_files,
+    download_from_3rdpart,
+    downloader_services,
 )
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+
 
 # this required for hash searches
 cfg = Config("cuckoo")
@@ -406,18 +407,9 @@ def index(request, task_id=None, resubmit_hash=None):
         elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
             task_category = "dlnexec"
             samples = request.POST.get("dlnexec").strip()
-        elif (
-            settings.VTDL_ENABLED
-            and "vtdl" in request.POST
-            and request.POST.get("vtdl", False)
-            and request.POST.get("vtdl")[0] != ""
-        ):
-            task_category = "vtdl"
-            samples = request.POST.get("vtdl").strip()
-        elif "bazaar" in request.POST and request.POST.get("bazaar").strip():
-            task_category = "bazaar"
-            samples = request.POST.get("bazaar").strip()
-
+        elif "hashes" in request.POST and request.POST.get("hashes", False) and request.POST.get("hashes")[0] != "":
+            task_category = "downloading_service"
+            samples = request.POST.get("hashes").strip()
         list_of_tasks = []
         if task_category in ("url", "dlnexec"):
             if not samples:
@@ -492,7 +484,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
-        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl", "bazaar"):
+        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "downloading_service"):
             task_category = job_category
 
         if task_category == "resubmit":
@@ -632,20 +624,10 @@ def index(request, task_id=None, resubmit_hash=None):
                     if tasks_details.get("errors"):
                         details["errors"].extend(tasks_details["errors"])
 
-        elif task_category == "vtdl":
-            if not settings.VTDL_KEY:
-                return render(
-                    request,
-                    "error.html",
-                    {"error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"},
-                )
-            else:
-                if opt_apikey:
-                    details["apikey"] = opt_apikey
-                details = download_from_vt(samples, details, opt_filename, settings)
-
-        elif task_category == "bazaar":
-            details = download_from_bazaar(samples, details, opt_filename, settings)
+        elif task_category == "downloading_service":
+            if opt_apikey:
+                details["apikey"] = opt_apikey
+            details = download_from_3rdpart(samples, details, opt_filename)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])
@@ -670,8 +652,6 @@ def index(request, task_id=None, resubmit_hash=None):
             return render(request, "error.html", err_data)
     else:
         enabledconf = {}
-        enabledconf["vt"] = settings.VTDL_ENABLED
-        enabledconf["bazaar"] = settings.BAZAAR_ENABLED
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")
         enabledconf["procmemory"] = processing.procmemory.get("enabled")
@@ -685,6 +665,7 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["amsidump"] = web_conf.amsidump.enabled
         enabledconf["pre_script"] = web_conf.pre_script.enabled
         enabledconf["during_script"] = web_conf.during_script.enabled
+        enabledconf["downloading_service"] = bool(downloader_services.downloaders)
 
         all_vms_tags = load_vms_tags()
 

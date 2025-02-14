@@ -45,7 +45,7 @@ from lib.cuckoo.core.database import (
     Task,
 )
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
-from lib.downloaders.downloaders import Downloaders
+from lib.downloaders import Downloaders
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))

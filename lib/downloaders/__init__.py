@@ -13,6 +13,22 @@ log = logging.getLogger(__name__)
 
 
 class Downloaders(object):
+    """
+    A class to manage and utilize various downloaders for downloading samples.
+
+    Attributes:
+        downloaders (dict): A dictionary of available downloaders.
+        downloaders_order (list): A list of downloaders in the order specified by the configuration.
+        destination_folder (str): The folder where downloaded samples will be stored.
+
+    Methods:
+        __init__(destination_folder=None):
+            Initializes the Downloaders class with the specified destination folder.
+
+        download(hash, apikey=None):
+            Attempts to download a sample using the available downloaders in the specified order.
+            Returns the sample and the downloader's name if successful, otherwise returns False, False.
+    """
     def __init__(self, destination_folder=None):
         self.downloaders = load_downloaders(CUCKOO_ROOT)
         if integrations_cfg.downloaders.order:
@@ -28,6 +44,20 @@ class Downloaders(object):
             path_mkdir(self.destination_folder, exist_ok=True)
 
     def download(self, hash, apikey: str = None):
+        """
+        Attempts to download a sample using the available downloaders in the specified order.
+
+        Args:
+            hash (str): The hash of the sample to be downloaded.
+            apikey (str, optional): The API key to be used for the downloaders that require authentication. Defaults to None.
+
+        Returns:
+            tuple: A tuple containing the downloaded sample and the name of the downloader service used.
+                If no sample is downloaded, returns (False, False).
+
+        Raises:
+            Exception: If an error occurs during the download process, it is logged and the next downloader is attempted.
+        """
         sample = False
         for service in self.downloaders_order:
             try:

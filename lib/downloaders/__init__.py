@@ -1,11 +1,11 @@
 
-import os
 import logging
+import os
 
-from lib.cuckoo.common.load_extra_modules import load_downloaders
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.load_extra_modules import load_downloaders
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 cfg = Config()
 integrations_cfg = Config("integrations")

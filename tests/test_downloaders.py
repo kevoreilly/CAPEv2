@@ -1,6 +1,8 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from lib.downloaders import Downloaders
+
 
 class TestDownloaders(unittest.TestCase):
     @patch('lib.downloaders.load_downloaders')

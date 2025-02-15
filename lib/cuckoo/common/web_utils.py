@@ -4,9 +4,9 @@ import logging
 import os
 import re
 import sys
+import tempfile
 import threading
 import time
-import tempfile
 from collections import OrderedDict
 from contextlib import suppress
 from datetime import datetime, timedelta

@@ -26,6 +26,8 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
     download_file,
+    download_from_3rdpart,
+    downloader_services,
     get_file_content,
     load_vms_exits,
     load_vms_tags,
@@ -33,12 +35,9 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     process_new_dlnexec_task,
     process_new_task_files,
-    download_from_3rdpart,
-    downloader_services,
 )
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
-
 
 # this required for hash searches
 cfg = Config("cuckoo")

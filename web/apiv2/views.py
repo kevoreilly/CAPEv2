@@ -2325,7 +2325,12 @@ dl_service_map = {
 }
 
 
-def common_download_func(request):
+@csrf_exempt
+@api_view(["POST"])
+def tasks_download_services(request):
+    # Check if this API function is enabled
+    if not apiconf.downloading_services.get("enabled"):
+        return Response({"error": True, "error_value": "Download sample API is Disabled"})
     resp = {}
     hashes = request.POST.get("hashes").strip()
     if not hashes:
@@ -2464,12 +2469,3 @@ def tasks_file_stream(request, task_id):
         log.exception(ex)
         resp = {"error": True, "error_value": f"Requests exception: {ex}"}
     return Response(resp)
-
-#ToDo
-@csrf_exempt
-@api_view(["POST"])
-def tasks_download_services(request):
-    # Check if this API function is enabled
-    if not apiconf.downloading_services.get("enabled"):
-        return Response({"error": True, "error_value": "VTDL Create API is Disabled"})
-    return common_download_func(request)

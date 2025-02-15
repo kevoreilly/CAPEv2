@@ -75,8 +75,7 @@ status = yes
 rps = 1/s
 rpm = 2/m
 
-# Submit VTDL tasks to Cuckoo.
-[vtdl]
+[downloading_services]
 enabled = no
 auth_only = no
 allmachines = no

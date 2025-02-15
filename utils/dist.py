@@ -302,6 +302,8 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
     try:
         shutil.copytree(worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True)
+    except shutil.Error:
+        log.error("Files doens't exist on worker")
     except Exception as e:
         log.exception(e)
         return False
@@ -469,7 +471,8 @@ def node_submit_task(task_id, node_id, main_task_id):
                     "Failed to submit: main_task_id: %d task %d to node: %s, code: %d, msg: %s",
                         task.main_task_id, task_id, node.name, r.status_code, r.content
                 )
-
+                if b"File too big, enable" in r.content:
+                    main_db.set_status(task.main_task_id, TASK_BANNED)
             if task.task_id:
                 log.debug("Submitted task to worker: %s - %d - %d", node.name, task.task_id, task.main_task_id)
 

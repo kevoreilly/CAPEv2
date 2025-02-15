@@ -6,6 +6,7 @@ import unittest
 
 import httpretty
 import pytest
+
 from lib.cuckoo.common.path_utils import path_delete, path_write_file
 from lib.cuckoo.common.web_utils import (
     _download_file,

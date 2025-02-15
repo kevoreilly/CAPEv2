@@ -1,13 +1,14 @@
 import io
-import pyzipper
 import unittest
 from unittest.mock import MagicMock, patch
+
 import pytest
+import pyzipper
 import requests
 
 from lib.downloaders import Downloaders
-from lib.downloaders.virustotal import download as vt_downloader
 from lib.downloaders.malwarebazaar import download as mb_downloader
+from lib.downloaders.virustotal import download as vt_downloader
 
 
 class TestDownloaders(unittest.TestCase):

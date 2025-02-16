@@ -43,7 +43,7 @@ from lib.cuckoo.common.utils import (
 from lib.cuckoo.common.web_utils import (
     apiconf,
     download_file,
-    download_from_vt,
+    download_from_3rdpart,
     force_int,
     parse_request_arguments,
     perform_search,
@@ -53,7 +53,13 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import TASK_RECOVERED, TASK_RUNNING, Database, Task, _Database
+from lib.cuckoo.core.database import (
+    TASK_RECOVERED,
+    TASK_RUNNING,
+    Database,
+    Task,
+    _Database,
+)
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 try:
@@ -97,11 +103,20 @@ if reporting_conf.compression.compressiontool.strip() == "7zip":
 
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_delete_data, mongo_find, mongo_find_one, mongo_find_one_and_update
+    from dev_utils.mongodb import (
+        mongo_delete_data,
+        mongo_find,
+        mongo_find_one,
+        mongo_find_one_and_update,
+    )
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
+    from dev_utils.elasticsearchdb import (
+        elastic_handler,
+        get_analysis_index,
+        get_query_by_info_id,
+    )
 
     es_as_db = True
     es = elastic_handler
@@ -2310,13 +2325,16 @@ dl_service_map = {
 }
 
 
-def common_download_func(service, request):
+@csrf_exempt
+@api_view(["POST"])
+def tasks_download_services(request):
+    # Check if this API function is enabled
+    if not apiconf.downloading_services.get("enabled"):
+        return Response({"error": True, "error_value": "Download sample API is Disabled"})
     resp = {}
-    hashes = request.data.get(dl_service_map[service].strip())
+    hashes = request.POST.get("hashes").strip()
     if not hashes:
-        hashes = request.POST.get("hashes".strip(), None)
-    if not hashes:
-        return Response({"error": True, "error_value": f"hashes (hash list) or {dl_service_map[service]} value is empty"})
+        return Response({"error": True, "error_value": "hashes value is empty"})
     resp["error"] = False
     # Parse potential POST options (see submission/views.py)
     options = request.POST.get("options", "")
@@ -2328,18 +2346,10 @@ def common_download_func(service, request):
     task_machines = []
     vm_list = []
     opt_apikey = False
+    opts = get_options(options)
+    if opts:
+        opt_apikey = opts.get("apikey", False)
 
-    if service == "VirusTotal":
-        opts = get_options(options)
-        if opts:
-            opt_apikey = opts.get("apikey", False)
-
-        if not (settings.VTDL_KEY or opt_apikey):
-            resp = {
-                "error": True,
-                "error_value": ("You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"),
-            }
-            return Response(resp)
 
     for vm in db.list_machines():
         vm_list.append(vm.label)
@@ -2373,13 +2383,14 @@ def common_download_func(service, request):
         "fhash": False,
         "options": options,
         "only_extraction": False,
-        "service": service,
+        "service": "",
         "user_id": request.user.id or 0,
     }
 
-    if service == "VirusTotal":
-        details["apikey"] = settings.VTDL_KEY or opt_apikey
-        details = download_from_vt(hashes, details, opt_filename, settings)
+    if opt_apikey:
+        details["apikey"] = opt_apikey
+
+    details = download_from_3rdpart(hashes, details, opt_filename)
     if isinstance(details.get("task_ids"), list):
         tasks_count = len(details["task_ids"])
     else:
@@ -2458,12 +2469,3 @@ def tasks_file_stream(request, task_id):
         log.exception(ex)
         resp = {"error": True, "error_value": f"Requests exception: {ex}"}
     return Response(resp)
-
-
-@csrf_exempt
-@api_view(["POST"])
-def tasks_vtdl(request):
-    # Check if this API function is enabled
-    if not apiconf.vtdl.get("enabled"):
-        return Response({"error": True, "error_value": "VTDL Create API is Disabled"})
-    return common_download_func("VirusTotal", request)

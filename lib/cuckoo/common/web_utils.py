@@ -1,5 +1,4 @@
 import hashlib
-import io
 import json
 import logging
 import os
@@ -16,7 +15,6 @@ from random import choice
 from typing import Dict, List, Optional
 
 import magic
-import pyzipper
 import requests
 from django.http import HttpResponse
 
@@ -47,6 +45,7 @@ from lib.cuckoo.core.database import (
     Task,
 )
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+from lib.downloaders import Downloaders
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
@@ -59,15 +58,16 @@ dist_conf = Config("distributed")
 routing_conf = Config("routing")
 machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
-
 apiconf = Config("api")
+
+db = Database()
+downloader_services = Downloaders()
 
 linux_enabled = web_cfg.linux.get("enabled", False)
 rateblock = web_cfg.ratelimit.get("enabled", False)
 rps = web_cfg.ratelimit.get("rps", "1/rps")
 rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
 
-db = Database()
 
 DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
 
@@ -585,6 +585,87 @@ def jsonize(data: dict, response: bool = False):
     return json.dumps(data, sort_keys=False, indent=4)
 
 
+def get_hash_list(hashes: str) -> list:
+    """
+    Parses a string of hashes separated by commas or spaces and returns a list of cleaned hash values.
+    Args:
+        hashes (str): A string containing hash values separated by commas or spaces.
+    Returns:
+        list: A list of cleaned hash values. If a hash value is a URL ending with a slash,  the hash is extracted from the URL.
+    """
+    hashlist = []
+    if "," in hashes:
+        hashlist = list(filter(None, hashes.replace(" ", "").strip().split(",")))
+    else:
+        hashlist = hashes.split()
+    for i in range(len(hashlist)):
+        if hashlist[i].startswith("http") and hashlist[i].endswith("/"):
+            hash = hashlist[i].split("/")[-2]
+            if len(hash) in (32, 40, 64):
+                hashlist[i] = hash
+    return hashlist
+
+
+def download_from_3rdpart(samples: str, opt_filename: str, details: dict) -> dict:
+    """
+    Processes a list of samples by downloading or retrieving their content from local storage,
+    and updates the details dictionary with the file path, hash, and other relevant information.
+
+    Args:
+        samples (list): A list of sample hashes to process.
+        prefix (str): A prefix indicating the source of the samples (e.g., "vt" for VirusTotal, "bazaar" for MalwareBazaar).
+        opt_filename (str): An optional filename to use for the downloaded files. If not provided, the hash will be used as the filename.
+        details (dict): A dictionary to store details about the processed samples, including path, hash, content, errors, etc.
+        settings (object): An object containing configuration settings, including the temporary path.
+
+    Returns:
+        dict: The updated details dictionary with information about the processed samples, including any errors encountered.
+    """
+    folder = os.path.join(cfg.cuckoo.tmppath, "cape-external")
+    if not path_exists(folder):
+        path_mkdir(folder, exist_ok=True)
+    for h in get_hash_list(samples):
+        base_dir = tempfile.mkdtemp(prefix="third_part", dir=folder)
+        if opt_filename:
+            filename = f"{base_dir}/{opt_filename}"
+        else:
+            filename = f"{base_dir}/{sanitize_filename(h)}"
+
+        details["path"] = filename
+        details["fhash"] = h
+        # clean old content
+        if "content" in details:
+            del details["content"]
+        paths = db.sample_path_by_hash(h)
+        if paths:
+            details["content"] = get_file_content(paths)
+            details["service"] = "Local"
+
+        if not details.get("content", False):
+            content, service = downloader_services.download(h, details.get("apikey"))
+            if not content:
+                details["errors"].append({h: "Can't download sample from external services"})
+                continue
+            details["service"] = service
+
+        if content:
+            details["content"] = content
+
+        errors = {}
+        if not details.get("content", False):
+            status, tasks_details = download_file(**details)
+        else:
+            status, tasks_details = download_file(**details)
+        if status == "error":
+            details["errors"].append({h: tasks_details})
+        else:
+            details["task_ids"] = tasks_details.get("task_ids", [])
+            errors = tasks_details.get("errors")
+            if errors:
+                details["errors"].extend(errors)
+
+    return details
+
 def get_file_content(paths: list) -> bytes:
     """
     Retrieves the content of the first existing file from a list of file paths.
@@ -974,7 +1055,7 @@ def url_defang(url: str):
 
 def _download_file(route: str, url: str, options: str):
     """
-    Downloads a file from the specified URL using optional proxy settings and custom headers.
+    Downloads a file from the specified URL using download_from_3rdpart proxy settings and custom headers.
 
     Args:
         route (str): The route to determine proxy settings. If "tor", uses Tor network.
@@ -1518,192 +1599,6 @@ def parse_request_arguments(request, keyword="POST"):
         route,
         cape,
     )
-
-
-def get_hash_list(hashes: str) -> list:
-    """
-    Parses a string of hashes separated by commas or spaces and returns a list of cleaned hash values.
-
-    Args:
-        hashes (str): A string containing hash values separated by commas or spaces.
-
-    Returns:
-        list: A list of cleaned hash values. If a hash value is a URL ending with a slash,  the hash is extracted from the URL.
-    """
-    hashlist = []
-    if "," in hashes:
-        hashlist = list(filter(None, hashes.replace(" ", "").strip().split(",")))
-    else:
-        hashlist = hashes.split()
-
-    for i in range(len(hashlist)):
-        if hashlist[i].startswith("http") and hashlist[i].endswith("/"):
-            hash = hashlist[i].split("/")[-2]
-            if len(hash) in (32, 40, 64):
-                hashlist[i] = hash
-
-    return hashlist
-
-
-_bazaar_map = {
-    32: "md5_hash",
-    40: "sha1_hash",
-    64: "sha256_hash",
-}
-
-
-def _malwarebazaar_dl(hash: str) -> bytes:
-    """
-    Downloads a malware sample from MalwareBazaar using the provided hash.
-
-    Args:
-        hash (str): The hash of the malware sample to download. The hash can be an MD5, SHA1, or SHA256.
-    Returns:
-        bytes: The downloaded malware sample as bytes, or None if the sample could not be downloaded.
-
-    Raises:
-        Exception: If there is an error during the download or extraction process, it will be logged.
-    """
-    sample = b""
-    try:
-        data = requests.post(
-            "https://mb-api.abuse.ch/api/v1/",
-            data={"query": "get_file", _bazaar_map[len(hash)]: hash},
-            headers={"API-KEY": web_cfg.download_services.malwarebazaar_api_key, "User-Agent": "CAPE Sandbox"},
-        )
-        if data.ok:
-            try:
-                if isinstance(data.content, bytes):
-                    if b"file_not_found" not in data.content[:50]:
-                        return sample
-                    tmp_sample = io.BytesIO(data.content)
-                elif isinstance(data.content, io.BytesIO):
-                    tmp_sample = data.content
-                else:
-                    return sample
-                with pyzipper.AESZipFile(tmp_sample) as zf:
-                    zf.setpassword(b"infected")
-                    sample = zf.read(zf.namelist()[0])
-            except pyzipper.zipfile.BadZipFile:
-                print("_malwarebazaar_dl", data.content[:100])
-    except Exception as e:
-        log.exception(e)
-
-    return sample
-
-
-def thirdpart_aux(samples: str, prefix: str, opt_filename: str, details: dict, settings) -> dict:
-    """
-    Processes a list of samples by downloading or retrieving their content from local storage,
-    and updates the details dictionary with the file path, hash, and other relevant information.
-
-    Args:
-        samples (list): A list of sample hashes to process.
-        prefix (str): A prefix indicating the source of the samples (e.g., "vt" for VirusTotal, "bazaar" for MalwareBazaar).
-        opt_filename (str): An optional filename to use for the downloaded files. If not provided, the hash will be used as the filename.
-        details (dict): A dictionary to store details about the processed samples, including path, hash, content, errors, etc.
-        settings (object): An object containing configuration settings, including the temporary path.
-
-    Returns:
-        dict: The updated details dictionary with information about the processed samples, including any errors encountered.
-    """
-    folder = os.path.join(settings.TEMP_PATH, "cape-external")
-    if not path_exists(folder):
-        path_mkdir(folder, exist_ok=True)
-    for h in get_hash_list(samples):
-        base_dir = tempfile.mkdtemp(prefix=prefix, dir=folder)
-        if opt_filename:
-            filename = f"{base_dir}/{opt_filename}"
-        else:
-            filename = f"{base_dir}/{sanitize_filename(h)}"
-        details["path"] = filename
-        details["fhash"] = h
-        paths = db.sample_path_by_hash(h)
-
-        # clean old content
-        if "content" in details:
-            del details["content"]
-
-        if paths:
-            details["content"] = get_file_content(paths)
-
-        if prefix == "vt":
-            details["url"] = f"https://www.virustotal.com/api/v3/files/{h.lower()}/download"
-        elif prefix == "bazaar":
-            if len(hash) not in _bazaar_map:
-                details["errors"].append({h: "Invalid hash length for MalwareBazaar lookup"})
-                continue
-            content = _malwarebazaar_dl(h)
-            if content:
-                details["content"] = content
-
-        errors = {}
-        if not details.get("content", False):
-            status, tasks_details = download_file(**details)
-        else:
-            details["service"] = "Local"
-            status, tasks_details = download_file(**details)
-        if status == "error":
-            details["errors"].append({h: tasks_details})
-        else:
-            details["task_ids"] = tasks_details.get("task_ids", [])
-            errors = tasks_details.get("errors")
-            if errors:
-                details["errors"].extend(errors)
-
-    return details
-
-
-def download_from_vt(samples: str, details: dict, opt_filename: str, settings) -> dict:
-    """
-    Downloads samples from VirusTotal using the provided API key.
-
-    Args:
-        samples (list): List of sample identifiers to download.
-        details (dict): Dictionary containing details for the download process.
-            Must include an 'apikey' if not provided in settings.
-        opt_filename (str): Optional filename for the downloaded samples.
-        settings (object): Settings object containing configuration, must include 'VTDL_KEY' if 'apikey' is not in details.
-
-    Returns:
-        dict: Updated details dictionary with headers set for the API key and service set to "VirusTotal".
-            If no API key is configured, an error is appended to the details and the dictionary is returned.
-    """
-    if settings.VTDL_KEY:
-        details["headers"] = {"x-apikey": settings.VTDL_KEY}
-    elif details.get("apikey", False):
-        details["headers"] = {"x-apikey": details["apikey"]}
-    else:
-        details["errors"].append({"error": "Apikey not configured, neither passed as opt_apikey"})
-        return details
-
-    details["service"] = "VirusTotal"
-    return thirdpart_aux(samples, "vt", opt_filename, details, settings)
-
-
-def download_from_bazaar(samples: str, details: dict, opt_filename: str, settings):
-    """
-    Downloads samples from MalwareBazaar.
-
-    This function attempts to download malware samples from the MalwareBazaar service.
-    It updates the details dictionary with the service name and any errors encountered
-    during the process.
-
-    Args:
-        samples (list): A list of sample identifiers to download.
-        details (dict): A dictionary to store details about the download process, including errors.
-        opt_filename (str): An optional filename for the downloaded samples.
-        settings (dict): A dictionary of settings for the download process.
-
-    Returns:
-        dict: The updated details dictionary with information about the download process.
-    """
-    details["service"] = "MalwareBazaar"
-    if not web_cfg.download_services.malwarebazaar_api_key:
-        details["errors"].append({"error": "MalwareBazaar API key not configured. Configure it in web.conf"})
-        return details
-    return thirdpart_aux(samples, "bazaar", opt_filename, details, settings)
-
 
 def process_new_task_files(request, samples: list, details: dict, opt_filename: str, unique: bool = False) -> tuple:
     """

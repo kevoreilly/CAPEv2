@@ -378,10 +378,11 @@ def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
                 log.info("[+] Service %s", green("restarted successfully and is UP"))
             else:
+                srv = str(server.split(".")[1])
                 if ssh_out:
-                    log.info(green("[+] %s - %s", str(server.split('.')[1]), ssh_out))
+                    log.info(green(f"[+] {srv} - {ssh_out}"))
                 else:
-                    log.info(green("[+] %s", str(server.split('.')[1])))
+                    log.info(green(f"[+] {srv}"))
             ssh.close()
         except TimeoutError as e:
             sys.exit(f"Did you forget to use jump box? {str(e)}")

@@ -43,7 +43,7 @@ from lib.cuckoo.common.utils import (
 from lib.cuckoo.common.web_utils import (
     apiconf,
     download_file,
-    download_from_3rdpart,
+    download_from_3rdparty,
     force_int,
     parse_request_arguments,
     perform_search,
@@ -2390,7 +2390,7 @@ def tasks_download_services(request):
     if opt_apikey:
         details["apikey"] = opt_apikey
 
-    details = download_from_3rdpart(hashes, details, opt_filename)
+    details = download_from_3rdparty(hashes, details, opt_filename)
     if isinstance(details.get("task_ids"), list):
         tasks_count = len(details["task_ids"])
     else:

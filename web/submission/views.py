@@ -26,7 +26,7 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
     download_file,
-    download_from_3rdpart,
+    download_from_3rdparty,
     downloader_services,
     get_file_content,
     load_vms_exits,
@@ -626,7 +626,7 @@ def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].extend(tasks_details["errors"])
 
         elif task_category == "downloading_service":
-            details = download_from_3rdpart(samples, opt_filename, details)
+            details = download_from_3rdparty(samples, opt_filename, details)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])

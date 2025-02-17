@@ -606,7 +606,7 @@ def get_hash_list(hashes: str) -> list:
     return hashlist
 
 
-def download_from_3rdpart(samples: str, opt_filename: str, details: dict) -> dict:
+def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> dict:
     """
     Processes a list of samples by downloading or retrieving their content from local storage,
     and updates the details dictionary with the file path, hash, and other relevant information.
@@ -1055,7 +1055,7 @@ def url_defang(url: str):
 
 def _download_file(route: str, url: str, options: str):
     """
-    Downloads a file from the specified URL using download_from_3rdpart proxy settings and custom headers.
+    Downloads a file from the specified URL using 3rd party proxy settings and custom headers.
 
     Args:
         route (str): The route to determine proxy settings. If "tor", uses Tor network.

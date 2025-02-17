@@ -30,17 +30,23 @@ def is_supported(hash: str, apikey: str) -> bool:
 
 def download(hash: str, apikey: str=None) -> bytes:
     """
-    Downloads samples from VirusTotal using the provided API key.
+    Downloads a file from VirusTotal using the provided hash and API key.
 
     Args:
-        samples (list): List of sample identifiers to download.
-        details (dict): Dictionary containing details for the download process.
-            Must include an 'apikey' if not provided in settings.
-        opt_filename (str): Optional filename for the downloaded samples.
-        settings (object): Settings object containing configuration, must include 'VTDL_KEY' if 'apikey' is not in details.
+        hash (str): The hash of the file to download.
+        apikey (str, optional): The VirusTotal API key. If not provided, it will use the key from the integrations configuration.
 
     Returns:
-        dict: Updated details dictionary with headers set for the API key and service set to "VirusTotal".
+        bytes: The content of the downloaded file as bytes. Returns an empty byte string if the download fails.
+
+    Raises:
+        requests.exceptions.RequestException: If there is an issue with the HTTP request.
+
+    Logs:
+        Various error messages depending on the HTTP response status code:
+        - 403: Invalid or unauthorized API key.
+        - 404: Hash not found on VirusTotal.
+        - Other: General download failure.
     """
 
     url = f"https://www.virustotal.com/api/v3/files/{hash.lower()}/download"

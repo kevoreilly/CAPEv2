@@ -1365,13 +1365,13 @@ class Signature:
         return None
 
     def check_threatfox(self, searchterm: str):
-        if not integrations_conf.threatfox.enabled or not integrations_conf.threatfox.apikey:
+        if not integrations_conf.abusech.threatfox or not integrations_conf.abusech.apikey:
             return
         try:
             response = requests.post(
                 "https://threatfox-api.abuse.ch/api/v1/",
-                data={"query": "search_ioc", "search_term": searchterm},
-                headers={"Auth-Key": integrations_conf.threatfox.apikey, "User-Agent": "CAPE Sandbox"},
+                json={"query": "search_ioc", "search_term": searchterm,  "exact_match": True},
+                headers={"Auth-Key": integrations_conf.abusech.apikey, "User-Agent": "CAPE Sandbox"},
             )
             return response.json()
         except Exception as e:

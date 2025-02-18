@@ -20,8 +20,10 @@ api_access =
 api_secret =
 
 # Create your apikey: https://threatfox.abuse.ch/api/#auth_key
-[threatfox]
-enabled = no
+# MalwareBazaar uses this key too
+[abusech]
+threatfox = no
+malwarebazaar = no
 apikey =
 
 

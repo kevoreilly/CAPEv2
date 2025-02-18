@@ -127,7 +127,3 @@ order =
 [virustotal]
 enabled = no
 apikey =
-
-[malwarebazaar]
-enabled = no
-apikey =

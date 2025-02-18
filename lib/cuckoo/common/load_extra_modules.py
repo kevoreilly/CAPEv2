@@ -218,7 +218,10 @@ def load_downloaders(CUCKOO_ROOT: str):
         for name in names:
             try:
                 module = importlib.import_module(f"{versions[version]}.{name}")
-                if not getattr(module, "enabled", False) and not integrations_conf.__dict__.get(name, {}).get("enabled", False):
+                # config under [abusech]
+                if name == "malwarebazaar" and not getattr(module, "enabled", False) and not integrations_conf.__dict__.get("abusech", {}).get("malwarebazaar", False):
+                    continue
+                elif not getattr(module, "enabled", False) and not integrations_conf.__dict__.get(name, {}).get("enabled", False):
                     continue
                 downloaders[name] = module
             except (ImportError, IndexError, AttributeError) as e:

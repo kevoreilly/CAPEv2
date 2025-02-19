@@ -119,12 +119,12 @@
                 {% endif %}
             {% endif %}
         {% endif %}
-        {% if file.office_rtf %}
+        {% if file.office.rtf %}
             <div>
                 <div id="si_metadata">
                     <h4>RTF document details</h4>
                     <table class="table table-striped table-bordered">
-                        {% for key, value in file.office_rtf.items %}
+                        {% for key, value in file.office.rtf.items %}
                             <h5>Object ID: {{key}}</h5>
                             <tr>
                                 <th width=10%>Filename</th>
@@ -137,7 +137,7 @@
                             {% for block in value %}
                                 <tr>
                                     {% if block.sha256 %}
-                                        <td><a href={% url "file" "rtf" file.info.id block.sha256 %} class="btn btn-secondary btn-small">{{block.filename}}</a></td>
+                                        <td><a href={% url "file" "rtf" id block.sha256 %} class="btn btn-secondary btn-small">{{block.filename}}</a></td>
                                     {% else %}
                                         <td>{{block.filename}}</td>
                                     {% endif %}
@@ -154,7 +154,7 @@
             </div>
             <hr />
         {% endif %}
-        {% if file.office_dde %}
+        {% if file.office.dde %}
         <div id="si_metadata">
         <table class="table table-striped table-bordered">
             <colgroup>
@@ -163,7 +163,7 @@
             </colgroup>
             <tr>
                 <td><h4>DDE Detected</h4></td>
-                <td>{{file.office_dde}}</td>
+                <td>{{file.dde}}</td>
             </tr>
         </table>
         </div>

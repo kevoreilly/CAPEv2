@@ -17,7 +17,7 @@ urlpatterns = [
     re_path(r"^tasks/stats/$", views.task_x_hours),
     re_path(r"^tasks/create/url/$", views.tasks_create_url),
     re_path(r"^tasks/create/dlnexec/$", views.tasks_create_dlnexec),
-    re_path(r"^tasks/create/vtdl/$", views.tasks_vtdl),
+    re_path(r"^tasks/create/download_services/$", views.tasks_download_services),
     re_path(r"^tasks/create/static/$", views.tasks_create_static),
     re_path(r"^tasks/search/md5/(?P<md5>([a-fA-F\d]{32}))/$", views.tasks_search),
     re_path(r"^tasks/search/sha1/(?P<sha1>([a-fA-F\d]{40}))/$", views.tasks_search),

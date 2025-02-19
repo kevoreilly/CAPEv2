@@ -134,6 +134,7 @@ DJANGO_SETTINGS_MODULE = "web.settings"
 pythonpath = [".", "web"]
 testpaths = ["tests", "agent"]
 norecursedirs = "tests/zip_compound"
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

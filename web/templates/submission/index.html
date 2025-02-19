@@ -61,7 +61,7 @@ $(document).ready( function() {
         $("#package_description").text(title);
     });
     // tooltips
-    $('[data-toggle="tooltip"]').tooltip(); 
+    $('[data-toggle="tooltip"]').tooltip();
 });
 </script>
 <div class="row">
@@ -74,11 +74,8 @@ $(document).ready( function() {
                         <li class="nav-item active"><a class="nav-link" href="#resubmit" data-toggle="tab"><span class="fa fa-file"></span> File resubmission</a></li>
                     {% else %}
                         <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="fa fa-file"></span> File(s)</a></li>
-                        {% if config.vt %}
-                            <li class="nav-item"><a class="nav-link" href="#vtdl" data-toggle="tab"><span class="fa fa-download"></span> VirusTotal</a></li>
-                        {% endif %}
-                        {% if config.bazaar %}
-                            <li class="nav-item"><a class="nav-link" href="#bazaar" data-toggle="tab"><span class="fa fa-download"></span> MalwareBazaar</a></li>
+                        {% if config.downloading_service %}
+                            <li class="nav-item"><a class="nav-link" href="#downloading_service" data-toggle="tab"><span class="fa fa-download"></span> Download</a></li>
                         {% endif %}
                         {% if config.url_analysis %}
                             <li class="nav-item"><a class="nav-link" href="#url" data-toggle="tab"><span class="fa fa-globe"></span> URL</a></li>
@@ -107,22 +104,13 @@ $(document).ready( function() {
                                     </span>
                             </div>
                         </div>
-
-                        {% if config.vt %}
-                        <div class="tab-pane fade show" id="vtdl">
-                            <div class="input-group col-md-12">
-                                <label class="sr-only" form="form_vtdl"> VirusTotal</label>
-                                <input type="text" class="form-control" id="form_vtdl" name="vtdl" placeholder="Enter comma separated hashes or just a hash" />
+                        {% if config.downloading_service %}
+                            <div class="tab-pane fade show" id="downloading_service">
+                                <div class="input-group col-md-12">
+                                    <label class="sr-only" form="form_downloading_service"> Sample download</label>
+                                    <input type="text" class="form-control" id="form_downloading_service" name="hashes" placeholder="Enter comma separated hashes or just a hash" />
+                                </div>
                             </div>
-                        </div>
-                        {% endif %}
-                        {% if config.bazaar %}
-                        <div class="tab-pane fade show" id="bazaar">
-                            <div class="input-group col-md-12">
-                                <label class="sr-only" form="form_bazaar"> MalwareBazaar</label>
-                                <input type="text" class="form-control" id="form_bazaar" name="bazaar" placeholder="Enter comma separated hashes or just a hash" />
-                            </div>
-                        </div>
                         {% endif %}
                         <div class="tab-pane fade show" id="url">
                             <div class="input-group col-md-12">
@@ -548,7 +536,7 @@ $(document).ready( function() {
                                                     <td><code>ttd</code></td>
                                                     <td>ttd=1. TTD integration (Microsoft Time Travel Debugging). Requires binaries to be placed in correct folder</td>
                                                 </tr>
-                                                
+
                                             </tbody>
                                         </table>
                                     </div>

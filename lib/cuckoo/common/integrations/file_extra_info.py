@@ -172,6 +172,7 @@ def static_file_info(
     ):
         log.info("Missed dependencies: pip3 install oletools")
 
+    # ToDo we need type checking as it wont work for most of static jobs
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
         data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
 
@@ -193,7 +194,7 @@ def static_file_info(
                     if dotnet_strings:
                         data_dictionary.setdefault("dotnet_strings", dotnet_strings)
 
-    elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and integration_conf.general.office:
+    elif (HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and integration_conf.general.office) or data_dictionary.get("name", "").endswith((".doc", ".ppt", ".xls", ".pub")):
         # options is dict where we need to get pass get_options
         data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
     elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and integration_conf.general.pdf:

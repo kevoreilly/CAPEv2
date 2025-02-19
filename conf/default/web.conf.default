@@ -218,16 +218,5 @@ csrf_trusted_origins =
 # Example: packages = chrome,chromium,firefox
 packages =
 
-# external download services
-[download_services]
-# adds an option in the web interface to upload samples via VirusTotal/MalwareBazaar
-# downloads for a comma-separated list of MD5/SHA1/SHA256 hashes
-virustotal = no
-# note that unlike the VirusTotal processing module, the key required
-# here is a Intelligence API key, not a Public API key
-vtkey =
-malwarebazaar = no
-malwarebazaar_apikey =
-
 [yara_detail]
 enabled = no

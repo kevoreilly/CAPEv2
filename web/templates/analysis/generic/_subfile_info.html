@@ -422,8 +422,8 @@
             </tr>
             </br>
         {% endif %}
-    {% if config.yara_detail and sub_file.yara %} <div class="collapse" id="yara_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_yara.html" %}</div></div></br>{% endif %}
-    {% if config.yara_detail and sub_file.cape_yara %} <div class="collapse" id="capeyara_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_capeyara.html" %}</div></div></br>{% endif %}
+    {% if config.yara_detail and sub_file.yara %} <div class="collapse" id="yara_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_subfile_yara.html" %}</div></div></br>{% endif %}
+    {% if config.yara_detail and sub_file.cape_yara %} <div class="collapse" id="capeyara_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_subfile_capeyara.html" %}</div></div></br>{% endif %}
     {% if sub_file.pe %} <div class="collapse" id="pe_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pe.html" %}</div></div></br>{% endif %}
     {% if sub_file.dotnet %} <div class="collapse" id="dotnet_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_dotnet.html" %}</div></div></br>{% endif %}
     {% if sub_file.pdf %} <div class="collapse" id="pdf_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pdf.html" %}</div></div></br>{% endif %}

@@ -339,7 +339,7 @@ class CAPE(Processing):
         """
         self._set_dict_keys()
         meta = {}
-        # Required to control files extracted by selfextract.conf as we store them in dropped
+        # Required to control files extracted by integrations.conf as we store them in dropped
         duplicated: DuplicatesType = collections.defaultdict(set)
         if path_exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):

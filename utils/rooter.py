@@ -32,7 +32,6 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.setLevel(logging.INFO)
 
-
 class s:
     iptables = None
     iptables_save = None
@@ -53,6 +52,8 @@ def get_tun_peer_address(interface_name):
 
     Args:
         interface_name: The name of the tun interface (e.g., "tun0").
+        Format similar to:
+        inet 172.30.1.5 peer 172.30.1.6/32 scope global
 
     Returns:
         The peer IP address as a string, or None if an error occurs.  Returns None if the interface does not exist, or does not have a peer.
@@ -65,7 +66,7 @@ def get_tun_peer_address(interface_name):
             if "peer" in line:
                 parts = line.split()
                 if len(parts) > 1:  # Check if there's a second element to avoid IndexError
-                    peer_with_cidr = parts[1]
+                    peer_with_cidr = parts[3]
                     try:
                         # Handle CIDR notation using ipaddress library
                         peer_ip = ipaddress.ip_interface(peer_with_cidr).ip.exploded

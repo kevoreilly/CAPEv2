@@ -594,14 +594,14 @@ class AnalysisManager(threading.Thread):
         elif self.route in ("none", "None", "drop"):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.cfg.resultserver.port))
         elif self.route[:3] == "tun" and is_network_interface(self.route):
-            self.log.info("Network interface {} is tunnel", self.interface)
+            self.log.info("Network interface %s is tunnel", self.interface)
             self.rooter_response = rooter("interface_route_tun_enable", self.machine.ip, self.route, str(self.task.id))
 
         self._rooter_response_check()
 
         # check if the interface is up
         if HAVE_NETWORKIFACES and routing.routing.verify_interface and self.interface and self.interface not in network_interfaces:
-            self.log.info("Network interface {} not found, falling back to dropping network traffic", self.interface)
+            self.log.info("Network interface %s not found, falling back to dropping network traffic", self.interface)
             self.interface = None
             self.rt_table = None
             self.route = "drop"

@@ -1,3 +1,9 @@
+### [26.02.2025]
+* Monitor updates:
+    * Fix import reconstruction entrypoint setting - thanks @shuiyc
+    * Add hooks for MsiInstallProductA/W - thanks @KillerInstinct
+    * Add protected-pids config option (protected-pids=0 to disable, on by default)
+
 ### [11.02.2025]
 * `selfextract.conf` renamed to `integrations.conf`.
     * Please rename your config file.

@@ -1,3 +1,6 @@
+### [27.02.2025]
+* Monitor update: Improve handling of bogus VirtualSize values in PE section table during dumping (e.g. e4f4afa1b85113656d4788a4f48fa5263b31b922d3e345093e082486193b0275)
+
 ### [26.02.2025]
 * Monitor updates:
     * Fix import reconstruction entrypoint setting - thanks @shuiyc

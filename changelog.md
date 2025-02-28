@@ -1,3 +1,9 @@
+
+### [TBD] Virustotal and MalwareBazaar
+* We have moved Virustotal and MalwareBazaar to generic downloader so you can enable then in `integrations.conf`
+    * Downlod service allows you to set order + simplifies adding another services
+    * For `API` use `tasks/create/download_services/` instead of `tasks/create/vtdl/`. Example of data: `data={"hashes":"hash1,hash2"}`
+
 ### [28.02.2025]
 * Monitor updates:
     * NtCreateSection hook: add file path (from handle) to logging (thanks @scccccccccc)

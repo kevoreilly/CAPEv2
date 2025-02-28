@@ -694,13 +694,14 @@ function install_virt_manager() {
         git clone https://gitlab.com/libvirt/libvirt-glib.git
     fi
     cd libvirt-glib
-    meson setup builddir
-    meson compile -C builddir
-    sudo ninja -C builddir install
+        meson setup builddir
+        meson compile -C builddir
+        sudo ninja -C builddir install
     # for some reason i have to run it twice
     sudo ninja -C builddir install
-    mkdir -p /usr/local/lib/girepository-1.0/
-    cp builddir/libvirt-glib/LibvirtGLib-1.0.typelib /usr/local/lib/girepository-1.0/LibvirtGLib-1.0.typelib
+    # mkdir -p /usr/local/lib/girepository-1.0/
+    # cp builddir/libvirt-glib/LibvirtGLib-1.0.typelib /usr/local/lib/girepository-1.0/
+    cp builddir/libvirt-glib/LibvirtGLib-1.0.typelib /usr/lib/girepository-1.0/
     /sbin/ldconfig
 
     if [ ! -d "virt-manager" ]; then
@@ -708,16 +709,23 @@ function install_virt_manager() {
         echo "[+] Cloned Virt Manager repo"
     fi
     cd "virt-manager" || return
-
     # https://github.com/virt-manager/virt-manager/blob/main/INSTALL.md
     meson setup build
     meson install -C build
-
     if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ] ; then
         echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> "$HOME/.zsh"
+        # echo "export GI_TYPELIB_PATH=/usr/local/lib/girepository-1.0:$GI_TYPELIB_PATH" >> "$HOME/.zsh"
     else
         echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> "$HOME/.bashrc"
+        # echo "export GI_TYPELIB_PATH=/usr/local/lib/girepository-1.0:$GI_TYPELIB_PATH" >> "$HOME/.bashrc"
     fi
+
+    if [ -f /usr/share/virt-manager/local/share/glib-2.0/schemas/org.virt-manager.virt-manager.gschema.xml ]; then
+        cp /usr/share/virt-manager/local/share/glib-2.0/schemas/org.virt-manager.virt-manager.gschema.xml /usr/share/glib-2.0/schemas/
+    elif [ -f /usr/local/share/glib-2.0/schemas/org.virt-manager.virt-manager.gschema.xml ]; then
+        cp /usr/local/share/glib-2.0/schemas/org.virt-manager.virt-manager.gschema.xml /usr/share/glib-2.0/schemas/
+    fi
+
     sudo glib-compile-schemas --strict /usr/share/glib-2.0/schemas/
     systemctl enable virtstoraged.service
     systemctl start virtstoraged.service

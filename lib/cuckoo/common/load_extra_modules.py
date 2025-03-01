@@ -177,3 +177,54 @@ def file_extra_info_load_modules(CUCKOO_ROOT: str):
             print(f"file_extra_info module: No module named {name} - {e}")
 
     return file_extra_modules
+
+
+def load_downloaders(CUCKOO_ROOT: str):
+    """
+    Loads and returns a dictionary of downloader modules from the specified CUCKOO_ROOT directory.
+
+    This function searches for Python modules in the "downloaders" directory within the given
+    CUCKOO_ROOT path. It imports these modules and stores them in a dictionary where the keys
+    are the module names and the values are the imported modules.
+
+    Args:
+        CUCKOO_ROOT (str): The root directory of the CUCKOO installation.
+
+    Returns:
+        dict: A dictionary where the keys are the names of the downloader modules and the values
+            are the imported module objects.
+
+    Raises:
+        ImportError: If a module cannot be imported.
+        IndexError: If there is an indexing error during module import.
+        AttributeError: If an attribute is missing during module import.
+    """
+    downloaders = {}
+    downloaders_modules = {}
+    versions = {}
+    custom_downloaders = os.path.join(CUCKOO_ROOT, "custom", "downloaders")
+    if os.path.exists(custom_downloaders):
+        downloaders_modules.setdefault("custom", []).extend(
+            [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{custom_downloaders}/[!_]*.py")]
+        )
+        versions["custom"] = "custom.downloaders"
+
+    # breakpoint()
+    downloaders_dir = os.path.join(CUCKOO_ROOT, "lib", "downloaders")
+    downloaders_modules = {"cape": [os.path.basename(downloader)[:-3] for downloader in glob.glob(f"{downloaders_dir}/[!_]*.py")]}
+    versions["cape"] = "lib.downloaders"
+
+    for version, names in downloaders_modules.items():
+        for name in names:
+            try:
+                module = importlib.import_module(f"{versions[version]}.{name}")
+                # config under [abusech]
+                if name == "malwarebazaar" and not getattr(module, "enabled", False) and not integrations_conf.__dict__.get("abusech", {}).get("malwarebazaar", False):
+                    continue
+                elif not getattr(module, "enabled", False) and not integrations_conf.__dict__.get(name, {}).get("enabled", False):
+                    continue
+                downloaders[name] = module
+            except (ImportError, IndexError, AttributeError) as e:
+                print(f"Downloader: No module named {name} - {e}")
+
+    return downloaders

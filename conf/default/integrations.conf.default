@@ -116,3 +116,14 @@ timeout = 60
 [pyinstaller]
 enabled = no
 timeout = 60
+
+
+# external download services
+[downloaders]
+# You can overwrite the downloaders order, must match filename without ".py". If name is missed is the same as disabled. Example:
+# order = virustotal,malwarebazaar
+order =
+
+[virustotal]
+enabled = no
+apikey =

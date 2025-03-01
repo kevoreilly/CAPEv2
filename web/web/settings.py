@@ -28,7 +28,6 @@ from lib.cuckoo.core.startup import init_rooter, init_routing
 init_rooter()
 init_routing()
 
-
 cfg = Config("reporting")
 aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
@@ -88,12 +87,6 @@ ZIPPED_DOWNLOAD_ALL = zip_cfg.get("download_all", False)
 MOLOCH_BASE = moloch_cfg.get("base")
 MOLOCH_NODE = moloch_cfg.get("node")
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
-
-VTDL_ENABLED = web_cfg.download_services.get("virustotal", False)
-VTDL_KEY = web_cfg.download_services.get("vtkey", False)
-
-BAZAAR_ENABLED = web_cfg.download_services.get("malwarebazaar", False)
-
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 
 # DEPRECATED - Enabled/Disable Zer0m0n tickbox on the submission page

@@ -78,6 +78,34 @@ class Office:
     - Word/Excel Single File Web Page / MHTML (.mht)
     - Publisher (.pub)
     - Rich Text Format (.rtf)
+
+    Office Document Static Analysis
+
+    This class provides methods to perform static analysis on various Office document formats.
+    Supported formats include:
+
+    Attributes:
+        file_path (str): Path to the file to be analyzed.
+        options (Dict[str, str]): Analysis options.
+        task_id (str): Task identifier.
+        sha256 (str): SHA-256 hash of the file.
+
+    Methods:
+        _get_meta(meta) -> Dict[str, Dict[str, str]]:
+            Extracts metadata from OLE files.
+
+        _get_xml_meta(filepath) -> Dict[str, Dict[str, str]]:
+            Extracts metadata from XML files within Office documents.
+
+        _parse_rtf(data: bytes) -> Dict[str, list]:
+            Parses RTF data and extracts embedded objects.
+
+        _parse(filepath: str) -> Dict[str, Any]:
+            Parses an Office document for static information.
+
+        run() -> Dict[str, Any]:
+            Runs the analysis and returns the results.
+
     """
 
     def __init__(self, file_path: str, task_id: str, sha256: str, options: Dict[str, str]):
@@ -224,9 +252,9 @@ class Office:
         @return: results dict or None
         """
 
-        results = {}
+        officeresults = {}
         if not HAVE_OLETOOLS:
-            return results
+            return officeresults
 
         vba = False
         if is_rtf(filepath):
@@ -234,7 +262,7 @@ class Office:
                 contents = path_read_file(filepath)
                 temp_results = self._parse_rtf(contents)
                 if temp_results:
-                    results["office_rtf"] = temp_results
+                    officeresults["rtf"] = temp_results
             except Exception as e:
                 log.exception(e)
         else:
@@ -243,12 +271,13 @@ class Office:
             except ValueError as e:
                 log.error("Error VBA_Parser: %s", str(e))
             except Exception:
-                return results
+                # ToDo really return
+                return officeresults
         try:
             # extract DDE
             dde = extract_dde(filepath)
             if dde:
-                results["office_dde"] = convert_to_printable(dde)
+                officeresults["dde"] = convert_to_printable(dde)
         except (csv_error, UnicodeDecodeError):
             pass
         except AttributeError:
@@ -256,7 +285,7 @@ class Office:
         except Exception as e:
             log.exception(e)
 
-        officeresults = {"Metadata": {}}
+        officeresults["Metadata"] = {}
         macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "macros")
         if olefile.isOleFile(filepath):
             try:
@@ -341,4 +370,7 @@ class Office:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        return self._parse(self.file_path) if path_exists(self.file_path) else None
+        if not path_exists(self.file_path):
+            log.error("parse_office File not found: %s", self.file_path)
+            return {}
+        return self._parse(self.file_path)

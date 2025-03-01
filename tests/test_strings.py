@@ -67,7 +67,7 @@ class TestExtractStrings(unittest.TestCase):
         mock_cfg.strings.nullterminated_only = True
         mock_cfg.strings.minchars = 4
 
-        data = b"test\x00string\x00data"
+        data = b"test\x00string\x00data\x00"
         result = extract_strings(data=data)
         self.assertIn("test", result)
         self.assertIn("string", result)

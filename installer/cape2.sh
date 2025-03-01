@@ -74,10 +74,10 @@ cat << EOI
 Problems with PyOpenSSL?
     sudo rm -rf /usr/local/lib/python3.8/dist-packages/OpenSSL/
     sudo rm -rf /home/${USER}/.local/lib/python3.8/site-packages/OpenSSL/
-    sudo apt install -y --reinstall python-openssl
+    sudo apt-get install -y --reinstall python-openssl
 
 Problem with PIP?
-    sudo python -m pip3 uninstall pip3 && sudo apt install -y --reinstall python3-pip
+    sudo python -m pip3 uninstall pip3 && sudo apt-get install -y --reinstall python3-pip
 
 Problem with pillow:
     * ValueError: jpeg is required unless explicitly disabled using --disable-jpeg, aborting
@@ -85,7 +85,7 @@ Problem with pillow:
 Solution:
     # https://askubuntu.com/a/1094768
     # you may need to adjust version of libjpeg-turbo8
-    sudo apt install -y zlib1g-dev libjpeg-turbo8-dev libjpeg-turbo8=1.5.2-0ubuntu5
+    sudo apt-get install -y zlib1g-dev libjpeg-turbo8-dev libjpeg-turbo8=1.5.2-0ubuntu5
 EOI
 }
 
@@ -145,7 +145,7 @@ EndOfHelp
 
 function install_crowdsecurity() {
     echo "[+] Install crowdsecurity"
-    sudo apt install -y bash gettext whiptail curl wget
+    sudo apt-get install -y bash gettext whiptail curl wget
     cd /tmp || return
     if [ ! -d crowdsec-release.tgz ]; then
         curl -s https://api.github.com/repos/crowdsecurity/crowdsec/releases/latest | grep browser_download_url| cut -d '"' -f 4  | wget -i -
@@ -171,20 +171,20 @@ function install_crowdsecurity() {
 function install_docker() {
     echo "[+] Install docker"
     # https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
-    sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+    sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
     echo "deb [signed-by=/etc/apt/keyrings/docker.gpg arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 
     sudo apt update
-    sudo apt install -y docker-ce
+    sudo apt-get install -y docker-ce
     sudo usermod -aG docker ${USER}
 }
 
 function install_jemalloc() {
     # https://zapier.com/engineering/celery-python-jemalloc/
     if ! $(dpkg -l "libjemalloc*" | grep -q "ii  libjemalloc"); then
-        sudo apt install -y libjemalloc-dev
+        sudo apt-get install -y libjemalloc-dev
     fi
 }
 
@@ -258,7 +258,7 @@ function install_librenms() {
     if [ "$librenms_enable" -ge 1 ]; then
         echo "[+] Install librenms"
         echo "Enabling stuff for LibreNMS"
-        sudo apt install -y zlib1g-dev cpanminus libjson-perl libfile-readbackwards-perl \
+        sudo apt-get install -y zlib1g-dev cpanminus libjson-perl libfile-readbackwards-perl \
                 libjson-perl libconfig-tiny-perl libdbi-perl libfile-slurp-perl \
                 libstatistics-lite-perl libdbi-perl libdbd-pg-perl monitoring-plugins \
                 monitoring-plugins-contrib monitoring-plugins-standard dmidecode wget snmpd
@@ -271,7 +271,7 @@ function install_librenms() {
         chmod +x /etc/snmp/extends/distro /etc/snmp/extends/cape  /etc/snmp/extends/smart /etc/snmp/extends/osupdate
 
         if [ "$librenms_mdadm_enable" -ge 1 ]; then
-            sudo apt install -y jq
+            sudo apt-get install -y jq
             wget https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/mdadm -O /etc/snmp/extends/mdadm
             chmod +x /etc/snmp/extends/mdadm
         fi
@@ -297,7 +297,7 @@ function install_librenms() {
 function install_modsecurity() {
     echo "[+] Install modsecurity"
     # Tested on nginx 1.(16|18).X Based on https://www.nginx.com/blog/compiling-and-installing-modsecurity-for-open-source-nginx/ with fixes
-    sudo apt install -y git g++ apt-utils autoconf automake build-essential libcurl4-openssl-dev libgeoip-dev liblmdb-dev libpcre2-dev libtool libxml2-dev libyajl-dev pkgconf zlib1g-dev
+    sudo apt-get install -y git g++ apt-utils autoconf automake build-essential libcurl4-openssl-dev libgeoip-dev liblmdb-dev libpcre2-dev libtool libxml2-dev libyajl-dev pkgconf zlib1g-dev
     git clone --depth 500 -b v3/master --single-branch https://github.com/SpiderLabs/ModSecurity
     cd ModSecurity || return
     git submodule init
@@ -372,7 +372,7 @@ function install_nginx() {
     fi
     sudo add-apt-repository -y ppa:maxmind/ppa
     sudo apt update && sudo apt upgrade -y
-    sudo apt install -y perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev libxslt1.1 libxslt1-dev
+    sudo apt-get install -y perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev libxslt1.1 libxslt1-dev
 
     cd nginx-$nginx_version || return
 
@@ -602,7 +602,7 @@ fi
 
 function install_letsencrypt(){
     echo "[+] Install and configure letsencrypt"
-    sudo apt install -y python3 python3-venv libaugeas0
+    sudo apt-get install -y python3 python3-venv libaugeas0
     sudo pip install certbot certbot-nginx --break-system-packages
     echo "server_name $1 www.$1;" > /etc/nginx/sites-available/"$1"
     sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
@@ -612,7 +612,7 @@ function install_letsencrypt(){
 
 function install_fail2ban() {
     echo "[+] Installing fail2ban"
-    sudo apt install -y fail2ban
+    sudo apt-get install -y fail2ban
     sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
     sudo sed -i /etc/fail2ban/jail.local
     systemctl start fail2ban
@@ -648,7 +648,7 @@ EOF
 function redsocks2() {
     echo "[+] Installing redsocks2"
     cd /tmp || return
-    sudo apt install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev libssl1.0-dev libssl-dev
+    sudo apt-get install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev libssl1.0-dev libssl-dev
     git clone https://github.com/semigodking/redsocks redsocks2 && cd redsocks2 || return
     DISABLE_SHADOWSOCKS=true make -j"$(nproc)" #ENABLE_STATIC=true
     sudo cp redsocks2 /usr/bin/
@@ -656,7 +656,7 @@ function redsocks2() {
 
 function distributed() {
     echo "[+] Configure distributed configuration"
-    sudo apt install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
+    sudo apt-get install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
     sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run pip install flask flask-restful flask-sqlalchemy requests'
 
     sudo cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
@@ -702,7 +702,7 @@ EOL
 function install_suricata() {
     echo '[+] Installing Suricata'
     sudo add-apt-repository -y ppa:oisf/suricata-stable
-    sudo apt install -y suricata suricata-update
+    sudo apt-get install -y suricata suricata-update
     touch /etc/suricata/threshold.config
 
     # Download etupdate to update Emerging Threats Open IDS rules:
@@ -782,7 +782,7 @@ function install_yara() {
 
     echo '[+] Installing Yara'
 
-    sudo apt install -y libtool libjansson-dev libmagic1 libmagic-dev jq autoconf libyara-dev
+    sudo apt-get install -y libtool libjansson-dev libmagic1 libmagic-dev jq autoconf libyara-dev
 
     cd /tmp || return
     yara_info=$(curl -s https://api.github.com/repos/VirusTotal/yara/releases/latest)
@@ -833,8 +833,8 @@ function install_mongo(){
         echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
         sudo apt update 2>/dev/null
-        sudo apt install -y libpcre3-dev numactl cron
-        sudo apt install -y mongodb-org
+        sudo apt-get install -y libpcre3-dev numactl cron
+        sudo apt-get install -y mongodb-org
 
         # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
         PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
@@ -844,11 +844,11 @@ function install_mongo(){
             pip3 install pymongo -U
         fi
 
-        sudo apt install -y ntp
+        sudo apt-get install -y ntp
         systemctl start ntp.service && sudo systemctl enable ntp.service
 
         if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
-            sudo apt install -y sysfsutils
+            sudo apt-get install -y sysfsutils
             echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
             echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
         fi
@@ -915,7 +915,7 @@ function install_elastic() {
     # Elasticsearch 8.x
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
-    sudo apt update && sudo apt install -y elasticsearch
+    sudo apt update && sudo apt-get install -y elasticsearch
 
     # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
     PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
@@ -935,7 +935,7 @@ function install_postgresql() {
     echo "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
     sudo apt update
-    sudo apt install -y libpq-dev postgresql postgresql-client
+    sudo apt-get install -y libpq-dev postgresql postgresql-client
 
     sudo systemctl enable postgresql.service
     sudo systemctl start postgresql.service
@@ -974,14 +974,14 @@ function dependencies() {
     #sudo canonical-livepatch enable APITOKEN
 
     # deps
-    sudo apt install -y python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common crudini
-    sudo apt install -y innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev
-    sudo apt install -y zpaq upx-ucl wget zip unzip lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool
-    sudo apt install -y uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common
-    sudo apt install -y python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl
-    sudo apt install -y openvpn wireguard
+    sudo apt-get install -y python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common crudini
+    sudo apt-get install -y innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev
+    sudo apt-get install -y zpaq upx-ucl wget zip unzip lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool
+    sudo apt-get install -y uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common
+    sudo apt-get install -y python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl
+    sudo apt-get install -y openvpn wireguard
     # for bingraph
-    sudo apt install -y libgraphviz-dev
+    sudo apt-get install -y libgraphviz-dev
 
     # APT poetry is ultra outdated
     curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -
@@ -989,10 +989,10 @@ function dependencies() {
     source /etc/bash.bashrc
     poetry self add poetry-plugin-shell
 
-    sudo apt install -y locate # used by extra/libvirt_installer.sh
+    sudo apt-get install -y locate # used by extra/libvirt_installer.sh
 
     # de4dot selfextraction
-    sudo apt install -y libgdiplus libdnlib2.1-cil libgif7 libmono-accessibility4.0-cil libmono-ldap4.0-cil libmono-posix4.0-cil libmono-sqlite4.0-cil libmono-system-componentmodel-dataannotations4.0-cil libmono-system-data4.0-cil libmono-system-design4.0-cil libmono-system-drawing4.0-cil libmono-system-enterpriseservices4.0-cil libmono-system-ldap4.0-cil libmono-system-runtime-serialization-formatters-soap4.0-cil libmono-system-runtime4.0-cil libmono-system-transactions4.0-cil libmono-system-web-applicationservices4.0-cil libmono-system-web-services4.0-cil libmono-system-web4.0-cil libmono-system-windows-forms4.0-cil libmono-webbrowser4.0-cil
+    sudo apt-get install -y libgdiplus libdnlib2.1-cil libgif7 libmono-accessibility4.0-cil libmono-ldap4.0-cil libmono-posix4.0-cil libmono-sqlite4.0-cil libmono-system-componentmodel-dataannotations4.0-cil libmono-system-data4.0-cil libmono-system-design4.0-cil libmono-system-drawing4.0-cil libmono-system-enterpriseservices4.0-cil libmono-system-ldap4.0-cil libmono-system-runtime-serialization-formatters-soap4.0-cil libmono-system-runtime4.0-cil libmono-system-transactions4.0-cil libmono-system-web-applicationservices4.0-cil libmono-system-web-services4.0-cil libmono-system-web4.0-cil libmono-system-windows-forms4.0-cil libmono-webbrowser4.0-cil
     de4dot_package_name="de4dot_3.1.41592.3405-2_all.deb"
     # if not exist download package
     if [ ! -f $de4dot_package_name ]; then
@@ -1006,7 +1006,7 @@ function dependencies() {
         return
     fi
 
-    # if broken sudo python -m pip uninstall pip && sudo apt install -y --reinstall python-pip
+    # if broken sudo python -m pip uninstall pip && sudo apt-get install -y --reinstall python-pip
     #pip3 install --upgrade pip
     # /usr/bin/pip
     # from pip import __main__
@@ -1014,7 +1014,7 @@ function dependencies() {
     #     sys.exit(__main__._main())
 
     # re2 - dead on py3.11
-    # sudo apt install -y libre2-dev
+    # sudo apt-get install -y libre2-dev
     #re2 for py3
     # pip3 install cython
     # pip3 install git+https://github.com/andreasvc/pyre2.git
@@ -1026,7 +1026,7 @@ function dependencies() {
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER} to ${USER};\""
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE ${USER} OWNER TO ${USER};\""
 
-    sudo apt install -y apparmor-utils
+    sudo apt-get install -y apparmor-utils
     TCPDUMP_PATH=`which tcpdump`
     aa-complain ${TCPDUMP_PATH}
     aa-disable ${TCPDUMP_PATH}
@@ -1044,7 +1044,7 @@ function dependencies() {
     usermod -a -G systemd-journal ${USER}
 
     # https://www.torproject.org/docs/debian.html.en
-    sudo apt install -y gnupg2
+    sudo apt-get install -y gnupg2
 
     wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --dearmor | sudo tee /usr/share/keyrings/deb.torproject.org-keyring.gpg >/dev/null
 
@@ -1060,7 +1060,7 @@ function dependencies() {
 
     sudo apt update 2>/dev/null
     sudo systemctl stop tor@default.service && sudo systemctl disable tor@default.service
-    sudo apt install -y tor deb.torproject.org-keyring libzstd1
+    sudo apt-get install -y tor deb.torproject.org-keyring libzstd1
 
     sed -i 's/#RunAsDaemon 1/RunAsDaemon 1/g' /etc/tor/torrc
 
@@ -1126,7 +1126,7 @@ EOF
     sudo sysctl -p
 
     ### PDNS
-    sudo apt install -y git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl
+    sudo apt-get install -y git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl
     cd /tmp || return
 
     # From pevious install
@@ -1153,7 +1153,7 @@ EOF
 
 function install_clamav() {
     echo "[+] Installing clamav"
-    sudo apt install -y clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs python3-pyclamd
+    sudo apt-get install -y clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs python3-pyclamd
 
     cat >> /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf << EOF
 # This file contains user configuration settings for the clamav-unofficial-sigs.sh
@@ -1303,7 +1303,7 @@ function install_CAPE() {
     fi
 
     #packages are needed for build options in extra/yara_installer.sh
-    sudo apt install -y libjansson-dev libmagic1 libmagic-dev
+    sudo apt-get install -y libjansson-dev libmagic1 libmagic-dev
     sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run /opt/CAPEv2/extra/yara_installer.sh'
 
     if [ -d /tmp/yara-python ]; then
@@ -1390,7 +1390,7 @@ function install_prometheus_grafana() {
     wget https://github.com/prometheus/prometheus/releases/download/v"$prometheus_version"/prometheus-"$prometheus_version".linux-amd64.tar.gz && tar xf prometheus-"$prometheus_version".linux-amd64.tar.gz
     cd prometheus-$prometheus_version.linux-amd6 && ./prometheus --config.file=prometheus.yml &
 
-    sudo apt install -y adduser libfontconfig1
+    sudo apt-get install -y adduser libfontconfig1
     wget https://dl.grafana.com/oss/release/grafana_"$grafana_version"_amd64.deb
     sudo dpkg -i grafana_"$grafana_version"_amd64.deb
 
@@ -1413,7 +1413,7 @@ function install_node_exporter() {
 
 function install_volatility3() {
     echo "[+] Installing volatility3"
-    sudo apt install -y unzip
+    sudo apt-get install -y unzip
     sudo -u ${USER} /etc/poetry/bin/poetry run pip3 install git+https://github.com/volatilityfoundation/volatility3
     vol_path=$(sudo -u ${USER} /etc/poetry/bin/poetry run python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
     cd $vol_path || return
@@ -1441,8 +1441,8 @@ function install_guacamole() {
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
     sudo add-apt-repository -y ppa:remmina-ppa-team/remmina-next-daily
     sudo apt update
-    sudo apt install -y libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
-    sudo apt install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+    sudo apt-get install -y libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
+    sudo apt-get install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
 
@@ -1469,7 +1469,7 @@ function install_guacamole() {
     sudo ldconfig
 
     #pip3 install -U 'Twisted[tls,http2]'
-    sudo apt install -y python3-twisted
+    sudo apt-get install -y python3-twisted
 
     if [ -f "/etc/systemd/system/guacd.service" ] ; then
         sudo rm /etc/systemd/system/guacd.service
@@ -1503,15 +1503,15 @@ function install_guacamole() {
 
 function install_DIE() {
     echo "[+] Installing Detect It Easy"
-    sudo apt install -y libqt5opengl5 libqt5script5 libqt5scripttools5 libqt5sql5
+    sudo apt-get install -y libqt5opengl5 libqt5script5 libqt5scripttools5 libqt5sql5
     wget "https://github.com/horsicq/DIE-engine/releases/download/${DIE_VERSION}/die_${DIE_VERSION}_Ubuntu_${UBUNTU_VERSION}_amd64.deb" -O DIE.deb && dpkg -i DIE.deb
 }
 
 function install_fluentd() {
     echo "[+] Installing fluentd"
     curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh && sudo bash add-logging-agent-repo.sh
-    sudo apt update && sudo apt install -y google-fluentd
-    sudo apt install -y google-fluentd-catch-all-config-structured
+    sudo apt update && sudo apt-get install -y google-fluentd
+    sudo apt-get install -y google-fluentd-catch-all-config-structured
     sudo service google-fluentd start && sudo service google-fluentd status
 }
 
@@ -1519,7 +1519,7 @@ function install_postgres_pg_activity() {
     echo "[+] Installing pg-activity"
     # amazing tool for monitoring https://github.com/dalibo/pg_activity
     # sudo -u postgres pg_activity -U postgres
-    sudo apt install -y pg-activity
+    sudo apt-get install -y pg-activity
 }
 
 # Doesn't work ${$1,,}

@@ -1716,13 +1716,14 @@ class _Database:
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
         sample_parent_id = None
         # check if len is 1 and the same file, if diff register file, and set parent
-        #if not isinstance(file_path, bytes):
-        #    file_path = file_path.encode()
+        if not isinstance(file_path, bytes):
+            file_path = file_path.encode()
 
         if extracted_files and ((file_path, platform) not in extracted_files and (file_path, "") not in extracted_files):
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
-                log.debug("Deleting archive: %s. conf.cuckoo.delete_archive is enabled. %s", file_path, str(extracted_files))
+                # ToDo keep as info for now
+                log.info("Deleting archive: %s. conf.cuckoo.delete_archive is enabled. %s", file_path, str(extracted_files))
                 path_delete(file_path)
 
         task_ids = []

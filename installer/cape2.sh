@@ -176,7 +176,7 @@ function install_docker() {
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
     echo "deb [signed-by=/etc/apt/keyrings/docker.gpg arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 
-    sudo apt update
+    sudo apt-get update
     sudo apt-get install -y docker-ce
     sudo usermod -aG docker ${USER}
 }
@@ -371,7 +371,7 @@ function install_nginx() {
         wget https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz && tar xzvf openssl-$OPENSSL_VERSION.tar.gz
     fi
     sudo add-apt-repository -y ppa:maxmind/ppa
-    sudo apt update && sudo apt upgrade -y
+    sudo apt-get update && sudo apt-get upgrade -y
     sudo apt-get install -y perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev libxslt1.1 libxslt1-dev
 
     cd nginx-$nginx_version || return
@@ -832,7 +832,7 @@ function install_mongo(){
         sudo curl -fsSL "https://pgp.mongodb.com/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
         echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
-        sudo apt update 2>/dev/null
+        sudo apt-get update 2>/dev/null
         sudo apt-get install -y libpcre3-dev numactl cron
         sudo apt-get install -y mongodb-org
 
@@ -915,7 +915,7 @@ function install_elastic() {
     # Elasticsearch 8.x
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
-    sudo apt update && sudo apt-get install -y elasticsearch
+    sudo apt-get update && sudo apt-get install -y elasticsearch
 
     # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
     PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
@@ -934,7 +934,7 @@ function install_postgresql() {
     curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null
     echo "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
-    sudo apt update
+    sudo apt-get update
     sudo apt-get install -y libpq-dev postgresql postgresql-client
 
     sudo systemctl enable postgresql.service
@@ -1058,7 +1058,7 @@ function dependencies() {
         echo "deb-src [signed-by=/usr/share/keyrings/deb.torproject.org-keyring.gpg arch=amd64] https://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list.d/tor.list
     fi
 
-    sudo apt update 2>/dev/null
+    sudo apt-get update 2>/dev/null
     sudo systemctl stop tor@default.service && sudo systemctl disable tor@default.service
     sudo apt-get install -y tor deb.torproject.org-keyring libzstd1
 
@@ -1440,7 +1440,7 @@ function install_guacamole() {
     # Kudos to @Enzok https://github.com/kevoreilly/CAPEv2/pull/1065
     # https://guacamole.apache.org/doc/gug/installing-guacamole.html
     sudo add-apt-repository -y ppa:remmina-ppa-team/remmina-next-daily
-    sudo apt update
+    sudo apt-get update
     sudo apt-get install -y libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev freerdp2-dev
     sudo apt-get install -y freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 
@@ -1510,7 +1510,7 @@ function install_DIE() {
 function install_fluentd() {
     echo "[+] Installing fluentd"
     curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh && sudo bash add-logging-agent-repo.sh
-    sudo apt update && sudo apt-get install -y google-fluentd
+    sudo apt-get update && sudo apt-get install -y google-fluentd
     sudo apt-get install -y google-fluentd-catch-all-config-structured
     sudo service google-fluentd start && sudo service google-fluentd status
 }

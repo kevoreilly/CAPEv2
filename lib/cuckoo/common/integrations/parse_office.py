@@ -78,6 +78,34 @@ class Office:
     - Word/Excel Single File Web Page / MHTML (.mht)
     - Publisher (.pub)
     - Rich Text Format (.rtf)
+
+    Office Document Static Analysis
+
+    This class provides methods to perform static analysis on various Office document formats.
+    Supported formats include:
+
+    Attributes:
+        file_path (str): Path to the file to be analyzed.
+        options (Dict[str, str]): Analysis options.
+        task_id (str): Task identifier.
+        sha256 (str): SHA-256 hash of the file.
+
+    Methods:
+        _get_meta(meta) -> Dict[str, Dict[str, str]]:
+            Extracts metadata from OLE files.
+
+        _get_xml_meta(filepath) -> Dict[str, Dict[str, str]]:
+            Extracts metadata from XML files within Office documents.
+
+        _parse_rtf(data: bytes) -> Dict[str, list]:
+            Parses RTF data and extracts embedded objects.
+
+        _parse(filepath: str) -> Dict[str, Any]:
+            Parses an Office document for static information.
+
+        run() -> Dict[str, Any]:
+            Runs the analysis and returns the results.
+
     """
 
     def __init__(self, file_path: str, task_id: str, sha256: str, options: Dict[str, str]):

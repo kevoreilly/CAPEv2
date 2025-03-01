@@ -54,7 +54,7 @@ class Msix(Package):
                     log.debug("msix file contains script %s", str(path))
 
         if not args:
-            args = f"-NoProfile -ExecutionPolicy bypass {os.getcwd()}\data\msix.ps1 {path}"
+            args = fr"-NoProfile -ExecutionPolicy bypass {os.getcwd()}\data\msix.ps1 {path}"
             # now we need to get app id and launch it
 
         return self.execute(powershell, args, powershell)

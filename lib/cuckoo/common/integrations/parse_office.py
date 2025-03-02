@@ -184,7 +184,7 @@ class Office:
         rtfp.parse()
         save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "rtf_objects")
         if rtfp.objects and not path_exists(save_dir):
-            path_mkdir(save_dir)
+            path_mkdir(save_dir, exist_ok=True)
         for rtfobj in rtfp.objects:
             results.setdefault(str(rtfobj.format_id), [])
             temp_dict = {"class_name": "", "size": "", "filename": "", "type_embed": "", "CVE": "", "sha256": "", "index": ""}

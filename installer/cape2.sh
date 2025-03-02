@@ -71,21 +71,7 @@ ARCH="$(dpkg --print-architecture)"
 
 function issues() {
 cat << EOI
-Problems with PyOpenSSL?
-    sudo rm -rf /usr/local/lib/python3.8/dist-packages/OpenSSL/
-    sudo rm -rf /home/${USER}/.local/lib/python3.8/site-packages/OpenSSL/
-    sudo apt-get install -y --reinstall python-openssl
-
-Problem with PIP?
-    sudo python -m pip3 uninstall pip3 && sudo apt-get install -y --reinstall python3-pip
-
-Problem with pillow:
-    * ValueError: jpeg is required unless explicitly disabled using --disable-jpeg, aborting
-    * ValueError: zlib is required unless explicitly disabled using --disable-zlib, aborting
-Solution:
-    # https://askubuntu.com/a/1094768
-    # you may need to adjust version of libjpeg-turbo8
-    sudo apt-get install -y zlib1g-dev libjpeg-turbo8-dev libjpeg-turbo8=1.5.2-0ubuntu5
+    No known problems yet
 EOI
 }
 

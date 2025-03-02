@@ -151,7 +151,7 @@ select = [
 	"F",       # pyflakes
 	"E",       # pycodestyle errors
 	"W",       # pycodestyle warnings
-	"I",       # isort
+	# "I",       # isort
 	# "N",       # pep8-naming
 	"G",       # flake8-logging-format
 ]

@@ -1,9 +1,8 @@
-from pathlib import Path
-
 import unittest
-import pytest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from lib.cuckoo.common.integrations.parse_office import Office
 
 data_dir = Path(__file__).parent / "data" / "office"

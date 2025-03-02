@@ -72,6 +72,7 @@ ARCH="$(dpkg --print-architecture)"
 function issues() {
 cat << EOI
     No known problems yet
+EOI
 }
 
 function usage() {

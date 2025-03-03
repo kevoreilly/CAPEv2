@@ -268,7 +268,7 @@ def flare_capa_details(
                 try:
                     extractor = capa.features.extractors.cape.extractor.CapeExtractor.from_report(results)
                 except ValidationError as e:
-                    log.error("CAPA ValidationError %s", e)
+                    log.debug("CAPA ValidationError %s", e)
                     return {}
             else:
                 log.error("CAPA: Missed results probably")

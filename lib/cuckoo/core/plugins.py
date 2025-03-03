@@ -562,7 +562,7 @@ class RunSignatures:
 
     def _check_signature_platform(self, signature):
         module = inspect.getmodule(signature).__name__
-        platform = self.task.get("platform", "")
+        platform = self.task.get("platform") or ""
 
         if platform in module:
             return True

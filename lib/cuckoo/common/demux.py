@@ -217,7 +217,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
                     tmp_child = _sf_children(ch)
                     # check if path is not empty
                     if tmp_child and tmp_child[0]:
-                        retlist.extend(tmp_child)
+                        retlist.append(tmp_child)
 
                 # child is not available, the original file should be put into the list
                 if not retlist:

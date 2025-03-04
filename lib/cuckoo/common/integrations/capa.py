@@ -241,7 +241,7 @@ def find_capabilities(rules, extractor, disable_progress):
     if version.parse(capa_version) < version.parse("9.0.0"):
         return result
     else:
-        return result.matches, result.feature_counts
+        return result.matches, {"feature_counts": result.feature_counts, "library_functions": result.library_functions}
 # ===== CAPA END
 
 

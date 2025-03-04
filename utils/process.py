@@ -219,6 +219,17 @@ def set_formatter_fmt(task_id=None, main_task_id=None):
     FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
 
 
+class ForceClosingTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
+    def doRollover(self):
+        """
+        Override doRollover to force close the old handler before creating a new one.
+        """
+        if self.stream:
+            self.stream.close()  # Force close the current stream
+            self.stream = None
+        logging.handlers.TimedRotatingFileHandler.doRollover(self)
+
+
 def init_logging(debug=False):
     """
     Initializes logging for the application.
@@ -267,7 +278,7 @@ def init_logging(debug=False):
         path = os.path.join(CUCKOO_ROOT, "log", "process.log")
         if logconf.log_rotation.enabled:
             days = logconf.log_rotation.backup_count or 7
-            fh = logging.handlers.TimedRotatingFileHandler(path, when="midnight", backupCount=int(days))
+            fh = ForceClosingTimedRotatingFileHandler(path, when="midnight", backupCount=int(days))
         else:
             fh = logging.handlers.WatchedFileHandler(path)
 

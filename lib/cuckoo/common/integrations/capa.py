@@ -236,6 +236,12 @@ def render_dictionary(doc) -> Dict[str, Any]:
     return result
 
 
+def find_capabilities(rules, extractor, disable_progress):
+    result = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
+    if version.parse(capa_version) < version.parse("9.0.0"):
+        return result
+    else:
+        return result.matches, result.feature_counts
 # ===== CAPA END
 
 
@@ -274,7 +280,7 @@ def flare_capa_details(
                 log.error("CAPA: Missed results probably")
                 return {}
 
-            capabilities, counts = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
+            capabilities, counts = find_capabilities(rules, extractor, disable_progress=disable_progress)
 
             # collect metadata (used only to make rendering more complete)
             meta = capa.loader.collect_metadata(

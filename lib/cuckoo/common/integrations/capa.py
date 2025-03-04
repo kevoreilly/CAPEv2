@@ -260,7 +260,7 @@ def flare_capa_details(
         try:
             file_path_object = path_object(file_path)
             # extract features and find capabilities
-            if backend == "viv":
+            if backend == "viv" and category == "static":
                 extractor = capa.loader.get_extractor(
                     file_path_object, FORMAT_AUTO, OS_AUTO, capa.loader.BACKEND_VIV, [], False, disable_progress=disable_progress
                 )

@@ -45,7 +45,7 @@ def ratdecodedr_load_decoders(path: str):
         try:
             module = importlib.import_module(module_name)
         except ImportError as e:
-            log.error(f"Unable to import Module {module_name}: {e}")
+            log.error(f"Unable to import Module %s - %s", module_name, e)
             continue
 
         for mod_name, mod_object in inspect.getmembers(module):
@@ -106,11 +106,11 @@ def cape_load_custom_decoders(CUCKOO_ROOT: str):
                 # For example, a cape_type of "Emotet Payload" would trigger a config parser named "Emotet.py".
                 cape_modules[name.replace("_", " ")] = importlib.import_module(f"{versions[version]}.{name}")
             except (ImportError, IndexError, AttributeError) as e:
-                log.error(f"CAPE parser: No module named {name} - {e}")
+                log.error(f"CAPE parser: No module named  %s - %s", name, e)
             except SyntaxError as e:
-                log.error(f"CAPE parser: Fix your code in {name} - {e}")
+                log.error(f"CAPE parser: Fix your code in %s - %s", name, e)
             except Exception as e:
-                log.error(f"CAPE parser: Fix your code in {name} - {e}")
+                log.error(f"CAPE parser: Fix your code in %s - %s", name, e)
 
     return cape_modules
 
@@ -138,7 +138,7 @@ def malduck_load_decoders(CUCKOO_ROOT: str):
         try:
             malduck_modules[name] = importlib.import_module(f"modules.processing.parsers.malduck.{name}")
         except (ImportError, IndexError) as e:
-            log.error(f"malduck parser: No module named {name} - {e}")
+            log.error(f"malduck parser: No module named %s - %s", name, e)
 
     return malduck_modules
 
@@ -177,7 +177,7 @@ def file_extra_info_load_modules(CUCKOO_ROOT: str):
                 continue
             file_extra_modules.append(module)
         except (ImportError, IndexError, AttributeError) as e:
-            log.error(f"file_extra_info module: No module named {name} - {e}")
+            log.error(f"file_extra_info module: No module named %s - %s", name, e)
 
     return file_extra_modules
 
@@ -230,6 +230,6 @@ def load_downloaders(CUCKOO_ROOT: str):
                         continue
                 downloaders[name] = module
             except (ImportError, IndexError, AttributeError) as e:
-                log.error(f"Downloader: No module named {name} - {e}")
+                log.error("Downloader: No module named %s - %s", name, e)
 
     return downloaders

@@ -28,15 +28,13 @@ rules = False
 HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabled:
     try:
-        from platform import python_version
+        # from platform import python_version
 
         from capa.version import __version__ as capa_version
         from packaging import version
 
-        if version.parse(python_version()) >= version.parse("3.10.0"):
-            capa_compatible_version = "9"
-        else:
-            capa_compatible_version = "7"
+        # if version.parse(python_version()) >= version.parse("3.10.0"):
+        capa_compatible_version = "9"
 
         # ToDo use major?
         if version.parse(capa_version).base_version.split(".")[0] != capa_compatible_version:
@@ -273,7 +271,6 @@ def flare_capa_details(
             elif backend == "cape" and results:
                 try:
                     extractor = capa.features.extractors.cape.extractor.CapeExtractor.from_report(results)
-                    breakpoint()
                 except ValidationError as e:
                     log.exception("CAPA ValidationError %s", e)
                     return {}

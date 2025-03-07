@@ -5,7 +5,7 @@
 import collections
 import logging
 import os
-from contextlib import suppress
+# from contextlib import suppress
 from typing import Any, Dict, Set
 
 from lib.cuckoo.common.config import Config
@@ -28,16 +28,15 @@ rules = False
 HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabled:
     try:
-        from platform import python_version
+        # from platform import python_version
 
         from capa.version import __version__ as capa_version
         from packaging import version
 
-        if version.parse(python_version()) >= version.parse("3.10.0"):
-            capa_compatible_version = "9"
-        else:
-            capa_compatible_version = "7"
+        # if version.parse(python_version()) >= version.parse("3.10.0"):
+        capa_compatible_version = "9"
 
+        # ToDo use major?
         if version.parse(capa_version).base_version.split(".")[0] != capa_compatible_version:
             print("FLARE-CAPA missed or incompatible version. Run: poetry install")
         else:
@@ -56,6 +55,11 @@ if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabl
             from capa.features.common import FORMAT_AUTO, OS_AUTO
             from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
             from pydantic_core._pydantic_core import ValidationError
+
+            # Disable vivisect logging
+            logging.getLogger("vivisect").setLevel(logging.NOTSET)
+            logging.getLogger("vivisect.base").setLevel(logging.NOTSET)
+            logging.getLogger("vivisect.impemu").setLevel(logging.NOTSET)
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):
@@ -170,8 +174,8 @@ def render_attack(doc, result):
                                 'Virtualization/Sandbox Evasion::System Checks '
                                 '[T1497.001]'],
             'DISCOVERY': ['File and Directory Discovery [T1083]',
-                          'Query Registry [T1012]',
-                          'System Information Discovery [T1082]'],
+                            'Query Registry [T1012]',
+                            'System Information Discovery [T1082]'],
             'EXECUTION': ['Shared Modules [T1129]']}
         }
     """
@@ -196,16 +200,17 @@ def render_attack(doc, result):
 def render_mbc(doc, result):
     """
     example::
-        {'MBC': {'ANTI-BEHAVIORAL ANALYSIS': ['Debugger Detection::Timing/Delay Check '
-                                      'GetTickCount [B0001.032]',
-                                      'Emulator Detection [B0004]',
-                                      'Virtual Machine Detection::Instruction '
-                                      'Testing [B0009.029]',
-                                      'Virtual Machine Detection [B0009]'],
-         'COLLECTION': ['Keylogging::Polling [F0002.002]'],
-         'CRYPTOGRAPHY': ['Encrypt Data::RC4 [C0027.009]',
-                          'Generate Pseudo-random Sequence::RC4 PRGA '
-                          '[C0021.004]']}
+        {'MBC': {'ANTI-BEHAVIORAL ANALYSIS': [
+            'Debugger Detection::Timing/Delay Check '
+            'GetTickCount [B0001.032]',
+            'Emulator Detection [B0004]',
+            'Virtual Machine Detection::Instruction '
+            'Testing [B0009.029]',
+            'Virtual Machine Detection [B0009]'],
+        'COLLECTION': ['Keylogging::Polling [F0002.002]'],
+        'CRYPTOGRAPHY': [
+            'Encrypt Data::RC4 [C0027.009]',
+            'Generate Pseudo-random Sequence::RC4 PRGA [C0021.004]']}
         }
     """
     result["MBC"] = {}
@@ -235,13 +240,6 @@ def render_dictionary(doc) -> Dict[str, Any]:
     render_capabilities(doc, result)
     return result
 
-
-def find_capabilities(rules, extractor, disable_progress):
-    result = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
-    if version.parse(capa_version) < version.parse("9.0.0"):
-        return result
-    else:
-        return result.matches, {"feature_counts": result.feature_counts, "library_functions": result.library_functions}
 # ===== CAPA END
 
 
@@ -274,32 +272,25 @@ def flare_capa_details(
                 try:
                     extractor = capa.features.extractors.cape.extractor.CapeExtractor.from_report(results)
                 except ValidationError as e:
-                    log.error("CAPA ValidationError %s", e)
+                    log.exception("CAPA ValidationError %s", e)
                     return {}
             else:
                 log.error("CAPA: Missed results probably")
                 return {}
 
-            capabilities, counts = find_capabilities(rules, extractor, disable_progress=disable_progress)
-
+            capabilities = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
             # collect metadata (used only to make rendering more complete)
-            meta = capa.loader.collect_metadata(
-                [], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor, counts
-            )
-            meta.analysis.feature_counts = counts.get("feature_counts", 0)
-            with suppress(ValueError):
-                meta.analysis.library_functions = counts.get("library_functions", 0)
-            meta.analysis.layout = capa.loader.compute_layout(rules, extractor, capabilities)
-
+            meta = capa.loader.collect_metadata([], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor, capabilities)
+            meta.analysis.layout = capa.loader.compute_layout(rules, extractor, capabilities.matches)
             capa_output: Any = False
 
             # ...as python dictionary, simplified as textable but in dictionary
-            doc = rd.ResultDocument.from_capa(meta, rules, capabilities)
+            doc = rd.ResultDocument.from_capa(meta, rules, capabilities.matches)
             capa_output = render_dictionary(doc)
-
         except MemoryError:
             log.warning("FLARE CAPA -> MemoryError")
-        except AttributeError:
+        except AttributeError as e:
+            log.exception(e)
             log.warning("FLARE CAPA -> Use GitHub's version. poetry install")
         except UnsupportedFormatError:
             log.error("FLARE CAPA -> UnsupportedFormatError")

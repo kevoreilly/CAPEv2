@@ -35,6 +35,8 @@ static = no
 cape = no
 # Analyze ProcDump
 procdump = no
+# behavior analysis summary
+behavior = no
 
 # Community
 [decompression]

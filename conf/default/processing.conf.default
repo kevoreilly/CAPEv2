@@ -23,20 +23,6 @@ enabled = no
 enabled = yes
 
 # Community
-# FLARE capa -> to update rules utils/community.py -cr
-# install -> cd /tmp && git clone --recurse-submodules https://github.com/fireeye/capa.git && cd capa && git submodule update --init rules && python -m poetry run pip install .
-[flare_capa]
-enabled = no
-# Generate it always or generate on demand only(user need to click button to generate it), still should be enabled to use this feature on demand
-on_demand = no
-# Analyze binary payloads
-static = no
-# Analyze CAPE payloads
-cape = no
-# Analyze ProcDump
-procdump = no
-
-# Community
 [decompression]
 enabled = no
 

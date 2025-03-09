@@ -1227,4 +1227,10 @@ class BehaviorAnalysis(Processing):
                     behavior = json.load(f).get("behavior", [])
                 except Exception as e:
                     log.error("Behavior. Can't load json: %s", str(e))
+
+        if HAVE_FLARE_CAPA and self.results.get("info", {}).get("category", "") == "file":
+            try:
+                self.results["capa_summary"] = flare_capa_details(file_path=self.results["target"]["file"]["path"], category="behavior", backend="cape", results={"behavior": behavior, **self.results})
+            except Exception as e:
+                log.error("Can't generate CAPA summary: %s", str(e))
         return behavior

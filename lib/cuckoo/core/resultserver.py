@@ -172,6 +172,10 @@ class HandlerContext:
         while _ := self.read():
             pass
 
+    def __del__(self):
+        if self.sock:
+            self.sock.close()
+
 
 class WriteLimiter:
     def __init__(self, fd, remain):
@@ -197,6 +201,10 @@ class WriteLimiter:
     def flush(self):
         self.fd.flush()
 
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
+
 
 class FileUpload(ProtocolHandler):
     def init(self):
@@ -204,6 +212,10 @@ class FileUpload(ProtocolHandler):
         self.storagepath = self.handler.storagepath
         self.fd = None
         self.filelog = os.path.join(self.handler.storagepath, "files.json")
+
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
 
     def handle(self):
         # Read until newline for file path, e.g.,
@@ -299,6 +311,9 @@ class LogHandler(ProtocolHandler):
         if self.fd:
             return self.handler.copy_to_fd(self.fd)
 
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
 
 TYPECONVERTERS = {"h": lambda v: f"0x{default_converter(v):08x}", "p": lambda v: f"0x{default_converter(v):08x}"}
 
@@ -405,6 +420,10 @@ class BsonStore(ProtocolHandler):
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)
 
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
+
 
 class GeventResultServerWorker(gevent.server.StreamServer):
     """The new ResultServer, providing a huge performance boost as well as
@@ -434,8 +453,9 @@ class GeventResultServerWorker(gevent.server.StreamServer):
 
         # Store running handlers for task_id
         self.handlers = {}
-        self.start_log_count = 0
-        self.stop_log_count = 0
+        self.log_start_count = 0
+        self.log_stop_count = 0
+        self.task_id = None
 
     def do_run(self):
         self.serve_forever()
@@ -462,6 +482,8 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             # ToDo just reinforce cleanup
             task_log_stop(task_id)
 
+        task_log_stop(task_id, debug=True)
+
     def create_folders(self):
         for folder in list(RESULT_UPLOADABLE) + [b"logs"]:
             try:
@@ -484,6 +506,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 log.warning("ResultServer did not have a task for IP %s", ipaddr)
                 return
 
+        self.task_id = task_id
         self.storagepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
 
         # Create all missing folders for this analysis.
@@ -491,7 +514,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
 
         ctx = HandlerContext(task_id, self.storagepath, sock)
         task_log_start(task_id)
-        self.start_log_count += 1
+        self.log_start_count += 1
         try:
             try:
                 log.debug("Task #%s: Negotiation started", task_id)
@@ -531,10 +554,9 @@ class GeventResultServerWorker(gevent.server.StreamServer):
         finally:
             log.debug("Task #%s: Negotiation finished", task_id)
             task_log_stop(task_id)
-            self.stop_log_count += 1
+            self.log_stop_count += 1
 
-        log.debug("Task #%s: Connection closed. Start called: %d, stop called: %d", task_id, self.start_log_count, self.stop_log_count)
-
+        log.debug("Task #%s: Connection closed. Start count %d, stop count %d", task_id, self.log_start_count, self.log_stop_count)
 
     def negotiate_protocol(self, task_id, ctx):
         header = ctx.read_newline()

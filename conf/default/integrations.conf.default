@@ -117,6 +117,20 @@ timeout = 60
 enabled = no
 timeout = 60
 
+# Community
+# FLARE capa -> to update rules: poetry run python utils/community.py -cr
+[flare_capa]
+enabled = no
+# Generate it always or generate on demand only(user need to click button to generate it), still should be enabled to use this feature on demand
+on_demand = no
+# Analyze binary payloads
+static = no
+# Analyze CAPE payloads
+cape = no
+# Analyze ProcDump
+procdump = no
+# behavior analysis summary
+behavior = no
 
 # external download services
 [downloaders]

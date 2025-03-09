@@ -115,7 +115,7 @@ else:
     HAVE_BINGRAPH = False
 
 HAVE_FLOSS = False
-if processing_cfg.floss.on_demand:
+if integrations_cfg.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 USE_SEVENZIP = False

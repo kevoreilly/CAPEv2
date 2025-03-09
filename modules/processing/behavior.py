@@ -1235,7 +1235,7 @@ class BehaviorAnalysis(Processing):
                     log.error("Behavior. Can't load json: %s", str(e))
 
         # https://github.com/mandiant/capa/issues/2620
-        if HAVE_FLARE_CAPA and self.results.get("info", {}).get("category", "") == "file" and self.results.get("target", {}).get("file", "").get("type","").startswith("PE"):
+        if HAVE_FLARE_CAPA and self.results.get("info", {}).get("category", "") == "file" and "PE" in self.results.get("target", {}).get("file", "").get("type",""):
             try:
                 self.results["capa_summary"] = flare_capa_details(file_path=self.results["target"]["file"]["path"], category="behavior", backend="cape", results={"behavior": behavior, **self.results})
             except Exception as e:

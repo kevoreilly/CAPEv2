@@ -37,11 +37,12 @@ from lib.cuckoo.common.utils import (
 )
 
 processing_conf = Config("processing")
+integrations_conf = Config("integrations")
 externalservices_conf = Config("externalservices")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
+if integrations_conf.flare_capa.enabled and not integrations_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 MISP_HASH_LOOKUP = False
@@ -245,7 +246,8 @@ class CAPE(Processing):
             if file_info.get("pid"):
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
-            if HAVE_FLARE_CAPA:
+            # ToDo https://github.com/mandiant/capa/issues/2620
+            if HAVE_FLARE_CAPA and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "procdump")
                 if capa_details:
@@ -322,7 +324,8 @@ class CAPE(Processing):
                 append_file = is_duplicated_binary(file_info, cape_file, append_file)
 
         if append_file:
-            if HAVE_FLARE_CAPA and category == "CAPE":
+            # ToDo https://github.com/mandiant/capa/issues/2620
+            if HAVE_FLARE_CAPA and category == "CAPE" and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:

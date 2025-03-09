@@ -4,11 +4,6 @@
 # You can also add additional options under the section of your module and
 # they will be available in your Python class.
 
-# Generate CAPE's analysis summary by FLARE/Mandiant's CAPA
-[flare_capa_summary]
-enabled = yes
-on_demand= no
-
 # Community
 [cents]
 enabled = no

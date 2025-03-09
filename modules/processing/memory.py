@@ -25,6 +25,7 @@ except ImportError:
 
 
 JsonRenderer = ""
+
 try:
     import volatility3.plugins
     import volatility3.symbols
@@ -36,7 +37,7 @@ try:
     # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True
 except ImportError:
-    print("Missed dependency: pip3 install volatility3 -U")
+    print("Missed dependency: poetry run pip install volatility3 -U")
     HAVE_VOLATILITY = False
 
 log = logging.getLogger()
@@ -56,31 +57,31 @@ class MuteProgress:
     def __call__(self, progress: Union[int, float], description: str = None):
         pass
 
+if HAVE_VOLATILITY:
+    class ReturnJsonRenderer(JsonRenderer):
+        def render(self, grid: interfaces.renderers.TreeGrid):
+            final_output = ({}, [])
 
-class ReturnJsonRenderer(JsonRenderer):
-    def render(self, grid: interfaces.renderers.TreeGrid):
-        final_output = ({}, [])
+            def visitor(
+                node: Optional[interfaces.renderers.TreeNode],
+                accumulator: Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]],
+            ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+                # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
+                acc_map, final_tree = accumulator
+                node_dict = {}
+                for column_index, column in enumerate(grid.columns):
+                    renderer = self._type_renderers.get(column.type, self._type_renderers["default"])
+                    data = renderer(list(node.values)[column_index])
+                    node_dict[column.name] = None if isinstance(data, interfaces.renderers.BaseAbsentValue) else data
+                if node.parent:
+                    acc_map[node.parent.path]["__children"].append(node_dict)
+                else:
+                    final_tree.append(node_dict)
+                acc_map[node.path] = node_dict
+                return (acc_map, final_tree)
 
-        def visitor(
-            node: Optional[interfaces.renderers.TreeNode],
-            accumulator: Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]],
-        ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
-            # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
-            acc_map, final_tree = accumulator
-            node_dict = {}
-            for column_index, column in enumerate(grid.columns):
-                renderer = self._type_renderers.get(column.type, self._type_renderers["default"])
-                data = renderer(list(node.values)[column_index])
-                node_dict[column.name] = None if isinstance(data, interfaces.renderers.BaseAbsentValue) else data
-            if node.parent:
-                acc_map[node.parent.path]["__children"].append(node_dict)
-            else:
-                final_tree.append(node_dict)
-            acc_map[node.path] = node_dict
-            return (acc_map, final_tree)
-
-        error = grid.populate(visitor, final_output, fail_on_errors=True)
-        return final_output[1], error
+            error = grid.populate(visitor, final_output, fail_on_errors=True)
+            return final_output[1], error
 
 
 class VolatilityAPI:

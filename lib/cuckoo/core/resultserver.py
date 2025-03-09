@@ -172,6 +172,10 @@ class HandlerContext:
         while _ := self.read():
             pass
 
+    def __del__(self):
+        if self.sock:
+            self.sock.close()
+
 
 class WriteLimiter:
     def __init__(self, fd, remain):
@@ -197,6 +201,10 @@ class WriteLimiter:
     def flush(self):
         self.fd.flush()
 
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
+
 
 class FileUpload(ProtocolHandler):
     def init(self):
@@ -204,6 +212,10 @@ class FileUpload(ProtocolHandler):
         self.storagepath = self.handler.storagepath
         self.fd = None
         self.filelog = os.path.join(self.handler.storagepath, "files.json")
+
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
 
     def handle(self):
         # Read until newline for file path, e.g.,
@@ -299,6 +311,9 @@ class LogHandler(ProtocolHandler):
         if self.fd:
             return self.handler.copy_to_fd(self.fd)
 
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
 
 TYPECONVERTERS = {"h": lambda v: f"0x{default_converter(v):08x}", "p": lambda v: f"0x{default_converter(v):08x}"}
 
@@ -405,6 +420,10 @@ class BsonStore(ProtocolHandler):
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)
 
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
+
 
 class GeventResultServerWorker(gevent.server.StreamServer):
     """The new ResultServer, providing a huge performance boost as well as
@@ -434,6 +453,9 @@ class GeventResultServerWorker(gevent.server.StreamServer):
 
         # Store running handlers for task_id
         self.handlers = {}
+        self.log_start_count = 0
+        self.log_stop_count = 0
+        self.task_id = None
 
     def do_run(self):
         self.serve_forever()
@@ -457,6 +479,10 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             for ctx in ctxs:
                 log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
+            # ToDo just reinforce cleanup
+            task_log_stop(task_id)
+
+        task_log_stop(task_id, debug=True)
 
     def create_folders(self):
         for folder in list(RESULT_UPLOADABLE) + [b"logs"]:
@@ -480,6 +506,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 log.warning("ResultServer did not have a task for IP %s", ipaddr)
                 return
 
+        self.task_id = task_id
         self.storagepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
 
         # Create all missing folders for this analysis.
@@ -487,10 +514,13 @@ class GeventResultServerWorker(gevent.server.StreamServer):
 
         ctx = HandlerContext(task_id, self.storagepath, sock)
         task_log_start(task_id)
+        self.log_start_count += 1
         try:
             try:
+                log.debug("Task #%s: Negotiation started", task_id)
                 protocol = self.negotiate_protocol(task_id, ctx)
             except EOFError:
+                log.debug("Task #%s: Negotiation failed on start", task_id)
                 return
 
             # Registering the context allows us to abort the handler by
@@ -502,13 +532,16 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 # been registered
                 if self.tasks.get(ipaddr) != task_id:
                     log.warning("Task #%s for IP %s was cancelled during negotiation", task_id, ipaddr)
+                    log.debug("Task #%s: Negotiation failed inside task_mgmt_lock manager", task_id)
                     return
                 s = self.handlers.setdefault(task_id, set())
                 s.add(ctx)
 
             try:
                 with protocol:
+                    log.debug("Task #%s: Negotiation succeeded", task_id)
                     protocol.handle()
+                    log.debug("Task #%s: Negotiation succeeded handled", task_id)
             except CuckooOperationalError as e:
                 log.exception(e)
             finally:
@@ -519,7 +552,11 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                     # This is usually not a good sign
                     log.warning("Task #%s with protocol %s has unprocessed data before getting disconnected", task_id, protocol)
         finally:
+            log.debug("Task #%s: Negotiation finished", task_id)
             task_log_stop(task_id)
+            self.log_stop_count += 1
+
+        log.debug("Task #%s: Connection closed. Start count %d, stop count %d", task_id, self.log_start_count, self.log_stop_count)
 
     def negotiate_protocol(self, task_id, ctx):
         header = ctx.read_newline()

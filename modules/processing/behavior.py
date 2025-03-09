@@ -26,6 +26,12 @@ from lib.cuckoo.common.utils import (
 
 log = logging.getLogger(__name__)
 cfg = Config()
+processing_conf = Config("processing")
+
+HAVE_FLARE_CAPA = False
+# required to not load not enabled dependencies
+if processing_conf.flare_capa.enabled and processing_conf.flare_capa.behavior:
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 
 class ParseProcessLog(list):

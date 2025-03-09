@@ -32,7 +32,8 @@ class Downloaders(object):
     def __init__(self, destination_folder=None):
         self.downloaders = load_downloaders(CUCKOO_ROOT)
         if integrations_cfg.downloaders.order:
-            self.downloaders_order = [k.strip() for k in self.downloaders.keys() if k.strip() in integrations_cfg.downloaders.order]
+            order_list = [item.strip() for item in integrations_cfg.downloaders.order.split(',')]
+            self.downloaders_order = [k for k in order_list if k in self.downloaders.keys()]
         else:
             self.downloaders_order = list(self.downloaders.keys())
 

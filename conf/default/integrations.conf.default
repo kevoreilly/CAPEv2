@@ -2,14 +2,14 @@
 
 [general]
 pefiles = yes
-dotnet = yes
-office = yes
-java = yes
-pdf = yes
-lnk = yes
-windows_script = yes
-elf = yes
-hwp = yes
+dotnet = no
+office = no
+java = no
+pdf = no
+lnk = no
+windows_script = no
+elf = no
+hwp = no
 
 # Number of workers for pool to run them in parallel
 max_workers = 6

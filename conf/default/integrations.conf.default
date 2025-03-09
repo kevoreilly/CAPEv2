@@ -141,3 +141,15 @@ order =
 [virustotal]
 enabled = no
 apikey =
+
+# Community
+[floss]
+enabled = no
+on_demand = yes
+static_strings = no
+stack_strings = yes
+decoded_strings = yes
+tight_strings = yes
+min_length = 5
+# Download FLOSS signatures from https://github.com/mandiant/flare-floss/tree/master/sigs
+sigs_path = data/flare-signatures

@@ -2,7 +2,7 @@
 {% block content %}
     {% include "sections/info.html" %}
     {% include "sections/errors.html" %}
-    {% if results.info.category == "file" %}
+    {% if results.info.category == "file,pcap,static" %}
         {% include "sections/file.html" %}
     {% elif results.info.category == "url" %}
         {% include "sections/url.html" %}
@@ -10,10 +10,12 @@
     {% include "sections/signatures.html" %}
     {% include "sections/screenshots.html" %}
     {% include "sections/network.html" %}
-    {% include "sections/dropped.html" %}
-    {% include "sections/payloads.html" %}
-    {% include "sections/behavior.html" %}
-    {% if results.memory %}
-        {% include "sections/volatility.html" %}
+    {% if results.info.category == "file" %}
+        {% include "sections/dropped.html" %}
+        {% include "sections/payloads.html" %}
+        {% include "sections/behavior.html" %}
+        {% if results.memory %}
+            {% include "sections/volatility.html" %}
+        {% endif %}
     {% endif %}
 {% endblock %}

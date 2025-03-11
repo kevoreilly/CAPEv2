@@ -349,7 +349,7 @@ SOCIAL_AUTH_EMAIL_DOMAIN = web_cfg.web_auth.get("social_auth_email_domain", Fals
 # ACCOUNT_SIGNUP_FORM_CLASS = None
 # In case you want to verify domain of email + set the username
 # SOCIALACCOUNT_ADAPTER = 'web.allauth_adapters.MySocialAccountAdapter'
-#### ALlauth end
+#### AllAuth end
 
 if web_cfg.registration.get("disposable_email_disable", False):
     DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)

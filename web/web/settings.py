@@ -324,7 +324,7 @@ if web_cfg.registration.get("email_confirmation", False):
 
 SITE_ID = 1
 
-# https://django-allauth.readthedocs.io/en/latest/configuration.html
+# https://docs.allauth.org/en/dev/socialaccount/configuration.html
 if web_cfg.registration.get("email_confirmation", False):
     ACCOUNT_EMAIL_VERIFICATION = "mandatory"
     SOCIALACCOUNT_EMAIL_VERIFICATION = ACCOUNT_EMAIL_VERIFICATION
@@ -340,7 +340,16 @@ ACCOUNT_LOGOUT_REDIRECT_URL = "/accounts/login/"
 MANUAL_APPROVE = web_cfg.registration.get("manual_approve", False)
 REGISTRATION_ENABLED = web_cfg.registration.get("enabled", False)
 EMAIL_CONFIRMATION = web_cfg.registration.get("email_confirmation", False)
-#### ALlauth end
+SOCIAL_AUTH_EMAIL_DOMAIN = web_cfg.web_auth.get("social_auth_email_domain", False)
+
+# be careful with SOCIALACCOUNT_AUTO_SIGNUP, if True, it will bypass custom sighup functions, default is True
+# SOCIALACCOUNT_AUTO_SIGNUP = True
+# SOCIALACCOUNT_ONLY = True
+# SOCIALACCOUNT_LOGIN_ON_GET=True
+# ACCOUNT_SIGNUP_FORM_CLASS = None
+# In case you want to verify domain of email + set the username
+# SOCIALACCOUNT_ADAPTER = 'web.allauth_adapters.MySocialAccountAdapter'
+#### AllAuth end
 
 if web_cfg.registration.get("disposable_email_disable", False):
     DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)

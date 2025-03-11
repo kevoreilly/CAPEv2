@@ -335,7 +335,7 @@ def tasks_create_file(request):
 
         for content, tmp_path, _ in list_of_tasks:
             if pcap:
-                if tmp_path.lower().endswith(".saz"):
+                if tmp_path.lower().endswith(b".saz"):
                     saz = saz_to_pcap(tmp_path)
                     if saz:
                         try:

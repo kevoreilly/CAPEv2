@@ -349,6 +349,8 @@ SOCIAL_AUTH_EMAIL_DOMAIN = web_cfg.web_auth.get("social_auth_email_domain", Fals
 # ACCOUNT_SIGNUP_FORM_CLASS = None
 # In case you want to verify domain of email + set the username
 # SOCIALACCOUNT_ADAPTER = 'web.allauth_adapters.MySocialAccountAdapter'
+# ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+
 #### AllAuth end
 
 if web_cfg.registration.get("disposable_email_disable", False):
@@ -394,7 +396,7 @@ ALLOWED_HOSTS = ["*"]
 
 # Max size
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
-
+# Google's OAuth might need: "strict-origin-when-cross-origin"
 SECURE_REFERRER_POLICY = "same-origin"  # "no-referrer-when-downgrade"
 
 # https://django-csp.readthedocs.io/en/latest/configuration.html

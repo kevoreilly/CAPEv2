@@ -631,6 +631,7 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
         else:
             filename = f"{base_dir}/{sanitize_filename(h)}"
 
+        content = False
         details["path"] = filename
         details["fhash"] = h
         # clean old content

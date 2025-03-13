@@ -118,8 +118,8 @@ def get_suricata_family(signature):
                 break
     isbad = any(block in famchecklower for block in suricata_blocklist)
     if not isbad and len(famcheck) >= 4:
-        family = famcheck.title()
+        family = famcheck
     isgood = any(allow in famchecklower for allow in suricata_passlist)
     if isgood and len(famcheck) >= 4:
-        family = famcheck.title()
+        family = famcheck
     return family

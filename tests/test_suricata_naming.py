@@ -12,7 +12,7 @@ from lib.cuckoo.common.suricata_detection import get_suricata_family
 
 def test_suricata_naming():
     assert "Sharik" == get_suricata_family("ET MALWARE Sharik/Smoke CnC Beacon 11")
-    assert "Revenge-Rat" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
+    assert "Revenge-RAT" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
     assert "Predator" == get_suricata_family("ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin")
     assert "Medusahttp" == get_suricata_family("ET TROJAN MedusaHTTP Variant CnC Checkin M2")
     assert False is get_suricata_family("ETPRO TROJAN Virus.Win32.Lamer.bd checkin")

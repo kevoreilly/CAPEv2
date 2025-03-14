@@ -12,9 +12,9 @@ from lib.cuckoo.common.suricata_detection import get_suricata_family
 
 def test_suricata_naming():
     assert "Sharik" == get_suricata_family("ET MALWARE Sharik/Smoke CnC Beacon 11")
-    assert "Revenge-Rat" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
+    assert "Revenge-RAT" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
     assert "Predator" == get_suricata_family("ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin")
-    assert "Medusahttp" == get_suricata_family("ET TROJAN MedusaHTTP Variant CnC Checkin M2")
+    assert "MedusaHTTP" == get_suricata_family("ET TROJAN MedusaHTTP Variant CnC Checkin M2")
     assert False is get_suricata_family("ETPRO TROJAN Virus.Win32.Lamer.bd checkin")
     assert False is get_suricata_family("ETPRO TROJAN Custom Cobalt Strike Beacon UA")
     assert False is get_suricata_family("ET TROJAN Unit42 PoisonIvy Keepalive to CnC")
@@ -47,7 +47,7 @@ def test_suricata_naming():
     assert False is get_suricata_family("ETPRO TROJAN MSIL/Owned Bot CnC Checkin")
     assert False is get_suricata_family("ETPRO TROJAN Win-Python-Backdoor Config Inbound")
     assert False is get_suricata_family("ETPRO TROJAN VBS/Susp.Enumerator Script Inbound")
-    assert "Crazycrypt" == get_suricata_family("ETPRO TROJAN CrazyCrypt Ransomware CnC Activity")
+    assert "CrazyCrypt" == get_suricata_family("ETPRO TROJAN CrazyCrypt Ransomware CnC Activity")
     assert "Virut" == get_suricata_family("ET TROJAN Win32.Virut - GET")
     assert False is get_suricata_family("ET TROJAN Trojan.FakeMS Checkin")
     assert False is get_suricata_family("ET TROJAN iOS/WireLurker CnC Beacon")
@@ -59,7 +59,7 @@ def test_suricata_naming():
     assert "Tinba" == get_suricata_family("ET MALWARE [PTsecurity] Tinba Checkin 4")
     assert False is get_suricata_family("ET TROJAN Suspicious User-Agent (WindowsNT) With No Separating Space")
     assert "Photoloader" == get_suricata_family("ET MALWARE W32/Photoloader.Downloader Request Cookie")
-    assert "Pcrat" == get_suricata_family("ET MALWARE Backdoor family PCRat/Gh0st CnC traffic")
+    assert "pcrat" == get_suricata_family("ET MALWARE Backdoor family PCRat/Gh0st CnC traffic")
     assert "Stealc" == get_suricata_family("ET MALWARE [SEKOIA.IO] Win32/Stealc C2 Check-in")
 
 

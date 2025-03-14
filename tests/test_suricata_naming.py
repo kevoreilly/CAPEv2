@@ -59,7 +59,7 @@ def test_suricata_naming():
     assert "Tinba" == get_suricata_family("ET MALWARE [PTsecurity] Tinba Checkin 4")
     assert False is get_suricata_family("ET TROJAN Suspicious User-Agent (WindowsNT) With No Separating Space")
     assert "Photoloader" == get_suricata_family("ET MALWARE W32/Photoloader.Downloader Request Cookie")
-    assert "PCRat" == get_suricata_family("ET MALWARE Backdoor family PCRat/Gh0st CnC traffic")
+    assert "pcrat" == get_suricata_family("ET MALWARE Backdoor family PCRat/Gh0st CnC traffic")
     assert "Stealc" == get_suricata_family("ET MALWARE [SEKOIA.IO] Win32/Stealc C2 Check-in")
 
 

@@ -1,12 +1,12 @@
 #!/bin/bash
-# set -ex
 
-# Copyright (C) 2011-2023 doomedraven.
+# Copyright (C) 2011-2024 DoomedRaven.
+# This file is part of Tools - https://github.com/doomedraven/Tools
 # See the file 'LICENSE.md' for copying permission.
 # https://www.doomedraven.com/2016/05/kvm.html
 # https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html
-# Use Ubuntu 22.04 LTS
-# Update date: 22.02.2023
+# Use Ubuntu 24.04 LTS
+# Update date: 22.02.2025
 
 # Glory to Ukraine!
 
@@ -21,6 +21,8 @@ Huge thanks to:
     * @wmetcalf
     * @ClaudioWayne
     * @CplNathan
+    * @enzok
+    * many others
 '
 
 # ToDo investigate
@@ -34,12 +36,12 @@ Huge thanks to:
 # https://github.com/dylanaraps/pure-bash-bible
 # https://www.shellcheck.net/
 
-# ACPI tables related
-# https://wiki.archlinux.org/index.php/DSDT
-
 # Might need update the WMI queries but you have example how to dump the information
 # https://github.com/SecSamDev/cancamusa/blob/main/bin/extract-info.ps1
 
+
+# ACPI tables related
+# https://wiki.archlinux.org/index.php/DSDT
 # Dump on linux
 #   acpidump > acpidump.out
 # Dump on Windows
@@ -56,10 +58,11 @@ QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux
 
 
 #https://www.qemu.org/download/#source or https://download.qemu.org/
-qemu_version=9.2.0
+qemu_version=9.2.1
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
 libvirt_version=11.0.0
+seabios_version=1.16.3
 # virt-manager - https://github.com/virt-manager/virt-manager/releases
 # autofilled
 OS=""
@@ -129,15 +132,16 @@ BOCHS_BLOCK_REPLACER3='<WOOT>'
 # what to use as a replacement for BXPC in bochs in ACPI info
 BXPC_REPLACER='<WOOT>'
 
-# ToDO add to see if cpu supports VTx
-# egrep '(vmx|svm)' --color=always /proc/cpuinfo
-#* If your CPU is Intel, you need activate in __BIOS__ VT-x
-#    * (last letter can change, you can activate [TxT ](https://software.intel.com/en-us/blogs/2012/09/25/how-to-enable-an-intel-trusted-execution-technology-capable-server) too, and any other feature, but VT-* is very important)
-
 # if a config file is present, read it in
 if [ -f "./kvm-config.sh" ]; then
         . ./kvm-config.sh
 fi
+
+
+# ToDO add to see if cpu supports VTx
+# egrep '(vmx|svm)' --color=always /proc/cpuinfo
+#* If your CPU is Intel, you need activate in __BIOS__ VT-x
+#    * (last letter can change, you can activate [TxT ](https://software.intel.com/en-us/blogs/2012/09/25/how-to-enable-an-intel-trusted-execution-technology-capable-server) too, and any other feature, but VT-* is very important)
 
 which aptitude 2>/dev/null
 if [ $? -eq 1 ]; then
@@ -150,13 +154,14 @@ if [ $? -eq 1 ]; then
     sudo python3-pip -y 2>/dev/null
 fi
 
+
 NC='\033[0m'
 RED='\033[0;31m'
-echo -e "${RED}[!] ONLY for UBUNTU 20.04 and 22.04${NC}"
-echo -e "${RED}\t[!] NEVER install packages from APT that installed by this script${NC}"
+echo -e "${RED}[!] ONLY for UBUNTU 24.04${NC}"
+echo -e "${RED}\t[!] NEVER install packages from apt-get that installed by this script${NC}"
 echo -e "${RED}\t[!] NEVER use 'make install' - it poison system and no easy way to upgrade/uninstall/cleanup, use dpkg-deb${NC}"
-echo -e "${RED}\t[!] NEVER run 'python setup.py install' DO USE 'pip intall .' the same as APT poisoning/upgrading${NC}\n"
-echo -e "${RED}\t[!] NEVER FORCE system upgrade, it will ignore blacklist and mess with packages installed by APT and this scritp!${NC}\n"
+echo -e "${RED}\t[!] NEVER run 'python setup.py install' DO USE 'pip install .' the same as apt-get poisoning/upgrading${NC}\n"
+echo -e "${RED}\t[!] NEVER FORCE system upgrade (apt install -f), it will ignore blacklist and mess with packages installed by apt-get and this scritp!${NC}\n"
 echo -e "${RED}\t[!] NEVER! When upgrading ubuntu release, first uninstall qemu and libvirt, then upgrade and then install again! As is the same as force and bypasses apt mark-hold${NC}\n"
 
 function usage() {
@@ -179,7 +184,6 @@ cat << EndOfHelp
                 https://wiki.qemu.org/Documentation/CreateSnapshot
         Libvmi - install LibVMI
         Virtmanager - install virt-manager
-        Libguestfs - install libguestfs
         Replace_qemu - only fix antivms in QEMU source
         Replace_seabios <path> - only fix antivms in SeaBios source
         Issues - will give you error - solution list
@@ -257,51 +261,6 @@ function _enable_tcp_bbr() {
 function install_apparmor() {
     aptitude install -f bison linux-generic-hwe-24.04 -y
     aptitude install -f apparmor apparmor-profiles apparmor-profiles-extra apparmor-utils libapparmor-dev libapparmor1  python3-apparmor python3-libapparmor libapparmor-perl -y
-}
-
-
-function install_libguestfs() {
-    # https://libguestfs.org/guestfs-building.1.html
-    cd /opt || return
-    echo "[+] Check for previous version of LibGuestFS"
-    sudo dpkg --purge --force-all "libguestfs-*" 2>/dev/null
-
-    wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
-    sudo add-apt-repository -y "deb https://packages.erlang-solutions.com/ubuntu $(lsb_release -sc) contrib"
-    sudo aptitude install -f parted libyara3 erlang-dev gperf flex bison libaugeas-dev libhivex-dev supermin ocaml-nox libhivex-ocaml genisoimage libhivex-ocaml-dev libmagic-dev libjansson-dev gnulib jq ocaml-findlib -y 2>/dev/null
-    sudo apt-get update
-    sudo aptitude install -f erlang -y
-
-    if [ ! -d libguestfs ]; then
-        #ToDo move to latest release not latest code
-        #_info=$(curl -s https://api.github.com/repos/libguestfs/libguestfs/releases/latest)
-        #_version=$(echo $_info |jq .tag_name|sed "s/\"//g")
-        #_repo_url=$(echo $_info | jq ".zipball_url" | sed "s/\"//g")
-        #wget -q $_repo_url
-        #unzip $_version
-        git clone --recursive https://github.com/libguestfs/libguestfs
-    fi
-    cd libguestfs || return
-    git submodule update --init
-    autoreconf -i
-    ./configure CFLAGS=-fPIC
-    make -j"$(nproc)"
-
-    # Install virt tools that are in a diff repo since LIBGUESTFS 1.46 split
-    # More Info: https://listman.redhat.com/archives/libguestfs/2021-September/msg00153.html
-    cd /opt || return
-    if [ ! -d guestfs-tools ]; then
-      git clone --recursive https://github.com/rwmjones/guestfs-tools.git
-    fi
-    cd guestfs-tools || return
-    # Following tips to compile the guestfs-tools as depicted in https://www.mail-archive.com/libguestfs@redhat.com/msg22408.html
-    git submodule update --init --force
-    autoreconf -i
-    ../libguestfs/run ./configure CFLAGS=-fPIC
-    ../libguestfs/run make -j $(getconf _NPROCESSORS_ONLN)
-
-    echo "[+] /opt/libguestfs/run --help"
-    echo "[+] /opt/libguestfs/run /opt/guestfs-tools/sparsify/virt-sparsify -h"
 }
 
 
@@ -438,7 +397,6 @@ function install_pyvmidbg() {
     # sys/install.sh
     # r2 -d gdb://127.0.0.1:5000 -b 64
 }
-
 
 function install_libvirt() {
     # http://ask.xmodulo.com/compile-virt-manager-debian-ubuntu.html
@@ -628,7 +586,8 @@ EOH
         #check links
         # sudo ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
         # sudo ln -s /usr/lib64/libvirt.so.0 /lib/x86_64-linux-gnu/libvirt.so.0
-        systemctl enable virtqemud.service virtnetworkd.service virtstoraged.service virtqemud.socket
+        systemctl enable virtqemud.service virtnetworkd.service virtstoraged.service virtqemud.socket libvirtd.service
+        systemctl start libvirtd.service
         echo "[+] You should logout and login "
     fi
 
@@ -668,7 +627,7 @@ function install_virt_manager() {
     gstreamer1.0-x adwaita-icon-theme at-spi2-core augeas-lenses cpu-checker dconf-gsettings-backend dconf-service \
     fontconfig fontconfig-config fonts-dejavu-core genisoimage gir1.2-appindicator3-0.1 gir1.2-secret-1 \
     gobject-introspection intltool pkg-config libxml2-dev libxslt-dev python3-dev gir1.2-gtk-vnc-2.0 gir1.2-spiceclientgtk-3.0 libgtk-3-dev \
-    plocate gir1.2-gtksource-4 libgtksourceview-4-0 libgtksourceview-4-common pylint pycodestyle -y
+    plocate gir1.2-gtksource-4 libgtksourceview-4-0 libgtksourceview-4-common checkinstall pylint pycodestyle codespell -y
     # should be installed first
     # moved out as some 20.04 doesn't have this libs %)
     aptitude install -f -y python3-ntlm-auth libpython3-stdlib libbrlapi-dev libgirepository1.0-dev python3-testresources
@@ -677,7 +636,7 @@ function install_virt_manager() {
 
     # not available in 22.04
     if [ $(lsb_release -sc) != "jammy" ]; then
-        aptitude -f install python-enum34 libxenstore3.0 libnetcf1 libcroco3 -y
+        aptitude -f install python-enum34 libxenstore3.0 libnetcf1 libcroco3 libappindicator3-1 python-enum34-doc -y
     fi
 
     updatedb
@@ -686,7 +645,6 @@ function install_virt_manager() {
     temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
     libvirt_so_path="${temp_libvirt_so_path%/*}/"
     export_path="${temp_export_path%/*}/"
-
     export PKG_CONFIG_PATH=$export_path
 
     cd /tmp || return
@@ -694,13 +652,14 @@ function install_virt_manager() {
         git clone https://gitlab.com/libvirt/libvirt-glib.git
     fi
     cd libvirt-glib
-        meson setup builddir
-        meson compile -C builddir
-        sudo ninja -C builddir install
+    meson setup builddir
+    meson compile -C builddir
+    sudo ninja -C builddir install
     # for some reason i have to run it twice
     sudo ninja -C builddir install
     # mkdir -p /usr/local/lib/girepository-1.0/
     # cp builddir/libvirt-glib/LibvirtGLib-1.0.typelib /usr/local/lib/girepository-1.0/
+    # Namespace LibvirtGLib not available
     cp builddir/libvirt-glib/LibvirtGLib-1.0.typelib /usr/lib/girepository-1.0/
     /sbin/ldconfig
 
@@ -727,8 +686,8 @@ function install_virt_manager() {
     fi
 
     sudo glib-compile-schemas --strict /usr/share/glib-2.0/schemas/
-    systemctl enable virtstoraged.service
-    systemctl start virtstoraged.service
+    systemctl enable virtstoraged.service && systemctl start virtstoraged.service
+    systemctl enable libvirtd.service && systemctl start libvirtd.service
 
     # i440FX-Issue Win7: Unable to complete install: 'XML error: The PCI controller with index='0' must be model='pci-root' for this machine type, but model='pcie-root' was found instead'
     # Workaround: Edit Overiew in XML view and delete all controller entries with type="pci"
@@ -745,7 +704,6 @@ function install_kvm_linux() {
 
     # WSL support
     aptitude install -f gcc make gnutls-bin -y
-
     install_libvirt
 
     systemctl enable libvirtd.service virtlogd.socket
@@ -806,10 +764,10 @@ function replace_qemu_clues_public() {
 function replace_seabios_clues_public() {
     echo "[+] Generating SeaBios Kconfig"
     echo "[+] Fixing SeaBios antivms"
-    _sed_aux 's/Bochs/DELL/g' src/config.h 'Bochs was not replaced in src/config.h'
+    _sed_aux 's/Bochs/"<WOOT>/g' src/config.h 'Bochs was not replaced in src/config.h'
     _sed_aux "s/BOCHSCPU/$bochs_cpu_replacement/g" src/config.h 'BOCHSCPU was not replaced in src/config.h'
-    _sed_aux 's/"BOCHS "/"DELL"/g' src/config.h 'BOCHS was not replaced in src/config.h'
-    _sed_aux 's/BXPC/DELL/g' src/config.h 'BXPC was not replaced in src/config.h'
+    _sed_aux 's/"BOCHS "/"<WOOT>"/g' src/config.h 'BOCHS was not replaced in src/config.h'
+    _sed_aux 's/BXPC/"<WOOT>/g' src/config.h 'BXPC was not replaced in src/config.h'
     _sed_aux "s/QEMU\/Bochs/$qemu_bochs_cpu/g" vgasrc/Kconfig 'QEMU\/Bochs was not replaced in vgasrc/Kconfig'
     _sed_aux "s/qemu /$qemu_space_replacement/g" vgasrc/Kconfig 'qemu was not replaced in vgasrc/Kconfig'
     _sed_aux "s/06\/23\/99/$src_misc_bios_table/g" src/misc.c 'change seabios date 1'
@@ -943,8 +901,12 @@ function install_qemu() {
                 mkdir -p /tmp/qemu-"$qemu_version"_builded/DEBIAN
                 echo -e "Package: qemu\nVersion: $qemu_version\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom antivm qemu" > /tmp/qemu-"$qemu_version"_builded/DEBIAN/control
                 make -j"$(nproc)" install DESTDIR=/tmp/qemu-"$qemu_version"_builded
-                dpkg-deb --build --root-owner-group /tmp/qemu-"$qemu_version"_builded
-                apt-get -y -o Dpkg::Options::="--force-overwrite" install /tmp/qemu-"$qemu_version"_builded.deb
+                if [ "$OS" = "Linux" ]; then
+                    dpkg-deb --build --root-owner-group /tmp/qemu-"$qemu_version"_builded
+                    apt-get -y -o Dpkg::Options::="--force-overwrite" install /tmp/qemu-"$qemu_version"_builded.deb
+                elif [ "$OS" = "Darwin" ]; then
+                    make -j"$(nproc)" install
+                fi
                 # hack for libvirt/virt-manager
                 if [ ! -f /usr/bin/qemu-system-x86_64-spice ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64-spice
@@ -974,7 +936,7 @@ function install_qemu() {
     if [ "$OS" = "linux" ]; then
         dpkg --get-selections | grep "qemu" | xargs apt-mark hold
         dpkg --get-selections | grep "libvirt" | xargs apt-mark hold
-        apt-mark hold qemu libvirt
+        # apt-mark unhold qemu libvirt
     fi
 
 }
@@ -983,11 +945,13 @@ function install_seabios() {
     cd /tmp || return
     echo '[+] Installing SeaBios dependencies'
     aptitude install -f git acpica-tools -y
-    if [ -d seabios ]; then
-        rm -r seabios
+    if [! -f "seabios_${seabios_version}.tar.gz" ]; then
+        rm "seabios_${seabios_version}"
+        wget https://github.com/coreboot/seabios/archive/refs/tags/rel-${seabios_version}.tar.gz -O "seabios_${seabios_version}.tar.gz"
     fi
-    if git clone https://github.com/coreboot/seabios.git; then
-        cd seabios || return
+
+    if tar xf "seabios_${seabios_version}.tar.gz"; then
+        cd "seabios-rel-${seabios_version}" || return
         if declare -f -F "replace_seabios_clues"; then
             replace_seabios_clues
         else
@@ -996,12 +960,12 @@ function install_seabios() {
         # make help
         # make menuconfig -> BIOS tables -> disable Include default ACPI DSDT
         # get rid of this hack
-        make -j"$(nproc)" 2>/dev/null
-        # Windows 10(latest rev.) is uninstallable without ACPI_DSDT
-        # sed -i 's/CONFIG_ACPI_DSDT=y/CONFIG_ACPI_DSDT=n/g' .config
         sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' .config
         sed -i 's/PYTHON=python/PYTHON=python3/g' Makefile
-        if make -j "$(nproc)"; then
+        # PIP_BREAK_SYSTEM_PACKAGES=1 make -j"$(nproc)" 2>/dev/null
+        # Windows 10(latest rev.) is uninstallable without ACPI_DSDT
+        # sed -i 's/CONFIG_ACPI_DSDT=y/CONFIG_ACPI_DSDT=n/g' .config
+        if PIP_BREAK_SYSTEM_PACKAGES=1 make -j "$(nproc)"; then
             echo '[+] Replacing old bios.bin to new out/bios.bin'
             bios=0
             SHA256_BIOS=$(shasum -a 256 out/bios.bin|awk '{print $1}')
@@ -1169,6 +1133,7 @@ cat << EndOfHelp
 
     5. ValueError: Namespace LibvirtGLib not available
     $ ./kvm-qemu.sh libvirt
+        Is due to missed LibvirtGLib-1.0.typelib inside of /usr/lib/girepository-1.0/
 
     6. ValueError: Namespace Libosinfo not available
     $ aptitude install -f libosinfo-1.0
@@ -1269,6 +1234,7 @@ EOF
     echo "[+] Enjoy"
 }
 
+
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "[:upper:]" "[:lower:]")
 
@@ -1314,7 +1280,6 @@ case "$COMMAND" in
     install_kvm_linux
     # add check if server or desktop
     # install_virt_manager
-    # install_libguestfs
     # check if all features enabled
     virt-host-validate qemu
     systemctl daemon-reload
@@ -1322,6 +1287,10 @@ case "$COMMAND" in
     _enable_tcp_bbr
     grub_iommu
     enable_sysrq
+    # check if is desktop, install virt-manager, ignore on server edition
+    if dpkg -l |grep -q "ii  ubuntu-desktop"; then
+        install_virt_manager
+    fi
     ;;
 'apparmor')
     install_apparmor;;
@@ -1331,8 +1300,6 @@ case "$COMMAND" in
     install_seabios;;
 'kvm')
     install_kvm_linux;;
-'libguestfs')
-    install_libguestfs;;
 'tcp_bbr')
     _enable_tcp_bbr;;
 'replace_qemu')

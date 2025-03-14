@@ -37,7 +37,8 @@
       <tr class="collapse" id="filecreate">
           <td colspan="5">
             <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" {{ config.api.url }}/apiv2/tasks/create/file/
-  Note: machine is optional. Header depends of the config if Token auth is enabled</pre>
+In case of PCAP you need to add -F pcap=1
+Note: machine is optional. Header depends of the config if Token auth is enabled in api.conf</pre>
           </td>
       </tr>
       <tr>

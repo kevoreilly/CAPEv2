@@ -108,11 +108,15 @@ except ImportError:
     HAVE_BAT_DECODER = False
     print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
-unautoit_binary = os.path.join(CUCKOO_ROOT, integration_conf.UnAutoIt_extract.binary)
-innoextact_binary = os.path.join(CUCKOO_ROOT, integration_conf.Inno_extract.binary)
-sevenzip_binary = os.path.join(CUCKOO_ROOT, integration_conf.SevenZip_unpack.binary)
-if not path_exists(sevenzip_binary):
-    sevenzip_binary = "/usr/bin/7z"
+unautoit_binary = ""
+innoextact_binary = ""
+if integration_conf.UnAutoIt_extract.binary:
+    unautoit_binary = os.path.join(CUCKOO_ROOT, integration_conf.UnAutoIt_extract.binary)
+if integration_conf.Inno_extract.binary:
+    innoextact_binary = os.path.join(CUCKOO_ROOT, integration_conf.Inno_extract.binary)
+sevenzip_binary = "/usr/bin/7z"
+if integration_conf.SevenZip_unpack.binary:
+    sevenzip_binary = os.path.join(CUCKOO_ROOT, integration_conf.SevenZip_unpack.binary)
 
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)

@@ -625,12 +625,13 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
     if not path_exists(folder):
         path_mkdir(folder, exist_ok=True)
     for h in get_hash_list(samples):
-        base_dir = tempfile.mkdtemp(prefix="third_part", dir=folder)
+        base_dir = tempfile.mkdtemp(prefix="third_party", dir=folder)
         if opt_filename:
             filename = f"{base_dir}/{opt_filename}"
         else:
             filename = f"{base_dir}/{sanitize_filename(h)}"
 
+        content = False
         details["path"] = filename
         details["fhash"] = h
         # clean old content

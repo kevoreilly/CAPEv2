@@ -233,7 +233,7 @@ def test_is_safelisted_domain():
         mock_path_exists.assert_called_once_with("/tmp/cuckoo-tmp")
 
     def test_store_temp_file_path_mkdir_error(mock_config, mocker, mock_tempfile):
-        mock_path_exists = mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=False)
+        # mock_path_exists = mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=False)
         mock_path_mkdir = mocker.patch("lib.cuckoo.common.utils.path_mkdir", side_effect=OSError)
         filedata = b"test data"
         filename = "testfile.txt"

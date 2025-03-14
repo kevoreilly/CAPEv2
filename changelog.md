@@ -1,3 +1,5 @@
+### [14.03.2025] CAPA and FLOSS
+* CAPA and FLOSS configs are moved to `integrations.conf`
 
 ### [1.03.2025] VirusTotal and MalwareBazaar
 * We have moved VirusTotal and MalwareBazaar to generic downloader so you can enable then in `integrations.conf`

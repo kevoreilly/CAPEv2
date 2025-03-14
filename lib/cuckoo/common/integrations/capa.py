@@ -14,12 +14,12 @@ from lib.cuckoo.common.path_utils import path_exists, path_object
 
 log = logging.getLogger(__name__)
 
-processing_conf = Config("processing")
 reporting_conf = Config("reporting")
+integrations_conf = Config("integrations")
 
 rules = False
 HAVE_FLARE_CAPA = False
-if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabled:
+if integrations_conf.flare_capa.enabled:
     try:
         # from platform import python_version
 
@@ -249,9 +249,9 @@ def flare_capa_details(
     capa_output = {}
     if (
         HAVE_FLARE_CAPA
-        and processing_conf.flare_capa.enabled
-        and processing_conf.flare_capa.get(category, False)
-        and not processing_conf.flare_capa.on_demand
+        and integrations_conf.flare_capa.enabled
+        and integrations_conf.flare_capa.get(category, False)
+        and not integrations_conf.flare_capa.on_demand
         or on_demand
     ):
         # ToDo check if PE file in TYPE

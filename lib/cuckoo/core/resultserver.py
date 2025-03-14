@@ -482,7 +482,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             # ToDo just reinforce cleanup
             task_log_stop(task_id)
 
-        task_log_stop(task_id, debug=True)
+        task_log_stop(task_id)
 
     def create_folders(self):
         for folder in list(RESULT_UPLOADABLE) + [b"logs"]:

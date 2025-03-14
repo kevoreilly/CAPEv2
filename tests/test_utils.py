@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-
 from tcr_misc import random_string
 
 from unittest import mock
@@ -169,7 +168,7 @@ class TestPrettyPrintRetval:
 
 @pytest.mark.skip
 def test_is_safelisted_domain():
-    from lib.cuckoo.common.saf  elist import is_safelisted_domain
+    from lib.cuckoo.common.safelist import is_safelisted_domain
     assert is_safelisted_domain("java.com") is True
     assert is_safelisted_domain("java2.com") is False
     assert is_safelisted_domain("crl.microsoft.com") is True
@@ -234,7 +233,7 @@ def test_is_safelisted_domain():
         mock_path_exists.assert_called_once_with("/tmp/cuckoo-tmp")
 
     def test_store_temp_file_path_mkdir_error(mock_config, mocker, mock_tempfile):
-        # mock_path_exists = mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=False)
+        mock_path_exists = mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=False)
         mock_path_mkdir = mocker.patch("lib.cuckoo.common.utils.path_mkdir", side_effect=OSError)
         filedata = b"test data"
         filename = "testfile.txt"

@@ -4,14 +4,12 @@
 
 import os
 
-import pytest
 from tcr_misc import random_string
 
-import tempfile
 from unittest import mock
 import pytest
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_get_filename
+from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common import utils
 
 
@@ -171,7 +169,7 @@ class TestPrettyPrintRetval:
 
 @pytest.mark.skip
 def test_is_safelisted_domain():
-    from lib.cuckoo.common.safelist import is_safelisted_domain
+    from lib.cuckoo.common.saf  elist import is_safelisted_domain
     assert is_safelisted_domain("java.com") is True
     assert is_safelisted_domain("java2.com") is False
     assert is_safelisted_domain("crl.microsoft.com") is True
@@ -236,7 +234,7 @@ def test_is_safelisted_domain():
         mock_path_exists.assert_called_once_with("/tmp/cuckoo-tmp")
 
     def test_store_temp_file_path_mkdir_error(mock_config, mocker, mock_tempfile):
-        mock_path_exists = mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=False)
+        # mock_path_exists = mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=False)
         mock_path_mkdir = mocker.patch("lib.cuckoo.common.utils.path_mkdir", side_effect=OSError)
         filedata = b"test data"
         filename = "testfile.txt"

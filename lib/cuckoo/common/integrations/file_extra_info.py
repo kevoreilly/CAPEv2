@@ -74,11 +74,11 @@ except ImportError:
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
+if integration_conf.flare_capa.enabled and not integration_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_FLOSS = False
-if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
+if integration_conf.floss.enabled and not integration_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 log = logging.getLogger(__name__)
@@ -183,11 +183,12 @@ def static_file_info(
         data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
 
         if HAVE_FLARE_CAPA:
+            # https://github.com/mandiant/capa/issues/2620
             capa_details = flare_capa_details(file_path, "static")
             if capa_details:
                 data_dictionary["flare_capa"] = capa_details
 
-        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
+        if HAVE_FLOSS and integration_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings

@@ -71,12 +71,13 @@ TASK_LIMIT = 25
 
 processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
+integrations_cfg = Config("integrations")
 web_cfg = Config("web")
 
 try:
     # On demand features
     HAVE_FLARE_CAPA = False
-    if processing_cfg.flare_capa.on_demand:
+    if integrations_cfg.flare_capa.on_demand:
         from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 except (NameError, ImportError):
     print("Can't import FLARE-CAPA")
@@ -114,7 +115,7 @@ else:
     HAVE_BINGRAPH = False
 
 HAVE_FLOSS = False
-if processing_cfg.floss.on_demand:
+if integrations_cfg.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 USE_SEVENZIP = False
@@ -2541,6 +2542,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     details = False
     if service == "flare_capa" and HAVE_FLARE_CAPA:
+        # ToDo check if PE
         details = flare_capa_details(path, category.lower(), on_demand=True)
         if not details:
             details = {"msg": "No results"}

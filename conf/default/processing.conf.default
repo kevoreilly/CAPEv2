@@ -23,22 +23,6 @@ enabled = no
 enabled = yes
 
 # Community
-# FLARE capa -> to update rules utils/community.py -cr
-# install -> cd /tmp && git clone --recurse-submodules https://github.com/fireeye/capa.git && cd capa && git submodule update --init rules && python -m poetry run pip install .
-[flare_capa]
-enabled = no
-# Generate it always or generate on demand only(user need to click button to generate it), still should be enabled to use this feature on demand
-on_demand = no
-# Analyze binary payloads
-static = no
-# Analyze CAPE payloads
-cape = no
-# Analyze ProcDump
-procdump = no
-# behavior analysis summary
-behavior = no
-
-# Community
 [decompression]
 enabled = no
 
@@ -327,18 +311,6 @@ key =
 # Community
 [script_log_processing]
 enabled = yes
-
-# Community
-[floss]
-enabled = no
-on_demand = yes
-static_strings = no
-stack_strings = yes
-decoded_strings = yes
-tight_strings = yes
-min_length = 5
-# Download FLOSS signatures from https://github.com/mandiant/flare-floss/tree/master/sigs
-sigs_path = data/flare-signatures
 
 [html_scraper]
 enabled = no

@@ -571,12 +571,17 @@ def datetime_to_iso(timestamp):
     return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").isoformat()
 
 
-def store_temp_file(filedata, filename, path=None):
-    """Store a temporary file.
-    @param filedata: content of the original file.
-    @param filename: name of the original file.
-    @param path: optional path for temp directory.
-    @return: path to the temporary file.
+def store_temp_file(filedata: bytes, filename: str, path=None) -> bytes:
+    """
+    Store a temporary file.
+
+    Args:
+        filedata (bytes or file-like object): Content of the original file.
+        filename (str): Name of the original file.
+        path (str, optional): Optional path for the temporary directory. Defaults to None.
+
+    Returns:
+        bytes: Path to the temporary file.
     """
     filename = path_get_filename(filename).encode("utf-8", "replace")
 
@@ -604,6 +609,7 @@ def store_temp_file(filedata, filename, path=None):
         else:
             tmp_file.write(filedata)
 
+    # ToDo consider change from bytes to str
     return tmp_file_path
 
 
@@ -769,9 +775,21 @@ def truncate_filename(x):
     return truncated
 
 
-def sanitize_filename(x):
-    """Kind of awful but necessary sanitizing of filenames to
-    get rid of unicode problems."""
+def sanitize_filename(x: str):
+    """
+    Sanitizes a given filename to remove problematic characters and ensure it is safe for use.
+
+    This function performs the following operations:
+    1. Strips leading spaces from the filename.
+    2. Replaces any character that is not an ASCII letter, digit, space, underscore, hyphen, or period with an underscore.
+    3. Truncates the filename if it exceeds a certain length to prevent issues with overly long filenames.
+
+    Args:
+        x (str): The filename to sanitize.
+
+    Returns:
+        str: The sanitized filename.
+    """
     while x.startswith(" "):
         x = x.lstrip()
     out = "".join(c if c in string.ascii_letters + string.digits + " _-." else "_" for c in x)

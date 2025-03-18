@@ -13,7 +13,7 @@ echo $$ > mitmdump.pid
 exec $@
 """
 
-# NOTE  mimdump is launched in net namespace,
+# NOTE  mitmdump is launched in net namespace,
 # root access is needed to run in other namespace
 # workaround for now is to allow sudo, which is security issue
 # alternative could be to use rooter module

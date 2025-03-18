@@ -728,7 +728,7 @@ class AnalysisManager(threading.Thread):
         elif self.route in ("none", "None", "drop"):
             self.rooter_response = rooter("drop_disable", self.machine.ip, str(self.cfg.resultserver.port))
         elif self.route[:3] == "tun":
-            self.log.info("Disable tunnel interface {}", self.interface)
+            self.log.info("Disable tunnel interface: %s", self.interface)
             self.rooter_response = rooter("interface_route_tun_disable", self.machine.ip, self.route, str(self.task.id))
 
         self._rooter_response_check()

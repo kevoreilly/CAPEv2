@@ -57,13 +57,13 @@ def read_pid_from_file(pid_file_path):
             pid = int(pid_str)
             return pid
     except FileNotFoundError:
-        log.error(f"Error: PID file not found at {pid_file_path}")
+        log.error("Error: PID file not found at: %s", pid_file_path)
         return None
     except ValueError:
-        log.error(f"Error: Invalid PID format in {pid_file_path}")
+        log.error("Error: Invalid PID format in: %s", pid_file_path)
         return None
     except Exception as e:
-        log.error(f"An unexpected error occurred: {e}")
+        log.error("An unexpected error occurred: %s", e)
         return None
 
 def wait_for_pid_exit(pid, timeout=None, poll_interval=1):

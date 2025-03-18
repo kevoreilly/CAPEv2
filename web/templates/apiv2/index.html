@@ -42,19 +42,19 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
           </td>
       </tr>
       <tr>
-        <td>VirusTotal download and analyze</td>
-        {% if config.vtdl.enabled %}
+        <td>Download from file service and analyze</td>
+        {% if config.downloading_services.enabled %}
         <td><span class="badge badge-success">Yes</span></td>
         {% else %}
         <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
-            <li>RPS: {{ config.vtdl.rps }}</li>
-            <li>RPM: {{ config.vtdl.rpm }}</li>
+            <li>RPS: {{ config.downloading_services.rps }}</li>
+            <li>RPM: {{ config.downloading_services.rpm }}</li>
           </ul>
         </td>
-        <td>Download a file from VT for analysis. Return object will be JSON.</td>
+        <td>Download a file from VT or MalwareBazaar or other service for analysis. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#vtdl" aria-expanded="false" aria-controls="#vtdl">Example</a></td>
       </tr>
       <tr class="collapse" id="vtdl">
@@ -752,6 +752,28 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
       <tr class="collapse" id="statistircs">
         <td colspan="5">
           <pre>curl {{ config.api.url }}/apiv2/tasks/[days]/</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>Mitmdump HAR Download</td>
+        {% if config.mitmdump.enabled %}
+        <td><span class="badge badge-success">Yes</span></td>
+        {% else %}
+        <td><span class="badge badge-danger">No</span></td>
+        {% endif %}
+        <td>
+          <ul>
+            <li>RPS: {{ config.mitmdump.rps }}</li>
+            <li>RPM: {{ config.mitmdump.rpm }}</li>
+          </ul>
+        </td>
+        <td>Download the HAR file of mitmdump given a Task ID. Return will be a HAR file.</td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#mitmdump" aria-expanded="false" aria-controls="#mitmdump">Example</a>
+        </td>
+      </tr>
+      <tr class="collapse" id="mitmdump">
+        <td colspan="5">
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/mitmdump/[task id]/</pre>
         </td>
       </tr>
     </tbody>

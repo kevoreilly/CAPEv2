@@ -26,6 +26,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
 from rest_framework.decorators import api_view
 
+from modules.auxiliary.Mitmdump import mitmdump
+
 sys.path.append(settings.CUCKOO_PATH)
 
 import modules.processing.network as network
@@ -758,6 +760,9 @@ def load_files(request, task_id, category):
             tls_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "tlsdump", "tlsdump.log")
             if _path_safe(tls_path):
                 ajax_response["tlskeys_exists"] = _path_safe(tls_path)
+            mitmdump_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "mitmdump", "dump.har")
+            if _path_safe(mitmdump_path):
+                ajax_response["mitmdump_exists"] = _path_safe(mitmdump_path)
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
@@ -1943,6 +1948,9 @@ def file(request, category, task_id, dlfile):
         path = []
         for dfile in os.listdir(buf):
             path.append(os.path.join(buf, dfile))
+    elif category == "mitmdump":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "mitmdump", "dump.har")
+        cd = "text/plain"
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 

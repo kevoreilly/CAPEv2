@@ -1397,7 +1397,8 @@ class _Database:
                     tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
                     del parsed_options["tags"]
                 # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
-                if "package" in parsed_options:
+                # Do not overwrite user provided package
+                if not package and "package" in parsed_options:
                     package = parsed_options["package"]
                     del parsed_options["package"]
 

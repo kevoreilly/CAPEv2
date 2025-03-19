@@ -1643,7 +1643,7 @@ def tasks_evtx(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_mitmdump(request, task_id):
-    if not apiconf.taskmitmdump.get("enabled"):
+    if not apiconf.mitmdump.get("enabled"):
         resp = {"error": True, "error_value": "Mitmdump HAR download API is disabled"}
         return Response(resp)
 

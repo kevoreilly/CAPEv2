@@ -1326,6 +1326,7 @@ if [ ! -f /etc/sudoers.d/cape ]; then
 Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
 EOF
+fi
 if [ ! -f /etc/sudoers.d/ip_netns ]; then
     cat >> /etc/sudoers.d/ip_netns << EOF
 ${USER} ALL=NOPASSWD: /usr/sbin/ip netns exec * /usr/bin/sudo -u cape *

@@ -26,8 +26,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
 from rest_framework.decorators import api_view
 
-from modules.auxiliary.Mitmdump import mitmdump
-
 sys.path.append(settings.CUCKOO_PATH)
 
 import modules.processing.network as network

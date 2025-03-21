@@ -186,6 +186,7 @@ def mongo_drop_database(database: str):
     conn.drop_database(database)
 
 
+# ToDo rewrite this in future
 def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
     try:
         if isinstance(task_ids, int):
@@ -194,7 +195,9 @@ def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
         analyses_tmp = []
         found_task_ids = []
         tasks = mongo_find("analysis", {"info.id": {"$in": task_ids}}, {"behavior.processes.calls": 1, "info.id": 1})
+        mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
 
+        # ToDo remove this in future
         for task in tasks or []:
             for process in task.get("behavior", {}).get("processes", []):
                 if process.get("calls"):

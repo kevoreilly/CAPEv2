@@ -58,10 +58,10 @@ QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux
 
 
 #https://www.qemu.org/download/#source or https://download.qemu.org/
-qemu_version=9.2.1
+qemu_version=9.2.2
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
-libvirt_version=11.0.0
+libvirt_version=11.0.1
 seabios_version=1.16.3
 # virt-manager - https://github.com/virt-manager/virt-manager/releases
 # autofilled
@@ -764,10 +764,10 @@ function replace_qemu_clues_public() {
 function replace_seabios_clues_public() {
     echo "[+] Generating SeaBios Kconfig"
     echo "[+] Fixing SeaBios antivms"
-    _sed_aux 's/Bochs/"<WOOT>/g' src/config.h 'Bochs was not replaced in src/config.h'
+    _sed_aux 's/Bochs/<WOOT>/g' src/config.h 'Bochs was not replaced in src/config.h'
     _sed_aux "s/BOCHSCPU/$bochs_cpu_replacement/g" src/config.h 'BOCHSCPU was not replaced in src/config.h'
     _sed_aux 's/"BOCHS "/"<WOOT>"/g' src/config.h 'BOCHS was not replaced in src/config.h'
-    _sed_aux 's/BXPC/"<WOOT>/g' src/config.h 'BXPC was not replaced in src/config.h'
+    _sed_aux 's/BXPC/<WOOT>/g' src/config.h 'BXPC was not replaced in src/config.h'
     _sed_aux "s/QEMU\/Bochs/$qemu_bochs_cpu/g" vgasrc/Kconfig 'QEMU\/Bochs was not replaced in vgasrc/Kconfig'
     _sed_aux "s/qemu /$qemu_space_replacement/g" vgasrc/Kconfig 'qemu was not replaced in vgasrc/Kconfig'
     _sed_aux "s/06\/23\/99/$src_misc_bios_table/g" src/misc.c 'change seabios date 1'
@@ -945,7 +945,7 @@ function install_seabios() {
     cd /tmp || return
     echo '[+] Installing SeaBios dependencies'
     aptitude install -f git acpica-tools -y
-    if [! -f "seabios_${seabios_version}.tar.gz" ]; then
+    if [ ! -f "seabios_${seabios_version}.tar.gz" ]; then
         rm "seabios_${seabios_version}"
         wget https://github.com/coreboot/seabios/archive/refs/tags/rel-${seabios_version}.tar.gz -O "seabios_${seabios_version}.tar.gz"
     fi

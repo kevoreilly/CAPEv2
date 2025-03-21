@@ -225,8 +225,11 @@ class ForceClosingTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHan
         Override doRollover to force close the old handler before creating a new one.
         """
         if self.stream:
-            self.stream.close()  # Force close the current stream
-            self.stream = None
+            logging.debug("Flushing log stream...")
+            self.stream.flush()
+            logging.debug("Closing log stream...")
+            self.stream.close()
+            logging.debug("Log stream closed.")
         logging.handlers.TimedRotatingFileHandler.doRollover(self)
 
 

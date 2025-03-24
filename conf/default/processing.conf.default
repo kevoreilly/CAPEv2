@@ -63,6 +63,7 @@ enabled = no
 processtree = no
 # Platform specific
 platform = linux
+update_file_descriptors = yes
 
 [debug]
 enabled = yes

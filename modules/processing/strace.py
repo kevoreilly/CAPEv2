@@ -229,6 +229,8 @@ class Processes:
         Returns an updated process list where file-access related calls have
         the matching file descriptor at the time of it being opened.
         """
+        if not self.options.get("update_file_descriptors"):
+            return
         # Default file descriptors
         fd_lookup = {
             "0": [{

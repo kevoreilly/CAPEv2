@@ -40,7 +40,7 @@ CAPE guest component. They include:
     The recommended installation is the execution of the following commands::
 
     > python -m pip install --upgrade pip
-    > python -m pip install Pillow==9.5.0
+    > python -m pip install Pillow
 
 These Python libraries are not strictly required by CAPE, but you are encouraged
 to install them if you want to have access to all available features. Make sure

@@ -1462,7 +1462,7 @@ def search_behavior(request, task_id):
                     for argument in call["arguments"]:
                         if search_argname and argument["name"] != search_argname:
                             continue
-                        if query.search(argument["value"]):
+                        if isinstance(argument["value"], (str, bytes)) and query.search(argument["value"]):
                             process_results.append(call)
                             break
 

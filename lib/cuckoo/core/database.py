@@ -2020,6 +2020,7 @@ class _Database:
         include_hashes=False,
         user_id=None,
         for_update=False,
+        delete=False,
     ) -> List[Task]:
         """Retrieve list of task.
         @param limit: specify a limit of entries.
@@ -2041,6 +2042,7 @@ class _Database:
         @param include_hashes: return task+samples details
         @param user_id: list of tasks submitted by user X
         @param for_update: If True, use "SELECT FOR UPDATE" in order to create a row-level lock on the selected tasks.
+        @param delete: delete selected tasks
         @return: list of tasks.
         """
         tasks: List[Task] = []
@@ -2087,6 +2089,11 @@ class _Database:
             search = search.filter(Task.id.in_(task_ids))
         if user_id is not None:
             search = search.filter(Task.user_id == user_id)
+
+        if delete:
+            search.delete()
+            return []
+
         if order_by is not None and isinstance(order_by, tuple):
             search = search.order_by(*order_by)
         elif order_by is not None:

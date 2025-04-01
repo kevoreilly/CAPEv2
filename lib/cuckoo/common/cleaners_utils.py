@@ -50,6 +50,7 @@ if repconf.mongodb.enabled:
         connect_to_mongo,
         mdb,
         mongo_delete_data,
+        mongo_delete_data_id_lower_than,
         mongo_drop_database,
         mongo_find,
         mongo_is_cluster,
@@ -218,34 +219,25 @@ def is_reporting_db_connected():
         return False
 
 
-def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool):
-    # ids = [tid["info.id"] for tid in tids]
+def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=False):
     for i in range(0, len(ids), 10):
         ids_tmp = ids[i : i + 10]
+        for id in ids_tmp:
+            try:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
+                if path_is_dir(path):
+                    delete_folder(path)
+            except Exception as e:
+                log.error(e)
+
         if delete_mongo:
             if mongo_is_cluster():
                 response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
                 if response.lower() in ("n", "not"):
                     sys.exit()
             mongo_delete_data(ids_tmp)
-
-            for id in ids_tmp:
-                try:
-                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
-                    if path_is_dir(path):
-                        delete_folder(path)
-                except Exception as e:
-                    log.error(e)
-            db.delete_tasks(ids_tmp)
-        else:
-            # If we don't remove from mongo we should keep in db to be able to show task in webgui
-            for id in ids_tmp:
-                try:
-                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
-                    if path_is_dir(path):
-                        delete_folder(path)
-                except Exception as e:
-                    log.error(e)
+            if delete_db_tasks:
+                db.delete_tasks(ids_tmp)
 
 
 def fail_job(tid):
@@ -359,6 +351,9 @@ def cuckoo_clean_failed_tasks():
     # ToDo rewrite for bulk delete
     ids = [task.id for task in tasks_list]
     delete_bulk_tasks_n_folders(ids, delete_mongo=True)
+    tasks_list = db.list_tasks(
+        status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}", delete=True
+    )
 
 
 def cuckoo_clean_bson_suri_logs():
@@ -403,7 +398,7 @@ def cuckoo_clean_failed_url_tasks():
         query = {"info.category": "url", "network.http.0": {"$exists": False}}
         rtmp = mongo_find("analysis", query, projection={"info.id": 1}, sort=[("_id", -1)], limit=100)
         ids = [task["info"]["id"] for task in rtmp]
-        delete_bulk_tasks_n_folders(ids, delete_mongo=True)
+        delete_bulk_tasks_n_folders(ids, delete_mongo=True, delete_db_tasks=True)
     elif repconf.elasticsearchdb.enabled:
         rtmp = [
             d["_source"]
@@ -492,16 +487,19 @@ def cuckoo_clean_before(args: dict):
         log.info("No days argument provided bailing")
         return
 
+    category = None
     added_before = convert_into_time(timerange)
     if args.get("files_only_filter"):
         log.info("file filter applied")
         old_tasks = db.list_tasks(added_before=added_before, category="file")
+        category = "file"
     elif args.get("urls_only_filter"):
         log.info("url filter applied")
         old_tasks = db.list_tasks(added_before=added_before, category="url")
-    else:
-        old_tasks = db.list_tasks(added_before=added_before)
 
+    old_tasks = db.list_tasks(added_before=added_before, category=category)
+
+    # We need this to cleanup file system and MongoDB calls collection
     id_arr = [e.id for e in old_tasks]
     log.info("number of matching records %s before suri/custom filter", len(id_arr))
     if id_arr and args.get("suricata_zero_alert_filter"):
@@ -516,9 +514,31 @@ def cuckoo_clean_before(args: dict):
             )
         )
         id_arr = [entry["info"]["id"] for entry in result]
-    log.info("number of matching records %s", len(id_arr))
-    delete_bulk_tasks_n_folders(id_arr, args.get("delete_mongo"))
+    highest_id = max(id_arr)
+    log.info("number of matching records %s. Highest id: %d", len(id_arr), highest_id)
+    # delete_bulk_tasks_n_folders(id_arr, args.get("delete_mongo"), db_delete_before=1)
     # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
+    # ids = [tid["info.id"] for tid in tids]
+    for i in range(0, len(id_arr), 100):
+        ids_tmp = id_arr[i : i + 100]
+        for id in ids_tmp:
+            try:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
+                if path_is_dir(path):
+                    delete_folder(path)
+            except Exception as e:
+                log.error(e)
+
+        if args.get("delete_mongo"):
+            if mongo_is_cluster():
+                response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
+                if response.lower() in ("n", "not"):
+                    sys.exit()
+            mongo_delete_calls([str(id) for id in ids_tmp])
+
+    if args.get("delete_mongo"):
+        mongo_delete_data_id_lower_than(highest_id, id_arr)
+    db.list_tasks(added_before=added_before, category=category, delete=True)
 
 
 def cuckoo_clean_sorted_pcap_dump():

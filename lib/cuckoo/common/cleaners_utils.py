@@ -116,7 +116,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     cleanup_dict = {
         "delete_mongo": config.cleaner.mongo,
     }
-    if config.cleaner.binaries_days:
+    if config.cleaner.binaries:
         cleanup_dict["delete_binaries_items_older_than"] = convert_into_time(config.cleaner.binaries)
     if config.cleaner.tmp:
         cleanup_dict["delete_tmp_items_older_than"] = convert_into_time(config.cleaner.tmp)

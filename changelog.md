@@ -3,6 +3,14 @@
     * Trace: allow custom stepping behavior with 'stepmode' option, stepmode=1 steps into short calls (e.g. Rhadamanthys control flow flattening)
     * Hooking: replace sprintf calls with internal non-allocating implementation (num_to_hex(), uuid_to_string())
     * CommandLineToArgvW hook
+* Cleaners update
+    * Now you can specify time range as 12h, 50m, 3d.
+    * Improved bulk cleanup for speed. Mongodb's calls collection now has task_id value. This allows to cleanup it faster.
+    * Servers that runs for years, might need to update their `tasks_tags` table schema by hand, only if you getting `ForeignKey violation`.
+```
+    ALTER TABLE tasks_tags DROP CONSTRAINT tasks_tags_task_id_fkey, ADD CONSTRAINT tasks_tags_task_id_fkey FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE;
+    ALTER TABLE tasks_tags DROP CONSTRAINT tasks_tags_tag_id_fkey, ADD CONSTRAINT tasks_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE;
+```
 
 ### [14.03.2025] CAPA and FLOSS
 * CAPA and FLOSS configs are moved to `integrations.conf`

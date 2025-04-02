@@ -186,34 +186,38 @@ def mongo_drop_database(database: str):
     conn.drop_database(database)
 
 
-# ToDo rewrite this in future
 def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
     try:
         if isinstance(task_ids, int):
             task_ids = [task_ids]
 
-        analyses_tmp = []
-        found_task_ids = []
-        tasks = mongo_find("analysis", {"info.id": {"$in": task_ids}}, {"behavior.processes.calls": 1, "info.id": 1})
-        mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
-
-        # ToDo remove this in future
-        for task in tasks or []:
-            for process in task.get("behavior", {}).get("processes", []):
-                if process.get("calls"):
-                    mongo_delete_many("calls", {"_id": {"$in": process["calls"]}})
-            analyses_tmp.append(task["_id"])
-            task_id = task.get("info", {}).get("id", None)
-            if task_id is not None:
-                found_task_ids.append(task_id)
-
-        if analyses_tmp:
-            mongo_delete_many("analysis", {"_id": {"$in": analyses_tmp}})
-            if found_task_ids:
-                for hook in hooks[mongo_delete_data]["analysis"]:
-                    hook(found_task_ids)
+        # calls table requires task_id as string
+        mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
+        mongo_delete_calls(task_ids)
+        if task_ids:
+            for hook in hooks[mongo_delete_data]["analysis"]:
+                hook(task_ids)
     except Exception as e:
         log.exception(e)
+
+
+# ToDo range
+def mongo_delete_data_id_lower_than(task_id: int, task_ids: list):
+    try:
+        mongo_delete_many("analysis", {"task.id": {"$lt": task_id}})
+        mongo_delete_many("calls", {"info_id": {"$lt": task_id}})
+        if task_ids:
+            for hook in hooks[mongo_delete_data]["analysis"]:
+                hook(task_ids)
+    except Exception as e:
+        log.exception(e)
+
+# ToDo range
+def mongo_delete_calls(task_ids: list):
+    """
+    Delete calls related to task(s)
+    """
+    mongo_delete_many("calls", {"info_id": {"$in": task_ids}})
 
 
 def mongo_is_cluster():

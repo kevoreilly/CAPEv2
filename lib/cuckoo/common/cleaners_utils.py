@@ -50,15 +50,61 @@ if repconf.mongodb.enabled:
         connect_to_mongo,
         mdb,
         mongo_delete_data,
+        mongo_delete_data_id_lower_than,
         mongo_drop_database,
         mongo_find,
         mongo_is_cluster,
         mongo_update_one,
+        mongo_delete_calls,
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
 
 
+def convert_into_time(time_range: str) -> datetime:
+    """
+    Converts a string representing a time range (e.g., '12h', '1d', '5m')
+    into a datetime object representing the time in the past.
+
+    Args:
+        time_range: A string in the format of a number followed by a unit
+                    ('d' for days, 'h' for hours, 'm' for minutes, 's' for seconds).
+
+    Returns:
+        A datetime object representing the time in the past based on the
+        provided time range.
+
+    Raises:
+        ValueError: If the input string is in an invalid format or the unit
+                    is not recognized.
+    """
+    if not isinstance(time_range, str) or len(time_range) < 2:
+        raise ValueError("Invalid time range format.")
+
+    unit = time_range[-1].lower()
+    value_str = time_range[:-1]
+
+    if not value_str.isdigit():
+        raise ValueError("Invalid numeric value.")
+
+    value = int(value_str)
+    now = datetime.now()
+
+    time_units = {
+        "d": "days",
+        "h": "hours",
+        "m": "minutes",
+        "s": "seconds",
+    }
+
+    if unit in time_units:
+        kwargs = {time_units[unit]: value}
+        return now - timedelta(**kwargs)
+    else:
+        raise ValueError(f"Invalid time unit '{unit}'.")
+
+
+# todo rewrite for time range
 def free_space_monitor(path=False, return_value=False, processing=False, analysis=False):
     """
     @param path: path to check
@@ -71,11 +117,11 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
         "delete_mongo": config.cleaner.mongo,
     }
     if config.cleaner.binaries_days:
-        cleanup_dict["delete_binaries_items_older_than_days"] = int(config.cleaner.binaries_days)
-    if config.cleaner.tmp_days:
-        cleanup_dict["delete_tmp_items_older_than_days"] = int(config.cleaner.tmp_days)
-    if config.cleaner.analysis_days:
-        cleanup_dict["delete_older_than_days"] = int(config.cleaner.analysis_days)
+        cleanup_dict["delete_binaries_items_older_than"] = convert_into_time(config.cleaner.binaries)
+    if config.cleaner.tmp:
+        cleanup_dict["delete_tmp_items_older_than"] = convert_into_time(config.cleaner.tmp)
+    if config.cleaner.analysis:
+        cleanup_dict["delete_older_than"] = convert_into_time(config.cleaner.analysis)
     if config.cleaner.unused_files_in_mongodb:
         cleanup_dict["delete_unused_file_data_in_mongo"] = 1
 
@@ -119,13 +165,15 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
                 # prepare dict on startup
                 execute_cleanup(cleanup_dict)
 
-                # rest 1 day
-                if config.cleaner.binaries_days and cleanup_dict["delete_binaries_items_older_than_days"]:
-                    cleanup_dict["delete_binaries_items_older_than_days"] -= 1
-                if config.cleaner.tmp_days and cleanup_dict["delete_tmp_items_older_than_days"]:
-                    cleanup_dict["delete_tmp_items_older_than_days"] -= 1
-                if config.cleaner.analysis_days and cleanup_dict["delete_older_than_days"]:
-                    cleanup_dict["delete_older_than_days"] -= 1
+                # ToDo timedelta
+                """
+                if config.cleaner.binaries and cleanup_dict["delete_binaries_items_older_than"]:
+                    cleanup_dict["delete_binaries_items_older_than"] -= 1
+                if config.cleaner.tmp and cleanup_dict["delete_tmp_items_older_than"]:
+                    cleanup_dict["delete_tmp_items_older_than"] -= 1
+                if config.cleaner.analysis and cleanup_dict["delete_older_than"]:
+                    cleanup_dict["delete_older_than"] -= 1
+                """
 
             time.sleep(5)
         else:
@@ -171,57 +219,33 @@ def is_reporting_db_connected():
         return False
 
 
-def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
-    ids = [tid["info.id"] for tid in tids]
+def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=False):
     for i in range(0, len(ids), 10):
         ids_tmp = ids[i : i + 10]
+        for id in ids_tmp:
+            try:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
+                if path_is_dir(path):
+                    delete_folder(path)
+            except Exception as e:
+                log.error(e)
+
         if delete_mongo:
             if mongo_is_cluster():
                 response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
                 if response.lower() in ("n", "not"):
                     sys.exit()
             mongo_delete_data(ids_tmp)
-
-            for id in ids_tmp:
-                try:
-                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
-                    if path_is_dir(path):
-                        delete_folder(path)
-                except Exception as e:
-                    log.error(e)
-            db.delete_tasks(ids_tmp)
-        else:
-            # If we don't remove from mongo we should keep in db to be able to show task in webgui
-            for id in ids_tmp:
-                try:
-                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
-                    if path_is_dir(path):
-                        delete_folder(path)
-                except Exception as e:
-                    log.error(e)
+            if delete_db_tasks:
+                db.delete_tasks(ids_tmp)
 
 
 def fail_job(tid):
-    if isinstance(tid, dict):
-        if "info.id" in tid:
-            tid = tid["info.id"]
-        elif tid.get("info", {}).get("id", 0):
-            tid = tid["info"]["id"]
-        elif "id" in tid:
-            tid = tid["id"]
     log.info("set %s job to failed", tid)
-
     db.set_status(tid, TASK_FAILED_ANALYSIS)
 
 
 def delete_data(tid):
-    if isinstance(tid, dict):
-        if "info.id" in tid:
-            tid = tid["info.id"]
-        elif tid.get("info", {}).get("id", 0):
-            tid = tid["info"]["id"]
-        elif "id" in tid:
-            tid = tid["id"]
     try:
         log.info("removing %s from analysis db", tid)
         if repconf.mongodb.enabled:
@@ -238,6 +262,7 @@ def delete_data(tid):
 
 
 def dist_delete_data(data, dist_db):
+    id_list = []
     for id, file in data:
         try:
             if path_exists(file):
@@ -245,13 +270,15 @@ def dist_delete_data(data, dist_db):
                     path_delete(file)
                 except Exception as e:
                     log.info(e)
-            db.delete_task(id)
             # clean dist_db
             dist_task = dist_db.query(Task).filter(DTask.main_task.id == id).first()
             if dist_task:
                 dist_db.delete(dist_task.id)
+            id_list.append(id)
         except Exception as e:
             log.info(e)
+
+    db.delete_tasks(id_list)
 
 
 def cuckoo_clean():
@@ -284,6 +311,7 @@ def cuckoo_clean():
         os.path.join(CUCKOO_ROOT, "db"),
         os.path.join(CUCKOO_ROOT, "log"),
         os.path.join(CUCKOO_ROOT, "storage"),
+        # ToDo temp cleanup
     ]
 
     # Delete various directories.
@@ -318,14 +346,14 @@ def cuckoo_clean_failed_tasks():
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
 
-    failed_tasks_a = db.list_tasks(status=TASK_FAILED_ANALYSIS)
-    failed_tasks_p = db.list_tasks(status=TASK_FAILED_PROCESSING)
-    failed_tasks_r = db.list_tasks(status=TASK_FAILED_REPORTING)
-    failed_tasks_rc = db.list_tasks(status=TASK_RECOVERED)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), failed_tasks_a)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), failed_tasks_p)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), failed_tasks_r)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), failed_tasks_rc)
+    # ToDo multi status
+    tasks_list = db.list_tasks(status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}")
+    # ToDo rewrite for bulk delete
+    ids = [task.id for task in tasks_list]
+    delete_bulk_tasks_n_folders(ids, delete_mongo=True)
+    tasks_list = db.list_tasks(
+        status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}", delete=True
+    )
 
 
 def cuckoo_clean_bson_suri_logs():
@@ -336,27 +364,22 @@ def cuckoo_clean_bson_suri_logs():
     create_structure()
     from glob import glob
 
-    failed_tasks_a = db.list_tasks(status=TASK_FAILED_ANALYSIS)
-    failed_tasks_p = db.list_tasks(status=TASK_FAILED_PROCESSING)
-    failed_tasks_r = db.list_tasks(status=TASK_FAILED_REPORTING)
-    failed_tasks_rc = db.list_tasks(status=TASK_RECOVERED)
-    tasks_rp = db.list_tasks(status=TASK_REPORTED)
-    for e in failed_tasks_a, failed_tasks_p, failed_tasks_r, failed_tasks_rc, tasks_rp:
-        for el2 in e:
-            new = el2.to_dict()
-            id = new["id"]
-            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
-            if path_exists(path):
-                jsonlogs = glob(f"{path}/logs/*json*")
-                bsondata = glob(f"{path}/logs/*.bson")
-                filesmeta = glob(f"{path}/logs/files/*.meta")
-                for f in jsonlogs, bsondata, filesmeta:
-                    for fe in f:
-                        try:
-                            log.info("removing %s", fe)
-                            path_delete(fe)
-                        except Exception as Err:
-                            log.info("failed to remove sorted_pcap from disk %s", Err)
+    tasks_list = db.list_tasks(
+        status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}|{TASK_REPORTED}"
+    )
+    for task in tasks_list:
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task.id))
+        if path_exists(path):
+            jsonlogs = glob(f"{path}/logs/*json*")
+            bsondata = glob(f"{path}/logs/*.bson")
+            filesmeta = glob(f"{path}/logs/files/*.meta")
+            for f in jsonlogs, bsondata, filesmeta:
+                for fe in f:
+                    try:
+                        # log.info("removing %s", fe)
+                        path_delete(fe)
+                    except Exception as Err:
+                        log.info("failed to remove sorted_pcap from disk %s", Err)
 
 
 def cuckoo_clean_failed_url_tasks():
@@ -374,6 +397,8 @@ def cuckoo_clean_failed_url_tasks():
     if repconf.mongodb.enabled:
         query = {"info.category": "url", "network.http.0": {"$exists": False}}
         rtmp = mongo_find("analysis", query, projection={"info.id": 1}, sort=[("_id", -1)], limit=100)
+        ids = [task["info"]["id"] for task in rtmp]
+        delete_bulk_tasks_n_folders(ids, delete_mongo=True, delete_db_tasks=True)
     elif repconf.elasticsearchdb.enabled:
         rtmp = [
             d["_source"]
@@ -383,11 +408,8 @@ def cuckoo_clean_failed_url_tasks():
                 _source=["info.id"],
             )
         ]
-    else:
-        rtmp = []
-
-    if rtmp and len(rtmp) > 0:
-        resolver_pool.map(lambda tid: delete_data(tid), rtmp)
+        if rtmp and len(rtmp) > 0:
+            resolver_pool.map(lambda tid: delete_data(tid), rtmp)
 
 
 def cuckoo_clean_lower_score(malscore: int):
@@ -407,6 +429,7 @@ def cuckoo_clean_lower_score(malscore: int):
     if repconf.mongodb.enabled:
         result = list(mongo_find("analysis", {"malscore": {"$lte": malscore}}))
         id_arr = [entry["info"]["id"] for entry in result]
+
     elif repconf.elasticsearchdb.enabled:
         id_arr = [
             d["_source"]["info"]["id"]
@@ -415,25 +438,24 @@ def cuckoo_clean_lower_score(malscore: int):
             )
         ]
     log.info("number of matching records %s", len(id_arr))
-    resolver_pool.map(lambda tid: delete_data(tid), id_arr)
+    # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
+    if id_arr:
+        delete_bulk_tasks_n_folders(id_arr, delete_mongo=True)
 
 
-def tmp_clean_before_day(days: int):
+def tmp_clean_before(timerange: str):
     """Clean up tmp folder
-    It deletes all items in tmp folder before now - days.
+    It deletes all items in tmp folder before now - timerange.
     """
-
-    today = datetime.today()
+    older_than = convert_into_time(timerange)
     tmp_folder_path = config.cuckoo.get("tmppath")
-
+    # 3rd party?
     for folder in ("cuckoo-tmp", "cape-external", "cuckoo-sflock"):
         for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
             for name in files + directories:
                 path = os.path.join(root, name)
                 path_ctime = path_get_date(os.path.join(root, path))
-                file_time = today - datetime.fromtimestamp(path_ctime)
-                # ToDo add check for hours, as 1 day and 23h is still just 1 day
-                if file_time.days > days:
+                if datetime.fromtimestamp(path_ctime) > older_than:
                     try:
                         if path_is_dir(path):
                             log.info("Delete folder: %s", path)
@@ -445,10 +467,10 @@ def tmp_clean_before_day(days: int):
                         log.error(e)
 
 
-def cuckoo_clean_before_day(args: dict):
+def cuckoo_clean_before(args: dict):
     """Clean up failed tasks
     It deletes all stored data from file system and configured databases (SQL
-    and MongoDB for tasks completed before now - days.
+    and MongoDB for tasks completed before now - time range.
     """
     # Init logging.
     # This need to init a console logger handler, because the standard
@@ -460,24 +482,25 @@ def cuckoo_clean_before_day(args: dict):
     if not is_reporting_db_connected():
         return
 
-    days = args.get("delete_older_than_days")
-    if not days:
+    timerange = args.get("delete_older_than")
+    if not timerange:
         log.info("No days argument provided bailing")
         return
 
-    added_before = datetime.now() - timedelta(days=int(days))
+    category = None
+    added_before = convert_into_time(timerange)
     if args.get("files_only_filter"):
         log.info("file filter applied")
         old_tasks = db.list_tasks(added_before=added_before, category="file")
+        category = "file"
     elif args.get("urls_only_filter"):
         log.info("url filter applied")
         old_tasks = db.list_tasks(added_before=added_before, category="url")
-    else:
-        old_tasks = db.list_tasks(added_before=added_before)
 
-    for e in old_tasks:
-        id_arr.append({"info.id": (int(e.to_dict()["id"]))})
+    old_tasks = db.list_tasks(added_before=added_before, category=category)
 
+    # We need this to cleanup file system and MongoDB calls collection
+    id_arr = [e.id for e in old_tasks]
     log.info("number of matching records %s before suri/custom filter", len(id_arr))
     if id_arr and args.get("suricata_zero_alert_filter"):
         result = list(
@@ -491,9 +514,28 @@ def cuckoo_clean_before_day(args: dict):
             )
         )
         id_arr = [entry["info"]["id"] for entry in result]
-    log.info("number of matching records %s", len(id_arr))
-    delete_bulk_tasks_n_folders(id_arr, args.get("delete_mongo"))
+    highest_id = max(id_arr)
+    log.info("number of matching records %s. Highest id: %d", len(id_arr), highest_id)
+    # delete_bulk_tasks_n_folders(id_arr, args.get("delete_mongo"), db_delete_before=1)
     # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
+    # ids = [tid["info.id"] for tid in tids]
+    for i in range(0, len(id_arr), 100):
+        ids_tmp = id_arr[i : i + 100]
+        for id in ids_tmp:
+            try:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id))
+                if path_is_dir(path):
+                    delete_folder(path)
+            except Exception as e:
+                log.error(e)
+
+    if args.get("delete_mongo"):
+        if mongo_is_cluster():
+                response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
+                if response.lower() in ("n", "not"):
+                    sys.exit()
+        mongo_delete_data_id_lower_than(highest_id, id_arr)
+    db.list_tasks(added_before=added_before, category=category, delete=True)
 
 
 def cuckoo_clean_sorted_pcap_dump():
@@ -533,8 +575,8 @@ def cuckoo_clean_sorted_pcap_dump():
         if rtmp and len(rtmp) > 0:
             for e in rtmp:
                 if e["info"]["id"]:
-                    log.info((e["info"]["id"]))
                     try:
+                        # ToDo replace to $in
                         if repconf.mongodb.enabled:
                             mongo_update_one(
                                 "analysis", {"info.id": int(e["info"]["id"])}, {"$unset": {"network.sorted_pcap_id": ""}}
@@ -554,14 +596,11 @@ def cuckoo_clean_sorted_pcap_dump():
             done = True
 
 
-def cuckoo_clean_pending_tasks(before_time: int = None, delete: bool = False):
+def cuckoo_clean_pending_tasks(timerange: str = None, delete: bool = False):
     """Clean up pending tasks
     It deletes all stored data from file system and configured databases (SQL
     and MongoDB for pending tasks.
     """
-
-    from datetime import timedelta
-
     # Init logging.
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
@@ -569,16 +608,21 @@ def cuckoo_clean_pending_tasks(before_time: int = None, delete: bool = False):
 
     if not is_reporting_db_connected():
         return
-    if before_time:
-        before_time = datetime.now() - timedelta(hours=before_time)
 
-    pending_tasks = db.list_tasks(status=TASK_PENDING, added_before=before_time)
-    clean_handler = delete_data if delete else fail_job
-    resolver_pool.map(lambda tid: clean_handler(tid.to_dict()["id"]), pending_tasks)
+    if timerange:
+        before_time = convert_into_time(timerange)
+
+    pending_tasks = [task.id for task in db.list_tasks(status=TASK_PENDING, added_before=before_time)]
+    # clean_handler = delete_data if delete else fail_job
+    # resolver_pool.map(lambda tid: clean_handler(pending_tasks), pending_tasks)
+    if delete:
+        db.list_tasks(status=TASK_PENDING, added_before=before_time, delete=True)
+    else:
+        resolver_pool.map(lambda tid: fail_job(pending_tasks), pending_tasks)
 
 
-def cuckoo_clean_range_tasks(start, end):
-    """Clean up tasks between start and end
+def cuckoo_clean_range_tasks(range):
+    """Clean up tasks between range: 1-5
     It deletes all stored data from file system and configured databases (SQL
     and MongoDB for selected tasks.
     """
@@ -586,9 +630,11 @@ def cuckoo_clean_range_tasks(start, end):
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    pending_tasks = db.list_tasks(id_after=start - 1, id_before=end + 1)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), pending_tasks)
-
+    start, end = range.split("-")
+    pending_tasks = db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1)
+    ids = [task.id for task in pending_tasks]
+    delete_bulk_tasks_n_folders(ids, delete_mongo=True)
+    db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1, delete=True)
 
 def delete_unused_file_data_in_mongo():
     """Cleans the entries in the 'files' collection that no longer have any analysis
@@ -627,14 +673,14 @@ def cape_clean_tlp():
         return
 
     tlp_tasks = db.get_tlp_tasks()
-    resolver_pool.map(lambda tid: delete_data(tid), tlp_tasks)
+    delete_bulk_tasks_n_folders(tlp_tasks, False)
 
 
-def binaries_clean_before_day(days: int):
+def binaries_clean_before(timerange: str):
     # In case if "delete_bin_copy = off" we might need to clean binaries
     # find storage/binaries/ -name "*" -type f -mtime 5 -delete
 
-    today = datetime.today()
+    olden_than = convert_into_time(timerange)
     binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
     if not path_exists(binaries_folder):
         log.error("Binaries folder doesn't exist")
@@ -646,11 +692,24 @@ def binaries_clean_before_day(days: int):
             if not os.path.exists(bin_path):
                 continue
             st_ctime = path_get_date(bin_path)
-            file_time = today - datetime.fromtimestamp(st_ctime)
-            if file_time.days > days:
+            if datetime.fromtimestamp(st_ctime) > olden_than:
                 # ToDo check database here to ensure that file is not used
                 if path_exists(bin_path) and not db.sample_still_used(sha256, 0):
                     path_delete(bin_path)
+
+
+# ToDo use $lt
+def cleanup_mongodb_calls_collection(args: dict):
+    if not is_reporting_db_connected():
+        return
+
+    timerange = args.get("cleanup_mongo_calls")
+    if not timerange:
+        log.info("No time range argument provided bailing")
+        return
+
+    added_before = convert_into_time(timerange)
+    mongo_delete_calls([task.id for task in db.list_tasks(added_before=added_before)])
 
 
 def execute_cleanup(args: dict, init_log=True):
@@ -669,8 +728,8 @@ def execute_cleanup(args: dict, init_log=True):
     if args.get("failed_url_clean"):
         cuckoo_clean_failed_url_tasks()
 
-    if args.get("delete_older_than_days"):
-        cuckoo_clean_before_day(args)
+    if args.get("delete_older_than"):
+        cuckoo_clean_before(args)
 
     if args.get("pcap_sorted_clean"):
         cuckoo_clean_sorted_pcap_dump()
@@ -679,22 +738,45 @@ def execute_cleanup(args: dict, init_log=True):
         cuckoo_clean_bson_suri_logs()
 
     if args.get("pending_clean"):
-        cuckoo_clean_pending_tasks(args["before_time"])
+        cuckoo_clean_pending_tasks(args["time_range"])
 
     if args.get("malscore"):
         cuckoo_clean_lower_score(args["malscore"])
 
-    if args.get("delete_range_start") and args.get("delete_range_end"):
-        cuckoo_clean_range_tasks(args["delete_range_start"], args["delete_range_end"])
+    if args.get("delete_range"):
+        cuckoo_clean_range_tasks(args["time_range"])
 
     if args.get("deduplicated_cluster_queue"):
         cuckoo_dedup_cluster_queue()
 
-    if args.get("delete_tmp_items_older_than_days"):
-        tmp_clean_before_day(args["delete_tmp_items_older_than_days"])
+    if args.get("delete_tmp_items_older_than"):
+        tmp_clean_before(args["time_range"])
 
-    if args.get("delete_binaries_items_older_than_days"):
-        binaries_clean_before_day(args["delete_binaries_items_older_than_days"])
+    if args.get("delete_binaries_items_older_than"):
+        binaries_clean_before(args["time_range"])
 
     if args.get("delete_unused_file_data_in_mongo"):
         delete_unused_file_data_in_mongo()
+    if args.get("cleanup_mongo_calls"):
+        cleanup_mongodb_calls_collection(args)
+
+
+# Example Usage:
+if __name__ == "__main__":
+    try:
+        past_time_1 = convert_into_time("12h")
+        print(f"12 hours ago: {past_time_1}")
+
+        past_time_2 = convert_into_time("1d")
+        print(f"1 day ago: {past_time_2}")
+
+        past_time_3 = convert_into_time("5m")
+        print(f"5 minutes ago: {past_time_3}")
+
+        past_time_4 = convert_into_time("30s")
+        print(f"30 seconds ago: {past_time_4}")
+
+        # Example of invalid input
+        convert_into_time("invalid")
+    except ValueError as e:
+        print(f"Error: {e}")

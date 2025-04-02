@@ -109,6 +109,9 @@ class MongoDB(Report):
         # reporting modules.
         report = get_json_document(results, self.analysis_path)
 
+        mongo_delete_data(int(report["info"]["id"]))
+        log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
+
         # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
@@ -120,9 +123,6 @@ class MongoDB(Report):
         # Store the results in the report.
         report["behavior"] = dict(report["behavior"])
         report["behavior"]["processes"] = new_processes
-
-        mongo_delete_data(int(report["info"]["id"]))
-        log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
 
         ensure_valid_utf8(report)
         gc.collect()

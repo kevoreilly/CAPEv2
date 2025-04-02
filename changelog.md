@@ -1,7 +1,13 @@
+### [02.04.2025]
+* Monitor updates:
+    * Trace: allow custom stepping behavior with 'stepmode' option, stepmode=1 steps into short calls (e.g. Rhadamanthys control flow flattening)
+    * Hooking: replace sprintf calls with internal non-allocating implementation (num_to_hex(), uuid_to_string())
+    * CommandLineToArgvW hook
+
 ### [14.03.2025] CAPA and FLOSS
 * CAPA and FLOSS configs are moved to `integrations.conf`
 
-### [1.03.2025] VirusTotal and MalwareBazaar
+### [01.03.2025] VirusTotal and MalwareBazaar
 * We have moved VirusTotal and MalwareBazaar to generic downloader so you can enable then in `integrations.conf`
     * Downlod service allows you to set order + simplifies adding another services
     * For `API` use `tasks/create/download_services/` instead of `tasks/create/vtdl/`. Example of data: `data={"hashes":"hash1,hash2"}`

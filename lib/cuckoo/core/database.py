@@ -757,6 +757,7 @@ class _Database:
 
         return self.set_task_status(task, status)
 
+
     def create_guest(self, machine: Machine, manager: str, task: Task) -> Guest:
         guest = Guest(machine.name, machine.label, machine.platform, manager, task.id)
         guest.status = "init"

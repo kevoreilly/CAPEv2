@@ -192,9 +192,8 @@ def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
             task_ids = [task_ids]
 
         # calls table requires task_id as string
-        str_task_ids = [str(task_id) for task_id in task_ids]
         mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
-        mongo_delete_calls(str_task_ids)
+        mongo_delete_calls(task_ids)
         if task_ids:
             for hook in hooks[mongo_delete_data]["analysis"]:
                 hook(task_ids)
@@ -202,16 +201,18 @@ def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
         log.exception(e)
 
 
+# ToDo range
 def mongo_delete_data_id_lower_than(task_id: int, task_ids: list):
     try:
         mongo_delete_many("analysis", {"task.id": {"$lt": task_id}})
+        mongo_delete_many("calls", {"info_id": {"$lt": task_id}})
         if task_ids:
             for hook in hooks[mongo_delete_data]["analysis"]:
                 hook(task_ids)
     except Exception as e:
         log.exception(e)
 
-
+# ToDo range
 def mongo_delete_calls(task_ids: list):
     """
     Delete calls related to task(s)

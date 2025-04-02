@@ -529,14 +529,11 @@ def cuckoo_clean_before(args: dict):
             except Exception as e:
                 log.error(e)
 
-        if args.get("delete_mongo"):
-            if mongo_is_cluster():
+    if args.get("delete_mongo"):
+        if mongo_is_cluster():
                 response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
                 if response.lower() in ("n", "not"):
                     sys.exit()
-            mongo_delete_calls([str(id) for id in ids_tmp])
-
-    if args.get("delete_mongo"):
         mongo_delete_data_id_lower_than(highest_id, id_arr)
     db.list_tasks(added_before=added_before, category=category, delete=True)
 
@@ -616,9 +613,12 @@ def cuckoo_clean_pending_tasks(timerange: str = None, delete: bool = False):
         before_time = convert_into_time(timerange)
 
     pending_tasks = [task.id for task in db.list_tasks(status=TASK_PENDING, added_before=before_time)]
-    clean_handler = delete_data if delete else fail_job
-    # ToDo
-    resolver_pool.map(lambda tid: clean_handler(pending_tasks), pending_tasks)
+    # clean_handler = delete_data if delete else fail_job
+    # resolver_pool.map(lambda tid: clean_handler(pending_tasks), pending_tasks)
+    if delete:
+        db.list_tasks(status=TASK_PENDING, added_before=before_time, delete=True)
+    else:
+        resolver_pool.map(lambda tid: fail_job(pending_tasks), pending_tasks)
 
 
 def cuckoo_clean_range_tasks(range):
@@ -632,9 +632,9 @@ def cuckoo_clean_range_tasks(range):
     create_structure()
     start, end = range.split("-")
     pending_tasks = db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1)
-    # ToDo send tasks list
-    resolver_pool.map(lambda tid: delete_data(tid.id), pending_tasks)
-
+    ids = [task.id for task in pending_tasks]
+    delete_bulk_tasks_n_folders(ids, delete_mongo=True)
+    db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1, delete=True)
 
 def delete_unused_file_data_in_mongo():
     """Cleans the entries in the 'files' collection that no longer have any analysis
@@ -698,6 +698,7 @@ def binaries_clean_before(timerange: str):
                     path_delete(bin_path)
 
 
+# ToDo use $lt
 def cleanup_mongodb_calls_collection(args: dict):
     if not is_reporting_db_connected():
         return
@@ -708,9 +709,7 @@ def cleanup_mongodb_calls_collection(args: dict):
         return
 
     added_before = convert_into_time(timerange)
-    # for calls must be str
-    old_tasks = [str(task.id) for task in db.list_tasks(added_before=added_before)]
-    mongo_delete_calls(old_tasks)
+    mongo_delete_calls([task.id for task in db.list_tasks(added_before=added_before)])
 
 
 def execute_cleanup(args: dict, init_log=True):

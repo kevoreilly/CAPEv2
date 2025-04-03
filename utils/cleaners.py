@@ -52,7 +52,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--delete-tmp-items-older-than",
         help="Remove all items in tmp folder older than time range",
-        type=int,
+
         required=False,
     )
     parser.add_argument(

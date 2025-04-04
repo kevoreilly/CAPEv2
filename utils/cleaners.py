@@ -69,7 +69,6 @@ if __name__ == "__main__":
         help="Delete data from the 'files' collection in mongo that is no longer needed.",
         action="store_true",
     )
-    # TODo move to start-end
     parser.add_argument(
         "-drs",
         "--delete-range",
@@ -84,13 +83,11 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
-    # ToDo
-    parser.add_argument("-bt", "--before-time", help="Manage all pending jobs before X..", action="store", required=False)
     parser.add_argument(
         "-cmc",
         "--cleanup-mongo-calls",
         help="Manage all pending jobs before time range",
-        action="store_true",
+        action="store",
         required=False,
     )
     args = parser.parse_args()

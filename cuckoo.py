@@ -109,6 +109,8 @@ def cuckoo_main(max_analysis_count=0):
 
     os.chdir(cur_path)
 
+def test_gemini():
+    sys.exit()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

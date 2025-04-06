@@ -218,6 +218,9 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
 ]
 
+if web_cfg.general.captcha_protected_analysis_view:
+    MIDDLEWARE.append("web.middleware.RecaptchaVerificationMiddleware")
+
 OTP_TOTP_ISSUER = "CAPE Sandbox"
 
 # Header/protection related

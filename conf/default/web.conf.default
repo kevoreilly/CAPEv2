@@ -94,7 +94,7 @@ enabled = no
 enabled = no
 
 [vtupload]
-# Don't forget to set VT key in aux.conf under virustotaldl
+# Don't forget to set apikey in integrations.conf under virustotal
 enabled = no
 
 #No means delete is disabled on webgui

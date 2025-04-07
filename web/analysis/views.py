@@ -2432,7 +2432,7 @@ def comments(request, task_id):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def vtupload(request, category, task_id, filename, dlfile):
-    if enabledconf["vtupload"] and settings.VTDL_KEY:
+    if enabledconf["vtupload"] and integrations_cfg.virustotal.apikey:
         try:
             folder_name = False
             path = False
@@ -2449,7 +2449,7 @@ def vtupload(request, category, task_id, filename, dlfile):
             if not path or not _path_safe(path):
                 return render(request, "error.html", {"error": f"File not found: {os.path.basename(path)}"})
 
-            headers = {"x-apikey": settings.VTDL_KEY}
+            headers = {"x-apikey": integrations_cfg.virustotal.apikey}
             files = {"file": (filename, open(path, "rb"))}
             response = requests.post("https://www.virustotal.com/api/v3/files", files=files, headers=headers)
             if response.ok:

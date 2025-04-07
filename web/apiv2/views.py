@@ -1885,7 +1885,8 @@ def tasks_procmemory(request, task_id, pid="all"):
         return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
-        return Response(check)
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:

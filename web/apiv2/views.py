@@ -2571,6 +2571,7 @@ def dist_tasks_reported(request):
 @csrf_exempt
 @api_view(["GET"])
 def dist_tasks_notification(request, task_id: int):
+    dist_db = dist_session()
     tasks = dist_db.query(DTask).filter_by(main_task_id=task_id).order_by(DTask.id.desc()).all()
     if not tasks:
         return Response({"error": True, "error_value": f"No tasks found with main_task_id: {task_id}"})

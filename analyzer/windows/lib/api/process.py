@@ -13,7 +13,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, create_unicode_buffer, windll
+from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, create_unicode_buffer, windll, ArgumentError
 from pathlib import Path
 from shutil import copy
 
@@ -301,33 +301,45 @@ class Process:
             if not directory.is_dir():
                 return False
 
-            local_dlls = {f.name.lower() for f in directory.glob("*.dll") if f.is_file()}
+            try:
+                local_dlls = {f.name.lower() for f in directory.glob("*.dll") if f.is_file()}
+            except (OSError, PermissionError) as e:
+                log.warning("detect_dll_sideloading: could not list DLLs in %s: %s", directory_path, e)
+                return False
+
             if not local_dlls:
                 return False
 
-            system_dirs = [
-                self.get_folder_path(CSIDL_WINDOWS),
-                self.get_folder_path(CSIDL_SYSTEM),
-                self.get_folder_path(CSIDL_SYSTEMX86),
-                self.get_folder_path(CSIDL_PROGRAM_FILES),
-                self.get_folder_path(CSIDL_PROGRAM_FILESX86),
-            ]
+            try:
+                system_dirs = [
+                    self.get_folder_path(CSIDL_WINDOWS),
+                    self.get_folder_path(CSIDL_SYSTEM),
+                    self.get_folder_path(CSIDL_SYSTEMX86),
+                    self.get_folder_path(CSIDL_PROGRAM_FILES),
+                    self.get_folder_path(CSIDL_PROGRAM_FILESX86),
+                ]
+            except (OSError, ArgumentError, ValueError) as e:
+                log.warning("detect_dll_sideloading: failed to retrieve system paths: %s", e)
+                return False
 
             # Build set of known system DLLs (names only, lowercased)
             known_dlls = set()
             for sys_dir in system_dirs:
-                sys_path = Path(sys_dir)
-                if sys_path.exists():
-                    known_dlls.update(f.name.lower() for f in sys_path.glob("*.dll") if f.is_file())
+                try:
+                    sys_path = Path(sys_dir)
+                    if sys_path.exists():
+                        known_dlls.update(f.name.lower() for f in sys_path.glob("*.dll") if f.is_file())
+                except (OSError, PermissionError) as e:
+                    log.debug("detect_dll_sideloading: skipping system dir %s: %s", sys_dir, e)
 
             suspicious = local_dlls & known_dlls
             if suspicious:
                 for dll in suspicious:
-                    log.info("detect_dll_sideloading: suspicious DLL found: %s", dll)
+                    log.info("Potential dll side-loading detected in local directory: %s", dll)
             return bool(suspicious)
 
         except Exception as e:
-            log.error("detect_dll_sideloading: exception %s with path %s", e, directory_path)
+            log.error("detect_dll_sideloading: unexpected error with path %s: %s", directory_path, e)
             return False
 
     def kernel_analyze(self):
@@ -764,13 +776,13 @@ class Process:
         path = os.path.dirname(self.path)
 
         if self.detect_dll_sideloading(path):
-        try:
-            copy(dll, os.path.join(path, "capemon.dll"))
-            copy(side_dll, os.path.join(path, "version.dll"))
-            copy(os.path.join(Path.cwd(), "dll", f"{self.pid}.ini"), os.path.join(path, "config.ini"))
-        except OSError as e:
-            log.error("Failed to copy DLL: %s", e)
-            return False
+            try:
+                copy(dll, os.path.join(path, "capemon.dll"))
+                copy(side_dll, os.path.join(path, "version.dll"))
+                copy(os.path.join(Path.cwd(), "dll", f"{self.pid}.ini"), os.path.join(path, "config.ini"))
+            except OSError as e:
+                log.error("Failed to copy DLL: %s", e)
+                return False
             log.info("%s DLL to sideload is %s, sideloader %s", bit_str, os.path.join(path, "capemon.dll"), os.path.join(path, "version.dll"))
             return True
 

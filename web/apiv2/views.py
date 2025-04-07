@@ -1173,7 +1173,8 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
-        return Response(check)
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:

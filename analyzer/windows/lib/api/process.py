@@ -13,7 +13,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, create_unicode_buffer, windll, ArgumentError
+from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, windll, ArgumentError
 from pathlib import Path
 from shutil import copy
 
@@ -103,6 +103,20 @@ def get_referrer_url(interest):
     return f"http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={itemidx}&ved={vedstr}&url={escapedurl}&ei={eistr}&usg={usgstr}"
 
 
+def nt_path_to_dos_path_ansi(nt_path: str) -> str:
+    drive_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    nt_path_bytes = nt_path.encode("utf-8", errors="ignore")
+    for letter in drive_letters:
+        drive = f"{letter}:"
+        target = create_string_buffer(1024)
+        res = KERNEL32.QueryDosDeviceA(drive.encode("ascii"), target, 1024)
+        if res != 0:
+            device_path = target.value
+            if nt_path_bytes.startswith(device_path):
+                converted = nt_path_bytes.replace(device_path, drive.encode("ascii"), 1)
+                return converted.decode("utf-8", errors="ignore")
+    return nt_path
+
 def NT_SUCCESS(val):
     return val >= 0
 
@@ -133,7 +147,6 @@ class Process:
         self.suspended = suspended
         self.system_info = SYSTEM_INFO()
         self.critical = False
-        self.path = None
 
     def __del__(self):
         """Close open handles."""
@@ -240,9 +253,9 @@ class Process:
 
     def get_folder_path(self, csidl):
         """Use SHGetFolderPathW to get the system folder path for a given CSIDL."""
-        buf = create_unicode_buffer(MAX_PATH)
-        windll.shell32.SHGetFolderPathW(None, csidl, None, 0, buf)
-        return buf.value
+        buf = create_string_buffer(MAX_PATH)
+        windll.shell32.SHGetFolderPathA(None, csidl, None, 0, buf)
+        return buf.value.decode('utf-8', errors='ignore')
 
     def get_image_name(self):
         """Get the image name; returns an empty string on error."""
@@ -504,8 +517,6 @@ class Process:
         arguments = f'"{path}" '
         if args:
             arguments += args
-
-        self.path = path
 
         creation_flags = CREATE_NEW_CONSOLE
         if suspended:
@@ -773,7 +784,7 @@ class Process:
 
         self.write_monitor_config(interest, nosleepskip)
 
-        path = os.path.dirname(self.path)
+        path = os.path.dirname(nt_path_to_dos_path_ansi(self.get_filepath()))
 
         if self.detect_dll_sideloading(path):
             try:

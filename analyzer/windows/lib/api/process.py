@@ -764,9 +764,13 @@ class Process:
         path = os.path.dirname(self.path)
 
         if self.detect_dll_sideloading(path):
+        try:
             copy(dll, os.path.join(path, "capemon.dll"))
             copy(side_dll, os.path.join(path, "version.dll"))
             copy(os.path.join(Path.cwd(), "dll", f"{self.pid}.ini"), os.path.join(path, "config.ini"))
+        except OSError as e:
+            log.error("Failed to copy DLL: %s", e)
+            return False
             log.info("%s DLL to sideload is %s, sideloader %s", bit_str, os.path.join(path, "capemon.dll"), os.path.join(path, "version.dll"))
             return True
 

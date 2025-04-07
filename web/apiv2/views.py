@@ -241,8 +241,9 @@ def tasks_create_static(request):
     resp["data"]["task_ids"] = task_ids
     if extra_details and "config" in extra_details:
         resp["data"]["config"] = extra_details["config"]
-    if extra_details.get("erros"):
+    if extra_details.get("errors"):
         resp["errors"].extend(extra_details["errors"])
+
     callback = apiconf.filecreate.get("status")
     if task_ids:
         if len(task_ids) == 1:

@@ -46,7 +46,7 @@ anon_viewable = no
 existent_tasks = no
 top_detections = yes
 top_asn = yes
-# Check for file in mongodb on submit before fetch from 3rd party. This is useful when you want to try to find file on disk, but when mongodb is too big might better to disable.
+# Enable checking for samples in MongoDB before fetching from external sources. Disable to reduce MongoDB load when the database is large.
 check_sample_in_mongodb = no
 # hostname of the cape instance
 hostname = 127.0.0.1

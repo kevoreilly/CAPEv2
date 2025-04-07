@@ -2352,7 +2352,9 @@ class _Database:
                 if path_exists(path):
                     sample = [path]
 
-            if not sample:
+
+            if not sample and web_conf.general.check_sample_in_mongodb:
+                tasks = []
                 if repconf.mongodb.enabled:
                     tasks = mongo_find(
                         "analysis",
@@ -2368,8 +2370,6 @@ class _Database:
                             _source=["CAPE.payloads", "info.id"],
                         )["hits"]["hits"]
                     ]
-                else:
-                    tasks = []
 
                 if tasks:
                     for task in tasks:
@@ -2443,7 +2443,7 @@ class _Database:
                                 sample = [path]
                                 break
 
-            if not sample:
+            if not sample and web_conf.general.check_sample_in_mongodb:
                 # search in Suricata files folder
                 if repconf.mongodb.enabled:
                     tasks = mongo_find(

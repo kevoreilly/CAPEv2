@@ -46,6 +46,8 @@ anon_viewable = no
 existent_tasks = no
 top_detections = yes
 top_asn = yes
+# Check for file in mongodb on submit before fetch from 3rd party. This is useful when you want to try to find file on disk, but when mongodb is too big might better to disable.
+check_sample_in_mongodb = no
 # hostname of the cape instance
 hostname = 127.0.0.1
 ;hostname = www.capesandbox.com

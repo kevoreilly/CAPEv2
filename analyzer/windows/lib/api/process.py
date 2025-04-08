@@ -314,34 +314,35 @@ class Process:
             if not directory.is_dir():
                 return False
 
+            # Early exit if directory is a known system location
             try:
-                local_dlls = {f.name.lower() for f in directory.glob("*.dll") if f.is_file()}
-            except (OSError, PermissionError) as e:
-                log.warning("detect_dll_sideloading: could not list DLLs in %s: %s", directory_path, e)
-                return False
-
-            if not local_dlls:
-                return False
-
-            try:
-                system_dirs = [
-                    self.get_folder_path(CSIDL_WINDOWS),
-                    self.get_folder_path(CSIDL_SYSTEM),
-                    self.get_folder_path(CSIDL_SYSTEMX86),
-                    self.get_folder_path(CSIDL_PROGRAM_FILES),
-                    self.get_folder_path(CSIDL_PROGRAM_FILESX86),
-                ]
+                system_dirs = {
+                    Path(self.get_folder_path(CSIDL_WINDOWS)).resolve(),
+                    Path(self.get_folder_path(CSIDL_SYSTEM)).resolve(),
+                    Path(self.get_folder_path(CSIDL_SYSTEMX86)).resolve(),
+                    Path(self.get_folder_path(CSIDL_PROGRAM_FILES)).resolve(),
+                    Path(self.get_folder_path(CSIDL_PROGRAM_FILESX86)).resolve()
+                }
+                if directory.resolve() in system_dirs:
+                    return False
             except (OSError, ArgumentError, ValueError) as e:
                 log.warning("detect_dll_sideloading: failed to retrieve system paths: %s", e)
                 return False
 
-            # Build set of known system DLLs (names only, lowercased)
+            try:
+                local_dlls = {f.name.lower() for f in directory.glob("*.dll") if f.is_file()}
+                if not local_dlls:
+                    return False
+            except (OSError, PermissionError) as e:
+                log.warning("detect_dll_sideloading: could not list DLLs in %s: %s", directory_path, e)
+                return False
+
+            # Build set of known system DLLs
             known_dlls = set()
             for sys_dir in system_dirs:
                 try:
-                    sys_path = Path(sys_dir)
-                    if sys_path.exists():
-                        known_dlls.update(f.name.lower() for f in sys_path.glob("*.dll") if f.is_file())
+                    if sys_dir.exists():
+                        known_dlls.update(f.name.lower() for f in sys_dir.glob("*.dll") if f.is_file())
                 except (OSError, PermissionError) as e:
                     log.debug("detect_dll_sideloading: skipping system dir %s: %s", sys_dir, e)
 

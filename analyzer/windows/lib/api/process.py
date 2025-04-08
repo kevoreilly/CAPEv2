@@ -314,6 +314,9 @@ class Process:
             if not directory.is_dir():
                 return False
 
+            if (directory/"capemon.dll").exists():
+                return False
+
             # Early exit if directory is a known system location
             try:
                 system_dirs = {

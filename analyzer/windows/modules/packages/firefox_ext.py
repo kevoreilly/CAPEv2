@@ -23,11 +23,11 @@ class Firefox_Ext(Package):
     Allows setting a custom user-agent string via the 'user_agent' option.
     The value should be provided base64-encoded.
     """
-    
+
     # set your current firefox profile path (about:profiles)
     #profile_path = None
     profile_path = None
-    
+
     def start(self, url):
         user_agent = self.options.get("user_agent")
         log.debug("User agent option value: %s", user_agent)

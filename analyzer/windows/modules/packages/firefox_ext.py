@@ -25,7 +25,6 @@ class Firefox_Ext(Package):
     """
 
     # set your current firefox profile path (about:profiles)
-    #profile_path = None
     profile_path = None
 
     def start(self, url):

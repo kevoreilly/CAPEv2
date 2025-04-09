@@ -1110,31 +1110,6 @@ EOF
 
     sudo modprobe br_netfilter
     sudo sysctl -p
-
-    ### PDNS
-    sudo apt-get install -y git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl
-    cd /tmp || return
-
-    # From pevious install
-    if [ -d /tmp/passivedns ]; then
-        sudo rm -rf /tmp/passivedns
-    fi
-    git clone https://github.com/gamelinux/passivedns.git
-    cd passivedns/ || return
-    autoreconf --install
-    ./configure
-    make -j"$(getconf _NPROCESSORS_ONLN)"
-    sudo checkinstall -D --pkgname=passivedns --default
-    chown ${USER}:${USER} -R /tmp/passivedns/
-    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
-    sudo -u ${USER} bash -c 'cd /tmp/passivedns/ ; /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
-    sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
-
-    if [ -d /tmp/passivedns ]; then
-        cd /tmp || return
-        sudo rm -rf /tmp/passivedns
-    fi
-
 }
 
 function install_clamav() {
@@ -1523,6 +1498,29 @@ function install_postgres_pg_activity() {
     sudo apt-get install -y pg-activity
 }
 
+function install_passivedns() {
+    sudo apt-get install -y git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl
+    cd /tmp || return
+
+    # From pevious install
+    if [ -d /tmp/passivedns ]; then
+        sudo rm -rf /tmp/passivedns
+    fi
+    git clone https://github.com/gamelinux/passivedns.git
+    cd passivedns/ || return
+    autoreconf --install
+    ./configure
+    make -j"$(getconf _NPROCESSORS_ONLN)"
+    sudo checkinstall -D --pkgname=passivedns --default
+    chown ${USER}:${USER} -R /tmp/passivedns/
+    sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
+
+    if [ -d /tmp/passivedns ]; then
+        cd /tmp || return
+        sudo rm -rf /tmp/passivedns
+    fi
+}
+
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 
@@ -1678,6 +1676,8 @@ case "$COMMAND" in
     install_DIE;;
 'fluentd')
     install_fluentd;;
+'passivedns')
+    install_passivedns;;
 *)
     usage;;
 esac

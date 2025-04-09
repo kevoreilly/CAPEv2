@@ -31,6 +31,11 @@ class Firefox_Ext(Package):
     def start(self, url):
         user_agent = self.options.get("user_agent")
         log.debug("User agent option value: %s", user_agent)
+        try:
+            base64.b64decode(user_agent)
+        except Exception:
+            log.error("Invalid base64 encoded user agent provided.")
+            user_agent = None
         if user_agent and self.profile_path:
             config = os.path.join(self.profile_path, 'prefs.js')
             ua_decoded = base64.b64decode(user_agent).decode('utf-8')
@@ -41,7 +46,7 @@ class Firefox_Ext(Package):
                     file.write(ua_config)
                 log.info("Successfully appended user agent to prefs.js: %s", ua_decoded)
             except Exception as e:
-                log.error("Failed to write user agent to prefs.js: %s", e, exc_info=True)
+                log.error("Failed to write user agent to prefs.js: %s", e)
         firefox_path = self.get_path("firefox.exe")
         webbrowser.register("firefox", None, webbrowser.BackgroundBrowser(firefox_path))
         firefox = webbrowser.get("firefox")

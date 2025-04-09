@@ -759,13 +759,11 @@ class Process:
             bin_name = LOADER64_NAME
             dll = CAPEMON64_NAME
             bit_str = "64-bit"
-            side_dll = SIDELOADER64_NAME
         else:
             ttd_name = TTD32_NAME
             bin_name = LOADER32_NAME
             dll = CAPEMON32_NAME
             bit_str = "32-bit"
-            side_dll = SIDELOADER32_NAME
 
         bin_name = os.path.join(Path.cwd(), bin_name)
         dll = os.path.join(Path.cwd(), dll)
@@ -790,15 +788,8 @@ class Process:
 
         path = os.path.dirname(nt_path_to_dos_path_ansi(self.get_filepath()))
 
-        if self.detect_dll_sideloading(path):
-            try:
-                copy(dll, os.path.join(path, "capemon.dll"))
-                copy(side_dll, os.path.join(path, "version.dll"))
-                copy(os.path.join(Path.cwd(), "dll", f"{self.pid}.ini"), os.path.join(path, "config.ini"))
-            except OSError as e:
-                log.error("Failed to copy DLL: %s", e)
-                return False
-            log.info("%s DLL to sideload is %s, sideloader %s", bit_str, os.path.join(path, "capemon.dll"), os.path.join(path, "version.dll"))
+        if self.detect_dll_sideloading(path) and self.has_msimg32(path):
+            self.deploy_version_proxy(path)
             return True
 
         log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
@@ -865,3 +856,41 @@ class Process:
         """Get a string representation of this process."""
         image_name = self.get_image_name() or "???"
         return f"<{self.__class__.__name__} {self.pid} {image_name}>"
+
+    def has_msimg32(self, directory_path: str) -> bool:
+        """Check if msimg32.dll exists in directory"""
+        try:
+            return any(
+                f.name.lower() == "msimg32.dll"
+                for f in Path(directory_path).glob("*")
+                if f.is_file()
+            )
+        except (OSError, PermissionError):
+            return False
+
+    def deploy_version_proxy(self, directory_path: str):
+        """Deploy version.dll proxy loader"""
+        if self.is_64bit():
+            dll = CAPEMON64_NAME
+            side_dll = SIDELOADER64_NAME
+            bit_str = "64-bit"
+        else:
+            dll = CAPEMON32_NAME
+            side_dll = SIDELOADER32_NAME
+            bit_str = "32-bit"
+
+        dll = os.path.join(Path.cwd(), dll)
+
+        if not os.path.exists(dll):
+            log.warning("invalid path %s for monitor DLL to be sideloaded in %s, sideloading aborted", dll, self)
+            return
+
+        try:
+            copy(dll, os.path.join(directory_path, "capemon.dll"))
+            copy(side_dll, os.path.join(directory_path, "version.dll"))
+            copy(os.path.join(Path.cwd(), "dll", f"{self.pid}.ini"), os.path.join(directory_path, "config.ini"))
+        except OSError as e:
+            log.error("Failed to copy DLL: %s", e)
+            return
+        log.info("%s DLL to sideload is %s, sideloader %s", bit_str, os.path.join(directory_path, "capemon.dll"), os.path.join(directory_path, "version.dll"))
+        return

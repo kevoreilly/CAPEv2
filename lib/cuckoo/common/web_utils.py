@@ -1423,31 +1423,14 @@ def perform_search(
         if isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         else:
-            search_terms = [{search_term: query_val} for search_term in search_term_map[term]]
             if term in hash_searches:
-                # For analyses where files have been stored in the "files" collection, search
-                # there for the _id (i.e. sha256) of documents matching the given hash. As a
-                # special case, we don't need to do that query if the requested hash type is
-                # "sha256" since that's what's stored in the "file_refs" key.
-                # We do all this in addition to search the old keys for backwards-compatibility
-                # with documents that do not use this mechanism for storing file data.
-                # ToDo we can get tasks_ids directly here so we can search over them instead of do many subqueries
-                if term == "sha256":
-                    file_refs = [query_val]
-                else:
-                    file_docs = mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_id": 1})
-                    file_refs = [doc["_id"] for doc in file_docs]
-                if file_refs:
-                    print("file_refs", file_refs)
-                    if len(file_refs) > 1:
-                        query = {"$in": file_refs}
-                    else:
-                        query = file_refs[0]
-                        # ToDo shouldn't we check size
-                    search_terms.extend([{f"{pfx}.{FILE_REF_KEY}": query} for pfx in NORMALIZED_FILE_FIELDS])
-            # ToDo get all task ids, sort them and do search by id instead of file references
-            mongo_search_query = {"$or": search_terms}
-            print(1, mongo_search_query)
+                # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
+                file_docs = list(mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_task_ids": 1}))
+                if not file_docs:
+                    return []
+                ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
+                term = "ids"
+                mongo_search_query = {"info.id": {"$in": ids}}
         # Allow to overwrite perform_search_filters for custom results
         if not projection:
             projection = perform_search_filters

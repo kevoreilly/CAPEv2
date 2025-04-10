@@ -757,7 +757,6 @@ class _Database:
 
         return self.set_task_status(task, status)
 
-
     def create_guest(self, machine: Machine, manager: str, task: Task) -> Guest:
         guest = Guest(machine.name, machine.label, machine.platform, manager, task.id)
         guest.status = "init"
@@ -2312,12 +2311,6 @@ class _Database:
             128: "sha512",
         }
 
-        folders = {
-            "dropped": "files",
-            "CAPE": "CAPE",
-            "procdump": "procdump",
-        }
-
         if task_id:
             file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "binary")
             if path_exists(file_path):
@@ -2352,15 +2345,15 @@ class _Database:
                 if path_exists(path):
                     sample = [path]
 
-
-            if not sample and web_conf.general.check_sample_in_mongodb:
+            if not sample:
                 tasks = []
-                if repconf.mongodb.enabled:
+                if repconf.mongodb.enabled and web_conf.general.check_sample_in_mongodb:
                     tasks = mongo_find(
-                        "analysis",
-                        {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
-                        {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
+                        "files",
+                        {sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                        {"_info_ids": 1, "sha256": 1},
                     )
+                """ deprecated code
                 elif repconf.elasticsearchdb.enabled:
                     tasks = [
                         d["_source"]
@@ -2370,62 +2363,18 @@ class _Database:
                             _source=["CAPE.payloads", "info.id"],
                         )["hits"]["hits"]
                     ]
-
+                """
                 if tasks:
                     for task in tasks:
-                        for block in task.get("CAPE", {}).get("payloads", []) or []:
-                            if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                file_path = os.path.join(
-                                    CUCKOO_ROOT,
-                                    "storage",
-                                    "analyses",
-                                    str(task["info"]["id"]),
-                                    folders.get("CAPE"),
-                                    block["sha256"],
-                                )
+                        for id in task.get("_task_ids", []):
+                            # ToDo suricata path - "suricata.files.file_info.path
+                            for category in ("files", "procdump", "CAPE"):
+                                file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id), category, task["sha256"])
                                 if path_exists(file_path):
                                     sample = [file_path]
                                     break
                         if sample:
                             break
-
-                for category in ("dropped", "procdump"):
-                    # we can't filter more if query isn't sha256
-                    if repconf.mongodb.enabled:
-                        tasks = mongo_find(
-                            "analysis",
-                            {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
-                            {category: 1, "_id": 0, "info.id": 1},
-                        )
-                    elif repconf.elasticsearchdb.enabled:
-                        tasks = [
-                            d["_source"]
-                            for d in es.search(
-                                index=get_analysis_index(),
-                                body={"query": {"match": {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
-                                _source=["info.id", category],
-                            )["hits"]["hits"]
-                        ]
-                    else:
-                        tasks = []
-
-                    if tasks:
-                        for task in tasks:
-                            for block in task.get(category, []) or []:
-                                if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                    file_path = os.path.join(
-                                        CUCKOO_ROOT,
-                                        "storage",
-                                        "analyses",
-                                        str(task["info"]["id"]),
-                                        folders.get(category),
-                                        block["sha256"],
-                                    )
-                                    if path_exists(file_path):
-                                        sample = [file_path]
-                                        break
-                            if sample:
-                                break
 
             if not sample:
                 # search in temp folder if not found in binaries
@@ -2442,34 +2391,6 @@ class _Database:
                             if sample_hash == hashlib_sizes[len(sample_hash)](f.read()).hexdigest():
                                 sample = [path]
                                 break
-
-            if not sample and web_conf.general.check_sample_in_mongodb:
-                # search in Suricata files folder
-                if repconf.mongodb.enabled:
-                    tasks = mongo_find(
-                        "analysis", {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
-                    )
-                elif repconf.elasticsearchdb.enabled:
-                    tasks = [
-                        d["_source"]
-                        for d in es.search(
-                            index=get_analysis_index(),
-                            body={"query": {"match": {"suricata.files.sha256": sample_hash}}},
-                            _source="suricata.files.file_info.path",
-                        )["hits"]["hits"]
-                    ]
-                else:
-                    tasks = []
-
-                if tasks:
-                    for task in tasks:
-                        for item in task["suricata"]["files"] or []:
-                            file_path = item.get("file_info", {}).get("path", "")
-                            if sample_hash in file_path:
-                                if path_exists(file_path):
-                                    sample = [file_path]
-                                    break
-
         return sample
 
     def count_samples(self) -> int:

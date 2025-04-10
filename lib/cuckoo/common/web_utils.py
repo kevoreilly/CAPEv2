@@ -667,6 +667,7 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
 
     return details
 
+
 def get_file_content(paths: list) -> bytes:
     """
     Retrieves the content of the first existing file from a list of file paths.
@@ -1421,14 +1422,13 @@ def perform_search(
         if isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         else:
-            search_terms = [{search_term: query_val} for search_term in search_term_map[term]]
+            # search_terms = [{search_term: query_val} for search_term in search_term_map[term]]
             if term in hash_searches:
                 # For analyses where files have been stored in the "files" collection, search
                 # there for the _id (i.e. sha256) of documents matching the given hash. As a
                 # special case, we don't need to do that query if the requested hash type is
                 # "sha256" since that's what's stored in the "file_refs" key.
-                # We do all this in addition to search the old keys for backwards-compatibility
-                # with documents that do not use this mechanism for storing file data.
+                """
                 if term == "sha256":
                     file_refs = [query_val]
                 else:
@@ -1440,7 +1440,15 @@ def perform_search(
                     else:
                         query = file_refs[0]
                     search_terms.extend([{f"{pfx}.{FILE_REF_KEY}": query} for pfx in NORMALIZED_FILE_FIELDS])
-            mongo_search_query = {"$or": search_terms}
+                """
+                # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
+                file_docs = mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_task_ids": 1})
+                if not file_docs:
+                    return []
+                ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
+                term = "ids"
+                mongo_search_query = {"info.id": {"$in": ids}}
+            # mongo_search_query = {"$or": search_terms}
 
         # Allow to overwrite perform_search_filters for custom results
         if not projection:
@@ -1600,6 +1608,7 @@ def parse_request_arguments(request, keyword="POST"):
         route,
         cape,
     )
+
 
 def process_new_task_files(request, samples: list, details: dict, opt_filename: str, unique: bool = False) -> tuple:
     """

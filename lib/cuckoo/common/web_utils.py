@@ -1437,7 +1437,6 @@ def perform_search(
         if "target.file.sha256" in projection:
             projection = dict(**projection)
             projection[f"target.file.{FILE_REF_KEY}"] = 1
-        print(2, mongo_search_query)
         retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})

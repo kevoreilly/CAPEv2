@@ -191,6 +191,13 @@ def mongo_delete_data(task_ids: Union[int, Sequence[int]], range_start: int = 0,
         if task_ids and isinstance(task_ids, int):
             task_ids = [task_ids]
 
+        if range_start:
+            range_start = int(range_start)
+        if range_end:
+            range_end = int(range_end)
+        if range_start and range_end and range_start > range_end:
+            raise ValueError("range_start must be less than or equal to range_end")
+
         if range_start and range_end:
             mongo_delete_many("analysis", {"info.id": {"$gt": range_start, "$lt": range_end}})
         elif range_start:
@@ -198,21 +205,9 @@ def mongo_delete_data(task_ids: Union[int, Sequence[int]], range_start: int = 0,
         elif range_end:
             mongo_delete_many("analysis", {"info.id": {"$lt": range_end}})
         else:
-            # calls table requires task_id as string
+
             mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
         mongo_delete_calls(task_ids=task_ids, range_start=range_start, range_end=range_end)
-        if task_ids:
-            for hook in hooks[mongo_delete_data]["analysis"]:
-                hook(task_ids)
-    except Exception as e:
-        log.exception(e)
-
-
-# ToDo range
-def mongo_delete_data_id_lower_than(task_id: int, task_ids: list):
-    try:
-        mongo_delete_many("analysis", {"task.id": {"$lt": task_id}})
-        mongo_delete_many("calls", {"task_id": {"$lt": task_id}})
         if task_ids:
             for hook in hooks[mongo_delete_data]["analysis"]:
                 hook(task_ids)
@@ -224,6 +219,12 @@ def mongo_delete_calls(task_ids: list = [], range_start: int = 0, range_end: int
     """
     Delete calls related to task(s)
     """
+    if range_start:
+        range_start = int(range_start)
+    if range_end:
+        range_end = int(range_end)
+    if range_start and range_end and range_start > range_end:
+        raise ValueError("range_start must be less than or equal to range_end")
     if range_start and range_end:
         mongo_delete_many("calls", {"task_id": {"$gt": range_start, "$lt": range_end}})
     elif range_start:

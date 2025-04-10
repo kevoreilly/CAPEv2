@@ -491,11 +491,10 @@ def cuckoo_clean_before(args: dict):
     added_before = convert_into_time(timerange)
     if args.get("files_only_filter"):
         log.info("file filter applied")
-        old_tasks = db.list_tasks(added_before=added_before, category="file")
         category = "file"
     elif args.get("urls_only_filter"):
         log.info("url filter applied")
-        old_tasks = db.list_tasks(added_before=added_before, category="url")
+        category = "url"
 
     old_tasks = db.list_tasks(added_before=added_before, category=category)
 
@@ -535,6 +534,8 @@ def cuckoo_clean_before(args: dict):
             if response.lower() in ("n", "not"):
                 sys.exit()
         mongo_delete_data(range_end=highest_id)
+        # cleanup_files_collection_by_id(highest_id)
+
     db.list_tasks(added_before=added_before, category=category, delete=True)
 
 
@@ -700,7 +701,6 @@ def binaries_clean_before(timerange: str):
                     path_delete(bin_path)
 
 
-# ToDo use $lt
 def cleanup_mongodb_calls_collection(args: dict):
     if not is_reporting_db_connected():
         return
@@ -711,7 +711,9 @@ def cleanup_mongodb_calls_collection(args: dict):
         return
 
     added_before = convert_into_time(timerange)
-    mongo_delete_calls([task.id for task in db.list_tasks(added_before=added_before)])
+    highest_id = db.list_tasks(added_before=added_before, limit=1)
+    if highest_id:
+        mongo_delete_calls(range_end=highest_id[0].id)
 
 
 def cleanup_files_collection_by_id(task_id: int):

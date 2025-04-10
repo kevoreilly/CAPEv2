@@ -186,14 +186,21 @@ def mongo_drop_database(database: str):
     conn.drop_database(database)
 
 
-def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
+def mongo_delete_data(task_ids: Union[int, Sequence[int]], range_start: int = 0, range_end: int = 0):
     try:
-        if isinstance(task_ids, int):
+        if task_ids and isinstance(task_ids, int):
             task_ids = [task_ids]
 
-        # calls table requires task_id as string
-        mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
-        mongo_delete_calls(task_ids)
+        if range_start and range_end:
+            mongo_delete_many("analysis", {"info.id": {"$gt": range_start, "$lt": range_end}})
+        elif range_start:
+            mongo_delete_many("analysis", {"info.id": {"$gt": range_start}})
+        elif range_end:
+            mongo_delete_many("analysis", {"info.id": {"$lt": range_end}})
+        else:
+            # calls table requires task_id as string
+            mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
+        mongo_delete_calls(task_ids=task_ids, range_start=range_start, range_end=range_end)
         if task_ids:
             for hook in hooks[mongo_delete_data]["analysis"]:
                 hook(task_ids)
@@ -205,19 +212,26 @@ def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
 def mongo_delete_data_id_lower_than(task_id: int, task_ids: list):
     try:
         mongo_delete_many("analysis", {"task.id": {"$lt": task_id}})
-        mongo_delete_many("calls", {"info_id": {"$lt": task_id}})
+        mongo_delete_many("calls", {"task_id": {"$lt": task_id}})
         if task_ids:
             for hook in hooks[mongo_delete_data]["analysis"]:
                 hook(task_ids)
     except Exception as e:
         log.exception(e)
 
-# ToDo range
-def mongo_delete_calls(task_ids: list):
+
+def mongo_delete_calls(task_ids: list = [], range_start: int = 0, range_end: int = 0):
     """
     Delete calls related to task(s)
     """
-    mongo_delete_many("calls", {"info_id": {"$in": task_ids}})
+    if range_start and range_end:
+        mongo_delete_many("calls", {"task_id": {"$gt": range_start, "$lt": range_end}})
+    elif range_start:
+        mongo_delete_many("calls", {"task_id": {"$gt": range_start}})
+    elif range_end:
+        mongo_delete_many("calls", {"task_id": {"$lt": range_end}})
+    elif task_ids:
+        mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
 
 
 def mongo_is_cluster():

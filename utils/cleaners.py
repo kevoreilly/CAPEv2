@@ -52,7 +52,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--delete-tmp-items-older-than",
         help="Remove all items in tmp folder older than time range",
-
         required=False,
     )
     parser.add_argument(
@@ -90,6 +89,16 @@ if __name__ == "__main__":
         action="store",
         required=False,
     )
+
+    parser.add_argument(
+        "-cfcbi",
+        "--cleanup-files-collection-by-id",
+        help="Pull out task(s) id lower than X from files collection",
+        action="store",
+        required=False,
+        type=int,
+    )
+
     args = parser.parse_args()
     init_database()
     execute_cleanup(vars(args))

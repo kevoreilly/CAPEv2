@@ -13,7 +13,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof
+from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, windll, ArgumentError
 from pathlib import Path
 from shutil import copy
 
@@ -50,6 +50,8 @@ if sys.platform == "win32":
         TERMINATE_EVENT,
         TTD32_NAME,
         TTD64_NAME,
+        SIDELOADER32_NAME,
+        SIDELOADER64_NAME,
     )
     from lib.common.defines import (
         KERNEL32,
@@ -64,6 +66,13 @@ from lib.common.rand import random_string
 from lib.common.results import upload_to_host
 from lib.core.compound import create_custom_folders
 from lib.core.config import Config
+
+# CSIDL constants
+CSIDL_WINDOWS = 0x0024
+CSIDL_SYSTEM = 0x0025
+CSIDL_SYSTEMX86 = 0x0029
+CSIDL_PROGRAM_FILES = 0x0026
+CSIDL_PROGRAM_FILESX86 = 0x002a
 
 IOCTL_PID = 0x222008
 IOCTL_CUCKOO_PATH = 0x22200C
@@ -93,6 +102,20 @@ def get_referrer_url(interest):
     usgstr = b"AFQj" + base64.urlsafe_b64encode(random_string(12).encode())
     return f"http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={itemidx}&ved={vedstr}&url={escapedurl}&ei={eistr}&usg={usgstr}"
 
+
+def nt_path_to_dos_path_ansi(nt_path: str) -> str:
+    drive_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    nt_path_bytes = nt_path.encode("utf-8", errors="ignore")
+    for letter in drive_letters:
+        drive = f"{letter}:"
+        target = create_string_buffer(1024)
+        res = KERNEL32.QueryDosDeviceA(drive.encode("ascii"), target, 1024)
+        if res != 0:
+            device_path = target.value
+            if nt_path_bytes.startswith(device_path):
+                converted = nt_path_bytes.replace(device_path, drive.encode("ascii"), 1)
+                return converted.decode("utf-8", errors="ignore")
+    return nt_path
 
 def NT_SUCCESS(val):
     return val >= 0
@@ -228,6 +251,12 @@ class Process:
 
         return ""
 
+    def get_folder_path(self, csidl):
+        """Use SHGetFolderPathW to get the system folder path for a given CSIDL."""
+        buf = create_string_buffer(MAX_PATH)
+        windll.shell32.SHGetFolderPathA(None, csidl, None, 0, buf)
+        return buf.value.decode('utf-8', errors='ignore')
+
     def get_image_name(self):
         """Get the image name; returns an empty string on error."""
         if not self.h_process:
@@ -277,6 +306,58 @@ class Process:
             return pbi[5]
 
         return None
+
+    def detect_dll_sideloading(self, directory_path: str) -> bool:
+        """Detect potential DLL sideloading in the provided directory."""
+        try:
+            directory = Path(directory_path)
+            if not directory.is_dir():
+                return False
+
+            if (directory/"capemon.dll").exists():
+                return False
+
+            # Early exit if directory is a known system location
+            try:
+                system_dirs = {
+                    Path(self.get_folder_path(CSIDL_WINDOWS)).resolve(),
+                    Path(self.get_folder_path(CSIDL_SYSTEM)).resolve(),
+                    Path(self.get_folder_path(CSIDL_SYSTEMX86)).resolve(),
+                    Path(self.get_folder_path(CSIDL_PROGRAM_FILES)).resolve(),
+                    Path(self.get_folder_path(CSIDL_PROGRAM_FILESX86)).resolve()
+                }
+                if directory.resolve() in system_dirs:
+                    return False
+            except (OSError, ArgumentError, ValueError) as e:
+                log.warning("detect_dll_sideloading: failed to retrieve system paths: %s", e)
+                return False
+
+            try:
+                local_dlls = {f.name.lower() for f in directory.glob("*.dll") if f.is_file()}
+                if not local_dlls:
+                    return False
+            except (OSError, PermissionError) as e:
+                log.warning("detect_dll_sideloading: could not list DLLs in %s: %s", directory_path, e)
+                return False
+
+            # Build set of known system DLLs
+            known_dlls = set()
+            for sys_dir in system_dirs:
+                try:
+                    if sys_dir.exists():
+                        known_dlls.update(f.name.lower() for f in sys_dir.glob("*.dll") if f.is_file())
+                except (OSError, PermissionError) as e:
+                    log.debug("detect_dll_sideloading: skipping system dir %s: %s", sys_dir, e)
+
+            suspicious = local_dlls & known_dlls
+            if suspicious:
+                for dll in suspicious:
+                    log.info("Potential dll side-loading detected in local directory: %s", dll)
+            return bool(suspicious)
+
+        except Exception as e:
+            log.error("detect_dll_sideloading: unexpected error with path %s: %s", directory_path, e)
+            return False
 
     def kernel_analyze(self):
         """zer0m0n kernel analysis"""
@@ -535,7 +616,7 @@ class Process:
         if result.stderr:
             log.error(" ".join(result.stderr.split()))
 
-        log.info("Stopped TTD for %s process with pid %d: %s", bit_str, self.pid)
+        log.info("Stopped TTD for %s process with pid %d", bit_str, self.pid)
 
         return True
 
@@ -705,6 +786,12 @@ class Process:
 
         self.write_monitor_config(interest, nosleepskip)
 
+        path = os.path.dirname(nt_path_to_dos_path_ansi(self.get_filepath()))
+
+        if self.detect_dll_sideloading(path) and self.has_msimg32(path):
+            self.deploy_version_proxy(path)
+            return True
+
         log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
 
         try:
@@ -769,3 +856,41 @@ class Process:
         """Get a string representation of this process."""
         image_name = self.get_image_name() or "???"
         return f"<{self.__class__.__name__} {self.pid} {image_name}>"
+
+    def has_msimg32(self, directory_path: str) -> bool:
+        """Check if msimg32.dll exists in directory"""
+        try:
+            return any(
+                f.name.lower() == "msimg32.dll"
+                for f in Path(directory_path).glob("*")
+                if f.is_file()
+            )
+        except (OSError, PermissionError):
+            return False
+
+    def deploy_version_proxy(self, directory_path: str):
+        """Deploy version.dll proxy loader"""
+        if self.is_64bit():
+            dll = CAPEMON64_NAME
+            side_dll = SIDELOADER64_NAME
+            bit_str = "64-bit"
+        else:
+            dll = CAPEMON32_NAME
+            side_dll = SIDELOADER32_NAME
+            bit_str = "32-bit"
+
+        dll = os.path.join(Path.cwd(), dll)
+
+        if not os.path.exists(dll):
+            log.warning("invalid path %s for monitor DLL to be sideloaded in %s, sideloading aborted", dll, self)
+            return
+
+        try:
+            copy(dll, os.path.join(directory_path, "capemon.dll"))
+            copy(side_dll, os.path.join(directory_path, "version.dll"))
+            copy(os.path.join(Path.cwd(), "dll", f"{self.pid}.ini"), os.path.join(directory_path, "config.ini"))
+        except OSError as e:
+            log.error("Failed to copy DLL: %s", e)
+            return
+        log.info("%s DLL to sideload is %s, sideloader %s", bit_str, os.path.join(directory_path, "capemon.dll"), os.path.join(directory_path, "version.dll"))
+        return

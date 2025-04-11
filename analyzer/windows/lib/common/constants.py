@@ -28,6 +28,8 @@ LOADER32_NAME = f"bin\\{random_string(7)}.exe"
 LOADER64_NAME = f"bin\\{random_string(8)}.exe"
 TTD32_NAME = "bin\\wow64\\TTD.exe"
 TTD64_NAME = "bin\\TTD.exe"
+SIDELOADER32_NAME = "dll\\version.dll"
+SIDELOADER64_NAME = "dll\\version_x64.dll"
 
 # Options
 OPT_APPDATA = "appdata"

@@ -22,10 +22,11 @@ expected_result = {
             "Size": 1255,
         }
     ],
-    "All_URLs": []
+    "All_URLs": [],
+    "JS_URLs": ["http://78.109.30.5/count/005AD56F/load.php?pdf=a684eceee76fc522773286a895bc8436\x00"],
 }
 
-pdfresult = {"Info": {}, "Dates": [], "Keywords": {}, "JSStreams": [], "All_URLs": []}
+pdfresult = {"Info": {}, "Dates": [], "Keywords": {}, "JSStreams": [], "All_URLs": [], "JS_URLs": []}
 
 
 @pytest.mark.skipif(not data_dir.exists(), reason="Required data file is not present")

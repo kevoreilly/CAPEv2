@@ -23,5 +23,8 @@ def upgrade():
 
 
 def downgrade():
-     op.execute("ALTER TABLE tasks_tags DROP CONSTRAINT tasks_tags_task_id_fkey, ADD CONSTRAINT tasks_tags_task_id_fkey FOREIGN KEY (task_id) REFERENCES tasks (id);")
-     op.execute("ALTER TABLE tasks_tags DROP CONSTRAINT tasks_tags_tag_id_fkey, ADD CONSTRAINT tasks_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES tags (id);")
+op.drop_constraint('tasks_tags_task_id_fkey', 'tasks_tags', type_='foreignkey')
+op.create_foreign_key('tasks_tags_task_id_fkey', 'tasks_tags', 'tasks', ['task_id'], ['id'])
+
+op.drop_constraint('tasks_tags_tag_id_fkey', 'tasks_tags', type_='foreignkey')
+op.create_foreign_key('tasks_tags_tag_id_fkey', 'tasks_tags', 'tags', ['tag_id'], ['id'])

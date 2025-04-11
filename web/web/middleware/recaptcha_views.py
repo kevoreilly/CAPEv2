@@ -1,7 +1,12 @@
-from django.conf import settings
-from django.shortcuts import redirect, render
-from django.urls import reverse
+# from django.conf import settings
+from django.shortcuts import render # redirect
+# from django.urls import reverse
 from recaptcha.utils import get_recaptcha_response, is_human
+import logging
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
 
 class RecaptchaVerificationMiddleware:
     def __init__(self, get_response):
@@ -28,9 +33,12 @@ class RecaptchaVerificationMiddleware:
             # Optionally log the failure
             # ToDo add fail2ban?
             # X-forward-for
-            print(f"reCAPTCHA verification failed for IP: {request.META.get('REMOTE_ADDR')}")
-            return render(request, "error.html", {"error": "reCAPTCHA Verification Failed. Please try again to verify that you are not a robot."})
 
+            logger.warning("reCAPTCHA verification failed for IP: %s", request.META.get('REMOTE_ADDR'))
+            logger.warning(
+                "reCAPTCHA verification failed at %s for IP: %s, URL: %s", datetime.now(), request.META.get('REMOTE_ADDR'), request.path
+            )
+            return render(request, "error.html", {"error": "reCAPTCHA Verification Failed. Please try again to verify that you are not a robot."})
 
         response = self.get_response(request)
         return response

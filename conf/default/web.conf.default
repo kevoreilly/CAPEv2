@@ -9,7 +9,7 @@ captcha = no
 # To enable Oauth check https://django-allauth.readthedocs.io and web/web/settings.py.
 # Allow only SSO for users with specific domain. Can be allow to all if empty.
 social_auth_email_domain = example.com
-captcha_protected_analysis_view = no
+captcha_protected_view = no
 
 [registration]
 enabled = no

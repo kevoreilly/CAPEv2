@@ -137,7 +137,7 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
                 {% endif %}
                 <td><ul><li>RPS: {{ config.fileview.rps }}</li>
                         <li>RPM: {{ config.fileview.rpm }}</li></ul></td>
-                <td>View information about a specific sample that it's CAPE's database. Return object will be JSON.</td>
+                <td>View information about a specific sample that's in CAPE's database. Return object will be JSON.</td>
                 <td><a class="accordion-toggle" data-toggle="collapse" href="#fileview" aria-expanded="false" aria-controls="#fileview">Example</a></td>
             </tr>
             <tr class="collapse" id="fileview">
@@ -704,7 +704,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <li>RPM: {{ config.payloadfiles.rpm }}</li>
           </ul>
         </td>
-        <td>Download the Cape payload files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
+        <td>Download the CAPE payload files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#capepayloadfiles" aria-expanded="false" aria-controls="#capepayloadfiles">Example</a></td>
       </tr>
       <tr class="collapse" id="capepayloadfiles">

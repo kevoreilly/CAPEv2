@@ -169,6 +169,7 @@ def collect_file_dicts(report) -> itertools.chain:
     """Return an iterable containing all of the candidates for files
     from various parts of the report to be normalized.
     """
+    # ToDo extend to self extract
     file_dicts = []
     target_file = report.get("target", {}).get("file", None)
     if target_file:

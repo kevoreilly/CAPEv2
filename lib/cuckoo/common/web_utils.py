@@ -1297,6 +1297,7 @@ search_term_map_repetetive_blocks = {
     "imphash": "imphash",
 }
 
+# ToDo review extracted_files key still the same
 search_term_map_base_naming = (
     ("info.parent_sample",) + NORMALIZED_FILE_FIELDS + tuple(f"{category}.extracted_files" for category in NORMALIZED_FILE_FIELDS)
 )
@@ -1430,7 +1431,6 @@ def perform_search(
                 ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
                 term = "ids"
                 mongo_search_query = {"info.id": {"$in": ids}}
-
         # Allow to overwrite perform_search_filters for custom results
         if not projection:
             projection = perform_search_filters

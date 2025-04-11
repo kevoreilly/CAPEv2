@@ -50,11 +50,11 @@ if repconf.mongodb.enabled:
         connect_to_mongo,
         mdb,
         mongo_delete_data,
-        mongo_delete_data_id_lower_than,
         mongo_drop_database,
         mongo_find,
         mongo_is_cluster,
         mongo_update_one,
+        mongo_update_many,
         mongo_delete_calls,
     )
 elif repconf.elasticsearchdb.enabled:
@@ -491,11 +491,10 @@ def cuckoo_clean_before(args: dict):
     added_before = convert_into_time(timerange)
     if args.get("files_only_filter"):
         log.info("file filter applied")
-        old_tasks = db.list_tasks(added_before=added_before, category="file")
         category = "file"
     elif args.get("urls_only_filter"):
         log.info("url filter applied")
-        old_tasks = db.list_tasks(added_before=added_before, category="url")
+        category = "url"
 
     old_tasks = db.list_tasks(added_before=added_before, category=category)
 
@@ -531,10 +530,12 @@ def cuckoo_clean_before(args: dict):
 
     if args.get("delete_mongo"):
         if mongo_is_cluster():
-                response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
-                if response.lower() in ("n", "not"):
-                    sys.exit()
-        mongo_delete_data_id_lower_than(highest_id, id_arr)
+            response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
+            if response.lower() in ("n", "not"):
+                sys.exit()
+        mongo_delete_data(range_end=highest_id)
+        # cleanup_files_collection_by_id(highest_id)
+
     db.list_tasks(added_before=added_before, category=category, delete=True)
 
 
@@ -633,8 +634,10 @@ def cuckoo_clean_range_tasks(range):
     start, end = range.split("-")
     pending_tasks = db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1)
     ids = [task.id for task in pending_tasks]
-    delete_bulk_tasks_n_folders(ids, delete_mongo=True)
+    delete_bulk_tasks_n_folders(ids, delete_mongo=False)
+    mongo_delete_data(range_start=int(start.strip()), range_end=int(end.strip()))
     db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1, delete=True)
+
 
 def delete_unused_file_data_in_mongo():
     """Cleans the entries in the 'files' collection that no longer have any analysis
@@ -698,7 +701,6 @@ def binaries_clean_before(timerange: str):
                     path_delete(bin_path)
 
 
-# ToDo use $lt
 def cleanup_mongodb_calls_collection(args: dict):
     if not is_reporting_db_connected():
         return
@@ -709,7 +711,32 @@ def cleanup_mongodb_calls_collection(args: dict):
         return
 
     added_before = convert_into_time(timerange)
-    mongo_delete_calls([task.id for task in db.list_tasks(added_before=added_before)])
+    highest_id = db.list_tasks(added_before=added_before, limit=1)
+    if highest_id:
+        mongo_delete_calls(range_end=highest_id[0].id)
+
+
+def cleanup_files_collection_by_id(task_id: int):
+    """
+    This function scans and pull out task_ids lower than task_id argument.
+    It useful when admin had to do emergency cleanup directly using postgres/mongodb without cleaner
+    """
+    if not is_reporting_db_connected():
+        return
+    """
+        db.files.updateMany({},{$pull: {"_task_ids": {$lt: 1280759}}})
+        {
+            acknowledged: true,
+            insertedId: null,
+            matchedCount: 1212950,
+            modifiedCount: 1177791,
+            upsertedCount: 0
+        }
+        db.runCommand({ compact: "files"})
+        { bytesFreed: Long('107198922752'), ok: 1 }
+
+    """
+    mongo_update_many({}, {"$pull": {"_task_ids": {"$lt": task_id}}})
 
 
 def execute_cleanup(args: dict, init_log=True):
@@ -744,7 +771,7 @@ def execute_cleanup(args: dict, init_log=True):
         cuckoo_clean_lower_score(args["malscore"])
 
     if args.get("delete_range"):
-        cuckoo_clean_range_tasks(args["time_range"])
+        cuckoo_clean_range_tasks(args["delete_range"])
 
     if args.get("deduplicated_cluster_queue"):
         cuckoo_dedup_cluster_queue()
@@ -757,6 +784,10 @@ def execute_cleanup(args: dict, init_log=True):
 
     if args.get("delete_unused_file_data_in_mongo"):
         delete_unused_file_data_in_mongo()
+
+    if args.get("cleanup_files_collection_by_id"):
+        cleanup_files_collection_by_id(args["cleanup_files_collection_by_id"])
+
     if args.get("cleanup_mongo_calls"):
         cleanup_mongodb_calls_collection(args)
 

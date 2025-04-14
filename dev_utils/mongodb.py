@@ -186,7 +186,7 @@ def mongo_drop_database(database: str):
     conn.drop_database(database)
 
 
-def mongo_delete_data(task_ids: Union[int, Sequence[int]], range_start: int = 0, range_end: int = 0):
+def mongo_delete_data(task_ids: Union[int, Sequence[int]] = [], range_start: int = 0, range_end: int = 0):
     try:
         if task_ids and isinstance(task_ids, int):
             task_ids = [task_ids]

@@ -635,7 +635,7 @@ def cuckoo_clean_range_tasks(range):
     pending_tasks = db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1)
     ids = [task.id for task in pending_tasks]
     delete_bulk_tasks_n_folders(ids, delete_mongo=False)
-    mongo_delete_data(range_start=int(start.strip()), range_end=int(end.strip()))
+    mongo_delete_data(ids, range_start=int(start.strip()), range_end=int(end.strip()))
     db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1, delete=True)
 
 

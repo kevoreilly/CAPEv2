@@ -204,9 +204,10 @@ def mongo_delete_data(task_ids: Union[int, Sequence[int]] = [], range_start: int
             mongo_delete_many("analysis", {"info.id": {"$gt": range_start}})
         elif range_end:
             mongo_delete_many("analysis", {"info.id": {"$lt": range_end}})
-        else:
-
+        elif task_ids:
             mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
+        if not task_ids and range_start and range_end:
+            task_ids = list(range(range_start, range_end+1))
         mongo_delete_calls(task_ids=task_ids, range_start=range_start, range_end=range_end)
         if task_ids:
             for hook in hooks[mongo_delete_data]["analysis"]:
@@ -225,14 +226,15 @@ def mongo_delete_calls(task_ids: list = [], range_start: int = 0, range_end: int
         range_end = int(range_end)
     if range_start and range_end and range_start > range_end:
         raise ValueError("range_start must be less than or equal to range_end")
-    if range_start and range_end:
+    if task_ids:
+        mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
+    elif range_start and range_end:
         mongo_delete_many("calls", {"task_id": {"$gt": range_start, "$lt": range_end}})
     elif range_start:
         mongo_delete_many("calls", {"task_id": {"$gt": range_start}})
     elif range_end:
         mongo_delete_many("calls", {"task_id": {"$lt": range_end}})
-    elif task_ids:
-        mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
+
 
 
 def mongo_is_cluster():

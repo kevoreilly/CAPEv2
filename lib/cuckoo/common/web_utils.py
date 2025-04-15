@@ -1254,7 +1254,7 @@ search_term_map = {
     "shrikesid": "info.shrike_sid",
     "custom": "info.custom",
     # initial binary
-    "target_sha256": ("target.file.sha256", f"target.file.{FILE_REF_KEY}"),
+    "target_sha256": f"target.file.{FILE_REF_KEY}",
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",

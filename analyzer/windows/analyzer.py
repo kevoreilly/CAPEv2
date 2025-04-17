@@ -1344,43 +1344,59 @@ class CommandPipeHandler:
             process_id = int(process_id) if process_id.isdigit() else None
             if param.isdigit():
                 thread_id = int(param)
-        if process_id and not ANALYSIS_TIMED_OUT:
-            if process_id not in (self.analyzer.pid, self.analyzer.ppid):
-                # We inject the process only if it's not being
-                # monitored already, otherwise we would generate
-                # polluted logs.
-                if process_id not in self.analyzer.process_list.pids:
-                    if process_id not in INJECT_LIST:
-                        INJECT_LIST.append(process_id)
-                    # Open the process and inject the DLL.
-                    proc = Process(
-                        options=self.analyzer.options,
-                        config=self.analyzer.config,
-                        pid=process_id,
-                        thread_id=thread_id,
-                        suspended=suspended,
-                    )
-                    filepath = proc.get_filepath()  # .encode('utf8', 'replace')
-                    # if it's a URL analysis, provide the URL to all processes as
-                    # the "interest" -- this will allow capemon to see in the
-                    # child browser process that a URL analysis is occurring
-                    if self.analyzer.config.category == "file" or self.analyzer.NUM_INJECTED > 1:
-                        interest = filepath
-                    else:
-                        interest = self.analyzer.config.target
-                    if filepath.lower() in self.analyzer.files.files:
-                        self.analyzer.files.delete_file(filepath, process_id)
-                    is_64bit = proc.is_64bit()
-                    filename = os.path.basename(filepath)
-                    if self.analyzer.SERVICES_PID and process_id == self.analyzer.SERVICES_PID:
-                        self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
-                    log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
-                    # We want to prevent multiple injection attempts if one is already underway
-                    if not in_protected_path(filename):
-                        _ = proc.inject(interest)
-                        self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                        self.analyzer.NUM_INJECTED += 1
-                    proc.close()
+        TRUSTED_PUBLISHERS = {"Microsoft Corporation", "Google LLC", "Mozilla Foundation"}
+WHITELISTED_PATHS = {
+    r"C:\Program Files\",
+    r"C:\Program Files (x86)\",
+    r"C:\Users\",
+    r"C:\Windows\System32\svchost.exe"
+}
+BLACKLISTED_PROCESSES = {"lsass.exe", "csrss.exe", "winlogon.exe"}
+
+if process_id and not ANALYSIS_TIMED_OUT:
+    if process_id in (self.analyzer.pid, self.analyzer.ppid):
+        log.warning("Blocked injection into analyzer process")
+        return
+
+    proc = Process(
+        options=self.analyzer.options,
+        config=self.analyzer.config,
+        pid=process_id,
+        thread_id=thread_id,
+        suspended=suspended,
+    )
+    
+    try:
+        filepath = proc.get_filepath()
+        filename = os.path.basename(filepath).lower()
+
+        if filename in BLACKLISTED_PROCESSES:
+            log.error(f"Blocked injection into critical process: {filename}")
+            return
+
+        if not any(filepath.lower().startswith(path.lower()) for path in WHITELISTED_PATHS):
+            log.error(f"Blocked injection: {filepath} not in whitelisted paths")
+            return
+
+        try:
+            from win32com.client import Dispatch
+            publisher = Dispatch("Scripting.FileSystemObject").GetFileVersion(filepath).Publisher
+            if publisher not in TRUSTED_PUBLISHERS:
+                log.error(f"Blocked: {filename} signed by untrusted publisher ({publisher})")
+                return
+        except ImportError:
+            log.warning("pywin32 not available, skipping signature check")
+        except Exception as e:
+            log.error(f"Signature check failed: {e}")
+            return
+
+        if not in_protected_path(filename):
+            _ = proc.inject(interest)
+            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+            self.analyzer.NUM_INJECTED += 1
+
+    finally:
+        proc.close()
             else:
                 log.warning("Received request to inject process with pid %d, skipped", process_id)
         # return self._inject_process(int(data), None, 0)

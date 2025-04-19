@@ -117,11 +117,11 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
         "delete_mongo": config.cleaner.mongo,
     }
     if config.cleaner.binaries:
-        cleanup_dict["delete_binaries_items_older_than"] = convert_into_time(config.cleaner.binaries)
+        cleanup_dict["delete_binaries_items_older_than"] = config.cleaner.binaries
     if config.cleaner.tmp:
-        cleanup_dict["delete_tmp_items_older_than"] = convert_into_time(config.cleaner.tmp)
+        cleanup_dict["delete_tmp_items_older_than"] = config.cleaner.tmp
     if config.cleaner.analysis:
-        cleanup_dict["delete_older_than"] = convert_into_time(config.cleaner.analysis)
+        cleanup_dict["delete_older_than"] = config.cleaner.analysis
     if config.cleaner.unused_files_in_mongodb:
         cleanup_dict["delete_unused_file_data_in_mongo"] = 1
 
@@ -513,7 +513,7 @@ def cuckoo_clean_before(args: dict):
             )
         )
         id_arr = [entry["info"]["id"] for entry in result]
-    highest_id = max(id_arr)
+    highest_id = max(id_arr,default=0)
     log.info("number of matching records %s. Highest id: %d", len(id_arr), highest_id)
     # delete_bulk_tasks_n_folders(id_arr, args.get("delete_mongo"), db_delete_before=1)
     # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
@@ -777,10 +777,10 @@ def execute_cleanup(args: dict, init_log=True):
         cuckoo_dedup_cluster_queue()
 
     if args.get("delete_tmp_items_older_than"):
-        tmp_clean_before(args["time_range"])
+        tmp_clean_before(args["delete_tmp_items_older_than"])
 
     if args.get("delete_binaries_items_older_than"):
-        binaries_clean_before(args["time_range"])
+        binaries_clean_before(args["delete_binaries_items_older_than"])
 
     if args.get("delete_unused_file_data_in_mongo"):
         delete_unused_file_data_in_mongo()

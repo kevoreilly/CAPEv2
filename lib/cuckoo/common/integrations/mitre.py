@@ -16,7 +16,7 @@ def mitre_generate_attck(results, mitre):
 
     if not mitre or not hasattr(mitre, "enterprise"):
         print("Missed dependency: poetry run pip install git+https://github.com/CAPESandbox/pyattck")
-        return attack 
+        return attck
 
     # [{'signature': 'http_request', 'ttps': ['T1071']}, {'signature': 'modify_proxy', 'ttps': ['T1112']}, {'signature': 'recon_fingerprint', 'ttps': ['T1012', 'T1082']}]
     for ttp_block in results["ttps"]:

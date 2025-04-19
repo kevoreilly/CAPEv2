@@ -125,7 +125,7 @@ DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_find
 if repconf.elasticsearchdb.enabled:
-    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+    from dev_utils.elasticsearchdb import elastic_handler # , get_analysis_index
 
     es = elastic_handler
 

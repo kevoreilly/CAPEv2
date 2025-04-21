@@ -6,6 +6,7 @@ from pymongo import UpdateOne, errors
 from dev_utils.mongodb import (
     mongo_bulk_write,
     mongo_delete_data,
+    mongo_delete_data_range,
     mongo_delete_many,
     mongo_find,
     mongo_find_one,
@@ -152,6 +153,24 @@ def remove_task_references_from_files(task_ids):
         {TASK_IDS_KEY: {"$elemMatch": {"$in": task_ids}}},
         {"$pullAll": {TASK_IDS_KEY: task_ids}},
     )
+
+
+@mongo_hook(mongo_delete_data_range, "analysis")
+def remove_task_references_from_files_range(*, range_start: int = 0, range_end: int = 0):
+    """Remove the given task_ids from the TASK_IDS_KEY field on "files"
+    documents that were referenced by those tasks that are being deleted.
+    """
+    range_query = {}
+    if range_start > 0:
+        range_query["$gte"] = range_start
+    if range_end > 0:
+        range_query["$lt"] = range_end
+    if range_query:
+        mongo_update_many(
+            FILES_COLL,
+            {TASK_IDS_KEY: {"$elemMatch": range_query}},
+            {"$pull": {TASK_IDS_KEY: range_query}},
+        )
 
 
 def delete_unused_file_docs():

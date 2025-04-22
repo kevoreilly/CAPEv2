@@ -294,7 +294,7 @@ function install_libvmi() {
     fi
     mkdir -p /tmp/libvmi_builded/DEBIAN
     echo -e "Package: libvmi\nVersion: 1.0-0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: libvmi" > /tmp/libvmi_builded/DEBIAN/control
-    cd "libvmi-v0.14.0" || return
+    cd "libvmi-0.14.0" || return
 
     # install deps
     aptitude install -f -y cmake flex bison libglib2.0-dev libjson-c-dev libyajl-dev doxygen

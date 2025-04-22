@@ -78,6 +78,7 @@ def mongo_hook(mongo_funcs, collection):
             mongo_find,
             mongo_find_one,
             mongo_delete_data,
+            mongo_delete_data_range,
         ), f"{mongo_func} can not have hooks applied"
 
     def decorator(f):

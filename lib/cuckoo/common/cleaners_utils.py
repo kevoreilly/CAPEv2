@@ -55,7 +55,8 @@ if repconf.mongodb.enabled:
         mongo_is_cluster,
         mongo_update_one,
         mongo_update_many,
-        mongo_delete_calls,
+        mongo_delete_calls_by_task_id_in_range,
+        mongo_delete_data_range
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
@@ -513,7 +514,7 @@ def cuckoo_clean_before(args: dict):
             )
         )
         id_arr = [entry["info"]["id"] for entry in result]
-    highest_id = max(id_arr,default=0)
+    highest_id = max(id_arr, default=0)
     log.info("number of matching records %s. Highest id: %d", len(id_arr), highest_id)
     # delete_bulk_tasks_n_folders(id_arr, args.get("delete_mongo"), db_delete_before=1)
     # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
@@ -533,7 +534,7 @@ def cuckoo_clean_before(args: dict):
             response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
             if response.lower() in ("n", "not"):
                 sys.exit()
-        mongo_delete_data(range_end=highest_id)
+        mongo_delete_data_range(range_end=highest_id)
         # cleanup_files_collection_by_id(highest_id)
 
     db.list_tasks(added_before=added_before, category=category, delete=True)
@@ -622,7 +623,7 @@ def cuckoo_clean_pending_tasks(timerange: str = None, delete: bool = False):
         resolver_pool.map(lambda tid: fail_job(pending_tasks), pending_tasks)
 
 
-def cuckoo_clean_range_tasks(range):
+def cuckoo_clean_range_tasks(range_: str):
     """Clean up tasks between range: 1-5
     It deletes all stored data from file system and configured databases (SQL
     and MongoDB for selected tasks.
@@ -631,12 +632,14 @@ def cuckoo_clean_range_tasks(range):
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-    start, end = range.split("-")
-    pending_tasks = db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1)
-    ids = [task.id for task in pending_tasks]
+    start_str, end_str = range_.split("-")
+    start = int(start_str.strip())
+    end = int(end_str.strip())
+    pending_tasks = db.list_tasks(id_after=(start - 1), id_before=(end + 1))
+    ids: list[int] = [task.id for task in pending_tasks]
     delete_bulk_tasks_n_folders(ids, delete_mongo=False)
-    mongo_delete_data(ids, range_start=int(start.strip()), range_end=int(end.strip()))
-    db.list_tasks(id_after=int(start.strip()) - 1, id_before=int(end.strip()) + 1, delete=True)
+    mongo_delete_data(ids)
+    db.list_tasks(id_after=(start - 1), id_before=(end + 1), delete=True)
 
 
 def delete_unused_file_data_in_mongo():
@@ -713,7 +716,7 @@ def cleanup_mongodb_calls_collection(args: dict):
     added_before = convert_into_time(timerange)
     highest_id = db.list_tasks(added_before=added_before, limit=1)
     if highest_id:
-        mongo_delete_calls(range_end=highest_id[0].id)
+        mongo_delete_calls_by_task_id_in_range(range_end=highest_id[0].id)
 
 
 def cleanup_files_collection_by_id(task_id: int):

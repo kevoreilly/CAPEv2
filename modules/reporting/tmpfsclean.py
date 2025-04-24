@@ -26,6 +26,8 @@ class TMPFSCLEAN(Report):
             log.debug("Deleting memdump: %s", src)
             if path_exists(src):
                 path_delete(src)
+            if path_exists(f"{src}.strings"):
+                path_delete(f"{src}.strings")
         else:
             dest = get_memdump_path(results["info"]["id"], analysis_folder=True)
             log.debug("Storing memdump: %s", dest)

@@ -238,7 +238,10 @@ def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=F
                     sys.exit()
             mongo_delete_data(ids_tmp)
             if delete_db_tasks:
-                db.delete_tasks(ids_tmp)
+                try:
+                    db.delete_tasks(task_ids=ids_tmp)
+                except Exception as e:
+                    log.error("Failed to delete tasks from DB: %s", str(e))
 
 
 def fail_job(tid):

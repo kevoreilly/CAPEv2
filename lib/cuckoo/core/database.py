@@ -2128,7 +2128,8 @@ class _Database:
         tags_tasks_like=False,
         task_ids=False,
         user_id=None,
-    ) -> List[Task]:
+    ):
+        # ToDo rewrite it with list_tasks so we can have all in one without duplicate things
         """Delete tasks based on parameters. Copy of list_tasks but without joined as they fails
         @param category: filter by category
         @param status: filter by task status
@@ -2181,7 +2182,6 @@ class _Database:
             search = search.filter(Task.user_id == user_id)
         search.delete(synchronize_session=False)
         self.session.commit()
-        return True
 
     def check_tasks_timeout(self, timeout):
         """Find tasks which were added_on more than timeout ago and clean"""

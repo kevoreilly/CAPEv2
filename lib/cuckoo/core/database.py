@@ -2129,76 +2129,93 @@ class _Database:
         task_ids=False,
         user_id=None,
     ):
-        # ToDo rewrite it with list_tasks so we can have all in one without duplicate
-        """Delete tasks based on parameters. Copy of list_tasks but without joined as they fails
-        @param category: filter by category
-        @param status: filter by task status
-        @param sample_id: filter tasks for a sample
-        @param not_status: exclude this task status from filter
-        @param completed_after: only list tasks completed after this timestamp
-        @param added_before: tasks added before a specific timestamp
-        @param id_before: filter by tasks which is less than this value
-        @param id_after filter by tasks which is greater than this value
-        @param options_like: filter tasks by specific option inside of the options
-        @param options_not_like: filter tasks by specific option not inside of the options
-        @param tags_tasks_like: filter tasks by specific tag
-        @param task_ids: list of task_id
-        @param user_id: list of tasks submitted by user X
-        @return: list of tasks.
+        """Delete tasks based on parameters. If no filters are provided, no tasks will be deleted.
+
+        Args:
+            category: filter by category
+            status: filter by task status
+            sample_id: filter tasks for a sample
+            not_status: exclude this task status from filter
+            completed_after: only list tasks completed after this timestamp
+            added_before: tasks added before a specific timestamp
+            id_before: filter by tasks which is less than this value
+            id_after: filter by tasks which is greater than this value
+            options_like: filter tasks by specific option inside of the options
+            options_not_like: filter tasks by specific option not inside of the options
+            tags_tasks_like: filter tasks by specific tag
+            task_ids: list of task_id
+            user_id: list of tasks submitted by user X
+
+        Returns:
+            bool: True if the operation was successful (including no tasks to delete), False otherwise.
         """
-        delete = False
+        filters_applied = False
         search = self.session.query(Task)
+
         if status:
             if "|" in status:
                 search = search.filter(Task.status.in_(status.split("|")))
             else:
                 search = search.filter(Task.status == status)
-            delete = True
+            filters_applied = True
         if not_status:
             search = search.filter(Task.status != not_status)
-            delete = True
+            filters_applied = True
         if category:
             search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
-            delete = True
+            filters_applied = True
         if sample_id is not None:
             search = search.filter(Task.sample_id == sample_id)
-            delete = True
+            filters_applied = True
         if id_before is not None:
             search = search.filter(Task.id < id_before)
-            delete = True
+            filters_applied = True
         if id_after is not None:
             search = search.filter(Task.id > id_after)
-            delete = True
+            filters_applied = True
         if completed_after:
             search = search.filter(Task.completed_on > completed_after)
-            delete = True
+            filters_applied = True
         if added_before:
             search = search.filter(Task.added_on < added_before)
-            delete = True
+            filters_applied = True
         if options_like:
             # Replace '*' wildcards with wildcard for sql
             options_like = options_like.replace("*", "%")
             search = search.filter(Task.options.like(f"%{options_like}%"))
-            delete = True
+            filters_applied = True
         if options_not_like:
             # Replace '*' wildcards with wildcard for sql
             options_not_like = options_not_like.replace("*", "%")
             search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
-            delete = True
+            filters_applied = True
         if tags_tasks_like:
             search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
-            delete = True
+            filters_applied = True
         if task_ids:
             search = search.filter(Task.id.in_(task_ids))
-            delete = True
+            filters_applied = True
         if user_id is not None:
             search = search.filter(Task.user_id == user_id)
-            delete = True
+            filters_applied = True
 
-        if delete:
-            search.delete() # synchronize_session=False
-            # self.session.commit()
-        return True
+        if not filters_applied:
+            log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
+            return True  # Indicate success as no deletion was requested/needed
+
+        try:
+            # Perform the deletion and get the count of deleted rows
+            deleted_count = search.delete(synchronize_session=False)
+            log.info("Deleted %d tasks matching the criteria.", deleted_count)
+            # The commit is handled by the calling context (e.g., `with db.session.begin():`)
+            return True
+        except Exception as e:
+            log.error(f"Error deleting tasks: {e}")
+            # Rollback might be needed if this function is called outside a `with db.session.begin():`
+            # but typically it should be called within one.
+            # self.session.rollback()
+            return False
+
 
     def check_tasks_timeout(self, timeout):
         """Find tasks which were added_on more than timeout ago and clean"""

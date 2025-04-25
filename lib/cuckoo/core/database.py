@@ -2210,7 +2210,7 @@ class _Database:
             # The commit is handled by the calling context (e.g., `with db.session.begin():`)
             return True
         except Exception as e:
-            log.error(f"Error deleting tasks: {e}")
+            log.error("Error deleting tasks: %s", str(e))
             # Rollback might be needed if this function is called outside a `with db.session.begin():`
             # but typically it should be called within one.
             # self.session.rollback()

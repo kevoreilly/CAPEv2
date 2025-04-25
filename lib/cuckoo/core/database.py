@@ -2146,42 +2146,58 @@ class _Database:
         @param user_id: list of tasks submitted by user X
         @return: list of tasks.
         """
+        delete = False
         search = self.session.query(Task)
         if status:
             if "|" in status:
                 search = search.filter(Task.status.in_(status.split("|")))
             else:
                 search = search.filter(Task.status == status)
+            delete = True
         if not_status:
             search = search.filter(Task.status != not_status)
+            delete = True
         if category:
             search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
+            delete = True
         if sample_id is not None:
             search = search.filter(Task.sample_id == sample_id)
+            delete = True
         if id_before is not None:
             search = search.filter(Task.id < id_before)
+            delete = True
         if id_after is not None:
             search = search.filter(Task.id > id_after)
+            delete = True
         if completed_after:
             search = search.filter(Task.completed_on > completed_after)
+            delete = True
         if added_before:
             search = search.filter(Task.added_on < added_before)
+            delete = True
         if options_like:
             # Replace '*' wildcards with wildcard for sql
             options_like = options_like.replace("*", "%")
             search = search.filter(Task.options.like(f"%{options_like}%"))
+            delete = True
         if options_not_like:
             # Replace '*' wildcards with wildcard for sql
             options_not_like = options_not_like.replace("*", "%")
             search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
+            delete = True
         if tags_tasks_like:
             search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+            delete = True
         if task_ids:
             search = search.filter(Task.id.in_(task_ids))
+            delete = True
         if user_id is not None:
             search = search.filter(Task.user_id == user_id)
-        search.delete() # synchronize_session=False
-        # self.session.commit()
+            delete = True
+
+        if delete:
+            search.delete() # synchronize_session=False
+            # self.session.commit()
         return True
 
     def check_tasks_timeout(self, timeout):

@@ -56,7 +56,7 @@ if repconf.mongodb.enabled:
         mongo_update_one,
         mongo_update_many,
         mongo_delete_calls_by_task_id_in_range,
-        mongo_delete_data_range
+        mongo_delete_data_range,
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
@@ -238,7 +238,10 @@ def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=F
                     sys.exit()
             mongo_delete_data(ids_tmp)
             if delete_db_tasks:
-                db.delete_tasks(ids_tmp)
+                try:
+                    db.delete_tasks(task_ids=ids_tmp)
+                except Exception as e:
+                    log.error("Failed to delete tasks from DB: %s", str(e))
 
 
 def fail_job(tid):
@@ -352,9 +355,7 @@ def cuckoo_clean_failed_tasks():
     # ToDo rewrite for bulk delete
     ids = [task.id for task in tasks_list]
     delete_bulk_tasks_n_folders(ids, delete_mongo=True)
-    tasks_list = db.list_tasks(
-        status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}", delete=True
-    )
+    tasks_list = db.delete_tasks(status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}")
 
 
 def cuckoo_clean_bson_suri_logs():
@@ -441,7 +442,7 @@ def cuckoo_clean_lower_score(malscore: int):
     log.info("number of matching records %s", len(id_arr))
     # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
     if id_arr:
-        delete_bulk_tasks_n_folders(id_arr, delete_mongo=True)
+        delete_bulk_tasks_n_folders(id_arr, delete_mongo=True, delete_db_tasks=True)
 
 
 def tmp_clean_before(timerange: str):
@@ -537,7 +538,7 @@ def cuckoo_clean_before(args: dict):
         mongo_delete_data_range(range_end=highest_id)
         # cleanup_files_collection_by_id(highest_id)
 
-    db.list_tasks(added_before=added_before, category=category, delete=True)
+    db.delete_tasks(added_before=added_before, category=category)
 
 
 def cuckoo_clean_sorted_pcap_dump():
@@ -618,7 +619,7 @@ def cuckoo_clean_pending_tasks(timerange: str = None, delete: bool = False):
     # clean_handler = delete_data if delete else fail_job
     # resolver_pool.map(lambda tid: clean_handler(pending_tasks), pending_tasks)
     if delete:
-        db.list_tasks(status=TASK_PENDING, added_before=before_time, delete=True)
+        db.delete_tasks(status=TASK_PENDING, added_before=before_time)
     else:
         resolver_pool.map(lambda tid: fail_job(pending_tasks), pending_tasks)
 
@@ -639,7 +640,7 @@ def cuckoo_clean_range_tasks(range_: str):
     ids: list[int] = [task.id for task in pending_tasks]
     delete_bulk_tasks_n_folders(ids, delete_mongo=False)
     mongo_delete_data(ids)
-    db.list_tasks(id_after=(start - 1), id_before=(end + 1), delete=True)
+    db.delete_tasks(id_after=(start - 1), id_before=(end + 1))
 
 
 def delete_unused_file_data_in_mongo():

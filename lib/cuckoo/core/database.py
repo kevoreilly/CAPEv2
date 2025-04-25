@@ -125,7 +125,7 @@ DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_find
 if repconf.elasticsearchdb.enabled:
-    from dev_utils.elasticsearchdb import elastic_handler # , get_analysis_index
+    from dev_utils.elasticsearchdb import elastic_handler  # , get_analysis_index
 
     es = elastic_handler
 
@@ -2020,7 +2020,6 @@ class _Database:
         include_hashes=False,
         user_id=None,
         for_update=False,
-        delete=False,
     ) -> List[Task]:
         """Retrieve list of task.
         @param limit: specify a limit of entries.
@@ -2042,7 +2041,6 @@ class _Database:
         @param include_hashes: return task+samples details
         @param user_id: list of tasks submitted by user X
         @param for_update: If True, use "SELECT FOR UPDATE" in order to create a row-level lock on the selected tasks.
-        @param delete: delete selected tasks
         @return: list of tasks.
         """
         tasks: List[Task] = []
@@ -2090,10 +2088,6 @@ class _Database:
         if user_id is not None:
             search = search.filter(Task.user_id == user_id)
 
-        if delete:
-            search.delete()
-            return []
-
         if order_by is not None and isinstance(order_by, tuple):
             search = search.order_by(*order_by)
         elif order_by is not None:
@@ -2107,6 +2101,121 @@ class _Database:
         tasks = search.all()
 
         return tasks
+
+    def delete_task(self, task_id):
+        """Delete information on a task.
+        @param task_id: ID of the task to query.
+        @return: operation status.
+        """
+        task = self.session.get(Task, task_id)
+        if task is None:
+            return False
+        self.session.delete(task)
+        return True
+
+    def delete_tasks(
+        self,
+        category=None,
+        status=None,
+        sample_id=None,
+        not_status=None,
+        completed_after=None,
+        added_before=None,
+        id_before=None,
+        id_after=None,
+        options_like=False,
+        options_not_like=False,
+        tags_tasks_like=False,
+        task_ids=False,
+        user_id=None,
+    ):
+        """Delete tasks based on parameters. If no filters are provided, no tasks will be deleted.
+
+        Args:
+            category: filter by category
+            status: filter by task status
+            sample_id: filter tasks for a sample
+            not_status: exclude this task status from filter
+            completed_after: only list tasks completed after this timestamp
+            added_before: tasks added before a specific timestamp
+            id_before: filter by tasks which is less than this value
+            id_after: filter by tasks which is greater than this value
+            options_like: filter tasks by specific option inside of the options
+            options_not_like: filter tasks by specific option not inside of the options
+            tags_tasks_like: filter tasks by specific tag
+            task_ids: list of task_id
+            user_id: list of tasks submitted by user X
+
+        Returns:
+            bool: True if the operation was successful (including no tasks to delete), False otherwise.
+        """
+        filters_applied = False
+        search = self.session.query(Task)
+
+        if status:
+            if "|" in status:
+                search = search.filter(Task.status.in_(status.split("|")))
+            else:
+                search = search.filter(Task.status == status)
+            filters_applied = True
+        if not_status:
+            search = search.filter(Task.status != not_status)
+            filters_applied = True
+        if category:
+            search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
+            filters_applied = True
+        if sample_id is not None:
+            search = search.filter(Task.sample_id == sample_id)
+            filters_applied = True
+        if id_before is not None:
+            search = search.filter(Task.id < id_before)
+            filters_applied = True
+        if id_after is not None:
+            search = search.filter(Task.id > id_after)
+            filters_applied = True
+        if completed_after:
+            search = search.filter(Task.completed_on > completed_after)
+            filters_applied = True
+        if added_before:
+            search = search.filter(Task.added_on < added_before)
+            filters_applied = True
+        if options_like:
+            # Replace '*' wildcards with wildcard for sql
+            options_like = options_like.replace("*", "%")
+            search = search.filter(Task.options.like(f"%{options_like}%"))
+            filters_applied = True
+        if options_not_like:
+            # Replace '*' wildcards with wildcard for sql
+            options_not_like = options_not_like.replace("*", "%")
+            search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
+            filters_applied = True
+        if tags_tasks_like:
+            search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+            filters_applied = True
+        if task_ids:
+            search = search.filter(Task.id.in_(task_ids))
+            filters_applied = True
+        if user_id is not None:
+            search = search.filter(Task.user_id == user_id)
+            filters_applied = True
+
+        if not filters_applied:
+            log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
+            return True  # Indicate success as no deletion was requested/needed
+
+        try:
+            # Perform the deletion and get the count of deleted rows
+            deleted_count = search.delete(synchronize_session=False)
+            log.info("Deleted %d tasks matching the criteria.", deleted_count)
+            # The commit is handled by the calling context (e.g., `with db.session.begin():`)
+            return True
+        except Exception as e:
+            log.error("Error deleting tasks: %s", str(e))
+            # Rollback might be needed if this function is called outside a `with db.session.begin():`
+            # but typically it should be called within one.
+            # self.session.rollback()
+            return False
+
 
     def check_tasks_timeout(self, timeout):
         """Find tasks which were added_on more than timeout ago and clean"""
@@ -2210,21 +2319,6 @@ class _Database:
             task.registry_keys_modified = details["registry_keys_modified"]
             task.crash_issues = details["crash_issues"]
             task.anti_issues = details["anti_issues"]
-        return True
-
-    def delete_task(self, task_id):
-        """Delete information on a task.
-        @param task_id: ID of the task to query.
-        @return: operation status.
-        """
-        task = self.session.get(Task, task_id)
-        if task is None:
-            return False
-        self.session.delete(task)
-        return True
-
-    def delete_tasks(self, ids):
-        self.session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
         return True
 
     def view_sample(self, sample_id):

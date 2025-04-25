@@ -2214,7 +2214,7 @@ class _Database:
                 log.error("Error deleting tasks: %s", str(e))
                 # Rollback might be needed if this function is called outside a `with db.session.begin():`
                 # but typically it should be called within one.
-                # self.session.rollback()
+                self.session.rollback()
                 return False
 
 

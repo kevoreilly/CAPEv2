@@ -909,12 +909,12 @@ class TestDatabaseEngine:
             t2 = db.add_path(temp_filename, tags="x86")
             t3 = db.add_url("https://3.com")
         with db.session.begin():
-            assert db.delete_tasks([])
-            assert db.delete_tasks([t1, t2, t3 + 1])
+            assert db.delete_tasks(task_ids=[])
+            assert db.delete_tasks(task_ids=[t1, t2, t3 + 1])
             tasks = db.session.query(Task).all()
             assert len(tasks) == 1
             assert tasks[0].id == t3
-            assert db.delete_tasks([t1, t2])
+            assert db.delete_tasks(task_ids=[t1, t2])
             tasks = db.session.query(Task).all()
             assert len(tasks) == 1
             assert tasks[0].id == t3

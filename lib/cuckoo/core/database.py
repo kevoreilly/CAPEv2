@@ -2180,8 +2180,8 @@ class _Database:
             search = search.filter(Task.id.in_(task_ids))
         if user_id is not None:
             search = search.filter(Task.user_id == user_id)
-        search.delete(synchronize_session=False)
-        self.session.commit()
+        search.delete() # synchronize_session=False
+        # self.session.commit()
         return True
 
     def check_tasks_timeout(self, timeout):

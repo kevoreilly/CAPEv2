@@ -228,3 +228,4 @@ If you use CAPEv2 in your work, please cite it as specified in the "Cite this re
 
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
+* [DeepWiki](https://deepwiki.com/kevoreilly/CAPEv2/1-overview) - AI generated, some might be wrong but generally pretty accurate.

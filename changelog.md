@@ -1,3 +1,11 @@
+### [28.04.2025]
+* Monitor updates:
+    * .NET JIT cache dumps: off by default, configurable limit with option jit-dumps=X
+    * Windows Loader Snaps: vDbgPrintExWithPrefixInternal hook & option 'snaps=1' for loader snaps output in analysis log
+    * Disable AMSI dumps by default (and uncheck web submission tickbox)
+    * Native hookset (ntdll only) option: native=1
+    * CryptDuplicateKey hook (thanks @KillerInstinct)
+
 ### [02.04.2025]
 * Monitor updates:
     * Trace: allow custom stepping behavior with 'stepmode' option, stepmode=1 steps into short calls (e.g. Rhadamanthys control flow flattening)

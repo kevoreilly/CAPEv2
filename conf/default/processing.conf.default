@@ -294,10 +294,11 @@ modules_path = modules/processing/parsers/RATDecoders/
 enabled = yes
 modules_path = modules/processing/parsers/malduck/
 
+# installed from PYPI
 [CAPE_extractors]
 enabled = yes
 # Must ends with /
-modules_path = modules/processing/parsers/CAPE/
+modules_path = custom/parsers/
 # Config parsers all/core/community
 parsers = all
 # list of comma separated parsers. Ex: stealc,lumma

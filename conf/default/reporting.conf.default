@@ -26,7 +26,7 @@ procdump = yes
 
 # Community
 [pcap2cert]
-enabled = yes
+enabled = no
 
 # Community
 [litereport]

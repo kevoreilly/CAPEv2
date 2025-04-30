@@ -6,7 +6,7 @@
 
 # Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne
 
-# Ensure non-interactive mode for apt commands globally
+# Ensure non-interactive mode for apt commands globally to prevent prompts during automated installations
 export DEBIAN_FRONTEND=noninteractive
 
 # Static values

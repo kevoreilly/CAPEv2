@@ -378,7 +378,7 @@ def get_subprocess_status():
     """Return the subprocess status."""
     async_subprocess = state.get("async_subprocess")
     message = "Analysis status"
-    exitcode = async_subprocess.exitcode
+    exitcode = async_subprocess.poll()
     if exitcode is None or (sys.platform == "win32" and exitcode == 259):
         # Process is still running.
         state["status"] = Status.RUNNING
@@ -713,9 +713,7 @@ def background_subprocess(command_args, cwd, base64_encode, shell=False):
 
 def spawn(args, cwd, base64_encode, shell=False):
     """Kick off a subprocess in the background."""
-    run_subprocess_args = [args, cwd, base64_encode, shell]
-    proc = multiprocessing.Process(target=background_subprocess, name=f"child process {args[1]}", args=run_subprocess_args)
-    proc.start()
+    proc = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
     state["status"] = Status.RUNNING
     state["description"] = ""
     state["async_subprocess"] = proc

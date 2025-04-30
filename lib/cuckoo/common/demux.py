@@ -34,6 +34,8 @@ web_cfg = Config("web")
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
 linux_enabled = web_cfg.linux.get("enabled", False) or web_cfg.linux.get("static_only", False)
 
+demux_files_limit = int(web_cfg.general.demux_files_limit)
+
 demux_extensions_list = {
     b".accdr",
     b".exe",
@@ -359,4 +361,4 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                     )
             new_retlist.append((filename, platform))
 
-    return new_retlist[:10], error_list
+    return new_retlist[:demux_files_limit], error_list

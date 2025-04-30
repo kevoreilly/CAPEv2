@@ -65,6 +65,8 @@ expose_process_log = no
 reprocess_tasks = no
 # Allows you to define URL splitter, "," is default
 url_splitter = ,
+# Limit number of files extracted from archive in demux.py
+demux_files_limit = 10
 
 # ratelimit for anon users
 [ratelimit]

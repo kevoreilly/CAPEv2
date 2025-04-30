@@ -34,7 +34,11 @@ web_cfg = Config("web")
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
 linux_enabled = web_cfg.linux.get("enabled", False) or web_cfg.linux.get("static_only", False)
 
-demux_files_limit = int(web_cfg.general.demux_files_limit)
+try:
+    demux_files_limit = int(web_cfg.general.demux_files_limit)
+except ValueError:
+    log.error("Invalid value for demux_files_limit in web.conf, defaulting to 10")
+    demux_files_limit = 10  # Default value
 
 demux_extensions_list = {
     b".accdr",

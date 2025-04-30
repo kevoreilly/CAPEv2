@@ -415,7 +415,7 @@ class Task(Base):
     # Task tags
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"), lazy="subquery")
+    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"), lazy="subquery", cascade="save-update, delete")
     options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
@@ -465,7 +465,7 @@ class Task(Base):
     timedout = Column(Boolean, nullable=False, default=False)
 
     sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
-    sample = relationship("Sample", backref=backref("tasks", lazy="subquery"))
+    sample = relationship("Sample", backref=backref("tasks", lazy="subquery", cascade="save-update, delete"))
     machine_id = Column(Integer, nullable=True)
     guest = relationship("Guest", uselist=False, backref=backref("tasks"), cascade="save-update, delete")
     errors = relationship("Error", backref=backref("tasks"), cascade="save-update, delete")
@@ -2150,72 +2150,71 @@ class _Database:
             bool: True if the operation was successful (including no tasks to delete), False otherwise.
         """
         filters_applied = False
-        with self.session.begin_nested():
-            search = self.session.query(Task)
+        search = self.session.query(Task)
 
-            if status:
-                if "|" in status:
-                    search = search.filter(Task.status.in_(status.split("|")))
-                else:
-                    search = search.filter(Task.status == status)
-                filters_applied = True
-            if not_status:
-                search = search.filter(Task.status != not_status)
-                filters_applied = True
-            if category:
-                search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
-                filters_applied = True
-            if sample_id is not None:
-                search = search.filter(Task.sample_id == sample_id)
-                filters_applied = True
-            if id_before is not None:
-                search = search.filter(Task.id < id_before)
-                filters_applied = True
-            if id_after is not None:
-                search = search.filter(Task.id > id_after)
-                filters_applied = True
-            if completed_after:
-                search = search.filter(Task.completed_on > completed_after)
-                filters_applied = True
-            if added_before:
-                search = search.filter(Task.added_on < added_before)
-                filters_applied = True
-            if options_like:
-                # Replace '*' wildcards with wildcard for sql
-                options_like = options_like.replace("*", "%")
-                search = search.filter(Task.options.like(f"%{options_like}%"))
-                filters_applied = True
-            if options_not_like:
-                # Replace '*' wildcards with wildcard for sql
-                options_not_like = options_not_like.replace("*", "%")
-                search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
-                filters_applied = True
-            if tags_tasks_like:
-                search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
-                filters_applied = True
-            if task_ids:
-                search = search.filter(Task.id.in_(task_ids))
-                filters_applied = True
-            if user_id is not None:
-                search = search.filter(Task.user_id == user_id)
-                filters_applied = True
+        if status:
+            if "|" in status:
+                search = search.filter(Task.status.in_(status.split("|")))
+            else:
+                search = search.filter(Task.status == status)
+            filters_applied = True
+        if not_status:
+            search = search.filter(Task.status != not_status)
+            filters_applied = True
+        if category:
+            search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
+            filters_applied = True
+        if sample_id is not None:
+            search = search.filter(Task.sample_id == sample_id)
+            filters_applied = True
+        if id_before is not None:
+            search = search.filter(Task.id < id_before)
+            filters_applied = True
+        if id_after is not None:
+            search = search.filter(Task.id > id_after)
+            filters_applied = True
+        if completed_after:
+            search = search.filter(Task.completed_on > completed_after)
+            filters_applied = True
+        if added_before:
+            search = search.filter(Task.added_on < added_before)
+            filters_applied = True
+        if options_like:
+            # Replace '*' wildcards with wildcard for sql
+            options_like = options_like.replace("*", "%")
+            search = search.filter(Task.options.like(f"%{options_like}%"))
+            filters_applied = True
+        if options_not_like:
+            # Replace '*' wildcards with wildcard for sql
+            options_not_like = options_not_like.replace("*", "%")
+            search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
+            filters_applied = True
+        if tags_tasks_like:
+            search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+            filters_applied = True
+        if task_ids:
+            search = search.filter(Task.id.in_(task_ids))
+            filters_applied = True
+        if user_id is not None:
+            search = search.filter(Task.user_id == user_id)
+            filters_applied = True
 
-            if not filters_applied:
-                log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
-                return True  # Indicate success as no deletion was requested/needed
+        if not filters_applied:
+            log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
+            return True  # Indicate success as no deletion was requested/needed
 
-            try:
-                # Perform the deletion and get the count of deleted rows
-                deleted_count = search.delete(synchronize_session=False)
-                log.info("Deleted %d tasks matching the criteria.", deleted_count)
-                # The commit is handled by the calling context (e.g., `with db.session.begin():`)
-                return True
-            except Exception as e:
-                log.error("Error deleting tasks: %s", str(e))
-                # Rollback might be needed if this function is called outside a `with db.session.begin():`
-                # but typically it should be called within one.
-                self.session.rollback()
-                return False
+        try:
+            # Perform the deletion and get the count of deleted rows
+            deleted_count = search.delete(synchronize_session=False)
+            log.info("Deleted %d tasks matching the criteria.", deleted_count)
+            self.session.commit()
+            return True
+        except Exception as e:
+            log.error("Error deleting tasks: %s", str(e))
+            # Rollback might be needed if this function is called outside a `with db.session.begin():`
+            # but typically it should be called within one.
+            self.session.rollback()
+            return False
 
 
     def check_tasks_timeout(self, timeout):

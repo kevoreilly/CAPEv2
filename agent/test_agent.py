@@ -720,3 +720,22 @@ class TestAgent:
         assert r.status_code == 500
         js = r.json()
         assert js["message"] == "Agent has already been pinned to an IP!"
+
+    def test_parent_pid_sync(self):
+        """Confirm if the spawned process has agent as parent"""
+        # The output line endings are different between linux and Windows.
+        file_contents = (
+            f"# Comment a random number {random.randint(1000, 9999)}'",
+            "import os",
+            "print(f'process_id:{os.getpid()}')",
+            "print(f'parent_pid:{os.getppid()}')",
+        )
+        filepath = self.store_file(file_contents)
+
+        form = {"filepath": filepath}
+        js = self.post_form("execpy", form)
+        agent_pid = self.agent_process.pid
+        assert js["message"] == "Successfully executed command"
+        assert "stdout" in js
+        assert "process_id" in js["stdout"]
+        assert f"parent_pid:{agent_pid}" in js["stdout"]

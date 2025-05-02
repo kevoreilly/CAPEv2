@@ -797,7 +797,7 @@ function install_yara() {
     ldconfig
 
     # Run yara installer script
-    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run /opt/CAPEv2/extra/yara_installer.sh
+    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run extra/yara_installer.sh
 
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
@@ -944,7 +944,7 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install .
+    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install /tmp/capa
     cd /opt/CAPEv2
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa

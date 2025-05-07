@@ -9,6 +9,7 @@ import os
 import pathlib
 import random
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -39,8 +40,8 @@ class TestAgentFunctions:
     @mock.patch("sys.platform", "win32")
     def test_get_subprocess_259(self):
         mock_process_id = 999998
-        mock_subprocess = mock.Mock(spec=multiprocessing.Process)
-        mock_subprocess.exitcode = 259
+        mock_subprocess = mock.Mock(spec=subprocess.Popen)
+        mock_subprocess.poll = mock.Mock(return_value=259)
         mock_subprocess.pid = mock_process_id
         with mock.patch.dict(agent.state, {"async_subprocess": mock_subprocess}):
             actual = agent.get_subprocess_status()

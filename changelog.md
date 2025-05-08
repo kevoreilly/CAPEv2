@@ -1,5 +1,6 @@
 ### [8.05.2025]
 * PPLInject: Improve logging output if DLL transaction fails due to insufficiently large transaction target DLL in %SYSTEM%
+* Monitor update: Allow monitor to load without config ini file - defaults to standalone mode
 
 ### [28.04.2025]
 * Monitor updates:

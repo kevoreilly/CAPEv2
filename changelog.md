@@ -1,3 +1,6 @@
+### [8.05.2025]
+* PPLInject: Improve logging output if DLL transaction fails due to insufficiently large transaction target DLL in %SYSTEM%
+
 ### [28.04.2025]
 * Monitor updates:
     * .NET JIT cache dumps: off by default, configurable limit with option jit-dumps=X

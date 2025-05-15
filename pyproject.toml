@@ -1,4 +1,4 @@
-[tool.poetry]
+\[tool.poetry]
 name = "CAPEv2"
 version = "0.1.0"
 description = "CAPE: Malware Configuration And Payload Extraction"
@@ -33,7 +33,7 @@ SFlock2 = {version = ">=0.3.66", extras = ["shellcode","linux"]}
 # volatility3 = "2.11.0"
 # XLMMacroDeobfuscator = "0.2.7"
 pyzipper = "0.3.6"
-flare-capa = "9.0.0"
+flare-capa = "9.1.0"
 
 Cython = "3.0.11"
 Django = ">=4.2.18"

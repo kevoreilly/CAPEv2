@@ -280,7 +280,7 @@
                     {% if not file.flare_capa and on_demand.flare_capa %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate CAPA findings"><span class="fas fa-cogs"></span> CAPA</a>
                     {% elif file.flare_capa %}
-                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a>
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}" data-bs-toggle="tooltip" title="Display CAPA"><span class="fas fa-envelope-open-text"></span> FLARE CAPA</a>
                     {% endif %}
                 {% endif %}
                 {% if config.strings %}
@@ -346,14 +346,18 @@
                 <div class="collapse" id="flare_capa_{{file.sha256}}">
                     <div>
                     <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
-                    {% if file.flare_capa.CAPABILITY %}
-                        {{file.flare_capa|flare_capa_capability}}
-                    {% endif %}
-                    {% if file.flare_capa.ATTCK %}
-                        {{file.flare_capa|flare_capa_attck}}
-                    {% endif %}
-                    {% if file.flare_capa.MBC %}
-                        {{file.flare_capa|flare_capa_mbc}}
+                    {% if file.flare_capa.CAPABILITY or file.flare_capa.ATTCK or file.flare_capa.MBC %}
+                        {% if file.flare_capa.CAPABILITY %}
+                            {{ file.flare_capa|flare_capa_capability }}
+                        {% endif %}
+                        {% if file.flare_capa.ATTCK %}
+                            {{ file.flare_capa|flare_capa_attck }}
+                        {% endif %}
+                        {% if file.flare_capa.MBC %}
+                            {{ file.flare_capa|flare_capa_mbc }}
+                        {% endif %}
+                    {% else %}
+                        No results
                     {% endif %}
                     </div>
                 </div>

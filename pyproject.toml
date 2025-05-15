@@ -1,4 +1,4 @@
-\[tool.poetry]
+[tool.poetry]
 name = "CAPEv2"
 version = "0.1.0"
 description = "CAPE: Malware Configuration And Payload Extraction"

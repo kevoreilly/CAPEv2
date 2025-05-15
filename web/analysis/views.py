@@ -126,7 +126,7 @@ if reporting_cfg.compression.compressiontool == "7zip":
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
 on_demand_conf = {}
-for cfile in ("reporting", "processing", "auxiliary", "web", "distributed"):
+for cfile in ("integrations", "reporting", "processing", "auxiliary", "web", "distributed"):
     curconf = Config(cfile)
     confdata = curconf.get_config()
     for item in confdata:
@@ -2487,11 +2487,11 @@ def statistics_data(request, days=7):
 
 on_demand_config_mapper = {
     "bingraph": reporting_cfg,
-    "flare_capa": processing_cfg,
+    "flare_capa": integrations_cfg,
     "vba2graph": processing_cfg,
     "xlsdeobf": processing_cfg,
     "strings": processing_cfg,
-    "floss": processing_cfg,
+    "floss": integrations_cfg,
 }
 
 

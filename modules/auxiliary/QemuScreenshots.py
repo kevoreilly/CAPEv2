@@ -12,7 +12,10 @@ from io import BytesIO
 from threading import Thread
 
 from lib.cuckoo.common.abstracts import Auxiliary
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+
+cfg = Config("auxiliary").get("QemuScreenshots")
 
 log = logging.getLogger(__name__)
 
@@ -56,10 +59,12 @@ class QEMUScreenshots(Auxiliary):
         Thread.__init__(self)
         log.info("QEMU screenshots module loaded")
         self.screenshot_thread = None
+        self.enabled = cfg.get("enabled")
+        self.do_run = self.enabled
 
     def start(self):
         """Start capture in a separate thread."""
-        self.screenshot_thread = ScreenshotThread(self.task, self.machine)
+        self.screenshot_thread = ScreenshotThread(self.task, self.machine, self.do_run)
         self.screenshot_thread.start()
         return True
 
@@ -72,11 +77,11 @@ class QEMUScreenshots(Auxiliary):
 class ScreenshotThread(Thread):
     """Thread responsible for taking screenshots."""
 
-    def __init__(self, task, machine):
+    def __init__(self, task, machine, do_run):
         Thread.__init__(self)
         self.task = task
         self.machine = machine
-        self.do_run = True
+        self.do_run = do_run
 
         self.screenshots_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "shots")
         os.makedirs(self.screenshots_path, exist_ok=True)

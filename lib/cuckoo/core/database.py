@@ -44,6 +44,7 @@ try:
         ForeignKey,
         Index,
         Integer,
+        BigInteger,
         String,
         Table,
         Text,
@@ -307,7 +308,7 @@ class Sample(Base):
     __tablename__ = "samples"
 
     id = Column(Integer(), primary_key=True)
-    file_size = Column(Integer(), nullable=False)
+    file_size = Column(BigInteger(), nullable=False)
     file_type = Column(Text(), nullable=False)
     md5 = Column(String(32), nullable=False)
     crc32 = Column(String(8), nullable=False)

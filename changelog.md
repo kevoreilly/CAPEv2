@@ -1,4 +1,5 @@
 ### [23.05.2025]
+* Socks5Systemz update: detection & config extraction, parser update also required (CAPE-parsers repo)
 * Monitor updates:
     * Trace: do not wrap GetExportNameByAddress() in try/catch and do not use StepOverRegister in BreakOnReturnCallback()
     * Debugger: fix br1 (break on return) config option parsing (config.c)

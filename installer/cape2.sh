@@ -744,7 +744,7 @@ function install_suricata() {
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'eve-log:\n      enabled: no\n', b'eve-log:\n      enabled: yes\n');open(pa, 'wb').write(q);"
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'unix-command:\n  enabled: auto\n  #filename: custom.socket', b'unix-command:\n  enabled: yes\n  filename: /tmp/suricata-command.socket');open(pa, 'wb').write(q);"
     # file-store
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'file-store:\n  version: 2\n  enabled: no', b'file-store:\n  version: 2\n  enabled: yes');open(pa, 'wb').write(q);"
+    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'file-store:\n      version: 2\n      enabled: no', b'file-store:\n      version: 2\n      enabled: yes');open(pa, 'wb').write(q);"
 
     chown ${USER}:${USER} -R /etc/suricata
     chown ${USER}:${USER} -R /var/log/suricata
@@ -797,7 +797,7 @@ function install_yara() {
     ldconfig
 
     # Run yara installer script
-    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run /opt/CAPEv2/extra/yara_installer.sh
+    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run extra/yara_installer.sh
 
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
@@ -944,7 +944,7 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install .
+    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install /tmp/capa
     cd /opt/CAPEv2
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa

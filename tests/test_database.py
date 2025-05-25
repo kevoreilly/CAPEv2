@@ -904,6 +904,10 @@ class TestDatabaseEngine:
             assert not db.delete_task(t2)
 
     def test_delete_tasks(self, db: _Database, temp_filename):
+        """Test the delete_tasks method.
+
+        We need a new session after calling delete_tasks.
+        """
         with db.session.begin():
             t1 = db.add_url("https://1.com")
             t2 = db.add_path(temp_filename, tags="x86")
@@ -911,10 +915,12 @@ class TestDatabaseEngine:
         with db.session.begin():
             assert db.delete_tasks(task_ids=[])
             assert db.delete_tasks(task_ids=[t1, t2, t3 + 1])
+        with db.session.begin():
             tasks = db.session.query(Task).all()
             assert len(tasks) == 1
             assert tasks[0].id == t3
             assert db.delete_tasks(task_ids=[t1, t2])
+        with db.session.begin():
             tasks = db.session.query(Task).all()
             assert len(tasks) == 1
             assert tasks[0].id == t3

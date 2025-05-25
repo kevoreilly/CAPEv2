@@ -1,3 +1,12 @@
+### [23.05.2025]
+* Socks5Systemz update: detection & config extraction, parser update also required (CAPE-parsers repo)
+* Monitor updates:
+    * Trace: do not wrap GetExportNameByAddress() in try/catch and do not use StepOverRegister in BreakOnReturnCallback()
+    * Debugger: fix br1 (break on return) config option parsing (config.c)
+    * Replace remaining uses of pipe("INFO:...) with DebugOutput()
+    * Trace: switch from using ScyllaGetExportNameByAddress() to GetExportNameByAddress()
+    * Harden ScanForExport() function (used by GetExportNameByAddress())
+
 ### [8.05.2025]
 * PPLInject: Improve logging output if DLL transaction fails due to insufficiently large transaction target DLL in %SYSTEM%
 * Monitor update: Allow monitor to load without config ini file - defaults to standalone mode

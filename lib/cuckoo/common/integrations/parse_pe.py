@@ -161,7 +161,7 @@ class PortableExecutable:
                 self.pe = pefile.PE(self.file_path)
             self.HAVE_PE = True
         except Exception as e:
-            log.error("PE type not recognised: %s", e)
+            log.debug("PE type not recognised: %s", e)
         # self.results = results
 
     @property

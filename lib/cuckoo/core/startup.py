@@ -125,8 +125,8 @@ def check_webgui_mongo():
 
         # side indexes as ideas
         """
-            mongo_create_index("analysis", [("detections", 1)], name="detections_1")
-            mongo_create_index("analysis", [("target.file.name", 1)], name="name_1")
+            mongo_create_index("analysis", "detections", name="detections_1")
+            mongo_create_index("analysis", "target.file.name", name="name_1")
         """
 
     elif repconf.elasticsearchdb.enabled:

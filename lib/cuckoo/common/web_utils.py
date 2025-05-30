@@ -1202,7 +1202,7 @@ hash_searches = {
     "md5": "md5",
     "sha1": "sha1",
     "sha3": "sha3_384",
-    "sha256": "sha256",
+    "sha256": "_id",
     "sha512": "sha512",
 }
 

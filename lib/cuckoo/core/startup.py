@@ -120,7 +120,6 @@ def check_webgui_mongo():
         mongo_create_index("analysis", "info.id", name="info.id_1")
         # Some indexes that can be useful for some users
         mongo_create_index("files", "md5", name="target_md5")
-        mongo_create_index("files", "sha256", name="target_sha256")
         mongo_create_index("files", [("_task_ids", 1)])
 
         # side indexes as ideas

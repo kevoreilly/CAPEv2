@@ -1420,19 +1420,22 @@ def perform_search(
         query_val = {"$exists": True}
 
     if repconf.mongodb.enabled and query_val:
-        if isinstance(search_term_map[term], str):
+        if term in hash_searches:
+            # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
+            file_docs = list(mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_task_ids": 1}))
+            if not file_docs:
+                return []
+            ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
+            term = "ids"
+            mongo_search_query = {"info.id": {"$in": ids}}
+        elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         elif isinstance(search_term_map[term], list):
             mongo_search_query = {search_term:query_val for search_term in search_term_map[term]}
         else:
-            if term in hash_searches:
-                # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
-                file_docs = list(mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_task_ids": 1}))
-                if not file_docs:
-                    return []
-                ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
-                term = "ids"
-                mongo_search_query = {"info.id": {"$in": ids}}
+            print(f"Unknown search {term}:{value}")
+            return []
+
         # Allow to overwrite perform_search_filters for custom results
         if not projection:
             projection = perform_search_filters

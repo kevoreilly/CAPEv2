@@ -474,3 +474,44 @@ an error like ``django.db.utils.OperationalError: no such table: auth_user``
 may be raised. In order to solve it just execute the ``web/manage.py`` utility with the ``migrate`` option::
 
 $ sudo -u cape poetry run python3 web/manage.py migrate
+
+
+Slow web/API searches when using MongoDB as backend
+---------------------------------------------------
+
+* Check server lack of resources as memory ram, cpu or even slow hard drive.
+* Possible issue is the lack of proper indexes.
+* List your MongoDB indexes:
+
+.. code-block:: bash
+
+    db.analysis.getIndexes()
+
+* Test your query with explaination. Replace with your search patterns:
+
+.. code-block:: bash
+
+        db.analysis.find({"target.file.name": "<name>"}).explain("executionStats")
+
+* Pay attention to stage value:
+
+.. code-block:: bash
+
+    executionStages: {
+        stage: 'COLLSCAN', # <--- Full collection scan instead of index usage
+
+If you expect it to search in index, expected output should be like this:
+
+.. code-block:: bash
+
+    executionStages: {
+        stage: 'FETCH',
+        <stripped>
+        inputStage: {
+            stage: 'IXSCAN', # <--- Index usage
+
+* How to delete index
+
+.. code-block:: bash
+
+    db.collection.dropIndexes("<index name>")

@@ -1,3 +1,6 @@
+### [03.06.2025]
+* Monitor update: Fix bug in retarget_relative_displacement() relative offset calculation (thanks @ClaudioWayne)
+
 ### [23.05.2025]
 * Socks5Systemz update: detection & config extraction, parser update also required (CAPE-parsers repo)
 * Monitor updates:

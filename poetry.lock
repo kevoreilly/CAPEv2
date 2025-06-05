@@ -273,14 +273,14 @@ files = [
 
 [[package]]
 name = "cape-parsers"
-version = "0.1.26"
+version = "0.1.36"
 description = "CAPE: Malware Configuration Extraction"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "cape_parsers-0.1.26-py3-none-any.whl", hash = "sha256:ce9d14714abc0e49c28e058559b70ce827e59311e35709509a381008bd01e6b1"},
-    {file = "cape_parsers-0.1.26.tar.gz", hash = "sha256:986cfe936cfe9c3e6906c9b1cff025c4b911c6a3a756ac08f5313f99b1185d9c"},
+    {file = "cape_parsers-0.1.36-py3-none-any.whl", hash = "sha256:c0944f8183aaf53d4a6c8f370423ce1134bdc4a7f7b23e37f92f0e061423e229"},
+    {file = "cape_parsers-0.1.36.tar.gz", hash = "sha256:459db9a10a2c09a1dfb386dcec1b7968293d2c6eef417c4179022895e396ddc5"},
 ]
 
 [package.dependencies]
@@ -290,10 +290,10 @@ dnfile = ">=0.15.1"
 netstruct = "1.1.2"
 pefile = "*"
 pycryptodomex = ">=3.20.0"
-rat-king-parser = ">=4.0.0"
+rat-king-parser = ">=4.1.0"
 ruff = ">=0.7.2"
 unicorn = "2.1.1"
-yara-python = "4.5.1"
+yara-python = ">=4.5.1"
 
 [package.extras]
 maco = ["maco (==1.1.8)"]
@@ -3829,14 +3829,14 @@ pycryptodomex = "*"
 
 [[package]]
 name = "rat-king-parser"
-version = "4.0.1"
+version = "4.1.6"
 description = "A robust, multiprocessing-capable, multi-family RAT config parser/config extractor for AsyncRAT, DcRAT, VenomRAT, QuasarRAT, XWorm, Xeno RAT, and cloned/derivative RAT families."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "rat_king_parser-4.0.1-py3-none-any.whl", hash = "sha256:f5f8db807c371d4a2e634fa92b7de9ec67a1ae8e0a1c2e39e14aceec5c8fb279"},
-    {file = "rat_king_parser-4.0.1.tar.gz", hash = "sha256:9fb57c0ff925e988344a179bcc6b6df2eba98f4815865ee2088982ea71680956"},
+    {file = "rat_king_parser-4.1.6-py3-none-any.whl", hash = "sha256:b5249842b8ea77b3d647cd6a559f39b51c4a15719a2d9cb0285deeb709c5cca9"},
+    {file = "rat_king_parser-4.1.6.tar.gz", hash = "sha256:ea3db0274cb158e797953561624b9c9d513fcf34c5a6be53a41971b8008a079a"},
 ]
 
 [package.dependencies]
@@ -3845,6 +3845,7 @@ pycryptodomex = "*"
 yara-python = "*"
 
 [package.extras]
+dev = ["pre-commit"]
 maco = ["maco", "validators"]
 
 [[package]]
@@ -5115,4 +5116,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "0447c27e94e61895b9df6dba65b0138344b38db1b034db025c3e8bd29d23fb47"
+content-hash = "f73514bd446b19c240a27e9bf105b2372b3328ab363d02a3610552f2b09141e0"

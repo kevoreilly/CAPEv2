@@ -268,7 +268,12 @@ class AnalysisManager(threading.Thread):
 
     def category_checks(self) -> Optional[bool]:
         if self.task.category in ("file", "pcap", "static"):
-            sha256 = File(self.task.target).get_sha256()
+            try:
+                sha256 = File(self.task.target).get_sha256()
+            except FileNotFoundError:
+                # Happens when cleaner deleted target file
+                self.log.error("File %s missed", self.task.target)
+                return False
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):

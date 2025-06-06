@@ -4,6 +4,7 @@
 
 import os
 
+from lib.cuckoo.common.utils import create_zip
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.path_utils import path_write_file
@@ -16,7 +17,6 @@ except ImportError:
     import json
 
     HAVE_ORJSON = False
-
 
 class JsonDump(Report):
     """Saves analysis results in JSON format."""
@@ -48,5 +48,13 @@ class JsonDump(Report):
             else:
                 with open(path, "w") as report:
                     json.dump(results, report, sort_keys=False, indent=int(indent), ensure_ascii=False)
+
+            # useful if you frequently fetch zipped reports to not compress in memory all the time
+            if self.options.get("store_compressed") and os.path.exists(path):
+                zip_path = path + ".zip"
+                zipped_io = create_zip(path)
+                with open(zip_path, "wb") as f:
+                    f.write(zipped_io.getvalue())
+
         except (UnicodeError, TypeError, IOError) as e:
             raise CuckooReportError(f"Failed to generate JSON report: {e}")

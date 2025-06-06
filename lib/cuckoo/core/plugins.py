@@ -99,7 +99,7 @@ def import_package(package):
         try:
             import_plugin(name)
         except Exception as e:
-            print(e)
+            log.exception("import_package: %s - error: %s", name, str(e))
 
 
 def load_plugins(module):
@@ -458,7 +458,7 @@ class RunSignatures:
                 if sig not in self.evented_list:
                     self.non_evented_list.append(sig)
         except Exception as e:
-            print(e)
+            print("RunSignatures: ", e)
 
         # Cache of signatures to call per API name.
         self.api_sigs = {}
@@ -562,7 +562,7 @@ class RunSignatures:
 
     def _check_signature_platform(self, signature):
         module = inspect.getmodule(signature).__name__
-        platform = self.task.get("platform", "")
+        platform = self.task.get("platform") or ""
 
         if platform in module:
             return True

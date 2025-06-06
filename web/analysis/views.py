@@ -71,12 +71,13 @@ TASK_LIMIT = 25
 
 processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
+integrations_cfg = Config("integrations")
 web_cfg = Config("web")
 
 try:
     # On demand features
     HAVE_FLARE_CAPA = False
-    if processing_cfg.flare_capa.on_demand:
+    if integrations_cfg.flare_capa.on_demand:
         from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 except (NameError, ImportError):
     print("Can't import FLARE-CAPA")
@@ -114,7 +115,7 @@ else:
     HAVE_BINGRAPH = False
 
 HAVE_FLOSS = False
-if processing_cfg.floss.on_demand:
+if integrations_cfg.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 USE_SEVENZIP = False
@@ -125,7 +126,7 @@ if reporting_cfg.compression.compressiontool == "7zip":
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
 on_demand_conf = {}
-for cfile in ("reporting", "processing", "auxiliary", "web", "distributed"):
+for cfile in ("integrations", "reporting", "processing", "auxiliary", "web", "distributed"):
     curconf = Config(cfile)
     confdata = curconf.get_config()
     for item in confdata:
@@ -757,6 +758,9 @@ def load_files(request, task_id, category):
             tls_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "tlsdump", "tlsdump.log")
             if _path_safe(tls_path):
                 ajax_response["tlskeys_exists"] = _path_safe(tls_path)
+            mitmdump_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "mitmdump", "dump.har")
+            if _path_safe(mitmdump_path):
+                ajax_response["mitmdump_exists"] = _path_safe(mitmdump_path)
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
@@ -968,12 +972,12 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
         apis[:] = [s.strip().lower() for s in apis if len(s.strip())]
 
         # Populate dict, fetching data from all calls and selecting only appropriate category/APIs.
-        for call in process["calls"]:
+        for call in process.get("calls", []):
             if enabledconf["mongodb"]:
                 chunk = mongo_find_one("calls", {"_id": call})
             if es_as_db:
                 chunk = es.search(index=get_calls_index(), body={"query": {"match": {"_id": call}}})["hits"]["hits"][0]["_source"]
-            for call in chunk["calls"]:
+            for call in chunk.get("calls", []):
                 # filter by call or tid
                 if caller != "null" or tid != "0":
                     if caller in ("null", call["caller"]) and tid in ("0", call["thread_id"]):
@@ -1458,7 +1462,7 @@ def search_behavior(request, task_id):
                     for argument in call["arguments"]:
                         if search_argname and argument["name"] != search_argname:
                             continue
-                        if query.search(argument["value"]):
+                        if isinstance(argument["value"], (str, bytes)) and query.search(argument["value"]):
                             process_results.append(call)
                             break
 
@@ -1942,6 +1946,9 @@ def file(request, category, task_id, dlfile):
         path = []
         for dfile in os.listdir(buf):
             path.append(os.path.join(buf, dfile))
+    elif category == "mitmdump":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "mitmdump", "dump.har")
+        cd = "text/plain"
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
@@ -2425,7 +2432,7 @@ def comments(request, task_id):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def vtupload(request, category, task_id, filename, dlfile):
-    if enabledconf["vtupload"] and settings.VTDL_KEY:
+    if enabledconf["vtupload"] and integrations_cfg.virustotal.apikey:
         try:
             folder_name = False
             path = False
@@ -2442,7 +2449,7 @@ def vtupload(request, category, task_id, filename, dlfile):
             if not path or not _path_safe(path):
                 return render(request, "error.html", {"error": f"File not found: {os.path.basename(path)}"})
 
-            headers = {"x-apikey": settings.VTDL_KEY}
+            headers = {"x-apikey": integrations_cfg.virustotal.apikey}
             files = {"file": (filename, open(path, "rb"))}
             response = requests.post("https://www.virustotal.com/api/v3/files", files=files, headers=headers)
             if response.ok:
@@ -2480,11 +2487,11 @@ def statistics_data(request, days=7):
 
 on_demand_config_mapper = {
     "bingraph": reporting_cfg,
-    "flare_capa": processing_cfg,
+    "flare_capa": integrations_cfg,
     "vba2graph": processing_cfg,
     "xlsdeobf": processing_cfg,
     "strings": processing_cfg,
-    "floss": processing_cfg,
+    "floss": integrations_cfg,
 }
 
 
@@ -2541,6 +2548,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     details = False
     if service == "flare_capa" and HAVE_FLARE_CAPA:
+        # ToDo check if PE
         details = flare_capa_details(path, category.lower(), on_demand=True)
         if not details:
             details = {"msg": "No results"}

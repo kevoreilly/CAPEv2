@@ -72,4 +72,6 @@ urlpatterns = [
     # re_path(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
     re_path(r"^tasks/statistics/(?P<days>\d+)/$", views.statistics_data),
     re_path(r"^exitnodes/$", views.exit_nodes_list),
+    # re_path(r"^dist/tasks_reported$", views.dist_tasks_reported),
+    # re_path(r"^dist/tasks_notification/(?P<task_id>\d+)$", views.dist_tasks_notification),
 ]

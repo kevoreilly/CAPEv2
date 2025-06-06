@@ -109,8 +109,13 @@ def check_tuntap(vm_name, main_iface):
         return False
 
 
-def run_iptables(*args):
-    iptables_args = [s.iptables]
+def run_iptables(*args, **kwargs):
+    if kwargs and kwargs.get('netns'):
+        netns = kwargs.get('netns')
+        iptables_args = ["/usr/sbin/ip", "netns", "exec", netns, s.iptables]
+    else:
+        iptables_args = [s.iptables]
+
     iptables_args.extend(list(args))
     iptables_args.extend(["-m", "comment", "--comment", "CAPE-rooter"])
     return run(*iptables_args)
@@ -238,84 +243,153 @@ def disable_nat(interface):
     run_iptables("-t", "nat", "-D", "POSTROUTING", "-o", interface, "-j", "MASQUERADE")
 
 
-def enable_mitmdump(interface, client, port):
+def enable_mitmdump(interface, client, port, netns):
     """Enable mitmdump on this interface."""
-    run_iptables(
-        "-t",
-        "nat",
-        "-I",
-        "PREROUTING",
-        "-i",
-        interface,
-        "-s",
-        client,
-        "-p",
-        "tcp",
-        "--dport",
-        "443",
-        "-j",
-        "REDIRECT",
-        "--to-port",
-        port,
-    )
-    run_iptables(
-        "-t",
-        "nat",
-        "-I",
-        "PREROUTING",
-        "-i",
-        interface,
-        "-s",
-        client,
-        "-p",
-        "tcp",
-        "--dport",
-        "80",
-        "-j",
-        "REDIRECT",
-        "--to-port",
-        port,
-    )
+
+    log.info("enable_mitmdump client: %s port: %s netns: %s", client, port, netns)
+
+    if netns:
+        # assume all traffic in network namespace can be captured
+        run_iptables(
+            "-t",
+            "nat",
+            "-I",
+            "PREROUTING",
+            "-p",
+            "tcp",
+            "--dport",
+            "443",
+            "-j",
+            "REDIRECT",
+            "--to-port",
+            port,
+            netns=netns,
+        )
+        run_iptables(
+            "-t",
+            "nat",
+            "-I",
+            "PREROUTING",
+            "-p",
+            "tcp",
+            "--dport",
+            "80",
+            "-j",
+            "REDIRECT",
+            "--to-port",
+            port,
+            netns=netns,
+        )
+    else:
+        run_iptables(
+            "-t",
+            "nat",
+            "-I",
+            "PREROUTING",
+            "-i",
+            interface,
+            "-s",
+            client,
+            "-p",
+            "tcp",
+            "--dport",
+            "443",
+            "-j",
+            "REDIRECT",
+            "--to-port",
+            port,
+        )
+        run_iptables(
+            "-t",
+            "nat",
+            "-I",
+            "PREROUTING",
+            "-i",
+            interface,
+            "-s",
+            client,
+            "-p",
+            "tcp",
+            "--dport",
+            "80",
+            "-j",
+            "REDIRECT",
+            "--to-port",
+            port
+        )
 
 
-def disable_mitmdump(interface, client, port):
+def disable_mitmdump(interface, client, port, netns):
     """Disable mitmdump on this interface."""
-    run_iptables(
-        "-t",
-        "nat",
-        "-D",
-        "PREROUTING",
-        "-i",
-        interface,
-        "-s",
-        client,
-        "-p",
-        "tcp",
-        "--dport",
-        "443",
-        "-j",
-        "REDIRECT",
-        "--to-port",
-        port,
-    )
-    run_iptables(
-        "-t",
-        "nat",
-        "-D",
-        "PREROUTING",
-        "-i",
-        interface,
-        "-s",
-        client,
-        "-p",
-        "tcp",
-        "--dport",
-        "80",
-        "-j",
-        "REDIRECT",
-        "--to-port",
-        port,
-    )
+
+    if netns:
+        run_iptables(
+            "-t",
+            "nat",
+            "-D",
+            "PREROUTING",
+            "-p",
+            "tcp",
+            "--dport",
+            "443",
+            "-j",
+            "REDIRECT",
+            "--to-port",
+            port,
+            netns=netns,
+        )
+        run_iptables(
+            "-t",
+            "nat",
+            "-D",
+            "PREROUTING",
+            "-p",
+            "tcp",
+            "--dport",
+            "80",
+            "-j",
+            "REDIRECT",
+            "--to-port",
+            port,
+            netns=netns,
+        )
+    else:
+        run_iptables(
+            "-t",
+            "nat",
+            "-D",
+            "PREROUTING",
+            "-i",
+            interface,
+            "-s",
+            client,
+            "-p",
+            "tcp",
+            "--dport",
+            "443",
+            "-j",
+            "REDIRECT",
+            "--to-port",
+            port,
+        )
+        run_iptables(
+            "-t",
+            "nat",
+            "-D",
+            "PREROUTING",
+            "-i",
+            interface,
+            "-s",
+            client,
+            "-p",
+            "tcp",
+            "--dport",
+            "80",
+            "-j",
+            "REDIRECT",
+            "--to-port",
+            port,
+        )
 
 
 def init_rttable(rt_table, interface):

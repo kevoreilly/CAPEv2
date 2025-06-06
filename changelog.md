@@ -1,5 +1,48 @@
+### [06.06.2025]
+* Monitor update: Fix format string vulnerability in debugger StringsOutput() function
 
-### [1.03.2025] VirusTotal and MalwareBazaar
+### [03.06.2025]
+* Monitor update: Fix bug in retarget_relative_displacement() relative offset calculation (thanks @ClaudioWayne)
+
+### [23.05.2025]
+* Socks5Systemz update: detection & config extraction, parser update also required (CAPE-parsers repo)
+* Monitor updates:
+    * Trace: do not wrap GetExportNameByAddress() in try/catch and do not use StepOverRegister in BreakOnReturnCallback()
+    * Debugger: fix br1 (break on return) config option parsing (config.c)
+    * Replace remaining uses of pipe("INFO:...) with DebugOutput()
+    * Trace: switch from using ScyllaGetExportNameByAddress() to GetExportNameByAddress()
+    * Harden ScanForExport() function (used by GetExportNameByAddress())
+
+### [8.05.2025]
+* PPLInject: Improve logging output if DLL transaction fails due to insufficiently large transaction target DLL in %SYSTEM%
+* Monitor update: Allow monitor to load without config ini file - defaults to standalone mode
+
+### [28.04.2025]
+* Monitor updates:
+    * .NET JIT cache dumps: off by default, configurable limit with option jit-dumps=X
+    * Windows Loader Snaps: vDbgPrintExWithPrefixInternal hook & option 'snaps=1' for loader snaps output in analysis log
+    * Disable AMSI dumps by default (and uncheck web submission tickbox)
+    * Native hookset (ntdll only) option: native=1
+    * CryptDuplicateKey hook (thanks @KillerInstinct)
+
+### [02.04.2025]
+* Monitor updates:
+    * Trace: allow custom stepping behavior with 'stepmode' option, stepmode=1 steps into short calls (e.g. Rhadamanthys control flow flattening)
+    * Hooking: replace sprintf calls with internal non-allocating implementation (num_to_hex(), uuid_to_string())
+    * CommandLineToArgvW hook
+* Cleaners update
+    * Now you can specify time range as 12h, 50m, 3d.
+    * Improved bulk cleanup for speed. Mongodb's calls collection now has task_id value. This allows to cleanup it faster.
+    * Servers that runs for years, might need to update their `tasks_tags` table schema by hand, only if you getting `ForeignKey violation`.
+```
+    ALTER TABLE tasks_tags DROP CONSTRAINT tasks_tags_task_id_fkey, ADD CONSTRAINT tasks_tags_task_id_fkey FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE;
+    ALTER TABLE tasks_tags DROP CONSTRAINT tasks_tags_tag_id_fkey, ADD CONSTRAINT tasks_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE;
+```
+
+### [14.03.2025] CAPA and FLOSS
+* CAPA and FLOSS configs are moved to `integrations.conf`
+
+### [01.03.2025] VirusTotal and MalwareBazaar
 * We have moved VirusTotal and MalwareBazaar to generic downloader so you can enable then in `integrations.conf`
     * Downlod service allows you to set order + simplifies adding another services
     * For `API` use `tasks/create/download_services/` instead of `tasks/create/vtdl/`. Example of data: `data={"hashes":"hash1,hash2"}`

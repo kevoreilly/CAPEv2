@@ -110,18 +110,6 @@ rule AgentTeslaV3 {
         (uint16(0) == 0x5a4d and (8 of ($s*) or (6 of ($s*) and 4 of ($g*)))) or (2 of ($m*))
 }
 
-rule AgentTeslaXor
-{
-    meta:
-        author = "kevoreilly"
-        description = "AgentTesla xor-based config decoding"
-        cape_type = "AgentTesla Payload"
-    strings:
-        $decode = {06 91 06 61 20 [4] 61 D2 9C 06 17 58 0A 06 7E [4] 8E 69 FE 04 2D ?? 2A}
-    condition:
-        uint16(0) == 0x5A4D and any of them
-}
-
 rule AgentTeslaV4
 {
     meta:

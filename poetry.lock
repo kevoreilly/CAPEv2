@@ -273,14 +273,14 @@ files = [
 
 [[package]]
 name = "cape-parsers"
-version = "0.1.26"
+version = "0.1.36"
 description = "CAPE: Malware Configuration Extraction"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "cape_parsers-0.1.26-py3-none-any.whl", hash = "sha256:ce9d14714abc0e49c28e058559b70ce827e59311e35709509a381008bd01e6b1"},
-    {file = "cape_parsers-0.1.26.tar.gz", hash = "sha256:986cfe936cfe9c3e6906c9b1cff025c4b911c6a3a756ac08f5313f99b1185d9c"},
+    {file = "cape_parsers-0.1.36-py3-none-any.whl", hash = "sha256:c0944f8183aaf53d4a6c8f370423ce1134bdc4a7f7b23e37f92f0e061423e229"},
+    {file = "cape_parsers-0.1.36.tar.gz", hash = "sha256:459db9a10a2c09a1dfb386dcec1b7968293d2c6eef417c4179022895e396ddc5"},
 ]
 
 [package.dependencies]
@@ -290,10 +290,10 @@ dnfile = ">=0.15.1"
 netstruct = "1.1.2"
 pefile = "*"
 pycryptodomex = ">=3.20.0"
-rat-king-parser = ">=4.0.0"
+rat-king-parser = ">=4.1.0"
 ruff = ">=0.7.2"
 unicorn = "2.1.1"
-yara-python = "4.5.1"
+yara-python = ">=4.5.1"
 
 [package.extras]
 maco = ["maco (==1.1.8)"]
@@ -912,14 +912,14 @@ files = [
 
 [[package]]
 name = "django"
-version = "5.1.5"
+version = "5.1.9"
 description = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "Django-5.1.5-py3-none-any.whl", hash = "sha256:c46eb936111fffe6ec4bc9930035524a8be98ec2f74d8a0ff351226a3e52f459"},
-    {file = "Django-5.1.5.tar.gz", hash = "sha256:19bbca786df50b9eca23cee79d495facf55c8f5c54c529d9bf1fe7b5ea086af3"},
+    {file = "django-5.1.9-py3-none-any.whl", hash = "sha256:2fd1d4a0a66a5ba702699eb692e75b0d828b73cc2f4e1fc4b6a854a918967411"},
+    {file = "django-5.1.9.tar.gz", hash = "sha256:565881bdd0eb67da36442e9ac788bda90275386b549070d70aee86327781a4fc"},
 ]
 
 [package.dependencies]
@@ -1195,14 +1195,14 @@ typing = ["typing-extensions (>=4.12.2)"]
 
 [[package]]
 name = "flare-capa"
-version = "9.0.0"
+version = "9.1.0"
 description = "The FLARE team's open-source tool to identify capabilities in executable files."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "flare_capa-9.0.0-py3-none-any.whl", hash = "sha256:aeab30c94fd76dbbff0139b1e938e2be7b1029e4901083f38e54bffa791d5091"},
-    {file = "flare_capa-9.0.0.tar.gz", hash = "sha256:fa3edfa0ccd0a92b27e2aedcc40d6ad5e65e01ac67e2c606cb738c810bbfbf0c"},
+    {file = "flare_capa-9.1.0-py3-none-any.whl", hash = "sha256:9e3214c66dd13c90e379c74d56a99fee2634c14980d55395535f3a39fe9159bc"},
+    {file = "flare_capa-9.1.0.tar.gz", hash = "sha256:7df5c8033b9ea568569611b5f1948b8257c055a191a01ab1e67ce3e407c86e21"},
 ]
 
 [package.dependencies]
@@ -1225,9 +1225,9 @@ vivisect = ">=1.1.1"
 xmltodict = ">=0.13.0"
 
 [package.extras]
-build = ["build (==1.2.2)", "pyinstaller (==6.11.1)", "setuptools (==75.8.0)"]
-dev = ["PyGithub (==2.5.0)", "black (==25.1.0)", "deptry (==0.23.0)", "flake8 (==7.1.1)", "flake8-bugbear (==24.12.12)", "flake8-comprehensions (==3.16.0)", "flake8-copyright (==0.2.4)", "flake8-encodings (==0.5.1)", "flake8-logging-format (==0.9.0)", "flake8-no-implicit-concat (==0.3.5)", "flake8-print (==5.0.0)", "flake8-simplify (==0.21.0)", "flake8-todos (==0.3.1)", "flake8-use-pathlib (==0.3.0)", "isort (==6.0.0)", "mypy (==1.14.1)", "mypy-protobuf (==3.6.0)", "pre-commit (==4.1.0)", "pytest (==8.0.0)", "pytest-instafail (==0.5.0)", "pytest-sugar (==1.0.0)", "ruff (==0.9.2)", "types-PyYAML (==6.0.8)", "types-backports (==0.1.3)", "types-colorama (==0.4.15.11)", "types-protobuf (==5.29.1.20241207)", "types-psutil (==6.1.0.20241102)", "types_requests (==2.32.0.20240712)"]
-scripts = ["jschema_to_python (==1.2.3)", "psutil (==6.1.0)", "requests (==2.32.3)", "sarif_om (==1.0.4)", "stix2 (==3.0.1)"]
+build = ["build (==1.2.2)", "pyinstaller (==6.12.0)", "setuptools (==75.8.0)"]
+dev = ["PyGithub (==2.6.0)", "black (==25.1.0)", "deptry (==0.23.0)", "flake8 (==7.1.1)", "flake8-bugbear (==24.12.12)", "flake8-comprehensions (==3.16.0)", "flake8-copyright (==0.2.4)", "flake8-encodings (==0.5.1)", "flake8-logging-format (==0.9.0)", "flake8-no-implicit-concat (==0.3.5)", "flake8-print (==5.0.0)", "flake8-simplify (==0.21.0)", "flake8-todos (==0.3.1)", "flake8-use-pathlib (==0.3.0)", "isort (==6.0.0)", "mypy (==1.15.0)", "mypy-protobuf (==3.6.0)", "pre-commit (==4.1.0)", "pytest (==8.0.0)", "pytest-instafail (==0.5.0)", "pytest-sugar (==1.0.0)", "ruff (==0.9.2)", "types-PyYAML (==6.0.8)", "types-backports (==0.1.3)", "types-colorama (==0.4.15.11)", "types-protobuf (==5.29.1.20241207)", "types-psutil (==6.1.0.20241102)", "types_requests (==2.32.0.20240712)"]
+scripts = ["jschema_to_python (==1.2.3)", "psutil (==7.0.0)", "requests (==2.32.3)", "sarif_om (==1.0.4)", "stix2 (==3.0.1)"]
 
 [[package]]
 name = "freezegun"
@@ -1420,14 +1420,14 @@ test = ["objgraph", "psutil"]
 
 [[package]]
 name = "gunicorn"
-version = "22.0.0"
+version = "23.0.0"
 description = "WSGI HTTP Server for UNIX"
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "gunicorn-22.0.0-py3-none-any.whl", hash = "sha256:350679f91b24062c86e386e198a15438d53a7a8207235a78ba1b53df4c4378d9"},
-    {file = "gunicorn-22.0.0.tar.gz", hash = "sha256:4a0b436239ff76fb33f11c07a16482c521a7e09c1ce3cc293c2330afe01bec63"},
+    {file = "gunicorn-23.0.0-py3-none-any.whl", hash = "sha256:ec400d38950de4dfd418cff8328b2c8faed0edb0d517d3394e457c317908ca4d"},
+    {file = "gunicorn-23.0.0.tar.gz", hash = "sha256:f014447a0101dc57e294f6c18ca6b40227a4c90e9bdb586042628030cba004ec"},
 ]
 
 [package.dependencies]
@@ -1688,14 +1688,14 @@ colors = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "jinja2"
-version = "3.1.5"
+version = "3.1.6"
 description = "A very fast and expressive template engine."
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "jinja2-3.1.5-py3-none-any.whl", hash = "sha256:aba0f4dc9ed8013c424088f68a5c226f7d6097ed89b246d7749c2ec4175c6adb"},
-    {file = "jinja2-3.1.5.tar.gz", hash = "sha256:8fefff8dc3034e27bb80d67c671eb8a9bc424c0ef4c0826edbff304cceff43bb"},
+    {file = "jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"},
+    {file = "jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d"},
 ]
 
 [package.dependencies]
@@ -2579,14 +2579,14 @@ files = [
 
 [[package]]
 name = "peepdf-3"
-version = "4.1.0"
+version = "5.0.0"
 description = "A Python 3 tool to explore, analyse, and disassemble PDF files"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "peepdf_3-4.1.0-py3-none-any.whl", hash = "sha256:bc6bdcaa14d8a7a9c061d00bd87745a1133407eb355233bf4b8ee3b57c60f9fd"},
-    {file = "peepdf_3-4.1.0.tar.gz", hash = "sha256:fc72326d13a965f053e6500c604c68e139111c3d1c6e2340c73a8fd57bb399b6"},
+    {file = "peepdf_3-5.0.0-py3-none-any.whl", hash = "sha256:2c9220c39c1ffc7d1db4268874d5c68329e9f9f331643b0bb1e6e84798439bd8"},
+    {file = "peepdf_3-5.0.0.tar.gz", hash = "sha256:1c6dbb873be22633535bb7a0edfcc005781837869bb5d5b99c9a36591d1e9e95"},
 ]
 
 [package.dependencies]
@@ -2594,10 +2594,11 @@ colorama = "*"
 jsbeautifier = "*"
 lxml = "*"
 Pillow = "*"
-prettytable = ">=3.9.0"
+prettytable = ">=3.12.0"
 pypdf = "*"
 pythonaes = "*"
 requests = "*"
+STPyV8 = "*"
 
 [[package]]
 name = "pefile"
@@ -3828,14 +3829,14 @@ pycryptodomex = "*"
 
 [[package]]
 name = "rat-king-parser"
-version = "4.0.1"
+version = "4.1.6"
 description = "A robust, multiprocessing-capable, multi-family RAT config parser/config extractor for AsyncRAT, DcRAT, VenomRAT, QuasarRAT, XWorm, Xeno RAT, and cloned/derivative RAT families."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "rat_king_parser-4.0.1-py3-none-any.whl", hash = "sha256:f5f8db807c371d4a2e634fa92b7de9ec67a1ae8e0a1c2e39e14aceec5c8fb279"},
-    {file = "rat_king_parser-4.0.1.tar.gz", hash = "sha256:9fb57c0ff925e988344a179bcc6b6df2eba98f4815865ee2088982ea71680956"},
+    {file = "rat_king_parser-4.1.6-py3-none-any.whl", hash = "sha256:b5249842b8ea77b3d647cd6a559f39b51c4a15719a2d9cb0285deeb709c5cca9"},
+    {file = "rat_king_parser-4.1.6.tar.gz", hash = "sha256:ea3db0274cb158e797953561624b9c9d513fcf34c5a6be53a41971b8008a079a"},
 ]
 
 [package.dependencies]
@@ -3844,6 +3845,7 @@ pycryptodomex = "*"
 yara-python = "*"
 
 [package.extras]
+dev = ["pre-commit"]
 maco = ["maco", "validators"]
 
 [[package]]
@@ -4115,19 +4117,19 @@ test = ["pytest"]
 
 [[package]]
 name = "setuptools"
-version = "75.8.0"
+version = "78.1.1"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "setuptools-75.8.0-py3-none-any.whl", hash = "sha256:e3982f444617239225d675215d51f6ba05f845d4eec313da4418fdbb56fb27e3"},
-    {file = "setuptools-75.8.0.tar.gz", hash = "sha256:c5afc8f407c626b8313a86e10311dd3f661c6cd9c09d4bf8c15c0e11f9f2b0e6"},
+    {file = "setuptools-78.1.1-py3-none-any.whl", hash = "sha256:c3a9c4211ff4c309edb8b8c4f1cbfa7ae324c4ba9f91ff254e3d305b9fd54561"},
+    {file = "setuptools-78.1.1.tar.gz", hash = "sha256:fcc17fd9cd898242f6b4adfaca46137a9edef687f43e6f78469692a5e70d851d"},
 ]
 
 [package.extras]
 check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1)", "ruff (>=0.8.0)"]
-core = ["importlib_metadata (>=6)", "jaraco.collections", "jaraco.functools (>=4)", "jaraco.text (>=3.7)", "more_itertools", "more_itertools (>=8.8)", "packaging", "packaging (>=24.2)", "platformdirs (>=4.2.2)", "tomli (>=2.0.1)", "wheel (>=0.43.0)"]
+core = ["importlib_metadata (>=6)", "jaraco.functools (>=4)", "jaraco.text (>=3.7)", "more_itertools", "more_itertools (>=8.8)", "packaging (>=24.2)", "platformdirs (>=4.2.2)", "tomli (>=2.0.1)", "wheel (>=0.43.0)"]
 cover = ["pytest-cov"]
 doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "pyproject-hooks (!=1.1)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier", "towncrier (<24.7)"]
 enabler = ["pytest-enabler (>=2.2)"]
@@ -4333,6 +4335,36 @@ files = [
 [package.extras]
 dev = ["build", "hatch"]
 doc = ["sphinx"]
+
+[[package]]
+name = "stpyv8"
+version = "13.1.201.22"
+description = "Python Wrapper for Google V8 Engine"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "stpyv8-13.1.201.22-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:2ce8e85a4a88e80ae561654be1b55ff578c4f1a27d518ac35e6d87b93d91b096"},
+    {file = "stpyv8-13.1.201.22-cp310-cp310-macosx_14_0_arm64.whl", hash = "sha256:fe25c004b12f2616ae877e0469f95aa2164e62e6584d253b07f3c9f9ba69a888"},
+    {file = "stpyv8-13.1.201.22-cp310-cp310-manylinux_2_31_x86_64.whl", hash = "sha256:90568ff08dfaf0ebd3bf1c79f7d21db06d82eada412a6e914b995bead7c78666"},
+    {file = "stpyv8-13.1.201.22-cp310-cp310-win_amd64.whl", hash = "sha256:8019f19b29621ccde85125d86f60f5814175b17670f5949d2671cf22cf453ea6"},
+    {file = "stpyv8-13.1.201.22-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:b2a660a331e82fa89d5938ec8418743ebfb544733269f24cd8461a18472701c2"},
+    {file = "stpyv8-13.1.201.22-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:4d737935167c52ed72e5a78264d9adfeaf089bf54693b88f12cbdb439a36a102"},
+    {file = "stpyv8-13.1.201.22-cp311-cp311-manylinux_2_31_x86_64.whl", hash = "sha256:da6d8f2945bd057057c64bc93ea3c064cc848b75f55d6d651120ee5d115e0761"},
+    {file = "stpyv8-13.1.201.22-cp311-cp311-win_amd64.whl", hash = "sha256:b9d9499ed2007cc097a5d2ae0cb18226b2bf3ca429301811b2e12a787a8f137e"},
+    {file = "stpyv8-13.1.201.22-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:fc2b956bfaf23531c490845edb7d80fc998fe8aee1c7cf1337317dae01169307"},
+    {file = "stpyv8-13.1.201.22-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:6dc40b656cea7fe541f6bdbad83b6b4ed51e5ead985b54c139319a731253a55e"},
+    {file = "stpyv8-13.1.201.22-cp312-cp312-manylinux_2_31_x86_64.whl", hash = "sha256:c24aa4215c64db7d67fc6c42c0d7731cabcf300596bf9c826ae74f426fe3b771"},
+    {file = "stpyv8-13.1.201.22-cp312-cp312-win_amd64.whl", hash = "sha256:c4292843c8133fc99833aceef25925a97edf01031e186335582deb077b99d2bf"},
+    {file = "stpyv8-13.1.201.22-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:b53df6114a88698ee6f3820cf46476e83ee09c9a67dd9f7cf58ca6a2928238b0"},
+    {file = "stpyv8-13.1.201.22-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:6cb5e8751aee2487cc3b5f21eac6d459041a7180a779941b64db5736e27276ee"},
+    {file = "stpyv8-13.1.201.22-cp313-cp313-manylinux_2_31_x86_64.whl", hash = "sha256:834b9761bb7f49da8b887847c7647495a2cf6c45f69e2124ae0e3f024493bc15"},
+    {file = "stpyv8-13.1.201.22-cp313-cp313-win_amd64.whl", hash = "sha256:c8189b8c4d87579f353705441757f11e2f2260578b82000925dadf0ed59a47e3"},
+    {file = "stpyv8-13.1.201.22-cp39-cp39-macosx_13_0_x86_64.whl", hash = "sha256:05c3ecaaf2dd8dbe06bdb70f3192b7e6161337ee04e6830a57b58eb4be7c70bd"},
+    {file = "stpyv8-13.1.201.22-cp39-cp39-manylinux_2_31_x86_64.whl", hash = "sha256:bf51578ec84dba6519d75ca81a154a070910e638da0ec384f4bf6d535f9b5218"},
+    {file = "stpyv8-13.1.201.22-cp39-cp39-win_amd64.whl", hash = "sha256:d00a220268d63d68490682b571d082d5b197de1f19d6f478a88357c61da94f7a"},
+    {file = "stpyv8-13.1.201.22.tar.gz", hash = "sha256:2bdbc7307dbf86cfc4bd0a11f0ae1f1c6f91d1b3366a7b409f9fc5d01f69441d"},
+]
 
 [[package]]
 name = "tenacity"
@@ -5084,4 +5116,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "da503b22b85c065b6ffa742f4f90aa32b9ed383c6a02eff861cdab8cbcd19c2b"
+content-hash = "f73514bd446b19c240a27e9bf105b2372b3328ab363d02a3610552f2b09141e0"

@@ -26,6 +26,12 @@ from lib.cuckoo.common.utils import (
 
 log = logging.getLogger(__name__)
 cfg = Config()
+integrations_conf = Config("integrations")
+
+HAVE_FLARE_CAPA = False
+# required to not load not enabled dependencies
+if integrations_conf.flare_capa.enabled and integrations_conf.flare_capa.behavior:
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 
 class ParseProcessLog(list):
@@ -410,8 +416,7 @@ class Processes:
             if current_log.process_id is None:
                 continue
 
-            # If the current log actually contains any data, add its data to
-            # the results list.
+            # If the current log actually contains any data, add its data to the results list.
             results.append(
                 {
                     "process_id": current_log.process_id,
@@ -1227,4 +1232,20 @@ class BehaviorAnalysis(Processing):
                     behavior = json.load(f).get("behavior", [])
                 except Exception as e:
                     log.error("Behavior. Can't load json: %s", str(e))
+
+        # https://github.com/mandiant/capa/issues/2620
+        if (
+            HAVE_FLARE_CAPA
+            and self.results.get("info", {}).get("category", "") == "file"
+            and "PE" in self.results.get("target", {}).get("file", "").get("type", "")
+        ):
+            try:
+                self.results["capa_summary"] = flare_capa_details(
+                    file_path=self.results["target"]["file"]["path"],
+                    category="behavior",
+                    backend="cape",
+                    results={"behavior": behavior, **self.results},
+                )
+            except Exception as e:
+                log.error("Can't generate CAPA summary: %s", str(e))
         return behavior

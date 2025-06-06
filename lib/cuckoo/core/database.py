@@ -125,11 +125,11 @@ DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_find
 if repconf.elasticsearchdb.enabled:
-    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+    from dev_utils.elasticsearchdb import elastic_handler  # , get_analysis_index
 
     es = elastic_handler
 
-SCHEMA_VERSION = "c2bd0eb5e69d"
+SCHEMA_VERSION = "4e000e02a409"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -415,7 +415,7 @@ class Task(Base):
     # Task tags
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"), lazy="subquery")
+    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"), lazy="subquery", cascade="save-update, delete")
     options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
@@ -465,7 +465,7 @@ class Task(Base):
     timedout = Column(Boolean, nullable=False, default=False)
 
     sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
-    sample = relationship("Sample", backref=backref("tasks", lazy="subquery"))
+    sample = relationship("Sample", backref=backref("tasks", lazy="subquery", cascade="save-update, delete"))
     machine_id = Column(Integer, nullable=True)
     guest = relationship("Guest", uselist=False, backref=backref("tasks"), cascade="save-update, delete")
     errors = relationship("Error", backref=backref("tasks"), cascade="save-update, delete")
@@ -1397,7 +1397,8 @@ class _Database:
                     tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
                     del parsed_options["tags"]
                 # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
-                if "package" in parsed_options:
+                # Do not overwrite user provided package
+                if not package and "package" in parsed_options:
                     package = parsed_options["package"]
                     del parsed_options["package"]
 
@@ -2086,6 +2087,7 @@ class _Database:
             search = search.filter(Task.id.in_(task_ids))
         if user_id is not None:
             search = search.filter(Task.user_id == user_id)
+
         if order_by is not None and isinstance(order_by, tuple):
             search = search.order_by(*order_by)
         elif order_by is not None:
@@ -2099,6 +2101,121 @@ class _Database:
         tasks = search.all()
 
         return tasks
+
+    def delete_task(self, task_id):
+        """Delete information on a task.
+        @param task_id: ID of the task to query.
+        @return: operation status.
+        """
+        task = self.session.get(Task, task_id)
+        if task is None:
+            return False
+        self.session.delete(task)
+        return True
+
+    def delete_tasks(
+        self,
+        category=None,
+        status=None,
+        sample_id=None,
+        not_status=None,
+        completed_after=None,
+        added_before=None,
+        id_before=None,
+        id_after=None,
+        options_like=False,
+        options_not_like=False,
+        tags_tasks_like=False,
+        task_ids=False,
+        user_id=None,
+    ):
+        """Delete tasks based on parameters. If no filters are provided, no tasks will be deleted.
+
+        Args:
+            category: filter by category
+            status: filter by task status
+            sample_id: filter tasks for a sample
+            not_status: exclude this task status from filter
+            completed_after: only list tasks completed after this timestamp
+            added_before: tasks added before a specific timestamp
+            id_before: filter by tasks which is less than this value
+            id_after: filter by tasks which is greater than this value
+            options_like: filter tasks by specific option inside of the options
+            options_not_like: filter tasks by specific option not inside of the options
+            tags_tasks_like: filter tasks by specific tag
+            task_ids: list of task_id
+            user_id: list of tasks submitted by user X
+
+        Returns:
+            bool: True if the operation was successful (including no tasks to delete), False otherwise.
+        """
+        filters_applied = False
+        search = self.session.query(Task)
+
+        if status:
+            if "|" in status:
+                search = search.filter(Task.status.in_(status.split("|")))
+            else:
+                search = search.filter(Task.status == status)
+            filters_applied = True
+        if not_status:
+            search = search.filter(Task.status != not_status)
+            filters_applied = True
+        if category:
+            search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
+            filters_applied = True
+        if sample_id is not None:
+            search = search.filter(Task.sample_id == sample_id)
+            filters_applied = True
+        if id_before is not None:
+            search = search.filter(Task.id < id_before)
+            filters_applied = True
+        if id_after is not None:
+            search = search.filter(Task.id > id_after)
+            filters_applied = True
+        if completed_after:
+            search = search.filter(Task.completed_on > completed_after)
+            filters_applied = True
+        if added_before:
+            search = search.filter(Task.added_on < added_before)
+            filters_applied = True
+        if options_like:
+            # Replace '*' wildcards with wildcard for sql
+            options_like = options_like.replace("*", "%")
+            search = search.filter(Task.options.like(f"%{options_like}%"))
+            filters_applied = True
+        if options_not_like:
+            # Replace '*' wildcards with wildcard for sql
+            options_not_like = options_not_like.replace("*", "%")
+            search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
+            filters_applied = True
+        if tags_tasks_like:
+            search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+            filters_applied = True
+        if task_ids:
+            search = search.filter(Task.id.in_(task_ids))
+            filters_applied = True
+        if user_id is not None:
+            search = search.filter(Task.user_id == user_id)
+            filters_applied = True
+
+        if not filters_applied:
+            log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
+            return True  # Indicate success as no deletion was requested/needed
+
+        try:
+            # Perform the deletion and get the count of deleted rows
+            deleted_count = search.delete(synchronize_session=False)
+            log.info("Deleted %d tasks matching the criteria.", deleted_count)
+            self.session.commit()
+            return True
+        except Exception as e:
+            log.error("Error deleting tasks: %s", str(e))
+            # Rollback might be needed if this function is called outside a `with db.session.begin():`
+            # but typically it should be called within one.
+            self.session.rollback()
+            return False
+
 
     def check_tasks_timeout(self, timeout):
         """Find tasks which were added_on more than timeout ago and clean"""
@@ -2204,21 +2321,6 @@ class _Database:
             task.anti_issues = details["anti_issues"]
         return True
 
-    def delete_task(self, task_id):
-        """Delete information on a task.
-        @param task_id: ID of the task to query.
-        @return: operation status.
-        """
-        task = self.session.get(Task, task_id)
-        if task is None:
-            return False
-        self.session.delete(task)
-        return True
-
-    def delete_tasks(self, ids):
-        self.session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
-        return True
-
     def view_sample(self, sample_id):
         """Retrieve information on a sample given a sample id.
         @param sample_id: ID of the sample to query.
@@ -2303,12 +2405,6 @@ class _Database:
             128: "sha512",
         }
 
-        folders = {
-            "dropped": "files",
-            "CAPE": "CAPE",
-            "procdump": "procdump",
-        }
-
         if task_id:
             file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "binary")
             if path_exists(file_path):
@@ -2344,12 +2440,14 @@ class _Database:
                     sample = [path]
 
             if not sample:
-                if repconf.mongodb.enabled:
+                tasks = []
+                if repconf.mongodb.enabled and web_conf.general.check_sample_in_mongodb:
                     tasks = mongo_find(
-                        "analysis",
-                        {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
-                        {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
+                        "files",
+                        {sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                        {"_info_ids": 1, "sha256": 1},
                     )
+                """ deprecated code
                 elif repconf.elasticsearchdb.enabled:
                     tasks = [
                         d["_source"]
@@ -2359,64 +2457,18 @@ class _Database:
                             _source=["CAPE.payloads", "info.id"],
                         )["hits"]["hits"]
                     ]
-                else:
-                    tasks = []
-
+                """
                 if tasks:
                     for task in tasks:
-                        for block in task.get("CAPE", {}).get("payloads", []) or []:
-                            if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                file_path = os.path.join(
-                                    CUCKOO_ROOT,
-                                    "storage",
-                                    "analyses",
-                                    str(task["info"]["id"]),
-                                    folders.get("CAPE"),
-                                    block["sha256"],
-                                )
+                        for id in task.get("_task_ids", []):
+                            # ToDo suricata path - "suricata.files.file_info.path
+                            for category in ("files", "procdump", "CAPE"):
+                                file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id), category, task["sha256"])
                                 if path_exists(file_path):
                                     sample = [file_path]
                                     break
                         if sample:
                             break
-
-                for category in ("dropped", "procdump"):
-                    # we can't filter more if query isn't sha256
-                    if repconf.mongodb.enabled:
-                        tasks = mongo_find(
-                            "analysis",
-                            {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
-                            {category: 1, "_id": 0, "info.id": 1},
-                        )
-                    elif repconf.elasticsearchdb.enabled:
-                        tasks = [
-                            d["_source"]
-                            for d in es.search(
-                                index=get_analysis_index(),
-                                body={"query": {"match": {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
-                                _source=["info.id", category],
-                            )["hits"]["hits"]
-                        ]
-                    else:
-                        tasks = []
-
-                    if tasks:
-                        for task in tasks:
-                            for block in task.get(category, []) or []:
-                                if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                    file_path = os.path.join(
-                                        CUCKOO_ROOT,
-                                        "storage",
-                                        "analyses",
-                                        str(task["info"]["id"]),
-                                        folders.get(category),
-                                        block["sha256"],
-                                    )
-                                    if path_exists(file_path):
-                                        sample = [file_path]
-                                        break
-                            if sample:
-                                break
 
             if not sample:
                 # search in temp folder if not found in binaries
@@ -2433,34 +2485,6 @@ class _Database:
                             if sample_hash == hashlib_sizes[len(sample_hash)](f.read()).hexdigest():
                                 sample = [path]
                                 break
-
-            if not sample:
-                # search in Suricata files folder
-                if repconf.mongodb.enabled:
-                    tasks = mongo_find(
-                        "analysis", {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
-                    )
-                elif repconf.elasticsearchdb.enabled:
-                    tasks = [
-                        d["_source"]
-                        for d in es.search(
-                            index=get_analysis_index(),
-                            body={"query": {"match": {"suricata.files.sha256": sample_hash}}},
-                            _source="suricata.files.file_info.path",
-                        )["hits"]["hits"]
-                    ]
-                else:
-                    tasks = []
-
-                if tasks:
-                    for task in tasks:
-                        for item in task["suricata"]["files"] or []:
-                            file_path = item.get("file_info", {}).get("path", "")
-                            if sample_hash in file_path:
-                                if path_exists(file_path):
-                                    sample = [file_path]
-                                    break
-
         return sample
 
     def count_samples(self) -> int:

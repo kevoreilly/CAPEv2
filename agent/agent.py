@@ -9,7 +9,6 @@ import enum
 import http.server
 import ipaddress
 import json
-import multiprocessing
 import os
 import platform
 import random
@@ -25,9 +24,8 @@ import tempfile
 import time
 import traceback
 from io import StringIO
-from multiprocessing.synchronize import Event as EventClass
 from threading import Lock
-from typing import Iterable, Optional
+from typing import Iterable
 from zipfile import ZipFile
 
 try:
@@ -45,7 +43,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.18"
+AGENT_VERSION = "0.19"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -97,7 +95,7 @@ class Status(enum.IntEnum):
 AGENT_BROWSER_EXT_PATH = ""
 AGENT_BROWSER_LOCK = Lock()
 ANALYZER_FOLDER = ""
-agent_mutexes: dict[str, str] = {}
+agent_mutexes: dict = {}
 """Holds handles of mutexes held by the agent."""
 state = {
     "status": Status.INIT,
@@ -180,7 +178,7 @@ class MiniHTTPServer:
         self,
         host: ipaddress.IPv4Address = ipaddress.IPv4Address("0.0.0.0"),
         port: int = 8000,
-        event: Optional[EventClass] = None,
+        event = None,
     ):
         socketserver.ThreadingTCPServer.allow_reuse_address = True
         self.s = socketserver.ThreadingTCPServer((str(host), port), self.handler)
@@ -324,8 +322,8 @@ class send_file:
 
 
 class request:
-    form: dict[str, str] = {}
-    files: dict[str, str] = {}
+    form: dict = {}
+    files: dict = {}
     client_ip = None
     client_port = None
     method = None
@@ -378,7 +376,7 @@ def get_subprocess_status():
     """Return the subprocess status."""
     async_subprocess = state.get("async_subprocess")
     message = "Analysis status"
-    exitcode = async_subprocess.exitcode
+    exitcode = async_subprocess.poll()
     if exitcode is None or (sys.platform == "win32" and exitcode == 259):
         # Process is still running.
         state["status"] = Status.RUNNING
@@ -713,9 +711,7 @@ def background_subprocess(command_args, cwd, base64_encode, shell=False):
 
 def spawn(args, cwd, base64_encode, shell=False):
     """Kick off a subprocess in the background."""
-    run_subprocess_args = [args, cwd, base64_encode, shell]
-    proc = multiprocessing.Process(target=background_subprocess, name=f"child process {args[1]}", args=run_subprocess_args)
-    proc.start()
+    proc = subprocess.Popen(args, cwd=cwd, shell=shell)
     state["status"] = Status.RUNNING
     state["description"] = ""
     state["async_subprocess"] = proc
@@ -799,7 +795,6 @@ def do_kill():
 
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method("spawn")
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="0.0.0.0")
     parser.add_argument("port", type=int, nargs="?", default=8000)

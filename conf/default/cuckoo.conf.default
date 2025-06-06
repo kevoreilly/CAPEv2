@@ -222,12 +222,13 @@ freespace = 2000
 
 [cleaner]
 # Invoke cleanup if <= of free space detected. see/set freespace/freespace_processing
+# format is 1d, 12h, 120m
 enabled = no
 # set any value to 0 to disable it. In days
-binaries_days = 5
-tmp_days = 5
+binaries = 0
+tmp = 0
 # Remove analysis folder
-analysis_days = 5
+analysis = 0
 # Delete mongo data
 mongo = no
 # Clean orphan files in mongodb

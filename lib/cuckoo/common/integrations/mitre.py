@@ -13,6 +13,11 @@ log = logging.getLogger("mitre")
 def mitre_generate_attck(results, mitre):
     attck = {}
     ttp_dict = {}
+
+    if not mitre or not hasattr(mitre, "enterprise"):
+        print("Missed dependency: poetry run pip install git+https://github.com/CAPESandbox/pyattck")
+        return attck
+
     # [{'signature': 'http_request', 'ttps': ['T1071']}, {'signature': 'modify_proxy', 'ttps': ['T1112']}, {'signature': 'recon_fingerprint', 'ttps': ['T1012', 'T1082']}]
     for ttp_block in results["ttps"]:
         for ttp in ttp_block.get("ttps", []):
@@ -31,7 +36,9 @@ def mitre_generate_attck(results, mitre):
                     }
                 )
     except FileNotFoundError:
-        print("MITRE Att&ck data missed, execute: 'python3 utils/community.py -waf --mitre'")
+        print("MITRE Att&ck data missed, execute: 'poetry run python utils/community.py -waf --mitre'")
+    except AttributeError:
+        print("Missed dependency: poetry run pip install git+https://github.com/CAPESandbox/pyattck")
     except Exception as e:
         # simplejson.errors.JSONDecodeError
         log.error(("Mitre", e))

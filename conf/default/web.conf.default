@@ -7,6 +7,8 @@ enabled = no
 captcha = no
 2fa = no
 # To enable Oauth check https://django-allauth.readthedocs.io and web/web/settings.py.
+# Allow only SSO for users with specific domain. Can be allow to all if empty.
+social_auth_email_domain = example.com
 
 [registration]
 enabled = no
@@ -44,6 +46,8 @@ anon_viewable = no
 existent_tasks = no
 top_detections = yes
 top_asn = yes
+# Enable checking for samples in MongoDB before fetching from external sources. Disable to reduce MongoDB load when the database is large.
+check_sample_in_mongodb = no
 # hostname of the cape instance
 hostname = 127.0.0.1
 ;hostname = www.capesandbox.com
@@ -61,6 +65,8 @@ expose_process_log = no
 reprocess_tasks = no
 # Allows you to define URL splitter, "," is default
 url_splitter = ,
+# Limit number of files extracted from archive in demux.py
+demux_files_limit = 10
 
 # ratelimit for anon users
 [ratelimit]
@@ -92,7 +98,7 @@ enabled = no
 enabled = no
 
 [vtupload]
-# Don't forget to set VT key in aux.conf under virustotaldl
+# Don't forget to set apikey in integrations.conf under virustotal
 enabled = no
 
 #No means delete is disabled on webgui

@@ -3,7 +3,7 @@
     <div class="section-title">
         <h4>Payloads</h4>
     </div>
-    {% if results.CAPE.payloads %}
+    {% if "CAPE" in results and results.CAPE.payloads %}
         {% for file in results.CAPE.payloads %}
             <div>
                 {% if summary_report %}

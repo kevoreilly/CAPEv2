@@ -4,7 +4,7 @@ set -ex
 # run this via...
 # cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/libvirt_installer.sh
 
-LIB_VERSION=11.0.0
+LIB_VERSION=11.1.0
 cd /tmp || return
 
 if [ ! -f v${LIB_VERSION}.zip ]; then

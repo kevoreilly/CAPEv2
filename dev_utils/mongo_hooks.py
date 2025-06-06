@@ -6,6 +6,7 @@ from pymongo import UpdateOne, errors
 from dev_utils.mongodb import (
     mongo_bulk_write,
     mongo_delete_data,
+    mongo_delete_data_range,
     mongo_delete_many,
     mongo_find,
     mongo_find_one,
@@ -154,6 +155,24 @@ def remove_task_references_from_files(task_ids):
     )
 
 
+@mongo_hook(mongo_delete_data_range, "analysis")
+def remove_task_references_from_files_range(*, range_start: int = 0, range_end: int = 0):
+    """Remove the given task_ids from the TASK_IDS_KEY field on "files"
+    documents that were referenced by those tasks that are being deleted.
+    """
+    range_query = {}
+    if range_start > 0:
+        range_query["$gte"] = range_start
+    if range_end > 0:
+        range_query["$lt"] = range_end
+    if range_query:
+        mongo_update_many(
+            FILES_COLL,
+            {TASK_IDS_KEY: {"$elemMatch": range_query}},
+            {"$pull": {TASK_IDS_KEY: range_query}},
+        )
+
+
 def delete_unused_file_docs():
     """Delete entries in the FILES_COLL collection that are no longer
     referenced by any analysis tasks. This should typically be invoked
@@ -169,6 +188,7 @@ def collect_file_dicts(report) -> itertools.chain:
     """Return an iterable containing all of the candidates for files
     from various parts of the report to be normalized.
     """
+    # ToDo extend to self extract
     file_dicts = []
     target_file = report.get("target", {}).get("file", None)
     if target_file:
@@ -176,4 +196,6 @@ def collect_file_dicts(report) -> itertools.chain:
     file_dicts.append(report.get("dropped", None) or [])
     file_dicts.append(report.get("CAPE", {}).get("payloads", None) or [])
     file_dicts.append(report.get("procdump", None) or [])
+    if report.get("suricata", {}).get("files", []):
+        file_dicts.append(list(filter(None, [file_info.get("file_info", []) for file_info in report.get("suricata", {}).get("files", [])])))
     return itertools.chain.from_iterable(file_dicts)

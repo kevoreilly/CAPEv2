@@ -198,6 +198,7 @@ Importing instruction traces into disassembler
 ==============================================
 It is possible to import CAPE's debugger output into a dissassembler.
 One example procedure is as follow:
+
 * Highlight CFG in disassembler:
 
 .. code-block:: bash

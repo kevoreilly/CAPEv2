@@ -6,6 +6,9 @@
 
 # Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne
 
+# Ensure non-interactive mode for apt commands globally to prevent prompts during automated installations
+export DEBIAN_FRONTEND=noninteractive
+
 # Static values
 # Where to place everything
 # CAPE TcpDump will sniff this interface
@@ -71,21 +74,7 @@ ARCH="$(dpkg --print-architecture)"
 
 function issues() {
 cat << EOI
-Problems with PyOpenSSL?
-    sudo rm -rf /usr/local/lib/python3.8/dist-packages/OpenSSL/
-    sudo rm -rf /home/${USER}/.local/lib/python3.8/site-packages/OpenSSL/
-    sudo apt-get install -y --reinstall python-openssl
-
-Problem with PIP?
-    sudo python -m pip3 uninstall pip3 && sudo apt-get install -y --reinstall python3-pip
-
-Problem with pillow:
-    * ValueError: jpeg is required unless explicitly disabled using --disable-jpeg, aborting
-    * ValueError: zlib is required unless explicitly disabled using --disable-zlib, aborting
-Solution:
-    # https://askubuntu.com/a/1094768
-    # you may need to adjust version of libjpeg-turbo8
-    sudo apt-get install -y zlib1g-dev libjpeg-turbo8-dev libjpeg-turbo8=1.5.2-0ubuntu5
+    No known problems yet
 EOI
 }
 
@@ -977,7 +966,7 @@ function dependencies() {
     sudo apt-get install -y python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common crudini
     sudo apt-get install -y innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev
     sudo apt-get install -y zpaq upx-ucl wget zip unzip lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool
-    sudo apt-get install -y uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common
     sudo apt-get install -y python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl
     sudo apt-get install -y openvpn wireguard
     # for bingraph
@@ -1124,31 +1113,6 @@ EOF
 
     sudo modprobe br_netfilter
     sudo sysctl -p
-
-    ### PDNS
-    sudo apt-get install -y git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl
-    cd /tmp || return
-
-    # From pevious install
-    if [ -d /tmp/passivedns ]; then
-        sudo rm -rf /tmp/passivedns
-    fi
-    git clone https://github.com/gamelinux/passivedns.git
-    cd passivedns/ || return
-    autoreconf --install
-    ./configure
-    make -j"$(getconf _NPROCESSORS_ONLN)"
-    sudo checkinstall -D --pkgname=passivedns --default
-    chown ${USER}:${USER} -R /tmp/passivedns/
-    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
-    sudo -u ${USER} bash -c 'cd /tmp/passivedns/ ; /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install unicorn capstone'
-    sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
-
-    if [ -d /tmp/passivedns ]; then
-        cd /tmp || return
-        sudo rm -rf /tmp/passivedns
-    fi
-
 }
 
 function install_clamav() {
@@ -1341,6 +1305,21 @@ Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/syst
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
 EOF
 fi
+if [ ! -f /etc/sudoers.d/ip_netns ]; then
+    cat >> /etc/sudoers.d/ip_netns << EOF
+${USER} ALL=NOPASSWD: /usr/sbin/ip netns exec * /usr/bin/sudo -u cape *
+EOF
+fi
+if [ ! -f /opt/mitmproxy/mitmdump_wrapper.sh ]; then
+    mkdir -p /opt/mitmproxy/
+    cat >> /opt/mitmproxy/mitmdump_wrapper.sh << EOF
+#!/bin/bash
+echo $$ > mitmdump.pid
+# exec full args
+exec $@
+EOF
+    chmod +x /opt/mitmproxy/mitmdump_wrapper.sh
+fi
 }
 
 function install_systemd() {
@@ -1522,6 +1501,29 @@ function install_postgres_pg_activity() {
     sudo apt-get install -y pg-activity
 }
 
+function install_passivedns() {
+    sudo apt-get install -y git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl
+    cd /tmp || return
+
+    # From pevious install
+    if [ -d /tmp/passivedns ]; then
+        sudo rm -rf /tmp/passivedns
+    fi
+    git clone https://github.com/gamelinux/passivedns.git
+    cd passivedns/ || return
+    autoreconf --install
+    ./configure
+    make -j"$(getconf _NPROCESSORS_ONLN)"
+    sudo checkinstall -D --pkgname=passivedns --default
+    chown ${USER}:${USER} -R /tmp/passivedns/
+    sed -i 's/APT::Periodic::Unattended-Upgrade "1";/APT::Periodic::Unattended-Upgrade "0";/g' /etc/apt/apt.conf.d/20auto-upgrades
+
+    if [ -d /tmp/passivedns ]; then
+        cd /tmp || return
+        sudo rm -rf /tmp/passivedns
+    fi
+}
+
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 
@@ -1677,6 +1679,8 @@ case "$COMMAND" in
     install_DIE;;
 'fluentd')
     install_fluentd;;
+'passivedns')
+    install_passivedns;;
 *)
     usage;;
 esac

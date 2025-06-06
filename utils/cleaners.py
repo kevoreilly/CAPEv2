@@ -14,6 +14,9 @@ from lib.cuckoo.core.database import init_database
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "-tr", "--time-range", help="Time range can be specified as: 1d, 22h, 55m, etc", action="store", required=False
+    )
+    parser.add_argument(
         "--clean", help="Remove all tasks and samples and their associated data", action="store_true", required=False
     )
     parser.add_argument("--failed-clean", help="Remove all tasks marked as failed", action="store_true", required=False)
@@ -23,8 +26,8 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
-    parser.add_argument("--delete-older-than-days", help="Remove all tasks older than X number of days", type=int, required=False)
-    parser.add_argument("--pcap-sorted-clean", help="remove sorted pcap from jobs", action="store_true", required=False)
+    parser.add_argument("--delete-older-than", help="Remove all tasks older than time range.", required=False)
+    parser.add_argument("--pcap-sorted-clean", help="Remove sorted pcap from jobs", action="store_true", required=False)
     parser.add_argument(
         "--suricata-zero-alert-filter",
         help="only remove events with zero suri alerts DELETE AFTER ONLY",
@@ -47,15 +50,13 @@ if __name__ == "__main__":
     parser.add_argument("--malscore", help="Remove all tasks with malscore <= X", required=False, action="store", type=int)
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
     parser.add_argument(
-        "--delete-tmp-items-older-than-days",
-        help="Remove all items in tmp folder older than X days",
-        type=int,
+        "--delete-tmp-items-older-than",
+        help="Remove all items in tmp folder older than time range",
         required=False,
     )
     parser.add_argument(
-        "--delete-binaries-items-older-than-days",
-        help="Remove all items in binaries folder older than X days",
-        type=int,
+        "--delete-binaries-items-older-than",
+        help="Remove all items in binaries folder older than time range",
         required=False,
     )
     parser.add_argument(
@@ -69,18 +70,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-drs",
-        "--delete-range-start",
-        help="First job in range to delete, should be used with --delete-range-end",
+        "--delete-range",
+        help="Delete jobs in range. Ex 1-5",
         action="store",
-        type=int,
-        required=False,
-    )
-    parser.add_argument(
-        "-dre",
-        "--delete-range-end",
-        help="Last job in range to delete, should be used with --delete-range-start",
-        action="store",
-        type=int,
         required=False,
     )
     parser.add_argument(
@@ -91,8 +83,22 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "-bt", "--before-time", help="Manage all pending jobs before N hours.", action="store", required=False, type=int
+        "-cmc",
+        "--cleanup-mongo-calls",
+        help="Manage all pending jobs before time range",
+        action="store",
+        required=False,
     )
+
+    parser.add_argument(
+        "-cfcbi",
+        "--cleanup-files-collection-by-id",
+        help="Pull out task(s) id lower than X from files collection",
+        action="store",
+        required=False,
+        type=int,
+    )
+
     args = parser.parse_args()
     init_database()
     execute_cleanup(vars(args))

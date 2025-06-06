@@ -49,6 +49,7 @@ drive_credentials_location = data/google_creds.json
 enabled = yes
 indent = 4
 encoding = latin-1
+store_compressed = no
 
 # Community
 [reporthtml]

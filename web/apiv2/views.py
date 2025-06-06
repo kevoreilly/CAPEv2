@@ -1256,14 +1256,22 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             fname = "%s_report.%s" % (task_id, ext)
 
             if make_zip:
-                mem_zip = create_zip(files=report_path)
-                if mem_zip is False:
-                    resp = {"error": True, "error_value": "Can't create zip archive for report file"}
-                    return Response(resp)
+                if os.path.exists(report_path + ".zip"):
+                    report_path += ".zip"
+                    resp = StreamingHttpResponse(
+                        FileWrapper(open(report_path, "rb"), 8096), content_type="application/zip"
+                    )
+                    resp["Content-Length"] = os.path.getsize(report_path)
+                    resp["Content-Disposition"] = "attachment; filename=" + fname
+                else:
+                    mem_zip = create_zip(files=report_path)
+                    if mem_zip is False:
+                        resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+                        return Response(resp)
 
-                resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-                resp["Content-Length"] = len(mem_zip.getvalue())
-                resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
+                    resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+                    resp["Content-Length"] = len(mem_zip.getvalue())
+                    resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
             else:
                 resp = StreamingHttpResponse(
                     FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;"

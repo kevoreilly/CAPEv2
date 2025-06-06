@@ -5,7 +5,9 @@ rule NetTraveler
         description = "NetTraveler Payload"
         cape_type = "NetTraveler Payload"
     strings:
-        $string1 = "Name:\t%s\r\nType:\t%s\r\nServer:\t%s\r\n"
+        $string1 = { 4E 61 6D 65 3A 5C 74 25 73 5C 72 5C 6E 54 79 70
+                     65 3A 5C 74 25 73 5C 72 5C 6E 53 65 72 76 65 72
+                     3A 5C 74 25 73 5C 72 5C 6E } // Name:\t%s\r\nType:\t%s\r\nServer:\t%s\r\n
         $string2 = "Password Expiried Time:"
         $string3 = "Memory: Total:%dMB,Left:%dMB (for %.2f%s)"
 

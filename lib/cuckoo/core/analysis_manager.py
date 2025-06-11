@@ -325,6 +325,7 @@ class AnalysisManager(threading.Thread):
             with self.db.session.begin():
                 self.db.guest_remove(self.guest.id)
                 self.db.assign_machine_to_task(self.task, None)
+                # ToDo do we really need to delete machine here?
                 self.machinery_manager.machinery.delete_machine(self.machine.name)
 
             # Remove the analysis directory that has been created so
@@ -471,21 +472,22 @@ class AnalysisManager(threading.Thread):
             success = self.perform_analysis()
         except CuckooDeadMachine:
             with self.db.session.begin():
-                # Put the task back in pending so that the schedule can attempt to
-                # choose a new machine.
+                # Put the task back in pending so that the schedule can attempt to choose a new machine.
                 self.db.set_status(self.task.id, TASK_PENDING)
             raise
         else:
             with self.db.session.begin():
                 self.db.set_status(self.task.id, TASK_COMPLETED)
                 self.log.info("Completed analysis %ssuccessfully.", "" if success else "un")
+                # Need to be release on unsucess
+                if not success and hasattr(self, "machine") and self.machine:
+                    self.db.unlock_machine(self.machine)
 
             self.update_latest_symlink()
 
     def update_latest_symlink(self):
-        # We make a symbolic link ("latest") which links to the latest
-        # analysis - this is useful for debugging purposes. This is only
-        # supported under systems that support symbolic links.
+        # We make a symbolic link ("latest") which links to the latest analysis this is useful for debugging purposes.
+        # This is only supported under systems that support symbolic links.
         if not hasattr(os, "symlink"):
             return
 

@@ -561,7 +561,7 @@ def do_mktemp():
 def do_mkdtemp():
     suffix = request.form.get("suffix", "")
     prefix = request.form.get("prefix", "")
-    dirpath = request.form.get("dirpath")
+    dirpath = request.form.get("dirpath", "")
 
     try:
         dirpath = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=dirpath)

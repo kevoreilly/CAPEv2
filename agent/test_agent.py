@@ -420,7 +420,6 @@ class TestAgent:
         form = {
             "dirpath": DIRPATH,
             "prefix": make_temp_name(),
-            "suffix": "",
         }
         js = self.post_form("mkdtemp", form)
         assert js["message"] == "Successfully created temporary directory"
@@ -437,7 +436,6 @@ class TestAgent:
         form = {
             "dirpath": dirpath,
             "prefix": "",
-            "suffix": "",
         }
         js = self.post_form("mkdtemp", form, 500)
         assert js["message"] == "Error creating temporary directory"

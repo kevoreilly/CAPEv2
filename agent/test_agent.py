@@ -393,7 +393,7 @@ class TestAgent:
     def test_mktemp_valid(self):
         form = {
             "dirpath": DIRPATH,
-            "prefix": make_temp_name(),
+            "prefix": "",
             "suffix": "",
         }
         js = self.post_form("mktemp", form)
@@ -419,7 +419,7 @@ class TestAgent:
         """Ensure we can use the mkdtemp endpoint."""
         form = {
             "dirpath": DIRPATH,
-            "prefix": make_temp_name(),
+            "prefix": "",
         }
         js = self.post_form("mkdtemp", form)
         assert js["message"] == "Successfully created temporary directory"

@@ -762,7 +762,7 @@ def do_browser_ext():
     AGENT_BROWSER_LOCK.acquire()
     if not AGENT_BROWSER_EXT_PATH:
         try:
-            ext_tmpdir = tempfile.mkdtemp(prefix="")
+            ext_tmpdir = tempfile.mkdtemp()
         except Exception:
             AGENT_BROWSER_LOCK.release()
             return json_exception("Error creating temporary directory")

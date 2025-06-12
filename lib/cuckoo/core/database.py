@@ -415,7 +415,7 @@ class Task(Base):
     # Task tags
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"), lazy="subquery", cascade="save-update, delete")
+    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"), lazy="subquery")
     options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)

@@ -43,7 +43,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.19"
+AGENT_VERSION = "0.20"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -544,7 +544,7 @@ def do_mkdir():
 @app.route("/mktemp", methods=("GET", "POST"))
 def do_mktemp():
     suffix = request.form.get("suffix", "")
-    prefix = request.form.get("prefix", "tmp")
+    prefix = request.form.get("prefix", "")
     dirpath = request.form.get("dirpath")
 
     try:
@@ -560,11 +560,12 @@ def do_mktemp():
 @app.route("/mkdtemp", methods=("GET", "POST"))
 def do_mkdtemp():
     suffix = request.form.get("suffix", "")
-    prefix = request.form.get("prefix", "tmp")
+    prefix = request.form.get("prefix", "")
     dirpath = request.form.get("dirpath")
 
     try:
         dirpath = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=dirpath)
+        subprocess.call(["icacls", dirpath, "/inheritance:e", "/grant", "BUILTIN\\Users:(OI)(CI)(RX)"])
     except Exception:
         return json_exception("Error creating temporary directory")
 
@@ -761,7 +762,7 @@ def do_browser_ext():
     AGENT_BROWSER_LOCK.acquire()
     if not AGENT_BROWSER_EXT_PATH:
         try:
-            ext_tmpdir = tempfile.mkdtemp(prefix="tmp")
+            ext_tmpdir = tempfile.mkdtemp(prefix="")
         except Exception:
             AGENT_BROWSER_LOCK.release()
             return json_exception("Error creating temporary directory")

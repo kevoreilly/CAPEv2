@@ -1,5 +1,14 @@
+### [11.06.2025]
+* __Action required!__ For users of Python 3.12+ in guest, update the agent to solve #2621 affecting e.g. MSI detonation
+* Agent update: Fix issue with analyzer directory creation lacking required ACLs for Python 3.12, remove predictable "tmp" prefix for directory name(s) (fixes #2621)
+
+### [10.06.2025]
+* Monitor update: WMI hooks: add handling for VT_NULL and enable WMI_Get logging
+
 ### [06.06.2025]
-* Monitor update: Fix format string vulnerability in debugger StringsOutput() function
+* Monitor updates: 
+    * WMI hooks
+    * Fix format string vulnerability in debugger StringsOutput() function
 
 ### [03.06.2025]
 * Monitor update: Fix bug in retarget_relative_displacement() relative offset calculation (thanks @ClaudioWayne)

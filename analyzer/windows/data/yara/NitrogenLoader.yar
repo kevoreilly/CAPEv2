@@ -45,10 +45,12 @@ rule NitrogenLoaderConfig
     meta:
         author = "enzok"
         description = "NitrogenLoader Config Extraction"
-        cape_options = "bp0=$decrypt1*+6,hc0=1,count=0,action0=string:rcx,typestring=NitrogenLoader Config"
+        cape_options = "bp0=$decrypt1*+1,bp1=$key*-4,hc=1,count=0,action0=string:rcx,action1=string:rdx,typestring=NitrogenLoader Config"
     strings:
-        $decrypt1 = {48 8B 8C 24 [4] 0F B6 04 01 89 ?? 24 [1-4] 48 63 4C 24 ?? 33 D2 48 8B C1 48 F7 B4 24 [4] 48 8B C2 48 8B 8C}
+        $decrypt1 = {48 63 4? 24 ?? 33 D2 48 [0-3] F7 B4 24 [4] 48 8B C2 48 8B 8C 24 [4] 0F BE 04 01}
         $decrypt2 = {8B ?? 24 [1-4] 33 C8 8B C1 48 63 4C 24 ?? 48 8B 94 24 [4] 88 04 0A}
+        $decrypt3 = {8B 8C 24 ?? ?? ?? ?? 2B C8 8B C1 48 63 4C 24 ?? 48 8B 94 24 [4] 88 04 0A}
+        $key = {74 ?? E8 [4] 85 C0 75 ?? 4? 8B 0D [3] 00 4? 8D 15 [3] 00 E8}
     condition:
-        all of them
+        any of them
 }

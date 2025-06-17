@@ -24,7 +24,7 @@ rule NitrogenLoader
         $taskman_2 = {B9 4D 00 00 00 88 84 24 [4] E8 [4] B9 61 00 00 00 88 84 24 [4] E8 [4] B9 6E 00 00 00 88 84 24 [4] E8 [3] FF}
         $taskman_3 = {B9 61 00 00 00 88 84 24 [4] E8 [4] B9 67 00 00 00 88 84 24 [4] E8 [4] B9 65 00 00 00 88 84 24 [4] E8 [3] FF}
         $taskman_4 = {B9 72 00 00 00 88 84 24 [4] E8 [4] 31 C9 88 84 24 [4] E8 [3] FF}
-        $rc4decrypt_1 = {48 89 ?? 48 89 ?? E8 [4] 48 8B ?? 24 [1-4] 4? 89 ?? 48 89 ?? 4? 89 C1 89 EA E8 [4] 48 89 ??}
+        $rc4decrypt_1 = {48 89 ?? 48 89 ?? E8 [4] 48 8B ?? 24 [1-4] 4? 89 ?? 48 89 ?? 4? 89 C1 89 EA E8 [4] 48 89}
         $rc4decrypt_2 = {E8 [4] 8B ?? 24 [1-4] 4? 89 ?? 48 89 ?? 4? 89 C1 E8 [3] FF}
     condition:
         (2 of ($string*) and any of ($syscall*)) or 4 of ($decrypt*) or (3 of ($taskman_*) and all of ($rc4decrypt_*))

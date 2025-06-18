@@ -204,6 +204,13 @@ auth_only = no
 rps = 1/s
 #rpm = 10/m
 
+# Pull a PCAP from a specific task
+[tasktlspcap]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+
 # Pull a EVTX from a specific task
 [taskevtx]
 enabled = yes

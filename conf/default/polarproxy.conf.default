@@ -3,7 +3,7 @@
 bin = /opt/PolarProxy/PolarProxy
 
 # Host ip where PolarProxy is listening
-host = 127.0.0.1
+host = 192.168.122.1
 
 # Interface where PolarProxy is listening
 interface = virbr0
@@ -14,6 +14,11 @@ cert = /opt/PolarProxy/PolarProxy-key-crt.p12
 # Password to unlock PKCS#12 file
 password = SuperPuperSecret
 
+# JSON file containing any firewall rules for PolarProxy to use
+# https://www.netresec.com/?page=TlsFirewall
 ruleset =
+
+mergecap = /usr/bin/mergecap
+editcap = /usr/bin/editcap
 
 # Future options like custom ports, cert paths, etc

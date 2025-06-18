@@ -20,16 +20,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 
-HAVE_PYSHARK = False
-try:
-    import pyshark
-
-    HAVE_PYSHARK = True
-except ImportError:
-    print("OPTIONAL! Missed dependency: poetry run pip install -U pyshark")
-except SystemError as e:
-    print("pyshark: %s", str(e))
-
 # required to work webgui
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
 sys.path.append(CUCKOO_ROOT)
@@ -77,17 +67,9 @@ class PolarProxyProcessor(Processing):
             return {}
 
         temp_dir = tempfile.TemporaryDirectory()
-        if HAVE_PYSHARK:
-            source_pcap = os.path.join(temp_dir.name, "decrypted.pcap")
-            cap = pyshark.FileCapture(tls_pcap_path, display_filter="!(tls or ssl)", output_file=source_pcap)
-            cap.load_packets()
-
-        else:
-            log.debug("PolarProxyProcessor requires pyshark to remove duplicate TLS streams when merging dump.pcap and tls.pcap")
-            source_pcap = tls_pcap_path
 
         tmp_pcap = os.path.join(temp_dir.name, "tmp.pcap")
-        ret, stdout, stderr = run_subprocess(["/usr/bin/mergecap", "-s", "262144", "-F", "pcap", "-w", tmp_pcap, self.pcap_path, source_pcap])
+        ret, stdout, stderr = run_subprocess(["/usr/bin/mergecap", "-s", "262144", "-F", "pcap", "-w", tmp_pcap, self.pcap_path, tls_pcap_path])
         if ret == 0:
             log.info("Creating PCAP with decrypted TLS streams")
             if ret == 0:

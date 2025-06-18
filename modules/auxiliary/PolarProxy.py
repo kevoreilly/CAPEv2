@@ -100,7 +100,6 @@ class PolarProxyThread(Thread):
                 "-v",
                 "-w",
                 file_path,
-                "--writeall",
                 "--autoflush",
                 "1",
                 "--cacert",

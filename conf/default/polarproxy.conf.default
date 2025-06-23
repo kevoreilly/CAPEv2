@@ -19,6 +19,5 @@ password = SuperPuperSecret
 ruleset =
 
 mergecap = /usr/bin/mergecap
-editcap = /usr/bin/editcap
 
 # Future options like custom ports, cert paths, etc

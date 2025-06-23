@@ -8,15 +8,14 @@
 
 import logging
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
-import subprocess
-import shutil
 
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
-
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 
@@ -24,11 +23,9 @@ from lib.cuckoo.common.path_utils import path_exists
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
 sys.path.append(CUCKOO_ROOT)
 
-
 log = logging.getLogger(__name__)
 cfg = Config()
-proc_cfg = Config("processing")
-routing_cfg = Config("routing")
+polarproxy_cfg = Config("polarproxy")
 
 
 def run_subprocess(command_args, shell=False):
@@ -62,14 +59,14 @@ class PolarProxyProcessor(Processing):
             log.debug('The TLS PCAP file does not exist at path "%s"', tls_pcap_path)
             return {}
 
-        if not path_exists(proc_cfg.polarproxy.mergecap):
-            log.debug('The mergecap application does not exist at path "%s"', proc_cfg.polarproxy.mergecap)
+        if not path_exists(polarproxy_cfg.cfg.mergecap):
+            log.debug('The mergecap application does not exist at path "%s"', polarproxy_cfg.cfg.mergecap)
             return {}
 
         temp_dir = tempfile.TemporaryDirectory()
 
         tmp_pcap = os.path.join(temp_dir.name, "tmp.pcap")
-        ret, stdout, stderr = run_subprocess(["/usr/bin/mergecap", "-s", "262144", "-F", "pcap", "-w", tmp_pcap, self.pcap_path, tls_pcap_path])
+        ret, stdout, stderr = run_subprocess([polarproxy_cfg.cfg.mergecap, "-s", "262144", "-F", "pcap", "-w", tmp_pcap, self.pcap_path, tls_pcap_path])
         if ret == 0:
             log.info("Creating PCAP with decrypted TLS streams")
             if ret == 0:

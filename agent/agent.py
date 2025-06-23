@@ -565,7 +565,8 @@ def do_mkdtemp():
 
     try:
         dirpath = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=dirpath)
-        subprocess.call(["icacls", dirpath, "/inheritance:e", "/grant", "BUILTIN\\Users:(OI)(CI)(RX)"])
+        if sys.platform == "win32":
+            subprocess.call(["icacls", dirpath, "/inheritance:e", "/grant", "BUILTIN\\Users:(OI)(CI)(RX)"])
     except Exception:
         return json_exception("Error creating temporary directory")
 

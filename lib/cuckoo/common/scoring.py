@@ -1,3 +1,30 @@
+# =============================================================================
+# Helper function to prevent code duplication for generic scoring.
+# =============================================================================
+def _calculate_generic_score(matched: list) -> float:
+    """Calculates a generic score based on a list of matched signatures."""
+    score = 0.0
+    for match in matched:
+        # We apply the 'maximum' attribute if present in the signature.
+        # Check for key existence and that the value is not None to handle the case where maximum could be 0.
+        if "maximum" in match and match["maximum"] is not None:
+            score = max(score, match["maximum"])
+            continue  # Skip to next signature
+
+        if match["severity"] == 1:
+            score += match["weight"] * 0.5 * (match["confidence"] / 100.0)
+        else:
+            score += match["weight"] * (match["severity"] - 1) * (match["confidence"] / 100.0)
+
+    # Clamp the score between 0.0 and 10.0 using a common Python idiom.
+    score = max(0.0, min(score, 10.0))
+
+    return score
+
+
+# =============================================================================
+# Main scoring function.
+# =============================================================================
 def calc_scoring(results: dict, matched: list):
     """
     Calculate the final malware score and status based on the analysis results and matched signatures.
@@ -25,7 +52,26 @@ def calc_scoring(results: dict, matched: list):
     """
     finalMalscore = 0.0
     status = None
+    # Identify the analysis category (file or url).
+    category = results.get("target", {}).get("category")
     fileType = results.get("target", {}).get("file", {}).get("type")
+
+    # IF THE ANALYSIS IS OF URL TYPE, we use the generic scoring logic
+    if category == "url":
+        # Calculate score using the helper function
+        finalMalscore = _calculate_generic_score(matched)
+
+        # We assign a status based on the score
+        if finalMalscore >= 7.0:
+            status = "Malicious"
+        elif finalMalscore >= 4.0:
+            status = "Suspicious"
+        elif finalMalscore > 0.0:
+            status = "Clean"
+        else:
+            status = "Undetected"
+
+        return finalMalscore, status
 
     if not fileType:
         return finalMalscore, status
@@ -33,27 +79,7 @@ def calc_scoring(results: dict, matched: list):
     if "executable" in fileType:
         # We have 5 methodologies
         # 1. The file is Malicious-Known (The sample is detected by YARA)
-        ## score 10/10 (Malicious)
-        # =======================================================================================================#
-        # 2. If the file is Malicious-Unknown
-        ## triggered some signatures that has specific malicious categories such as:
-        ## ["malware", "ransomware", "infostealer", "rat", "trojan", "rootkit", "bootkit", "wiper", "banker",
-        ## "bypass", "anti-sandbox", "keylogger"]
-        ## score [7-9]/10 (Malicious)
-        # =======================================================================================================#
-        # 3. If the file is Suspicious-Unknown
-        ## triggered some signatures that has specific suspicious categories such as:
-        ## ["network", "encryption", "anti-vm", "anti-analysis", "anti-av", "anti-debug", "anti-emulation",
-        ## "persistence", "stealth", "discovery", "injection", "generic",  "account", "bot", "browser",
-        #  "allocation", "command"]
-        ## score[4-6]/10 (Suspicious)
-        # =======================================================================================================#
-        # 4. If the file is benign
-        ## Likely all trusted files are digitally signed.
-        ## score [0-3]/10 (benign)
-        # =======================================================================================================#
-        # 5. If the file doesn't trigger any signatures
-        ## The file is undetected/failed
+        # ... (and so on, this logic is specific to executables)
         tempScore1 = 0.0
         tempScore2 = 0.0
         is_maliciousCategoryHit = False
@@ -66,39 +92,14 @@ def calc_scoring(results: dict, matched: list):
         )
 
         maliciousCategories = [
-            "malware",
-            "ransomware",
-            "infostealer",
-            "rat",
-            "trojan",
-            "rootkit",
-            "bootkit",
-            "wiper",
-            "banker",
-            "bypass",
-            "anti-sandbox",
-            "keylogger",
+            "malware", "ransomware", "infostealer", "rat", "trojan", "rootkit", "bootkit", "wiper", "banker",
+            "bypass", "anti-sandbox", "keylogger",
         ]
 
         suspiciousCategories = [
-            "network",
-            "encryption",
-            "anti-vm",
-            "anti-analysis",
-            "anti-av",
-            "anti-debug",
-            "anti-emulation",
-            "persistence",
-            "stealth",
-            "discovery",
-            "injection",
-            "generic",
-            "account",
-            "bot",
-            "browser",
-            "allocation",
-            "command",
-            "execution",
+            "network", "encryption", "anti-vm", "anti-analysis", "anti-av", "anti-debug", "anti-emulation",
+            "persistence", "stealth", "discovery", "injection", "generic", "account", "bot", "browser",
+            "allocation", "command", "execution",
         ]
 
         for detection in results.get("detections", []):
@@ -122,21 +123,15 @@ def calc_scoring(results: dict, matched: list):
                 else:
                     tempScore2 += matchedSig["weight"] * (matchedSig["severity"] - 1) * (matchedSig["confidence"] / 100.0)
 
-        # 1. The file is Malicious-Known (The sample is detected by YARA)
-        ## score 10/10 (Malicious)
+        # 1. Malicious-Known
         if is_detected:
             status = "Malicious"
             finalMalscore = 10.0
 
-        # 2. If the file is Malicious-Unknown
-        ## triggered some signatures that has specific malicious categories such as:
-        ## ["malware", "ransomware", "infostealer", "rat", "trojan", "rootkit", "bootkit", "wiper", "banker",
-        ## "bypass", "anti-sandbox", "keylogger"]
-        ## score [7-9]/10 (Malicious)
+        # 2. Malicious-Unknown
         elif is_maliciousCategoryHit:
             finalMalscore = tempScore1
             status = "Malicious"
-            ## Include numbers between that range
             if 7.0 < finalMalscore < 9.0:
                 pass
             elif finalMalscore >= 9.0:
@@ -144,37 +139,21 @@ def calc_scoring(results: dict, matched: list):
             elif finalMalscore < 7.0:
                 finalMalscore = 7.0
 
-        # 3. If the file is Suspicious-Unknown
-        ## triggered some signatures that has specific suspicious categories such as:
-        ## ["network", "encryption", "anti-vm", "anti-analysis", "anti-av", "anti-debug", "anti-emulation",
-        ## "persistence", "stealth", "discovery", "injection", "generic",  "account", "bot", "browser",
-        #  "allocation", "command"]
-        ## score[4-6]/10 (Suspicious)
+        # 3. Suspicious-Unknown
         elif is_suspiciousCategoryHit:
             finalMalscore = tempScore2
-
-            # 4. If the file is benign
-            ## Likely all trusted files are digitally signed.
-            ## score [0-3]/10 (benign)
             if is_digital_signauture_verified:
                 finalMalscore = 0.0
                 status = "Clean"
-
             elif finalMalscore < 4.0:
                 status = "Clean"
-
-            ## Include numbers between that range
-            elif 4.0 < finalMalscore < 6.0:
-                status = "Suspicious"
-            elif finalMalscore == 4:
-                finalMalscore = 4
-                status = "Suspicious"
             elif finalMalscore >= 6.0:
                 finalMalscore = 6.0
                 status = "Suspicious"
+            elif 4.0 <= finalMalscore < 6.0:
+                status = "Suspicious"
 
-        # 5. If the file doesn't trigger any signatures
-        ## The file is undetected/failed
+        # 5. Undetected/Failed
         else:
             finalMalscore = 0
             if results.get("behavior", {}).get("processtree", []):
@@ -182,14 +161,8 @@ def calc_scoring(results: dict, matched: list):
             else:
                 status = "Failed"
     else:
-        for match in matched:
-            if match["severity"] == 1:
-                finalMalscore += match["weight"] * 0.5 * (match["confidence"] / 100.0)
-            else:
-                finalMalscore += match["weight"] * (match["severity"] - 1) * (match["confidence"] / 100.0)
-        if finalMalscore > 10.0:
-            finalMalscore = 10.0
-        if finalMalscore < 0.0:
-            finalMalscore = 0.0
+        # For all other non-executable file types, use the generic scoring logic
+        finalMalscore = _calculate_generic_score(matched)
+        # Note: The original logic did not assign a status here, so we keep that behavior.
 
     return finalMalscore, status

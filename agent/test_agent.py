@@ -420,13 +420,12 @@ class TestAgent:
         form = {
             "dirpath": DIRPATH,
             "prefix": "",
-            "suffix": "",
         }
         js = self.post_form("mkdtemp", form)
         assert js["message"] == "Successfully created temporary directory"
         # tempfile.mkdtemp adds random characters to suffix, so returned name
         # will be different
-        assert "dirpath" in js and js["dirpath"].startswith(os.path.join(form["dirpath"], form["prefix"]))
+        assert "dirpath" in js and js["dirpath"].startswith(os.path.join(form["dirpath"], form.get("prefix", "")))
         assert os.path.exists(js["dirpath"])
         assert os.path.isdir(js["dirpath"])
 
@@ -437,7 +436,6 @@ class TestAgent:
         form = {
             "dirpath": dirpath,
             "prefix": "",
-            "suffix": "",
         }
         js = self.post_form("mkdtemp", form, 500)
         assert js["message"] == "Error creating temporary directory"

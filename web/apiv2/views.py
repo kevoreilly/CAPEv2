@@ -730,6 +730,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
     return Response(resp)
 
 
+# ToDo requires proper review and rewrite
 # Return Task ID's and data that match a hash.
 @csrf_exempt
 @api_view(["POST"])
@@ -743,6 +744,7 @@ def ext_tasks_search(request):
     return_data = []
     term = request.data.get("option", "")
     value = request.data.get("argument", "")
+    search_limit = request.data.get("search_limit", 50)
 
     if term and value:
         records = False
@@ -750,12 +752,15 @@ def ext_tasks_search(request):
             resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return Response(resp)
 
-        if term in ("ids", "options", "tags_tasks"):
+        if term == "tags_tasks":
+            value = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=int(search_limit))]
+        elif term == "options":
+            value = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
+        elif term == "ids":
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
             else:
                 return Response({"error": True, "error_value": "Not all values are integers"})
-        if term == "ids":
             tmp_value = []
             for task in db.list_tasks(task_ids=value) or []:
                 if task.status == "reported":

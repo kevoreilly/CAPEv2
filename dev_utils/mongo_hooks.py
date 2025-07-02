@@ -1,8 +1,8 @@
-import sys
 import itertools
 import logging
 
 from pymongo import UpdateOne, errors
+from bson import BSON
 
 from dev_utils.mongodb import (
     mongo_bulk_write,

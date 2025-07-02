@@ -70,8 +70,9 @@ def normalize_file(file_dict, task_id):
     new_dict["_id"] = key
     file_dict[FILE_REF_KEY] = key
     # 16MB limit handling
-    if new_dict.get("strings") and new_dict["strings"] and sys.getsizeof(new_dict["strings"]) > 16793600:
-        log.warning("strings are bigger than 16MB, truncating")
+    strings_val = new_dict.get("strings")
+    if strings_val and len(BSON.encode({"strings": strings_val})) > 15 * 1024 * 1024:
+        log.warning("strings field is too large (>15MB), truncating to avoid MongoDB document size error")
         new_dict["strings"] = []
     return UpdateOne({"_id": key}, {"$set": new_dict, "$addToSet": {TASK_IDS_KEY: task_id}}, upsert=True, hint=[("_id", 1)])
 

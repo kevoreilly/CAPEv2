@@ -393,8 +393,8 @@ class TestAgent:
     def test_mktemp_valid(self):
         form = {
             "dirpath": DIRPATH,
-            "prefix": make_temp_name(),
-            "suffix": "tmp",
+            "prefix": "",
+            "suffix": "",
         }
         js = self.post_form("mktemp", form)
         assert js["message"] == "Successfully created temporary file"
@@ -419,8 +419,8 @@ class TestAgent:
         """Ensure we can use the mkdtemp endpoint."""
         form = {
             "dirpath": DIRPATH,
-            "prefix": make_temp_name(),
-            "suffix": "tmp",
+            "prefix": "",
+            "suffix": "",
         }
         js = self.post_form("mkdtemp", form)
         assert js["message"] == "Successfully created temporary directory"
@@ -466,7 +466,7 @@ class TestAgent:
 
         # destination file path is invalid
         upload_file = {"file": ("test_data.txt", "test data\ntest data\n")}
-        form = {"filepath": os.path.join(DIRPATH, make_temp_name(), "tmp")}
+        form = {"filepath": os.path.join(DIRPATH, make_temp_name(), "")}
         js = self.post_form("store", form, 500, files=upload_file)
         assert js["message"].startswith("Error storing file")
 

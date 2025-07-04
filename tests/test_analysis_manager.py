@@ -7,6 +7,8 @@ from typing import Generator
 import pytest
 from pytest_mock import MockerFixture
 
+from sqlalchemy import select
+
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import ConfigMeta
 from lib.cuckoo.core.analysis_manager import AnalysisManager
@@ -164,7 +166,7 @@ class TestAnalysisManager:
         with db.session.begin():
             db.session.refresh(task)
             db.session.refresh(machine)
-            guest: Guest = db.session.query(Guest).first()
+            guest: Guest = db.session.scalar(select(Guest))
             assert task.status == TASK_RUNNING
             assert task.machine == machine.label
             assert task.machine_id == machine.id

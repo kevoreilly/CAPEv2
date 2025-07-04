@@ -412,7 +412,7 @@ class TestDatabaseEngine:
             assert db.set_machine_interface("idontexist", intf) is None
 
         with db.session.begin():
-            assert db.session.scalar_one(select(Machine).where(Machine.label == "label0")).interface == intf
+            assert db.session().scalar_one(select(Machine).where(Machine.label == "label0")).interface == intf
 
     def test_set_vnc_port(self, db: _Database):
         with db.session.begin():
@@ -440,7 +440,7 @@ class TestDatabaseEngine:
             new_clock = now + datetime.timedelta(days=1)
             assert db.update_clock(task_id) == new_clock
         with db.session.begin():
-            assert db.session.scalar_one(select(Task)).clock == new_clock
+            assert db.session().scalar_one(select(Task)).clock == new_clock
 
     def test_update_clock_url(self, db: _Database, monkeypatch, freezer):
         with db.session.begin():
@@ -451,7 +451,7 @@ class TestDatabaseEngine:
             monkeypatch.setattr(db.cfg.cuckoo, "daydelta", 1)
             assert db.update_clock(task_id) == now
         with db.session.begin():
-            assert db.session.scalar_one(select(Task)).clock == now
+            assert db.session().scalar_one(select(Task)).clock == now
 
     def test_set_status(self, db: _Database, freezer):
         with db.session.begin():

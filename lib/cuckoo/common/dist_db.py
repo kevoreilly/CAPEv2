@@ -122,6 +122,47 @@ class Task(Base):
     notificated: Mapped[bool] = mapped_column(default=False)
     deleted: Mapped[bool] = mapped_column(default=False)
 
+    def __init__(
+        self,
+        path,
+        category,
+        package,
+        timeout,
+        priority,
+        options,
+        machine,
+        platform,
+        tags,
+        custom,
+        memory,
+        clock,
+        enforce_timeout,
+        main_task_id=None,
+        retrieved=False,
+        route=None,
+        tlp=None,
+    ):
+        self.path = path
+        self.category = category
+        self.package = package
+        self.timeout = timeout
+        self.priority = priority
+        self.options = options
+        self.machine = machine
+        self.platform = platform
+        self.tags = tags
+        self.custom = custom
+        self.memory = memory
+        self.clock = clock
+        self.enforce_timeout = enforce_timeout
+        self.node_id = None
+        self.task_id = None
+        self.main_task_id = main_task_id
+        self.finished = False
+        self.retrieved = False
+        self.route = route
+        self.tlp = tlp
+
 
 # 4. Modernized database initialization function
 def create_session(db_connection: str, echo: bool = False) -> sessionmaker:

@@ -124,7 +124,7 @@ class Task(Base):
 
 
 # 4. Modernized database initialization function
-def init_database(db_connection: str, echo: bool = False) -> sessionmaker:
+def create_session(db_connection: str, echo: bool = False) -> sessionmaker:
     """Initializes the database engine and creates tables."""
     try:
         engine = create_engine(db_connection, echo=echo)

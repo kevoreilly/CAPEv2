@@ -514,11 +514,11 @@ class Task(Base):
 
     tlp: Mapped[str] = mapped_column(String(255), nullable=True)
 
-    user_id: Mapped[int] = mapped_column(nullable=True)
-    # toDo possible drop too
-    username: Mapped[str] = mapped_column(String(256), nullable=True)
+    tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
-    __table_args__ = (
+    user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    # toDo possible drop too
+    username: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
         Index("category_index", "category"),
         Index("status_index", "status"),
         Index("added_on_index", "added_on"),

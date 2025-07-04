@@ -215,11 +215,11 @@ class Machine(Base):
     ip: Mapped[str] = mapped_column(String(255), nullable=False)
     platform: Mapped[str] = mapped_column(String(255), nullable=False)
     tags: Mapped[List["Tag"]] = relationship(secondary=machines_tags, back_populates="machines")
-    interface: Mapped[str] = mapped_column(String(255), nullable=True)
-    snapshot: Mapped[str] = mapped_column(String(255), nullable=True)
+    interface: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    snapshot: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     locked: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
     locked_changed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
-    status: Mapped[str] = mapped_column(String(255), nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status_changed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     resultserver_ip: Mapped[str] = mapped_column(String(255), nullable=False)
     resultserver_port: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -273,6 +273,8 @@ class Tag(Base):
     machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags)  # , back_populates="tags")
     machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags, back_populates="tags")
     tasks: Mapped[List["Task"]] = relationship(secondary=tasks_tags, back_populates="tags")
+
+    def __repr__(self):
         return f"<Tag({self.id},'{self.name}')>"
 
     def __init__(self, name):
@@ -434,26 +436,25 @@ class Task(Base):
     id: Mapped[int] = mapped_column(Integer(), primary_key=True)
     target: Mapped[str] = mapped_column(Text(), nullable=False)
     category: Mapped[str] = mapped_column(String(255), nullable=False)
-    cape: Mapped[str] = mapped_column(String(2048), nullable=True)
+    cape: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
     timeout: Mapped[int] = mapped_column(Integer(), server_default="0", nullable=False)
     priority: Mapped[int] = mapped_column(Integer(), server_default="1", nullable=False)
-    custom: Mapped[str] = mapped_column(String(255), nullable=True)
-    machine: Mapped[str] = mapped_column(String(255), nullable=True)
-    package: Mapped[str] = mapped_column(String(255), nullable=True)
-    route: Mapped[str] = mapped_column(String(128), nullable=True, default=False)
+    custom: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    machine: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    package: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    route: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, default=False)
     # Task tags
-    tags_tasks: Mapped[str] = mapped_column(String(256), nullable=True)
+    tags_tasks: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     # Virtual machine tags
     tags: Mapped[List["Tag"]] = relationship(secondary=tasks_tags, back_populates="tasks", passive_deletes=True)
-
-    options: Mapped[str] = mapped_column(Text(), nullable=True)
-    platform: Mapped[str] = mapped_column(String(255), nullable=True)
-    memory: Mapped[int] = mapped_column(Boolean, nullable=False, default=False)
-    enforce_timeout: Mapped[int] = mapped_column(Boolean, nullable=False, default=False)
-    clock: Mapped[int] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
-    added_on: Mapped[int] = mapped_column(DateTime(timezone=False), default=datetime.now, nullable=False)
-    started_on: Mapped[int] = mapped_column(DateTime(timezone=False), nullable=True)
-    completed_on: Mapped[int] = mapped_column(DateTime(timezone=False), nullable=True)
+    options: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    platform: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    memory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    enforce_timeout: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    clock: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
+    added_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
+    started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    completed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     status: Mapped[int] = mapped_column(
         Enum(
             TASK_BANNED,
@@ -474,16 +475,16 @@ class Task(Base):
 
     # Statistics data to identify broken Cuckoos servers or VMs
     # Also for doing profiling to improve speed
-    dropped_files: Mapped[int] = mapped_column(nullable=True)
-    running_processes: Mapped[int] = mapped_column(nullable=True)
-    api_calls: Mapped[int] = mapped_column(nullable=True)
-    domains: Mapped[int] = mapped_column(nullable=True)
-    signatures_total: Mapped[int] = mapped_column(nullable=True)
-    signatures_alert: Mapped[int] = mapped_column(nullable=True)
-    files_written: Mapped[int] = mapped_column(nullable=True)
-    registry_keys_modified: Mapped[int] = mapped_column(nullable=True)
-    crash_issues: Mapped[int] = mapped_column(nullable=True)
-    anti_issues: Mapped[int] = mapped_column(nullable=True)
+    dropped_files: Mapped[Optional[int]] = mapped_column(nullable=True)
+    running_processes: Mapped[Optional[int]] = mapped_column(nullable=True)
+    api_calls: Mapped[Optional[int]] = mapped_column(nullable=True)
+    domains: Mapped[Optional[int]] = mapped_column(nullable=True)
+    signatures_total: Mapped[Optional[int]] = mapped_column(nullable=True)
+    signatures_alert: Mapped[Optional[int]] = mapped_column(nullable=True)
+    files_written: Mapped[Optional[int]] = mapped_column(nullable=True)
+    registry_keys_modified: Mapped[Optional[int]] = mapped_column(nullable=True)
+    crash_issues: Mapped[Optional[int]] = mapped_column(nullable=True)
+    anti_issues: Mapped[Optional[int]] = mapped_column(nullable=True)
     analysis_started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     analysis_finished_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     processing_started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
@@ -504,12 +505,12 @@ class Task(Base):
         back_populates="task", cascade="all, delete-orphan"  # This MUST match the attribute name on the Error model
     )
     # ToDo drop shrike
-    shrike_url = Column(String(4096), nullable=True)
-    shrike_refer = Column(String(4096), nullable=True)
-    shrike_msg = Column(String(4096), nullable=True)
-    shrike_sid = Column(Integer(), nullable=True)
+    shrike_url: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
+    shrike_refer: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
+    shrike_msg: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
+    shrike_sid: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
     # ToDo be removed - Deprecate soon, not used anymore
-    parent_id = Column(Integer(), nullable=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
 
     tlp: Mapped[str] = mapped_column(String(255), nullable=True)
 

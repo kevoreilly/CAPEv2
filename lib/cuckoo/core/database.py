@@ -271,9 +271,8 @@ class Tag(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, unique=True)
     machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags)  # , back_populates="tags")
-    tasks: Mapped[List["Task"]] = relationship(secondary=tasks_tags)  # , back_populates="tags")
-
-    def __repr__(self):
+    machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags, back_populates="tags")
+    tasks: Mapped[List["Task"]] = relationship(secondary=tasks_tags, back_populates="tags")
         return f"<Tag({self.id},'{self.name}')>"
 
     def __init__(self, name):

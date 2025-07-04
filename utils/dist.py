@@ -695,7 +695,7 @@ class Retriever(threading.Thread):
 
         Notes:
             - This method acquires and releases a lock (`lock_retriever`) to ensure
-              thread-safe operations when adding tasks to the cleaner queue.
+                thread-safe operations when adding tasks to the cleaner queue.
             - The method commits changes to the database after processing each node.
             - The method closes the database session before exiting.
 

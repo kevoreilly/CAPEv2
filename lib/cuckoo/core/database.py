@@ -293,7 +293,7 @@ class Guest(Base):
     platform: Mapped[str] = mapped_column(nullable=False)
     manager: Mapped[str] = mapped_column(nullable=False)
 
-    started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), default=datetime.now, nullable=False)
+    started_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now, nullable=False)
     shutdown_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="cascade"), nullable=False, unique=True)
     task: Mapped["Task"] = relationship(back_populates="guest")
@@ -341,12 +341,13 @@ class Sample(Base):
     sha1: Mapped[str] = mapped_column(String(40), nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     sha512: Mapped[str] = mapped_column(String(128), nullable=False)
-    ssdeep: Mapped[str] = mapped_column(String(255), nullable=True)
-    parent: Mapped[int] = mapped_column(nullable=True)
-    source_url: Mapped[str] = mapped_column(String(2000), nullable=True)
+    ssdeep: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    parent: Mapped[Optional[int]] = mapped_column(nullable=True)
+    source_url: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
 
     tasks: Mapped[List["Task"]] = relationship(back_populates="sample", cascade="all, delete-orphan")
 
+    # ToDo replace with index=True
     __table_args__ = (
         Index("md5_index", "md5"),
         Index("sha1_index", "sha1"),
@@ -455,7 +456,7 @@ class Task(Base):
     added_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
     started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     completed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
-    status: Mapped[int] = mapped_column(
+    status: Mapped[str] = mapped_column(
         Enum(
             TASK_BANNED,
             TASK_PENDING,
@@ -495,9 +496,9 @@ class Task(Base):
     reporting_finished_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     timedout: Mapped[bool] = mapped_column(nullable=False, default=False)
 
-    sample_id: Mapped[int] = mapped_column(ForeignKey("samples.id"), nullable=True)
+    sample_id: Mapped[Optional[int]] = mapped_column(ForeignKey("samples.id"), nullable=True)
     sample: Mapped["Sample"] = relationship(back_populates="tasks")  # , lazy="subquery"
-    machine_id: Mapped[int] = mapped_column(nullable=True)
+    machine_id: Mapped[Optional[int]] = mapped_column(nullable=True)
     guest: Mapped["Guest"] = relationship(
         back_populates="task", uselist=False, cascade="all, delete-orphan"  # This is crucial for a one-to-one relationship
     )
@@ -512,13 +513,13 @@ class Task(Base):
     # ToDo be removed - Deprecate soon, not used anymore
     parent_id: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
 
-    tlp: Mapped[str] = mapped_column(String(255), nullable=True)
-
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
     # toDo possible drop too
     username: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+
+    __table_args__ = (
         Index("category_index", "category"),
         Index("status_index", "status"),
         Index("added_on_index", "added_on"),

@@ -2054,12 +2054,13 @@ class _Database:
 
         # This single query joins from Task -> child Sample -> parent Sample.
         stmt = select(ParentSample).select_from(Task).join(Sample, Task.sample_id == Sample.id).where(Task.id == task_id)
-
-        parent_obj = self.session.scalar(stmt)
-
-        if parent_obj:
-            return parent_obj.to_dict()
-
+        stmt = (
+            select(ParentSample)
+            .select_from(Task)
+            .join(Sample, Task.sample_id == Sample.id)
+            .join(ParentSample, Sample.parent == ParentSample.id)
+            .where(Task.id == task_id)
+        )
         return {}
 
     def list_tasks(

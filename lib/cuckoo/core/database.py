@@ -2041,9 +2041,9 @@ class _Database:
 
         return uniq
 
-    # ToDo rename to get_parent_sample_by_task
+    # ToDO drop?
     # ToDo review this function maybe can be simplified
-    def list_sample_parent(self, sample_id=False, task_id=False):
+    def get_parent_sample_by_task(self, sample_id=False, task_id=False):
         """
         Retrieves the parent of a task's sample by joining through the task.
         @param task_id: The ID of the task whose parent sample is to be found.
@@ -2060,6 +2060,11 @@ class _Database:
             .join(ParentSample, Sample.parent == ParentSample.id)
             .where(Task.id == task_id)
         )
+        parent_obj = self.session.scalar(stmt)
+
+        if parent_obj:
+            return parent_obj.to_dict()
+
         return {}
 
     def list_tasks(

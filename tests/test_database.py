@@ -735,7 +735,7 @@ class TestDatabaseEngine:
             freezer.move_to(datetime.datetime.now() + datetime.timedelta(hours=2))
             assert not db.check_file_uniq(sha256, hours=1)
 
-    def test_list_sample_parent(self, db: _Database, temp_filename):
+    def test_get_parent_sample_by_task(self, db: _Database, temp_filename):
         dct = dict(
             md5="md5",
             crc32="crc32",
@@ -758,8 +758,8 @@ class TestDatabaseEngine:
 
         with db.session.begin():
             exp_val = dict(**dct, parent=None, id=sample_id)
-            assert db.list_sample_parent(task_id=task_id) == exp_val
-            assert db.list_sample_parent(task_id=task_id + 1) == {}
+            assert db.get_parent_sample_by_task(task_id=task_id) == exp_val
+            assert db.get_parent_sample_by_task(task_id=task_id + 1) == {}
 
     def test_list_tasks(self, db: _Database, temp_filename, freezer):
         with db.session.begin():

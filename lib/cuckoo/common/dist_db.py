@@ -4,7 +4,6 @@ from typing import List, Optional
 
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
 from sqlalchemy import (
-    Boolean,
     Column,
     create_engine,
     DateTime,

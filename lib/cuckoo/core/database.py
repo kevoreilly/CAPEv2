@@ -2053,7 +2053,6 @@ class _Database:
         ParentSample = aliased(Sample, name="parent_sample")
 
         # This single query joins from Task -> child Sample -> parent Sample.
-        stmt = select(ParentSample).select_from(Task).join(Sample, Task.sample_id == Sample.id).where(Task.id == task_id)
         stmt = (
             select(ParentSample)
             .select_from(Task)

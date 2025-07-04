@@ -35,8 +35,6 @@ from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.utils import bytes2str, create_folder, get_options
 
-from typing import Optional
-
 # ToDo postgresql+psycopg2 in connection
 try:
     from sqlalchemy.engine import make_url
@@ -2055,12 +2053,7 @@ class _Database:
         ParentSample = aliased(Sample, name="parent_sample")
 
         # This single query joins from Task -> child Sample -> parent Sample.
-        stmt = (
-            select(ParentSample)
-            .select_from(Task)
-            .join(Sample, Task.sample_id == Sample.id)
-            .where(Task.id == task_id)
-        )
+        stmt = select(ParentSample).select_from(Task).join(Sample, Task.sample_id == Sample.id).where(Task.id == task_id)
 
         parent_obj = self.session.scalar(stmt)
 

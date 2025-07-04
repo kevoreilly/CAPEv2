@@ -179,7 +179,6 @@ class Base(DeclarativeBase):
     pass
 
 
-# ToDo port to sqlalchemy 2
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
     "machines_tags",
@@ -510,14 +509,11 @@ class Task(Base):
     shrike_refer: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
     shrike_msg: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
     shrike_sid: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
-    # ToDo be removed - Deprecate soon, not used anymore
     parent_id: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
+    username: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
-    # toDo possible drop too
-    username: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
 
     __table_args__ = (
         Index("category_index", "category"),

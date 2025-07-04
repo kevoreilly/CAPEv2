@@ -679,7 +679,6 @@ class _Database:
         stmt = select(model).filter_by(**kwargs)
         # Execute with session.scalar() to get a single object or None
         instance = self.session.scalar(stmt)
-        # import code;code.interact(local=dict(locals(), **globals()))
         if instance:
             cache[cache_key] = instance
             return instance

@@ -1451,7 +1451,7 @@ class TestDatabaseEngine:
         with db.session.begin():
             created_machines = db.session.query(Machine)
             output_machines = db.filter_machines_to_task(
-                machines=created_machines,
+                statement=created_machines,
                 label=task["machine"],
                 platform=task["platform"],
                 tags=task_tags,

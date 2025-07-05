@@ -50,7 +50,7 @@ try:
         Table,
         Text,
         create_engine,
-        event,
+        # event,
         func,
         not_,
         select,

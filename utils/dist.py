@@ -659,7 +659,7 @@ class Retriever(threading.Thread):
             while True:
                 stmt = (
                     select(Task)
-                    .where(Task.finished == True, Task.retrieved == True, Task.notificated == False)
+                    .where(Task.finished.is_(True), Task.retrieved.is_(True), Task.notificated.is_(False))
                     .order_by(Task.id.desc())
                 )
 
@@ -708,7 +708,7 @@ class Retriever(threading.Thread):
         """
         db = session()
         while True:
-            nodes = db.execute(select(Node.id, Node.name, Node.url, Node.apikey).where(Node.enabled == True))
+            nodes = db.execute(select(Node.id, Node.name, Node.url, Node.apikey).where(Node.enabled.is_(True)))
             for node in nodes:
                 log.info("Checking for failed tasks on: %s", node.name)
                 for task in node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete"):
@@ -763,7 +763,7 @@ class Retriever(threading.Thread):
                     time.sleep(60)
                     continue
                 # .with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.last_check)
-                nodes = db.scalars(select(Node).where(Node.enabled == True))
+                nodes = db.scalars(select(Node).where(Node.enabled.is_(True)))
                 for node in nodes:
                     self.status_count.setdefault(node.name, 0)
                     last_checks.setdefault(node.name, 0)
@@ -785,10 +785,10 @@ class Retriever(threading.Thread):
                         stmt = (
                             select(Task)
                             .where(
-                                Task.finished == False,
-                                Task.retrieved == False,
+                                Task.finished.is_(False),
+                                Task.retrieved.is_(False),
                                 Task.node_id == node.id,
-                                Task.deleted == False,
+                                Task.deleted.is_(False),
                                 Task.task_id.in_(task_ids),
                             )
                             .order_by(Task.id.desc())
@@ -906,8 +906,8 @@ class Retriever(threading.Thread):
                         .where(
                             Task.node_id == node_id,
                             Task.task_id == task["id"],
-                            Task.retrieved == False,
-                            Task.finished == False,
+                            Task.retrieved.is_(False),
+                            Task.finished.is_(False),
                         )
                         .order_by(Task.id.desc())
                     )
@@ -1032,8 +1032,8 @@ class Retriever(threading.Thread):
                     .where(
                         Task.node_id == node_id,
                         Task.task_id == task["id"],
-                        Task.retrieved == False,
-                        Task.finished == False,
+                        Task.retrieved.is_(False),
+                        Task.finished.is_(False),
                     )
                     .order_by(Task.id.desc())
                 )
@@ -1510,7 +1510,7 @@ class StatusThread(threading.Thread):
         db.close()
 
         # MINIMUMQUEUE but per Node depending of number vms
-        nodes = db.scalars(select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled == True))
+        nodes = db.scalars(select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled.is_(True)))
         for node in nodes:
             MINIMUMQUEUE[node.name] = db.scalar(select(func.count(Machine.id)).where(Machine.node_id == node.id))
             ID2NAME[node.id] = node.name
@@ -1523,7 +1523,7 @@ class StatusThread(threading.Thread):
             # there is any issue with the current session (expired or database is down.).
             try:
                 # Remove disabled nodes
-                stmt = select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled == False)
+                stmt = select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled.is_(False))
                 nodes = db.scalars(stmt)
 
                 for node in nodes or []:
@@ -1531,7 +1531,7 @@ class StatusThread(threading.Thread):
                         STATUSES.pop(node.name)
 
                 # Request a status update on all CAPE nodes.
-                stmt = select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled == True)
+                stmt = select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled.is_(True))
                 nodes = db.scalars(stmt)
                 for node in nodes:
                     status = node_status(node.url, node.name, node.apikey)
@@ -1902,7 +1902,7 @@ def cron_cleaner(clean_x_hours=False):
             .order_by(Task.id.desc())
         )
     else:
-        stmt = select(Task).where(Task.notificated == True, Task.deleted == False).order_by(Task.id.desc())
+        stmt = select(Task).where(Task.notificated.is_(True), Task.deleted.is_(False)).order_by(Task.id.desc())
     tasks = db.scalars(stmt)
     if tasks is not None:
         for task in tasks:

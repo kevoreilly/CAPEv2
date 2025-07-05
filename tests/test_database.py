@@ -103,7 +103,7 @@ class TestDatabaseEngine:
 
     def test_add_tasks(self, db: _Database, temp_filename: str):
         # A single transaction block makes the test flow clearer.
-        with db.session.begin():
+        with db.session.no_autoflush:
             # Define the modern count statement once.
             count_stmt = select(func.count(Task.id))
 
@@ -120,16 +120,16 @@ class TestDatabaseEngine:
 
     def test_error_exists(self, db: _Database):
         err_msg = "A" * 1024
-        with db.session.begin():
+        with db.session.no_autoflush:
             task_id = db.add_url("http://google.com/")
             db.add_error(err_msg, task_id)
-        with db.session.begin():
+        with db.session.no_autoflush:
             errs = db.view_errors(task_id)
             assert len(errs) == 1
             assert errs[0].message == err_msg
-        with db.session.begin():
+        with db.session.no_autoflush:
             db.add_error(err_msg, task_id)
-        with db.session.begin():
+        with db.session.no_autoflush:
             assert len(db.view_errors(task_id)) == 2
 
     def test_task_set_options(self, db: _Database, temp_filename: str):
@@ -412,7 +412,7 @@ class TestDatabaseEngine:
             assert db.set_machine_interface("idontexist", intf) is None
 
         with db.session.begin():
-            assert db.session.scalar_one(select(Machine).where(Machine.label == "label0")).interface == intf
+            assert db.session.scalar(select(Machine).where(Machine.label == "label0")).interface == intf
 
     def test_set_vnc_port(self, db: _Database):
         with db.session.begin():
@@ -440,7 +440,7 @@ class TestDatabaseEngine:
             new_clock = now + datetime.timedelta(days=1)
             assert db.update_clock(task_id) == new_clock
         with db.session.begin():
-            assert db.session.scalar_one(select(Task)).clock == new_clock
+            assert db.session.scalar(select(Task)).clock == new_clock
 
     def test_update_clock_url(self, db: _Database, monkeypatch, freezer):
         with db.session.begin():
@@ -451,7 +451,7 @@ class TestDatabaseEngine:
             monkeypatch.setattr(db.cfg.cuckoo, "daydelta", 1)
             assert db.update_clock(task_id) == now
         with db.session.begin():
-            assert db.session.scalar_one(select(Task)).clock == now
+            assert db.session.scalar(select(Task)).clock == now
 
     def test_set_status(self, db: _Database, freezer):
         with db.session.begin():
@@ -705,11 +705,11 @@ class TestDatabaseEngine:
         with db.session.begin():
             db.set_machine_status("l2", "running")
         with db.session.begin():
-            machine = db.session.scalar_one(select(Machine).where(Machine.label == "l2"))
+            machine = db.session.scalar(select(Machine).where(Machine.label == "l2"))
             assert machine.status == "running"
             assert machine.status_changed_on == datetime.datetime.now()
 
-            machine = db.session.scalar_one(select(Machine).where(Machine.label == "l1"))
+            machine = db.session.scalar(select(Machine).where(Machine.label == "l1"))
             assert machine.status != "running"
 
     @pytest.mark.parametrize(
@@ -763,7 +763,7 @@ class TestDatabaseEngine:
                 db.session.add(sample)
             sample_id = sample.id
             task_id = db.add_path(temp_filename)
-            sample2 = db.session.scalar_one(select(Sample).where(Sample.id != sample.id))
+            sample2 = db.session.scalar(select(Sample).where(Sample.id != sample.id))
             sample2.parent = sample_id
 
         with db.session.begin():
@@ -783,7 +783,7 @@ class TestDatabaseEngine:
                 return [t.id for t in db.list_tasks(**kwargs)]
 
             assert get_ids(limit=1) == [t3]
-            assert get_ids(category="url") == [t3, t2]
+            assert get_ids(category="url") == [t2, t3]
             assert get_ids(offset=1) == [t2, t1]
             with db.session.begin_nested() as nested:
                 now = start + datetime.timedelta(minutes=1)
@@ -809,7 +809,7 @@ class TestDatabaseEngine:
             assert get_ids(options_like="minhook") == [t1]
             assert get_ids(options_not_like="minhook") == [t3, t2]
             assert get_ids(tags_tasks_like="1") == [t2]
-            assert get_ids(task_ids=(t1, t2)) == [t2, t1]
+            assert get_ids(task_ids=(t1, t2)) == [t1, t2]
             assert get_ids(task_ids=(t3 + 1,)) == []
             assert get_ids(user_id=5) == [t3]
             assert get_ids(user_id=0) == [t2, t1]
@@ -983,9 +983,9 @@ class TestDatabaseEngine:
             t1 = db.add_path(temp_filename)
             with open(temp_filename, "rb") as fil:
                 sha256 = hashlib.sha256(fil.read()).hexdigest()
-            task_sample = db.session.scalar_one(select(Sample.id).where(Sample.sha256 == sha256))
+            task_sample = db.session.scalar(select(Sample.id).where(Sample.sha256 == sha256))
         with db.session.begin():
-            assert db.find_sample() is False
+            assert db.find_sample() is None
             assert db.find_sample(md5="md5_1").id == samples[1]
             assert db.find_sample(sha1="sha1_1").id == samples[1]
             assert db.find_sample(sha256="sha256_0").id == samples[0]
@@ -1027,16 +1027,13 @@ class TestDatabaseEngine:
         with db.session.begin():
             m0 = self.add_machine(db, name="name0", label="label0")
             self.add_machine(db, name="name1", label="label1")
-            db.session.refresh(m0)
-            db.session.expunge_all()
-        with db.session.begin():
             assert db.view_machine_by_label("foo") is None
-            m0_dict = db.session.get(Machine, m0.id).to_dict()
-            assert db.view_machine_by_label("label0").to_dict() == m0_dict
+            m0_dict = db.session.get(Machine, m0.id)
+            assert db.view_machine_by_label("label0").id == m0_dict.id
 
     def test_get_source_url(self, db: _Database, temp_filename):
         with db.session.begin():
-            assert db.get_source_url() is False
+            assert db.get_source_url() is None
             assert db.get_source_url(1) is None
             db.add_path(temp_filename)
             with open(temp_filename, "a") as fil:

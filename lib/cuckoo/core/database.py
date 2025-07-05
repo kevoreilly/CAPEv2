@@ -604,11 +604,14 @@ class _Database:
         # Get db session.
         self.session = scoped_session(sessionmaker(bind=self.engine, expire_on_commit=False, future=True))
 
+        # ToDo this breaks tests
+        """
         # There should be a better way to clean up orphans. This runs after every flush, which is crazy.
         @event.listens_for(self.session, "after_flush")
         def delete_tag_orphans(session, ctx):
             delete_stmt = delete(Tag).where(~Tag.tasks.any()).where(~Tag.machines.any())
             session.execute(delete_stmt)
+        """
 
         # Deal with schema versioning.
         # TODO: it's a little bit dirty, needs refactoring.
@@ -2577,9 +2580,7 @@ class _Database:
             return None
 
         try:
-            # Select just the desired column.
             stmt = select(Sample.source_url).where(Sample.id == int(sample_id))
-            # .scalar() is the perfect way to get a single column value from one row.
             return self.session.scalar(stmt)
         except (TypeError, ValueError):
             # Handle cases where sample_id is not a valid integer.

@@ -12,7 +12,7 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Optional, Union, Tuple, Dict
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
@@ -35,7 +35,9 @@ from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.utils import bytes2str, create_folder, get_options
 
+# ToDo postgresql+psycopg2 in connection
 try:
+    from sqlalchemy.engine import make_url
     from sqlalchemy import (
         Boolean,
         Column,
@@ -48,17 +50,29 @@ try:
         Table,
         Text,
         create_engine,
-        event,
+        # event,
         func,
         not_,
         select,
+        Select,
+        delete,
+        update,
     )
     from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-    from sqlalchemy.orm import Query, backref, declarative_base, joinedload, relationship, scoped_session, sessionmaker
+    from sqlalchemy.orm import (
+        aliased,
+        joinedload,
+        subqueryload,
+        relationship,
+        scoped_session,
+        sessionmaker,
+        DeclarativeBase,
+        Mapped,
+        mapped_column,
+    )
 
-    Base = declarative_base()
 except ImportError:  # pragma: no cover
-    raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry run pip install sqlalchemy`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
 
 sandbox_packages = (
@@ -158,6 +172,13 @@ ALL_DB_STATUSES = (
 
 MACHINE_RUNNING = "running"
 
+# ToDo verify variable declaration in Mapped
+
+
+class Base(DeclarativeBase):
+    pass
+
+
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
     "machines_tags",
@@ -186,22 +207,22 @@ class Machine(Base):
 
     __tablename__ = "machines"
 
-    id = Column(Integer(), primary_key=True)
-    name = Column(String(255), nullable=False, unique=True)
-    label = Column(String(255), nullable=False, unique=True)
-    arch = Column(String(255), nullable=False)
-    ip = Column(String(255), nullable=False)
-    platform = Column(String(255), nullable=False)
-    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines"))  # lazy="subquery"
-    interface = Column(String(255), nullable=True)
-    snapshot = Column(String(255), nullable=True)
-    locked = Column(Boolean(), nullable=False, default=False)
-    locked_changed_on = Column(DateTime(timezone=False), nullable=True)
-    status = Column(String(255), nullable=True)
-    status_changed_on = Column(DateTime(timezone=False), nullable=True)
-    resultserver_ip = Column(String(255), nullable=False)
-    resultserver_port = Column(String(255), nullable=False)
-    reserved = Column(Boolean(), nullable=False, default=False)
+    id: Mapped[int] = mapped_column(Integer(), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    label: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    arch: Mapped[str] = mapped_column(String(255), nullable=False)
+    ip: Mapped[str] = mapped_column(String(255), nullable=False)
+    platform: Mapped[str] = mapped_column(String(255), nullable=False)
+    tags: Mapped[List["Tag"]] = relationship(secondary=machines_tags, back_populates="machines")
+    interface: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    snapshot: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    locked: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
+    locked_changed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    status_changed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    resultserver_ip: Mapped[str] = mapped_column(String(255), nullable=False)
+    resultserver_port: Mapped[str] = mapped_column(String(255), nullable=False)
+    reserved: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
 
     def __repr__(self):
         return f"<Machine({self.id},'{self.name}')>"
@@ -246,8 +267,11 @@ class Tag(Base):
 
     __tablename__ = "tags"
 
-    id = Column(Integer(), primary_key=True)
-    name = Column(String(255), nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False, unique=True)
+    machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags)  # , back_populates="tags")
+    machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags, back_populates="tags")
+    tasks: Mapped[List["Task"]] = relationship(secondary=tasks_tags, back_populates="tags")
 
     def __repr__(self):
         return f"<Tag({self.id},'{self.name}')>"
@@ -261,15 +285,17 @@ class Guest(Base):
 
     __tablename__ = "guests"
 
-    id = Column(Integer(), primary_key=True)
-    status = Column(String(16), nullable=False)
-    name = Column(String(255), nullable=False)
-    label = Column(String(255), nullable=False)
-    platform = Column(String(255), nullable=False)
-    manager = Column(String(255), nullable=False)
-    started_on = Column(DateTime(timezone=False), default=datetime.now, nullable=False)
-    shutdown_on = Column(DateTime(timezone=False), nullable=True)
-    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="cascade"), nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    status: Mapped[str] = mapped_column(nullable=False)
+    name: Mapped[str] = mapped_column(nullable=False)
+    label: Mapped[str] = mapped_column(nullable=False)
+    platform: Mapped[str] = mapped_column(nullable=False)
+    manager: Mapped[str] = mapped_column(nullable=False)
+
+    started_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now, nullable=False)
+    shutdown_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="cascade"), nullable=False, unique=True)
+    task: Mapped["Task"] = relationship(back_populates="guest")
 
     def __repr__(self):
         return f"<Guest({self.id}, '{self.name}')>"
@@ -306,17 +332,21 @@ class Sample(Base):
 
     __tablename__ = "samples"
 
-    id = Column(Integer(), primary_key=True)
-    file_size = Column(Integer(), nullable=False)
-    file_type = Column(Text(), nullable=False)
-    md5 = Column(String(32), nullable=False)
-    crc32 = Column(String(8), nullable=False)
-    sha1 = Column(String(40), nullable=False)
-    sha256 = Column(String(64), nullable=False)
-    sha512 = Column(String(128), nullable=False)
-    ssdeep = Column(String(255), nullable=True)
-    parent = Column(Integer(), nullable=True)
-    source_url = Column(String(2000), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    file_size: Mapped[int] = mapped_column(nullable=False)
+    file_type: Mapped[str] = mapped_column(Text(), nullable=False)
+    md5: Mapped[str] = mapped_column(String(32), nullable=False)
+    crc32: Mapped[str] = mapped_column(String(8), nullable=False)
+    sha1: Mapped[str] = mapped_column(String(40), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    sha512: Mapped[str] = mapped_column(String(128), nullable=False)
+    ssdeep: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    parent: Mapped[Optional[int]] = mapped_column(nullable=True)
+    source_url: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
+
+    tasks: Mapped[List["Task"]] = relationship(back_populates="sample", cascade="all, delete-orphan")
+
+    # ToDo replace with index=True
     __table_args__ = (
         Index("md5_index", "md5"),
         Index("sha1_index", "sha1"),
@@ -364,9 +394,10 @@ class Error(Base):
     __tablename__ = "errors"
     MAX_LENGTH = 1024
 
-    id = Column(Integer(), primary_key=True)
-    message = Column(String(MAX_LENGTH), nullable=False)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    message: Mapped[str] = mapped_column(String(MAX_LENGTH), nullable=False)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False)
+    task: Mapped["Task"] = relationship(back_populates="errors")
 
     def to_dict(self):
         """Converts object to dict.
@@ -402,29 +433,29 @@ class Task(Base):
 
     __tablename__ = "tasks"
 
-    id = Column(Integer(), primary_key=True)
-    target = Column(Text(), nullable=False)
-    category = Column(String(255), nullable=False)
-    cape = Column(String(2048), nullable=True)
-    timeout = Column(Integer(), server_default="0", nullable=False)
-    priority = Column(Integer(), server_default="1", nullable=False)
-    custom = Column(String(255), nullable=True)
-    machine = Column(String(255), nullable=True)
-    package = Column(String(255), nullable=True)
-    route = Column(String(128), nullable=True, default=False)
+    id: Mapped[int] = mapped_column(Integer(), primary_key=True)
+    target: Mapped[str] = mapped_column(Text(), nullable=False)
+    category: Mapped[str] = mapped_column(String(255), nullable=False)
+    cape: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
+    timeout: Mapped[int] = mapped_column(Integer(), server_default="0", nullable=False)
+    priority: Mapped[int] = mapped_column(Integer(), server_default="1", nullable=False)
+    custom: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    machine: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    package: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    route: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, default=False)
     # Task tags
-    tags_tasks = Column(String(256), nullable=True)
+    tags_tasks: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"), lazy="subquery")
-    options = Column(Text(), nullable=True)
-    platform = Column(String(255), nullable=True)
-    memory = Column(Boolean, nullable=False, default=False)
-    enforce_timeout = Column(Boolean, nullable=False, default=False)
-    clock = Column(DateTime(timezone=False), default=datetime.now(), nullable=False)
-    added_on = Column(DateTime(timezone=False), default=datetime.now, nullable=False)
-    started_on = Column(DateTime(timezone=False), nullable=True)
-    completed_on = Column(DateTime(timezone=False), nullable=True)
-    status = Column(
+    tags: Mapped[List["Tag"]] = relationship(secondary=tasks_tags, back_populates="tasks", passive_deletes=True)
+    options: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    platform: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    memory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    enforce_timeout: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    clock: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
+    added_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
+    started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    completed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    status: Mapped[str] = mapped_column(
         Enum(
             TASK_BANNED,
             TASK_PENDING,
@@ -444,43 +475,45 @@ class Task(Base):
 
     # Statistics data to identify broken Cuckoos servers or VMs
     # Also for doing profiling to improve speed
-    dropped_files = Column(Integer(), nullable=True)
-    running_processes = Column(Integer(), nullable=True)
-    api_calls = Column(Integer(), nullable=True)
-    domains = Column(Integer(), nullable=True)
-    signatures_total = Column(Integer(), nullable=True)
-    signatures_alert = Column(Integer(), nullable=True)
-    files_written = Column(Integer(), nullable=True)
-    registry_keys_modified = Column(Integer(), nullable=True)
-    crash_issues = Column(Integer(), nullable=True)
-    anti_issues = Column(Integer(), nullable=True)
-    analysis_started_on = Column(DateTime(timezone=False), nullable=True)
-    analysis_finished_on = Column(DateTime(timezone=False), nullable=True)
-    processing_started_on = Column(DateTime(timezone=False), nullable=True)
-    processing_finished_on = Column(DateTime(timezone=False), nullable=True)
-    signatures_started_on = Column(DateTime(timezone=False), nullable=True)
-    signatures_finished_on = Column(DateTime(timezone=False), nullable=True)
-    reporting_started_on = Column(DateTime(timezone=False), nullable=True)
-    reporting_finished_on = Column(DateTime(timezone=False), nullable=True)
-    timedout = Column(Boolean, nullable=False, default=False)
+    dropped_files: Mapped[Optional[int]] = mapped_column(nullable=True)
+    running_processes: Mapped[Optional[int]] = mapped_column(nullable=True)
+    api_calls: Mapped[Optional[int]] = mapped_column(nullable=True)
+    domains: Mapped[Optional[int]] = mapped_column(nullable=True)
+    signatures_total: Mapped[Optional[int]] = mapped_column(nullable=True)
+    signatures_alert: Mapped[Optional[int]] = mapped_column(nullable=True)
+    files_written: Mapped[Optional[int]] = mapped_column(nullable=True)
+    registry_keys_modified: Mapped[Optional[int]] = mapped_column(nullable=True)
+    crash_issues: Mapped[Optional[int]] = mapped_column(nullable=True)
+    anti_issues: Mapped[Optional[int]] = mapped_column(nullable=True)
+    analysis_started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    analysis_finished_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    processing_started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    processing_finished_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    signatures_started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    signatures_finished_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    reporting_started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    reporting_finished_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    timedout: Mapped[bool] = mapped_column(nullable=False, default=False)
 
-    sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
-    sample = relationship("Sample", backref=backref("tasks", lazy="subquery", cascade="save-update, delete"))
-    machine_id = Column(Integer, nullable=True)
-    guest = relationship("Guest", uselist=False, backref=backref("tasks"), cascade="save-update, delete")
-    errors = relationship("Error", backref=backref("tasks"), cascade="save-update, delete")
+    sample_id: Mapped[Optional[int]] = mapped_column(ForeignKey("samples.id"), nullable=True)
+    sample: Mapped["Sample"] = relationship(back_populates="tasks")  # , lazy="subquery"
+    machine_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    guest: Mapped["Guest"] = relationship(
+        back_populates="task", uselist=False, cascade="all, delete-orphan"  # This is crucial for a one-to-one relationship
+    )
+    errors: Mapped[List["Error"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan"  # This MUST match the attribute name on the Error model
+    )
+    # ToDo drop shrike
+    shrike_url: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
+    shrike_refer: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
+    shrike_msg: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
+    shrike_sid: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
+    username: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
 
-    shrike_url = Column(String(4096), nullable=True)
-    shrike_refer = Column(String(4096), nullable=True)
-    shrike_msg = Column(String(4096), nullable=True)
-    shrike_sid = Column(Integer(), nullable=True)
-
-    # To be removed - Deprecate soon, not used anymore
-    parent_id = Column(Integer(), nullable=True)
-    tlp = Column(String(255), nullable=True)
-
-    user_id = Column(Integer(), nullable=True)
-    username = Column(String(256), nullable=True)
+    tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
 
     __table_args__ = (
         Index("category_index", "category"),
@@ -523,7 +556,7 @@ class AlembicVersion(Base):
 
     __tablename__ = "alembic_version"
 
-    version_num = Column(String(32), nullable=False, primary_key=True)
+    version_num: Mapped[str] = mapped_column(String(32), nullable=False, primary_key=True)
 
 
 class _Database:
@@ -569,19 +602,26 @@ class _Database:
             raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
 
         # Get db session.
-        self.session = scoped_session(sessionmaker(bind=self.engine, expire_on_commit=False))
+        self.session = scoped_session(sessionmaker(bind=self.engine, expire_on_commit=False, future=True))
 
+        # ToDo this breaks tests
+        """
         # There should be a better way to clean up orphans. This runs after every flush, which is crazy.
         @event.listens_for(self.session, "after_flush")
         def delete_tag_orphans(session, ctx):
-            session.query(Tag).filter(~Tag.tasks.any()).filter(~Tag.machines.any()).delete(synchronize_session=False)
+            delete_stmt = delete(Tag).where(~Tag.tasks.any()).where(~Tag.machines.any())
+            session.execute(delete_stmt)
+        """
 
         # Deal with schema versioning.
         # TODO: it's a little bit dirty, needs refactoring.
         with self.session() as tmp_session:
-            last = tmp_session.query(AlembicVersion).first()
+            # Use the modern select() and scalar() to fetch the first object
+            query = select(AlembicVersion)
+            last = tmp_session.scalar(query)
+
             if last is None:
-                # Set database schema version.
+                # Set database schema version (this part is unchanged)
                 tmp_session.add(AlembicVersion(version_num=SCHEMA_VERSION))
                 try:
                     tmp_session.commit()
@@ -589,7 +629,7 @@ class _Database:
                     tmp_session.rollback()
                     raise CuckooDatabaseError(f"Unable to set schema version: {e}")
             else:
-                # Check if db version is the expected one.
+                # Check if db version is the expected one (this part is unchanged)
                 if last.version_num != SCHEMA_VERSION and schema_check:  # pragma: no cover
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
@@ -606,19 +646,21 @@ class _Database:
         """Connect to a Database.
         @param connection_string: Connection string specifying the database
         """
+        url = make_url(connection_string)
+        engine_args = {}
+
         try:
-            # TODO: this is quite ugly, should improve.
-            if connection_string.startswith("sqlite"):
+            if url.drivername.startswith("sqlite"):
                 # Using "check_same_thread" to disable sqlite safety check on multiple threads.
-                self.engine = create_engine(connection_string, connect_args={"check_same_thread": False})
-            elif connection_string.startswith("postgres"):
-                # Disabling SSL mode to avoid some errors using sqlalchemy and multiprocesing.
+                engine_args["connect_args"] = {"check_same_thread": False}
+            elif url.drivername.startswith("postgresql"):
                 # See: http://www.postgresql.org/docs/9.0/static/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS
-                self.engine = create_engine(
-                    connection_string, connect_args={"sslmode": self.cfg.database.psql_ssl_mode}, pool_pre_ping=True
-                )
-            else:
-                self.engine = create_engine(connection_string)
+                # Disabling SSL mode to avoid some errors using sqlalchemy and multiprocessing.
+                engine_args["connect_args"] = {"sslmode": self.cfg.database.psql_ssl_mode}
+                engine_args["pool_pre_ping"] = True
+            # A single, clean call to create the engine
+            self.engine = create_engine(connection_string, **engine_args)
+
         except ImportError as e:  # pragma: no cover
             lib = e.message.rsplit(maxsplit=1)[-1]
             raise CuckooDependencyError(f"Missing database driver, unable to import {lib} (install with `pip install {lib}`)")
@@ -629,18 +671,28 @@ class _Database:
         @param model: model to query
         @return: row instance
         """
-        instance = self.session.query(model).filter_by(**kwargs).first()
+        cache = self.session.info.setdefault("_get_or_create_cache", {})
+        cache_key = (model, frozenset(kwargs.items()))
+        if cache_key in cache:
+            return cache[cache_key]
+
+        stmt = select(model).filter_by(**kwargs)
+        # Execute with session.scalar() to get a single object or None
+        instance = self.session.scalar(stmt)
         if instance:
+            cache[cache_key] = instance
             return instance
         else:
             instance = model(**kwargs)
             self.session.add(instance)
-            return instance
+            cache[cache_key] = instance
+
+        return instance
 
     def drop(self):
         """Drop all tables."""
         try:
-            Base.metadata.drop_all(self.engine)
+            Base.metadata.drop_all(self.engine, checkfirst=True)
         except SQLAlchemyError as e:
             raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
 
@@ -649,15 +701,20 @@ class _Database:
         # Secondary table.
         # TODO: this is better done via cascade delete.
         # self.engine.execute(machines_tags.delete())
-
-        self.session.execute(machines_tags.delete())
-        self.session.query(Machine).delete()
+        # ToDo : If your ForeignKey has "ON DELETE CASCADE", deleting a Machine
+        # would automatically delete its entries in machines_tags.
+        # If not, deleting them manually first is correct.
+        self.session.execute(delete(machines_tags))
+        self.session.execute(delete(Machine))
 
     def delete_machine(self, name) -> bool:
         """Delete a single machine entry from DB."""
 
-        machine = self.session.query(Machine).filter_by(name=name).first()
+        stmt = select(Machine).where(Machine.name == name)
+        machine = self.session.scalar(stmt)
+
         if machine:
+            # Deleting a specific ORM instance remains the same
             self.session.delete(machine)
             return True
         else:
@@ -680,6 +737,7 @@ class _Database:
         @param resultserver_port: port of the Result Server
         @param reserved: True if the machine can only be used when specifically requested
         """
+
         machine = Machine(
             name=name,
             label=label,
@@ -692,28 +750,38 @@ class _Database:
             resultserver_port=resultserver_port,
             reserved=reserved,
         )
-        # Deal with tags format (i.e., foo,bar,baz)
+
         if tags:
-            for tag in tags.replace(" ", "").split(","):
-                machine.tags.append(self._get_or_create(Tag, name=tag))
+            with self.session.no_autoflush:
+                for tag in tags.replace(" ", "").split(","):
+                    machine.tags.append(self._get_or_create(Tag, name=tag))
         if locked:
             machine.locked = True
+
         self.session.add(machine)
         return machine
 
     def set_machine_interface(self, label, interface):
-        machine = self.session.query(Machine).filter_by(label=label).first()
+        stmt = select(Machine).filter_by(label=label)
+        machine = self.session.scalar(stmt)
+
         if machine is None:
             log.debug("Database error setting interface: %s not found", label)
             return
+
+        # This part remains the same
         machine.interface = interface
         return machine
 
     def set_vnc_port(self, task_id: int, port: int):
-        task = self.session.query(Task).filter_by(id=task_id).first()
+        stmt = select(Task).where(Task.id == task_id)
+        task = self.session.scalar(stmt)
+
         if task is None:
             log.debug("Database error setting VPN port: For task %s", task_id)
             return
+
+        # This logic remains the same
         if task.options:
             task.options += f",vnc_port={port}"
         else:
@@ -724,11 +792,13 @@ class _Database:
 
         if not row:
             return
-
+        # datetime.fromtimestamp(0, tz=timezone.utc)
         if row.clock == datetime.utcfromtimestamp(0):
             if row.category == "file":
+                # datetime.now(timezone.utc)
                 row.clock = datetime.utcnow() + timedelta(days=self.cfg.cuckoo.daydelta)
             else:
+                # datetime.now(timezone.utc)
                 row.clock = datetime.utcnow()
         return row.clock
 
@@ -786,37 +856,37 @@ class _Database:
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
 
-        def get_first_machine(query: Query) -> Optional[Machine]:
-            # Select for update a machine, preferring one that is available and was the one that was used the
-            # longest time ago. This will give us a machine that can get locked or, if there are none that are
-            # currently available, we'll at least know that the task is serviceable.
-            return cast(
-                Optional[Machine], query.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine).first()
-            )
+        base_stmt = select(Machine).options(subqueryload(Machine.tags))
 
-        machines = self.session.query(Machine).options(joinedload(Machine.tags))
+        # This helper now encapsulates the final ordering, locking, and execution.
+        # It takes a Select statement as input.
+        def get_locked_machine(stmt: Select) -> Optional[Machine]:
+            final_stmt = stmt.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine)
+            return self.session.scalars(final_stmt).first()
+
         filter_kwargs = {
-            "machines": machines,
+            "statement": base_stmt,
             "label": task.machine,
             "platform": task.platform,
             "tags": task_tags,
             "archs": task_archs,
             "os_version": os_version,
         }
-        filtered_machines = self.filter_machines_to_task(include_reserved=False, **filter_kwargs)
-        machine = get_first_machine(filtered_machines)
+
+        filtered_stmt = self.filter_machines_to_task(include_reserved=False, **filter_kwargs)
+        machine = get_locked_machine(filtered_stmt)
+
         if machine is None and not task.machine and task_tags:
             # The task was given at least 1 tag, but there are no non-reserved machines
-            # that could satisfy the request. So let's see if there are any "reserved"
-            # machines that can satisfy it.
-            filtered_machines = self.filter_machines_to_task(include_reserved=True, **filter_kwargs)
-            machine = get_first_machine(filtered_machines)
+            # that could satisfy the request. So let's check "reserved" machines.
+            filtered_stmt = self.filter_machines_to_task(include_reserved=True, **filter_kwargs)
+            machine = get_locked_machine(filtered_stmt)
 
         if machine is None:
             raise CuckooUnserviceableTaskError
         if machine.locked:
-            # There aren't any machines that can service the task NOW, but there is at least one in the pool
-            # that could service it once it's available.
+            # There aren't any machines that can service the task NOW, but there is at
+            # least one in the pool that could service it once it's available.
             return None
         return machine
 
@@ -824,39 +894,37 @@ class _Database:
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
-        row = (
-            self.session.query(Task)
-            .filter_by(status=TASK_PENDING)
+        stmt = (
+            select(Task)
+            .where(Task.status == TASK_PENDING)
+            .where(not_(Task.options.contains("node=")))
             .order_by(Task.priority.desc(), Task.added_on)
-            # distributed cape
-            .filter(not_(Task.options.contains("node=")))
         )
 
         if categories:
-            row = row.filter(Task.category.in_(categories))
-        row = row.first()
+            stmt = stmt.where(Task.category.in_(categories))
+
+        # 2. Execute the statement and get the first result object
+        row = self.session.scalars(stmt).first()
 
         if not row:
             return None
 
+        # This business logic remains the same
         self.set_status(task_id=row.id, status=TASK_RUNNING)
 
         return row
 
-    def guest_get_status(self, task_id):
-        """Log guest start.
-        @param task_id: task id
-        @return: guest status
-        """
-        guest = self.session.query(Guest).filter_by(task_id=task_id).first()
+    def guest_get_status(self, task_id: int):
+        """Gets the status for a given guest."""
+        stmt = select(Guest).where(Guest.task_id == task_id)
+        guest = self.session.scalar(stmt)
         return guest.status if guest else None
 
-    def guest_set_status(self, task_id, status):
-        """Log guest start.
-        @param task_id: task identifier
-        @param status: status
-        """
-        guest = self.session.query(Guest).filter_by(task_id=task_id).first()
+    def guest_set_status(self, task_id: int, status: str):
+        """Sets the status for a given guest."""
+        stmt = select(Guest).where(Guest.task_id == task_id)
+        guest = self.session.scalar(stmt)
         if guest is not None:
             guest.status = status
 
@@ -875,44 +943,44 @@ class _Database:
             guest.shutdown_on = datetime.now()
 
     @staticmethod
-    def filter_machines_by_arch(machines, arch):
-        """Add a filter to the given query for the architecture of the machines.
-        Allow x64 machines to be returned when requesting x86.
+    def filter_machines_by_arch(statement: Select, arch: list) -> Select:
+        """Adds a filter to the given select statement for the machine architecture.
+        Allows x64 machines to be returned when requesting x86.
         """
         if arch:
             if "x86" in arch:
                 # Prefer x86 machines over x64 if x86 is what was requested.
-                machines = machines.filter(Machine.arch.in_(("x64", "x86"))).order_by(Machine.arch.desc())
+                statement = statement.where(Machine.arch.in_(("x64", "x86"))).order_by(Machine.arch.desc())
             else:
-                machines = machines.filter(Machine.arch.in_(arch))
-        return machines
+                statement = statement.where(Machine.arch.in_(arch))
+        return statement
 
     def filter_machines_to_task(
-        self, machines: Query, label=None, platform=None, tags=None, archs=None, os_version=None, include_reserved=False
-    ) -> Query:
-        """Add filters to the given query based on the task
-        @param machines: Query object for the machines
-        @param label: label of the machine(s) expected for the task
-        @param platform: platform of the machine(s) expected for the task
-        @param tags: tags of the machine(s) expected for the task
-        @param archs: architectures of the machine(s) expected for the task
-        @param os_version: Version of the OSs of the machine(s) expected for the task
-        @param include_reserved: Flag to indicate if the list of machines returned should include reserved machines
-        @return: list of machines after filtering the inputed one
+        self, statement: Select, label=None, platform=None, tags=None, archs=None, os_version=None, include_reserved=False
+    ) -> Select:
+        """Adds filters to the given select statement based on the task.
+
+        @param statement: A `select()` statement to add filters to.
         """
         if label:
-            machines = machines.filter_by(label=label)
+            statement = statement.where(Machine.label == label)
         elif not include_reserved:
-            machines = machines.filter_by(reserved=False)
+            # Use .is_(False) for boolean checks
+            statement = statement.where(Machine.reserved.is_(False))
+
         if platform:
-            machines = machines.filter_by(platform=platform)
-        machines = self.filter_machines_by_arch(machines, archs)
+            statement = statement.where(Machine.platform == platform)
+
+        statement = self.filter_machines_by_arch(statement, archs)
+
         if tags:
             for tag in tags:
-                machines = machines.filter(Machine.tags.any(name=tag))
+                statement = statement.where(Machine.tags.any(name=tag))
+
         if os_version:
-            machines = machines.filter(Machine.tags.any(Tag.name.in_(os_version)))
-        return machines
+            statement = statement.where(Machine.tags.any(Tag.name.in_(os_version)))
+
+        return statement
 
     def list_machines(
         self,
@@ -933,19 +1001,24 @@ class _Database:
         77 | cape1  | win7  | x86  |
         78 | cape2  | win10 | x64  |
         """
-        machines = self.session.query(Machine).options(joinedload(Machine.tags))
-        if locked is not None and isinstance(locked, bool):
-            machines = machines.filter_by(locked=locked)
-        machines = self.filter_machines_to_task(
-            machines=machines,
-            label=label,
-            platform=platform,
-            tags=tags,
-            archs=arch,
-            os_version=os_version,
-            include_reserved=include_reserved,
-        )
-        return machines.all()
+        # ToDo do we really need it
+        with self.session.begin_nested():
+            # with self.session.no_autoflush:
+            stmt = select(Machine).options(subqueryload(Machine.tags))
+
+            if locked is not None:
+                stmt = stmt.where(Machine.locked.is_(locked))
+
+            stmt = self.filter_machines_to_task(
+                statement=stmt,
+                label=label,
+                platform=platform,
+                tags=tags,
+                archs=arch,
+                os_version=os_version,
+                include_reserved=include_reserved,
+            )
+            return self.session.execute(stmt).unique().scalars().all()
 
     def assign_machine_to_task(self, task: Task, machine: Optional[Machine]) -> Task:
         if machine:
@@ -988,9 +1061,9 @@ class _Database:
         @param include_reserved: include 'reserved' machines in the result, regardless of whether or not a 'label' was provided.
         @return: free virtual machines count
         """
-        machines = self.session.query(Machine).filter_by(locked=False)
-        machines = self.filter_machines_to_task(
-            machines=machines,
+        stmt = select(func.count(Machine.id)).where(Machine.locked.is_(False))
+        stmt = self.filter_machines_to_task(
+            statement=stmt,
             label=label,
             platform=platform,
             tags=tags,
@@ -998,46 +1071,41 @@ class _Database:
             os_version=os_version,
             include_reserved=include_reserved,
         )
-        return machines.count()
+
+        return self.session.scalar(stmt)
 
     def get_available_machines(self) -> List[Machine]:
-        """Which machines are available
-        @return: free virtual machines
-        """
-        machines = self.session.query(Machine).options(joinedload(Machine.tags)).filter_by(locked=False).all()
-        return machines
+        """Which machines are available"""
+        stmt = select(Machine).options(subqueryload(Machine.tags)).where(Machine.locked.is_(False))
+        return self.session.scalars(stmt).all()
 
     def count_machines_running(self) -> int:
-        machines = self.session.query(Machine)
-        machines = machines.filter_by(locked=True)
-        return machines.count()
+        """Counts how many machines are currently locked (running)."""
+        stmt = select(func.count(Machine.id)).where(Machine.locked.is_(True))
+        return self.session.scalar(stmt)
 
     def set_machine_status(self, machine_or_label: Union[str, Machine], status):
-        """Set status for a virtual machine.
-        @param label: virtual machine label
-        @param status: new virtual machine status
-        """
+        """Set status for a virtual machine."""
         if isinstance(machine_or_label, str):
-            machine = self.session.query(Machine).filter_by(label=machine_or_label).first()
+            stmt = select(Machine).where(Machine.label == machine_or_label)
+            machine = self.session.scalar(stmt)
         else:
             machine = machine_or_label
+
         if machine:
             machine.status = status
             machine.status_changed_on = datetime.now()
-            self.session.add(machine)
+            # No need for session.add() here; the ORM tracks changes to loaded objects.
 
     def add_error(self, message, task_id):
-        """Add an error related to a task.
-        @param message: error message
-        @param task_id: ID of the related task
-        """
+        """Add an error related to a task."""
+        # This function already uses modern, correct SQLAlchemy 2.0 patterns.
+        # No changes are needed.
         error = Error(message=message, task_id=task_id)
         # Use a separate session so that, regardless of the state of a transaction going on
         # outside of this function, the error will always be committed to the database.
         with self.session.session_factory() as sess, sess.begin():
             sess.add(error)
-
-    # The following functions are mostly used by external utils.
 
     def register_sample(self, obj, source_url=False):
         if isinstance(obj, (File, PCAP, Static)):
@@ -1062,7 +1130,8 @@ class _Database:
                     )
                     self.session.add(sample)
             except IntegrityError:
-                sample = self.session.query(Sample).filter_by(md5=file_md5).first()
+                stmt = select(Sample).where(Sample.md5 == file_md5)
+                sample = self.session.scalar(stmt)
 
             return sample.id
         return None
@@ -1148,7 +1217,8 @@ class _Database:
                     )
                     self.session.add(sample)
             except IntegrityError:
-                sample = self.session.query(Sample).filter_by(md5=file_md5).first()
+                stmt = select(Sample).where(Sample.md5 == file_md5)
+                sample = self.session.scalar(stmt)
 
             if DYNAMIC_ARCH_DETERMINATION:
                 # Assign architecture to task to fetch correct VM type
@@ -1935,17 +2005,17 @@ class _Database:
         @param not_status: exclude this task status from filter
         @return: number of tasks.
         """
-        search = self.session.query(Task)
+        stmt = select(func.count(Task.id))
 
         if status:
-            search = search.filter_by(status=status)
+            stmt = stmt.where(Task.status == status)
         if not_status:
-            search = search.filter(Task.status != not_status)
+            stmt = stmt.where(Task.status != not_status)
         if category:
-            search = search.filter_by(category=category)
+            stmt = stmt.where(Task.category == category)
 
-        tasks = search.count()
-        return tasks
+        # 2. Execute the statement and return the single integer result.
+        return self.session.scalar(stmt)
 
     def check_file_uniq(self, sha256: str, hours: int = 0):
         # TODO This function is poorly named. It returns True if a sample with the given
@@ -1954,13 +2024,14 @@ class _Database:
         uniq = False
         if hours and sha256:
             date_since = datetime.now() - timedelta(hours=hours)
-            date_till = datetime.now()
-            uniq = (
-                self.session.query(Task)
+
+            stmt = (
+                select(Task)
                 .join(Sample, Task.sample_id == Sample.id)
-                .filter(Sample.sha256 == sha256, Task.added_on.between(date_since, date_till))
-                .first()
+                .where(Sample.sha256 == sha256)
+                .where(Task.added_on >= date_since)
             )
+            return self.session.scalar(select(stmt.exists()))
         else:
             if not self.find_sample(sha256=sha256):
                 uniq = False
@@ -1969,35 +2040,31 @@ class _Database:
 
         return uniq
 
-    def list_sample_parent(self, sample_id=False, task_id=False):
+    # ToDO drop?
+    # ToDo review this function maybe can be simplified
+    def get_parent_sample_by_task(self, sample_id=False, task_id=False):
         """
-        Retrieve parent sample details by sample_id or task_id
-        @param sample_id: Sample id
-        @param task_id: Task id
+        Retrieves the parent of a task's sample by joining through the task.
+        @param task_id: The ID of the task whose parent sample is to be found.
+        @return: A dictionary of the parent sample's data, or an empty dictionary.
         """
-        # This function appears to only be used in one specific case, and task_id is
-        # the only parameter that gets passed--sample_id is never provided.
-        # TODO Pull sample_id as an argument. It's dead code.
-        parent_sample = {}
-        parent = False
-        if sample_id:  # pragma: no cover
-            parent = self.session.query(Sample.parent).filter(Sample.id == int(sample_id)).first()
-            if parent:
-                parent = parent[0]
-        elif task_id:
-            result = (
-                self.session.query(Task.sample_id, Sample.parent)
-                .join(Sample, Sample.id == Task.sample_id)
-                .filter(Task.id == task_id)
-                .first()
-            )
-            if result is not None:
-                parent = result[1]
+        # Create an alias to distinguish the parent Sample from the child Sample.
+        ParentSample = aliased(Sample, name="parent_sample")
 
-        if parent:
-            parent_sample = self.session.query(Sample).filter(Sample.id == parent).first().to_dict()
+        # This single query joins from Task -> child Sample -> parent Sample.
+        stmt = (
+            select(ParentSample)
+            .select_from(Task)
+            .join(Sample, Task.sample_id == Sample.id)
+            .join(ParentSample, Sample.parent == ParentSample.id)
+            .where(Task.id == task_id)
+        )
+        parent_obj = self.session.scalar(stmt)
 
-        return parent_sample
+        if parent_obj:
+            return parent_obj.to_dict()
+
+        return {}
 
     def list_tasks(
         self,
@@ -2044,62 +2111,52 @@ class _Database:
         @return: list of tasks.
         """
         tasks: List[Task] = []
-        # Can we remove "options(joinedload)" it is here due to next error
-        # sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <Task at X> is not bound to a Session; lazy load operation of attribute 'tags' cannot proceed
-        # ToDo this is inefficient but it fails if we don't join. Need to fix this
-        search = self.session.query(Task).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
-        if include_hashes:  # pragma: no cover
-            # This doesn't work, but doesn't seem to get used anywhere.
-            search = search.options(joinedload(Sample))
+        stmt = select(Task).options(joinedload(Task.guest), subqueryload(Task.errors), subqueryload(Task.tags))
+        if include_hashes:
+            stmt = stmt.options(joinedload(Task.sample))
         if status:
             if "|" in status:
-                search = search.filter(Task.status.in_(status.split("|")))
+                stmt = stmt.where(Task.status.in_(status.split("|")))
             else:
-                search = search.filter(Task.status == status)
+                stmt = stmt.where(Task.status == status)
         if not_status:
-            search = search.filter(Task.status != not_status)
+            stmt = stmt.where(Task.status != not_status)
         if category:
-            search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
-        # We're currently always returning details. See the comment at the top of this 'try' block.
-        # if details:
-        #    search = search.options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
+            stmt = stmt.where(Task.category.in_([category] if isinstance(category, str) else category))
         if sample_id is not None:
-            search = search.filter(Task.sample_id == sample_id)
+            stmt = stmt.where(Task.sample_id == sample_id)
         if id_before is not None:
-            search = search.filter(Task.id < id_before)
+            stmt = stmt.where(Task.id < id_before)
         if id_after is not None:
-            search = search.filter(Task.id > id_after)
+            stmt = stmt.where(Task.id > id_after)
         if completed_after:
-            search = search.filter(Task.completed_on > completed_after)
+            stmt = stmt.where(Task.completed_on > completed_after)
         if added_before:
-            search = search.filter(Task.added_on < added_before)
+            stmt = stmt.where(Task.added_on < added_before)
         if options_like:
-            # Replace '*' wildcards with wildcard for sql
-            options_like = options_like.replace("*", "%")
-            search = search.filter(Task.options.like(f"%{options_like}%"))
+            stmt = stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
         if options_not_like:
-            # Replace '*' wildcards with wildcard for sql
-            options_not_like = options_not_like.replace("*", "%")
-            search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
+            stmt = stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
         if tags_tasks_like:
-            search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+            stmt = stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
         if task_ids:
-            search = search.filter(Task.id.in_(task_ids))
+            stmt = stmt.where(Task.id.in_(task_ids))
         if user_id is not None:
-            search = search.filter(Task.user_id == user_id)
+            stmt = stmt.where(Task.user_id == user_id)
 
+        # 3. Chaining for ordering, pagination, and locking remains the same
         if order_by is not None and isinstance(order_by, tuple):
-            search = search.order_by(*order_by)
+            stmt = stmt.order_by(*order_by)
         elif order_by is not None:
-            search = search.order_by(order_by)
+            stmt = stmt.order_by(order_by)
         else:
-            search = search.order_by(Task.added_on.desc())
+            stmt = stmt.order_by(Task.added_on.desc())
 
-        search = search.limit(limit).offset(offset)
+        stmt = stmt.limit(limit).offset(offset)
         if for_update:
-            search = search.with_for_update(of=Task)
-        tasks = search.all()
+            stmt = stmt.with_for_update(of=Task)
 
+        tasks = self.session.scalars(stmt).all()
         return tasks
 
     def delete_task(self, task_id):
@@ -2111,6 +2168,7 @@ class _Database:
         if task is None:
             return False
         self.session.delete(task)
+        # ToDo missed commits everywhere, check if autocommit is possible
         return True
 
     def delete_tasks(
@@ -2149,140 +2207,133 @@ class _Database:
         Returns:
             bool: True if the operation was successful (including no tasks to delete), False otherwise.
         """
+        delete_stmt = delete(Task)
         filters_applied = False
-        search = self.session.query(Task)
 
+        # 2. Chain .where() clauses for all filters
         if status:
             if "|" in status:
-                search = search.filter(Task.status.in_(status.split("|")))
+                delete_stmt = delete_stmt.where(Task.status.in_(status.split("|")))
             else:
-                search = search.filter(Task.status == status)
+                delete_stmt = delete_stmt.where(Task.status == status)
             filters_applied = True
         if not_status:
-            search = search.filter(Task.status != not_status)
+            delete_stmt = delete_stmt.where(Task.status != not_status)
             filters_applied = True
         if category:
-            search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
+            delete_stmt = delete_stmt.where(Task.category.in_([category] if isinstance(category, str) else category))
             filters_applied = True
         if sample_id is not None:
-            search = search.filter(Task.sample_id == sample_id)
+            delete_stmt = delete_stmt.where(Task.sample_id == sample_id)
             filters_applied = True
         if id_before is not None:
-            search = search.filter(Task.id < id_before)
+            delete_stmt = delete_stmt.where(Task.id < id_before)
             filters_applied = True
         if id_after is not None:
-            search = search.filter(Task.id > id_after)
+            delete_stmt = delete_stmt.where(Task.id > id_after)
             filters_applied = True
         if completed_after:
-            search = search.filter(Task.completed_on > completed_after)
+            delete_stmt = delete_stmt.where(Task.completed_on > completed_after)
             filters_applied = True
         if added_before:
-            search = search.filter(Task.added_on < added_before)
+            delete_stmt = delete_stmt.where(Task.added_on < added_before)
             filters_applied = True
         if options_like:
-            # Replace '*' wildcards with wildcard for sql
-            options_like = options_like.replace("*", "%")
-            search = search.filter(Task.options.like(f"%{options_like}%"))
+            delete_stmt = delete_stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
             filters_applied = True
         if options_not_like:
-            # Replace '*' wildcards with wildcard for sql
-            options_not_like = options_not_like.replace("*", "%")
-            search = search.filter(Task.options.notlike(f"%{options_not_like}%"))
+            delete_stmt = delete_stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
             filters_applied = True
         if tags_tasks_like:
-            search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+            delete_stmt = delete_stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
             filters_applied = True
         if task_ids:
-            search = search.filter(Task.id.in_(task_ids))
+            delete_stmt = delete_stmt.where(Task.id.in_(task_ids))
             filters_applied = True
         if user_id is not None:
-            search = search.filter(Task.user_id == user_id)
+            delete_stmt = delete_stmt.where(Task.user_id == user_id)
             filters_applied = True
 
         if not filters_applied:
             log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
-            return True  # Indicate success as no deletion was requested/needed
+            return True
 
+        # ToDo Transaction Handling
+        # The transaction logic (commit/rollback) is kept the same for a direct port,
+        # but the more idiomatic SQLAlchemy 2.0 approach would be to wrap the execution
+        # in a with self.session.begin(): block, which handles transactions automatically.
         try:
-            # Perform the deletion and get the count of deleted rows
-            deleted_count = search.delete(synchronize_session=False)
-            log.info("Deleted %d tasks matching the criteria.", deleted_count)
+            result = self.session.execute(delete_stmt)
+            log.info("Deleted %d tasks matching the criteria.", result.rowcount)
             self.session.commit()
             return True
-        except Exception as e:
+        except SQLAlchemyError as e:
             log.error("Error deleting tasks: %s", str(e))
-            # Rollback might be needed if this function is called outside a `with db.session.begin():`
-            # but typically it should be called within one.
             self.session.rollback()
             return False
 
-
-    def check_tasks_timeout(self, timeout):
-        """Find tasks which were added_on more than timeout ago and clean"""
-        tasks: List[Task] = []
-        ids_to_delete = []
-        if timeout == 0:
+    # ToDo replace with delete_tasks
+    def clean_timed_out_tasks(self, timeout: int):
+        """Deletes PENDING tasks that were added more than `timeout` seconds ago."""
+        if timeout <= 0:
             return
-        search = self.session.query(Task).filter(Task.status == TASK_PENDING).order_by(Task.added_on.desc())
-        tasks = search.all()
-        for task in tasks:
-            if task.added_on + timedelta(seconds=timeout) < datetime.now():
-                ids_to_delete.append(task.id)
-        if len(ids_to_delete) > 0:
-            self.session.query(Task).filter(Task.id.in_(ids_to_delete)).delete(synchronize_session=False)
 
-    def minmax_tasks(self):
-        """Find tasks minimum and maximum
-        @return: unix timestamps of minimum and maximum
-        """
-        _min = self.session.query(func.min(Task.started_on).label("min")).first()
-        _max = self.session.query(func.max(Task.completed_on).label("max")).first()
-        if _min and _max and _min[0] and _max[0]:
-            return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
+        # Calculate the cutoff time before which tasks are considered timed out.
+        timeout_threshold = datetime.now() - timedelta(seconds=timeout)
+
+        # Build a single, efficient DELETE statement that filters in the database.
+        delete_stmt = delete(Task).where(Task.status == TASK_PENDING).where(Task.added_on < timeout_threshold)
+
+        # Execute the bulk delete statement.
+        # The transaction should be handled by the calling code,
+        # typically with a `with session.begin():` block.
+        result = self.session.execute(delete_stmt)
+
+        if result.rowcount > 0:
+            log.info("Deleted %d timed-out PENDING tasks.", result.rowcount)
+
+    def minmax_tasks(self) -> Tuple[int, int]:
+        """Finds the minimum start time and maximum completion time for all tasks."""
+        # A single query is more efficient than two separate ones.
+        stmt = select(func.min(Task.started_on), func.max(Task.completed_on))
+        min_val, max_val = self.session.execute(stmt).one()
+
+        if min_val and max_val:
+            # .timestamp() is the modern way to get a unix timestamp.
+            return int(min_val.timestamp()), int(max_val.timestamp())
 
         return 0, 0
 
-    def get_tlp_tasks(self):
-        """
-        Retrieve tasks with TLP
-        """
-        tasks = self.session.query(Task).filter(Task.tlp == "true").all()
-        if tasks:
-            return [task.id for task in tasks]
-        else:
-            return []
+    def get_tlp_tasks(self) -> List[int]:
+        """Retrieves a list of task IDs that have TLP enabled."""
+        # Selecting just the ID is more efficient than fetching full objects.
+        stmt = select(Task.id).where(Task.tlp == "true")
+        # .scalars() directly yields the values from the single selected column.
+        return self.session.scalars(stmt).all()
 
-    def get_file_types(self):
-        """Get sample filetypes
+    def get_file_types(self) -> List[str]:
+        """Gets a sorted list of unique sample file types."""
+        # .distinct() is cleaner than group_by() for a single column.
+        stmt = select(Sample.file_type).distinct().order_by(Sample.file_type)
+        return self.session.scalars(stmt).all()
 
-        @return: A list of all available file types
-        """
-        unfiltered = self.session.query(Sample.file_type).group_by(Sample.file_type)
-        res = [asample[0] for asample in unfiltered.all()]
-        res.sort()
-        return res
+    def get_tasks_status_count(self) -> Dict[str, int]:
+        """Counts tasks, grouped by status."""
+        stmt = select(Task.status, func.count(Task.status)).group_by(Task.status)
+        # .execute() returns rows, which can be directly converted to a dict.
+        return dict(self.session.execute(stmt).all())
 
-    def get_tasks_status_count(self):
-        """Count all tasks in the database
-        @return: dict with status and number of tasks found example: {'failed_analysis': 2, 'running': 100, 'reported': 400}
-        """
-        tasks_dict_count = self.session.query(Task.status, func.count(Task.status)).group_by(Task.status).all()
-        return dict(tasks_dict_count)
-
-    def count_tasks(self, status=None, mid=None):
-        """Count tasks in the database
-        @param status: apply a filter according to the task status
-        @param mid: Machine id to filter for
-        @return: number of tasks found
-        """
-        unfiltered = self.session.query(Task)
-        # It doesn't look like "mid" ever gets passed to this function.
-        if mid:  # pragma: no cover
-            unfiltered = unfiltered.filter_by(machine_id=mid)
+    def count_tasks(self, status: str = None, mid: int = None) -> int:
+        """Counts tasks in the database, with optional filters."""
+        # Build a `SELECT COUNT(...)` query from the start for efficiency.
+        stmt = select(func.count(Task.id))
+        if mid:
+            stmt = stmt.where(Task.machine_id == mid)
         if status:
-            unfiltered = unfiltered.filter_by(status=status)
-        tasks_count = get_count(unfiltered, Task.id)
-        return tasks_count
+            stmt = stmt.where(Task.status == status)
+
+        # .scalar() executes the query and returns the single integer result.
+        return self.session.scalar(stmt)
 
     def view_task(self, task_id, details=False) -> Optional[Task]:
         """Retrieve information on a task.
@@ -2291,14 +2342,12 @@ class _Database:
         """
         query = select(Task).where(Task.id == task_id)
         if details:
-            query = query.options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags), joinedload(Task.sample))
+            query = query.options(
+                joinedload(Task.guest), subqueryload(Task.errors), subqueryload(Task.tags), joinedload(Task.sample)
+            )
         else:
-            query = query.options(joinedload(Task.tags), joinedload(Task.sample))
-        task = self.session.execute(query).first()
-        if task:
-            task = task[0]
-
-        return task
+            query = query.options(subqueryload(Task.tags), joinedload(Task.sample))
+        return self.session.scalar(query)
 
     # This function is used by the runstatistics community module.
     def add_statistics_to_task(self, task_id, details):  # pragma: no cover
@@ -2307,6 +2356,7 @@ class _Database:
         @param: details statistic.
         @return true of false.
         """
+        # ToDo do we really need this? does it need commit?
         task = self.session.get(Task, task_id)
         if task:
             task.dropped_files = details["dropped_files"]
@@ -2328,37 +2378,39 @@ class _Database:
         """
         return self.session.get(Sample, sample_id)
 
-    def find_sample(self, md5=None, sha1=None, sha256=None, parent=None, task_id: int = None, sample_id: int = None):
-        """Search samples by MD5, SHA1, or SHA256.
-        @param md5: md5 string
-        @param sha1: sha1 string
-        @param sha256: sha256 string
-        @param parent: sample_id int
-        @param task_id: task_id int
-        @param sample_id: sample_id int
-        @return: matches list
-        """
-        sample = False
+    def find_sample(
+        self, md5: str = None, sha1: str = None, sha256: str = None, parent: int = None, task_id: int = None, sample_id: int = None
+    ) -> Union[Optional[Sample], List[Sample], List[Task]]:
+        """Searches for samples or tasks based on different criteria."""
+
         if md5:
-            sample = self.session.query(Sample).filter_by(md5=md5).first()
-        elif sha1:
-            sample = self.session.query(Sample).filter_by(sha1=sha1).first()
-        elif sha256:
-            sample = self.session.query(Sample).filter_by(sha256=sha256).first()
-        elif parent:
-            sample = self.session.query(Sample).filter_by(parent=parent).all()
-        elif sample_id:
-            sample = self.session.query(Sample).filter_by(id=sample_id).all()
-        elif task_id:
-            # If task_id is passed, then a list of Task objects is returned--not Samples.
-            sample = (
-                self.session.query(Task)
-                .options(joinedload(Task.sample))
-                .filter(Task.id == task_id)
-                .filter(Sample.id == Task.sample_id)
-                .all()
-            )
-        return sample
+            stmt = select(Sample).where(Sample.md5 == md5)
+            return self.session.scalar(stmt)
+
+        if sha1:
+            stmt = select(Sample).where(Sample.sha1 == sha1)
+            return self.session.scalar(stmt)
+
+        if sha256:
+            stmt = select(Sample).where(Sample.sha256 == sha256)
+            return self.session.scalar(stmt)
+
+        if parent is not None:
+            stmt = select(Sample).where(Sample.parent == parent)
+            return self.session.scalars(stmt).all()
+
+        if sample_id is not None:
+            # Using session.get() is much more efficient than a select query.
+            # We wrap the result in a list to match the original function's behavior.
+            sample = self.session.get(Sample, sample_id)
+            return [sample] if sample else []
+
+        if task_id is not None:
+            # Note: This branch returns a list of Task objects.
+            stmt = select(Task).join(Sample, Task.sample_id == Sample.id).options(joinedload(Task.sample)).where(Task.id == task_id)
+            return self.session.scalars(stmt).all()
+
+        return None
 
     def sample_still_used(self, sample_hash: str, task_id: int):
         """Retrieve information if sample is used by another task(s).
@@ -2366,17 +2418,26 @@ class _Database:
         @param task_id: task_id
         @return: bool
         """
-        db_sample = (
-            self.session.query(Sample)
-            # .options(joinedload(Task.sample))
-            .filter(Sample.sha256 == sample_hash)
-            .filter(Task.id != task_id)
-            .filter(Sample.id == Task.sample_id)
-            .filter(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
-            .first()
+        stmt = (
+            select(Task)
+            .join(Sample, Task.sample_id == Sample.id)
+            .where(Sample.sha256 == sample_hash)
+            .where(Task.id != task_id)
+            .where(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
         )
-        still_used = bool(db_sample)
-        return still_used
+
+        # select(stmt.exists()) creates a `SELECT EXISTS(...)` query.
+        # session.scalar() executes it and returns True or False directly.
+        return self.session.scalar(select(stmt.exists()))
+
+    def _hash_file_in_chunks(self, path: str, hash_algo) -> str:
+        """Helper function to hash a file efficiently in chunks."""
+        hasher = hash_algo()
+        buffer_size = 65536  # 64kb
+        with open(path, "rb") as f:
+            while chunk := f.read(buffer_size):
+                hasher.update(chunk)
+        return hasher.hexdigest()
 
     def sample_path_by_hash(self, sample_hash: str = False, task_id: int = False):
         """Retrieve information on a sample location by given hash.
@@ -2410,15 +2471,9 @@ class _Database:
             if path_exists(file_path):
                 return [file_path]
 
-        # binary also not stored in binaries, perform hash lookup
-        if task_id and not sample_hash:
-            db_sample = (
-                self.session.query(Sample)
-                # .options(joinedload(Task.sample))
-                .filter(Task.id == task_id)
-                .filter(Sample.id == Task.sample_id)
-                .first()
-            )
+            # binary also not stored in binaries, perform hash lookup
+            stmt = select(Sample).join(Task, Sample.id == Task.sample_id).where(Task.id == task_id)
+            db_sample = self.session.scalar(stmt)
             if db_sample:
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
                 if path_exists(path):
@@ -2433,7 +2488,8 @@ class _Database:
         sample = []
         # check storage/binaries
         if query_filter:
-            db_sample = self.session.query(Sample).filter(query_filter == sample_hash).first()
+            stmt = select(Sample).where(query_filter == sample_hash)
+            db_sample = self.session.scalar(stmt)
             if db_sample is not None:
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
                 if path_exists(path):
@@ -2472,11 +2528,11 @@ class _Database:
 
             if not sample:
                 # search in temp folder if not found in binaries
-                db_sample = (
-                    self.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(query_filter == sample_hash).all()
-                )
+                stmt = select(Task).join(Sample, Task.sample_id == Sample.id).where(query_filter == sample_hash)
+                db_sample = self.session.scalars(stmt).all()
 
                 if db_sample is not None:
+                    """
                     samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
                     # hash validation and if exist
                     samples = [file_path for file_path in samples if path_exists(file_path)]
@@ -2485,63 +2541,63 @@ class _Database:
                             if sample_hash == hashlib_sizes[len(sample_hash)](f.read()).hexdigest():
                                 sample = [path]
                                 break
+                    """
+                    # Use a generator expression for memory efficiency
+                    target_paths = (tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample)
+
+                    # Filter for paths that exist
+                    existing_paths = (p for p in target_paths if p and path_exists(p))
+                    # ToDo review if we really want/need this
+                    for path in existing_paths:
+                        if sample_hash == self._hash_file_in_chunks(path, hashlib_sizes[len(sample_hash)]):
+                            sample = [path]
+                            break
         return sample
 
     def count_samples(self) -> int:
         """Counts the amount of samples in the database."""
-        sample_count = self.session.query(Sample).count()
-        return sample_count
+        stmt = select(func.count(Sample.id))
+        return self.session.scalar(stmt)
 
-    def view_machine(self, name) -> Optional[Machine]:
-        """Show virtual machine.
-        @params name: virtual machine name
-        @return: virtual machine's details
-        """
-        machine = self.session.query(Machine).options(joinedload(Machine.tags)).filter(Machine.name == name).first()
-        return machine
+    def view_machine(self, name: str) -> Optional[Machine]:
+        """Shows virtual machine details by name."""
+        stmt = select(Machine).options(subqueryload(Machine.tags)).where(Machine.name == name)
+        return self.session.scalar(stmt)
 
-    def view_machine_by_label(self, label) -> Optional[Machine]:
-        """Show virtual machine.
-        @params label: virtual machine label
-        @return: virtual machine's details
-        """
-        machine = self.session.query(Machine).options(joinedload(Machine.tags)).filter(Machine.label == label).first()
-        return machine
+    def view_machine_by_label(self, label: str) -> Optional[Machine]:
+        """Shows virtual machine details by label."""
+        stmt = select(Machine).options(subqueryload(Machine.tags)).where(Machine.label == label)
+        return self.session.scalar(stmt)
 
-    def view_errors(self, task_id):
-        """Get all errors related to a task.
-        @param task_id: ID of task associated to the errors
-        @return: list of errors.
-        """
-        errors = self.session.query(Error).filter_by(task_id=task_id).all()
-        return errors
+    def view_errors(self, task_id: int) -> List[Error]:
+        """Gets all errors related to a task."""
+        stmt = select(Error).where(Error.task_id == task_id)
+        return self.session.scalars(stmt).all()
 
-    def get_source_url(self, sample_id=False):
-        """
-        Retrieve url from where sample was downloaded
-        @param sample_id: Sample id
-        @param task_id: Task id
-        """
-        source_url = False
+    def get_source_url(self, sample_id: int = None) -> Optional[str]:
+        """Retrieves the source URL for a given sample ID."""
+        if not sample_id:
+            return None
+
         try:
-            if sample_id:
-                source_url = self.session.query(Sample.source_url).filter(Sample.id == int(sample_id)).first()
-                if source_url:
-                    source_url = source_url[0]
-        except TypeError:
-            pass
-
-        return source_url
+            stmt = select(Sample.source_url).where(Sample.id == int(sample_id))
+            return self.session.scalar(stmt)
+        except (TypeError, ValueError):
+            # Handle cases where sample_id is not a valid integer.
+            return None
 
     def ban_user_tasks(self, user_id: int):
         """
-        Ban all tasks submitted by user_id
+        Bans all PENDING tasks submitted by a given user.
         @param user_id: user id
         """
 
-        self.session.query(Task).filter(Task.user_id == user_id).filter(Task.status == TASK_PENDING).update(
-            {Task.status: TASK_BANNED}, synchronize_session=False
-        )
+        update_stmt = update(Task).where(Task.user_id == user_id, Task.status == TASK_PENDING).values(status=TASK_BANNED)
+
+        # 2. Execute the statement.
+        # The transaction should be handled by the calling code,
+        # ToDo e.g., with a `with session.begin():` block.
+        self.session.execute(update_stmt)
 
     def tasks_reprocess(self, task_id: int):
         """common func for api and views"""

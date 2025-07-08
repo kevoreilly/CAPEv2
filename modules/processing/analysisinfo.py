@@ -101,8 +101,9 @@ class AnalysisInfo(Processing):
             self.task["machine"] = machine
         parsed_options = get_options(self.task["options"])
         parent_sample_details = False
+        # ToDo need to get this working in dist mode
         if "maint_task_id" not in parsed_options:
-            parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
+            parent_sample_details = db.get_parent_sample_by_task(task_id=self.task["id"])
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
 
         return {

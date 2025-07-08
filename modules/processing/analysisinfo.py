@@ -100,8 +100,8 @@ class AnalysisInfo(Processing):
             # Save.
             self.task["machine"] = machine
         parsed_options = get_options(self.task["options"])
-        # ToDO drop?
         parent_sample_details = False
+        # ToDo need to get this working in dist mode
         if "maint_task_id" not in parsed_options:
             parent_sample_details = db.get_parent_sample_by_task(task_id=self.task["id"])
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
@@ -123,7 +123,6 @@ class AnalysisInfo(Processing):
             "shrike_sid": self.task["shrike_sid"],
             "parent_id": self.task["parent_id"],
             "tlp": self.task["tlp"],
-            # ToDO drop?
             "parent_sample": parent_sample_details,
             "options": parsed_options,
             "source_url": source_url,

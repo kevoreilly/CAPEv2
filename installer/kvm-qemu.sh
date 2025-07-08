@@ -1204,6 +1204,8 @@ function cloning() {
     <dnsmasq:option value='dhcp-option=252,"\n"'/>
     <!--Prevent DNS rebinding to internal hosts.-->
     <dnsmasq:option value='stop-dns-rebind'/>
+    <!-- To allow rebinding for specific domains, uncomment and modify the following line. -->
+    <!-- <dnsmasq:option value='rebind-domain-ok=/example.com/'/> -->
   </dnsmasq:options>
 </network>
 EOF

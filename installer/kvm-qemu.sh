@@ -1202,6 +1202,8 @@ function cloning() {
     <dnsmasq:option value='dhcp-option=46,8'/>
     <!--Send an empty WPAD option. This may be REQUIRED to get windows 7 to behave.-->
     <dnsmasq:option value='dhcp-option=252,"\n"'/>
+    <!--Prevent DNS rebinding to internal hosts.-->
+    <dnsmasq:option value='stop-dns-rebind'/>
   </dnsmasq:options>
 </network>
 EOF

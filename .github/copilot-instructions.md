@@ -1,4 +1,3 @@
-s
 # Copilot Instructions for CAPEv2
 
 ## General Architecture

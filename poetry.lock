@@ -4125,14 +4125,14 @@ type = ["importlib_metadata (>=7.0.2)", "jaraco.develop (>=7.21)", "mypy (==1.14
 
 [[package]]
 name = "sflock2"
-version = "0.3.72"
+version = "0.3.74"
 description = "Sample staging and detonation utility"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "sflock2-0.3.72-py3-none-any.whl", hash = "sha256:d20026745902b450942c3f03f5b0234eb997a1e11443536062a8a504c48c7d03"},
-    {file = "sflock2-0.3.72.tar.gz", hash = "sha256:2287d85becef8d9157157a41414ce406d71e86045378515fe5f02e11d1cacedf"},
+    {file = "sflock2-0.3.74-py3-none-any.whl", hash = "sha256:8e8ffd54da95b8977124f03185d8f1aa423b4c097dd28f49ff7d2056b663cf93"},
+    {file = "sflock2-0.3.74.tar.gz", hash = "sha256:2aab81552c196ff46df1bf16078f286a985a28935795d5a56424f1d6ed64edff"},
 ]
 
 [package.dependencies]
@@ -5094,4 +5094,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "0f6ede3ec4a085c5a85ca3e3924538145daca06167fb22774835f9534ef244e6"
+content-hash = "4fa7935132bdfe808af39ec1e5cc91fc4fa7eaeef9101741485b667c8ded3d42"

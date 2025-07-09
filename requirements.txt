@@ -1591,6 +1591,9 @@ python-flirt==0.9.2 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:ecb08316ead1567c53873725106f9925c766e9dbf35af11aa650f78ba589165b \
     --hash=sha256:f75ade2755a4de967296e06105f8250c364ed0072e09107a6794cabc3b7de80d \
     --hash=sha256:fe0a8dcc0bda98d235359cb75fc3960b04721ae50ec8b518e68dabdebadcd21a
+python-magic==0.4.27 ; python_version >= "3.10" and python_version < "4.0" and sys_platform == "linux" \
+    --hash=sha256:c1ba14b08e4a5f5c31a302b7721239695b2f0f058d125bd5ce1ee36b9d9d3c3b \
+    --hash=sha256:c212960ad306f700aa0d01e5d7a325d20548ff97eb9920dcd29513174f0294d3
 python-tlsh==4.5.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:55e3df72cabdf48bf576b4580d7fa2feba9c14aacde0a8bd7b1ef40b03cb7969
 python-whois==0.9.5 ; python_version >= "3.10" and python_version < "4.0" \
@@ -1813,9 +1816,9 @@ setproctitle==1.3.2 ; python_version >= "3.10" and python_version < "4.0" \
 setuptools==78.1.1 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:c3a9c4211ff4c309edb8b8c4f1cbfa7ae324c4ba9f91ff254e3d305b9fd54561 \
     --hash=sha256:fcc17fd9cd898242f6b4adfaca46137a9edef687f43e6f78469692a5e70d851d
-sflock2==0.3.74 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:2aab81552c196ff46df1bf16078f286a985a28935795d5a56424f1d6ed64edff \
-    --hash=sha256:8e8ffd54da95b8977124f03185d8f1aa423b4c097dd28f49ff7d2056b663cf93
+sflock2==0.3.75 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:4f0c6e8abc8ca63362bbb6a71c53806db7466d619a5b7824291854fc97052620 \
+    --hash=sha256:5ad49dfedc12ee6cfbc9ebe0a573e8dea455850887714457273b80b65a58fda9
 six==1.17.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274 \
     --hash=sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81

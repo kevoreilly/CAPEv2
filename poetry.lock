@@ -3688,6 +3688,19 @@ files = [
 dev = ["black (>=22.10.0)", "isort (>=5.10.1)", "maturin (>=1.7.4)", "mypy (>=0.982)", "pycodestyle (>=2.9.1)", "pytest (>=7.1.3)", "pytest-cov (>=4.0.0)", "pytest-instafail (>=0.4.2)", "pytest-sugar (>=0.9.4)"]
 
 [[package]]
+name = "python-magic"
+version = "0.4.27"
+description = "File type identification using libmagic"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+groups = ["main"]
+markers = "sys_platform == \"linux\""
+files = [
+    {file = "python-magic-0.4.27.tar.gz", hash = "sha256:c1ba14b08e4a5f5c31a302b7721239695b2f0f058d125bd5ce1ee36b9d9d3c3b"},
+    {file = "python_magic-0.4.27-py2.py3-none-any.whl", hash = "sha256:c212960ad306f700aa0d01e5d7a325d20548ff97eb9920dcd29513174f0294d3"},
+]
+
+[[package]]
 name = "python-tlsh"
 version = "4.5.0"
 description = "TLSH (C++ Python extension)"
@@ -4125,14 +4138,14 @@ type = ["importlib_metadata (>=7.0.2)", "jaraco.develop (>=7.21)", "mypy (==1.14
 
 [[package]]
 name = "sflock2"
-version = "0.3.74"
+version = "0.3.75"
 description = "Sample staging and detonation utility"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "sflock2-0.3.74-py3-none-any.whl", hash = "sha256:8e8ffd54da95b8977124f03185d8f1aa423b4c097dd28f49ff7d2056b663cf93"},
-    {file = "sflock2-0.3.74.tar.gz", hash = "sha256:2aab81552c196ff46df1bf16078f286a985a28935795d5a56424f1d6ed64edff"},
+    {file = "sflock2-0.3.75-py3-none-any.whl", hash = "sha256:4f0c6e8abc8ca63362bbb6a71c53806db7466d619a5b7824291854fc97052620"},
+    {file = "sflock2-0.3.75.tar.gz", hash = "sha256:5ad49dfedc12ee6cfbc9ebe0a573e8dea455850887714457273b80b65a58fda9"},
 ]
 
 [package.dependencies]
@@ -4140,6 +4153,16 @@ click = "*"
 cryptography = ">=44.0.0"
 olefile = ">=0.43"
 pefile = "*"
+python-magic = {version = ">=0.4.13", optional = true, markers = "sys_platform == \"linux\" and python_version >= \"3.8\" and extra == \"linux\""}
+unicorn = {version = ">=2.0.0", optional = true, markers = "python_version >= \"3.8\" and (extra == \"shellcode\" or extra == \"all\")"}
+yara-python = {version = ">=4.1.0", optional = true, markers = "python_version >= \"3.8\" and (extra == \"shellcode\" or extra == \"all\")"}
+
+[package.extras]
+all = ["mock (>=5.1.0)", "pytest (>=8.3.4)", "unicorn (>=2.0.0)", "yara-python (>=4.1.0)"]
+dev = ["mock (>=5.1.0)", "pytest (>=8.3.4)"]
+linux = ["python-magic (>=0.4.13)"]
+shellcode = ["unicorn (>=2.0.0)", "yara-python (>=4.1.0)"]
+windows = ["python-magic-bin (>=0.4.14)"]
 
 [[package]]
 name = "six"
@@ -5094,4 +5117,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "4fa7935132bdfe808af39ec1e5cc91fc4fa7eaeef9101741485b667c8ded3d42"
+content-hash = "bde294e4d965c8b6c9b1d8539f76cea7177dd0dffaef81a569655423d9229b35"

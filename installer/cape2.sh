@@ -691,7 +691,7 @@ EOL
 function install_suricata() {
     echo '[+] Installing Suricata'
     sudo add-apt-repository -y ppa:oisf/suricata-stable
-    sudo apt-get install -y suricata suricata-update
+    sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata suricata-update
     touch /etc/suricata/threshold.config
 
     # Download etupdate to update Emerging Threats Open IDS rules:

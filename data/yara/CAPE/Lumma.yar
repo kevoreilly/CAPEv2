@@ -10,6 +10,7 @@ rule Lumma
         $decode1 = {C1 (E9|EA) 02 [0-3] 0F B6 (44|4C) ?? FF 83 (F8|F9) 3D 74 05 83 (F8|F9) 2E 75 01 (49|4A) [0-30] 2E 75}
         $decode2 = {B0 40 C3 B0 3F C3 89 C8 04 D0 3C 09 77 06 80 C1 04 89 C8 C3 89 C8 04 BF 3C}
         $decode3 = {B0 40 C3 B0 3F C3 80 F9 30 72 ?? 80 F9 39 77 06 80 C1 04 89 C8 C3}
+        $decode4 = {89 C8 04 D0 3C 09 77 ?? [3-11] 89 C8 [0-1] C3 89 C8 04 BF 3C 1A 72 ?? 89 C8 04 9F 3C}
     condition:
         uint16(0) == 0x5a4d and any of them
 }

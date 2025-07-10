@@ -29,7 +29,7 @@ requests-file = ">=1.5.1"
 orjson = ">=3.9.15"
 # maec = "4.1.0.17"
 # regex = "2021.7.6"
-SFlock2 = {version = ">=0.3.66", extras = ["shellcode","linux"]}
+SFlock2 = {version = ">=0.3.76", extras = ["shellcode","linux"]}
 # volatility3 = "2.11.0"
 # XLMMacroDeobfuscator = "0.2.7"
 pyzipper = "0.3.6"

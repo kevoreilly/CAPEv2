@@ -102,7 +102,6 @@ class AnalysisInfo(Processing):
         parsed_options = get_options(self.task["options"])
         parent_sample_details = False
         if "maint_task_id" not in parsed_options:
-            # ToDo port to new format
             parent_sample_details = db.get_parent_sample_by_task(task_id=self.task["id"])
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
 

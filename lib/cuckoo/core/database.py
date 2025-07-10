@@ -341,7 +341,6 @@ class Sample(Base):
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     sha512: Mapped[str] = mapped_column(String(128), nullable=False)
     ssdeep: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    parent: Mapped[Optional[int]] = mapped_column(nullable=True)
     source_url: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
     tasks: Mapped[List["Task"]] = relationship(back_populates="sample", cascade="all, delete-orphan")
 
@@ -359,7 +358,7 @@ class Sample(Base):
         back_populates="child_samples", remote_side=[id]
     )
 
-    """
+    """ ToDo move to tests
     # Create an archive sample and two child samples
     archive = Sample(file_size=1000, file_type="zip", ...)
     file1 = Sample(file_size=100, file_type="txt", parent_sample=archive, ...)
@@ -2019,7 +2018,7 @@ class _Database:
             select(ParentSample)
             .select_from(Task)
             .join(Sample, Task.sample_id == Sample.id)
-            .join(ParentSample, Sample.parent == ParentSample.id)
+            .join(Sample, ParentSample.id == Sample.parent_id)
             .where(Task.id == task_id)
         )
         parent_obj = self.session.scalar(stmt)

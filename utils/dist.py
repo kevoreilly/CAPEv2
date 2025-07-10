@@ -3,9 +3,6 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-# ToDo
-# review if db.scalar needs .first()
-# review if db.scalars needs .all() in some cases
 
 # https://github.com/cuckoosandbox/cuckoo/pull/1694/files
 import argparse
@@ -28,7 +25,7 @@ from itertools import combinations
 from logging import handlers
 from urllib.parse import urlparse
 
-from sqlalchemy import and_, or_, select, func, delete
+from sqlalchemy import and_, or_, select, func, delete, case
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 import pyzipper
 import requests
@@ -938,7 +935,7 @@ class Retriever(threading.Thread):
                     # Fetch each requested report.
                     report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
                     # ToDo option
-                    node = db.scalar(select(Node.id, Node.name, Node.url, Node.apikey).where(Node.id == node_id))
+                    node = db.scalar(select(Node).where(Node.id == node_id))
 
                     start_copy = timeit.default_timer()
                     copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
@@ -1084,7 +1081,7 @@ class Retriever(threading.Thread):
                 log.info(
                     "Report size for task %s is: %s MB",
                     t.task_id,
-                    f"{int(report.headers.get('Content-length', 1))/int(1<<20):,.0f}",
+                    f"{int(report.headers.get('Content-length', 1)) / int(1 << 20):,.0f}",
                 )
 
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
@@ -1176,8 +1173,7 @@ class Retriever(threading.Thread):
         """
         nodes = {}
         with session() as db:
-            nodes = db.scalars(select(Node.id, Node.name, Node.url, Node.apikey))
-            for node in nodes:
+            for node in db.scalars(select(Node)):
                 nodes.setdefault(node.id, node)
 
         while True:
@@ -1242,7 +1238,7 @@ class StatusThread(threading.Thread):
         # HACK do not create a new session if the current one (passed as parameter) is still valid.
         try:
             # ToDo name should be id?
-            node = db.scalar(select(Node.id, Node.name, Node.url, Node.apikey).where(Node.name == node_id))
+            node = db.scalar(select(Node).where(Node.name == node_id))
         except (OperationalError, SQLAlchemyError) as e:
             log.warning("Got an operational Exception when trying to submit tasks: %s", str(e))
             return False
@@ -1510,7 +1506,7 @@ class StatusThread(threading.Thread):
         db.close()
 
         # MINIMUMQUEUE but per Node depending of number vms
-        nodes = db.scalars(select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled.is_(True)))
+        nodes = db.scalars(select(Node).where(Node.enabled.is_(True)))
         for node in nodes:
             MINIMUMQUEUE[node.name] = db.scalar(select(func.count(Machine.id)).where(Machine.node_id == node.id))
             ID2NAME[node.id] = node.name
@@ -1523,16 +1519,14 @@ class StatusThread(threading.Thread):
             # there is any issue with the current session (expired or database is down.).
             try:
                 # Remove disabled nodes
-                stmt = select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled.is_(False))
-                nodes = db.scalars(stmt)
+                nodes = db.scalars(select(Node).where(Node.enabled.is_(False)))
 
                 for node in nodes or []:
                     if node.name in STATUSES:
                         STATUSES.pop(node.name)
 
                 # Request a status update on all CAPE nodes.
-                stmt = select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.enabled.is_(True))
-                nodes = db.scalars(stmt)
+                nodes = db.scalars(select(Node).where(Node.enabled.is_(True)))
                 for node in nodes:
                     status = node_status(node.url, node.name, node.apikey)
                     if not status:
@@ -1571,9 +1565,7 @@ class StatusThread(threading.Thread):
                             + STATUSES[k]["tasks"]["running"],
                         )
                         if node_name != node.name:
-                            node = db.scalar(
-                                select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).where(Node.name == node_name)
-                            )
+                            node = db.scalar(select(Node).where(Node.name == node_name))
                         pend_tasks_num = MINIMUMQUEUE[node.name] - (
                             STATUSES[node.name]["tasks"]["pending"] + STATUSES[node.name]["tasks"]["running"]
                         )
@@ -1601,7 +1593,7 @@ class StatusThread(threading.Thread):
                             continue
                 db.commit()
             except Exception as e:
-                log.error("Got an exception when trying to check nodes status and submit tasks: %s.", str(e))
+                log.exception("Got an exception when trying to check nodes status and submit tasks: %s.", str(e))
 
                 # ToDo hard test this rollback, this normally only happens on db restart and similar
                 db.rollback()
@@ -1790,15 +1782,19 @@ class StatusRootApi(RestResource):
     def get(self):
         # null = None
         db = session()
-        tasks = db.scalars(select(Task).where(Task.node_id.is_not(None))).all()
-        # ToDo get counts from query
-        tasks = dict(
-            processing=tasks.filter_by(finished=False).count(),
-            processed=tasks.filter_by(finished=True).count(),
-            pending=db.scalar(select(func.count(Task.id)).where(Task.node_id.is_(None))),
-        )
-        db.close()
-        return jsonify({"nodes": STATUSES, "tasks": tasks})
+        unified_counts = db.execute(
+            select(
+                func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(False)), Task.id))).label("processing"),
+                func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(True)), Task.id))).label("processed"),
+                func.count(case((Task.node_id.is_(None), Task.id))).label("pending"),
+            )
+        ).first()
+        tasks_counts = {
+            "processing": unified_counts.processing,
+            "processed": unified_counts.processed,
+            "pending": unified_counts.pending,
+        }
+        return jsonify({"nodes": STATUSES, "tasks": tasks_counts})
 
 
 class DistRestApi(RestApi):
@@ -1890,8 +1886,7 @@ def cron_cleaner(clean_x_hours=False):
     nodes = {}
     details = {}
 
-    nodes = db.scalar(select(Node.id, Node.name, Node.url, Node.apikey, Node.enabled))
-    for node in nodes:
+    for node in db.scalars(select(Node)):
         nodes.setdefault(node.id, node)
 
     # Allow force cleanup notificated but for some reason not deleted even when it set to deleted

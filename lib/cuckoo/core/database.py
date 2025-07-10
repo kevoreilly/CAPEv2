@@ -2018,7 +2018,7 @@ class _Database:
             select(ParentSample)
             .select_from(Task)
             .join(Sample, Task.sample_id == Sample.id)
-            .join(Sample, ParentSample.id == Sample.parent_id)
+            .join(ParentSample, Sample.parent_id == ParentSample.id)
             .where(Task.id == task_id)
         )
         parent_obj = self.session.scalar(stmt)

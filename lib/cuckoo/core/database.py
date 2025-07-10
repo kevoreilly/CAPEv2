@@ -40,6 +40,7 @@ try:
     from sqlalchemy.engine import make_url
     from sqlalchemy import (
         Boolean,
+        BigInteger,
         Column,
         DateTime,
         Enum,
@@ -269,7 +270,6 @@ class Tag(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, unique=True)
-    machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags)  # , back_populates="tags")
     machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags, back_populates="tags")
     tasks: Mapped[List["Task"]] = relationship(secondary=tasks_tags, back_populates="tags")
 
@@ -333,7 +333,7 @@ class Sample(Base):
     __tablename__ = "samples"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    file_size: Mapped[int] = mapped_column(nullable=False)
+    file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     file_type: Mapped[str] = mapped_column(Text(), nullable=False)
     md5: Mapped[str] = mapped_column(String(32), nullable=False)
     crc32: Mapped[str] = mapped_column(String(8), nullable=False)
@@ -343,8 +343,36 @@ class Sample(Base):
     ssdeep: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     parent: Mapped[Optional[int]] = mapped_column(nullable=True)
     source_url: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
-
     tasks: Mapped[List["Task"]] = relationship(back_populates="sample", cascade="all, delete-orphan")
+
+    # 1. The `parent` column is now a ForeignKey pointing to its own table's id.
+    #    Renaming to `parent_id` is a common and clear convention.
+    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("samples.id"), nullable=True)
+    # 2. This relationship allows a parent (archive) to access its list of children.
+    child_samples: Mapped[List["Sample"]] = relationship(
+        back_populates="parent_sample", cascade="all, delete-orphan"
+    )
+
+    # 3. This relationship allows a child to access its parent.
+    #    `remote_side` is needed to help SQLAlchemy understand the self-referential join.
+    parent_sample: Mapped[Optional["Sample"]] = relationship(
+        back_populates="child_samples", remote_side=[id]
+    )
+
+    """
+    # Create an archive sample and two child samples
+    archive = Sample(file_size=1000, file_type="zip", ...)
+    file1 = Sample(file_size=100, file_type="txt", parent_sample=archive, ...)
+    file2 = Sample(file_size=200, file_type="pdf", parent_sample=archive, ...)
+
+    with session.begin():
+        session.add_all([archive, file1, file2])
+
+    # You can now access the relationships
+    print(len(archive.child_samples))  # Output: 2
+    print(archive.child_samples[0].file_type) # Output: 'txt'
+    print(file1.parent_sample.id == archive.id) # Output: True
+    """
 
     # ToDo replace with index=True
     __table_args__ = (
@@ -504,12 +532,6 @@ class Task(Base):
     errors: Mapped[List["Error"]] = relationship(
         back_populates="task", cascade="all, delete-orphan"  # This MUST match the attribute name on the Error model
     )
-    # ToDo drop shrike
-    shrike_url: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
-    shrike_refer: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
-    shrike_msg: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
-    shrike_sid: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
-    parent_id: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
     username: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -1151,11 +1173,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         sample_parent_id=None,
         tlp=None,
         static=False,
@@ -1258,11 +1275,6 @@ class _Database:
         task.platform = platform
         task.memory = bool(memory)
         task.enforce_timeout = enforce_timeout
-        task.shrike_url = shrike_url
-        task.shrike_msg = shrike_msg
-        task.shrike_sid = shrike_sid
-        task.shrike_refer = shrike_refer
-        task.parent_id = parent_id
         task.tlp = tlp
         task.route = route
         task.cape = cape
@@ -1313,11 +1325,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         sample_parent_id=None,
         tlp=None,
         static=False,
@@ -1376,11 +1383,6 @@ class _Database:
             memory=memory,
             enforce_timeout=enforce_timeout,
             clock=clock,
-            shrike_url=shrike_url,
-            shrike_msg=shrike_msg,
-            shrike_sid=shrike_sid,
-            shrike_refer=shrike_refer,
-            parent_id=parent_id,
             sample_parent_id=sample_parent_id,
             tlp=tlp,
             source_url=source_url,
@@ -1515,11 +1517,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         tlp=None,
         static=False,
         source_url=False,
@@ -1689,11 +1686,6 @@ class _Database:
                     enforce_timeout=enforce_timeout,
                     tags=tags,
                     clock=clock,
-                    shrike_url=shrike_url,
-                    shrike_msg=shrike_msg,
-                    shrike_sid=shrike_sid,
-                    shrike_refer=shrike_refer,
-                    parent_id=parent_id,
                     sample_parent_id=sample_parent_id,
                     tlp=tlp,
                     source_url=source_url,
@@ -1728,11 +1720,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         tlp=None,
         user_id=0,
         username=False,
@@ -1750,11 +1737,6 @@ class _Database:
             memory=memory,
             enforce_timeout=enforce_timeout,
             clock=clock,
-            shrike_url=shrike_url,
-            shrike_msg=shrike_msg,
-            shrike_sid=shrike_sid,
-            shrike_refer=shrike_refer,
-            parent_id=parent_id,
             tlp=tlp,
             user_id=user_id,
             username=username,
@@ -1774,11 +1756,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         tlp=None,
         static=True,
         user_id=0,
@@ -1813,10 +1790,6 @@ class _Database:
                 memory=memory,
                 enforce_timeout=enforce_timeout,
                 clock=clock,
-                shrike_url=shrike_url,
-                shrike_msg=shrike_msg,
-                shrike_sid=shrike_sid,
-                shrike_refer=shrike_refer,
                 tlp=tlp,
                 static=static,
                 sample_parent_id=sample_parent_id,
@@ -1842,11 +1815,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         tlp=None,
         route=None,
         cape=False,
@@ -1896,11 +1864,6 @@ class _Database:
             memory=memory,
             enforce_timeout=enforce_timeout,
             clock=clock,
-            shrike_url=shrike_url,
-            shrike_msg=shrike_msg,
-            shrike_sid=shrike_sid,
-            shrike_refer=shrike_refer,
-            parent_id=parent_id,
             tlp=tlp,
             route=route,
             cape=cape,

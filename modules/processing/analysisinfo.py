@@ -101,8 +101,8 @@ class AnalysisInfo(Processing):
             self.task["machine"] = machine
         parsed_options = get_options(self.task["options"])
         parent_sample_details = False
-        # ToDo need to get this working in dist mode
         if "maint_task_id" not in parsed_options:
+            # ToDo port to new format
             parent_sample_details = db.get_parent_sample_by_task(task_id=self.task["id"])
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
 
@@ -117,11 +117,6 @@ class AnalysisInfo(Processing):
             "machine": self.task["machine"],
             "package": self.get_package(),
             "timeout": self.had_timeout(),
-            "shrike_url": self.task["shrike_url"],
-            "shrike_refer": self.task["shrike_refer"],
-            "shrike_msg": self.task["shrike_msg"],
-            "shrike_sid": self.task["shrike_sid"],
-            "parent_id": self.task["parent_id"],
             "tlp": self.task["tlp"],
             "parent_sample": parent_sample_details,
             "options": parsed_options,

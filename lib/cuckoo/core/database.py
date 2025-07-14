@@ -1202,34 +1202,34 @@ class _Database:
         @return: cursor or None.
         """
         # Convert empty strings and None values to a valid int
-        if not timeout:
-            timeout = 0
-        if not priority:
-            priority = 1
 
         if isinstance(obj, (File, PCAP, Static)):
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
             # check if hash is known already
-            try:
-                with self.session.begin_nested():
-                    sample = Sample(
-                        md5=file_md5,
-                        crc32=fileobj.get_crc32(),
-                        sha1=fileobj.get_sha1(),
-                        sha256=fileobj.get_sha256(),
-                        sha512=fileobj.get_sha512(),
-                        file_size=fileobj.get_size(),
-                        file_type=file_type,
-                        ssdeep=fileobj.get_ssdeep(),
-                        parent_sample=parent_sample,
-                        source_url=source_url,
-                    )
-                    self.session.add(sample)
-            except IntegrityError:
-                stmt = select(Sample).where(Sample.md5 == file_md5)
-                sample = self.session.scalar(stmt)
+            # ToDo consider migrate to _get_or_create?
+            sample = self.session.scalar(select(Sample).where(Sample.md5 == file_md5))
+            if not sample:
+                try:
+                    with self.session.begin_nested():
+                        sample = Sample(
+                            md5=file_md5,
+                            crc32=fileobj.get_crc32(),
+                            sha1=fileobj.get_sha1(),
+                            sha256=fileobj.get_sha256(),
+                            sha512=fileobj.get_sha512(),
+                            file_size=fileobj.get_size(),
+                            file_type=file_type,
+                            ssdeep=fileobj.get_ssdeep(),
+                            source_url=source_url,
+                        )
+                        self.session.add(sample)
+                except Exception as e:
+                    log.exception(e)
+
+            if parent_sample:
+                sample.parents.append(parent_sample)
 
             if DYNAMIC_ARCH_DETERMINATION:
                 # Assign architecture to task to fetch correct VM type
